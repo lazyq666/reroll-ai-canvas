@@ -90,6 +90,19 @@ class PublicReadinessAuditTests(unittest.TestCase):
             audit_public_history.sensitive_history_path("backend/main.py")
         )
 
+    def test_history_identity_audit_allows_github_platform_noreply_addresses(self):
+        self.assertTrue(
+            audit_public_history.allowed_commit_email(
+                b"49699333+dependabot[bot]@users.noreply.github.com"
+            )
+        )
+        self.assertTrue(
+            audit_public_history.allowed_commit_email(b"noreply@github.com")
+        )
+        self.assertFalse(
+            audit_public_history.allowed_commit_email(b"maintainer@gmail.com")
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

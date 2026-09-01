@@ -1,6 +1,6 @@
 {
-  "version": "2026.09.01.3",
-  "updated_at": "2026-09-01T16:40:00+08:00",
+  "version": "2026.09.01.4",
+  "updated_at": "2026-09-01T16:51:00+08:00",
   "items": [
     {
       "type": "feature",
@@ -17,6 +17,10 @@
     {
       "type": "fix",
       "text": "GitHub 托管环境的 Chromium 契约测试现可显式使用兼容的沙箱启动策略"
+    },
+    {
+      "type": "fix",
+      "text": "公开历史审计允许 GitHub 平台标准 noreply 提交者，兼容 Dependabot 自动维护分支"
     }
   ]
 }

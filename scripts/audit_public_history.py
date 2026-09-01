@@ -40,6 +40,14 @@ COMMIT_IDENTITY = re.compile(
     re.MULTILINE,
 )
 ALLOWED_COMMIT_EMAIL_SUFFIXES = (b"@users.noreply.github.com",)
+ALLOWED_COMMIT_EMAILS = {b"noreply@github.com"}
+
+
+def allowed_commit_email(email: bytes) -> bool:
+    normalized = email.lower()
+    return normalized in ALLOWED_COMMIT_EMAILS or normalized.endswith(
+        ALLOWED_COMMIT_EMAIL_SUFFIXES
+    )
 
 
 def reachable_object_paths(revision_args: list[str]) -> dict[str, set[str]]:
@@ -105,7 +113,7 @@ def audit(revision_args: list[str]) -> list[str]:
                         record(label, relative, object_id)
             if object_type == "commit":
                 for role, email in COMMIT_IDENTITY.findall(data):
-                    if not email.lower().endswith(ALLOWED_COMMIT_EMAIL_SUFFIXES):
+                    if not allowed_commit_email(email):
                         record(
                             f"personal {role.decode('ascii')} email in commit metadata",
                             "<commit metadata>",
