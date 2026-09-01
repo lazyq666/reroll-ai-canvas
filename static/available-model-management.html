@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="settings" data-studio-scale="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+  <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+  <script src="/static/js/model-vendor-icons.js?v=2026.09.01.2.1786933744"></script>
+  <script src="/static/js/available-model-management-state.js?v=2026.09.01.2.1786933744"></script>
+  <title data-i18n="models.pageTitle">可用模型管理 · Reroll</title>
+  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/available-model-management.css?v=2026.09.01.2.1787561133">
+  <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.2.1787561133">
+</head>
+<body>
+  <main class="model-page">
+    <header class="page-header">
+      <div>
+        <h1 data-i18n="models.title">可用模型管理</h1>
+        <p class="subtitle" data-i18n="models.subtitle">设置用户看到的模型名称、显示状态和顺序。</p>
+      </div>
+    </header>
+
+    <ic-alert id="page-message" tone="neutral" hidden></ic-alert>
+
+    <ic-tabs id="model-types" class="type-tabs" label="模型类型" data-i18n-label="models.types" value="image" activation="automatic">
+      <button data-value="image" type="button">
+        <span data-i18n="models.image">图片模型</span><ic-badge id="image-count" kind="count" tone="neutral">0</ic-badge>
+      </button>
+      <button data-value="video" type="button">
+        <span data-i18n="models.video">视频模型</span><ic-badge id="video-count" kind="count" tone="neutral">0</ic-badge>
+      </button>
+      <button data-value="text" type="button">
+        <span data-i18n="models.text">文本模型</span><ic-badge id="text-count" kind="count" tone="neutral">0</ic-badge>
+      </button>
+    </ic-tabs>
+
+    <ic-card id="model-catalog" class="catalog" label="图片模型" data-i18n-label="models.image">
+      <section aria-labelledby="catalog-title">
+        <div class="catalog-heading">
+          <div>
+            <h2 id="catalog-title" data-i18n="models.image">图片模型</h2>
+            <p data-i18n="models.orderHint">编辑名称或显示状态；拖动模型或使用右侧箭头调整顺序。</p>
+          </div>
+          <div class="catalog-heading-actions">
+            <ic-radio-group id="icon-style" class="icon-style-control" name="iconStyle" label="图标风格" data-i18n-label="models.iconStyle" value="filled" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label">
+              <ic-radio value="outline" label="线形" data-i18n-label="models.iconOutline"></ic-radio>
+              <ic-radio value="filled" label="面形" data-i18n-label="models.iconFilled"></ic-radio>
+            </ic-radio-group>
+            <span class="order-hint"><ic-icon name="more" aria-hidden="true"></ic-icon><span data-i18n="models.topToBottom">从上到下</span></span>
+          </div>
+        </div>
+        <div id="model-list" class="model-list" aria-live="polite"></div>
+      </section>
+    </ic-card>
+  </main>
+
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script src="/static/js/available-model-management.js?v=2026.09.01.2.1788146221" defer></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-ic-tracer-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Target Tracer Case</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css">
+</head>
+<body class="target-case-page">
+  <main class="target-case-content">
+    <section class="target-component-group" data-component-group="button" aria-labelledby="button-heading">
+      <header><h2 id="button-heading">ic-button</h2><span>default · disabled · loading</span></header>
+      <div class="target-control-row">
+        <ic-button type="button" data-primary-action>Save canvas</ic-button>
+        <ic-button type="button" disabled data-disabled-action>Disabled</ic-button>
+        <ic-button type="button" loading data-loading-action>Loading</ic-button>
+      </div>
+    </section>
+
+    <section class="target-component-group" data-component-group="input" aria-labelledby="input-heading">
+      <header><h2 id="input-heading">ic-input</h2><span>filled · invalid · readonly · disabled</span></header>
+      <div class="target-input-grid">
+        <ic-input name="project" label="Project name" value="Draft" data-filled-input></ic-input>
+        <ic-input name="requiredProject" label="Required project name" required data-required-input></ic-input>
+        <ic-input name="readonlyProject" label="Readonly project name" value="Reference" readonly data-readonly-input></ic-input>
+        <ic-input name="disabledProject" label="Disabled project name" value="Locked" disabled data-disabled-input></ic-input>
+      </div>
+      <ic-button type="button" data-validate-input>Check required field</ic-button>
+    </section>
+
+    <section class="target-component-group" data-component-group="dialog" aria-labelledby="dialog-heading">
+      <header><h2 id="dialog-heading">ic-dialog</h2><span>labeled · focus entry · Escape return</span></header>
+      <ic-button type="button" data-dialog-trigger>Open delete dialog</ic-button>
+      <ic-dialog data-target-dialog label="Delete node">
+        <p data-dialog-copy>This removes the selected node.</p>
+        <button type="button" slot="footer" autofocus data-dialog-confirm>Confirm deletion</button>
+      </ic-dialog>
+    </section>
+  </main>
+  <p class="target-case-status" data-case-status role="status" aria-live="polite">正在启动 ic-*…</p>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-surface-tracer.js"></script>
+</body>
+</html>

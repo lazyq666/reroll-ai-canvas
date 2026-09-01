@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <script type="module">
+    import { IcTabs } from '/static/js/infinite-canvas-ui/navigation-command.js';
+
+    customElements.define('ic-tabs', IcTabs);
+
+    const host = document.createElement('div');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `
+      <ic-tabs label="Categories" value="all" orientation="vertical" activation="manual" data-legal-combination="vertical-manual-label">
+        <button type="button" data-value="all">All</button>
+        <button type="button" data-value="view">View</button>
+      </ic-tabs>
+      <ic-tabs id="spaced-tabs" label="Compact categories" value="all" orientation="vertical" activation="manual" data-legal-combination="vertical-manual-label" space="0.125rem">
+        <button type="button" data-value="all">All</button>
+        <button type="button" data-value="view">View</button>
+      </ic-tabs>
+      <ic-tabs id="invalid-space-tabs" label="Invalid spacing" value="all" orientation="vertical" activation="manual" data-legal-combination="vertical-manual-label" space="not-a-gap">
+        <button type="button" data-value="all">All</button>
+      </ic-tabs>
+    `;
+    document.body.append(host);
+    await customElements.whenDefined('ic-tabs');
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const tabs = root.querySelector('ic-tabs');
+    const spacedTabs = root.querySelector('#spaced-tabs');
+    const invalidSpaceTabs = root.querySelector('#invalid-space-tabs');
+    const selected = tabs.children[0];
+    const resolveColorToken = token => {
+      const probe = document.createElement('span');
+      probe.style.cssText = `position:absolute;visibility:hidden;background:var(${token})`;
+      root.append(probe);
+      const color = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return color;
+    };
+    const capture = () => ({
+      actual: getComputedStyle(selected).backgroundColor,
+      expected: resolveColorToken('--ui-color-action-secondary-selected'),
+      surface: resolveColorToken('--ui-color-surface'),
+    });
+
+    const light = capture();
+    document.documentElement.dataset.uiTheme = 'dark';
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const dark = capture();
+    const passed = light.actual === light.expected
+      && light.actual !== light.surface
+      && dark.actual === dark.expected
+      && getComputedStyle(tabs).gap === '8px'
+      && getComputedStyle(spacedTabs).gap === '2px'
+      && spacedTabs.dataset.icContractStatus === 'ready'
+      && invalidSpaceTabs.dataset.icContractStatus === 'invalid';
+
+    document.documentElement.dataset.icTabsShadowSelectedTestStatus = passed ? 'passed' : 'failed';
+    document.body.dataset.checks = JSON.stringify({ light, dark, defaultGap:getComputedStyle(tabs).gap, spacedGap:getComputedStyle(spacedTabs).gap });
+  </script>
+</body>
+</html>

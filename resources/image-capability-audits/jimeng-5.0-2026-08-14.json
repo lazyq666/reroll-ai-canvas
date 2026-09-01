@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "provider_id": "jimeng",
+  "model_id": "5.0",
+  "environment": "dreamina-cli-production",
+  "confirmed_at": "2026-08-14",
+  "privacy": "Prompts, image contents, URLs, credentials, and user identifiers are excluded.",
+  "request_accounting": {
+    "historical_external_requests": 0,
+    "new_probe_submissions": 1,
+    "new_probe_results_with_recorded_dimensions": 1,
+    "credit_balance_before": 15032,
+    "credit_balance_after": 15032
+  },
+  "live_probe_evidence": [
+    {
+      "aspect_ratio": "21:9",
+      "resolution_tier": "2K",
+      "status": "supported",
+      "actual_size": "3024x1296",
+      "relative_aspect_error": 0.0,
+      "remote_submit_id": "a006bd97-525c-414c-88bf-dd21d874e7fd"
+    }
+  ],
+  "cli_evidence": {
+    "command": "dreamina text2image -h",
+    "supported_ratios": ["21:9", "16:9", "3:2", "4:3", "1:1", "3:4", "2:3", "9:16"],
+    "supported_resolution_tiers_for_5_0": ["2K", "4K"]
+  },
+  "confirmed_capability": {
+    "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+    "resolution_tiers": ["2K", "4K"],
+    "default_resolution_tier": "2K"
+  }
+}

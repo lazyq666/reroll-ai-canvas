@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reroll UI · 智能画布导航地图</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    html,body{margin:0;min-height:100%;background:var(--ui-color-surface-canvas);color:var(--ui-color-text-primary);font-family:var(--ui-font-sans)}
+    body{display:grid;place-items:center;padding:var(--ui-space-6);box-sizing:border-box}
+    main{width:min(42rem,100%);display:grid;gap:var(--ui-space-4)}
+    .preview{min-height:22rem;display:grid;place-items:center;padding:var(--ui-space-6);border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary);border-radius:var(--ui-radius-l);background:var(--ui-color-surface)}
+    .instructions{margin:0;color:var(--ui-color-text-secondary);font:var(--ui-text-body-small);text-align:center}
+    .legend{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--ui-space-3);margin:0;padding:0;list-style:none;color:var(--ui-color-text-secondary);font:var(--ui-text-caption)}
+    .legend li{display:inline-flex;align-items:center;gap:var(--ui-space-1)}
+    .swatch{width:.7rem;height:.7rem;border-radius:var(--ui-radius-xs);background:var(--swatch)}
+    @media(max-width:520px){body{padding:var(--ui-space-4)}.preview{min-height:16rem;padding:var(--ui-space-4)}}
+  </style>
+</head>
+<body>
+  <main aria-label="智能画布导航地图交互预览">
+    <div class="preview">
+      <ic-smart-minimap id="previewMinimap" aria-label="交互导航地图" data-component-name="ic-smart-minimap"></ic-smart-minimap>
+    </div>
+    <p class="instructions">在地图上点击或拖拽移动视口；聚焦地图后可使用方向键微调。</p>
+    <ul class="legend" aria-label="地图语义图例">
+      <li><span class="swatch" style="--swatch:var(--ui-palette-blue-500)"></span>Frame 与内部节点</li>
+      <li><span class="swatch" style="--swatch:var(--ui-color-minimap-group)"></span>Group</li>
+      <li><span class="swatch" style="--swatch:var(--ui-color-minimap-text)"></span>文本</li>
+      <li><span class="swatch" style="--swatch:var(--ui-color-minimap-media)"></span>媒体</li>
+    </ul>
+  </main>
+  <script type="module">
+    import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4';
+
+    const minimap = document.querySelector('#previewMinimap');
+    const items = [
+      { id:'frame-story', kind:'frame', frameColor:'blue', x:-120, y:-80, width:940, height:620 },
+      { id:'frame-output', kind:'frame', frameColor:'green', x:920, y:40, width:420, height:500 },
+      { id:'group-references', kind:'group', frameColor:'blue', x:-20, y:20, width:300, height:210 },
+      { id:'group-variants', kind:'group', frameColor:'blue', x:390, y:270, width:330, height:220 },
+      { id:'text-brief', kind:'text', frameColor:'blue', x:20, y:55, width:210, height:58 },
+      { id:'text-notes', kind:'text', frameColor:'blue', x:410, y:300, width:250, height:70 },
+      { id:'image-reference', kind:'media', frameColor:'blue', x:35, y:135, width:94, height:72 },
+      { id:'image-reference-2', kind:'media', frameColor:'blue', x:150, y:135, width:94, height:72 },
+      { id:'generator', kind:'media', frameColor:'blue', x:350, y:30, width:180, height:110 },
+      { id:'video-output', kind:'media', frameColor:'green', x:970, y:110, width:300, height:190 },
+      { id:'image-output', kind:'media', frameColor:'green', x:970, y:345, width:138, height:130 },
+      { id:'image-output-2', kind:'media', frameColor:'green', x:1130, y:345, width:138, height:130 },
+      { id:'free-group', kind:'group', x:1440, y:80, width:260, height:190 },
+      { id:'free-text', kind:'text', x:1480, y:115, width:180, height:52 },
+      { id:'free-media', kind:'media', x:1500, y:190, width:120, height:70 },
+    ];
+    let viewport = { x:250, y:0, width:520, height:340 };
+
+    function renderScene() {
+      minimap.scene = { items, viewport, padding:160 };
+    }
+
+    minimap.addEventListener('ic-minimap-navigate', event => {
+      viewport = {
+        ...viewport,
+        x:event.detail.point.x - viewport.width / 2,
+        y:event.detail.point.y - viewport.height / 2,
+      };
+      renderScene();
+    });
+    renderScene();
+  </script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

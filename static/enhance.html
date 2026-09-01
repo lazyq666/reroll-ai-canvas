@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="generation" data-studio-scale="off">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <title data-i18n="studio.enhancePageTitle">Z-IMAGE | 极简影像重塑</title>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/enhance.css?v=2026.09.01.2.1787561133">
+</head>
+<body>
+    <div class="enhance-shell">
+        <header class="enhance-header">
+            <div class="enhance-brand">
+                <h1>Z IMAGE<sup>®</sup></h1>
+                <p data-i18n="studio.computationalPhotography">Computational Photography Archive</p>
+            </div>
+            <ic-badge kind="label" tone="neutral" data-i18n="nav.enhance">Enhance</ic-badge>
+        </header>
+
+        <main class="enhance-workbench">
+            <aside class="enhance-controls" aria-label="增强控制" data-i18n-aria-label="studio.parameters">
+                <section class="enhance-section" aria-label="输入图片" data-i18n-aria-label="studio.inputSource">
+                    <ic-file-input id="fileInput" name="enhance_source" label="输入图片" data-i18n-label="studio.inputSource" accept="image/*" required hidden></ic-file-input>
+                    <ic-image-frame id="sourcePreview" label="输入图片预览" data-i18n-label="studio.inputImagePreview" data-component-name="ic-image-frame-upload" state="upload" size="large" upload-button-label="选择图片" data-i18n-upload-button-label="studio.chooseImage"></ic-image-frame>
+                </section>
+
+                <section class="enhance-section" aria-labelledby="parameters-heading">
+                    <ic-heading id="parameters-heading" level="2" eyebrow="02" data-i18n="studio.parameters">Parameters</ic-heading>
+                    <ic-slider id="strengthSlider" name="refinement_strength" label="细节强度" data-i18n-label="studio.refinementStrength" min="0.1" max="1" step="0.01" value="0.5" value-text="0.50"></ic-slider>
+
+                    <ic-card class="upscale-card" size="small" tone="subtle" label="超分辨率" data-i18n-label="studio.superResolution">
+                        <div class="upscale-summary">
+                            <div class="upscale-copy">
+                                <ic-icon name="collection" aria-hidden="true"></ic-icon>
+                                <span>
+                                    <strong data-i18n="studio.superResolution">Super Resolution</strong>
+                                    <small data-i18n="studio.doublePixels">Double pixels (4K)</small>
+                                </span>
+                            </div>
+                            <ic-switch id="upscaleToggle" name="upscale" label="超分辨率" data-i18n-label="studio.superResolution"></ic-switch>
+                        </div>
+                        <div id="upscaleOptions" class="upscale-options" hidden>
+                            <ic-button id="btn2x" type="button" hierarchy="secondary" toggle pressed>2x (2K)</ic-button>
+                            <ic-button id="btn4x" type="button" hierarchy="quiet" toggle>4x (4K)</ic-button>
+                        </div>
+                    </ic-card>
+
+                    <ic-button id="genBtn" class="generate-button" type="button" hierarchy="primary" disabled>
+                        <ic-icon slot="start" name="generate" aria-hidden="true"></ic-icon>
+                        <span id="btnText" data-i18n="studio.beginRemaster">Begin Remastering</span>
+                    </ic-button>
+                </section>
+            </aside>
+
+            <section class="enhance-result" aria-label="增强结果" data-i18n-aria-label="studio.enhanceResult">
+                <ic-card id="resultBox" class="result-card" label="增强结果" data-i18n-label="studio.enhanceResult">
+                    <div class="result-stage">
+                        <ic-empty-state id="emptyState" title="画布就绪" label="尚未生成增强结果" data-i18n-title="studio.canvasReady" data-i18n-label="studio.noEnhanceResult">
+                            <span data-i18n="studio.enhanceResultPlaceholder">生成后可在此查看和下载图片</span>
+                        </ic-empty-state>
+                        <ic-loading id="loadingState" presentation="region" label="正在计算像素" data-i18n-label="studio.computingPixels" hidden></ic-loading>
+                        <ic-alert id="generationAlert" tone="danger" hidden><span id="generationAlertText" data-i18n="studio.enhanceFailed">增强失败</span></ic-alert>
+                        <ic-media-container id="outputMedia" label="增强结果预览" data-i18n-label="studio.enhancedImagePreview" kind="image" fit="contain" aspect="auto" state="ready" hidden>
+                            <img id="outputImg" alt="增强后的图片" data-i18n-alt="studio.enhancedImage">
+                        </ic-media-container>
+                        <div id="resultActions" class="result-actions" hidden>
+                            <ic-icon-button id="previewBtn" type="button" hierarchy="secondary" icon="preview" label="查看大图" data-i18n-label="studio.viewFullSize"></ic-icon-button>
+                            <ic-icon-button id="downloadBtn" type="button" hierarchy="secondary" icon="download" label="下载图片" data-i18n-label="studio.downloadImage"></ic-icon-button>
+                        </div>
+                    </div>
+                </ic-card>
+            </section>
+        </main>
+
+        <section class="enhance-archive" aria-labelledby="archive-heading">
+            <div class="archive-heading-row">
+                <ic-heading id="archive-heading" level="2" data-i18n="studio.archive">Archive</ic-heading>
+                <ic-divider></ic-divider>
+            </div>
+            <div id="masonry" class="archive-grid"></div>
+            <p id="loadMoreTrigger" class="archive-end" data-i18n="studio.endOfArchive">End of Archive</p>
+        </section>
+    </div>
+
+    <ic-dialog id="lightbox" size="x-large" dismiss-policy="light" label="增强结果预览" data-i18n-label="studio.enhancedImagePreview">
+        <div class="lightbox-content">
+            <div id="compareContainer" class="compare-container" hidden>
+                <div class="compare-stage">
+                    <img id="compareGenerated" alt="增强后的图片" data-i18n-alt="studio.enhancedImage">
+                    <div id="compareOriginalWrapper" class="compare-original-wrapper">
+                        <img id="compareOriginal" alt="增强前的图片" data-i18n-alt="studio.originalImage">
+                    </div>
+                    <div class="compare-line" aria-hidden="true"></div>
+                </div>
+                <ic-slider id="compareSlider" name="compare_position" label="前后对比位置" data-i18n-label="studio.compareEnhancement" min="0" max="100" step="1" value="50" value-text="50%"></ic-slider>
+            </div>
+            <ic-media-container id="lightboxFrame" class="lightbox-frame" label="增强图片大图" data-i18n-label="studio.enhancedImageFullSize" kind="image" fit="contain" aspect="auto" state="ready" hidden>
+                <img id="lightboxImg" alt="预览" data-i18n-alt="studio.previewImage">
+            </ic-media-container>
+            <ic-badge id="lightboxRes" class="resolution-badge" kind="label" tone="neutral" hidden>0 × 0</ic-badge>
+        </div>
+        <ic-button id="saveMasterBtn" slot="footer" type="button" hierarchy="secondary">
+            <ic-icon slot="start" name="save" aria-hidden="true"></ic-icon>
+            <span data-i18n="studio.saveMaster">Save Master</span>
+        </ic-button>
+    </ic-dialog>
+
+    <ic-dialog id="sourceLightbox" class="source-lightbox" size="x-large" dismiss-policy="light" label="输入图片预览" data-i18n-label="studio.inputImagePreview">
+        <ic-media-container class="source-lightbox-media" label="输入图片大图" data-i18n-label="studio.inputImageFullSize" kind="image" fit="contain" aspect="auto" state="ready">
+            <img id="sourceLightboxImg" alt="输入图片预览" data-i18n-alt="studio.inputImagePreview">
+        </ic-media-container>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="historyDeleteDialog" label="删除所选归档" data-i18n-label="studio.deleteArchives" description="删除后不可恢复。" data-i18n-description="studio.deleteArchivesDescription" confirm-label="删除" data-i18n-confirm-label="common.delete" cancel-label="取消" data-i18n-cancel-label="common.cancel" consequence="destructive"></ic-confirmation-dialog>
+
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script src="/static/js/image-preview.js?v=2026.09.01.2.1787561133" defer></script>
+    <script src="/static/js/history-bulk-manager.js?v=2026.09.01.2.1788146221" defer></script>
+    <script src="/static/js/enhance.js?v=2026.09.01.2.1787803159" defer></script>
+</body>
+</html>

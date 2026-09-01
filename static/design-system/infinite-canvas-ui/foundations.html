@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN" data-foundations-matrix-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Foundations Review</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.14.theme-refactor.1">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css">
+</head>
+<body class="foundations-matrix-page">
+  <header class="foundations-toolbar">
+    <div>
+      <span class="foundations-kicker">Foundations · confirmed</span>
+      <h1>明暗主题与语义 Token 实时验收</h1>
+      <p>已于 2026-08-14 通过人工验收：确认范围包括 Light / Dark 语义色板、层叠表面、交互状态、状态 soft 背景、文字层级、阴影/遮罩，以及桌面与窄屏。Focus 使用 1px 主题内环 + 2px Blue 600 外环。</p>
+    </div>
+    <label>动效情境
+      <select data-motion-mode>
+        <option value="standard" selected>Standard</option>
+        <option value="reduced">Reduced motion</option>
+      </select>
+    </label>
+    <span data-foundations-status role="status" aria-live="polite">正在启动 6 个实时情境…</span>
+  </header>
+
+  <main class="foundations-grid" aria-label="密度与主题比较矩阵">
+    <article class="foundation-matrix-card" data-density="medium" data-theme="light" data-detail="full">
+      <header><strong>Medium · Light · 完整验收</strong><span>语义色与桌面/窄屏</span></header>
+      <iframe title="Medium Light Foundations" data-foundation-case></iframe>
+    </article>
+    <article class="foundation-matrix-card" data-density="medium" data-theme="dark" data-detail="full">
+      <header><strong>Medium · Dark · 完整验收</strong><span>语义色与桌面/窄屏</span></header>
+      <iframe title="Medium Dark Foundations" data-foundation-case></iframe>
+    </article>
+    <article class="foundation-matrix-card" data-density="small" data-theme="light">
+      <header><strong>Small · Light</strong><span>Toolbar / Smart Canvas overlay</span></header>
+      <iframe title="Small Light Foundations" data-foundation-case></iframe>
+    </article>
+    <article class="foundation-matrix-card" data-density="small" data-theme="dark">
+      <header><strong>Small · Dark</strong><span>Toolbar / Smart Canvas overlay</span></header>
+      <iframe title="Small Dark Foundations" data-foundation-case></iframe>
+    </article>
+    <article class="foundation-matrix-card" data-density="large" data-theme="light">
+      <header><strong>Large · Light</strong><span>Entry / onboarding / high emphasis</span></header>
+      <iframe title="Large Light Foundations" data-foundation-case></iframe>
+    </article>
+    <article class="foundation-matrix-card" data-density="large" data-theme="dark">
+      <header><strong>Large · Dark</strong><span>Entry / onboarding / high emphasis</span></header>
+      <iframe title="Large Dark Foundations" data-foundation-case></iframe>
+    </article>
+  </main>
+  <script src="/static/js/infinite-canvas-ui/foundation-matrix.js?v=ic-ui-1a20b8e9d3c4" defer></script>
+</body>
+</html>

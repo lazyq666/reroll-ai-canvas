@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui-scope="generation" data-studio-scale="off">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <title data-i18n="batch.batch">批量生成</title>
+    <script>
+        (function(){
+            try {
+                document.documentElement.dataset.studioFitScale = 'off';
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/online-workbench.css?v=2026.09.01.2.1787561133">
+    <link rel="stylesheet" href="/static/css/batch-generation.css?v=2026.09.01.2.1788146221">
+    <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.2.1787561133">
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <script src="/static/js/model-vendor-icons.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/image-preview.js?v=2026.09.01.2.1787561133"></script>
+</head>
+<body>
+    <div class="online-workbench">
+        <header class="batch-page-header">
+            <ic-heading level="1" data-i18n="batch.batch" data-legal-combination="h1-title">批量生成</ic-heading>
+            <ic-button id="batchHistoryButton" class="batch-history-button" hierarchy="secondary" type="button"><ic-icon slot="start" name="history"></ic-icon><span data-i18n="batch.history">批次历史</span></ic-button>
+        </header>
+        <main id="batchGenerationMode" class="batch-shell">
+            <ic-steps id="batchSteps" label="批量生成步骤" current="1" data-i18n-label="batch.steps" data-legal-combination="horizontal-progress">
+                <span data-step="1" data-i18n="batch.configuration">配置</span>
+                <span data-step="2" data-i18n="batch.taskPreview">任务预览</span>
+                <span data-step="3" data-i18n="batch.details">批次详情</span>
+            </ic-steps>
+            <section id="batchHistoryStep" class="batch-card" hidden>
+                <header class="batch-section-heading batch-history-heading"><ic-icon-button id="closeBatchHistory" hierarchy="quiet" type="button" icon="back" label="返回批量生成" data-i18n-label="batch.backToFlow"></ic-icon-button><h3 data-i18n="batch.history">批次历史</h3></header>
+                <div id="batchHistoryTableWrap" class="batch-history-table-wrap">
+                    <ic-table class="batch-history-table" label="批量生成批次历史" data-i18n-label="batch.historyTable" row-selection="none">
+                        <table>
+                            <thead><tr><th scope="col" data-i18n="batch.batchColumn">批次</th><th scope="col" data-i18n="batch.generatedAt">生成时间</th><th scope="col" data-i18n="batch.promptSummary">提示词缩略</th><th scope="col" data-i18n="batch.resolution">分辨率</th><th scope="col" data-i18n="batch.model">模型</th><th scope="col" data-i18n="batch.ratio">比例</th><th scope="col" data-i18n="batch.uploadedImages">上传图片</th><th scope="col" data-i18n="batch.generatedResults">生成结果</th><th scope="col" data-i18n="batch.status">状态</th><th scope="col"><span class="sr-only" data-i18n="batch.actions">操作</span></th></tr></thead>
+                            <tbody id="batchHistoryList"></tbody>
+                        </table>
+                    </ic-table>
+                </div>
+                <ic-empty-state id="batchHistoryEmpty" title="尚无批量生成记录" label="批次历史为空" hidden data-i18n-title="batch.noHistory" data-i18n-label="batch.historyEmpty"></ic-empty-state>
+            </section>
+            <section id="batchSetupStep" class="batch-setup">
+                <div class="batch-config-layout">
+                    <main class="batch-dimension-pane">
+                        <section class="batch-dimension-sheet" aria-labelledby="batchCombinationSettingsTitle">
+                            <header class="batch-dimension-heading">
+                                <div><h3 id="batchCombinationSettingsTitle" data-i18n="batch.combinationDimensions">变量（多选）</h3></div>
+                                <div class="batch-dimension-actions">
+                                    <ic-button id="addPromptModule" size="small" hierarchy="primary" data-legal-combination="primary-action" type="button"><ic-icon slot="start" name="add"></ic-icon><span data-i18n="batch.addPromptVariable">新增提示词变量</span></ic-button>
+                                    <ic-button id="addImageVariable" size="small" hierarchy="primary" data-legal-combination="primary-action" type="button"><ic-icon slot="start" name="add"></ic-icon><span data-i18n="batch.addImageVariable">新增参考图变量</span></ic-button>
+                                </div>
+                            </header>
+                            <div class="batch-dimension-table-wrap">
+                                <ic-table class="batch-dimension-table" label="批量生成变量（多选）" data-i18n-label="batch.variableTable" row-selection="none"><table>
+                                    <thead><tr><th scope="col">#</th><th scope="col" data-i18n="batch.variable">变量</th><th scope="col" data-i18n="batch.optionValues">选项值</th><th scope="col" data-i18n="batch.quantity">数量</th><th scope="col" data-i18n="batch.actions">操作</th></tr></thead>
+                                    <tbody id="batchPromptModules"></tbody>
+                                    <tbody id="batchImageVariables"></tbody>
+                                    <tbody id="batchImageEmpty" hidden><tr class="batch-dimension-empty"><td colspan="5"><ic-icon name="collection"></ic-icon><span data-i18n="batch.noImageVariables">尚未添加图片变量</span></td></tr></tbody>
+                                    <tbody class="batch-fixed-dimension-rows">
+                                        <tr class="batch-model-row">
+                                            <td><span id="batchModelRowNumber" class="batch-row-number">00</span></td>
+                                            <td><div class="batch-variable-cell"><span class="batch-kind batch-kind-model">MOD</span><strong data-i18n="batch.models">生成模型</strong></div></td>
+                                            <td><div id="batchModelChoices" class="batch-choice-grid" aria-label="生成模型" data-i18n-aria-label="batch.models"></div></td>
+                                            <td class="batch-count-cell"><strong id="batchModelCount">0</strong></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr class="batch-ratio-row">
+                                            <td><span id="batchRatioRowNumber" class="batch-row-number">00</span></td>
+                                            <td><div class="batch-variable-cell"><span class="batch-kind batch-kind-ratio">RAT</span><strong data-i18n="batch.aspectRatios">宽高比</strong></div></td>
+                                            <td><ic-aspect-ratio-picker id="batchRatioChoices" class="batch-ratio-grid" name="batchAspectRatios" label="宽高比" presets="square,portrait,landscape,portrait43,landscape43,story,wide" value="square" multiple hide-label data-component-variant="multiple" data-component-name="ic-aspect-ratio-picker-multiple" data-i18n-label="batch.aspectRatios"></ic-aspect-ratio-picker></td>
+                                            <td class="batch-count-cell"><strong id="batchRatioCount">1</strong></td>
+                                            <td></td>
+                                        </tr>
+                                    </tbody>
+                                </table></ic-table>
+                            </div>
+                        </section>
+                    </main>
+                    <aside class="batch-uniform-sidebar" aria-labelledby="batchUniformSettingsTitle">
+                        <header><h3 id="batchUniformSettingsTitle" data-i18n="batch.uniformSettings">其他设置（单选）</h3></header>
+                        <div class="batch-uniform-grid">
+                            <ic-radio-group id="batchResolution" class="batch-inline-options" name="batchResolution" label="分辨率" data-i18n-label="batch.resolution" value="1k" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="1k" label="1K"></ic-radio><ic-radio value="2k" label="2K"></ic-radio><ic-radio value="4k" label="4K"></ic-radio></ic-radio-group>
+                            <ic-radio-group id="batchQuality" class="batch-inline-options" name="batchQuality" label="质量" data-i18n-label="batch.quality" value="auto" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="auto" label="自动" data-i18n-label="batch.auto"></ic-radio><ic-radio value="low" label="低" data-i18n-label="online.qualityLow"></ic-radio><ic-radio value="medium" label="中" data-i18n-label="online.qualityMedium"></ic-radio><ic-radio value="high" label="高" data-i18n-label="online.qualityHigh"></ic-radio></ic-radio-group>
+                            <ic-radio-group id="batchOutputsPerRun" class="batch-inline-options" name="batchOutputsPerRun" label="单次出图" data-i18n-label="batch.outputsPerSubmission" value="1" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="1" label="1"></ic-radio><ic-radio value="2" label="2"></ic-radio><ic-radio value="3" label="3"></ic-radio><ic-radio value="4" label="4"></ic-radio></ic-radio-group>
+                            <ic-radio-group id="batchSubmissionsPerTask" class="batch-inline-options" name="batchSubmissionsPerTask" label="重复次数" data-i18n-label="batch.submissionsPerTask" value="1" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="1" label="1"></ic-radio><ic-radio value="2" label="2"></ic-radio><ic-radio value="3" label="3"></ic-radio><ic-radio value="4" label="4"></ic-radio></ic-radio-group>
+                            <ic-radio-group id="batchConcurrency" class="batch-inline-options" name="batchConcurrency" label="期望并发" data-i18n-label="batch.desiredConcurrency" value="2" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="0" label="自动" data-i18n-label="batch.auto"></ic-radio><ic-radio value="1" label="1"></ic-radio><ic-radio value="2" label="2"></ic-radio><ic-radio value="4" label="4"></ic-radio><ic-radio value="8" label="8"></ic-radio><ic-radio value="16" label="16"></ic-radio><ic-radio value="32" label="32"></ic-radio></ic-radio-group>
+                        </div>
+                        <section class="batch-output-estimate" aria-live="polite"><span data-i18n="batch.estimatedOutputs">预计输出</span><div><strong id="batchOutputCount">0</strong><small data-i18n="batch.imagesUnit">张图片</small></div></section>
+                        <div class="batch-sidebar-actions">
+                            <ic-input id="batchName" class="batch-name-field" name="batch_name" aria-label="任务名称" data-i18n-aria-label="batch.namePrefix" placeholder="任务名称（可选）" data-i18n-placeholder="batch.namePrefixPlaceholder"></ic-input>
+                            <ic-alert id="batchError" class="batch-error" tone="danger" hidden><span data-i18n="batch.configurationError">批量生成配置错误</span></ic-alert>
+                            <ic-button id="previewBatch" hierarchy="primary" type="button"><span data-i18n="batch.inspectTasks">检查任务清单</span><ic-icon slot="end" name="forward"></ic-icon></ic-button>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+            <section class="batch-card" id="batchPreviewStep" hidden>
+                <header class="batch-section-heading"><div><span class="batch-kicker" data-i18n="batch.taskPreview">任务预览</span><h3 data-i18n="batch.confirmTasks">确认派生任务</h3><p data-i18n="batch.previewDesc">任务来自变量组合，只能排除；请返回设置修改来源。</p></div><ic-button id="backToBatchSetup" hierarchy="secondary" type="button" data-i18n="batch.backToSettings">← 返回设置</ic-button></header>
+                <div class="batch-task-table-wrap"><ic-table class="batch-task-table" label="批量生成任务预览" data-i18n-label="batch.taskPreviewTable" row-selection="multiple"><table><caption class="sr-only" data-i18n="batch.taskPreviewTable">批量生成任务预览</caption><thead><tr><th scope="col" data-i18n="batch.include">包含</th><th scope="col">#</th><th scope="col" data-i18n="batch.uploadedImages">上传图片</th><th scope="col" data-i18n="batch.finalPrompt">最终提示词</th><th scope="col" data-i18n="batch.model">模型</th><th scope="col" data-i18n="batch.ratio">比例</th><th scope="col" data-i18n="batch.submissions">提交</th><th scope="col" data-i18n="batch.outputs">输出</th></tr></thead><tbody id="batchTaskRows"></tbody></table></ic-table></div>
+                <section class="batch-submit-bar batch-preview-submit" aria-label="预览提交操作栏" data-i18n-aria-label="batch.previewActions">
+                    <div class="batch-submit-summary" aria-live="polite">
+                        <span><strong id="batchSelectedRunCount">0</strong> <span data-i18n="batch.selectedRuns">已选任务</span></span>
+                        <span><strong id="batchSelectedSubmissionCount">0</strong> <span data-i18n="batch.estimatedSubmissions">预计提交</span></span>
+                        <span><strong id="batchExcludedCount">0</strong> <span data-i18n="batch.excluded">已排除</span></span>
+                        <span><strong id="batchSelectedOutputCount">0</strong> <span data-i18n="batch.estimatedOutputs">预计输出</span></span>
+                    </div>
+                    <p class="batch-submit-note" id="batchConfirmation" data-i18n="batch.confirmation">确认后才上传输入媒体、冻结快照并开始后台生成。</p>
+                    <ic-button id="startBatch" hierarchy="primary" type="button" data-i18n="batch.submit">确认提交任务</ic-button>
+                </section>
+            </section>
+            <section class="batch-card batch-detail" id="batchDetailStep" hidden>
+                <header class="batch-detail-header">
+                    <div class="batch-detail-heading">
+                        <ic-button id="backToBatchHistoryFromDetail" class="batch-detail-back" hierarchy="quiet" type="button"><ic-icon slot="start" name="back"></ic-icon><span data-i18n="batch.backToHistory">返回批次历史</span></ic-button>
+                        <div>
+                            <div class="batch-detail-title-row"><h3 id="batchDetailName"></h3><span id="batchDetailStatus" class="batch-detail-status"></span></div>
+                            <time id="batchDetailStartedAt" class="batch-detail-time"></time>
+                        </div>
+                    </div>
+                    <div class="batch-detail-action-area">
+                        <ic-button-group class="batch-detail-runtime-actions" label="批次运行操作" data-i18n-label="batch.runtimeActions">
+                            <ic-button id="pauseBatch" hierarchy="secondary" type="button" data-i18n="batch.pause">暂停</ic-button>
+                            <ic-button id="resumeBatch" hierarchy="secondary" type="button" hidden data-i18n="batch.resume">继续</ic-button>
+                            <ic-button id="retryFailedBatch" hierarchy="secondary" type="button" hidden data-i18n="batch.retryFailed">重试失败任务</ic-button>
+                            <ic-button id="cancelBatch" hierarchy="secondary" tone="danger" type="button" data-i18n="batch.cancel">取消</ic-button>
+                        </ic-button-group>
+                        <ic-button-group class="batch-detail-actions" label="批次配置操作" data-i18n-label="batch.configurationActions">
+                            <ic-button id="createBatchFromCurrent" hierarchy="quiet" type="button"><ic-icon slot="start" name="duplicate"></ic-icon><span data-i18n="batch.reuse">复用配置</span></ic-button>
+                            <ic-button id="rerunBatch" hierarchy="quiet" type="button"><ic-icon slot="start" name="refresh"></ic-icon><span data-i18n="batch.rerun">完整重跑</span></ic-button>
+                        </ic-button-group>
+                    </div>
+                </header>
+                <ic-progress id="batchProgress" label="批次进度" data-i18n-label="batch.progress" value="0" max="1" value-text="0 / 0"></ic-progress><div id="batchProgressCounts" class="batch-progress-counts"></div>
+                <ic-tabs id="batchDetailTabs" class="batch-detail-tabs" label="批次详情视图" data-i18n-label="batch.detailViews" value="gallery" activation="automatic" data-legal-combination="horizontal-automatic-label"><button aria-selected="true" role="tab" data-value="gallery" data-detail-tab="gallery" type="button" data-i18n="batch.gallery">结果画廊</button><button aria-selected="false" role="tab" data-value="tasks" data-detail-tab="tasks" type="button" data-i18n="batch.taskList">任务列表</button></ic-tabs>
+                <div id="batchGalleryPanel" class="batch-detail-panel"><div id="batchResultGallery" class="batch-result-gallery"></div><ic-empty-state id="batchGalleryEmpty" title="生成结果完成后会出现在这里" label="批次结果为空" data-i18n-title="batch.galleryEmpty" data-i18n-label="batch.galleryEmptyLabel"></ic-empty-state></div>
+                <div id="batchTasksPanel" class="batch-detail-panel" hidden><div class="batch-history-table-wrap batch-detail-task-table-wrap"><ic-table class="batch-history-table batch-detail-task-table" label="批次任务与设置列表" data-i18n-label="batch.taskSettingsTable" row-selection="none"><table><caption class="sr-only" data-i18n="batch.taskSettingsTable">批次任务与设置列表</caption><thead><tr><th scope="col" data-i18n="batch.taskColumn">任务</th><th scope="col" data-i18n="batch.promptSummary">提示词缩略</th><th scope="col" data-i18n="batch.resolution">分辨率</th><th scope="col" data-i18n="batch.model">模型</th><th scope="col" data-i18n="batch.ratio">比例</th><th scope="col" data-i18n="batch.uploadedImages">上传图片</th><th scope="col" data-i18n="batch.submissions">提交</th><th scope="col" data-i18n="batch.generatedResults">生成结果</th><th scope="col" data-i18n="batch.status">状态</th><th scope="col" data-i18n="batch.error">错误</th></tr></thead><tbody id="batchDetailTaskRows"></tbody></table></ic-table></div></div>
+            </section>
+        </main>
+
+    </div>
+
+    <ic-dialog id="batchImageEditModal" class="batch-image-edit-modal image-edit-modal" label="批次图片预览" data-i18n-label="batch.imagePreview" size="x-large" dismiss-policy="light">
+        <section class="batch-image-edit-panel image-edit-panel">
+            <header class="batch-image-edit-head image-edit-head">
+                <div class="image-edit-headline">
+                    <span class="batch-kicker" data-i18n="batch.outputs">生成输出</span>
+                    <h2 id="batchImageEditTitle" class="image-edit-title" data-i18n="batch.imagePreview">批次图片预览</h2>
+                    <p id="batchImageEditPrompt" class="image-edit-sub"></p>
+                    <div id="batchImageReferenceFiles" class="batch-image-reference-files" hidden>
+                        <strong data-i18n="batch.referenceFiles">引用文件</strong>
+                        <ul id="batchImageReferenceList"></ul>
+                    </div>
+                </div>
+                <span id="batchImageCounter" class="batch-image-counter" aria-live="polite">0 / 0</span>
+                <ic-icon-button id="closeBatchImageEdit" hierarchy="quiet" type="button" icon="close" label="关闭图片预览" data-i18n-label="batch.closePreview"></ic-icon-button>
+            </header>
+            <div id="batchImageEditStage" class="batch-image-edit-stage image-edit-stage">
+                <img id="batchImageEditImage" class="studio-preview-img" alt="批次生成结果" data-i18n-alt="batch.generatedResult" draggable="false">
+                <span id="batchImageResolution" class="batch-image-resolution" data-no-pan>--</span>
+                <ic-icon-button id="batchImagePrevious" class="batch-image-nav batch-image-previous" hierarchy="secondary" type="button" icon="back" label="上一张批次图片" data-i18n-label="batch.previousImage" data-no-pan></ic-icon-button>
+                <ic-icon-button id="batchImageNext" class="batch-image-nav batch-image-next" hierarchy="secondary" type="button" icon="forward" label="下一张批次图片" data-i18n-label="batch.nextImage" data-no-pan></ic-icon-button>
+            </div>
+            <footer class="batch-image-edit-actions image-edit-actions">
+                <p data-i18n="batch.previewHelp">滚轮缩放，放大后拖拽查看细节；也可使用键盘左右方向键切换。</p>
+                <div class="batch-image-primary-actions">
+                    <ic-button id="batchImageCopyPrompt" class="batch-image-copy-prompt image-edit-btn" hierarchy="secondary" type="button"><ic-icon slot="start" name="duplicate"></ic-icon><span data-i18n="batch.copyPrompt">复制提示词</span></ic-button>
+                    <ic-button id="batchImageDownload" class="batch-image-download image-edit-btn" hierarchy="primary" href="#" download><ic-icon slot="start" name="download"></ic-icon><span data-i18n="batch.downloadOriginal">下载原图</span></ic-button>
+                </div>
+            </footer>
+        </section>
+        <ic-popover id="batchImageContextMenu" class="batch-image-context-menu" label="图片操作" data-i18n-label="batch.imageActions" content="interactive" dismiss-policy="light" focus-policy="move-into">
+            <ic-button id="batchImageCopyImage" hierarchy="quiet" type="button"><ic-icon slot="start" name="duplicate"></ic-icon><span data-i18n="batch.copyImage" aria-live="polite">复制图片</span></ic-button>
+        </ic-popover>
+    </ic-dialog>
+
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script src="/static/js/batch-generation.js?v=2026.09.01.2.1788146221"></script>
+</body>
+</html>

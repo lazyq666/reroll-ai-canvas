@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>设计参数 · Reroll UI</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/design-token-explorer.css?v=2026.08.25.10">
+</head>
+<body>
+  <main class="token-page">
+    <section class="token-toolbar" aria-label="参数搜索和编辑">
+      <label class="token-search">
+        <span class="visually-hidden">搜索设计参数</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path></svg>
+        <input type="search" data-token-search placeholder="搜索参数…" autocomplete="off">
+        <kbd>⌘ K</kbd>
+      </label>
+      <button class="token-edit-toggle" type="button" data-token-edit-toggle aria-pressed="false" disabled>编辑参数</button>
+    </section>
+
+    <div class="token-workspace">
+      <nav class="token-filters" data-token-filters data-navigation-pattern="section-navigation" aria-label="参数分类"></nav>
+
+      <div class="token-content">
+        <section class="semantic-color-guide" data-semantic-color-guide hidden aria-label="语义颜色说明">
+          <figure class="token-anatomy" data-token-anatomy>
+            <figcaption>
+              <strong>名称结构</strong>
+              <span>从左到右逐步缩小使用范围；职责是必需信息，强调度、意图与状态按需出现。</span>
+            </figcaption>
+            <div class="token-anatomy-example" aria-label="--ui-color-action-primary-hover 的名称结构">
+              <span class="anatomy-prefix"><b>--ui</b><small>项目命名空间</small></span>
+              <span class="anatomy-type"><b>color</b><small>属性类型</small></span>
+              <span class="anatomy-role"><b>action</b><small>职责</small></span>
+              <span class="anatomy-variant"><b>primary</b><small>强调度 / 意图</small></span>
+              <span class="anatomy-state"><b>hover</b><small>交互状态</small></span>
+            </div>
+          </figure>
+
+          <figure class="semantic-color-flow" data-semantic-color-flow>
+            <figcaption>
+              <strong>映射关系</strong>
+              <span>原子色只提供色值，语义色承诺用途，组件负责具体呈现。</span>
+            </figcaption>
+            <div class="semantic-flow-diagram">
+              <div><span class="flow-swatch palette"></span><small>原子色</small><code>--ui-palette-blue-600</code></div>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <div><span class="flow-swatch semantic"></span><small>语义色</small><code>--ui-color-border-selected</code></div>
+              <span class="flow-arrow" aria-hidden="true">→</span>
+              <div class="flow-component"><span class="selection-sample">Selection</span><small>组件</small><code>选中描边</code></div>
+            </div>
+          </figure>
+
+          <div class="semantic-family-summary" aria-label="语义颜色职责速查">
+            <article><span>Surface</span><strong>静态容器</strong><p>Canvas、面板、浮层与状态背景；可点击容器改用 Action。</p></article>
+            <article><span>Text / Icon</span><strong>前景内容</strong><p>正文与独立图标；文字旁图标优先继承 <code>currentColor</code>。</p></article>
+            <article><span>Border</span><strong>边界与选取</strong><p>表达分隔强度、Focus、选中态和反馈意图。</p></article>
+            <article><span>Action</span><strong>可交互容器</strong><p>Primary、Secondary、Tertiary 及 Hover、Pressed、Disabled 状态。</p></article>
+          </div>
+        </section>
+
+        <section class="typography-guide" data-typography-guide hidden aria-label="文字排版使用说明">
+          <div class="typography-principles">
+            <span class="token-guide-eyebrow">选择顺序</span>
+            <h2>先选文字角色，再调整基础值</h2>
+            <p>产品界面优先使用 <code>--ui-text-*</code> 组合样式，它已同时绑定字号、字重、行高与字体。只有组件尺寸、数据可视化或特殊自适应场景，才单独组合 Font Size、Weight、Line Height 等基础 Token。</p>
+            <ol>
+              <li><strong>确定角色</strong><span>标题、正文、标签、说明或代码</span></li>
+              <li><strong>选择层级</strong><span>同一区域最多保持 3 个清晰层级</span></li>
+              <li><strong>最后例外</strong><span>确有约束时再覆盖单项属性，并记录原因</span></li>
+            </ol>
+          </div>
+          <div class="typography-role-map" aria-label="文字角色速查">
+            <article><span>页面 / 区域标题</span><strong>Title 1–3</strong><p>按容器层级选择，不按 HTML 标签机械映射。</p></article>
+            <article><span>阅读内容</span><strong>Body / Subtitle</strong><p>Body 是默认正文；Subtitle 只用于标题后的引导说明。</p></article>
+            <article><span>控件与元数据</span><strong>Label / Caption</strong><p>Label 用于短标签；Caption 仅承载辅助信息。</p></article>
+            <article><span>机器可读内容</span><strong>Code</strong><p>Token、路径、快捷键与代码值，不用于普通正文。</p></article>
+          </div>
+          <p class="typography-guardrail"><strong>底线：</strong>不要用字号模拟层级后再叠加任意字重；不要把 Caption 用作长正文；不要用 Letter Spacing 修复中文可读性。正文默认使用 Normal 字距，长文行宽建议控制在 45–75 个字符。</p>
+        </section>
+
+        <section class="token-results" aria-live="polite" aria-busy="true">
+          <header class="results-heading">
+            <h1 data-results-title>全部参数</h1>
+            <span data-results-count>—</span>
+          </header>
+          <div class="token-family-list" data-token-family-list data-token-grid></div>
+          <div class="token-empty" data-token-empty hidden>
+            <strong>没有匹配的参数</strong>
+            <span>试试更短的名称，或切换到“全部”。</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <section class="token-change-bar" data-token-change-bar aria-label="未保存的设计参数修改" hidden>
+    <p><strong data-token-change-count>0 项修改</strong><span data-token-validation-status>即时预览中，尚未写入 CSS</span></p>
+    <div>
+      <button type="button" data-token-discard>放弃修改</button>
+      <button type="button" class="primary" data-token-review>检查并保存</button>
+    </div>
+  </section>
+
+  <dialog class="token-diff-dialog" data-token-diff-dialog aria-labelledby="token-diff-title">
+    <form method="dialog">
+      <header>
+        <div>
+          <span>保存到 design-tokens.css</span>
+          <h2 id="token-diff-title">确认参数修改</h2>
+        </div>
+        <button type="submit" value="cancel" aria-label="关闭">×</button>
+      </header>
+      <div class="token-diff-list" data-token-diff-list></div>
+      <footer>
+        <button type="submit" value="cancel">继续调整</button>
+        <button type="button" class="primary" data-token-save>确认保存</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="token-toast" data-copy-toast role="status" aria-live="polite" hidden></div>
+  <div class="token-value-probe" data-token-probe aria-hidden="true"></div>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script src="/static/js/ui-component-library/design-token-explorer.js?v=2026.08.29.collaborator-gradient.1" defer></script>
+</body>
+</html>

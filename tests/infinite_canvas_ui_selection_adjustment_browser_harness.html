@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en" data-ic-selection-adjustment-test-status="">
+<head>
+  <meta charset="utf-8">
+  <title>Reroll UI Selection and Adjustment browser contract</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <form id="settings-form">
+    <ic-checkbox id="grid" label="Show grid" name="grid" value="visible" checked></ic-checkbox>
+    <ic-radio-group id="fit-mode" label="Canvas fit" name="fitMode" value="fill">
+      <ic-radio label="Fill canvas" value="fill"></ic-radio>
+      <ic-radio label="Fit content" value="fit"></ic-radio>
+    </ic-radio-group>
+    <ic-switch id="autosave" label="Autosave changes" name="autosave" value="enabled"></ic-switch>
+    <ic-select id="format" label="Export format" name="format" value="png">
+      <option value="png" selected>PNG image</option>
+      <option value="webp">WebP image</option>
+      <option value="jpg">JPEG image</option>
+    </ic-select>
+    <ic-slider id="opacity" label="Layer opacity" name="opacity" min="0" max="100" step="5" value="40" value-text="40 percent"></ic-slider>
+    <ic-number-input id="columns" label="Grid columns" name="columns" min="1" max="12" step="1" value="4"></ic-number-input>
+    <ic-number-input id="readonly-number" label="Fixed seed" name="seed" value="42" readonly></ic-number-input>
+    <ic-color-field id="accent" label="Guide color" name="accent" value="#2563eb"></ic-color-field>
+    <ic-color-field id="readonly-color" label="Locked color" name="lockedColor" value="#dc2626" readonly></ic-color-field>
+  </form>
+  <ic-checkbox id="invalid-checkbox"></ic-checkbox>
+  <ic-radio id="standalone-radio" label="Standalone" value="standalone"></ic-radio>
+  <ic-switch id="invalid-switch"></ic-switch>
+  <ic-select id="invalid-select" label="Invalid choices" multiple><option value="one">One</option></ic-select>
+  <ic-slider id="invalid-slider" label="Broken range" min="10" max="1" value="5"></ic-slider>
+  <ic-number-input id="invalid-number" label="Broken number" name="broken" min="10" max="1" value="5"></ic-number-input>
+  <ic-color-field id="invalid-color" label="Broken color" name="brokenColor" value="not-a-color"></ic-color-field>
+  <pre id="ic-results"></pre>
+  <script type="module">
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const results = document.querySelector('#ic-results');
+    const contractErrors = [];
+    document.addEventListener('ic-contract-error', event => contractErrors.push(event.detail));
+    try {
+      await import('/static/js/infinite-canvas-ui/core.js');
+      await Promise.race([
+        Promise.all(['ic-checkbox', 'ic-radio-group', 'ic-radio', 'ic-switch', 'ic-select', 'ic-slider', 'ic-number-input', 'ic-color-field'].map(tag => customElements.whenDefined(tag))),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Selection definitions timed out')), 1500)),
+      ]);
+      await paint();
+      const form = document.querySelector('#settings-form');
+      const checkbox = document.querySelector('#grid');
+      const invalidCheckbox = document.querySelector('#invalid-checkbox');
+      const radioGroup = document.querySelector('#fit-mode');
+      const radios = [...radioGroup.querySelectorAll('ic-radio')];
+      const standaloneRadio = document.querySelector('#standalone-radio');
+      const switchControl = document.querySelector('#autosave');
+      const invalidSwitch = document.querySelector('#invalid-switch');
+      const select = document.querySelector('#format');
+      const invalidSelect = document.querySelector('#invalid-select');
+      const slider = document.querySelector('#opacity');
+      const invalidSlider = document.querySelector('#invalid-slider');
+      const numberInput = document.querySelector('#columns');
+      const readonlyNumber = document.querySelector('#readonly-number');
+      const invalidNumber = document.querySelector('#invalid-number');
+      const colorField = document.querySelector('#accent');
+      const readonlyColor = document.querySelector('#readonly-color');
+      const invalidColor = document.querySelector('#invalid-color');
+      const switchEvents = [];
+      switchControl.addEventListener('input', () => switchEvents.push('input'));
+      switchControl.addEventListener('change', () => switchEvents.push('change'));
+      const initial = Object.fromEntries(new FormData(form));
+      checkbox.checked = false;
+      await paint();
+      const unchecked = Object.fromEntries(new FormData(form));
+      form.reset();
+      await paint();
+      const reset = { checked: checkbox.checked, form: Object.fromEntries(new FormData(form)) };
+      checkbox.indeterminate = true;
+      await paint();
+      radios[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, composed: true }));
+      await paint();
+      const radioEdited = { value: radioGroup.value, form: Object.fromEntries(new FormData(form)), checked: radios.map(radio => radio.checked) };
+      form.reset();
+      await paint();
+      const radioReset = { value: radioGroup.value, form: Object.fromEntries(new FormData(form)), checked: radios.map(radio => radio.checked) };
+      switchControl.click();
+      await paint();
+      const switchEdited = { checked: switchControl.checked, form: Object.fromEntries(new FormData(form)), events: [...switchEvents] };
+      form.reset();
+      await paint();
+      const switchReset = { checked: switchControl.checked, form: Object.fromEntries(new FormData(form)) };
+      select.value = 'webp';
+      await paint();
+      const selectEdited = { value: select.value, form: Object.fromEntries(new FormData(form)), optionCount: select.querySelectorAll(':scope > option').length };
+      form.reset();
+      await paint();
+      const selectReset = { value: select.value, form: Object.fromEntries(new FormData(form)) };
+      slider.value = 45;
+      slider.valueText = '45 percent';
+      await paint();
+      const sliderEdited = { value: slider.value, valueText: slider.valueText, form: Object.fromEntries(new FormData(form)) };
+      slider.stepUp();
+      await paint();
+      const sliderStepped = { value: slider.value, form: Object.fromEntries(new FormData(form)) };
+      form.reset();
+      await paint();
+      const sliderReset = { value: slider.value, form: Object.fromEntries(new FormData(form)) };
+      numberInput.stepUp();
+      await paint();
+      const numberStepped = { value: numberInput.value, form: Object.fromEntries(new FormData(form)) };
+      form.reset();
+      await paint();
+      const numberReset = { value: numberInput.value, form: Object.fromEntries(new FormData(form)), readonly: readonlyNumber.readonly };
+      colorField.value = '#00ff00';
+      await paint();
+      const colorEdited = { value: colorField.value, form: Object.fromEntries(new FormData(form)) };
+      readonlyColor.click();
+      await paint();
+      const colorReadonly = { readonly: readonlyColor.readonly, open: readonlyColor.open, form: Object.fromEntries(new FormData(form)) };
+      form.reset();
+      await paint();
+      const colorReset = { value: colorField.value, form: Object.fromEntries(new FormData(form)) };
+      checkbox.indeterminate = false;
+      checkbox.checked = true;
+      switchControl.checked = true;
+      select.setCurrentOption(select.getFirstOption());
+      await paint();
+      const colorProbe = document.createElement('span');
+      colorProbe.style.backgroundColor = 'var(--ui-color-action-primary)';
+      colorProbe.style.color = 'var(--ui-color-border-selected)';
+      document.body.append(colorProbe);
+      const selectedRadio = radios.find(radio => radio.checked);
+      const currentOption = select.currentOption;
+      const selectionPalette = {
+        action: getComputedStyle(colorProbe).backgroundColor,
+        accent: getComputedStyle(colorProbe).color,
+        checkboxBackground: getComputedStyle(checkbox.shadowRoot.querySelector('[part~="control"]')).backgroundColor,
+        checkboxForeground: getComputedStyle(checkbox.shadowRoot.querySelector('[part~="control"]')).color,
+        radioForeground: getComputedStyle(selectedRadio.shadowRoot.querySelector('[part~="control"]')).color,
+        switchBackground: getComputedStyle(switchControl.shadowRoot.querySelector('[part~="control"]')).backgroundColor,
+        switchThumb: getComputedStyle(switchControl.shadowRoot.querySelector('[part~="thumb"]')).backgroundColor,
+        selectBackground: getComputedStyle(currentOption).backgroundColor,
+        selectForeground: getComputedStyle(currentOption).color,
+      };
+      colorProbe.remove();
+      checkbox.indeterminate = true;
+      switchControl.checked = false;
+      invalidCheckbox.click();
+      standaloneRadio.click();
+      invalidSwitch.click();
+      invalidSelect.click();
+      invalidSlider.click();
+      invalidNumber.click();
+      invalidColor.click();
+      await paint();
+      const report = {
+        checks: {
+          checkbox: initial.grid === 'visible' && !('grid' in unchecked),
+          reset: reset.checked && reset.form.grid === 'visible',
+          indeterminate: checkbox.indeterminate === true,
+          radio: (
+            initial.fitMode === 'fill'
+            && radioEdited.value === 'fit'
+            && radioEdited.form.fitMode === 'fit'
+            && JSON.stringify(radioEdited.checked) === JSON.stringify([false, true])
+          ),
+          radioKeyboardReset: (
+            radioReset.value === 'fill'
+            && radioReset.form.fitMode === 'fill'
+            && JSON.stringify(radioReset.checked) === JSON.stringify([true, false])
+          ),
+          switch: (
+            switchEdited.checked
+            && switchEdited.form.autosave === 'enabled'
+            && JSON.stringify(switchEdited.events) === JSON.stringify(['input', 'change'])
+            && !switchReset.checked
+            && !('autosave' in switchReset.form)
+          ),
+          select: (
+            initial.format === 'png'
+            && selectEdited.value === 'webp'
+            && selectEdited.form.format === 'webp'
+            && selectEdited.optionCount === 3
+            && selectReset.value === 'png'
+            && selectReset.form.format === 'png'
+          ),
+          slider: (
+            initial.opacity === '40'
+            && sliderEdited.value === 45
+            && sliderEdited.valueText === '45 percent'
+            && sliderEdited.form.opacity === '45'
+            && sliderStepped.value === 50
+            && sliderStepped.form.opacity === '50'
+            && sliderReset.value === 40
+            && sliderReset.form.opacity === '40'
+          ),
+          numberInput: (
+            initial.columns === '4'
+            && initial.seed === '42'
+            && numberStepped.value === '5'
+            && numberStepped.form.columns === '5'
+            && numberReset.value === '4'
+            && numberReset.form.columns === '4'
+            && numberReset.readonly
+          ),
+          colorField: (
+            initial.accent === '#2563eb'
+            && initial.lockedColor === '#dc2626'
+            && colorEdited.value === '#00ff00'
+            && colorEdited.form.accent === '#00ff00'
+            && colorReadonly.readonly
+            && !colorReadonly.open
+            && colorReadonly.form.lockedColor === '#dc2626'
+            && colorReset.value === '#2563eb'
+            && colorReset.form.accent === '#2563eb'
+          ),
+          selectionPalette: (
+            selectionPalette.checkboxBackground === selectionPalette.action
+            && selectionPalette.checkboxForeground === 'rgb(255, 255, 255)'
+            && selectionPalette.radioForeground === selectionPalette.action
+            && selectionPalette.switchBackground === selectionPalette.action
+            && selectionPalette.selectBackground === selectionPalette.action
+            && selectionPalette.selectForeground === 'rgb(255, 255, 255)'
+          ),
+          contract: (
+            checkbox.dataset.icContractStatus === 'ready'
+            && radioGroup.dataset.icContractStatus === 'ready'
+            && radios.every(radio => radio.dataset.icContractStatus === 'ready')
+            && invalidCheckbox.dataset.icContractStatus === 'invalid'
+            && standaloneRadio.dataset.icContractStatus === 'invalid'
+            && switchControl.dataset.icContractStatus === 'ready'
+            && invalidSwitch.dataset.icContractStatus === 'invalid'
+            && select.dataset.icContractStatus === 'ready'
+            && invalidSelect.dataset.icContractStatus === 'invalid'
+            && slider.dataset.icContractStatus === 'ready'
+            && invalidSlider.dataset.icContractStatus === 'invalid'
+            && numberInput.dataset.icContractStatus === 'ready'
+            && readonlyNumber.dataset.icContractStatus === 'ready'
+            && invalidNumber.dataset.icContractStatus === 'invalid'
+            && colorField.dataset.icContractStatus === 'ready'
+            && readonlyColor.dataset.icContractStatus === 'ready'
+            && invalidColor.dataset.icContractStatus === 'invalid'
+            && Boolean(invalidCheckbox.dataset.icContractReason)
+            && invalidCheckbox.checked === false
+            && standaloneRadio.checked === false
+            && invalidSwitch.checked === false
+            && JSON.stringify(contractErrors.map(error => error.component).sort()) === JSON.stringify(['ic-checkbox', 'ic-color-field', 'ic-number-input', 'ic-radio', 'ic-select', 'ic-slider', 'ic-switch'])
+          ),
+        },
+        observations: { initial, unchecked, reset, radioEdited, radioReset, switchEdited, switchReset, selectEdited, selectReset, sliderEdited, sliderStepped, sliderReset, numberStepped, numberReset, colorEdited, colorReadonly, colorReset, selectionPalette, contractErrors },
+      };
+      results.textContent = JSON.stringify(report);
+      document.documentElement.dataset.icSelectionAdjustmentTestStatus = Object.values(report.checks).every(Boolean) ? 'passed' : 'failed';
+    } catch (error) {
+      results.textContent = JSON.stringify({ checks: {}, error: String(error?.stack || error) });
+      document.documentElement.dataset.icSelectionAdjustmentTestStatus = 'failed';
+    }
+  </script>
+</body>
+</html>

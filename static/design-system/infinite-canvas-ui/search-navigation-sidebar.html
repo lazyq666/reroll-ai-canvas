@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Search Navigation Sidebar</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font:var(--ui-text-body); }
+    body { padding:var(--ui-space-4); }
+    main { display:grid; gap:var(--ui-space-3); }
+    h2,p { margin:0; }
+    p { color:var(--ui-color-text-tertiary); }
+    .stage { width:min(22rem,100%); min-height:38rem; overflow:hidden; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface); }
+    ic-prompt-template-library { width:100%; height:38rem; display:block; }
+    ic-prompt-template-library::part(header),
+    ic-prompt-template-library::part(grid) { display:none; }
+    ic-prompt-template-library::part(library-layout) { height:100%; grid-template-columns:minmax(0,1fr); padding:0; }
+    ic-prompt-template-library::part(sidebar) { width:100%; min-width:0; max-height:none; border:0; }
+  </style>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+</head>
+<body>
+  <main>
+    <h2>检索导航侧栏</h2>
+    <p>搜索与分区导航共同组成可复用的复合导航侧栏。</p>
+    <section class="stage">
+      <ic-prompt-template-library id="sidebarDemo" data-component-name="search-navigation-sidebar" aria-label="检索导航侧栏示例" active-library="common" active-category="all" can-manage open></ic-prompt-template-library>
+    </section>
+  </main>
+  <script type="module">
+    await customElements.whenDefined('ic-prompt-template-library');
+    const demo = document.querySelector('#sidebarDemo');
+    demo.libraries = [
+      { id:'common', name:'通用', categories:[{id:'lens',name:'镜头'}, {id:'light',name:'光影'}, {id:'style',name:'风格'}] },
+      { id:'canvas', name:'当前画布', scope:'canvas', categories:[] },
+    ];
+    demo.templates = [
+      { id:'wide', libraryId:'common', category:'lens', name:'广角建立镜头', positive:'远景，广角，空间层次。' },
+      { id:'soft', libraryId:'common', category:'light', name:'柔和侧光', positive:'柔和侧光与自然肤色。' },
+      { id:'canvas-note', libraryId:'canvas', name:'当前画布角色约束', positive:'保持角色服装与比例一致。' },
+    ];
+    demo.addEventListener('ic-library-change', event => {
+      demo.activeLibrary = event.detail.libraryId;
+      demo.activeCategory = 'all';
+    });
+    demo.addEventListener('ic-category-change', event => {
+      demo.activeCategory = event.detail.categoryId;
+    });
+  </script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

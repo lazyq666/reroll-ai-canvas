@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Navigation / Command Live Matrix</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    html, body { margin: 0; background: var(--ui-color-surface-canvas); color: var(--ui-color-text-primary); font-family: var(--ui-font-sans); }
+    body { padding: var(--ui-space-4); }
+    header { margin-block-end: var(--ui-space-4); }
+    h1 { margin: 0; font-size: var(--ui-font-size-6); }
+    p { color: var(--ui-color-text-tertiary); }
+    .matrix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-4); }
+    iframe { box-sizing: border-box; width: 100%; height: 760px; border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius: var(--ui-radius-l); background: var(--ui-color-surface); }
+    @media (max-width: 900px) { .matrix { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Navigation 与 Command Surfaces</h1>
+    <p>6 个实时情境 · 18 个合法组合 · Contract / Live / Migration eligibility confirmed</p>
+  </header>
+  <main class="matrix">
+    <iframe data-navigation-command-case data-theme="light" data-density="medium" data-viewport="desktop" title="Light Desktop Medium 中文" src="/static/design-system/infinite-canvas-ui/navigation-command-case.html?theme=light&amp;density=medium&amp;viewport=desktop&amp;locale=zh-CN&amp;runtime=8"></iframe>
+    <iframe data-navigation-command-case data-theme="dark" data-density="medium" data-viewport="desktop" title="Dark Desktop Medium English" src="/static/design-system/infinite-canvas-ui/navigation-command-case.html?theme=dark&amp;density=medium&amp;viewport=desktop&amp;locale=en&amp;runtime=8"></iframe>
+    <iframe data-navigation-command-case data-theme="light" data-density="small" data-viewport="desktop" title="Light Desktop Small English" src="/static/design-system/infinite-canvas-ui/navigation-command-case.html?theme=light&amp;density=small&amp;viewport=desktop&amp;locale=en&amp;runtime=8"></iframe>
+    <iframe data-navigation-command-case data-theme="dark" data-density="small" data-viewport="narrow" title="Dark Narrow Small 中文" src="/static/design-system/infinite-canvas-ui/navigation-command-case.html?theme=dark&amp;density=small&amp;viewport=narrow&amp;locale=zh-CN&amp;runtime=8"></iframe>
+    <iframe data-navigation-command-case data-theme="light" data-density="medium" data-viewport="narrow" title="Light Narrow Medium long" src="/static/design-system/infinite-canvas-ui/navigation-command-case.html?theme=light&amp;density=medium&amp;viewport=narrow&amp;locale=en&amp;long=1&amp;runtime=8"></iframe>
+    <iframe data-navigation-command-case data-theme="dark" data-density="medium" data-viewport="narrow" title="Dark Narrow Medium reduced" src="/static/design-system/infinite-canvas-ui/navigation-command-case.html?theme=dark&amp;density=medium&amp;viewport=narrow&amp;locale=zh-CN&amp;long=1&amp;motion=reduced&amp;runtime=8"></iframe>
+  </main>
+</body>
+</html>

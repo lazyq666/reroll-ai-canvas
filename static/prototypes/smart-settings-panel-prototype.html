@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 智能画布设置面板布局</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    Three variants of Smart Canvas settings, switchable via ?variant=A|B|C.
+    Question: how should retained canvas/generation settings be grouped, with
+    theme reduced to the same single-icon action used by the home shell?
+    Run: python3 tests/smart_canvas_manual_server.py
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/smart-settings-panel-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+</head>
+<body data-variant="A">
+  <main class="prototype-stage" aria-label="智能画布设置面板原型">
+    <div class="canvas-grid" aria-hidden="true"></div>
+
+    <ic-button class="canvas-back" hierarchy="secondary" size="m">
+      <ic-icon name="back" slot="start" aria-hidden="true"></ic-icon>
+      角色视觉探索
+    </ic-button>
+
+    <section class="canvas-node prompt-node" aria-label="提示词节点">
+      <span class="node-kicker">PROMPT</span>
+      <strong>夏日海边产品主视觉</strong>
+      <p>金色侧光、真实材质、轻盈空气感，编辑摄影构图。</p>
+      <span class="node-port" aria-hidden="true"></span>
+    </section>
+    <svg class="node-connection" viewBox="0 0 460 180" aria-hidden="true"><path d="M8 32 C 154 32, 248 150, 452 150"></path></svg>
+    <section class="canvas-node image-node" aria-label="图片节点">
+      <div class="image-fill"><span>4 : 3</span></div>
+      <footer><strong>生成结果 01</strong><small>2048 × 1536</small></footer>
+    </section>
+
+    <aside class="canvas-dock" aria-label="智能画布工具栏">
+      <ic-icon-button hierarchy="quiet" size="s" icon="cursor" label="指针" toggle pressed></ic-icon-button>
+      <ic-icon-button hierarchy="quiet" size="s" icon="hand" label="抓手"></ic-icon-button>
+      <ic-icon-button hierarchy="quiet" size="s" icon="brush" label="画笔"></ic-icon-button>
+      <ic-icon-button hierarchy="quiet" size="s" icon="text" label="文字"></ic-icon-button>
+      <span class="dock-divider" aria-hidden="true"></span>
+      <ic-icon-button hierarchy="quiet" size="s" icon="log" label="日志"></ic-icon-button>
+      <ic-icon-button hierarchy="quiet" size="s" icon="settings" label="设置" toggle pressed></ic-icon-button>
+    </aside>
+
+    <section id="settingsPanel" class="settings-panel" aria-label="画布设置原型"></section>
+
+    <aside class="prototype-note">
+      <span class="prototype-badge">PROTOTYPE</span>
+      <strong id="variantTitle">A · 单列清晰分组</strong>
+      <p id="variantDescription">设置全部展开，用组标题与留白建立扫描顺序。</p>
+      <ic-button id="showContextMenu" size="s" hierarchy="secondary">
+        <ic-icon name="menu" slot="start" aria-hidden="true"></ic-icon>
+        预览画布右键菜单
+      </ic-button>
+    </aside>
+
+    <aside class="state-inspector" aria-label="原型当前状态">
+      <span>当前状态</span>
+      <dl id="stateInspector"></dl>
+    </aside>
+
+    <ic-menu id="canvasContextMenu" size="small" label="画布操作" trigger="context" selection="command" placement="block-end" alignment="start">
+      <ic-menu-item kind="command" value="copy" icon="copy" label="复制节点"><kbd>⌘C</kbd></ic-menu-item>
+      <ic-menu-item kind="command" value="paste" icon="paste" label="粘贴节点"><kbd>⌘V</kbd></ic-menu-item>
+      <ic-menu-item kind="command" value="batch-import" icon="upload" label="批量导入节点"></ic-menu-item>
+      <span role="separator" aria-hidden="true"></span>
+      <ic-menu-item kind="command" value="prompt" icon="prompt" label="新建提示词节点"></ic-menu-item>
+      <ic-menu-item kind="command" value="frame" icon="frame" label="新建分区"></ic-menu-item>
+    </ic-menu>
+
+    <div id="prototypeToast" class="prototype-toast" role="status" aria-live="polite" hidden></div>
+  </main>
+
+  <nav class="prototype-switcher" aria-label="原型方案切换">
+    <button type="button" data-previous aria-label="上一个方案">←</button>
+    <span id="switcherLabel">A · 单列清晰分组</span>
+    <button type="button" data-next aria-label="下一个方案">→</button>
+  </nav>
+
+  <script type="module" src="/static/prototypes/smart-settings-panel-prototype.js"></script>
+</body>
+</html>

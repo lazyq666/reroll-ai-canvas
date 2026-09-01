@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.menu-popover-tooltip",
+  "interfaceVersion": 17,
+  "ticket": "7425068E99C5-17",
+  "uuid": "6d5b8c51-55c0-4c14-97e2-2fbd2f779632",
+  "module": {
+    "layer": "pattern",
+    "publicSeam": "ic-menu, ic-menu-item, ic-popover, ic-confirm-popover, ic-tooltip and ic-mention-picker custom elements, native platform/ARIA behavior, and central --ui-* Tokens",
+    "adapter": "Vendor elements, positioning engine details, events and --wa-* variables remain replaceable inside the implementation.",
+    "responsibility": "Own anchored overlay semantics, trigger coordination, collision-aware positioning, dismissal, focus and keyboard navigation so callers provide meaning and content rather than reimplement interaction state machines."
+  },
+  "dependencyStatus": {
+    "status": "satisfied",
+    "evidence": ["Foundations confirmed", "Actions contract, implementation, live and migration confirmed"]
+  },
+  "review": {
+    "contract": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "同意", "confirmedOn": "2026-08-09", "evidence": "User explicitly approved judgments 1–11, the deterministic 51-instance Legacy evidence, and the recommended ic-menu disposition for the interactive layout chooser."},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-23", "evidence": ["/static/js/infinite-canvas-ui/menu-popover.js", "/static/js/infinite-canvas-ui/mention-picker.js", "/static/js/infinite-canvas-ui/core.js"]},
+    "live": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "验收通过；2026-08-23 指定将 Mention Picker 收录到菜单、浮层与提示", "confirmedOn": "2026-08-23", "evidence": "Menu/Popover/Tooltip live matrix remains confirmed; the Mention Picker addition has a dedicated Chrome contract covering geometry, Arrow navigation, Pointer selection, ARIA and wheel containment."},
+    "migration": {"status": "confirmed", "evidence": "/docs/design-system/verification/menu-popover-browser.json"}
+  },
+  "judgments": [
+    "Menu is a keyboard-navigable command or bounded-choice list; Dropdown and Context Menu are trigger modes of the same Menu surface rather than visual variants.",
+    "Dropdown opens from an explicit control, or from an intentional activation point on a spatial Canvas, and returns focus to that logical invoker; Context Menu opens from pointer context activation or the platform context-menu key at an invocation point.",
+    "Popover contains contextual non-modal content or controls that are not a Menu; Tooltip contains only short plain explanatory text and never interactive or required content.",
+    "Only one peer anchored overlay remains open in a dismissal scope; opening another closes the previous overlay without disturbing a Dialog modal Dialog.",
+    "Placement states intent, not coordinates: preferred side and alignment may flip then shift to stay visible; narrow viewports do not silently turn these patterns into Dialogs.",
+    "Menu owns roving focus and typeahead; Popover moves focus inside only when its content requires interaction; Tooltip never receives focus.",
+    "Escape closes the topmost anchored overlay and restores the appropriate trigger or context target; outside activation closes Menu and Popover unless the activation belongs to the trigger.",
+    "Disabled Menu Items are discoverable but not activatable; separators and group labels are not focusable; checked state is explicit for checkbox/radio items.",
+    "Hover may preview a submenu after a delay, but keyboard activation is immediate and pointer movement cannot make the diagonal path to a submenu unusable.",
+    "Menu/Popover/Tooltip does not own Tabs, Toolbar, Command Palette, navigation, Dialog semantics or business-page migration.",
+    "Mention Picker is an editor-retained suggestion Listbox: the caller owns filtering and insertion, while the component owns anchoring, active-option navigation, selection signaling and wheel containment.",
+    "Confirm Popover is an anchored, non-modal confirmation for a single local consequence; it owns explicit Cancel and Confirm actions, restores trigger focus, and reserves danger styling for the destructive Confirm action.",
+    "Menu, Popover, Confirm Popover, Tooltip and Mention Picker share one interruptible anchored-overlay motion lifecycle; callers own meaning and choreography, not duplicated entrance or exit CSS."
+  ],
+  "positioning": {
+    "preferredSides": ["block-end", "block-start", "inline-end", "inline-start"],
+    "alignment": ["start", "center", "end"],
+    "collision": "flip then shift within the viewport",
+    "anchor": "Dropdown normally uses an explicit trigger and may use an intentional Canvas activation point; Context Menu uses the invocation point. Both retain their logical invoker for focus return. Popover and Tooltip use an explicit trigger.",
+    "narrowViewport": "Keep the overlay within central viewport spacing and constrain its scrollable content; changing to a modal presentation requires a separately approved pattern."
+  },
+  "density": {
+    "contextAttribute": "data-ui-density",
+    "contexts": ["medium", "small"],
+    "default": "medium",
+    "smallPurpose": "Compact Menu, Context Menu and anchored overlay presentation for Smart Canvas, toolbars and other information-dense professional-tool regions.",
+    "rule": "Density is inherited by default. ic-menu size=small is the approved local compact override; appearance=iconless removes decorative leading icons from command menus without removing labels, shortcuts or choice indicators."
+  },
+  "dismissal": {
+    "menu": ["item activation unless the item keeps the Menu open", "outside activation", "Escape", "trigger toggles closed", "another peer overlay opens"],
+    "popover": ["explicit close or completed action", "outside activation when dismiss-policy is light", "Escape", "trigger toggles closed", "another peer overlay opens"],
+    "tooltip": ["pointer leaves both trigger and Tooltip", "trigger loses focus", "Escape"],
+    "focusReturn": "Dropdown and interactive Popover return to their trigger; Context Menu returns to its logical invoker when it remains connected and focusable."
+  },
+  "motion": {
+    "stateModel": ["closed", "entering", "open", "exiting"],
+    "entry": "Menu, Popover, Confirm Popover and Mention Picker fade from 0 to 1 while moving one --ui-space-1 step toward the anchor and scaling from .96 to 1; Tooltip uses .98 to 1. Entry consumes --ui-motion-duration-normal and --ui-motion-ease-fluid, while Tooltip consumes --ui-motion-duration-fast.",
+    "exit": "Reverse the entry relationship with --ui-motion-duration-fast and --ui-motion-ease-press. Remove the public open state immediately, but retain a non-interactive, aria-hidden Top Layer surface until visual exit completes.",
+    "interruption": "Reopening during exit cancels stale completion work and keeps the current Top Layer surface open.",
+    "reanchor": "Calling Mention Picker show while it is already open updates the geometry anchor, logical invoker and placement without replaying entry motion.",
+    "lifecycleEvents": "ic-after-show fires after entry settles and ic-after-hide fires after exit settles and the Top Layer surface closes.",
+    "reducedMotion": "prefers-reduced-motion and data-ui-motion=reduced keep the state lifecycle but remove translation and scale and reduce durations to 1ms through central Tokens."
+  },
+  "keyboard": {
+    "menu": ["ArrowDown", "ArrowUp", "Home", "End", "Enter", "Space", "Escape", "printable-character typeahead"],
+    "submenu": ["ArrowRight opens and enters", "ArrowLeft closes and returns to parent item"],
+    "contextMenu": ["Shift+F10 or ContextMenu key opens at the logical invoker", "pointer context activation opens at the invocation point"],
+    "popover": ["Tab follows DOM order", "Shift+Tab follows reverse DOM order", "Escape closes and restores focus"],
+    "tooltip": ["appears for keyboard focus without moving focus", "Escape dismisses"]
+  },
+  "components": [
+    {
+      "tag": "ic-menu",
+      "purpose": "Present a labeled, keyboard-navigable list of commands or bounded choices using dropdown or context triggering.",
+      "useWhen": ["The content is a list of commands.", "A compact bounded choice list benefits from Menu keyboard semantics."],
+      "prohibitedUses": ["page navigation shell", "toolbar", "command palette", "arbitrary form layout", "tooltip", "dialog"],
+      "requiredAttributes": ["label", "trigger"],
+      "attributes": ["label", "open", "trigger", "selection", "placement", "alignment", "size", "appearance", "variant"],
+      "methods": ["show", "showAt", "hide", "focus"],
+      "events": ["ic-show", "ic-after-show", "ic-select", "ic-hide", "ic-after-hide", "ic-contract-error"],
+      "slots": ["trigger", "default"],
+      "semanticDimensions": {"trigger": ["dropdown", "context"], "selection": ["command", "single", "multiple"], "placement": ["block-end", "block-start", "inline-end", "inline-start"], "alignment": ["start", "center", "end"], "size": ["medium", "small"], "appearance": ["standard", "iconless"], "variant": ["standard", "reference-generate"]},
+      "legalCombinations": [
+        {"id": "dropdown-command", "trigger": "dropdown", "selection": "command"},
+        {"id": "dropdown-single-choice", "trigger": "dropdown", "selection": "single"},
+        {"id": "dropdown-multiple-choice", "trigger": "dropdown", "selection": "multiple"},
+        {"id": "context-command", "trigger": "context", "selection": "command"},
+        {"id": "context-command-iconless", "trigger": "context", "selection": "command", "appearance": "iconless"},
+        {"id": "dropdown-command-small", "trigger": "dropdown", "selection": "command", "size": "small"},
+        {"id": "context-command-small-reference-generate", "trigger": "context", "selection": "command", "size": "small", "variant": "reference-generate"}
+      ],
+      "invariants": ["Context Menu is command-only.", "Menu showAt positions from finite viewport invocation coordinates and retains its logical invoker for focus return.", "Menu has one accessible label.", "Roving focus skips disabled items, separators and group labels.", "Pointer opening moves focus into the Menu without painting a keyboard-only focus indicator; keyboard navigation reveals the focus indicator immediately.", "Opening and dismissal use the shared interruptible anchored-overlay motion lifecycle; the exiting surface is not interactive.", "size=small applies 12px labels, small icons and small control height to every owned Menu Item.", "appearance=iconless is command-only and hides decorative leading icons while preserving labels and trailing shortcuts.", "variant=reference-generate is the Smart Canvas labeled compact command surface and requires trigger=context, selection=command and size=small.", "Invalid combinations fail closed and emit ic-contract-error."]
+    },
+    {
+      "tag": "ic-menu-item",
+      "purpose": "Represent one command or checked choice inside ic-menu.",
+      "useWhen": ["The item performs one named command.", "The item represents one checked choice in an approved selection Menu."],
+      "prohibitedUses": ["standalone button", "navigation tab", "free-form content", "submenu trigger without an owned child Menu"],
+      "requiredAttributes": ["label", "kind"],
+      "attributes": ["label", "kind", "value", "checked", "disabled", "tone", "icon", "submenu"],
+      "semanticDimensions": {"kind": ["command", "checkbox", "radio"], "tone": ["neutral", "danger"], "content": ["label", "leading-icon", "trailing-shortcut", "submenu-indicator"]},
+      "legalCombinations": [
+        {"id": "neutral-command", "kind": "command", "tone": "neutral"},
+        {"id": "danger-command", "kind": "command", "tone": "danger"},
+        {"id": "checkbox-choice", "kind": "checkbox", "tone": "neutral"},
+        {"id": "radio-choice", "kind": "radio", "tone": "neutral"}
+      ],
+      "invariants": ["Danger is command-only.", "checked is valid only for checkbox and radio kinds.", "icon accepts only the project-owned ic-icon semantic name and remains decorative because the visible label owns the accessible name.", "A shortcut label documents an existing shortcut and does not register one."]
+    },
+    {
+      "tag": "ic-popover",
+      "purpose": "Show labeled non-modal contextual information or controls anchored to one explicit trigger.",
+      "useWhen": ["Context must remain adjacent to its trigger.", "Content may include controls but does not require modal isolation."],
+      "prohibitedUses": ["command-only list", "required confirmation", "unsaved modal task", "navigation shell", "short plain explanation"],
+      "requiredAttributes": ["label"],
+      "attributes": ["label", "open", "placement", "alignment", "dismiss-policy", "focus-policy"],
+      "methods": ["show", "hide", "focus"],
+      "events": ["ic-show", "ic-after-show", "ic-hide", "ic-after-hide", "ic-contract-error"],
+      "slots": ["trigger", "default"],
+      "semanticDimensions": {"content": ["informational", "interactive"], "dismissPolicy": ["light", "explicit"], "focusPolicy": ["retain-trigger", "move-into"]},
+      "legalCombinations": [
+        {"id": "informational-light", "content": "informational", "dismissPolicy": "light", "focusPolicy": "retain-trigger"},
+        {"id": "interactive-light", "content": "interactive", "dismissPolicy": "light", "focusPolicy": "move-into"},
+        {"id": "interactive-explicit", "content": "interactive", "dismissPolicy": "explicit", "focusPolicy": "move-into"}
+      ],
+      "invariants": ["Popover has an accessible label.", "Explicit dismissal requires a visible close or completing action.", "Popover never traps focus like a Dialog.", "Opening and dismissal use the shared interruptible anchored-overlay motion lifecycle; ic-after-hide follows visual exit."]
+    },
+    {
+      "tag": "ic-tooltip",
+      "purpose": "Provide a short plain-text accessible explanation for one focusable control.",
+      "useWhen": ["A concise explanation supplements the control's accessible name.", "Icon-only or unfamiliar controls need brief clarification."],
+      "prohibitedUses": ["interactive content", "required instructions", "errors", "rich preview", "command list", "content available only on hover"],
+      "requiredAttributes": ["content"],
+      "attributes": ["content", "placement", "shortcut"],
+      "semanticDimensions": {"content": ["plain-short-text"], "trigger": ["hover-and-focus"], "focusPolicy": ["never-move-focus"]},
+      "legalCombinations": [{"id": "control-explanation", "content": "plain-short-text", "trigger": "hover-and-focus", "focusPolicy": "never-move-focus"}],
+      "invariants": ["Tooltip has no interactive descendants.", "The trigger remains operable without the Tooltip.", "Tooltip text is exposed as an accessible description and never replaces the control name.", "Tooltip uses the faster shared anchored-overlay motion and removes its accessible description as soon as dismissal starts.", "shortcut is optional supporting text, uses a secondary text color and never replaces content."]
+    },
+    {
+      "tag": "ic-confirm-popover",
+      "purpose": "Confirm one local action adjacent to its explicit trigger without introducing a nested Dialog.",
+      "useWhen": ["The affected object remains visible next to the trigger.", "The action needs explicit Cancel and Confirm choices but does not require modal isolation."],
+      "prohibitedUses": ["multi-step task", "unsaved form", "page-wide or account-wide consequence", "confirmation without a visible trigger", "content requiring a Focus trap"],
+      "requiredAttributes": ["label", "confirm-label", "cancel-label"],
+      "attributes": ["label", "description", "confirm-label", "cancel-label", "consequence", "confirm-loading", "open", "placement", "alignment"],
+      "methods": ["show", "hide", "focus", "cancel", "confirm"],
+      "events": ["ic-show", "ic-after-show", "ic-cancel", "ic-confirm", "ic-hide", "ic-after-hide", "ic-contract-error"],
+      "semanticDimensions": {"consequence": ["neutral", "destructive"], "dismissPolicy": ["cancel-action", "outside-as-cancel", "escape-as-cancel"], "focusPolicy": ["move-to-cancel", "return-to-trigger"]},
+      "legalCombinations": [{"id": "destructive-confirmation", "consequence": "destructive"}],
+      "invariants": ["The surface uses neutral Border, Surface and Shadow Tokens; destructive styling is reserved for the Confirm button.", "Cancel receives initial focus.", "Outside activation and Escape emit ic-cancel before closing.", "Opening and dismissal inherit the shared interruptible Popover motion lifecycle.", "confirm-loading prevents duplicate confirmation and cancellation.", "The caller owns business copy, persistence and success or failure feedback."]
+    },
+    {
+      "tag": "ic-mention-picker",
+      "purpose": "Present filtered Prompt or reference suggestions above a normal editor container or over the bottom of a fullscreen editing region without moving focus away from authoring.",
+      "useWhen": ["Typing a supported trigger opens a bounded suggestion list.", "The caller needs Pointer and Arrow-key selection while retaining editor focus.", "Prompt suggestions use rows; reference media suggestions use a source Segmented Control and a natural-ratio masonry grid."],
+      "prohibitedUses": ["general command menu", "page navigation", "unfiltered Prompt Library browsing", "arbitrary form controls", "dialog"],
+      "requiredAttributes": ["label"],
+      "attributes": ["label", "empty-label", "open"],
+      "properties": ["items", "tabs", "activeTab", "loading", "error", "hasMore", "activeIndex", "mediaMode", "open"],
+      "methods": ["show", "hide", "position", "setActiveIndex", "moveActive", "moveVisual", "selectActive", "selectTab", "requestMore", "handleKeydown"],
+      "events": ["ic-show", "ic-after-show", "ic-select", "ic-tab-change", "ic-load-more", "ic-retry", "ic-hide", "ic-after-hide", "ic-contract-error"],
+      "semanticDimensions": {"content": ["prompt-row", "media-masonry-card"], "source": ["single-source", "tabbed-sources"], "state": ["populated", "loading", "empty", "error", "paginating"], "navigation": ["pointer", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape"], "placement": ["block-start", "block-end", "overlay-block-end"]},
+      "visualContract": {"listboxPadding": {"blockStart": "--ui-space-1", "inline": "--ui-space-2", "blockEnd": "--ui-space-2"}, "mediaHoverText": {"color": "--ui-color-text-white", "fontSize": "--ui-font-size-1", "fontWeight": "--ui-font-weight-regular"}, "mediaBadge": {"itemField": "badge", "defaultPlacement": "block-start inline-end", "leadingPlacement": "block-end full-width", "leadingContent": "reference-slot-label"}, "mediaLeading": {"itemField": "leading", "layout": "row-major-before-masonry", "cardWidth": "4.0625rem", "visualModel": "ic-reference-thumbnail"}, "mediaScroll": {"axis": "vertical", "layoutContainer": "media-leading-and-media-columns-inside-listbox", "horizontalOverflow": "prohibited", "reverseScroll": "required", "pagination": "append-preserve-position"}},
+      "legalCombinations": [{"id": "anchored-suggestion-list", "content": "prompt-row", "placement": "block-start|block-end", "focusPolicy": "retain-editor"}, {"id": "fullscreen-editor-suggestion-list", "content": "prompt-row|media-masonry-card", "placement": "overlay-block-end", "focusPolicy": "retain-editor"}, {"id": "anchored-reference-media-picker", "content": "media-masonry-card", "source": "tabbed-sources", "placement": "block-start|block-end", "focusPolicy": "retain-editor"}],
+      "invariants": ["The surface width equals its anchor container width.", "block-start stays 0.25rem above its anchor container; block-end stays 0.25rem below it; overlay-block-end aligns the surface bottom to the fullscreen editing region bottom and covers that region upward.", "Every placement uses a stable 18rem preferred height, shrinks only to fit the viewport, and never participates in editor layout.", "The surface uses the browser Top Layer so a fullscreen backdrop or panel cannot obscure it.", "The geometry anchor may differ from the editor that retains focus and keyboard ownership.", "The active option remains visible during Arrow-key navigation.", "Pointer selection does not move focus before ic-select is emitted.", "Wheel input never propagates to Canvas Pan or Zoom.", "Prompt names use regular subtitle text and do not consume the entire row; categories use faint text immediately after the visible name.", "Reference media uses natural-ratio masonry cards, shared search owned by the caller, and separate active-option and scroll state per source.", "Media items marked leading render before the masonry in row-major order without changing their public item indexes; they use the ic-reference-thumbnail visual model at 4.0625rem square, with cover media and a full-width block-end badge.", "Tabbed reference media sources use a left-aligned intrinsic-width small ic-segmented-control rather than stretching across the surface.", "Reference media cards target 5.625rem width, use --ui-color-border-secondary and --ui-radius-xs by default, share that radius with their images, and use --ui-color-border-focus, --ui-shadow-raised and a transparent-to---ui-color-mask gradient on hover.", "A non-leading reference media item may provide badge text; the component renders it at the card's block-start inline-end corner without changing selection behavior.", "Loading, Error and Empty are mutually exclusive without items; Loading or Error may coexist with existing items only as a pagination footer.", "Callers may load reference media in 60-item increments, but every loaded item remains available; appending a page preserves scroll position and active option, and reverse scrolling reaches prior pages.", "Video cards use poster images rather than per-card players; audio preview uses one shared manually started player that stops on leave, source switch or close."]
+    }
+  ],
+  "runtimeContract": {
+    "invalidCombination": {"statusAttribute": "data-ic-contract-status=invalid", "reasonAttribute": "data-ic-contract-reason", "event": "ic-contract-error", "activation": "fail-closed"},
+    "engineBoundary": "Business and acceptance sources consume only ic-* tags, native platform/ARIA behavior and central --ui-* Tokens."
+  },
+  "liveMatrix": {
+    "status": "confirmed",
+    "plannedLegalCombinationCount": 17,
+    "themes": ["light", "dark"], "densities": ["medium", "small"], "viewports": ["desktop", "narrow"], "locales": ["zh-CN", "en"], "content": ["normal", "long"], "motion": ["standard", "reduced"],
+    "states": ["closed", "entering", "open", "exiting", "hover", "focus-visible", "disabled", "checked", "invalid"],
+    "interaction": ["keyboard", "typeahead", "focus-return", "outside-dismiss", "escape", "collision", "motion-interruption", "aria", "contrast"]
+  },
+  "legacyReviewNotes": [
+    {"instanceId": "legacy.db6407a6591884d6.1", "baselineTarget": "tooltip.tooltip", "evidence": "The source toggles an open layout-choice surface on activation.", "confirmedDisposition": "ic-menu", "reason": "The user approved the recommended Menu mapping; interactive content is prohibited in ic-tooltip."}
+  ],
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "instanceCount": 46,
+    "byLegacyTarget": {"menu.menu": 20, "popover.popover": 25, "tooltip.tooltip": 1},
+    "byTarget": {"ic-menu": 20, "ic-popover": 25, "ic-tooltip": 1},
+    "bySourceFile": {"static/canvas.html": 5, "static/index.html": 2, "static/js/canvas.js": 2, "static/js/smart-canvas.js": 31, "static/online.html": 1, "static/smart-canvas.html": 5},
+    "rule": "Legacy evidence proves coverage and scenario demand; it does not define target trigger, placement, dismissal, focus, keyboard behavior or appearance."
+  }
+}

@@ -1,0 +1,577 @@
+{
+  "version": 3,
+  "provider_id": "jimeng",
+  "contract_scope": {
+    "model_capabilities": "Jimeng Seedance 2.0 and 2.5 model input constraints.",
+    "backend_path_options": "Composer option visibility for every implemented video submission adapter."
+  },
+  "product_scope": {
+    "supported_model_families": ["seedance2.0", "seedance2.5"],
+    "unsupported_models_are_omitted": true,
+    "supported_transport_commands": [
+      "text2video",
+      "image2video",
+      "frames2video",
+      "multimodal2video"
+    ],
+    "family_invariants": {
+      "all_supported_models_support_first_last_frames": true
+    }
+  },
+  "source": {
+    "type": "dreamina-cli-help",
+    "cli_version": "a857341-dirty",
+    "confirmed_at": "2026-08-15",
+    "commands": [
+      "dreamina text2video -h",
+      "dreamina image2video -h",
+      "dreamina frames2video -h",
+      "dreamina multimodal2video -h"
+    ],
+    "backend_path_audit": {
+      "confirmed_at": "2026-08-15",
+      "implementation_files": [
+        "backend/infinite_canvas/providers/http_impl.py",
+        "backend/infinite_canvas/providers/cli_impl.py",
+        "backend/infinite_canvas/providers/runninghub_impl.py"
+      ]
+    }
+  },
+  "semantics": {
+    "scope": "Seedance 2.0/2.5 model constraints are grounded in Dreamina CLI; Composer option visibility is grounded in the implemented backend submission path.",
+    "runtime_availability": "Backend configuration can further restrict model availability.",
+    "unsupported_by_omission": true,
+    "strict_validation": true,
+    "resolution_value_format": "Values match the lowercase CLI input format.",
+    "model_profile_rule": "Each model inherits command constraints from capability_profile_id.",
+    "first_use_note": "Some models may require one initial generation on Dreamina Web when the backend returns AigcComplianceConfirmationRequired."
+  },
+  "composer_policy": {
+    "text_to_video": {
+      "selectable_mode": false,
+      "activation": "No reference media is selected.",
+      "command": "text2video",
+      "aspect_ratio_control": {
+        "visible": true,
+        "editable": true
+      }
+    },
+    "reference_mode_control": {
+      "visible_when": "At least one reference medium is selected.",
+      "modes": {
+        "multimodal_all_around": {
+          "label": "多模态（全能参考）",
+          "command": "multimodal2video",
+          "accepted_media_types": ["image", "video", "audio"],
+          "reference_limits": "model_profile",
+          "aspect_ratio_control": {
+            "visible": true,
+            "editable": true
+          }
+        },
+        "first_last_frames": {
+          "label": "首尾帧视频",
+          "command": "frames2video",
+          "accepted_media_types": ["image"],
+          "image_count": {
+            "minimum": 1,
+            "maximum": 2,
+            "roles": ["first", "last"]
+          },
+          "aspect_ratio_control": {
+            "visible": true,
+            "editable": false,
+            "value": "adaptive",
+            "locked": true,
+            "reason": "The output aspect ratio follows the first frame."
+          }
+        }
+      }
+    },
+    "reference_count_control": {
+      "interaction": "derived_from_attached_media",
+      "numeric_selector": false,
+      "show_current_count": true,
+      "show_remaining_capacity": true,
+      "prevent_or_explain_overflow": true
+    }
+  },
+  "composer_option_contract": {
+    "visibility_rule": "Only options with mode=user_toggle are rendered as Composer toggles. automatic is applied by the backend, schema is rendered only by a model/workflow schema owner, and unsupported is omitted.",
+    "modes": ["user_toggle", "automatic", "schema", "unsupported"],
+    "definitions": {
+      "enhance_prompt": {
+        "label": "提示词增强",
+        "setting_key": "videoEnhancePrompt",
+        "request_field": "enhance_prompt"
+      },
+      "enable_upsample": {
+        "label": "高清",
+        "setting_key": "videoEnableUpsample",
+        "request_field": "enable_upsample"
+      },
+      "generate_audio": {
+        "label": "生成音频",
+        "setting_key": "videoGenerateAudio",
+        "request_field": "generate_audio"
+      },
+      "camera_fixed": {
+        "label": "镜头固定",
+        "setting_key": "videoCameraFixed",
+        "request_field": "camerafixed"
+      },
+      "watermark": {
+        "label": "水印",
+        "setting_key": "videoWatermark",
+        "request_field": "watermark"
+      }
+    }
+  },
+  "backend_path_contracts": {
+    "dreamina_cli": {
+      "label": "Dreamina CLI",
+      "path": "dreamina video commands",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "unsupported",
+        "camera_fixed": "unsupported",
+        "watermark": "unsupported"
+      }
+    },
+    "agnes_openai_video": {
+      "label": "Agnes OpenAI 视频",
+      "path": "/v1/videos",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "unsupported",
+        "camera_fixed": "unsupported",
+        "watermark": "unsupported"
+      }
+    },
+    "generic_json_video": {
+      "label": "通用 JSON 视频接口",
+      "path": "/v1/videos/generations or /v2/videos/generations",
+      "composer_options": {
+        "enhance_prompt": "user_toggle",
+        "enable_upsample": "user_toggle",
+        "generate_audio": "user_toggle",
+        "camera_fixed": "user_toggle",
+        "watermark": "user_toggle"
+      }
+    },
+    "volcengine_native": {
+      "label": "火山方舟原生",
+      "path": "/api/v3/contents/generations/tasks",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "user_toggle",
+        "camera_fixed": "user_toggle",
+        "watermark": "user_toggle"
+      }
+    },
+    "yuli_create": {
+      "label": "玉玉 /v1/video/create",
+      "path": "/v1/video/create",
+      "composer_options": {
+        "enhance_prompt": "automatic",
+        "enable_upsample": "user_toggle",
+        "generate_audio": "unsupported",
+        "camera_fixed": "unsupported",
+        "watermark": "unsupported"
+      },
+      "automatic_behavior": {
+        "enhance_prompt": "Enabled by the backend only when the prompt contains non-ASCII characters."
+      }
+    },
+    "yuli_veo_openai": {
+      "label": "玉玉 Veo /v1/videos",
+      "path": "/v1/videos",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "unsupported",
+        "camera_fixed": "unsupported",
+        "watermark": "user_toggle"
+      }
+    },
+    "lingjing_openai_video": {
+      "label": "灵境 OpenAI 视频",
+      "path": "/v1/videos",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "unsupported",
+        "camera_fixed": "unsupported",
+        "watermark": "user_toggle"
+      }
+    },
+    "apimart_seedance": {
+      "label": "APIMart Seedance",
+      "path": "/v1/videos/generations",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "user_toggle",
+        "camera_fixed": "unsupported",
+        "watermark": "unsupported"
+      }
+    },
+    "apimart_veo31": {
+      "label": "APIMart Veo 3.1",
+      "path": "/v1/videos/generations",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "unsupported",
+        "camera_fixed": "unsupported",
+        "watermark": "unsupported"
+      }
+    },
+    "runninghub_schema": {
+      "label": "RunningHub",
+      "path": "model endpoint",
+      "composer_options": {
+        "enhance_prompt": "unsupported",
+        "enable_upsample": "unsupported",
+        "generate_audio": "schema",
+        "camera_fixed": "unsupported",
+        "watermark": "schema"
+      },
+      "schema_fields": {
+        "generate_audio": ["generateAudio"],
+        "watermark": ["watermark"]
+      }
+    }
+  },
+  "backend_path_routing": [
+    {
+      "contract_id": "dreamina_cli",
+      "provider_ids": ["jimeng"]
+    },
+    {
+      "contract_id": "runninghub_schema",
+      "provider_ids": ["runninghub"],
+      "protocols": ["runninghub"]
+    },
+    {
+      "contract_id": "agnes_openai_video",
+      "base_url_hosts": ["apihub.agnes-ai.com"]
+    },
+    {
+      "contract_id": "agnes_openai_video",
+      "model_prefixes": ["agnes-video-"]
+    },
+    {
+      "contract_id": "volcengine_native",
+      "protocols": ["volcengine"],
+      "base_url_paths": ["", "/", "/api/v3"]
+    },
+    {
+      "contract_id": "yuli_veo_openai",
+      "base_url_hosts": ["yuli.host"],
+      "normalized_model_ids": ["veo31", "veo31fast"]
+    },
+    {
+      "contract_id": "yuli_create",
+      "base_url_hosts": ["yuli.host"]
+    },
+    {
+      "contract_id": "lingjing_openai_video",
+      "provider_ids": ["lingjing"],
+      "base_url_hosts": ["apistudio.vip"]
+    },
+    {
+      "contract_id": "apimart_veo31",
+      "protocols": ["apimart"],
+      "base_url_hosts": ["apimart.ai"],
+      "model_prefixes": ["veo3.1"]
+    },
+    {
+      "contract_id": "apimart_seedance",
+      "protocols": ["apimart"],
+      "base_url_hosts": ["apimart.ai"]
+    },
+    {
+      "contract_id": "generic_json_video"
+    }
+  ],
+  "parameter_definitions": {
+    "prompt": {
+      "flag": "--prompt",
+      "type": "string",
+      "description": "Generation or edit instruction.",
+      "commands": ["text2video", "image2video", "frames2video", "multimodal2video"]
+    },
+    "image": {
+      "flag": "--image",
+      "type_by_command": {
+        "image2video": "local_file_path",
+        "multimodal2video": "local_file_path_array"
+      },
+      "repeatable_by_command": {
+        "image2video": false,
+        "multimodal2video": true
+      },
+      "commands": ["image2video", "multimodal2video"]
+    },
+    "first": {
+      "flag": "--first",
+      "type": "local_file_path",
+      "description": "Local first-frame image.",
+      "commands": ["frames2video"]
+    },
+    "last": {
+      "flag": "--last",
+      "type": "local_file_path",
+      "description": "Local last-frame image.",
+      "commands": ["frames2video"]
+    },
+    "video": {
+      "flag": "--video",
+      "type": "local_file_path_array",
+      "repeatable": true,
+      "commands": ["multimodal2video"]
+    },
+    "audio": {
+      "flag": "--audio",
+      "type": "local_file_path_array",
+      "repeatable": true,
+      "commands": ["multimodal2video"]
+    },
+    "duration": {
+      "flag": "--duration",
+      "type": "integer",
+      "unit": "seconds",
+      "default": 5,
+      "description": "Output video duration; supported range is model-specific.",
+      "commands": ["text2video", "image2video", "frames2video", "multimodal2video"]
+    },
+    "ratio": {
+      "flag": "--ratio",
+      "type": "enum",
+      "values": ["1:1", "3:4", "16:9", "4:3", "9:16", "21:9"],
+      "default_when_omitted": "16:9",
+      "commands": ["text2video", "multimodal2video"]
+    },
+    "video_resolution": {
+      "flag": "--video_resolution",
+      "type": "enum",
+      "values": ["480p", "720p", "1080p", "4k"],
+      "required": true,
+      "description": "Output resolution; accepted values are model-specific.",
+      "commands": ["text2video", "image2video", "frames2video", "multimodal2video"]
+    },
+    "model_version": {
+      "flag": "--model_version",
+      "type": "enum",
+      "values": [
+        "seedance2.0",
+        "seedance2.0fast",
+        "seedance2.0_vip",
+        "seedance2.0fast_vip",
+        "seedance2.0mini",
+        "seedance2.5"
+      ],
+      "commands": ["text2video", "image2video", "frames2video", "multimodal2video"]
+    },
+    "session": {
+      "flag": "--session",
+      "type": "integer",
+      "default": 0,
+      "commands": ["text2video", "image2video", "frames2video", "multimodal2video"]
+    },
+    "poll": {
+      "flag": "--poll",
+      "type": "integer",
+      "unit": "seconds",
+      "minimum": 0,
+      "default": 0,
+      "description": "Maximum inline polling time. Zero keeps submission asynchronous.",
+      "commands": ["text2video", "image2video", "frames2video", "multimodal2video"]
+    }
+  },
+  "command_definitions": {
+    "text2video": {
+      "composer_mode_selectable": false,
+      "activation": "no_reference_media",
+      "default_model_id": "seedance2.0fast",
+      "required_parameters": ["prompt", "video_resolution"],
+      "optional_parameters": ["duration", "ratio", "model_version", "session", "poll"],
+      "ratio": {"mode": "explicit_or_default", "default": "16:9"}
+    },
+    "image2video": {
+      "composer_reference_mode": null,
+      "composer_mode_selectable": false,
+      "activation": "Internal transport command only; Seedance Composer routes a single image through 全能参考.",
+      "default_model_id": "seedance2.0_vip",
+      "required_parameters": ["image", "prompt", "video_resolution"],
+      "optional_parameters": ["duration", "model_version", "session", "poll"],
+      "image_count": {"minimum": 1, "maximum": 1},
+      "cli_ratio": {"mode": "inferred", "source": "image"}
+    },
+    "frames2video": {
+      "composer_reference_mode": "first_last_frames",
+      "default_model_id": "seedance2.0_vip",
+      "required_parameters": ["first", "prompt", "video_resolution"],
+      "optional_parameters": ["last", "duration", "model_version", "session", "poll"],
+      "image_count": {"minimum": 1, "maximum": 2, "roles": ["first", "last"]},
+      "cli_ratio": {"mode": "inferred", "source": "first"}
+    },
+    "multimodal2video": {
+      "composer_reference_mode": "multimodal_all_around",
+      "default_model_id": "seedance2.0_vip",
+      "required_parameters": ["video_resolution"],
+      "optional_parameters": ["image", "video", "audio", "prompt", "duration", "ratio", "model_version", "session", "poll"],
+      "input_rules": "model_profile",
+      "ratio": {"mode": "explicit_or_default", "default": "16:9"}
+    }
+  },
+  "capability_profiles": {
+    "seedance2.0-standard": {
+      "commands": {
+        "text2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p"],
+          "aspect_ratios": ["1:1", "3:4", "16:9", "4:3", "9:16", "21:9"]
+        },
+        "image2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p"],
+          "image_count": {"minimum": 1, "maximum": 1}
+        },
+        "frames2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p"],
+          "image_count": {"minimum": 1, "maximum": 2}
+        },
+        "multimodal2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p"],
+          "aspect_ratios": ["1:1", "3:4", "16:9", "4:3", "9:16", "21:9"],
+          "inputs": {
+            "minimum_requirement": "at least one image or video",
+            "image_count": {"minimum": 0, "maximum": 9},
+            "video_count": {"minimum": 0, "maximum": 3},
+            "audio_count": {"minimum": 0, "maximum": 3},
+            "total_count": {"minimum": 1, "maximum": 12},
+            "reference_media_duration_seconds": {
+              "applies_to": ["video", "audio"],
+              "each": {"minimum": 2, "maximum": 15},
+              "combined_total": {"minimum": 2, "maximum": 15}
+            },
+            "audio_only_supported": false
+          }
+        }
+      }
+    },
+    "seedance2.0-vip-resolution": {
+      "commands": {
+        "text2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p", "1080p", "4k"],
+          "aspect_ratios": ["1:1", "3:4", "16:9", "4:3", "9:16", "21:9"]
+        },
+        "image2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p", "1080p", "4k"],
+          "image_count": {"minimum": 1, "maximum": 1}
+        },
+        "frames2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p", "1080p", "4k"],
+          "image_count": {"minimum": 1, "maximum": 2}
+        },
+        "multimodal2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 15},
+          "video_resolutions": ["720p", "1080p", "4k"],
+          "aspect_ratios": ["1:1", "3:4", "16:9", "4:3", "9:16", "21:9"],
+          "inputs": {
+            "minimum_requirement": "at least one image or video",
+            "image_count": {"minimum": 0, "maximum": 9},
+            "video_count": {"minimum": 0, "maximum": 3},
+            "audio_count": {"minimum": 0, "maximum": 3},
+            "total_count": {"minimum": 1, "maximum": 12},
+            "reference_media_duration_seconds": {
+              "applies_to": ["video", "audio"],
+              "each": {"minimum": 2, "maximum": 15},
+              "combined_total": {"minimum": 2, "maximum": 15}
+            },
+            "audio_only_supported": false
+          }
+        }
+      }
+    },
+    "seedance2.5-vip": {
+      "commands": {
+        "text2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 30},
+          "video_resolutions": ["480p", "720p", "1080p"],
+          "aspect_ratios": ["1:1", "3:4", "16:9", "4:3", "9:16", "21:9"]
+        },
+        "image2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 30},
+          "video_resolutions": ["480p", "720p", "1080p"],
+          "image_count": {"minimum": 1, "maximum": 1}
+        },
+        "frames2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 30},
+          "video_resolutions": ["480p", "720p", "1080p"],
+          "image_count": {"minimum": 1, "maximum": 2}
+        },
+        "multimodal2video": {
+          "duration_seconds": {"minimum": 4, "maximum": 30},
+          "video_resolutions": ["480p", "720p", "1080p"],
+          "aspect_ratios": ["1:1", "3:4", "16:9", "4:3", "9:16", "21:9"],
+          "inputs": {
+            "minimum_requirement": "any mix of image, video, and audio; audio-only is allowed",
+            "image_count": {"minimum": 0, "maximum": 30},
+            "video_count": {"minimum": 0, "maximum": 10},
+            "audio_count": {"minimum": 0, "maximum": 10},
+            "total_count": {"minimum": 1, "maximum": 50},
+            "reference_media_duration_seconds": {
+              "applies_to": ["video", "audio"],
+              "each": {"minimum": 2, "maximum": 30},
+              "combined_total": {"minimum": 2, "maximum": 30}
+            },
+            "audio_only_supported": true
+          }
+        }
+      }
+    }
+  },
+  "models": [
+    {
+      "model_id": "seedance2.0",
+      "capability_profile_id": "seedance2.0-standard",
+      "access_requirement": "not_declared_by_cli_help"
+    },
+    {
+      "model_id": "seedance2.0fast",
+      "capability_profile_id": "seedance2.0-standard",
+      "access_requirement": "not_declared_by_cli_help"
+    },
+    {
+      "model_id": "seedance2.0_vip",
+      "capability_profile_id": "seedance2.0-vip-resolution",
+      "access_requirement": "not_declared_by_cli_help"
+    },
+    {
+      "model_id": "seedance2.0fast_vip",
+      "capability_profile_id": "seedance2.0-standard",
+      "access_requirement": "not_declared_by_cli_help"
+    },
+    {
+      "model_id": "seedance2.0mini",
+      "capability_profile_id": "seedance2.0-standard",
+      "access_requirement": "not_declared_by_cli_help"
+    },
+    {
+      "model_id": "seedance2.5",
+      "capability_profile_id": "seedance2.5-vip",
+      "access_requirement": "vip_only"
+    }
+  ]
+}

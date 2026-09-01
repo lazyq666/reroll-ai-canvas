@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.text-entry-form-field",
+  "interfaceVersion": 4,
+  "ticket": "7425068E99C5-10",
+  "uuid": "52b0aa18-39da-46ab-b824-a4509ef3cfe8",
+  "module": {
+    "layer": "primitives-and-pattern",
+    "publicSeam": "ic-* custom elements and central --ui-* tokens",
+    "adapter": "Web Awesome remains replaceable inside the implementation boundary.",
+    "responsibility": "Collect single-line and multi-line text while Form Field owns the accessible label, description and validation relationship."
+  },
+  "review": {
+    "contract": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "同意，其他通过",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User approved the other four judgments and approved the clarified boundary: ic-textarea remains plain text while Smart Canvas mentions, image and prompt references, and Token/Chip composition belong to a separate structured Composer Pattern."
+    },
+    "implementation": {
+      "status": "implemented",
+      "implementedOn": "2026-08-09",
+      "evidence": [
+        "/static/js/infinite-canvas-ui/text-entry.js",
+        "/static/design-system/infinite-canvas-ui/text-entry.html",
+        "/tests/infinite_canvas_ui_text_entry_browser_harness.html"
+      ]
+    },
+    "live": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "验收通过",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved the corrected Text Entry/Form Field live visual and interaction matrix after layout, focus-frame and Dark theme fixes."
+    },
+    "migration": {
+      "status": "confirmed"
+    }
+  },
+  "judgments": [
+    "ic-input is for a single text-like value; numeric adjustment and color picking are separate families.",
+    "ic-textarea is for authored multi-line plain text; Smart Canvas mentions, image and prompt references, and Token/Chip composition are supported by a separate structured Composer Pattern that reuses Text Entry and Form Field foundations.",
+    "ic-form-field owns the accessible name, Hint and Validation relationships; a visible label is optional only when aria-label supplies the non-visual accessible name, and placeholder never replaces either.",
+    "Invalid is a semantic state with text and programmatic association, never color alone.",
+    "Loading is excluded because text entry has no honest generic loading behavior; async work belongs to the surrounding flow.",
+    "ic-input appearance=outlined is the default bordered surface; appearance=subtle uses --ui-color-surface-subtle without a border for lower-emphasis text and search entry."
+  ],
+  "states": [
+    "default",
+    "hover",
+    "focus-visible",
+    "disabled",
+    "readonly",
+    "invalid"
+  ],
+  "components": [
+    {
+      "tag": "ic-input",
+      "purpose": "Collect one text-like value with native form and validation behavior.",
+      "semanticDimensions": {
+        "type": ["text", "search", "email", "password", "url", "tel"],
+        "density": ["small", "medium", "large"],
+        "appearance": ["outlined", "subtle"],
+        "endAction": ["none", "text-button", "icon-button", "text-and-icon-buttons"]
+      },
+      "requiredAttributes": ["name"],
+      "optionalAttributes": ["appearance", "autocomplete", "disabled", "end-action", "maxlength", "minlength", "pattern", "placeholder", "readonly", "required", "size", "value"],
+      "slots": {"end": "One ic-button or ic-icon-button, or one of each, when end-action is present. Embedded icon-only actions use ic-icon-button background=ghost; the search clear action stays hidden until the field receives focus."},
+      "events": ["input", "change", "ic-invalid"],
+      "formAssociated": true,
+      "prohibitedUses": ["number-adjustment", "color-picker", "file-picker", "placeholder-as-label", "destructive-credential-removal-as-an-embedded-icon"]
+    },
+    {
+      "tag": "ic-textarea",
+      "purpose": "Collect authored multi-line plain text with native form and validation behavior.",
+      "semanticDimensions": {
+        "resize": ["vertical", "none"],
+        "density": ["small", "medium", "large"]
+      },
+      "requiredAttributes": ["name"],
+      "optionalAttributes": ["disabled", "maxlength", "minlength", "placeholder", "readonly", "required", "rows", "value"],
+      "events": ["input", "change", "ic-invalid"],
+      "formAssociated": true,
+      "prohibitedUses": ["rich-text-editor", "code-editor", "token-composer", "placeholder-as-label"]
+    },
+    {
+      "tag": "ic-form-field",
+      "purpose": "Compose one text control with either a visible label or a non-visual aria-label, plus optional hint and validation message.",
+      "requiredAttributes": [],
+      "optionalAttributes": ["label", "aria-label", "hint", "required", "validation"],
+      "accessibleName": {"oneOf": ["label", "aria-label"], "placeholderIsNotAName": true},
+      "allowedChildren": ["ic-input", "ic-textarea"],
+      "slots": ["label", "control", "hint", "validation"],
+      "prohibitedUses": ["multiple-controls", "placeholder-as-label", "validation-without-text", "status-by-color-only"]
+    }
+  ],
+  "liveMatrix": {
+    "legalCombinationCount": 27,
+    "caseCount": 6,
+    "states": ["default", "hover", "focus-visible", "disabled", "readonly", "invalid"],
+    "themes": ["light", "dark"],
+    "viewports": ["desktop", "narrow"],
+    "content": ["zh-CN", "en", "long"],
+    "motion": ["standard", "reduced"]
+  },
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "instanceCount": 179,
+    "byDisposition": {
+      "ic-input": 75,
+      "ic-textarea": 30,
+      "structured-composer-pattern": 1,
+      "future-adjustment-family": 73
+    },
+    "byLegacyTarget": {
+      "input.text-field": 57,
+      "input.password-field": 16,
+      "input.search-field": 2,
+      "input.number-field": 71,
+      "input.color-field": 2,
+      "textarea.field": 31
+    },
+    "rule": "All classified ic-input and ic-textarea evidence is accounted for. Legacy counts prove coverage, not target variants or appearance."
+  }
+}

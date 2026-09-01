@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 新建提示词模板</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    Three variants of the Prompt Template create task, switchable via ?variant=.
+    Run: ./.venv/bin/python -m http.server 9800
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/prompt-template-create-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+</head>
+<body>
+  <main class="library-stage" aria-hidden="true">
+    <header class="library-header">
+      <div>
+        <div class="scope-switch"><span class="active">通用</span><span>当前画布</span></div>
+        <p>当前工作区内的所有画布均可使用</p>
+      </div>
+      <div class="search-skeleton"><ic-icon name="search"></ic-icon><span>搜索提示词模板</span></div>
+    </header>
+    <div class="library-layout">
+      <aside>
+        <strong>全部 <small>12</small></strong>
+        <span>视角 <small>4</small></span>
+        <span>光影 <small>3</small></span>
+        <span>产品 <small>5</small></span>
+      </aside>
+      <section class="template-grid">
+        <article class="new-card"><ic-icon name="add"></ic-icon><span>新建提示词</span></article>
+        <article class="template-card tone-one"><p>远景，广角，清晰的空间层次与环境关系。</p><strong>广角建立镜头</strong></article>
+        <article class="template-card tone-two"><p>柔和侧光，浅景深，自然肤色与安静背景。</p><strong>柔光人像</strong></article>
+        <article class="template-card tone-three"><p>纯净背景，克制反光，精准轮廓，商业产品摄影。</p><strong>极简产品图</strong></article>
+      </section>
+    </div>
+  </main>
+
+  <div class="prototype-backdrop"></div>
+  <section class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="prototypeTitle">
+    <header class="modal-titlebar">
+      <div class="title-mark"><ic-icon name="prompt-library"></ic-icon></div>
+      <div>
+        <h1 id="prototypeTitle">新建提示词</h1>
+        <p data-variant-description></p>
+      </div>
+      <button class="icon-close" type="button" aria-label="关闭"><ic-icon name="close"></ic-icon></button>
+    </header>
+
+    <form id="prototypeForm" class="prototype-form">
+      <section id="variantHost"></section>
+      <footer class="modal-footer">
+        <div class="draft-status" aria-live="polite"><span class="status-dot"></span><span data-draft-status>草稿仅保存在当前页面</span></div>
+        <div class="footer-actions">
+          <ic-button type="button" hierarchy="secondary" data-cancel>取消</ic-button>
+          <ic-button type="submit" hierarchy="primary"><ic-icon name="add" slot="start"></ic-icon>创建提示词</ic-button>
+        </div>
+      </footer>
+    </form>
+  </section>
+
+  <nav class="prototype-switcher" aria-label="原型方案切换">
+    <button type="button" data-previous aria-label="上一个方案">←</button>
+    <div class="switcher-copy">
+      <strong data-variant-label></strong>
+      <span data-state-summary></span>
+    </div>
+    <button type="button" data-next aria-label="下一个方案">→</button>
+    <span class="switcher-divider"></span>
+    <button type="button" data-theme aria-label="切换明暗主题"><ic-icon name="theme"></ic-icon></button>
+  </nav>
+
+  <div class="prototype-toast" role="status" hidden></div>
+  <script type="module" src="/static/prototypes/prompt-template-create-prototype.js"></script>
+</body>
+</html>

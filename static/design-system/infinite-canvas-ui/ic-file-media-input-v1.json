@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.file-media-input",
+  "interfaceVersion": 10,
+  "ticket": "145",
+  "module": {
+    "layer": "pattern",
+    "publicSeam": "ic-file-input capability picker, ic-upload-surface, ic-media-player-controls, ic-image-frame, ic-media-slot, ic-reference-thumbnail, ic-thumb-hovercard, native File/HTMLMediaElement objects and events, and central --ui-* tokens",
+    "adapter": "Native input internals and private DOM remain replaceable. Upload transport, object URL lifetime, persistence and domain meaning remain caller-owned.",
+    "responsibility": "Separate local file acquisition and policy validation from visible upload surfaces and media-slot lifecycle presentation."
+  },
+  "review": {
+    "contract": {"status": "confirmed", "reviewer": "User (Issue #145 follow-up)", "confirmedOn": "2026-08-25"},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-25", "evidence": ["/static/js/infinite-canvas-ui/file-media-input.js", "/tests/infinite_canvas_ui_file_media_input_browser_harness.html"]},
+    "live": {"status": "confirmed", "reviewer": "Codex visual QA", "confirmedOn": "2026-08-25", "note": "Component Library Light, Dark and 430px narrow screenshots inspected; shared player and file/media browser contracts passed."},
+    "migration": {"status": "implemented", "evidence": "Command pickers remain hidden; Smart Canvas node uses node Surface; RunningHub non-image inputs use media slots."}
+  },
+  "judgments": [
+    "ic-file-input has no visible presentation and owns only acquisition, validation, form participation, clear and disabled behavior.",
+    "Command upload entry points compose ic-button with the upload icon; file/folder choices compose ic-menu and ic-button.",
+    "ic-upload-surface exposes only node and compact shapes. single/multiple, required, accept, max-files and max-size are behavior parameters, not visual variants.",
+    "The node upload Surface inherits its caller's cursor so Canvas drag affordances remain visible; its composed ic-button retains its independent action cursor and activation behavior.",
+    "node follows the approved Figma visual direction; Figma text-file, paste and 500MB copy do not expand current product policy without a confirmed rule.",
+    "ic-media-slot shares lifecycle and action APIs, not one visual shell: image stays square, video uses a landscape player, audio uses file identity plus shared playback controls, and file uses an information card. ic-image-frame remains the image-specific compatibility interface.",
+    "ic-media-player-controls keeps the native HTMLMediaElement as its playback engine while presenting one project-owned control language composed from ic-icon-button, ic-slider and ic-icon.",
+    "ic-reference-thumbnail owns the compact image, video, audio or text preview, its label, Hover/Focus removal affordance, keyboard activation and cancelable activation/removal events. It composes the public ic-thumb-hovercard for passive Hover previews. Audio uses audio-lines and text uses square-text, centered in the media stage above the label. The caller owns reference ordering and domain mutations.",
+    "Existing Upload Surface, media action, remove-action and audio-wave motion remains authoritative; ic-thumb-hovercard adds only the missing interruptible Tooltip-like entrance and exit instead of restyling already suitable interactions.",
+    "The components never own upload transport, credentials, persistence, retry policy or Managed Media meaning."
+  ],
+  "components": [
+    {
+      "tag": "ic-file-input", "purpose": "Invisible capability picker for native file selection and validation.",
+      "requiredAttributes": ["label", "accept"], "attributes": ["label", "accept", "multiple", "disabled", "required", "max-files", "max-size", "name"],
+      "properties": ["files", "rejectedFiles", "validity", "validationMessage"], "methods": ["open", "acceptFiles", "clear", "checkValidity", "reportValidity"],
+      "events": ["ic-change", "ic-reject", "ic-clear", "ic-contract-error"], "semanticDimensions": {"presentation": ["none"], "selection": ["single", "multiple"]},
+      "legalCombinations": [{"id": "picker", "presentation": "none"}],
+      "invariants": ["The picker never paints a button or Dropzone.", "Rejected files never enter files or form data.", "Rejection reasons are stable: type, size and count.", "Invalid configuration fails closed."]
+    },
+    {
+      "tag": "ic-upload-surface", "purpose": "Visible click and drop target backed by the shared picker capability.",
+      "requiredAttributes": ["shape", "label", "accept"], "attributes": ["shape", "label", "accept", "multiple", "disabled", "required", "max-files", "max-size", "name", "title", "hint", "error"],
+      "properties": ["files", "rejectedFiles", "validity", "validationMessage"], "methods": ["open", "clear", "checkValidity", "reportValidity"],
+      "events": ["ic-change", "ic-reject", "ic-clear", "ic-contract-error"], "semanticDimensions": {"shape": ["node", "compact"], "state": ["default", "hover", "focus-visible", "drag-active", "disabled", "error"]},
+      "legalCombinations": [{"id": "surface-node", "shape": "node"}, {"id": "surface-compact", "shape": "compact"}],
+      "invariants": ["Behavior policy never creates a visual shape.", "compact is a clickable, keyboard-operable and drop-scoped Surface.", "node keeps its Surface drop-scoped, opens the picker only from its shared primary ic-button, and inherits the caller cursor outside that button.", "compact renders only upload icon and label."]
+    },
+    {
+      "tag": "ic-media-player-controls", "purpose": "Shared audio/video playback controls over one slotted native media engine.",
+      "requiredAttributes": ["kind", "label"], "attributes": ["kind", "label", "disabled"],
+      "slots": ["media: exactly one native video or audio element matching kind"], "properties": ["media"], "methods": ["play", "pause", "togglePlayback"], "events": ["ic-playback-error", "ic-contract-error"],
+      "semanticDimensions": {"kind": ["video", "audio"], "state": ["paused", "playing", "muted", "disabled", "contract-error"]},
+      "legalCombinations": [{"id": "media-player-video", "kind": "video"}, {"id": "media-player-audio", "kind": "audio"}],
+      "invariants": ["The native media element owns decoding, buffering and playback; its browser controls are disabled.", "Both kinds share play/pause, seek, elapsed/duration and mute/unmute only, composed from public ic-* controls.", "Both kinds use a vertical control gradient from fully transparent at the top to var(--ui-color-mask) at the bottom. The token remains the endpoint color rather than owning gradient structure. Both use white controls and a full-width seek row; volume sliders, fullscreen and Picture in Picture are intentionally absent.", "Keyboard and accessible names come from ic-icon-button and ic-slider; the control strip never covers the slot delete action."]
+    },
+    {
+      "tag": "ic-media-slot", "purpose": "One media/file slot with in-place lifecycle and actions.",
+      "requiredAttributes": ["kind", "state", "label"], "attributes": ["kind", "state", "label", "src", "name", "alt", "progress", "size", "disabled", "error-message"],
+      "methods": ["preview", "requestUpload", "requestReplace", "remove", "retry"], "events": ["ic-preview", "ic-upload-request", "ic-replace-request", "ic-remove", "ic-retry", "ic-error", "ic-contract-error"],
+      "semanticDimensions": {"kind": ["image", "video", "audio", "file"], "state": ["empty", "uploading", "ready", "error", "action"]},
+      "legalCombinations": [{"id": "media-image", "kind": "image"}, {"id": "media-video", "kind": "video"}, {"id": "media-audio", "kind": "audio"}, {"id": "media-file", "kind": "file"}],
+      "invariants": ["Progress remains in place.", "Ready media uses kind-appropriate playback or file information.", "Video and audio compose ic-media-player-controls and do not expose browser-native control chrome.", "Video follows the Smart Canvas landscape player pattern; audio follows its media information plus the same shared control strip; neither inherits the image square.", "Video, audio and file expose delete as their only ready-state slot action; playback controls are media operations, while preview and replace affordances are absent.", "File empty, uploading, ready and error states retain one horizontal information-card skeleton.", "requestReplace remains a compatibility API for caller-owned replacement flows but has no built-in visible affordance; delete and retry are caller-owned cancelable requests."]
+    },
+    {
+      "tag": "ic-reference-thumbnail", "purpose": "Compact preview and shared actions for one Reference Input Instance.",
+      "requiredAttributes": ["kind", "label"], "attributes": ["kind", "label", "src", "preview-src", "original-src", "alt", "preview-text", "removable", "remove-label", "data-preview-state"],
+      "methods": ["activate", "requestRemove"], "events": ["ic-activate", "ic-remove"],
+      "semanticDimensions": {"kind": ["image", "video", "audio", "text"], "state": ["default", "hover", "focus-visible", "removable", "dragging", "blocked"]},
+      "legalCombinations": [{"id": "reference-image", "kind": "image"}, {"id": "reference-video", "kind": "video"}, {"id": "reference-audio", "kind": "audio"}, {"id": "reference-text", "kind": "text"}],
+      "invariants": ["The component owns its 45px frame, label and Hover/Focus removal action, and composes ic-thumb-hovercard for its passive Hover preview.", "Text Hover content resolves from preview-text, caller text data, aria-label and label in that order, so full callers show source text while minimal legal examples still expose the Hover surface.", "Audio uses audio-lines and text uses square-text; each icon is centered within the media stage after subtracting the bottom label area, and the text thumbnail frame uses var(--ui-color-surface).", "Pointer click and Enter or Space dispatch ic-activate for media references.", "Removal is a cancelable request; callers own Reference Input Instance mutation and ordering.", "Smart Canvas and the component library render the same public element rather than duplicate thumbnail markup or styles."]
+    },
+    {
+      "tag": "ic-thumb-hovercard", "purpose": "Passive Hover preview for one reference thumbnail.",
+      "requiredAttributes": [], "attributes": [],
+      "methods": ["show", "hide"], "events": [],
+      "semanticDimensions": {"kind": ["image", "video", "audio", "text"], "state": ["closed", "entering", "open", "exiting"]},
+      "legalCombinations": [{"id": "hovercard-image", "kind": "image"}, {"id": "hovercard-video", "kind": "video"}, {"id": "hovercard-audio", "kind": "audio"}, {"id": "hovercard-text", "kind": "text"}],
+      "invariants": ["The Hovercard is preview-only and contains no bottom actions or original image, video, audio or text viewer action.", "Image and video preserve their intrinsic aspect ratio inside a maximum 12rem by 12rem box; the long edge fills the available maximum and the short edge remains automatic.", "Video starts on Hover and its native media element is paused, unloaded and removed when Hover ends.", "Text is fixed at 12rem by 8rem, clips overflow and never exposes a scrollable preview.", "Audio is fixed at 12rem by 8rem, presents only a centered audio-lines icon, starts on Hover and has its native media element paused, unloaded and removed when Hover ends.", "The Hovercard opens above its Thumb with both horizontal center lines aligned and a var(--ui-space-2) gap; it may flip below or shift horizontally only when viewport-edge clamping is required.", "Opening and dismissal use an interruptible Tooltip-like 150ms fade, 4px anchor-directed movement and .98 scale; dismissal removes accessibility exposure and stops media immediately, but retains the non-interactive surface until the visual exit completes.", "Reduced Motion preserves the lifecycle with a 1ms duration and no movement or scale.", "The Hovercard owns viewport clamping and is non-interactive."]
+    },
+    {
+      "tag": "ic-image-frame", "purpose": "Image-specific media-slot compatibility surface.",
+      "requiredAttributes": ["label"], "attributes": ["label", "src", "alt", "state", "size", "progress", "disabled"],
+      "methods": ["preview", "requestUpload", "requestReplace", "remove", "retry"], "events": ["ic-preview", "ic-upload-request", "ic-replace-request", "ic-remove", "ic-retry", "ic-error", "ic-contract-error"],
+      "semanticDimensions": {"state": ["upload", "uploading", "normal", "hover", "fail"]}, "legalCombinations": [{"id": "image-frame", "kind": "image"}],
+      "invariants": ["Image Frame keeps the established public state names while sharing media-slot implementation.", "The ready image action layer exposes preview and delete only; the inactive replace affordance is not shown. The requestReplace method remains available for caller-owned replacement flows."]
+    }
+  ],
+  "keyboard": {"surface": "Tab reaches the whole Surface; Enter or Space opens the native picker.", "thumbnail": "Tab reaches a media reference thumbnail and its remove action; Enter or Space activates the reference without conflating it with removal.", "player": "Tab reaches playback actions and the seek slider; Enter or Space activates buttons; Arrow, Home and End operate seek through ic-slider.", "actions": "Visible preview, delete and retry affordances remain native buttons; replacement is caller-invoked API only.", "focus": "Focus Visible uses the central focus ring."},
+  "accessibility": {"label": "Every picker, Surface and slot requires one accessible label.", "announcement": "Surface exposes accepted counts and rejection reasons through a polite live region.", "required": "Required participates in form validity.", "disabled": "Disabled blocks picker, keyboard and drop acquisition."},
+  "liveMatrix": {"status": "implemented", "fixture": "/static/design-system/infinite-canvas-ui/file-media-input.html", "caseFixture": "/static/design-system/infinite-canvas-ui/file-media-input-case.html", "caseCount": 6, "legalCombinationCount": 2, "themes": ["light", "dark"], "viewports": ["desktop", "narrow"], "locales": ["zh-CN", "en"], "motion": ["standard", "reduced"], "states": ["default", "hover", "focus-visible", "drag-active", "disabled", "error", "empty", "uploading", "ready", "action"]},
+  "runtimeContract": {"status": "implemented", "invalidCombination": {"statusAttribute": "data-ic-contract-status=invalid", "reasonAttribute": "data-ic-contract-reason", "event": "ic-contract-error", "activation": "fail-closed"}, "engineBoundary": "Business sources consume only ic-* tags, native File/platform/ARIA behavior, component events and central --ui-* tokens."}
+}

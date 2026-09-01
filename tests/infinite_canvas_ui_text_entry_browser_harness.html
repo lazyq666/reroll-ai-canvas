@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en" data-ic-text-entry-test-status="">
+<head>
+  <meta charset="utf-8"><title>Reroll UI Text Entry browser contract</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <form id="profile-form">
+    <ic-form-field id="name-field" label="Project name" hint="Use a recognizable name" required>
+      <ic-input slot="control" id="project-name" name="projectName" value="Draft"></ic-input>
+    </ic-form-field>
+    <ic-form-field id="notes-field" label="Notes" hint="Plain text only">
+      <ic-textarea slot="control" id="project-notes" name="notes" rows="3" resize="vertical" value="Initial notes"></ic-textarea>
+    </ic-form-field>
+    <ic-input id="subtle-input" name="subtleInput" appearance="subtle" value="Subtle text"></ic-input>
+    <ic-input id="subtle-search" name="subtleSearch" type="search" appearance="subtle" value="Canvas"></ic-input>
+    <ic-input id="invalid-appearance-input" name="invalidAppearance" appearance="glass" value="Invalid appearance"></ic-input>
+    <ic-input id="icon-action-input" name="iconAction" label="Icon action" value="icon" end-action>
+      <ic-icon-button id="icon-action" slot="end" hierarchy="quiet" icon="detect" label="Verify icon action"></ic-icon-button>
+    </ic-input>
+    <ic-input id="text-action-input" name="textAction" label="Text action" value="text" end-action>
+      <ic-button id="text-action" slot="end" size="medium" hierarchy="quiet">Verify</ic-button>
+    </ic-input>
+    <ic-input id="dual-action-input" name="dualAction" label="Two actions" value="dual" end-action>
+      <ic-icon-button id="dual-icon-action" slot="end" hierarchy="quiet" icon="detect" label="Detect"></ic-icon-button>
+      <ic-button id="dual-text-action" slot="end" size="medium" hierarchy="quiet">Verify</ic-button>
+    </ic-input>
+  </form>
+  <pre id="ic-results"></pre>
+  <script type="module">
+    import '/static/js/infinite-canvas-ui/core.js';
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const results = document.querySelector('#ic-results');
+    try {
+      await Promise.all(['ic-input', 'ic-textarea', 'ic-form-field', 'ic-button', 'ic-icon-button'].map(tag => customElements.whenDefined(tag)));
+      await paint();
+      const form = document.querySelector('#profile-form');
+      const input = document.querySelector('#project-name');
+      const textarea = document.querySelector('#project-notes');
+      const field = document.querySelector('#name-field');
+      const subtleInput = document.querySelector('#subtle-input');
+      const subtleSearch = document.querySelector('#subtle-search');
+      const invalidAppearanceInput = document.querySelector('#invalid-appearance-input');
+      const iconActionInput = document.querySelector('#icon-action-input');
+      const textActionInput = document.querySelector('#text-action-input');
+      const dualActionInput = document.querySelector('#dual-action-input');
+      let iconActionClicks = 0;
+      let textActionClicks = 0;
+      let dualIconActionClicks = 0;
+      let dualTextActionClicks = 0;
+      document.querySelector('#icon-action').addEventListener('click', () => { iconActionClicks += 1; });
+      document.querySelector('#text-action').addEventListener('click', () => { textActionClicks += 1; });
+      document.querySelector('#dual-icon-action').addEventListener('click', () => { dualIconActionClicks += 1; });
+      document.querySelector('#dual-text-action').addEventListener('click', () => { dualTextActionClicks += 1; });
+      const initial = Object.fromEntries(new FormData(form));
+      input.value = 'Studio';
+      textarea.value = 'Updated notes';
+      await paint();
+      const edited = Object.fromEntries(new FormData(form));
+      field.setAttribute('validation', 'Name is already used');
+      await paint();
+      const validity = { checkValidity: input.checkValidity(), fieldInvalid: field.hasAttribute('invalid'), ariaInvalid: input.getAttribute('aria-invalid'), validationMessage: input.validationMessage };
+      const invalid = !validity.checkValidity && validity.fieldInvalid && validity.ariaInvalid === 'true';
+      const validationText = field.shadowRoot.querySelector('[part="validation"]').textContent;
+      const relationships = input.label === 'Project name' && input.hint.includes('Use a recognizable name') && input.hint.includes('Name is already used') && input.required;
+      const radiusProbe = document.createElement('div');
+      radiusProbe.style.borderRadius = 'var(--ui-radius-s)';
+      document.body.append(radiusProbe);
+      const expectedRadius = getComputedStyle(radiusProbe).borderRadius;
+      radiusProbe.remove();
+      const radii = {
+        expected: expectedRadius,
+        input: getComputedStyle(input.shadowRoot.querySelector('[part~="base"]')).borderRadius,
+        textarea: getComputedStyle(textarea.shadowRoot.querySelector('[part~="base"]')).borderRadius,
+      };
+      const subtleProbe = document.createElement('div');
+      subtleProbe.style.background = 'var(--ui-color-surface-subtle)';
+      document.body.append(subtleProbe);
+      const expectedSubtleBackground = getComputedStyle(subtleProbe).backgroundColor;
+      subtleProbe.remove();
+      const subtleAppearance = [subtleInput, subtleSearch].map(control => {
+        const style = getComputedStyle(control.shadowRoot.querySelector('[part~="base"]'));
+        return {
+          background: style.backgroundColor,
+          borderWidth: style.borderTopWidth,
+          status: control.dataset.icContractStatus,
+        };
+      });
+      const appearanceContract = {
+        subtle: subtleAppearance,
+        invalidStatus: invalidAppearanceInput.dataset.icContractStatus,
+        invalidError: invalidAppearanceInput.getAttribute('ic-contract-error'),
+      };
+      document.querySelector('#icon-action').click();
+      document.querySelector('#text-action').click();
+      document.querySelector('#dual-icon-action').click();
+      document.querySelector('#dual-text-action').click();
+      await paint();
+      const endActions = {
+        icon: iconActionInput.dataset.icContractStatus,
+        text: textActionInput.dataset.icContractStatus,
+        dual: dualActionInput.dataset.icContractStatus,
+        iconActionClicks,
+        textActionClicks,
+        dualIconActionClicks,
+        dualTextActionClicks,
+      };
+      field.removeAttribute('validation');
+      form.reset();
+      await paint();
+      const reset = { input: input.value, textarea: textarea.value };
+      const report = {
+        checks: {
+          input: initial.projectName === 'Draft' && edited.projectName === 'Studio',
+          textarea: initial.notes === 'Initial notes' && edited.notes === 'Updated notes',
+          formField: relationships && invalid && validationText === 'Name is already used',
+          radii: radii.input === radii.expected && radii.textarea === radii.expected,
+          subtleAppearance: subtleAppearance.every(item => item.background === expectedSubtleBackground && item.borderWidth === '0px' && item.status === 'valid'),
+          appearanceContract: appearanceContract.invalidStatus === 'invalid' && appearanceContract.invalidError === 'Unsupported ic-input appearance: glass',
+          endActions: endActions.icon === 'valid' && endActions.text === 'valid' && endActions.dual === 'valid' && endActions.iconActionClicks === 1 && endActions.textActionClicks === 1 && endActions.dualIconActionClicks === 1 && endActions.dualTextActionClicks === 1,
+          reset: reset.input === 'Draft' && reset.textarea === 'Initial notes',
+        },
+        observations: { initial, edited, relationships, validity, invalid, validationText, radii, expectedSubtleBackground, appearanceContract, endActions, reset },
+      };
+      results.textContent = JSON.stringify(report);
+      document.documentElement.dataset.icTextEntryTestStatus = Object.values(report.checks).every(Boolean) ? 'passed' : 'failed';
+    } catch (error) {
+      results.textContent = JSON.stringify({ checks: {}, error: String(error?.stack || error) });
+      document.documentElement.dataset.icTextEntryTestStatus = 'failed';
+    }
+  </script>
+</body>
+</html>

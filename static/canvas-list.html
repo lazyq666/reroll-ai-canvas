@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-studio-scale="off" data-ui-scope="canvas-list">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <title data-i18n="workspace.pageTitle">项目工作台</title>
+    <script>
+        (function(){
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/touch-mouse.js?v=2026.09.01.2.1785221122"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <link rel="stylesheet" href="/static/css/canvas-list.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.2.1787875924">
+</head>
+<body>
+    <div id="workspace" class="workspace">
+        <!-- LEFT: project sidebar -->
+        <aside id="sidebar" class="ws-sidebar">
+            <div class="ws-side-head">
+                <div class="ws-side-title" data-i18n="workspace.projects">项目</div>
+                <ic-icon-button id="newProjectBtn" class="ws-side-add" type="button" size="s" hierarchy="secondary" icon="add" label="新建项目" data-i18n-label="workspace.newProject"></ic-icon-button>
+            </div>
+            <div id="newProjectRow" class="ws-newproj-row">
+                <ic-input id="newProjectInput" class="ws-newproj-input" type="text" maxlength="60" placeholder="项目名称" aria-label="项目名称" data-i18n-placeholder="workspace.projectName" data-i18n-aria-label="workspace.projectName"></ic-input>
+                <ic-icon-button id="newProjectCancel" class="ws-mini-btn" type="button" size="s" hierarchy="quiet" icon="close" label="取消" data-i18n-label="common.cancel"></ic-icon-button>
+                <ic-icon-button id="newProjectConfirm" class="ws-mini-btn" type="button" size="s" hierarchy="secondary" icon="check" label="确定" data-i18n-label="common.confirm"></ic-icon-button>
+            </div>
+            <ic-tabs id="projectList" class="ws-project-list" label="项目筛选" aria-label="项目筛选" data-i18n-label="workspace.projects" data-legal-combination="vertical-manual-label" orientation="vertical" activation="manual"></ic-tabs>
+            <div class="ws-side-foot">
+                <ic-button id="trashEntry" class="ws-trash-entry" type="button" size="m" hierarchy="quiet">
+                    <span class="ws-project-nav ws-trash-nav">
+                        <ic-icon class="ws-project-icon" name="delete" size="small" aria-hidden="true"></ic-icon>
+                        <span class="ws-project-name" data-i18n="workspace.trash">回收站</span>
+                        <ic-badge id="trashBadge" class="ws-project-count ws-trash-badge" kind="count" tone="neutral">0</ic-badge>
+                    </span>
+                </ic-button>
+            </div>
+        </aside>
+
+        <!-- RIGHT: board -->
+        <main class="ws-main">
+            <!-- Board (pan/zoom) -->
+            <div id="board" class="ws-board" aria-busy="true">
+                <ic-canvas-grid></ic-canvas-grid>
+                <ic-toolbar class="ws-topbar-right" label="画布浏览操作" appearance="plain" data-ui-density="small">
+                    <ic-button id="pasteCanvasBtn" class="ws-paste-btn" type="button" hierarchy="secondary" title="粘贴到此项目" data-i18n-title="workspace.pasteHere" hidden><ic-icon slot="start" name="paste" aria-hidden="true"></ic-icon><span data-i18n="workspace.pasteHere">粘贴到此项目</span></ic-button>
+                    <ic-button id="boardLoadMore" class="ws-load-more-btn" type="button" hierarchy="secondary" title="加载更多画布" data-i18n-title="workspace.loadMoreCanvases" hidden><ic-icon slot="start" name="collection" aria-hidden="true"></ic-icon><span data-i18n="workspace.loadMore">加载更多</span></ic-button>
+                    <ic-icon-button id="boardResetView" class="ws-icon-btn" type="button" hierarchy="secondary" icon="reset-view" label="重置视图" data-i18n-label="workspace.resetView"></ic-icon-button>
+                    <ic-icon-button id="boardRefresh" class="ws-icon-btn" type="button" hierarchy="secondary" icon="refresh" label="刷新" data-i18n-label="workspace.refresh"></ic-icon-button>
+                    <ic-button id="newCanvasBtn" class="ws-primary-btn" type="button" hierarchy="primary"><ic-icon slot="start" name="add" aria-hidden="true"></ic-icon><span data-i18n="workspace.newCanvas">新建画布</span></ic-button>
+                </ic-toolbar>
+                <div id="boardWorld" class="ws-board-world"></div>
+                <ic-loading id="boardLoading" class="ws-board-loading" label="正在加载画布" presentation="region"></ic-loading>
+                <ic-empty-state id="boardEmptyHint" class="ws-board-empty hidden" title="暂无画布" label="画布列表为空">
+                    <ic-icon slot="illustration" name="pointer" size="large" aria-hidden="true"></ic-icon>
+                    <span data-i18n="workspace.createFirst">为当前项目创建第一块画布</span>
+                    <ic-button slot="action" id="emptyCreateCanvasBtn" class="ws-primary-btn" type="button" hierarchy="primary"><ic-icon slot="start" name="add" aria-hidden="true"></ic-icon><span data-i18n="workspace.newCanvas">新建画布</span></ic-button>
+                </ic-empty-state>
+            </div>
+
+            <!-- Trash panel (overlay over the board area) -->
+            <div id="trashPanel" class="ws-trash-panel">
+                <div class="ws-trash-head">
+                    <div class="ws-trash-head-title"><ic-icon name="delete" aria-hidden="true"></ic-icon><span data-i18n="workspace.trash">回收站</span></div>
+                    <ic-icon-button id="trashClose" class="ws-icon-btn" type="button" hierarchy="quiet" icon="close" label="关闭" data-i18n-label="common.close"></ic-icon-button>
+                </div>
+                <ic-alert class="ws-trash-note" tone="neutral"><span data-i18n="workspace.trashRetention">回收站中的画布会在 30 天后自动清理。</span></ic-alert>
+                <div id="trashList" class="ws-trash-list"></div>
+            </div>
+        </main>
+    </div>
+
+    <ic-dialog id="createCanvasDialog" label="新建画布" size="small" dismiss-policy="explicit">
+        <div class="ws-create-form">
+            <ic-form-field id="createCanvasNameField" label="画布名称" hint="可留空，将按当前时间自动命名">
+                <ic-input id="createCanvasName" slot="control" type="text" maxlength="80" placeholder="画布名称（可留空）" autofocus></ic-input>
+            </ic-form-field>
+            <div class="ws-create-kind-field">
+                <span class="ws-field-label">画布类型</span>
+                <ic-segmented-control id="createCanvasKind" label="画布类型" value="smart" data-legal-combination="single-label">
+                    <button type="button" data-value="classic">普通画布</button>
+                    <button type="button" data-value="smart">智能画布</button>
+                </ic-segmented-control>
+            </div>
+        </div>
+        <ic-button id="createCanvasCancel" slot="footer" type="button" hierarchy="secondary">取消</ic-button>
+        <ic-button id="createCanvasConfirm" slot="footer" type="button" hierarchy="primary">创建</ic-button>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="canvasActionConfirmation" label="确认画布操作" description="确认执行此操作。" cancel-label="取消" confirm-label="确定" consequence="neutral">
+        <p id="canvasActionConfirmationCopy">确认执行此操作。</p>
+    </ic-confirmation-dialog>
+
+    <ic-popover id="canvasSharePopover" class="ws-share-popover" label="分享链接" content="interactive" dismiss-policy="light" focus-policy="move-into" placement="block-end" alignment="end">
+        <div class="ws-share-popover-title">分享链接</div>
+        <div class="ws-share-popover-row">
+            <div class="ws-share-link-slot"></div>
+            <ic-icon-button class="ws-share-action revoke" type="button" size="s" hierarchy="secondary" icon="unlink" label="取消分享" data-share-revoke></ic-icon-button>
+            <ic-icon-button class="ws-share-action" type="button" size="s" hierarchy="secondary" icon="refresh" label="重新生成链接" data-share-regenerate></ic-icon-button>
+        </div>
+    </ic-popover>
+
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script src="/static/js/canvas-list.js?v=2026.09.01.2.1788146221"></script>
+</body>
+</html>

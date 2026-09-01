@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="settings" data-studio-scale="off">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <title data-i18n="comfy.title">工作流设置</title>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <script>
+        (function(){
+            try {
+                document.documentElement.dataset.studioFitScale = 'off';
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/comfyui-settings.css?v=2026.09.01.2.1787562661">
+</head>
+<body>
+    <main class="page comfy-settings-page">
+        <div class="wrap">
+            <header class="page-head">
+                <ic-heading class="page-heading" level="1" subtitle="选择本地 ComfyUI 工作流，配置可暴露到画布的输入参数。" data-i18n="comfy.title" data-i18n-subtitle="comfy.subtitle" data-legal-combination="h1-with-subtitle">工作流设置</ic-heading>
+                <ic-alert id="pageMessage" class="page-message" tone="neutral" hidden>工作流设置操作结果</ic-alert>
+            </header>
+
+            <div class="layout">
+                <aside class="sidebar">
+                    <ic-card class="side-card" label="ComfyUI 后端地址" size="small">
+                        <ic-heading class="side-title" level="3" data-i18n="comfy.backends" data-legal-combination="h3-title">ComfyUI 后端地址</ic-heading>
+                        <div id="comfyInstancesList" class="backend-list"></div>
+                        <div class="side-actions">
+                            <ic-button type="button" hierarchy="secondary" onclick="addComfyInstance()"><ic-icon slot="start" name="add"></ic-icon><span data-i18n="comfy.addBackend">添加后端</span></ic-button>
+                            <ic-button type="button" hierarchy="primary" onclick="saveComfyInstances()"><ic-icon slot="start" name="save"></ic-icon><span data-i18n="common.save">保存</span></ic-button>
+                        </div>
+                        <p class="side-hint" data-i18n="comfy.backendFormat">格式：host:port（如 127.0.0.1:8188）</p>
+                    </ic-card>
+
+                    <ic-card class="side-card" label="工作流列表" size="small">
+                        <ic-heading class="side-title" level="3" data-i18n="comfy.workflowList" data-legal-combination="h3-title">工作流列表</ic-heading>
+                        <ic-tabs id="workflowList" class="workflow-list" label="工作流列表" orientation="vertical" activation="automatic"></ic-tabs>
+                        <ic-button type="button" hierarchy="secondary" onclick="openWorkflowUpload()"><ic-icon slot="start" name="upload"></ic-icon><span data-i18n="comfy.uploadWorkflow">上传工作流</span></ic-button>
+                        <ic-file-input id="workflowUploadInput" name="workflow_json" label="上传 ComfyUI 工作流" accept=".json,application/json" hidden></ic-file-input>
+                    </ic-card>
+
+                    <ic-card id="previewCard" class="side-card preview-card" label="画布节点预览" size="small">
+                        <div class="preview-title-row">
+                            <ic-heading class="preview-title" level="3" data-i18n="comfy.nodePreview" data-legal-combination="h3-title"><ic-icon name="preview"></ic-icon>画布节点预览</ic-heading>
+                            <ic-badge kind="status" tone="neutral" data-i18n="comfy.live">实时</ic-badge>
+                        </div>
+                        <p class="preview-desc" data-i18n="comfy.previewDesc">这个工作流在画布 Comfy 节点上将显示出的控件，可直接填写并点击「运行测试」。</p>
+                        <ic-divider></ic-divider>
+                        <div id="previewContent"><ic-empty-state title="尚未选择节点输入" label="尚未选择节点输入" data-i18n-title="comfy.previewEmpty"></ic-empty-state></div>
+                    </ic-card>
+                </aside>
+
+                <section class="content" aria-label="工作流编辑器">
+                    <ic-card id="graphCard" class="graph-card" label="工作流编辑器" hidden>
+                        <div class="graph-head">
+                            <div class="graph-title-row">
+                                <div class="workflow-title-group">
+                                    <ic-input id="workflowTitleInput" name="workflow_title" type="text" label="工作流名称" data-i18n-label="comfy.workflowName" oninput="updateWorkflowTitle(this.value)"></ic-input>
+                                    <p id="editorSub" class="editor-sub" data-i18n="comfy.editorSubDefault">从左侧列表选择，或上传新的 API 工作流</p>
+                                </div>
+                                <div class="content-actions">
+                                    <ic-button id="deleteBtn" type="button" hierarchy="secondary" tone="danger" onclick="onDelete()" hidden><ic-icon slot="start" name="delete"></ic-icon><span data-i18n="common.delete">删除</span></ic-button>
+                                    <ic-button id="saveBtn" type="button" hierarchy="primary" onclick="onSave()" hidden><ic-icon slot="start" name="save"></ic-icon><span data-i18n="comfy.saveConfig">保存配置</span></ic-button>
+                                </div>
+                            </div>
+                            <ic-segmented-control id="workspaceModeTabs" class="workspace-mode-tabs" label="工作区视图" value="graph">
+                                <button id="workspaceGraphTab" type="button" data-value="graph" data-i18n="comfy.workflow">工作流</button>
+                                <button id="workspaceCanvasTab" type="button" data-value="canvas" data-i18n="comfy.testCanvas">测试画布</button>
+                            </ic-segmented-control>
+                        </div>
+
+                        <div class="graph-svg-wrap">
+                            <div id="graphSvgHost" class="graph-svg-host" role="img" aria-label="ComfyUI 工作流节点图"></div>
+                            <ic-toolbar class="graph-controls" label="工作流画布缩放" appearance="framed">
+                                <ic-icon-button type="button" hierarchy="quiet" icon="zoom-out" label="缩小" data-i18n-label="canvas.decrease" onclick="graphZoom(-1)"></ic-icon-button>
+                                <ic-badge id="zoomPill" kind="count" tone="neutral">100%</ic-badge>
+                                <ic-icon-button type="button" hierarchy="quiet" icon="zoom-in" label="放大" data-i18n-label="canvas.increase" onclick="graphZoom(1)"></ic-icon-button>
+                                <ic-icon-button type="button" hierarchy="quiet" icon="fit" label="适应窗口" data-i18n-label="comfy.fit" onclick="graphFit()"></ic-icon-button>
+                            </ic-toolbar>
+                            <ic-popover id="nodePopup" class="node-popup" label="节点参数" content="interactive" dismiss-policy="light" focus-policy="move-into"></ic-popover>
+                        </div>
+                        <div id="miniCanvasHost" hidden></div>
+                    </ic-card>
+                    <ic-button id="nodesToggle" class="nodes-toggle" type="button" hierarchy="secondary" onclick="toggleNodeList()" hidden><ic-icon slot="start" name="menu"></ic-icon><span id="nodesToggleText" data-i18n="comfy.showNodeList">显示完整节点列表</span></ic-button>
+                    <div id="nodeList" class="node-list" hidden></div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <ic-file-input id="mediaUploadInput" name="comfy_media" label="上传媒体" accept="image/*,video/*,audio/*" hidden></ic-file-input>
+
+    <ic-dialog id="workflowNameDialog" label="命名工作流" size="small" dismiss-policy="explicit">
+        <ic-input id="workflowNameInput" name="workflow_name" label="工作流名称" data-i18n-label="comfy.workflowName"></ic-input>
+        <ic-button slot="footer" type="button" hierarchy="secondary" onclick="cancelWorkflowUpload()" data-i18n="common.cancel">取消</ic-button>
+        <ic-button id="confirmWorkflowUpload" slot="footer" type="button" hierarchy="primary" onclick="confirmWorkflowUploadName()" data-i18n="common.confirm">确认</ic-button>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="deleteWorkflowDialog" label="删除工作流" description="删除后无法恢复。" confirm-label="删除" cancel-label="取消" consequence="destructive"></ic-confirmation-dialog>
+
+    <ic-dialog id="imageLightbox" class="image-lightbox" label="图片预览" size="x-large" dismiss-policy="light">
+        <ic-media-container kind="image" label="图片预览" aspect="landscape" fit="contain"><img id="imageLightboxImg" src="" alt="preview" data-i18n-alt="comfy.previewImage"></ic-media-container>
+    </ic-dialog>
+
+        <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script src="/static/js/comfyui-settings.js?v=2026.09.01.2.1786933744" defer></script>
+</body>
+</html>

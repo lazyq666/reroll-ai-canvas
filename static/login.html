@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="auth" data-studio-scale="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+  <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+  <title data-i18n="auth.loginPageTitle">登录 · Reroll</title>
+  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/account-login.css?v=2026.09.01.2.1787561133">
+</head>
+<body>
+  <main class="login-shell">
+    <ic-card class="login-card" label="工作区访问" tone="plain" size="large">
+      <div class="login-card-content">
+        <div class="brand-lockup">
+          <img class="brand-mark" src="/static/images/logo.png" alt="Reroll">
+          <div><strong>Reroll</strong><span>AI CREATIVE STUDIO</span></div>
+        </div>
+        <p class="eyebrow" data-i18n="auth.workspaceAccess">工作区访问</p>
+        <h1 id="login-title" data-i18n="auth.enterStudio">进入工作台</h1>
+        <p class="subtitle" data-i18n="auth.loginSubtitle">登录已有账号，或提交一个设计师账号申请。</p>
+
+        <ic-segmented-control id="auth-mode" class="auth-mode" label="账号操作" value="login" data-legal-combination="single-label">
+          <button id="login-tab" class="auth-mode-option" type="button" data-value="login" aria-controls="login-form" data-i18n="auth.login">登录</button>
+          <button id="register-tab" class="auth-mode-option" type="button" data-value="register" aria-controls="register-form" data-i18n="auth.createAccount">创建账号</button>
+        </ic-segmented-control>
+
+        <form id="login-form" class="auth-form">
+          <ic-form-field id="username-field" label="账号" required>
+            <ic-input id="username" name="username" autocomplete="username" autofocus></ic-input>
+          </ic-form-field>
+          <ic-form-field id="password-field" label="密码" required>
+            <ic-input id="password" name="password" type="password" autocomplete="current-password"></ic-input>
+          </ic-form-field>
+          <ic-checkbox id="remember-password" label="记住密码" hint="仅保存在本机"></ic-checkbox>
+          <ic-alert id="login-error" tone="danger" hidden>登录失败</ic-alert>
+          <ic-button id="login-submit" type="submit" hierarchy="primary" data-i18n="auth.login">登录</ic-button>
+        </form>
+
+        <form id="register-form" class="auth-form" hidden>
+          <ic-form-field id="register-username-field" label="登录账号" hint="3-32 位英文字母、数字或 _.-" required>
+            <ic-input id="register-username" name="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}" autocomplete="username"></ic-input>
+          </ic-form-field>
+          <ic-form-field id="register-display-name-field" label="显示名称 · 可选">
+            <ic-input id="register-display-name" name="display_name" maxlength="120" autocomplete="name"></ic-input>
+          </ic-form-field>
+          <ic-form-field id="register-password-field" label="密码" required>
+            <ic-input id="register-password" name="password" type="password" minlength="8" autocomplete="new-password"></ic-input>
+          </ic-form-field>
+          <ic-form-field id="register-password-confirm-field" label="确认密码" required>
+            <ic-input id="register-password-confirm" name="password_confirm" type="password" minlength="8" autocomplete="new-password"></ic-input>
+          </ic-form-field>
+          <ic-alert id="register-error" tone="danger" hidden>创建账号失败</ic-alert>
+          <ic-alert id="register-success" tone="success" hidden>账号申请已提交</ic-alert>
+          <ic-button id="register-submit" type="submit" hierarchy="primary" data-i18n="auth.submitApplication">提交账号申请</ic-button>
+        </form>
+      </div>
+    </ic-card>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script src="/static/js/account-login.js?v=2026.09.01.2.1786933744" defer></script>
+</body>
+</html>

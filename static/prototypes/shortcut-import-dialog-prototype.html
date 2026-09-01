@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 快捷键与节点包导入 Dialog</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    Three variants of the shortcut and Node Package import dialogs, switchable
+    via ?variant=A|B|C on this existing Smart Canvas-adjacent prototype route.
+    Run: ./.venv/bin/python -m http.server 9800
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/shortcut-import-dialog-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+</head>
+<body data-variant="A">
+  <!-- Validated direction: Variant A selected on 2026-08-27; B/C remain comparison references only. -->
+  <main class="prototype-stage" aria-label="快捷键与节点包导入 Dialog 原型背景">
+    <header class="canvas-toolbar">
+      <span class="canvas-brand"><span class="brand-mark">IC</span> Smart Canvas</span>
+      <span class="save-state"><span></span>所有更改已保存</span>
+      <div class="toolbar-actions">
+        <ic-button id="openShortcutDialog" hierarchy="secondary"><ic-icon name="keyboard" slot="start"></ic-icon>快捷键</ic-button>
+        <ic-button id="openImportDialog" hierarchy="primary"><ic-icon name="upload" slot="start"></ic-icon>导入节点包</ic-button>
+      </div>
+    </header>
+
+    <section class="canvas-world" aria-label="模拟智能画布">
+      <div class="canvas-grid" aria-hidden="true"></div>
+      <article class="mock-node node-prompt">
+        <header><span class="node-type">Prompt Node</span><span>···</span></header>
+        <strong>电影感产品主视觉</strong>
+        <p>暖色自然光，真实材质，编辑感构图。</p>
+      </article>
+      <svg class="mock-connection" viewBox="0 0 340 160" aria-hidden="true"><path d="M8 22 C 130 22, 188 138, 332 138"></path></svg>
+      <article class="mock-node node-image">
+        <div class="image-placeholder"><span>4:3</span></div>
+        <footer><strong>参考图 01</strong><small>1536 × 1024</small></footer>
+      </article>
+      <aside class="prototype-note">
+        <span>PROTOTYPE</span>
+        <strong id="variantTitle">A · Shadcn 忠实还原</strong>
+        <p id="variantDescription">保留 512px 紧凑窗口、纵向分组和居中 Dropzone。</p>
+      </aside>
+    </section>
+  </main>
+
+  <ic-dialog id="shortcutDialog" label="快捷键" size="small" dismiss-policy="light">
+    <div id="shortcutDialogContent" class="shortcut-dialog-content"></div>
+  </ic-dialog>
+
+  <ic-dialog id="importDialog" label="导入节点包" size="small" dismiss-policy="explicit" data-legal-combination="small-explicit-task">
+    <span slot="label" class="import-dialog-heading" data-legal-combination="h2-with-subtitle">
+      <span>导入节点包</span>
+      <span>上传 JSON 或包含资源的 ZIP 节点包，内容会追加到当前画布。</span>
+    </span>
+    <div id="importDialogContent" class="import-dialog-content"></div>
+    <ic-button id="importCancelButton" slot="footer" hierarchy="secondary">取消</ic-button>
+    <ic-button id="importPrimaryButton" slot="footer" hierarchy="primary" disabled>继续</ic-button>
+  </ic-dialog>
+
+  <input id="nodePackageFileInput" type="file" accept=".json,.zip,application/json,application/zip" hidden>
+  <div id="prototypeToast" class="prototype-toast" role="status" aria-live="polite" hidden></div>
+
+  <nav class="prototype-switcher" data-prototype-switcher aria-label="原型方案切换">
+    <button type="button" data-previous aria-label="上一个方案">←</button>
+    <span id="switcherLabel">A · Shadcn 忠实还原</span>
+    <button type="button" data-next aria-label="下一个方案">→</button>
+  </nav>
+
+  <script type="module" src="/static/prototypes/shortcut-import-dialog-prototype.js"></script>
+</body>
+</html>

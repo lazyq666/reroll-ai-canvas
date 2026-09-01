@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.nodes",
+  "interfaceVersion": 1,
+  "review": {
+    "contract": {
+      "status": "confirmed",
+      "confirmedOn": "2026-08-26",
+      "note": "The family owns the shared Canvas Node shell, presentation states, read-only Prompt body markup, multi-selection overlay and Prompt-family focus surface; Smart Canvas owns coordinates, editable Prompt behavior, selection identity and bounds, mutations and run behavior."
+    },
+    "implementation": {
+      "status": "implemented",
+      "implementedOn": "2026-08-26",
+      "evidence": [
+        "/static/js/infinite-canvas-ui/nodes.js",
+        "/static/js/infinite-canvas-ui/nodes/node.js",
+        "/static/js/infinite-canvas-ui/nodes/multi-selection.js",
+        "/static/js/infinite-canvas-ui/nodes/prompt-focus-surface.js",
+        "/static/js/infinite-canvas-ui/nodes/shared.js",
+        "/static/smart-canvas.html?componentReview=nodes",
+        "/static/js/smart-canvas/node-review-fixture.js"
+      ]
+    },
+    "live": {
+      "status": "pending-human-confirmation"
+    }
+  },
+  "components": [
+    {
+      "tag": "ic-canvas-node",
+      "purpose": "Render the shared visual shell for one persisted Smart Canvas Node while the caller supplies domain-specific body content and behavior.",
+      "attributes": [
+        "kind",
+        "state",
+        "frame-color",
+        "data-id",
+        "aria-label"
+      ],
+      "requiredAttributes": [
+        "kind",
+        "data-id",
+        "aria-label"
+      ],
+      "slots": [
+        "default"
+      ],
+      "kinds": [
+        "image",
+        "generation",
+        "prompt",
+        "prompt-generation",
+        "splitter",
+        "loop",
+        "smart-group",
+        "frame",
+        "text-annotation",
+        "brush-stroke"
+      ],
+      "states": [
+        "detail",
+        "far",
+        "empty",
+        "referenceGeneration",
+        "mediaGroup",
+        "history",
+        "compact",
+        "selected",
+        "dragging",
+        "running",
+        "pending"
+      ],
+      "renderInterface": {
+        "export": "renderCanvasNodeMarkup",
+        "required": [
+          "id",
+          "kind"
+        ],
+        "callerOwned": [
+          "position",
+          "layout",
+          "title",
+          "body",
+          "runtimeStatus",
+          "hint",
+          "controls"
+        ]
+      },
+      "readOnlyPromptBodyInterface": {
+        "export": "renderReadOnlyPromptNodeBodyMarkup",
+        "callerOwned": [
+          "content",
+          "generation",
+          "label",
+          "characterCountUnit"
+        ]
+      },
+      "events": [],
+      "ownership": {
+        "family": "shared shell, kind and state presentation, read-only Prompt body markup, resize and quick-add control markup, multi-selection overlay presentation and contract validation",
+        "smartCanvas": "Node data, Canvas coordinates, editable domain body markup, selection bounds and gestures, production event binding, Canvas Mutation, Connection, floating toolbar positioning and Generation Run",
+        "reviewFixture": "Local Node and model data only; the component library runs the production Smart Canvas renderer and interaction modules in a transient session"
+      },
+      "accessibility": {
+        "label": "Every instance requires a non-empty aria-label describing the Node role or visible title.",
+        "content": "Interactive body content remains in Light DOM so existing focus, editing and Canvas hit-testing behavior stays observable to the caller.",
+        "invalidContract": "Invalid kind, state, id or label is exposed through data-ic-contract-status and data-ic-contract-reason."
+      }
+    },
+    {
+      "tag": "ic-canvas-multi-selection",
+      "purpose": "Render the shared visual overlay and resize handles around an explicit multi-Node Canvas Selection while Smart Canvas supplies bounds and gestures.",
+      "attributes": [
+        "open",
+        "label",
+        "aria-hidden"
+      ],
+      "requiredAttributes": [
+        "label"
+      ],
+      "slots": [],
+      "events": [],
+      "methods": [
+        "isResizeEvent(event)"
+      ],
+      "ownership": {
+        "family": "2px focus Border, four inverse-scale corner handles, resize-hit identification and contract validation",
+        "smartCanvas": "Selected Node identities, projected bounds, visibility, move/resize gestures and mutations"
+      },
+      "accessibility": {
+        "label": "Every instance requires a non-empty label used by the resize handle.",
+        "visibility": "The caller keeps aria-hidden synchronized with the open state."
+      }
+    },
+    {
+      "tag": "ic-prompt-node-focus-surface",
+      "purpose": "Present one shared modal editing surface for Prompt Node and Prompt Generation Node content without adding a visible collapse control.",
+      "attributes": ["label", "open"],
+      "requiredAttributes": ["label"],
+      "slots": ["default"],
+      "events": ["ic-dismiss"],
+      "ownership": {
+        "family": "Backdrop, centered modal geometry, dialog semantics, outside-area dismissal, Escape dismissal and contract validation",
+        "smartCanvas": "Prompt-family eligibility, Node body markup, edit persistence, Mention Picker precedence, open state and focus restoration"
+      },
+      "accessibility": {
+        "label": "Every instance requires a non-empty label forwarded to the internal dialog surface.",
+        "keyboard": "Escape requests dismissal unless a child overlay has already consumed the key event.",
+        "pointer": "Clicking the backdrop requests dismissal; clicks within slotted Node content do not."
+      }
+    }
+  ],
+  "liveMatrix": {
+    "fixture": "/static/smart-canvas.html?componentReview=nodes",
+    "kindCount": 10,
+    "caseCount": 22,
+    "labelNodeCount": 10,
+    "layout": "one production Node kind per row; at least two stable data-driven cases per row; the Image Node row also covers production image, empty, video and audio media states; the Generation Node row covers reference image and video generation; production Text Annotation Nodes provide the row labels"
+  }
+}

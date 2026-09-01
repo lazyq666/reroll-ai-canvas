@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas" data-ui-theme="dark" data-ui-density="small">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — Image Studio 通用底部操作栏</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    Three variants of the Image Studio editing dock, switchable via ?variant=A|B|C.
+    Run from the repository root:
+    ./.venv/bin/python -m http.server 9800 --bind 127.0.0.1 --directory static
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/design-tokens.css">
+  <link rel="stylesheet" href="./image-studio-dock-prototype.css">
+  <script src="../vendor/js/lucide.js"></script>
+</head>
+<body>
+  <main class="studio-shell" aria-label="Image Studio 底部操作栏原型">
+    <header class="studio-header">
+      <div class="studio-identity">
+        <span class="prototype-chip">PROTOTYPE</span>
+        <span class="studio-title">Image Studio</span>
+        <span class="image-meta">IMG_0482.jpg · 2048 × 1365</span>
+      </div>
+      <div class="header-actions" aria-label="窗口操作">
+        <button class="icon-button close-button" type="button" aria-label="关闭" title="关闭"><i data-lucide="x"></i></button>
+      </div>
+    </header>
+
+    <nav id="editModeToolbar" class="top-mode-toolbar dock-surface" aria-label="图片编辑模式"></nav>
+
+    <section class="stage" aria-label="图片编辑预览区">
+      <div class="stage-grid" aria-hidden="true"></div>
+      <div class="image-wrap" data-mode="preview">
+        <img src="./reverse-prompt-fixture.svg" alt="山谷暮色中的现代玻璃小屋编辑示例">
+        <div class="crop-shade crop-shade-top"></div>
+        <div class="crop-shade crop-shade-right"></div>
+        <div class="crop-shade crop-shade-bottom"></div>
+        <div class="crop-shade crop-shade-left"></div>
+        <div class="crop-frame" aria-hidden="true">
+          <span class="third third-v one"></span><span class="third third-v two"></span>
+          <span class="third third-h one"></span><span class="third third-h two"></span>
+          <i class="handle nw"></i><i class="handle ne"></i><i class="handle se"></i><i class="handle sw"></i>
+        </div>
+        <div class="outpaint-frame" aria-hidden="true"><span>2048 × 1365</span></div>
+        <svg class="paint-layer" viewBox="0 0 1200 800" aria-hidden="true">
+          <path class="mask-stroke" d="M430 485c55-75 131-111 220-100 69 8 126 46 165 104-26 64-90 106-182 109-98 4-166-33-203-113Z"/>
+          <path class="brush-stroke" d="M318 239c65-37 126-32 174 16m-188 20 32-49m-32 49 58 3"/>
+          <circle class="brush-mark" cx="748" cy="270" r="34"/><text class="brush-mark-label" x="748" y="281" text-anchor="middle">1</text>
+        </svg>
+        <div class="resize-frame" aria-hidden="true"><span>50%</span></div>
+        <div class="grid-overlay" aria-hidden="true">
+          <span class="grid-v one"></span><span class="grid-v two"></span><span class="grid-h one"></span><span class="grid-h two"></span>
+          <b>3 × 3</b>
+        </div>
+      </div>
+      <div class="mode-hint" role="status" aria-live="polite">
+        <i data-lucide="scan"></i><span id="modeHint">滚轮缩放，拖动画面查看细节</span>
+      </div>
+    </section>
+
+    <aside class="prototype-state" aria-label="当前原型状态">
+      <span class="state-eyebrow">CURRENT DIRECTION</span>
+      <strong id="variantTitle">A · 单层参数栏</strong>
+      <p id="variantDescription">顶部模式栏保持独立；底部显示默认预览工具或当前编辑参数。</p>
+      <dl>
+        <div><dt>常驻高度</dt><dd id="heightMetric">48 px</dd></div>
+        <div><dt>当前模式</dt><dd id="modeMetric">预览</dd></div>
+        <div><dt>参数策略</dt><dd id="strategyMetric">预览 / 编辑自适应</dd></div>
+      </dl>
+    </aside>
+
+    <section id="dockHost" class="dock-host" aria-label="图片编辑底部操作栏 Demo"></section>
+
+    <nav id="prototypeSwitcher" class="prototype-switcher" aria-label="切换原型方案">
+      <button type="button" data-variant-step="-1" aria-label="上一个方案"><i data-lucide="arrow-left"></i></button>
+      <span><b id="switcherVariant">A</b><em id="switcherLabel">单层参数栏</em></span>
+      <button type="button" data-variant-step="1" aria-label="下一个方案"><i data-lucide="arrow-right"></i></button>
+    </nav>
+  </main>
+
+  <script src="./image-studio-dock-prototype.js"></script>
+</body>
+</html>

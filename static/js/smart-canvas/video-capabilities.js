@@ -1,0 +1,280 @@
+/* Smart Canvas Video Model Capability Module */
+const smartVideoCapabilityFallbackRatios = Object.freeze([
+    '16:9','9:16','1:1','4:3','3:4','21:9'
+]);
+const smartVideoCapabilityFallbackResolutions = Object.freeze([
+    '480p','720p','1080p','4k'
+]);
+const smartVideoCapabilityCache = new Map();
+const smartVideoCapabilityCatalogs = new Map();
+
+function smartVideoCapabilityContext(context={}){
+    return {
+        protocol:String(context?.protocol || '').trim().toLowerCase(),
+        base_url:String(context?.base_url || context?.baseUrl || '').trim()
+    };
+}
+function smartVideoCapabilityKey(providerId='', modelId='', context={}){
+    const route = smartVideoCapabilityContext(context);
+    return [
+        String(providerId || '').trim(),
+        String(modelId || '').trim(),
+        route.protocol,
+        route.base_url
+    ].join('\u001f');
+}
+function smartVideoCapabilityFallback(providerId='', modelId=''){
+    const common = {
+        duration_seconds:{minimum:1,maximum:60},
+        video_resolutions:[...smartVideoCapabilityFallbackResolutions]
+    };
+    return {
+        provider_id:String(providerId || '').trim(),
+        model_id:String(modelId || '').trim(),
+        known:false,
+        source:'fallback',
+        confirmed_at:null,
+        supported_model_ids:[],
+        backend_path:{},
+        composer_options:{},
+        composer_option_definitions:{},
+        composer_policy:{},
+        commands:{
+            text2video:{...common,aspect_ratios:[...smartVideoCapabilityFallbackRatios]},
+            image2video:{...common},
+            frames2video:{...common},
+            multimodal2video:{...common,aspect_ratios:[...smartVideoCapabilityFallbackRatios]}
+        }
+    };
+}
+function smartVideoCapabilityUnique(values=[]){
+    return [...new Set((values || []).map(value => String(value || '').trim()).filter(Boolean))];
+}
+function smartVideoCapabilityClean(value, providerId='', modelId=''){
+    const fallback = smartVideoCapabilityFallback(providerId, modelId);
+    if(!value || typeof value !== 'object') return fallback;
+    const commands = value.commands && typeof value.commands === 'object' ? value.commands : {};
+    return {
+        ...fallback,
+        ...value,
+        provider_id:String(value.provider_id || providerId || '').trim(),
+        model_id:String(value.model_id || modelId || '').trim(),
+        known:Boolean(value.known),
+        supported_model_ids:smartVideoCapabilityUnique(value.supported_model_ids),
+        backend_path:value.backend_path && typeof value.backend_path === 'object' ? value.backend_path : {},
+        composer_options:value.composer_options && typeof value.composer_options === 'object' ? value.composer_options : {},
+        composer_option_definitions:value.composer_option_definitions && typeof value.composer_option_definitions === 'object' ? value.composer_option_definitions : {},
+        composer_policy:value.composer_policy && typeof value.composer_policy === 'object' ? value.composer_policy : {},
+        commands:Object.keys(commands).length ? commands : fallback.commands
+    };
+}
+async function smartVideoCapabilityLoad(providerId='', modelId='', context={}){
+    const route = smartVideoCapabilityContext(context);
+    const key = smartVideoCapabilityKey(providerId, modelId, route);
+    const existing = smartVideoCapabilityCache.get(key);
+    if(existing) return existing;
+    const query = new URLSearchParams({
+        provider_id:String(providerId || ''),
+        model:String(modelId || ''),
+        protocol:route.protocol,
+        base_url:route.base_url
+    });
+    const value = await fetch(`/api/video-model-capabilities?${query}`).then(async response => {
+        if(!response.ok) throw new Error(await response.text());
+        return response.json();
+    }).catch(() => smartVideoCapabilityFallback(providerId, modelId));
+    const capability = smartVideoCapabilityClean(value, providerId, modelId);
+    smartVideoCapabilityCache.set(key, capability);
+    if(capability.supported_model_ids.length){
+        smartVideoCapabilityCatalogs.set(capability.provider_id, capability.supported_model_ids);
+    }
+    return capability;
+}
+function smartVideoCapabilityCurrent(providerId='', modelId='', context={}){
+    return smartVideoCapabilityCache.get(smartVideoCapabilityKey(providerId, modelId, context))
+        || smartVideoCapabilityFallback(providerId, modelId);
+}
+function smartVideoCapabilitySupportedModels(providerId=''){
+    return [...(smartVideoCapabilityCatalogs.get(String(providerId || '').trim()) || [])];
+}
+function smartVideoCapabilityCanonicalModel(providerId='', modelId='', supportedModelIds=null){
+    const requested = String(modelId || '').trim().toLowerCase();
+    const supported = Array.isArray(supportedModelIds)
+        ? supportedModelIds
+        : smartVideoCapabilitySupportedModels(providerId);
+    return supported.find(value => String(value || '').trim().toLowerCase() === requested) || '';
+}
+function smartVideoCapabilityMediaKind(reference={}){
+    const explicit = String(reference?.kind || reference?.type || '').toLowerCase();
+    if(['image','video','audio'].includes(explicit)) return explicit;
+    const url = String(reference?.url || reference || '').split(/[?#]/)[0].toLowerCase();
+    if(/\.(mp4|mov|webm|mkv|avi|m4v)$/.test(url)) return 'video';
+    if(/\.(mp3|wav|aac|m4a|flac|ogg)$/.test(url)) return 'audio';
+    return 'image';
+}
+function smartVideoCapabilityReferenceCounts(references=[]){
+    const counts = {image:0,video:0,audio:0,total:0};
+    (references || []).filter(reference => reference?.url || typeof reference === 'string').forEach(reference => {
+        const kind = smartVideoCapabilityMediaKind(reference);
+        counts[kind] += 1;
+        counts.total += 1;
+    });
+    return counts;
+}
+function smartVideoCapabilityRequestedMode(settings={}, capability={}){
+    const explicit = String(settings.videoReferenceMode || '');
+    if(['multimodal_all_around','first_last_frames'].includes(explicit)) return explicit;
+    if(explicit === 'image_to_video' && capability?.provider_id !== 'jimeng') return explicit;
+    if(settings.videoUseFrameRoles) return 'first_last_frames';
+    return settings.videoMultimodal === false && capability?.provider_id !== 'jimeng'
+        ? 'image_to_video'
+        : 'multimodal_all_around';
+}
+function smartVideoCapabilityResolve(settings={}, references=[], capability=null){
+    capability = capability || smartVideoCapabilityFallback();
+    const counts = smartVideoCapabilityReferenceCounts(references);
+    const requestedMode = smartVideoCapabilityRequestedMode(settings, capability);
+    let referenceMode = null;
+    let command = 'text2video';
+    if(counts.total){
+        if(capability.provider_id === 'jimeng'){
+            referenceMode = requestedMode === 'first_last_frames'
+                ? 'first_last_frames'
+                : 'multimodal_all_around';
+        } else if(requestedMode === 'first_last_frames'){
+            referenceMode = 'first_last_frames';
+        } else if(requestedMode === 'image_to_video'){
+            referenceMode = 'image_to_video';
+        } else {
+            referenceMode = 'multimodal_all_around';
+        }
+        command = {
+            image_to_video:'image2video',
+            first_last_frames:'frames2video',
+            multimodal_all_around:'multimodal2video'
+        }[referenceMode];
+    }
+    const commandCapability = capability.commands?.[command] || {};
+    const ratioCapability = referenceMode === 'image_to_video'
+        ? (capability.commands?.multimodal2video || commandCapability)
+        : commandCapability;
+    const aspectLocked = referenceMode === 'first_last_frames';
+    const aspectRatios = aspectLocked
+        ? ['adaptive']
+        : smartVideoCapabilityUnique(ratioCapability.aspect_ratios || smartVideoCapabilityFallbackRatios);
+    const videoResolutions = smartVideoCapabilityUnique(commandCapability.video_resolutions || smartVideoCapabilityFallbackResolutions);
+    const duration = commandCapability.duration_seconds || {minimum:1,maximum:60};
+    const multimodalInputs = capability.commands?.multimodal2video?.inputs || {};
+    const referenceLimit = referenceMode === 'image_to_video'
+        ? (commandCapability.image_count || {minimum:null,maximum:null})
+        : referenceMode === 'first_last_frames'
+            ? (commandCapability.image_count || {minimum:null,maximum:null})
+            : referenceMode === 'multimodal_all_around'
+                ? (multimodalInputs.total_count || {minimum:1,maximum:null})
+                : {minimum:0,maximum:0};
+    return {
+        command,
+        reference_mode:referenceMode,
+        requested_reference_mode:requestedMode,
+        counts,
+        reference_limit:referenceLimit,
+        aspect_ratio_locked:aspectLocked,
+        aspect_ratios:aspectRatios,
+        video_resolutions:videoResolutions,
+        duration_seconds:{
+            minimum:Number(duration.minimum) || 1,
+            maximum:Number(duration.maximum) || 60
+        },
+        command_capability:commandCapability,
+        multimodal_inputs:multimodalInputs
+    };
+}
+function smartVideoCapabilityReconcile(settings={}, references=[], capability=null){
+    const next = {...(settings || {})};
+    const state = smartVideoCapabilityResolve(next, references, capability);
+    const invalidated = [];
+    next.videoReferenceMode = state.reference_mode || next.videoReferenceMode || 'multimodal_all_around';
+    next.videoUseFrameRoles = state.command === 'frames2video';
+    next.videoMultimodal = state.command === 'multimodal2video';
+    if(state.aspect_ratio_locked){
+        if(next.videoAspect !== 'adaptive') invalidated.push('aspect_ratio');
+        next.videoAspect = 'adaptive';
+    } else if(!state.aspect_ratios.includes(String(next.videoAspect || ''))){
+        if(next.videoAspect) invalidated.push('aspect_ratio');
+        next.videoAspect = state.aspect_ratios.includes('16:9') ? '16:9' : (state.aspect_ratios[0] || '');
+    }
+    if(!state.video_resolutions.includes(String(next.videoResolution || '').toLowerCase())){
+        if(next.videoResolution) invalidated.push('video_resolution');
+        next.videoResolution = state.video_resolutions.includes('720p') ? '720p' : (state.video_resolutions[0] || '');
+    }
+    const currentDuration = Number(next.videoDuration) || 5;
+    const duration = Math.max(state.duration_seconds.minimum, Math.min(state.duration_seconds.maximum, currentDuration));
+    if(duration !== currentDuration) invalidated.push('duration');
+    next.videoDuration = duration;
+    return {settings:next,state,invalidated};
+}
+function smartVideoCapabilityValidateCount(count, limit={}, reason='reference-count'){
+    const minimum = limit.minimum === null || limit.minimum === undefined || limit.minimum === ''
+        ? null
+        : Number(limit.minimum);
+    const maximum = limit.maximum === null || limit.maximum === undefined || limit.maximum === ''
+        ? null
+        : Number(limit.maximum);
+    if(Number.isFinite(minimum) && count < minimum){
+        return {valid:false,reason,count,minimum,maximum:Number.isFinite(maximum) ? maximum : null};
+    }
+    if(Number.isFinite(maximum) && count > maximum){
+        return {valid:false,reason,count,minimum:Number.isFinite(minimum) ? minimum : null,maximum};
+    }
+    return {valid:true,reason:'',count,minimum:Number.isFinite(minimum) ? minimum : null,maximum:Number.isFinite(maximum) ? maximum : null};
+}
+function smartVideoCapabilityValidateReferences(state={}){
+    const counts = state.counts || {};
+    const inputs = state.multimodal_inputs || {};
+    if(state.command === 'image2video'){
+        if(Number(counts.total || 0) !== Number(counts.image || 0)) return {valid:false,reason:'image-media-type',count:Number(counts.total || 0)};
+        return smartVideoCapabilityValidateCount(Number(counts.image || 0), state.command_capability?.image_count || state.reference_limit, 'image-count');
+    }
+    if(state.command === 'frames2video'){
+        if(Number(counts.total || 0) !== Number(counts.image || 0)) return {valid:false,reason:'frame-media-type',count:Number(counts.total || 0)};
+        return smartVideoCapabilityValidateCount(Number(counts.image || 0), state.command_capability?.image_count || state.reference_limit, 'frame-count');
+    }
+    if(state.command !== 'multimodal2video') return {valid:true,reason:''};
+    if(inputs.audio_only_supported === false && !counts.image && !counts.video) return {valid:false,reason:'visual-reference-required'};
+    for(const kind of ['image','video','audio']){
+        const result = smartVideoCapabilityValidateCount(Number(counts[kind] || 0), inputs[`${kind}_count`] || {}, `${kind}-count`);
+        if(!result.valid) return result;
+    }
+    return smartVideoCapabilityValidateCount(Number(counts.total || 0), inputs.total_count || {}, 'total-count');
+}
+function smartVideoCapabilityOptionMode(capability={}, option=''){
+    return String(capability?.composer_options?.[option] || 'unsupported');
+}
+function smartVideoCapabilityApplyComposerOptions(settings={}, capability={}){
+    const next = {...(settings || {})};
+    if(!capability?.backend_path?.id) return next;
+    const definitions = capability?.composer_option_definitions || {};
+    Object.entries(definitions).forEach(([option, definition]) => {
+        const settingKey = String(definition?.setting_key || '');
+        if(settingKey && smartVideoCapabilityOptionMode(capability, option) !== 'user_toggle'){
+            next[settingKey] = false;
+        }
+    });
+    return next;
+}
+
+window.SmartCanvasModules = window.SmartCanvasModules || {};
+window.SmartCanvasModules.videoCapabilities = Object.freeze({
+    load:smartVideoCapabilityLoad,
+    current:smartVideoCapabilityCurrent,
+    fallback:smartVideoCapabilityFallback,
+    clean:smartVideoCapabilityClean,
+    supportedModels:smartVideoCapabilitySupportedModels,
+    canonicalModel:smartVideoCapabilityCanonicalModel,
+    referenceCounts:smartVideoCapabilityReferenceCounts,
+    resolve:smartVideoCapabilityResolve,
+    reconcile:smartVideoCapabilityReconcile,
+    validateReferences:smartVideoCapabilityValidateReferences,
+    optionMode:smartVideoCapabilityOptionMode,
+    applyComposerOptions:smartVideoCapabilityApplyComposerOptions
+});

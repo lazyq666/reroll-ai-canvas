@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+  <title>Live Fixture Sandbox</title>
+  <style>
+    html, body { min-width: 0; min-height: 100%; margin: 0; overflow: hidden !important; }
+    *, *::before, *::after { box-sizing: border-box; }
+    #fixture-root { position: relative; min-height: 100vh; overflow: hidden; color: var(--ui-color-text-primary, #111827); background: var(--ui-color-surface-canvas, #f8fafc); }
+    .live-fixture-stage { min-height: 100vh; display: grid; place-items: center; padding: 8px; }
+    [data-live-fixture-context-wrapper] { display: contents !important; }
+    [data-live-fixture-root] { min-width: 0; }
+    .live-graphic-preview { min-height: 64px; display: grid; place-items: center; padding: 8px; color: var(--ui-color-text-primary, #111827); background: var(--ui-color-surface-canvas, #f8fafc); }
+    .live-graphic-preview img { display: block; max-width: min(100%, 240px); max-height: 96px; object-fit: contain; }
+    .live-graphic-preview > svg, .live-graphic-preview > i, .live-graphic-preview > i > svg { width: 64px; height: 64px; }
+    .fixture-boot { min-height: 180px; display: grid; place-items: center; font: 13px system-ui, sans-serif; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div id="fixture-root"><div class="fixture-boot" role="status">正在启动 Live Fixture…</div></div>
+  <script src="/static/vendor/js/tailwindcss-cdn.js"></script>
+  <script src="/static/vendor/js/lucide.js"></script>
+  <script src="/static/js/ui-component-library/sandbox-protocol.js"></script>
+  <script src="/static/js/ui-component-library/fixture-adapters.js"></script>
+  <script src="/static/js/ui-component-library/sandbox-runtime.js?v=2026.08.07.3"></script>
+</body>
+</html>

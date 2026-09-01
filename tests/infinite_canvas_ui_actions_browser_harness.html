@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en" data-ic-actions-status="loading">
+<head>
+  <meta charset="utf-8">
+  <title>Reroll UI Actions Browser Harness</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <form id="action-form">
+    <ic-button id="primary-action" hierarchy="primary" name="intent" value="save" type="submit"><ic-icon name="save" slot="start" aria-hidden="true"></ic-icon>Save canvas</ic-button>
+  </form>
+  <ic-button id="invalid-action" hierarchy="primary" toggle>Invalid toggle</ic-button>
+  <div class="param-row">
+    <ic-button id="generation-kind-action" hierarchy="quiet" size="s" data-component-variant="generation-kind"><ic-icon name="image-generate" slot="start" aria-hidden="true"></ic-icon>Image generation<ic-icon name="switch-horizontal" slot="end" aria-hidden="true"></ic-icon></ic-button>
+  </div>
+  <ic-button id="empty-action"></ic-button>
+  <ic-button id="icon-only-action"><ic-icon name="save"></ic-icon></ic-button>
+  <ic-icon-button id="icon-action" icon="settings" label="Canvas settings"></ic-icon-button>
+  <ic-button id="secondary-hover-action" hierarchy="secondary" data-preview-state="hover">Secondary hover action</ic-button>
+  <ic-button id="ghost-action" hierarchy="secondary" ghost>Ghost action</ic-button>
+  <ic-button id="ghost-hover-action" hierarchy="secondary" ghost data-preview-state="hover">Ghost hover action</ic-button>
+  <ic-button id="danger-action" hierarchy="secondary" tone="danger">Danger action</ic-button>
+  <ic-button id="danger-hover-action" hierarchy="secondary" tone="danger" data-preview-state="hover">Danger hover action</ic-button>
+  <div id="pressed-motion-fixture">
+    <ic-button data-pressed-motion hierarchy="primary" data-preview-state="pressed">Primary pressed</ic-button>
+    <ic-button data-pressed-motion hierarchy="secondary" data-preview-state="pressed">Secondary pressed</ic-button>
+    <ic-button data-pressed-motion hierarchy="secondary" ghost data-preview-state="pressed">Tertiary pressed</ic-button>
+    <ic-button data-pressed-motion hierarchy="secondary" tone="danger" data-preview-state="pressed">Danger pressed</ic-button>
+    <ic-icon-button data-pressed-motion icon="save" label="Icon pressed" data-preview-state="pressed"></ic-icon-button>
+    <ic-icon-button data-pressed-motion hierarchy="primary" icon="submit" label="Primary icon pressed" data-preview-state="pressed"></ic-icon-button>
+    <ic-icon-button data-pressed-motion background="ghost" icon="detect" label="Ghost icon pressed" data-preview-state="pressed"></ic-icon-button>
+    <ic-button id="disabled-pressed-motion" hierarchy="primary" data-preview-state="pressed" disabled>Disabled pressed</ic-button>
+    <ic-button id="loading-pressed-motion" hierarchy="primary" data-preview-state="pressed" loading>Loading pressed</ic-button>
+  </div>
+  <div id="disabled-action-fixture">
+    <ic-button id="primary-disabled-action" hierarchy="primary" disabled>Primary disabled</ic-button>
+    <ic-button id="secondary-disabled-action" hierarchy="secondary" disabled>Secondary disabled</ic-button>
+    <ic-button id="ghost-disabled-action" hierarchy="secondary" ghost disabled>Ghost disabled</ic-button>
+    <ic-button id="primary-danger-disabled-action" hierarchy="primary" tone="danger" disabled>Primary danger disabled</ic-button>
+    <ic-button id="secondary-danger-disabled-action" hierarchy="secondary" tone="danger" disabled>Secondary danger disabled</ic-button>
+    <ic-icon-button id="secondary-disabled-icon-action" icon="save" label="Secondary disabled icon" disabled></ic-icon-button>
+    <ic-icon-button id="primary-disabled-icon-action" hierarchy="primary" icon="save" label="Primary disabled icon" disabled></ic-icon-button>
+    <ic-icon-button id="ghost-disabled-icon-action" background="ghost" icon="save" label="Ghost disabled icon" disabled></ic-icon-button>
+    <ic-icon-button id="danger-disabled-icon-action" hierarchy="quiet" tone="danger" icon="delete" label="Danger disabled icon" disabled></ic-icon-button>
+  </div>
+  <div id="disabled-semantic-consumer-fixture">
+    <ic-pagination id="disabled-pagination" label="Disabled pages" page="1" page-count="3" disabled></ic-pagination>
+    <ic-nav-disclosure id="disabled-nav-disclosure" label="Disabled navigation" icon="project" disabled></ic-nav-disclosure>
+    <ic-menu-item id="disabled-menu-item" kind="command" label="Disabled command" value="disabled" disabled></ic-menu-item>
+    <ic-upload-surface id="disabled-file-input" shape="compact" label="Disabled file input" accept="image/*" disabled></ic-upload-surface>
+  </div>
+  <div id="icon-size-fixture">
+    <ic-icon-button data-icon-size="xs" icon="delete" label="Delete xs" hierarchy="quiet" tone="danger" size="xs"></ic-icon-button>
+    <ic-icon-button data-icon-size="small" icon="delete" label="Delete small" hierarchy="quiet" tone="danger" size="s"></ic-icon-button>
+    <ic-icon-button data-icon-size="medium" icon="delete" label="Delete medium" hierarchy="quiet" tone="danger" size="m"></ic-icon-button>
+    <ic-icon-button data-icon-size="large" icon="delete" label="Delete large" hierarchy="quiet" tone="danger" size="l"></ic-icon-button>
+  </div>
+  <ic-icon-button id="unnamed-icon-action" icon="delete"></ic-icon-button>
+  <ic-icon-button id="primary-icon-action" icon="save" label="Save canvas" hierarchy="primary"></ic-icon-button>
+  <ic-button-group id="action-group" label="Canvas actions">
+    <ic-button hierarchy="primary">Save</ic-button>
+    <ic-icon-button icon="settings" label="Canvas settings"></ic-icon-button>
+  </ic-button-group>
+  <ic-button-group id="provider-action-group" label="Provider key links" style="width: 220px">
+    <ic-button hierarchy="secondary">Get Key · China</ic-button>
+    <ic-button hierarchy="secondary">Get Key · Global</ic-button>
+  </ic-button-group>
+  <ic-button-group id="vertical-action-group" label="Vertical actions" orientation="vertical">
+    <ic-button hierarchy="secondary">Save canvas</ic-button>
+    <ic-icon-button icon="settings" label="Canvas settings"></ic-icon-button>
+  </ic-button-group>
+  <ic-button-group id="selection-group" label="Wrong selection" role="tablist">
+    <ic-button>First</ic-button>
+    <ic-button>Second</ic-button>
+  </ic-button-group>
+  <ic-button-group id="child-group" label="Wrong child">
+    <ic-button>Allowed</ic-button>
+    <span>Not an action</span>
+  </ic-button-group>
+  <ic-button-group id="primary-group" label="Too many primary actions">
+    <ic-button hierarchy="primary">Save</ic-button>
+    <ic-button hierarchy="primary">Publish</ic-button>
+  </ic-button-group>
+  <pre id="actions-results"></pre>
+  <script type="module">
+    const result = { checks: {} };
+    const invalid = document.querySelector('#invalid-action');
+    let invalidActivations = 0;
+    let invalidContractErrors = 0;
+    invalid.addEventListener('click', () => { invalidActivations += 1; });
+    invalid.addEventListener('ic-contract-error', () => { invalidContractErrors += 1; });
+    const emptyAction = document.querySelector('#empty-action');
+    const iconOnlyAction = document.querySelector('#icon-only-action');
+    let prohibitedContentActivations = 0;
+    emptyAction.addEventListener('click', () => { prohibitedContentActivations += 1; });
+    iconOnlyAction.addEventListener('click', () => { prohibitedContentActivations += 1; });
+    const iconAction = document.querySelector('#icon-action');
+    const unnamedIconAction = document.querySelector('#unnamed-icon-action');
+    const primaryIconAction = document.querySelector('#primary-icon-action');
+    let iconActivations = 0;
+    let unnamedActivations = 0;
+    let unnamedContractErrors = 0;
+    let primaryIconActivations = 0;
+    iconAction.addEventListener('click', () => { iconActivations += 1; });
+    unnamedIconAction.addEventListener('click', () => { unnamedActivations += 1; });
+    unnamedIconAction.addEventListener('ic-contract-error', () => { unnamedContractErrors += 1; });
+    primaryIconAction.addEventListener('click', () => { primaryIconActivations += 1; });
+
+    try {
+      await import('/static/js/infinite-canvas-ui/core.js');
+      await customElements.whenDefined('ic-button');
+      await customElements.whenDefined('ic-upload-surface');
+      if (!customElements.get('ic-icon-button')) throw new Error('ic-icon-button is not registered');
+      await customElements.whenDefined('ic-icon-button');
+      if (!customElements.get('ic-button-group')) throw new Error('ic-button-group is not registered');
+      await customElements.whenDefined('ic-button-group');
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const primary = document.querySelector('#primary-action');
+      let submittedIntent = '';
+      document.querySelector('#action-form').addEventListener('submit', event => {
+        event.preventDefault();
+        submittedIntent = new FormData(event.currentTarget, event.submitter).get('intent') || '';
+      });
+      primary.click();
+      invalid.click();
+      emptyAction.click();
+      iconOnlyAction.click();
+
+      iconAction.click();
+      unnamedIconAction.click();
+      primaryIconAction.click();
+
+      const combinationFixture = document.createElement('div');
+      const hierarchies = ['primary', 'secondary', 'quiet'];
+      const tones = ['neutral', 'danger'];
+      const behaviors = ['action', 'toggle'];
+      const buttonCombinations = [];
+      const iconButtonCombinations = [];
+      for (const hierarchy of hierarchies) {
+        for (const tone of tones) {
+          for (const behavior of behaviors) {
+            const button = document.createElement('ic-button');
+            button.hierarchy = hierarchy;
+            button.tone = tone;
+            button.toggle = behavior === 'toggle';
+            button.textContent = `${hierarchy} ${tone} ${behavior}`;
+            combinationFixture.append(button);
+            buttonCombinations.push({ button, hierarchy, tone, behavior });
+
+            const iconButton = document.createElement('ic-icon-button');
+            iconButton.hierarchy = hierarchy;
+            iconButton.tone = tone;
+            iconButton.toggle = behavior === 'toggle';
+            iconButton.icon = 'settings';
+            iconButton.label = `${hierarchy} ${tone} ${behavior}`;
+            combinationFixture.append(iconButton);
+            iconButtonCombinations.push({ button: iconButton, hierarchy, tone, behavior });
+          }
+        }
+      }
+      document.body.append(combinationFixture);
+
+      const toggleForm = document.createElement('form');
+      const toggleAction = document.createElement('ic-button');
+      toggleAction.hierarchy = 'secondary';
+      toggleAction.toggle = true;
+      toggleAction.type = 'submit';
+      toggleAction.textContent = 'Snap to grid';
+      toggleForm.append(toggleAction);
+      document.body.append(toggleForm);
+      let toggleSubmits = 0;
+      toggleForm.addEventListener('submit', event => {
+        event.preventDefault();
+        toggleSubmits += 1;
+      });
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      toggleAction.click();
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      const actionGroup = document.querySelector('#action-group');
+      const providerActionGroup = document.querySelector('#provider-action-group');
+      const verticalActionGroup = document.querySelector('#vertical-action-group');
+      const selectionGroup = document.querySelector('#selection-group');
+      const childGroup = document.querySelector('#child-group');
+      const primaryGroup = document.querySelector('#primary-group');
+      let groupedActivations = 0;
+      let invalidGroupActivations = 0;
+      actionGroup.addEventListener('click', () => { groupedActivations += 1; });
+      selectionGroup.addEventListener('click', () => { invalidGroupActivations += 1; });
+      actionGroup.querySelector('ic-button').click();
+      selectionGroup.querySelector('ic-button').click();
+
+      result.primary = {
+        contractStatus: primary.dataset.icContractStatus || '',
+        submittedIntent,
+      };
+      result.invalid = {
+        contractStatus: invalid.dataset.icContractStatus || '',
+        reason: invalid.dataset.icContractReason || '',
+        ariaDisabled: invalid.getAttribute('aria-disabled'),
+        activations: invalidActivations,
+        contractErrors: invalidContractErrors,
+      };
+      result.prohibitedContent = {
+        emptyStatus: emptyAction.dataset.icContractStatus || '',
+        emptyReason: emptyAction.dataset.icContractReason || '',
+        iconOnlyStatus: iconOnlyAction.dataset.icContractStatus || '',
+        iconOnlyReason: iconOnlyAction.dataset.icContractReason || '',
+        activations: prohibitedContentActivations,
+      };
+      result.iconButton = {
+        contractStatus: iconAction.dataset.icContractStatus || '',
+        label: iconAction.label || '',
+        title: iconAction.title || '',
+        icon: iconAction.querySelector('ic-icon')?.name || '',
+        iconHidden: iconAction.querySelector('ic-icon')?.getAttribute('aria-hidden'),
+        activations: iconActivations,
+      };
+      result.iconButtonSizes = [...document.querySelectorAll('[data-icon-size]')].map(button => {
+        const base = button.shadowRoot.querySelector('[part~="base"]');
+        const icon = button.querySelector('ic-icon');
+        return {
+          name: button.dataset.iconSize,
+          controlSize: base.getBoundingClientRect().height,
+          iconSize: icon.getBoundingClientRect().width,
+          iconSizeAttribute: icon.getAttribute('size'),
+          iconStrokeWidth: getComputedStyle(icon.shadowRoot.querySelector('svg')).strokeWidth,
+        };
+      });
+      result.unnamedIconButton = {
+        contractStatus: unnamedIconAction.dataset.icContractStatus || '',
+        reason: unnamedIconAction.dataset.icContractReason || '',
+        activations: unnamedActivations,
+        contractErrors: unnamedContractErrors,
+      };
+      result.primaryIconButton = {
+        contractStatus: primaryIconAction.dataset.icContractStatus || '',
+        reason: primaryIconAction.dataset.icContractReason || '',
+        activations: primaryIconActivations,
+      };
+      result.buttonGroup = {
+        contractStatus: actionGroup.dataset.icContractStatus || '',
+        role: actionGroup.getAttribute('role'),
+        label: actionGroup.getAttribute('aria-label'),
+        activations: groupedActivations,
+      };
+      result.invalidGroups = {
+        selection: {
+          status: selectionGroup.dataset.icContractStatus || '',
+          reason: selectionGroup.dataset.icContractReason || '',
+        },
+        child: {
+          status: childGroup.dataset.icContractStatus || '',
+          reason: childGroup.dataset.icContractReason || '',
+        },
+        primary: {
+          status: primaryGroup.dataset.icContractStatus || '',
+          reason: primaryGroup.dataset.icContractReason || '',
+        },
+        activations: invalidGroupActivations,
+      };
+      const summarizeCombination = ({ button, hierarchy, tone, behavior }) => ({
+        hierarchy,
+        tone,
+        behavior,
+        status: button.dataset.icContractStatus || '',
+        reason: button.dataset.icContractReason || '',
+      });
+      result.combinations = {
+        buttons: buttonCombinations.map(summarizeCombination),
+        iconButtons: iconButtonCombinations.map(summarizeCombination),
+      };
+      const visualProbe = document.createElement('span');
+      visualProbe.style.cssText = [
+        'position: fixed',
+        'inset: auto auto -100px -100px',
+        'background-color: var(--ui-color-action-primary)',
+        'color: var(--ui-color-text-on-action-primary)',
+        'border-radius: var(--ui-radius-m)',
+      ].join(';');
+      document.body.append(visualProbe);
+      const primaryBaseStyle = getComputedStyle(primary.shadowRoot.querySelector('[part="base"]'));
+      const primaryBase = primary.shadowRoot.querySelector('[part="base"]');
+      const iconActionBaseStyle = getComputedStyle(
+        document.querySelector('#icon-action').shadowRoot.querySelector('[part~="base"]')
+      );
+      const primaryStartIcon = primary.querySelector('[slot="start"]');
+      const primaryLabel = primary.shadowRoot.querySelector('[part="label"]');
+      const actionTokenStyle = getComputedStyle(visualProbe);
+      const centerOffset = button => {
+        const frame = button.getBoundingClientRect();
+        const icon = button.querySelector('ic-icon').getBoundingClientRect();
+        return {
+          x: Math.abs((frame.left + frame.width / 2) - (icon.left + icon.width / 2)),
+          y: Math.abs((frame.top + frame.height / 2) - (icon.top + icon.height / 2)),
+        };
+      };
+      const cornerRadii = button => {
+        const style = getComputedStyle(button.shadowRoot.querySelector('[part~="base"]'));
+        return [
+          style.borderTopLeftRadius,
+          style.borderTopRightRadius,
+          style.borderBottomRightRadius,
+          style.borderBottomLeftRadius,
+        ];
+      };
+      const legalIconButtons = iconButtonCombinations
+        .map(item => item.button)
+        .filter(button => button.dataset.icContractStatus === 'ready');
+      const secondaryAction = buttonCombinations.find(item => (
+        item.hierarchy === 'secondary'
+        && item.tone === 'neutral'
+        && item.behavior === 'action'
+      )).button;
+      const secondaryBase = secondaryAction.shadowRoot.querySelector('[part="base"]');
+      const lightSecondaryStyle = getComputedStyle(secondaryBase);
+      const generationKindBase = document.querySelector('#generation-kind-action').shadowRoot.querySelector('[part~="base"]');
+      const generationKindStyle = getComputedStyle(generationKindBase);
+      const secondaryHoverAction = document.querySelector('#secondary-hover-action');
+      const ghostAction = document.querySelector('#ghost-action');
+      const ghostHoverAction = document.querySelector('#ghost-hover-action');
+      const dangerAction = document.querySelector('#danger-action');
+      const dangerHoverAction = document.querySelector('#danger-hover-action');
+      const secondaryHoverStyle = getComputedStyle(secondaryHoverAction.shadowRoot.querySelector('[part~="base"]'));
+      const ghostStyle = getComputedStyle(ghostAction.shadowRoot.querySelector('[part~="base"]'));
+      const ghostHoverStyle = getComputedStyle(ghostHoverAction.shadowRoot.querySelector('[part~="base"]'));
+      const dangerStyle = getComputedStyle(dangerAction.shadowRoot.querySelector('[part~="base"]'));
+      const dangerHoverStyle = getComputedStyle(dangerHoverAction.shadowRoot.querySelector('[part~="base"]'));
+      const primaryIconStyle = getComputedStyle(primaryIconAction.shadowRoot.querySelector('[part~="base"]'));
+      const resolveColorToken = token => {
+        visualProbe.style.backgroundColor = `var(${token})`;
+        return getComputedStyle(visualProbe).backgroundColor;
+      };
+      const disabledExpectationById = {
+        'primary-disabled-action': ['--ui-color-action-primary-disabled', '--ui-color-text-on-action-primary-disabled', null],
+        'secondary-disabled-action': ['--ui-color-action-secondary-disabled', '--ui-color-text-disabled', '--ui-color-border-disabled'],
+        'ghost-disabled-action': ['--ui-color-action-tertiary-disabled', '--ui-color-text-disabled', null],
+        'primary-danger-disabled-action': ['--ui-color-action-primary-danger-disabled', '--ui-color-text-on-action-primary-disabled', null],
+        'secondary-danger-disabled-action': ['--ui-color-action-secondary-disabled', '--ui-color-text-disabled', null],
+        'secondary-disabled-icon-action': ['--ui-color-action-secondary-disabled', '--ui-color-icon-disabled', null],
+        'primary-disabled-icon-action': ['--ui-color-action-primary-disabled', '--ui-color-icon-disabled', null],
+        'ghost-disabled-icon-action': ['--ui-color-action-tertiary-disabled', '--ui-color-icon-disabled', null],
+        'danger-disabled-icon-action': ['--ui-color-action-tertiary-disabled', '--ui-color-icon-disabled', null],
+      };
+      const snapshotDisabledActions = () => Object.entries(disabledExpectationById).map(([id, tokens]) => {
+        const control = document.querySelector(`#${id}`);
+        const style = getComputedStyle(control.shadowRoot.querySelector('[part~="base"]'));
+        return {
+          id,
+          opacity: getComputedStyle(control).opacity,
+          background: style.backgroundColor,
+          expectedBackground: resolveColorToken(tokens[0]),
+          color: style.color,
+          expectedColor: resolveColorToken(tokens[1]),
+          borderColor: tokens[2] ? style.borderColor : null,
+          expectedBorderColor: tokens[2] ? resolveColorToken(tokens[2]) : null,
+        };
+      });
+      const disabledSemanticConsumerDefinitions = [
+        ['disabled-pagination', 'button', '--ui-color-action-secondary-disabled', '--ui-color-text-disabled', '--ui-color-border-disabled'],
+        ['disabled-nav-disclosure', '.trigger', '--ui-color-action-tertiary-disabled', '--ui-color-text-disabled', null],
+        ['disabled-menu-item', '[part~="base"]', '--ui-color-action-tertiary-disabled', '--ui-color-text-disabled', null],
+        ['disabled-file-input', '.surface', '--ui-color-action-secondary-disabled', '--ui-color-text-disabled', '--ui-color-border-disabled'],
+      ];
+      const snapshotDisabledSemanticConsumers = () => disabledSemanticConsumerDefinitions.map(definition => {
+        const [id, selector, backgroundToken, colorToken, borderToken] = definition;
+        const style = getComputedStyle(document.querySelector(`#${id}`).shadowRoot.querySelector(selector));
+        return {
+          id,
+          opacity: style.opacity,
+          background: style.backgroundColor,
+          expectedBackground: resolveColorToken(backgroundToken),
+          color: style.color,
+          expectedColor: resolveColorToken(colorToken),
+          borderColor: borderToken ? style.borderColor : null,
+          expectedBorderColor: borderToken ? resolveColorToken(borderToken) : null,
+        };
+      });
+      const motionScale = control => {
+        const transform = getComputedStyle(control.shadowRoot.querySelector('[part~="base"]')).transform;
+        return transform === 'none' ? 1 : new DOMMatrixReadOnly(transform).a;
+      };
+      const pressedMotionControls = [...document.querySelectorAll('[data-pressed-motion]')];
+      const snapshotPressedMotion = () => pressedMotionControls.map(control => {
+        const style = getComputedStyle(control.shadowRoot.querySelector('[part~="base"]'));
+        return {
+          scale: motionScale(control),
+          duration: style.transitionDuration,
+          easing: style.transitionTimingFunction,
+        };
+      });
+      result.visualContract = {
+        primaryBackground: primaryBaseStyle.backgroundColor,
+        primaryForeground: primaryBaseStyle.color,
+        primaryTokenBackground: actionTokenStyle.backgroundColor,
+        primaryTokenForeground: actionTokenStyle.color,
+        secondaryForeground: lightSecondaryStyle.color,
+        secondaryBackground: lightSecondaryStyle.backgroundColor,
+        secondaryBorderColor: lightSecondaryStyle.borderColor,
+        secondaryBorderWidth: lightSecondaryStyle.borderWidth,
+        secondaryForegroundToken: resolveColorToken('--ui-color-action-primary'),
+        secondaryBackgroundToken: resolveColorToken('--ui-color-surface'),
+        secondaryBorderToken: resolveColorToken('--ui-color-border-secondary'),
+        ghostAndPrimary: {
+          ghostStatus: ghostAction.dataset.icContractStatus,
+          ghostBackground: ghostStyle.backgroundColor,
+          ghostBorderWidth: ghostStyle.borderWidth,
+          ghostHoverBackground: ghostHoverStyle.backgroundColor,
+          hoverToken: resolveColorToken('--ui-color-action-tertiary-hover'),
+          primaryStatus: primaryIconAction.dataset.icContractStatus,
+          primaryBackground: primaryIconStyle.backgroundColor,
+          primaryForeground: primaryIconStyle.color,
+          actionToken: resolveColorToken('--ui-color-action-primary'),
+          onActionToken: resolveColorToken('--ui-color-text-on-action-primary'),
+        },
+        stableSecondaryForegrounds: {
+          secondaryNormal: lightSecondaryStyle.color,
+          secondaryHover: secondaryHoverStyle.color,
+          ghostNormal: ghostStyle.color,
+          ghostHover: ghostHoverStyle.color,
+          dangerNormal: dangerStyle.color,
+          dangerHover: dangerHoverStyle.color,
+          secondaryWeight: lightSecondaryStyle.fontWeight,
+          secondaryHoverWeight: secondaryHoverStyle.fontWeight,
+          ghostWeight: ghostStyle.fontWeight,
+          ghostHoverWeight: ghostHoverStyle.fontWeight,
+          dangerWeight: dangerStyle.fontWeight,
+          dangerHoverWeight: dangerHoverStyle.fontWeight,
+          secondaryToken: resolveColorToken('--ui-color-action-primary'),
+          dangerToken: resolveColorToken('--ui-color-text-danger'),
+        },
+        generationKind: {
+          height: generationKindBase.getBoundingClientRect().height,
+          paddingInlineStart: generationKindStyle.paddingInlineStart,
+          paddingInlineEnd: generationKindStyle.paddingInlineEnd,
+          background: generationKindStyle.backgroundColor,
+          radius: generationKindStyle.borderRadius,
+          cornerShape: generationKindStyle.getPropertyValue('corner-shape').replace(/\s+/g, '').trim(),
+          color: generationKindStyle.color,
+          paramRowColorToken: resolveColorToken('--ui-color-text-secondary'),
+        },
+        primaryFormControlRadius: primaryBaseStyle.getPropertyValue('--wa-form-control-border-radius').trim(),
+        buttonRadiusToken: getComputedStyle(document.documentElement).getPropertyValue('--ui-radius-m').trim(),
+        resolvedButtonRadius: actionTokenStyle.borderTopLeftRadius,
+        primaryCornerShape: primaryBaseStyle.getPropertyValue('corner-shape').replace(/\s+/g, '').trim(),
+        iconCornerShape: iconActionBaseStyle.getPropertyValue('corner-shape').replace(/\s+/g, '').trim(),
+        primaryIconCornerShape: primaryIconStyle.getPropertyValue('corner-shape').replace(/\s+/g, '').trim(),
+        cornerShapeSupported: CSS.supports('corner-shape', 'squircle'),
+        horizontalGroupCorners: [...actionGroup.querySelectorAll('ic-button, ic-icon-button')].map(cornerRadii),
+        providerGroupCorners: [...providerActionGroup.querySelectorAll('ic-button, ic-icon-button')].map(cornerRadii),
+        providerGroupFlexWrap: getComputedStyle(providerActionGroup.shadowRoot.querySelector('[part~="base"]')).flexWrap,
+        providerGroupChildTops: [...providerActionGroup.children].map(child => child.getBoundingClientRect().top),
+        verticalGroupCorners: [...verticalActionGroup.querySelectorAll('ic-button, ic-icon-button')].map(cornerRadii),
+        primaryContentCenterOffset: Math.abs(
+          (primaryBase.getBoundingClientRect().left + primaryBase.getBoundingClientRect().width / 2)
+          - (
+            primaryStartIcon.getBoundingClientRect().left
+            + primaryLabel.getBoundingClientRect().right
+          ) / 2
+        ),
+        iconCenterOffsets: legalIconButtons.map(centerOffset),
+        disabledActions: {
+          light: snapshotDisabledActions(),
+          dark: [],
+        },
+        disabledSemanticConsumers: {
+          light: snapshotDisabledSemanticConsumers(),
+          dark: [],
+        },
+        pressedMotion: {
+          standard: snapshotPressedMotion(),
+          reduced: [],
+          disabledScale: motionScale(document.querySelector('#disabled-pressed-motion')),
+          loadingScale: motionScale(document.querySelector('#loading-pressed-motion')),
+        },
+      };
+      document.documentElement.dataset.uiMotion = 'reduced';
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      result.visualContract.pressedMotion.reduced = snapshotPressedMotion();
+      delete document.documentElement.dataset.uiMotion;
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      document.documentElement.dataset.uiTheme = 'dark';
+      await new Promise(resolve => setTimeout(resolve, 250));
+      const darkSecondaryStyle = getComputedStyle(secondaryBase);
+      result.visualContract.darkSecondaryForeground = darkSecondaryStyle.color;
+      result.visualContract.darkSecondaryBackground = darkSecondaryStyle.backgroundColor;
+      result.visualContract.darkSecondaryBorderColor = darkSecondaryStyle.borderColor;
+      result.visualContract.darkSecondaryBorderWidth = darkSecondaryStyle.borderWidth;
+      result.visualContract.darkSecondaryForegroundToken = resolveColorToken('--ui-color-text-primary');
+      result.visualContract.darkSecondaryBackgroundToken = resolveColorToken('--ui-color-surface');
+      result.visualContract.darkSecondaryBorderToken = resolveColorToken('--ui-color-border-tertiary');
+      result.visualContract.disabledActions.dark = snapshotDisabledActions();
+      result.visualContract.disabledSemanticConsumers.dark = snapshotDisabledSemanticConsumers();
+      delete document.documentElement.dataset.uiTheme;
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      primary.focus();
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const focusedPrimaryStyle = getComputedStyle(primary.shadowRoot.querySelector('[part="base"]'));
+      result.focusContract = {
+        colorToken: getComputedStyle(document.documentElement).getPropertyValue('--ui-color-border-focus').trim(),
+        resolvedColorToken: resolveColorToken('--ui-color-border-focus'),
+        outlineColor: focusedPrimaryStyle.outlineColor,
+        outlineWidth: focusedPrimaryStyle.outlineWidth,
+        outlineOffset: focusedPrimaryStyle.outlineOffset,
+        boxShadow: focusedPrimaryStyle.boxShadow,
+      };
+      document.documentElement.dataset.uiTheme = 'dark';
+      await new Promise(resolve => setTimeout(resolve, 250));
+      result.focusContract.darkBoxShadow = getComputedStyle(
+        primary.shadowRoot.querySelector('[part="base"]')
+      ).boxShadow;
+      delete document.documentElement.dataset.uiTheme;
+      visualProbe.remove();
+      result.toggle = {
+        status: toggleAction.dataset.icContractStatus || '',
+        pressed: toggleAction.pressed,
+        reflectedPressed: toggleAction.hasAttribute('pressed'),
+        type: toggleAction.type,
+        submits: toggleSubmits,
+      };
+      result.checks.primary = (
+        result.primary.contractStatus === 'ready'
+        && result.primary.submittedIntent === 'save'
+      );
+      result.checks.invalid = (
+        result.invalid.contractStatus === 'invalid'
+        && result.invalid.reason.includes('primary')
+        && result.invalid.ariaDisabled === 'true'
+        && result.invalid.activations === 0
+        && result.invalid.contractErrors >= 1
+      );
+      result.checks.prohibitedContent = (
+        result.prohibitedContent.emptyStatus === 'invalid'
+        && result.prohibitedContent.emptyReason.includes('label')
+        && result.prohibitedContent.iconOnlyStatus === 'invalid'
+        && result.prohibitedContent.iconOnlyReason.includes('label')
+        && result.prohibitedContent.activations === 0
+      );
+      result.checks.iconButton = (
+        result.iconButton.contractStatus === 'ready'
+        && result.iconButton.label === 'Canvas settings'
+        && result.iconButton.title === ''
+        && result.iconButton.icon === 'settings'
+        && result.iconButton.iconHidden === 'true'
+        && result.iconButton.activations === 1
+        && JSON.stringify(result.iconButtonSizes) === JSON.stringify([
+          { name: 'xs', controlSize: 20, iconSize: 12, iconSizeAttribute: 'x-small', iconStrokeWidth: '1.33px' },
+          { name: 'small', controlSize: 28, iconSize: 16, iconSizeAttribute: 'small', iconStrokeWidth: '1.33px' },
+          { name: 'medium', controlSize: 36, iconSize: 20, iconSizeAttribute: 'medium', iconStrokeWidth: '1.5px' },
+          { name: 'large', controlSize: 40, iconSize: 24, iconSizeAttribute: 'large', iconStrokeWidth: '2px' },
+        ])
+        && result.unnamedIconButton.contractStatus === 'invalid'
+        && result.unnamedIconButton.reason.includes('label')
+        && result.unnamedIconButton.activations === 0
+        && result.unnamedIconButton.contractErrors >= 1
+        && result.primaryIconButton.contractStatus === 'ready'
+        && result.primaryIconButton.reason === ''
+        && result.primaryIconButton.activations === 1
+      );
+      result.checks.buttonGroup = (
+        result.buttonGroup.contractStatus === 'ready'
+        && result.buttonGroup.role === 'group'
+        && result.buttonGroup.label === 'Canvas actions'
+        && result.buttonGroup.activations === 1
+        && result.invalidGroups.selection.status === 'invalid'
+        && result.invalidGroups.selection.reason.includes('selection')
+        && result.invalidGroups.child.status === 'invalid'
+        && result.invalidGroups.child.reason.includes('children')
+        && result.invalidGroups.primary.status === 'invalid'
+        && result.invalidGroups.primary.reason.includes('primary')
+        && result.invalidGroups.activations === 0
+      );
+      const legalButtonCombinations = new Set([
+        'primary/neutral/action', 'secondary/neutral/action', 'quiet/neutral/action',
+        'primary/danger/action', 'secondary/danger/action', 'quiet/danger/action',
+        'secondary/neutral/toggle', 'quiet/neutral/toggle',
+      ]);
+      const legalIconButtonCombinations = new Set([
+        'primary/neutral/action', 'secondary/neutral/action', 'quiet/neutral/action', 'quiet/danger/action',
+        'secondary/neutral/toggle', 'quiet/neutral/toggle',
+      ]);
+      const combinationMatches = (item, legal) => {
+        const key = `${item.hierarchy}/${item.tone}/${item.behavior}`;
+        return legal.has(key)
+          ? item.status === 'ready' && item.reason === ''
+          : item.status === 'invalid' && item.reason !== '';
+      };
+      result.checks.combinations = (
+        result.combinations.buttons.every(item => combinationMatches(item, legalButtonCombinations))
+        && result.combinations.iconButtons.every(item => combinationMatches(item, legalIconButtonCombinations))
+        && result.combinations.buttons.filter(item => item.status === 'ready').length === 8
+        && result.combinations.iconButtons.filter(item => item.status === 'ready').length === 6
+      );
+      result.checks.toggle = (
+        result.toggle.status === 'ready'
+        && result.toggle.pressed === true
+        && result.toggle.reflectedPressed === true
+        && result.toggle.type === 'button'
+        && result.toggle.submits === 0
+      );
+      result.checks.primaryPalette = (
+        result.visualContract.primaryBackground === result.visualContract.primaryTokenBackground
+        && result.visualContract.primaryForeground === result.visualContract.primaryTokenForeground
+      );
+      result.checks.secondaryPalette = (
+        result.visualContract.secondaryForeground === result.visualContract.secondaryForegroundToken
+        && result.visualContract.secondaryBackground === result.visualContract.secondaryBackgroundToken
+        && result.visualContract.secondaryBorderColor === result.visualContract.secondaryBorderToken
+        && result.visualContract.secondaryBorderWidth === '1px'
+        && result.visualContract.darkSecondaryForeground === result.visualContract.darkSecondaryForegroundToken
+        && result.visualContract.darkSecondaryBackground === result.visualContract.darkSecondaryBackgroundToken
+        && result.visualContract.darkSecondaryBorderColor === result.visualContract.darkSecondaryBorderToken
+        && result.visualContract.darkSecondaryBorderWidth === '1px'
+      );
+      result.checks.disabledPalette = (
+        ['light', 'dark'].every(theme => (
+          [
+            ...result.visualContract.disabledActions[theme],
+            ...result.visualContract.disabledSemanticConsumers[theme],
+          ].every(item => (
+              item.opacity === '1'
+              && item.background === item.expectedBackground
+              && item.color === item.expectedColor
+              && item.borderColor === item.expectedBorderColor
+            ))
+        ))
+      );
+      result.checks.pressedMotion = (
+        result.visualContract.pressedMotion.standard.length === 7
+        && result.visualContract.pressedMotion.standard.every(item => (
+          Math.abs(item.scale - .94) < .001
+          && item.duration === '0.09s'
+          && item.easing === 'cubic-bezier(0.4, 0, 1, 1)'
+        ))
+        && result.visualContract.pressedMotion.reduced.every(item => Math.abs(item.scale - 1) < .001)
+        && Math.abs(result.visualContract.pressedMotion.disabledScale - 1) < .001
+        && Math.abs(result.visualContract.pressedMotion.loadingScale - 1) < .001
+      );
+      result.checks.ghostAndPrimary = (
+        result.visualContract.ghostAndPrimary.ghostStatus === 'ready'
+        && result.visualContract.ghostAndPrimary.ghostBackground === 'rgba(0, 0, 0, 0)'
+        && result.visualContract.ghostAndPrimary.ghostBorderWidth === '0px'
+        && result.visualContract.ghostAndPrimary.ghostHoverBackground === result.visualContract.ghostAndPrimary.hoverToken
+        && result.visualContract.ghostAndPrimary.primaryStatus === 'ready'
+        && result.visualContract.ghostAndPrimary.primaryBackground === result.visualContract.ghostAndPrimary.actionToken
+        && result.visualContract.ghostAndPrimary.primaryForeground === result.visualContract.ghostAndPrimary.onActionToken
+      );
+      result.checks.stableSecondaryForegrounds = (
+        result.visualContract.stableSecondaryForegrounds.secondaryNormal
+          === result.visualContract.stableSecondaryForegrounds.secondaryToken
+        && result.visualContract.stableSecondaryForegrounds.secondaryHover
+          === result.visualContract.stableSecondaryForegrounds.secondaryNormal
+        && result.visualContract.stableSecondaryForegrounds.ghostHover
+          === result.visualContract.stableSecondaryForegrounds.ghostNormal
+        && result.visualContract.stableSecondaryForegrounds.dangerNormal
+          === result.visualContract.stableSecondaryForegrounds.dangerToken
+        && result.visualContract.stableSecondaryForegrounds.dangerHover
+          === result.visualContract.stableSecondaryForegrounds.dangerNormal
+        && [
+          result.visualContract.stableSecondaryForegrounds.secondaryWeight,
+          result.visualContract.stableSecondaryForegrounds.secondaryHoverWeight,
+          result.visualContract.stableSecondaryForegrounds.ghostWeight,
+          result.visualContract.stableSecondaryForegrounds.ghostHoverWeight,
+          result.visualContract.stableSecondaryForegrounds.dangerWeight,
+          result.visualContract.stableSecondaryForegrounds.dangerHoverWeight,
+        ].every(weight => weight === '400')
+      );
+      result.checks.iconAlignment = (
+        result.visualContract.primaryContentCenterOffset < 0.5
+        &&
+        result.visualContract.iconCenterOffsets.length === 6
+        && result.visualContract.iconCenterOffsets.every(offset => offset.x < 0.5 && offset.y < 0.5)
+      );
+      result.checks.generationKind = (
+        result.visualContract.generationKind.height === 28
+        && result.visualContract.generationKind.paddingInlineStart === '8px'
+        && result.visualContract.generationKind.paddingInlineEnd === '8px'
+        && result.visualContract.generationKind.background === 'rgba(0, 0, 0, 0)'
+        && result.visualContract.generationKind.radius === '8px'
+        && result.visualContract.generationKind.color === result.visualContract.generationKind.paramRowColorToken
+      );
+      result.checks.buttonShape = (
+        result.visualContract.primaryFormControlRadius === result.visualContract.buttonRadiusToken
+        && result.visualContract.horizontalGroupCorners[0].every(
+          radius => radius === result.visualContract.resolvedButtonRadius
+        )
+        && result.visualContract.horizontalGroupCorners[1].every(
+          radius => radius === result.visualContract.resolvedButtonRadius
+        )
+        && result.visualContract.providerGroupCorners.every(corners => (
+          corners.every(radius => radius === result.visualContract.resolvedButtonRadius)
+        ))
+        && result.visualContract.providerGroupFlexWrap === 'wrap'
+        && new Set(result.visualContract.providerGroupChildTops).size > 1
+        && result.visualContract.verticalGroupCorners[0].every(
+          radius => radius === result.visualContract.resolvedButtonRadius
+        )
+        && result.visualContract.verticalGroupCorners[1].every(
+          radius => radius === result.visualContract.resolvedButtonRadius
+        )
+        && (
+          !result.visualContract.cornerShapeSupported
+          || (
+            ['squircle', 'superellipse(2)'].includes(result.visualContract.primaryCornerShape)
+            && ['squircle', 'superellipse(2)'].includes(result.visualContract.generationKind.cornerShape)
+            && ['squircle', 'superellipse(2)'].includes(result.visualContract.iconCornerShape)
+            && ['round', 'superellipse(1)'].includes(result.visualContract.primaryIconCornerShape)
+          )
+        )
+      );
+      result.checks.focusContract = (
+        result.focusContract.outlineColor === result.focusContract.resolvedColorToken
+        && result.focusContract.outlineWidth === '1px'
+        && result.focusContract.outlineOffset === '-1px'
+        && result.focusContract.boxShadow === 'none'
+        && result.focusContract.darkBoxShadow === 'none'
+      );
+      document.documentElement.dataset.icActionsStatus = (
+        Object.values(result.checks).every(Boolean) ? 'passed' : 'failed'
+      );
+    } catch (error) {
+      result.error = error.stack || String(error);
+      document.documentElement.dataset.icActionsStatus = 'failed';
+    }
+    document.querySelector('#actions-results').textContent = JSON.stringify(result);
+  </script>
+</body>
+</html>

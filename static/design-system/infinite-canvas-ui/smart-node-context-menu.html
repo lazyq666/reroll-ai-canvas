@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reroll UI · 节点右键菜单</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    html,body{margin:0;min-height:100%;background:var(--ui-color-surface-canvas);color:var(--ui-color-text-primary);font-family:var(--ui-font-sans)}
+    body{padding:var(--ui-space-6)}
+    main{min-height:28rem;display:grid;place-items:center}
+    article{width:min(30rem,100%);min-height:22rem;box-sizing:border-box;display:grid;grid-template-rows:auto auto 1fr;gap:var(--ui-space-4);padding:var(--ui-space-5);border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary);border-radius:var(--ui-radius-l);background:var(--ui-color-surface)}
+    header{display:grid;gap:var(--ui-space-2)}
+    h1,p{margin:0}
+    h1{font-size:var(--ui-font-size-4)}
+    p{color:var(--ui-color-text-secondary);font-size:var(--ui-font-size-2)}
+    .context-target{width:12rem;min-height:8rem;align-self:center;justify-self:center;border:var(--ui-border-width-thin) solid var(--ui-color-border-primary);border-radius:var(--ui-radius-m);background:var(--ui-color-surface-subtle);color:var(--ui-color-text-primary);font:inherit;cursor:context-menu}
+  </style>
+</head>
+<body>
+  <main aria-label="节点右键菜单 Block">
+    <article>
+      <header>
+        <h1>节点右键菜单</h1>
+        <p>右键下方节点区域可重新打开菜单；菜单打开时按住 Shift 显示“复制节点 ID”。</p>
+      </header>
+      <ic-smart-node-context-menu id="smartNodeContextMenu" data-component-name="ic-smart-node-context-menu" label="节点操作"></ic-smart-node-context-menu>
+      <button class="context-target" id="contextTarget" type="button" aria-haspopup="menu" aria-controls="smartNodeContextMenu">节点 node_7f3a</button>
+    </article>
+  </main>
+  <script type="module">
+    await import('/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4');
+    await customElements.whenDefined('ic-smart-node-context-menu');
+    await import('/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4');
+
+    const target = document.querySelector('#contextTarget');
+    const menu = document.querySelector('#smartNodeContextMenu');
+    const sections = [
+      [
+        { action: 'edit-prompt', label: '编辑提示词' },
+        { action: 'copy', label: '复制节点', shortcut: '⌘C' },
+        { action: 'copy-node-id', label: '复制节点 ID', shiftOnly: true },
+        { action: 'duplicate', label: '创建副本', shortcut: '⌘D' },
+      ],
+      [
+        { action: 'download', label: '下载' },
+        { action: 'delete', label: '删除节点', shortcut: 'Delete', danger: true },
+      ],
+    ];
+    menu.setSections(sections);
+
+    const openMenu = ({ shiftKey = false, x, y } = {}) => {
+      menu.setSections(sections, { shiftKey });
+      if (Number.isFinite(x) && Number.isFinite(y)) menu.showAt(x, y, target);
+      else menu.show(target);
+    };
+    target.addEventListener('click', () => openMenu());
+    target.addEventListener('contextmenu', event => {
+      event.preventDefault();
+      openMenu({ shiftKey: event.shiftKey, x: event.clientX, y: event.clientY });
+    });
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    openMenu();
+  </script>
+</body>
+</html>

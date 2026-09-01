@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-ic-selection-motion-status="">
+<head>
+  <meta charset="utf-8">
+  <title>Infinite Canvas UI selection motion harness</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    body { display: grid; gap: 24px; padding: 40px; }
+    ic-slider { inline-size: 240px; }
+  </style>
+</head>
+<body>
+  <ic-checkbox id="motion-checkbox" label="Animate checkbox"></ic-checkbox>
+  <ic-radio-group id="motion-radio-group" label="Animate radio" name="motion-radio" value="first">
+    <ic-radio id="motion-radio-first" label="First" value="first"></ic-radio>
+    <ic-radio id="motion-radio-second" label="Second" value="second"></ic-radio>
+  </ic-radio-group>
+  <ic-switch id="motion-switch" label="Animate switch"></ic-switch>
+  <ic-slider id="motion-slider" label="Animate slider" min="0" max="100" step="1" value="40" value-text="40 percent"></ic-slider>
+  <ic-switch id="disabled-switch" label="Disabled switch" disabled></ic-switch>
+  <pre id="results"></pre>
+  <script type="module">
+    try {
+      await import('/static/js/infinite-canvas-ui/core.js');
+      await Promise.all(['ic-checkbox', 'ic-radio-group', 'ic-radio', 'ic-switch', 'ic-slider'].map(tag => customElements.whenDefined(tag)));
+      await Promise.all([...document.querySelectorAll('ic-checkbox, ic-radio-group, ic-radio, ic-switch, ic-slider')].map(control => control.updateComplete));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      document.documentElement.dataset.icSelectionMotionStatus = 'ready';
+    } catch (error) {
+      document.querySelector('#results').textContent = String(error?.stack || error);
+      document.documentElement.dataset.icSelectionMotionStatus = 'failed';
+    }
+  </script>
+</body>
+</html>

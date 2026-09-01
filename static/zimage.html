@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="zimage" data-studio-scale="off">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <title data-i18n="studio.zimagePageTitle">Flux 图像生成 | 统一控制台</title>
+    <script>
+        (function () {
+            try {
+                document.documentElement.dataset.studioFitScale = 'off';
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch (error) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <link rel="stylesheet" href="/static/css/zimage.css?v=2026.09.01.2.1787638441">
+</head>
+<body>
+    <header class="studio-header">
+        <div class="layout-container">
+            <ic-card id="generationConsole" class="generation-console" label="统一创作控制台" size="large" data-i18n-label="studio.unifiedConsole">
+                <div class="console-prompt">
+                    <div class="console-meta">
+                        <ic-heading level="1" data-legal-combination="h1-title" data-i18n="studio.unifiedConsole">统一创作控制台</ic-heading>
+                        <ic-badge id="statusBadge" kind="status" tone="success" data-i18n="studio.ready">系统就绪</ic-badge>
+                    </div>
+                    <ic-textarea id="prompt" name="prompt" rows="3" resize="none" aria-label="提示词" data-i18n-aria-label="studio.prompt" placeholder="描述你想生成的画面..." data-i18n-placeholder="studio.describeVision"></ic-textarea>
+                </div>
+
+                <div class="console-controls">
+                    <div class="generation-settings">
+                        <div class="setting-group engine-setting">
+                            <span class="setting-label" data-i18n="studio.engineSource">引擎来源</span>
+                            <ic-segmented-control id="engineSelector" label="引擎来源" value="local" data-i18n-label="studio.engineSource">
+                                <button type="button" data-value="local">
+                                    <ic-icon name="device" size="small"></ic-icon>
+                                    <span data-i18n="studio.local">本地</span>
+                                </button>
+                                <button type="button" data-value="cloud">
+                                    <ic-icon name="cloud" size="small"></ic-icon>
+                                    <span>ModelScope</span>
+                                </button>
+                            </ic-segmented-control>
+                        </div>
+
+                        <ic-divider orientation="vertical"></ic-divider>
+
+                        <div class="setting-group dimension-setting">
+                            <span class="setting-label" data-i18n="studio.dimensions">尺寸</span>
+                            <div class="dimension-fields">
+                                <ic-number-input id="width" name="width" label="宽度" data-i18n-label="online.width" value="1024"></ic-number-input>
+                                <span class="dimension-separator" aria-hidden="true">×</span>
+                                <ic-number-input id="height" name="height" label="高度" data-i18n-label="online.height" value="1024"></ic-number-input>
+                            </div>
+                        </div>
+                    </div>
+
+                    <ic-button id="mainGenBtn" type="button" hierarchy="primary">
+                        <ic-icon slot="start" name="generate"></ic-icon>
+                        <span id="btnText" data-i18n="studio.renderLocal">本地生成</span>
+                    </ic-button>
+                </div>
+            </ic-card>
+        </div>
+    </header>
+
+    <main class="studio-main">
+        <div class="layout-container gallery-container">
+            <div id="masonry" class="result-grid" aria-live="polite"></div>
+            <ic-button id="loadMoreTrigger" class="load-more" type="button" hierarchy="quiet" hidden>
+                <span data-i18n="studio.loadMore">加载更多归档</span>
+            </ic-button>
+        </div>
+    </main>
+
+    <ic-dialog id="lightbox" class="preview-dialog" label="结果预览" data-i18n-label="studio.resultPreview" size="x-large" dismiss-policy="light">
+        <div class="preview-dialog-content">
+            <div id="lightboxFrame" class="studio-preview-frame preview-frame">
+                <ic-media-container id="lightboxMedia" label="预览图片" data-i18n-label="studio.previewImage" kind="image" fit="contain" state="ready">
+                    <img id="lightboxImg" src="" class="studio-preview-img" alt="预览图片" data-i18n-alt="studio.previewImage">
+                </ic-media-container>
+                <ic-badge class="preview-resolution" kind="label" tone="neutral"><span id="lightboxRes">0 × 0</span></ic-badge>
+                <ic-icon-button id="downloadImageBtn" type="button" hierarchy="secondary" icon="download" label="下载图片" data-i18n-label="studio.downloadImage"></ic-icon-button>
+            </div>
+            <ic-card id="lightboxCard" class="prompt-card" label="提示词记录" size="small" data-i18n-label="studio.promptExecution">
+                <div class="prompt-card-content">
+                    <div class="prompt-copy">
+                        <span class="setting-label" data-i18n="studio.promptExecution">提示词记录</span>
+                        <p id="lightboxPrompt"></p>
+                    </div>
+                    <ic-button id="applySameStyleBtn" type="button" hierarchy="secondary">
+                        <ic-icon slot="start" name="duplicate"></ic-icon>
+                        <span data-i18n="studio.replicate">复用</span>
+                    </ic-button>
+                </div>
+            </ic-card>
+        </div>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="bulkDeleteDialog" label="删除所选图片" data-i18n-label="bulk.deleteSelectedImages" confirm-label="删除" data-i18n-confirm-label="common.delete" cancel-label="取消" data-i18n-cancel-label="common.cancel" consequence="destructive"></ic-confirmation-dialog>
+
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script src="/static/js/image-preview.js?v=2026.09.01.2.1787561133" defer></script>
+    <script src="/static/js/history-bulk-manager.js?v=2026.09.01.2.1788146221" defer></script>
+    <script src="/static/js/zimage.js?v=2026.09.01.2.1786933745" defer></script>
+</body>
+</html>

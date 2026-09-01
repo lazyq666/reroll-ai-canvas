@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN" data-foundation-case-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Foundation Case</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.14.icon-stroke.3">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css">
+</head>
+<body class="foundation-case-page">
+  <main class="foundation-case-content">
+    <section class="foundation-sample foundation-density-sample" aria-labelledby="density-title">
+      <header>
+        <div><span>Density context</span><h2 id="density-title" data-density-title>Medium</h2></div>
+        <code data-density-token>--ui-control-height-m</code>
+      </header>
+      <div class="foundation-control-row">
+        <ic-button type="button" data-focus-sample>
+          <ic-icon name="save" aria-hidden="true" slot="start"></ic-icon>
+          保存画布
+        </ic-button>
+        <ic-input label="项目名称" value="Reroll"></ic-input>
+        <ic-icon name="settings" label="画布设置"></ic-icon>
+      </div>
+      <p>按 Tab 检查 Focus；文字与背景必须保持至少 4.5:1 对比度。</p>
+    </section>
+
+    <section class="foundation-icon-sample" aria-labelledby="icon-title">
+      <header><span>Lucide semantic names</span><h2 id="icon-title">ic-icon</h2></header>
+      <div class="foundation-icon-semantics">
+        <ic-icon name="add" label="添加"></ic-icon>
+        <ic-icon name="search" label="搜索"></ic-icon>
+        <ic-icon name="warning" label="警告"></ic-icon>
+        <ic-icon name="success" label="成功"></ic-icon>
+        <ic-icon name="close" aria-hidden="true"></ic-icon>
+      </div>
+      <div class="foundation-icon-stroke-scale" data-icon-stroke-scale aria-label="图标尺寸与描边宽度">
+        <span class="foundation-icon-stroke-option" data-icon-stroke="xs"><ic-icon name="settings" size="x-small" aria-hidden="true"></ic-icon><strong>XS</strong><code>0.5</code></span>
+        <span class="foundation-icon-stroke-option" data-icon-stroke="s"><ic-icon name="settings" size="small" aria-hidden="true"></ic-icon><strong>S</strong><code>1</code></span>
+        <span class="foundation-icon-stroke-option" data-icon-stroke="m"><ic-icon name="settings" size="medium" aria-hidden="true"></ic-icon><strong>M</strong><code>1.5</code></span>
+        <span class="foundation-icon-stroke-option" data-icon-stroke="l"><ic-icon name="settings" size="large" aria-hidden="true"></ic-icon><strong>L</strong><code>2</code></span>
+        <span class="foundation-icon-stroke-option" data-icon-stroke="xl"><ic-icon name="settings" size="x-large" aria-hidden="true"></ic-icon><strong>XL</strong><code>2.5</code></span>
+      </div>
+    </section>
+
+    <div class="foundation-semantic-details">
+      <section class="foundation-review-section" aria-labelledby="layers-title">
+        <header>
+          <div><span>Layering</span><h2 id="layers-title">Canvas → Surface → Panel</h2></div>
+          <code>半透明 Panel 可看到下层关系</code>
+        </header>
+        <div class="foundation-layer-stack">
+          <div class="foundation-layer foundation-layer-canvas"><strong>Canvas</strong><span>页面最底层</span></div>
+          <div class="foundation-layer foundation-layer-surface"><strong>Surface</strong><span>实体内容容器</span></div>
+          <div class="foundation-layer foundation-layer-panel"><strong>Panel</strong><span>半透明工具面板</span></div>
+        </div>
+      </section>
+
+      <section class="foundation-review-section" aria-labelledby="palette-title">
+        <header>
+          <div><span>Semantic colors</span><h2 id="palette-title">完整语义色板</h2></div>
+          <code>同一角色随主题切换</code>
+        </header>
+        <div class="foundation-swatch-grid">
+          <article class="foundation-swatch is-canvas"><span></span><strong>Canvas</strong><code>--ui-color-surface-canvas</code></article>
+          <article class="foundation-swatch is-surface"><span></span><strong>Surface</strong><code>--ui-color-surface</code></article>
+          <article class="foundation-swatch is-subtle"><span></span><strong>Surface subtle</strong><code>--ui-color-surface-subtle</code></article>
+          <article class="foundation-swatch is-panel"><span></span><strong>Surface floating</strong><code>--ui-color-surface-floating</code></article>
+          <article class="foundation-swatch is-hover"><span></span><strong>Hover</strong><code>--ui-color-action-tertiary-hover</code></article>
+          <article class="foundation-swatch is-selected"><span></span><strong>Selected</strong><code>--ui-color-action-secondary-selected</code></article>
+          <article class="foundation-swatch is-action"><span></span><strong>Action primary</strong><code>--ui-color-action-primary</code></article>
+          <article class="foundation-swatch is-selected-border"><span></span><strong>Border selected</strong><code>--ui-color-border-selected</code></article>
+          <article class="foundation-swatch is-success"><span></span><strong>Success</strong><code>--ui-color-text-success</code></article>
+          <article class="foundation-swatch is-warning"><span></span><strong>Warning</strong><code>--ui-color-text-warning</code></article>
+          <article class="foundation-swatch is-danger"><span></span><strong>Danger</strong><code>--ui-color-text-danger</code></article>
+          <article class="foundation-swatch is-disabled"><span></span><strong>Disabled</strong><code>--ui-color-action-secondary-disabled</code></article>
+        </div>
+      </section>
+
+      <section class="foundation-review-section" aria-labelledby="states-title">
+        <header>
+          <div><span>Interaction states</span><h2 id="states-title">交互状态必须相邻可辨</h2></div>
+          <code>default / hover / selected / focus / disabled</code>
+        </header>
+        <div class="foundation-state-groups">
+          <div class="foundation-state-row" aria-label="中性操作状态">
+            <button class="foundation-state-chip is-action-default" type="button">Default</button>
+            <button class="foundation-state-chip is-action-hover" type="button">Hover</button>
+            <button class="foundation-state-chip is-selected" type="button">Selected</button>
+            <button class="foundation-state-chip is-focus" type="button">Focus</button>
+            <button class="foundation-state-chip is-disabled" type="button" disabled>Disabled</button>
+          </div>
+          <div class="foundation-state-row" aria-label="选取描边">
+            <button class="foundation-state-chip is-selection-outline" type="button">Selection outline</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="foundation-review-section" aria-labelledby="status-title">
+        <header>
+          <div><span>Status & soft surfaces</span><h2 id="status-title">状态色与低强度背景</h2></div>
+          <code>文字、边界和 soft 背景分工明确</code>
+        </header>
+        <div class="foundation-status-grid">
+          <article class="foundation-status-card is-info"><ic-icon name="info" aria-hidden="true"></ic-icon><div><strong>Info</strong><span>信息说明与关键提示</span></div></article>
+          <article class="foundation-status-card is-success"><ic-icon name="success" aria-hidden="true"></ic-icon><div><strong>Success</strong><span>操作已成功完成</span></div></article>
+          <article class="foundation-status-card is-warning"><ic-icon name="warning" aria-hidden="true"></ic-icon><div><strong>Warning</strong><span>继续前需要留意</span></div></article>
+          <article class="foundation-status-card is-danger"><ic-icon name="warning" aria-hidden="true"></ic-icon><div><strong>Danger</strong><span>错误与危险操作</span></div></article>
+        </div>
+      </section>
+
+      <section class="foundation-review-section" aria-labelledby="text-title">
+        <header>
+          <div><span>Content hierarchy</span><h2 id="text-title">文字层级</h2></div>
+          <code>普通文字按 4.5:1 检查</code>
+        </header>
+        <div class="foundation-text-levels">
+          <p class="is-primary"><strong>主要文字</strong><span>标题、正文和关键数据</span></p>
+          <p class="is-muted"><strong>次要文字</strong><span>解释、元信息和辅助说明</span></p>
+          <p class="is-faint"><strong>弱化文字</strong><span>占位符与低优先级信息</span></p>
+          <p class="is-disabled"><strong>禁用文字</strong><span>不可操作，但仍需清楚可辨</span></p>
+        </div>
+      </section>
+
+      <section class="foundation-review-section" aria-labelledby="effects-title">
+        <header>
+          <div><span>Effects & transparency</span><h2 id="effects-title">阴影、遮罩与透明面板</h2></div>
+          <code>raised / popover / modal</code>
+        </header>
+        <div class="foundation-effects-grid">
+          <article class="foundation-effect-card is-raised"><strong>Raised</strong><span>轻微离开页面</span></article>
+          <article class="foundation-effect-card is-popover"><strong>Popover</strong><span>菜单与气泡</span></article>
+          <article class="foundation-effect-card is-modal"><strong>Modal</strong><span>最高内容层级</span></article>
+          <div class="foundation-overlay-sample"><div><strong>Overlay + Panel</strong><span>遮罩上保持清楚的半透明层</span></div></div>
+        </div>
+      </section>
+
+      <section class="foundation-review-section" aria-labelledby="narrow-title">
+        <header>
+          <div><span>Narrow viewport</span><h2 id="narrow-title">窄屏重排检查</h2></div>
+          <code>320px 内容区</code>
+        </header>
+        <div class="foundation-narrow-preview">
+          <header><strong>节点设置</strong><ic-icon name="settings" label="节点设置"></ic-icon></header>
+          <p>长说明允许自然换行，控件不应被裁切或横向溢出。</p>
+          <div><button type="button">取消</button><button class="is-primary" type="button">保存更改</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <p class="target-case-status" data-case-status role="status" aria-live="polite">正在启动 Foundations…</p>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/foundation-case.js"></script>
+</body>
+</html>

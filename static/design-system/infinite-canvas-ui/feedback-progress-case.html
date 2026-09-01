@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN" data-feedback-progress-case-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feedback and Progress Case</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    body { margin:0; padding:var(--ui-space-4); color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
+    main { display:grid; gap:var(--ui-space-5); }
+    section { display:grid; gap:var(--ui-space-3); min-width:0; }
+    h2 { margin:0; font-size:var(--ui-font-size-2); color:var(--ui-color-text-tertiary); }
+    .row { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); align-items:center; min-width:0; }
+    .stack { display:grid; gap:var(--ui-space-2); }
+    .alert-queue-demo { min-height:17rem; align-content:space-between; }
+    .alert-queue-stage { position:relative; width:min(100%,30rem); min-height:10rem; justify-self:end; isolation:isolate; }
+    .alert-queue-stage ic-alert { position:absolute; inset-block-start:0; inset-inline:0; width:100%; }
+    .alert-queue-controls { display:grid; gap:var(--ui-space-3); }
+    .skeleton-card { display:grid; grid-template-columns:auto 1fr; gap:var(--ui-space-3); align-items:center; padding:var(--ui-space-3); border:1px solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); }
+    .skeleton-lines { display:grid; gap:var(--ui-space-2); }
+    .node-runtime-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ui-space-3); }
+    .node-runtime-sample { position:relative; min-height:7rem; display:grid; place-items:center; padding:var(--ui-space-5) var(--ui-space-3) var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-primary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-floating); color:var(--ui-color-text-tertiary); font-size:var(--ui-font-size-2); box-shadow:var(--ui-shadow-raised); }
+    .node-runtime-sample ic-badge { --ic-badge-spin-duration:calc(var(--ui-motion-duration-slow) * 4); position:absolute; inset-block-start:var(--ui-space-2); inset-inline-end:var(--ui-space-2); font-variant-numeric:tabular-nums; }
+    .node-runtime-sample ic-badge::part(base) { min-height:var(--ui-control-height-xs); font-size:var(--ui-font-size-1); font-weight:var(--ui-font-weight-bold); }
+    .generation-pending-grid, .generation-recovery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--ui-space-3); }
+    .generation-pending-sample, .generation-recovery-sample { display:grid; gap:var(--ui-space-2); min-width:0; }
+    .generation-pending-sample { padding-block-start:var(--ui-space-5); }
+    .generation-pending-sample > span, .generation-recovery-sample > span { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .generation-pending-sample ic-generation-pending, .generation-recovery-sample ic-generation-recovery { height:11rem; }
+    ic-progress { width:min(100%, 24rem); }
+    @media (max-width:420px) { body { padding:var(--ui-space-3); } .row { align-items:stretch; } .alert-queue-demo { min-height:19rem; } .alert-queue-stage { min-height:11rem; justify-self:stretch; } .node-runtime-grid, .generation-pending-grid, .generation-recovery-grid { grid-template-columns:minmax(0,1fr); } ic-alert, ic-progress { width:100%; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="alert-queue-demo">
+      <div class="alert-queue-stage" data-alert-queue-stage role="region" aria-label="Alert 队列预览"></div>
+      <div class="alert-queue-controls"><h2 data-copy="alert-variants">Alert 变体</h2><div class="row" role="group" data-copy-aria-label="alert-preview-actions" aria-label="Alert 预览操作">
+        <ic-button hierarchy="secondary" data-alert-trigger="neutral" data-legal-combination="neutral" data-copy="alert-neutral-trigger">默认 Alert</ic-button>
+        <ic-button hierarchy="secondary" data-alert-trigger="info" data-legal-combination="info" data-copy="alert-info-trigger">信息 Alert</ic-button>
+        <ic-button hierarchy="secondary" data-alert-trigger="success" data-legal-combination="success" data-copy="alert-success-trigger">成功 Alert</ic-button>
+        <ic-button hierarchy="secondary" data-alert-trigger="warning" data-legal-combination="warning" data-copy="alert-warning-trigger">警告 Alert</ic-button>
+        <ic-button hierarchy="secondary" data-alert-trigger="danger" data-legal-combination="danger" data-copy="alert-danger-trigger">错误 Alert</ic-button>
+        <ic-button hierarchy="secondary" data-alert-trigger="danger" data-alert-with-button data-legal-combination="danger+button" data-copy="alert-button-trigger">带按钮 Alert</ic-button>
+      </div></div>
+    </section>
+    <section><h2 data-copy="badge-sizes">徽标尺寸 · Badge sizes</h2><div class="row">
+      <ic-badge data-legal-combination data-component-name="ic-badge-label-small" kind="label" size="small" data-copy="badge-label">标签</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-label" kind="label" size="medium" data-copy="badge-label">标签</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-label-large" kind="label" size="large" data-copy="badge-label">标签</ic-badge>
+    </div></section>
+    <section><h2 data-copy="badge-kinds">标签与数量 · Label & Count</h2><div class="row">
+      <ic-badge data-legal-combination data-component-name="ic-badge-label-category" kind="label" tone="neutral" data-copy="recommended">推荐</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-count" kind="count">12</ic-badge>
+    </div></section>
+    <section><h2 data-copy="badge-statuses">状态徽标 · Status badges</h2><div class="row">
+      <ic-badge data-legal-combination data-component-name="ic-badge-status-processing" kind="status" tone="info" loading data-copy="processing">进行中</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-status-success" kind="status" tone="success" data-copy="completed">已完成</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-status-warning" kind="status" tone="warning" data-copy="needs-attention">需处理</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-status-danger" kind="status" tone="danger" data-copy="failed">失败</ic-badge>
+    </div></section>
+    <section data-component-name="ic-badge-node-runtime-status" data-copy-kind="产品组件"><h2 data-copy="node-runtime-status">节点运行耗时状态 · Node Runtime Status</h2><div class="node-runtime-grid">
+      <div class="node-runtime-sample"><span data-copy="node-runtime-running">运行中的生成节点</span><ic-badge kind="status" tone="info" loading>12s</ic-badge></div>
+      <div class="node-runtime-sample"><span data-copy="node-runtime-complete">已完成的生成节点</span><ic-badge kind="status" tone="neutral">43s</ic-badge></div>
+    </div></section>
+    <section><h2 data-copy="generation-pending">生成等待节点 · Generation Pending</h2><div class="generation-pending-grid">
+      <div class="generation-pending-sample"><span data-copy="generation-pending-image">图片 · 生成中 · 多输出</span><ic-generation-pending id="generation-pending-image" data-legal-combination data-component-name="ic-generation-pending-image" kind="image" state="generating" count="4" label="正在生成 4 张图片" elapsed="6s"></ic-generation-pending></div>
+      <div class="generation-pending-sample"><span data-copy="generation-pending-video">视频 · 排队中 · 单输出</span><ic-generation-pending id="generation-pending-video" data-legal-combination data-component-name="ic-generation-pending-video" kind="video" state="queued" count="1" label="视频等待生成" elapsed="7s"></ic-generation-pending></div>
+      <div class="generation-pending-sample"><span data-copy="generation-pending-text">文本 · 生成中 · 单输出</span><ic-generation-pending id="generation-pending-text" data-legal-combination data-component-name="ic-generation-pending-text" kind="text" state="generating" count="1" label="正在生成文本" elapsed="8s"></ic-generation-pending></div>
+    </div></section>
+    <section><h2 data-copy="generation-recovery">生成恢复节点 · Generation Recovery</h2><div class="generation-recovery-grid">
+      <div class="generation-recovery-sample"><span data-copy="generation-recovery-image">图片 · 可恢复</span><ic-generation-recovery id="generation-recovery-image" data-legal-combination data-component-name="ic-generation-recovery-image" kind="image" state="recoverable" title="任务可继续" description="任务 image-42 仍可查询" action-label="查询结果"></ic-generation-recovery></div>
+      <div class="generation-recovery-sample"><span data-copy="generation-recovery-video">视频 · 云端排队</span><ic-generation-recovery id="generation-recovery-video" data-legal-combination data-component-name="ic-generation-recovery-video" kind="video" state="queued" title="排队中，前面 2 个任务" description="任务可恢复，可继续等待或手动查询" action-label="查询结果"></ic-generation-recovery></div>
+      <div class="generation-recovery-sample"><span data-copy="generation-recovery-text">文本 · 查询中</span><ic-generation-recovery id="generation-recovery-text" data-legal-combination data-component-name="ic-generation-recovery-text" kind="text" state="querying" title="正在查询" description="正在恢复文本生成任务" action-label="查询中..."></ic-generation-recovery></div>
+    </div></section>
+    <section><h2 data-copy="toasts">瞬时反馈 · Toast</h2><div class="row" role="group" data-copy-aria-label="toast-preview-actions" aria-label="Toast 预览操作">
+      <ic-button hierarchy="secondary" data-toast-trigger="neutral" data-legal-combination="neutral" data-component-name="ic-toast-neutral" data-copy="toast-neutral-trigger">默认 Toast</ic-button>
+      <ic-button hierarchy="secondary" data-toast-trigger="info" data-legal-combination="info" data-component-name="ic-toast-info" data-copy="toast-info-trigger">信息 Toast</ic-button>
+      <ic-button hierarchy="secondary" data-toast-trigger="success" data-legal-combination="success" data-component-name="ic-toast-success" data-copy="toast-success-trigger">成功 Toast</ic-button>
+      <ic-button hierarchy="secondary" data-toast-trigger="warning" data-legal-combination="warning" data-component-name="ic-toast-warning" data-copy="toast-warning-trigger">警告 Toast</ic-button>
+      <ic-button hierarchy="secondary" data-toast-trigger="danger" data-legal-combination="danger" data-component-name="ic-toast-danger" data-copy="toast-danger-trigger">错误 Toast</ic-button>
+    </div></section>
+    <section><h2>Busy and Measurable Progress</h2><div class="stack"><ic-loading id="loading-inline" data-legal-combination label="正在准备预览" presentation="inline"></ic-loading><ic-loading id="loading-region" data-legal-combination label="正在载入工作区" presentation="region"></ic-loading><ic-progress id="progress-batch" data-legal-combination label="批量生成" value="6" max="10" value-text="6 / 10"></ic-progress><ic-progress id="progress-upload" label="上传素材" value="72" max="100"></ic-progress></div></section>
+    <section><h2>Skeleton · Reduced Motion</h2><div class="skeleton-card" aria-busy="true"><ic-skeleton data-legal-combination shape="circle"></ic-skeleton><div class="skeleton-lines"><ic-skeleton data-legal-combination shape="text"></ic-skeleton><ic-skeleton shape="text"></ic-skeleton></div><ic-skeleton data-legal-combination shape="rectangle"></ic-skeleton><ic-loading id="loading-content" label="正在载入内容"></ic-loading></div></section>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/feedback-progress-case.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

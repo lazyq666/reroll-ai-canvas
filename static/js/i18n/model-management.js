@@ -1,0 +1,38 @@
+(function(){
+    if(!window.StudioI18n) return;
+    window.StudioI18n.register({
+        "models.pageTitle": { zh: "可用模型管理 · Reroll", en: "Manage available models · Reroll" },
+        "models.catalog": { zh: "模型目录", en: "Model catalog" },
+        "models.title": { zh: "可用模型管理", en: "Manage available models" },
+        "models.subtitle": { zh: "设置用户看到的模型名称、显示状态和顺序。", en: "Set the names, visibility, and order shown to users." },
+        "models.types": { zh: "模型类型", en: "Model types" },
+        "models.image": { zh: "图片模型", en: "Image models" },
+        "models.video": { zh: "视频模型", en: "Video models" },
+        "models.text": { zh: "文本模型", en: "Text models" },
+        "models.orderHint": { zh: "编辑名称或显示状态；拖动模型或使用右侧箭头调整顺序。", en: "Edit names or visibility, then drag models or use the arrows to reorder them." },
+        "models.topToBottom": { zh: "从上到下", en: "Top to bottom" },
+        "models.operationResult": { zh: "模型排序操作结果", en: "Model ordering result" },
+        "models.operationRetry": { zh: "操作失败，请稍后重试", en: "Operation failed. Try again later." },
+        "models.empty": { zh: "暂无可用模型，请先到 API 设置为平台添加模型。", en: "No models are available. Add models to a provider in API settings first." },
+        "models.dragModel": { zh: "拖动 {name}", en: "Drag {name}" },
+        "models.dragToOrder": { zh: "拖动排序", en: "Drag to reorder" },
+        "models.modelName": { zh: "模型名称", en: "Model name" },
+        "models.icon": { zh: "图标", en: "Icon" },
+        "models.iconStyle": { zh: "图标风格", en: "Icon style" },
+        "models.iconOutline": { zh: "线形", en: "Outline" },
+        "models.iconFilled": { zh: "面形", en: "Filled" },
+        "models.modelNaming": { zh: "模型命名", en: "Model name" },
+        "models.modelId": { zh: "模型 ID", en: "Model ID" },
+        "models.providerId": { zh: "平台 ID", en: "Provider ID" },
+        "models.visibility": { zh: "显示", en: "Visible" },
+        "models.showModel": { zh: "显示模型 {name}", en: "Show model {name}" },
+        "models.operations": { zh: "操作", en: "Actions" },
+        "models.nameRequired": { zh: "模型名称不能为空", en: "Model name cannot be empty" },
+        "models.moveUp": { zh: "上移", en: "Move up" },
+        "models.moveDown": { zh: "下移", en: "Move down" },
+        "models.saved": { zh: "模型名称和顺序已保存。", en: "Model names and order saved." },
+        "models.saveFailed": { zh: "保存失败", en: "Save failed" },
+        "models.saveNotApplied": { zh: "保存未生效，当前输入已保留，请重启服务后重试。", en: "The save did not take effect. Your input is preserved; restart the service and try again." },
+        "models.loadFailed": { zh: "无法载入模型", en: "Could not load models" }
+    });
+})();

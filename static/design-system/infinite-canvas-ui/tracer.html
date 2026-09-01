@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN" data-target-tracer-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Focused Target Review</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css">
+</head>
+<body class="target-matrix-page">
+  <header class="acceptance-toolbar">
+    <nav class="component-tabs" aria-label="选择验收组件">
+      <button type="button" class="active" data-component-tab="button" aria-pressed="true">Button</button>
+      <button type="button" data-component-tab="input" aria-pressed="false">Input</button>
+      <button type="button" data-component-tab="dialog" aria-pressed="false">Dialog</button>
+    </nav>
+    <form class="preview-controls" data-preview-controls aria-label="预览情境">
+      <label><span>主题</span>
+        <select data-filter-theme>
+          <option value="light" selected>Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <label><span>宽度</span>
+        <select data-filter-viewport>
+          <option value="desktop" selected>Desktop</option>
+          <option value="narrow">Narrow</option>
+        </select>
+      </label>
+      <label><span>内容</span>
+        <select data-filter-content>
+          <option value="zh" selected>中文</option>
+          <option value="en">English</option>
+          <option value="long">长内容</option>
+        </select>
+      </label>
+    </form>
+    <div class="preview-mode" aria-label="预览模式">
+      <button type="button" class="active" data-preview-mode="single" aria-pressed="true">单一预览</button>
+      <button type="button" data-preview-mode="compare" aria-pressed="false">比较</button>
+    </div>
+    <span class="preview-status" data-matrix-status role="status" aria-live="polite">正在启动预览…</span>
+  </header>
+
+  <main class="acceptance-preview">
+    <section class="focused-preview" data-single-preview>
+      <header class="preview-heading">
+        <div><span>当前情境</span><strong data-current-context>Button · Light · Desktop · 中文</strong></div>
+      </header>
+      <div class="preview-stage">
+        <div class="target-case-frame desktop" data-primary-frame>
+          <iframe
+            data-primary-preview
+            title="Button Light Desktop 中文 Target"
+            src="/static/design-system/infinite-canvas-ui/tracer-case.html?theme=light&amp;viewport=desktop&amp;content=zh&amp;component=button&amp;case=single-button-light-desktop-zh"
+          ></iframe>
+        </div>
+      </div>
+    </section>
+
+    <section class="compare-preview" data-compare-preview hidden aria-label="四种代表情境比较">
+      <article class="target-matrix-card" data-theme="light" data-viewport="desktop" data-content="zh">
+        <header><strong>Light · Desktop</strong><span>中文</span></header>
+        <div class="target-case-frame desktop"><iframe title="Light Desktop 中文 Target" data-compare-case></iframe></div>
+      </article>
+      <article class="target-matrix-card" data-theme="light" data-viewport="narrow" data-content="en">
+        <header><strong>Light · Narrow</strong><span>English</span></header>
+        <div class="target-case-frame narrow"><iframe title="Light Narrow English Target" data-compare-case></iframe></div>
+      </article>
+      <article class="target-matrix-card" data-theme="dark" data-viewport="desktop" data-content="long">
+        <header><strong>Dark · Desktop</strong><span>长内容</span></header>
+        <div class="target-case-frame desktop"><iframe title="Dark Desktop 长内容 Target" data-compare-case></iframe></div>
+      </article>
+      <article class="target-matrix-card" data-theme="dark" data-viewport="narrow" data-content="zh">
+        <header><strong>Dark · Narrow</strong><span>中文</span></header>
+        <div class="target-case-frame narrow"><iframe title="Dark Narrow 中文 Target" data-compare-case></iframe></div>
+      </article>
+    </section>
+  </main>
+  <script src="/static/js/infinite-canvas-ui/component-surface-matrix.js" defer></script>
+</body>
+</html>

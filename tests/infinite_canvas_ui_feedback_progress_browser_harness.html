@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en" data-ic-feedback-progress-test-status="">
+<head><meta charset="utf-8"><title>Feedback Progress browser contract</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/static/css/design-tokens.css"></head>
+<body>
+  <ic-alert id="alert" tone="danger" dismissible>Connection failed</ic-alert>
+  <ic-alert id="action-alert" tone="danger" heading="Generation did not complete" action-label="View details" dismissible>Check the failure details.</ic-alert>
+  <ic-alert id="neutral-alert" tone="neutral">No changes require attention.</ic-alert>
+  <ic-alert id="success-alert" tone="success">Export complete.</ic-alert>
+  <ic-alert id="warning-alert" tone="warning">Upload still in progress.</ic-alert>
+  <ic-badge id="badge" kind="status" tone="success">Ready</ic-badge>
+  <div id="badge-size-contracts">
+    <ic-badge id="badge-label-small" data-badge-kind="label" data-badge-size="small" kind="label" size="small">Label</ic-badge>
+    <ic-badge id="badge-label-medium" data-badge-kind="label" data-badge-size="medium" kind="label" size="medium">Label</ic-badge>
+    <ic-badge id="badge-label-large" data-badge-kind="label" data-badge-size="large" kind="label" size="large">Label</ic-badge>
+    <ic-badge data-badge-kind="count" data-badge-size="small" kind="count" size="small">12</ic-badge>
+    <ic-badge data-badge-kind="count" data-badge-size="medium" kind="count" size="medium">12</ic-badge>
+    <ic-badge data-badge-kind="count" data-badge-size="large" kind="count" size="large">12</ic-badge>
+    <ic-badge data-badge-kind="status" data-badge-size="small" kind="status" size="small" tone="info" loading>Processing</ic-badge>
+    <ic-badge data-badge-kind="status" data-badge-size="medium" kind="status" size="medium" tone="info" loading>Processing</ic-badge>
+    <ic-badge data-badge-kind="status" data-badge-size="large" kind="status" size="large" tone="info" loading>Processing</ic-badge>
+  </div>
+  <div id="toasts"><ic-toast id="toast-one" tone="success">Saved</ic-toast><ic-toast id="toast-two" tone="info">Synced</ic-toast></div>
+  <section id="busy-region" aria-busy="true"><ic-loading id="loading" label="Rendering preview" presentation="region"></ic-loading></section>
+  <ic-progress id="progress" label="Upload" value="4" max="10" value-text="4 of 10"></ic-progress>
+  <ic-skeleton id="skeleton" shape="rectangle"></ic-skeleton>
+  <ic-empty-state id="empty" title="No results" label="Results"><span>Generate an item to see it here.</span></ic-empty-state>
+  <div id="recovery-host"><ic-generation-recovery id="recovery" kind="image" state="recoverable" title="Generation can continue" description="Task image-42 is still available" action-label="Query result"></ic-generation-recovery></div>
+  <div id="hidden-dialog-backdrop" hidden><section id="hidden-dialog" role="dialog" aria-modal="true">Hidden dialog</section></div>
+  <ic-alert id="invalid-alert" tone="sparkle"></ic-alert>
+  <ic-progress id="invalid-progress" label="Broken" value="11" max="10"></ic-progress>
+  <pre id="ic-results"></pre>
+  <div id="layer-cover" style="position:fixed;inset:0;z-index:2147483647;pointer-events:auto"></div>
+  <script type="module">
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const errors = [];
+    document.addEventListener('ic-contract-error', event => errors.push(event.detail));
+    try {
+      await import('/static/js/infinite-canvas-ui/core.js');
+      await Promise.all(['ic-alert','ic-badge','ic-toast','ic-loading','ic-progress','ic-skeleton','ic-empty-state','ic-generation-recovery'].map(tag => customElements.whenDefined(tag)));
+      const { createStackedFeedbackQueue } = await import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1a20b8e9d3c4');
+      const queueInterruptItem = document.createElement('div');
+      document.body.append(queueInterruptItem);
+      const interruptQueue = createStackedFeedbackQueue({
+        edge: 'end', visibleCount: 1, stackStepPx: 0, scaleStep: 0, exitDuration: 100,
+      });
+      interruptQueue.enqueue(queueInterruptItem, { animate:false });
+      const staleDismiss = interruptQueue.dismiss(queueInterruptItem);
+      interruptQueue.enqueue(queueInterruptItem, { animate:false });
+      const transitionEnd = new Event('transitionend');
+      Object.defineProperty(transitionEnd, 'propertyName', { value:'transform' });
+      queueInterruptItem.dispatchEvent(transitionEnd);
+      const queueInterrupt = {
+        staleDismissed: await staleDismiss,
+        connected: queueInterruptItem.isConnected,
+        state: queueInterruptItem.getAttribute('data-ic-stack-state'),
+        ariaHidden: queueInterruptItem.getAttribute('aria-hidden'),
+      };
+      queueInterruptItem.remove();
+      const toastOne = document.querySelector('#toast-one');
+      const toastTwo = document.querySelector('#toast-two');
+      const toastEntryProbe = document.createElement('ic-toast');
+      toastEntryProbe.setAttribute('tone', 'neutral');
+      toastEntryProbe.textContent = 'Entry motion probe';
+      document.body.append(toastEntryProbe);
+      const toastEntryStartStyle = getComputedStyle(toastEntryProbe);
+      const toastEntryStart = {
+        state: toastEntryProbe.getAttribute('data-ic-stack-state'),
+        opacity: toastEntryStartStyle.opacity,
+        transform: toastEntryStartStyle.transform,
+        duration: toastEntryStartStyle.transitionDuration,
+      };
+      await paint();
+      await new Promise(resolve => setTimeout(resolve, 240));
+      const toastEntryEnd = {
+        state: toastEntryProbe.getAttribute('data-ic-stack-state'),
+        opacity: getComputedStyle(toastEntryProbe).opacity,
+      };
+      await toastEntryProbe.dismiss();
+      const alert = document.querySelector('#alert');
+      const actionAlert = document.querySelector('#action-alert');
+      const progress = document.querySelector('#progress');
+      const recovery = document.querySelector('#recovery');
+      const alertDismissals = [];
+      const alertActions = [];
+      const recoveryActions = [];
+      let recoveryHostClicks = 0;
+      alert.addEventListener('ic-dismiss', () => alertDismissals.push('dismiss'));
+      actionAlert.addEventListener('ic-action', event => alertActions.push(event.detail?.action));
+      recovery.addEventListener('ic-recover', event => recoveryActions.push(event.detail));
+      document.querySelector('#recovery-host').addEventListener('click', () => { recoveryHostClicks += 1; });
+      const toastOneRect = toastOne.getBoundingClientRect();
+      const toastTwoRect = toastTwo.getBoundingClientRect();
+      const toastHit = document.elementFromPoint(toastTwoRect.left + toastTwoRect.width / 2, toastTwoRect.top + toastTwoRect.height / 2);
+      const beforeQueue = {
+        oneHidden: toastOne.hidden,
+        twoHidden: toastTwo.hidden,
+        oneAriaHidden: toastOne.getAttribute('aria-hidden'),
+        twoAriaHidden: toastTwo.getAttribute('aria-hidden'),
+        oneDisplay: getComputedStyle(toastOne).display,
+        twoDisplay: getComputedStyle(toastTwo).display,
+        oneTopLayer: toastOne.matches(':popover-open'),
+        twoTopLayer: toastTwo.matches(':popover-open'),
+        oneStackIndex: toastOne.dataset.icStackIndex,
+        twoStackIndex: toastTwo.dataset.icStackIndex,
+        oneStackOffset: toastOne.style.getPropertyValue('--ic-stack-offset'),
+        twoStackOffset: toastTwo.style.getPropertyValue('--ic-stack-offset'),
+        motionDirection: toastTwo.style.getPropertyValue('--ic-stack-motion-offset'),
+        oneHasDismiss: Boolean(toastOne.shadowRoot.querySelector('.dismiss')),
+        twoHasDismiss: Boolean(toastTwo.shadowRoot.querySelector('.dismiss')),
+        backContentHidden: getComputedStyle(toastOne.shadowRoot.querySelector('.content')).opacity === '0'
+          && getComputedStyle(toastTwo.shadowRoot.querySelector('.content')).opacity === '1',
+        stacked: toastOneRect.top < toastTwoRect.top && toastOneRect.width < toastTwoRect.width,
+        hitAboveCover: toastHit !== document.querySelector('#layer-cover'),
+        geometry: {
+          left: Math.round(toastTwoRect.left),
+          right: Math.round(toastTwoRect.right),
+          bottom: Math.round(toastTwoRect.bottom),
+          width: Math.round(toastTwoRect.width),
+          viewportWidth: document.documentElement.clientWidth,
+          viewportHeight: window.innerHeight,
+        },
+        bottomCentered: Math.abs((toastTwoRect.left + toastTwoRect.width / 2) - (document.documentElement.clientWidth / 2)) <= 1,
+        shadowSafeInset: window.innerHeight - toastTwoRect.bottom >= 24,
+      };
+      const toastSurface = toastOne.shadowRoot.querySelector('.toast');
+      const toastSurfaceStyle = toastSurface ? getComputedStyle(toastSurface) : null;
+      const toastIndependent = {
+        isAlertInstance: toastOne instanceof customElements.get('ic-alert'),
+        hasAlertSurface: Boolean(toastOne.shadowRoot.querySelector('.alert')),
+        hasToastSurface: Boolean(toastSurface),
+        balancedBorder: Boolean(toastSurfaceStyle && toastSurfaceStyle.borderInlineStartWidth === toastSurfaceStyle.borderInlineEndWidth),
+        elevated: Boolean(toastSurfaceStyle && toastSurfaceStyle.boxShadow !== 'none'),
+        shadowUnclipped: getComputedStyle(toastOne).overflow === 'visible',
+      };
+      const alertBaseRect = alert.shadowRoot.querySelector('.alert').getBoundingClientRect();
+      const alertMessageRect = alert.shadowRoot.querySelector('.message').getBoundingClientRect();
+      const alertDismissRect = alert.shadowRoot.querySelector('.dismiss').getBoundingClientRect();
+      const alertSurfaceStyle = getComputedStyle(alert.shadowRoot.querySelector('.alert'));
+      const alertDismissRightInset = alertBaseRect.right - alertDismissRect.right;
+      const alertExpectedRightInset = parseFloat(alertSurfaceStyle.paddingInlineEnd) + parseFloat(alertSurfaceStyle.borderInlineEndWidth);
+      const alertCenterOffset = Math.abs((alertBaseRect.top + alertBaseRect.height / 2) - (alertMessageRect.top + alertMessageRect.height / 2));
+      const alertVisuals = Object.fromEntries(['neutral', 'success', 'warning'].map(tone => {
+        const element = document.querySelector(`#${tone}-alert`);
+        const icon = element.shadowRoot.querySelector('.symbol ic-icon');
+        const surfaceStyle = getComputedStyle(element.shadowRoot.querySelector('.alert'));
+        return [tone, {
+          icon: icon?.getAttribute('name'),
+          iconReady: icon?.dataset.iconStatus,
+          iconColor: getComputedStyle(icon).color,
+          radius: getComputedStyle(element.shadowRoot.querySelector('.alert')).borderRadius,
+          subtitleFont: getComputedStyle(element.shadowRoot.querySelector('.message')).font,
+          subtitleColor: getComputedStyle(element.shadowRoot.querySelector('.message')).color,
+          shadow: surfaceStyle.boxShadow,
+          borderWidth: surfaceStyle.borderWidth,
+          outlineWidth: surfaceStyle.outlineWidth,
+          outlineStyle: surfaceStyle.outlineStyle,
+        }];
+      }));
+      const actionHeadingStyle = getComputedStyle(actionAlert.shadowRoot.querySelector('.heading'));
+      const actionMessageStyle = getComputedStyle(actionAlert.shadowRoot.querySelector('.message'));
+      const actionButton = actionAlert.shadowRoot.querySelector('.action');
+      const actionSymbol = actionAlert.shadowRoot.querySelector('.symbol ic-icon');
+      const actionSymbolRect = actionSymbol.getBoundingClientRect();
+      const actionHeadingRect = actionAlert.shadowRoot.querySelector('.heading').getBoundingClientRect();
+      const actionDismiss = actionAlert.shadowRoot.querySelector('.dismiss');
+      const actionDismissRect = actionDismiss.getBoundingClientRect();
+      const actionDismissButtonRect = actionDismiss.shadowRoot.querySelector('[part~="base"]').getBoundingClientRect();
+      const actionDismissIconRect = actionDismiss.querySelector('ic-icon').getBoundingClientRect();
+      const actionAlertBaseRect = actionAlert.shadowRoot.querySelector('.alert').getBoundingClientRect();
+      const actionDismissIconOffset = {
+        x: Math.abs((actionDismissIconRect.left + actionDismissIconRect.width / 2) - (actionDismissRect.left + actionDismissRect.width / 2)),
+        y: Math.abs((actionDismissIconRect.top + actionDismissIconRect.height / 2) - (actionDismissRect.top + actionDismissRect.height / 2)),
+      };
+      const actionDismissAlertOffset = Math.abs(
+        (actionDismissRect.top + actionDismissRect.height / 2)
+        - (actionAlertBaseRect.top + actionAlertBaseRect.height / 2)
+      );
+      const badgeSizeContracts = [...document.querySelectorAll('[data-badge-kind]')].map(element => ({
+        kind: element.dataset.badgeKind,
+        size: element.dataset.badgeSize,
+        ready: element.dataset.icContractStatus === 'ready',
+        role: element.getAttribute('role'),
+      }));
+      const badgeSizeHeights = ['small', 'medium', 'large'].map(size => {
+        const element = document.querySelector(`#badge-label-${size}`);
+        return Math.round(element.shadowRoot.querySelector('.badge').getBoundingClientRect().height);
+      });
+      const actionSymbolStroke = getComputedStyle(actionSymbol.shadowRoot.querySelector('svg')).strokeWidth;
+      alert.shadowRoot.querySelector('.dismiss').click();
+      actionAlert.shadowRoot.querySelector('.action').click();
+      recovery.shadowRoot.querySelector('.action').click();
+      toastTwo.dismiss();
+      await paint();
+      const toastExitStart = {
+        retainedDuringExit: toastTwo.isConnected,
+        exiting: toastTwo.getAttribute('data-ic-stack-state') === 'exiting',
+        ariaHidden: toastTwo.getAttribute('aria-hidden') === 'true',
+        pointerEvents: getComputedStyle(toastTwo).pointerEvents,
+        opacity: getComputedStyle(toastTwo).opacity,
+      };
+      const afterQueue = {
+        oneHidden: toastOne.hidden,
+        oneDisplay: getComputedStyle(toastOne).display,
+        oneAriaHidden: toastOne.getAttribute('aria-hidden'),
+        oneTopLayer: toastOne.matches(':popover-open'),
+        oneStackIndex: toastOne.dataset.icStackIndex,
+      };
+      await new Promise(resolve => setTimeout(resolve, 360));
+      const toastExit = {
+        ...toastExitStart,
+        removedAfterExit: !toastTwo.isConnected,
+      };
+      toastTwo.dismiss();
+      const overlayToast = customElements.get('ic-toast').notify('Visible outside hidden dialog', { duration: 0 });
+      await paint();
+      const overlayToastRect = overlayToast.getBoundingClientRect();
+      const hiddenDialogScope = {
+        parentIsBody: overlayToast.parentElement === document.body,
+        hiddenDialogContainsToast: document.querySelector('#hidden-dialog').contains(overlayToast),
+        visible: overlayToastRect.width > 0 && overlayToastRect.height > 0,
+        topLayer: overlayToast.matches(':popover-open'),
+      };
+      overlayToast.dismiss();
+      let toastActionCount = 0;
+      const actionToast = customElements.get('ic-toast').notify('Saved to this canvas', {
+        duration: 0,
+        actionLabel: 'Edit',
+        onAction: () => { toastActionCount += 1; },
+      });
+      await paint();
+      const toastActionButton = actionToast.shadowRoot.querySelector('.action');
+      const toastAction = {
+        label: toastActionButton?.textContent,
+        keyboardFocusable: toastActionButton?.tabIndex === 0,
+      };
+      toastActionButton?.click();
+      await paint();
+      toastAction.exiting = actionToast.getAttribute('data-ic-stack-state') === 'exiting';
+      await new Promise(resolve => setTimeout(resolve, 360));
+      progress.setAttribute('value', '10');
+      progress.setAttribute('value-text', 'Complete');
+      document.querySelector('#busy-region').setAttribute('aria-busy', 'false');
+      await paint();
+      const loadingSpinnerStyle = getComputedStyle(document.querySelector('#loading').shadowRoot.querySelector('.spinner'));
+      const badgeSpinnerStyle = getComputedStyle(document.querySelector('[data-badge-kind="status"]').shadowRoot.querySelector('.spinner'));
+      const spinnerDuration = parseFloat(loadingSpinnerStyle.animationDuration);
+      const report = {
+        checks: {
+          registered: ['ic-alert','ic-badge','ic-toast','ic-loading','ic-progress','ic-skeleton','ic-empty-state','ic-generation-recovery'].every(tag => Boolean(customElements.get(tag))),
+          contract: [...document.querySelectorAll('#alert,#action-alert,#badge,#toast-one,#toast-two,#loading,#progress,#skeleton,#empty,#recovery')].every(node => node.dataset.icContractStatus === 'ready') && document.querySelector('#invalid-alert').dataset.icContractStatus === 'invalid' && document.querySelector('#invalid-progress').dataset.icContractStatus === 'invalid',
+          alert: alert.getAttribute('role') === 'alert' && alert.hidden && getComputedStyle(alert).display === 'none' && alertDismissals.length === 1
+            && Math.abs(alertDismissRightInset - alertExpectedRightInset) <= 1,
+          alertAction: alertActions.join(',') === 'primary'
+            && !actionAlert.hasAttribute('variant')
+            && actionAlert.shadowRoot.querySelector('.heading').textContent === 'Generation did not complete'
+            && actionButton.textContent === 'View details'
+            && actionButton.localName === 'ic-button'
+            && actionButton.dataset.componentName === 'ic-button-secondary-small'
+            && actionButton.getAttribute('hierarchy') === 'secondary'
+            && actionButton.getAttribute('size') === 'small'
+            && actionButton.dataset.icContractStatus === 'ready'
+            && actionAlert.shadowRoot.querySelector('.symbol ic-icon')?.getAttribute('name') === 'circle-alert'
+            && alert.shadowRoot.querySelector('.symbol ic-icon')?.getAttribute('name') === 'circle-alert'
+            && getComputedStyle(actionAlert.shadowRoot.querySelector('.alert')).borderRadius === '8px'
+            && actionHeadingStyle.fontSize === '14px'
+            && actionHeadingStyle.fontWeight === '500'
+            && actionMessageStyle.fontSize === '12px'
+            && actionSymbolStroke === '2px'
+            && Math.abs((actionSymbolRect.top + actionSymbolRect.height / 2) - (actionHeadingRect.top + actionHeadingRect.height / 2)) <= 1
+            && actionDismiss.localName === 'ic-icon-button'
+            && actionDismiss.dataset.componentName === 'ic-icon-button-tertiary-small'
+            && actionDismiss.getAttribute('size') === 'small'
+            && actionDismiss.getAttribute('background') === 'ghost'
+            && actionDismiss.dataset.icContractStatus === 'ready'
+            && Math.abs(actionDismissRect.height - actionHeadingRect.height) <= 1
+            && actionDismissIconOffset.x <= 1
+            && actionDismissIconOffset.y <= 1
+            && actionDismissAlertOffset <= 1,
+          alertVisuals: alertVisuals.neutral.icon === 'circle-alert'
+            && alertVisuals.success.icon === 'circle-check-big'
+            && alertVisuals.warning.icon === 'triangle-alert'
+            && Object.values(alertVisuals).every(item => item.iconReady === 'ready' && item.radius === '8px' && item.subtitleFont.includes('12px') && item.subtitleColor === actionMessageStyle.color && item.shadow !== 'none' && item.borderWidth === '0px' && item.outlineWidth === '1px' && item.outlineStyle === 'solid'),
+          badgeSizes: badgeSizeContracts.length === 9
+            && badgeSizeContracts.every(item => item.ready && (item.kind === 'status' ? item.role === 'status' : item.role === null))
+            && badgeSizeHeights.join(',') === '16,20,24',
+          badgeSpinner: badgeSpinnerStyle.animationName === 'ic-badge-spin'
+            && badgeSpinnerStyle.animationDuration === '1.2s'
+            && badgeSpinnerStyle.borderInlineEndColor === 'rgba(0, 0, 0, 0)'
+            && loadingSpinnerStyle.animationName === 'ic-spin',
+          toastQueue: !beforeQueue.oneHidden && !beforeQueue.twoHidden
+            && beforeQueue.oneDisplay !== 'none' && beforeQueue.twoDisplay !== 'none'
+            && beforeQueue.geometry.width === 272
+            && beforeQueue.oneAriaHidden === 'false' && beforeQueue.twoAriaHidden === 'false'
+            && beforeQueue.oneTopLayer && beforeQueue.twoTopLayer
+            && beforeQueue.oneStackIndex === '1' && beforeQueue.twoStackIndex === '0'
+            && beforeQueue.oneStackOffset === '-14px' && beforeQueue.twoStackOffset === '0px'
+            && beforeQueue.motionDirection === '100%'
+            && !beforeQueue.oneHasDismiss && !beforeQueue.twoHasDismiss
+            && beforeQueue.backContentHidden && beforeQueue.stacked && beforeQueue.hitAboveCover
+            && beforeQueue.bottomCentered && beforeQueue.shadowSafeInset
+            && !afterQueue.oneHidden && afterQueue.oneDisplay !== 'none'
+            && afterQueue.oneAriaHidden === 'false' && afterQueue.oneTopLayer
+            && afterQueue.oneStackIndex === '0',
+          toastEntry: toastEntryStart.state === 'entering'
+            && Number(toastEntryStart.opacity) === 0
+            && toastEntryStart.transform !== 'none'
+            && toastEntryStart.duration === '0s'
+            && toastEntryEnd.state === 'active'
+            && Number(toastEntryEnd.opacity) === 1,
+          queueInterrupt: !queueInterrupt.staleDismissed
+            && queueInterrupt.connected
+            && queueInterrupt.state === 'active'
+            && queueInterrupt.ariaHidden === 'false',
+          toastExit: toastExit.retainedDuringExit && toastExit.exiting
+            && toastExit.ariaHidden && toastExit.pointerEvents === 'none'
+            && Number(toastExit.opacity) < 1 && toastExit.removedAfterExit,
+          toastIndependent: !toastIndependent.isAlertInstance && !toastIndependent.hasAlertSurface && toastIndependent.hasToastSurface && toastIndependent.balancedBorder && toastIndependent.elevated && toastIndependent.shadowUnclipped,
+          hiddenDialogScope: hiddenDialogScope.parentIsBody && !hiddenDialogScope.hiddenDialogContainsToast && hiddenDialogScope.visible && hiddenDialogScope.topLayer,
+          toastAction: toastAction.label === 'Edit' && toastAction.keyboardFocusable && toastAction.exiting && toastActionCount === 1 && !actionToast.isConnected,
+          loading: document.querySelector('#loading').getAttribute('role') === 'status' && document.querySelector('#loading').getAttribute('aria-label') === 'Rendering preview',
+          progress: progress.getAttribute('role') === 'progressbar' && progress.getAttribute('aria-valuenow') === '10' && progress.getAttribute('aria-valuemax') === '10' && progress.getAttribute('aria-valuetext') === 'Complete' && document.querySelector('#busy-region').getAttribute('aria-busy') === 'false',
+          skeleton: document.querySelector('#skeleton').getAttribute('aria-hidden') === 'true',
+          empty: document.querySelector('#empty').getAttribute('role') === 'region' && document.querySelector('#empty').getAttribute('aria-label') === 'Results',
+          recovery: recovery.getAttribute('role') === 'status'
+            && recovery.getAttribute('aria-label') === 'Generation can continue. Task image-42 is still available'
+            && recovery.shadowRoot.querySelector('.title')?.textContent === 'Generation can continue'
+            && recovery.shadowRoot.querySelector('.description')?.textContent === 'Task image-42 is still available'
+            && recovery.shadowRoot.querySelector('.action')?.textContent === 'Query result'
+            && recoveryActions.length === 1
+            && recoveryActions[0]?.kind === 'image'
+            && recoveryActions[0]?.state === 'recoverable'
+            && recoveryHostClicks === 0,
+          errors: errors.map(item => item.component).sort().join(',') === 'ic-alert,ic-progress',
+          visualRhythm: alertCenterOffset <= 1 && spinnerDuration >= 1,
+        },
+        observations: { queueInterrupt, toastEntryStart, toastEntryEnd, beforeQueue, afterQueue, toastExit, toastIndependent, hiddenDialogScope, toastAction, errors, alertCenterOffset, spinnerDuration, badgeSpinner: { loadingName: loadingSpinnerStyle.animationName, badgeName: badgeSpinnerStyle.animationName, badgeDuration: badgeSpinnerStyle.animationDuration, badgeInlineEndColor: badgeSpinnerStyle.borderInlineEndColor }, alertVisuals, badgeSizeContracts, badgeSizeHeights, alertDismissRightInset, alertExpectedRightInset, actionDismissIconOffset, actionDismissAlertOffset, actionDismissRects: { host: actionDismissRect.toJSON(), button: actionDismissButtonRect.toJSON(), icon: actionDismissIconRect.toJSON(), alert: actionAlertBaseRect.toJSON() } },
+      };
+      document.querySelector('#ic-results').textContent = JSON.stringify(report);
+      document.documentElement.dataset.icFeedbackProgressTestStatus = Object.values(report.checks).every(Boolean) ? 'passed' : 'failed';
+    } catch (error) {
+      document.querySelector('#ic-results').textContent = JSON.stringify({ checks: {}, error: String(error?.stack || error) });
+      document.documentElement.dataset.icFeedbackProgressTestStatus = 'failed';
+    }
+  </script>
+</body>
+</html>

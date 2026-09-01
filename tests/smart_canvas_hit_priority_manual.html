@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Canvas 命中优先级人工验收</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: #0f1115; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .manual-panel {
+      position: fixed;
+      z-index: 2147483647;
+      top: 14px;
+      right: 14px;
+      width: min(360px, calc(100vw - 28px));
+      color: #e9edf5;
+      background: rgba(16, 20, 27, .94);
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 12px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, .38);
+      backdrop-filter: blur(14px);
+    }
+    .manual-panel summary {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 44px;
+      padding: 10px 12px;
+      cursor: pointer;
+      list-style: none;
+      font-size: 13px;
+      font-weight: 650;
+      user-select: none;
+    }
+    .manual-panel summary::-webkit-details-marker { display: none; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #f5b942; }
+    .status-dot.ready { background: #49d17d; box-shadow: 0 0 0 4px rgba(73, 209, 125, .12); }
+    .status-text { flex: 1; color: #aeb7c8; font-weight: 500; }
+    .panel-body { padding: 0 14px 14px; border-top: 1px solid rgba(255, 255, 255, .09); }
+    .panel-body p { margin: 10px 0 7px; color: #aeb7c8; font-size: 12px; line-height: 1.55; }
+    .panel-body ol { margin: 7px 0 12px; padding-left: 20px; font-size: 12px; line-height: 1.55; }
+    .panel-body li { margin: 5px 0; }
+    .panel-body code { color: #b8d8ff; }
+    button {
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 8px;
+      padding: 7px 10px;
+      color: #f4f7fb;
+      background: rgba(255, 255, 255, .08);
+      cursor: pointer;
+    }
+    button:hover { background: rgba(255, 255, 255, .14); }
+  </style>
+</head>
+<body>
+  <iframe id="canvas" title="Smart Canvas 人工验收画布" src="/static/smart-canvas.html?id=hit-priority-manual&amp;manual=1"></iframe>
+  <details class="manual-panel" open>
+    <summary>
+      <span id="statusDot" class="status-dot"></span>
+      <span>命中优先级人工验收</span>
+      <span id="statusText" class="status-text">正在准备场景…</span>
+    </summary>
+    <div class="panel-body">
+      <p>画布使用工作区中的真实 JS/CSS。建议按顺序检查：</p>
+      <ol>
+        <li>从 <code>A → B</code> 连线中部沿线移入 A 右侧“+”，按钮应出现并可点击。</li>
+        <li>从“+”快速移回连线：按钮短暂淡出，但连线立即恢复 hover（约 80ms 后按钮消失）。</li>
+        <li>在底部 <code>O1 / O2</code> 相邻热区间小幅移动，应稳定；跨过约 8px 后才切换。</li>
+        <li>点击 <code>A → B</code> 连线显示剪刀；剪刀应压过“+”并能删除连线。</li>
+        <li>点击蓝色 Frame 空白区选中后，再拖动标题栏；Frame 本身应可移动。</li>
+        <li>直接拖动任一 Node 的卡片空白位置，连接线应持续跟随。</li>
+        <li>打开“+”菜单、键盘聚焦“+”或拖线时，当前热区应保持锁定。</li>
+      </ol>
+      <button id="reset" type="button">重置验收场景</button>
+    </div>
+  </details>
+  <script>
+    const frame = document.getElementById('canvas');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+
+    function seedScene() {
+      const doc = frame.contentDocument;
+      if (!doc) return false;
+      const win = frame.contentWindow;
+      if (!win?.SmartCanvasModules?.viewportSelection?.selection
+          || !win?.SmartCanvasModules?.smartContainer
+          || !doc.querySelector('svg.connection-layer')) return false;
+
+      const script = doc.createElement('script');
+      script.textContent = `(() => {
+        nodes.splice(0, nodes.length,
+          {id:'frame-a', type:'smart-frame', title:'命中测试 Frame', x:100, y:100, w:760, h:560, items:[], frameColor:'blue'},
+          {id:'line-a', type:'smart-prompt', title:'A｜沿线进入右侧 +', text:'A', x:160, y:230, w:260, h:118},
+          {id:'line-b', type:'smart-prompt', title:'B', text:'B', x:600, y:230, w:260, h:118},
+          {id:'title-a', type:'smart-prompt', title:'T1｜标题栏优先', text:'T1', x:-180, y:30, w:260, h:118},
+          {id:'title-b', type:'smart-prompt', title:'T2', text:'T2', x:980, y:30, w:260, h:118},
+          {id:'frame-button', type:'smart-prompt', title:'FB｜可见按钮仍可点', text:'FB', x:116, y:30, w:260, h:118},
+          {id:'overlap-a', type:'smart-prompt', title:'O1｜重叠热区', text:'O1', x:160, y:500, w:260, h:118},
+          {id:'overlap-b', type:'smart-prompt', title:'O2｜重叠热区', text:'O2', x:484, y:500, w:260, h:118}
+        );
+        canvas = {id:'hit-priority-manual', title:'命中优先级人工验收', nodes, connections:[
+          {from:'line-a', to:'line-b', kind:'flow'},
+          {from:'title-a', to:'title-b', kind:'flow'}
+        ], logs:[]};
+        selectedId = '';
+        selectedIds = [];
+        selectedImage = {nodeId:'', index:-1};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.scale = 1;
+        render();
+      })();`;
+      doc.body.appendChild(script);
+      script.remove();
+      return Boolean(doc.querySelector('[data-connection-key="line-a|line-b|flow"] .conn-hit'));
+    }
+
+    function prepareScene(attempt = 0) {
+      if (seedScene()) {
+        statusDot.classList.add('ready');
+        statusText.textContent = '场景已就绪';
+        return;
+      }
+      if (attempt > 80) {
+        statusText.textContent = '加载失败，请刷新';
+        return;
+      }
+      window.setTimeout(() => prepareScene(attempt + 1), 100);
+    }
+
+    frame.addEventListener('load', () => window.setTimeout(() => prepareScene(), 350));
+    document.getElementById('reset').addEventListener('click', () => {
+      statusDot.classList.remove('ready');
+      statusText.textContent = '正在重置…';
+      frame.src = `/static/smart-canvas.html?id=hit-priority-manual&manual=1&reset=${Date.now()}`;
+    });
+  </script>
+</body>
+</html>

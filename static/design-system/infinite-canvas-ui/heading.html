@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN" data-heading-matrix-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Heading Live Review</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.14.1">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css?v=2026.08.14.1">
+</head>
+<body class="heading-matrix-page">
+  <header class="actions-live-toolbar">
+    <div>
+      <span class="actions-live-kicker">Heading · 待确认</span>
+      <h1>Heading 组件与语义文字样式</h1>
+      <p>先查看 Design Token 已拼装好的文字配方，再比较 H1、H2、H3 与可选副标题的组件组合。</p>
+    </div>
+    <span data-heading-live-status role="status" aria-live="polite">正在启动 4 个实时情境…</span>
+  </header>
+
+  <section class="heading-token-reference" aria-labelledby="heading-token-reference-title">
+    <header>
+      <div>
+        <span class="actions-live-kicker">Typography · 9 个语义 Token</span>
+        <h2 id="heading-token-reference-title">标题、正文与辅助文字</h2>
+        <p>每个 Token 已组合字族、字号、字重和行高，可直接用于对应的界面角色；此处统一使用主要文字色，方便只比较排版。</p>
+      </div>
+      <code>--ui-text-*</code>
+    </header>
+    <div class="heading-token-list" aria-label="语义文字 Token 样式表">
+      <article class="heading-token-row">
+        <div><code>--ui-text-title-1</code><span>一级标题</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="title-1">工作区概览</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-title-2</code><span>二级标题</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="title-2">生成设置</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-title-3</code><span>三级标题</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="title-3">输出格式</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-subtitle</code><span>标题补充说明</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="subtitle">查看当前工作区的关键状态与最近更新</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-body</code><span>常规正文</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="body">选择一个模型开始创作，生成结果会自动保存到当前画布。</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-body-compact</code><span>紧凑正文</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="body-compact">适合列表、菜单和空间有限的说明文字。</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-label</code><span>控件标签</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="label">模型名称</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-caption</code><span>辅助说明</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="caption">更新于 2 分钟前</p>
+      </article>
+      <article class="heading-token-row">
+        <div><code>--ui-text-code</code><span>代码与技术值</span><small data-heading-token-metrics></small></div>
+        <p class="heading-token-sample" data-heading-text-token="code">seedance-v2.0 · 1920×1080</p>
+      </article>
+    </div>
+  </section>
+
+  <main class="actions-live-grid" aria-label="Heading 主题、宽度与内容比较矩阵">
+    <article class="actions-live-card heading-live-card" data-theme="light" data-viewport="desktop" data-locale="zh-CN" data-content="normal">
+      <header><strong>Light · Desktop · 中文</strong><span>常规文本</span></header>
+      <iframe title="Light desktop Chinese Heading" data-heading-case></iframe>
+    </article>
+    <article class="actions-live-card heading-live-card" data-theme="dark" data-viewport="desktop" data-locale="en" data-content="normal">
+      <header><strong>Dark · Desktop · English</strong><span>Regular copy</span></header>
+      <iframe title="Dark desktop English Heading" data-heading-case></iframe>
+    </article>
+    <article class="actions-live-card heading-live-card" data-theme="light" data-viewport="narrow" data-locale="zh-CN" data-content="long">
+      <header><strong>Light · Narrow · 中文长文本</strong><span>窄视口换行</span></header>
+      <iframe title="Light narrow long Chinese Heading" data-heading-case></iframe>
+    </article>
+    <article class="actions-live-card heading-live-card" data-theme="dark" data-viewport="narrow" data-locale="en" data-content="long">
+      <header><strong>Dark · Narrow · Long English</strong><span>Narrow wrapping</span></header>
+      <iframe title="Dark narrow long English Heading" data-heading-case></iframe>
+    </article>
+  </main>
+  <script src="/static/js/infinite-canvas-ui/heading-matrix.js?v=ic-ui-1a20b8e9d3c4" defer></script>
+</body>
+</html>

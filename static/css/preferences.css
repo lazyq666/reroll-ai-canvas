@@ -1,0 +1,169 @@
+.preferences-dialog::part(header) {
+  padding-block-start: var(--ui-space-6);
+  padding-inline: var(--ui-space-6);
+}
+
+.preferences-head {
+  display: grid;
+  gap: var(--ui-space-1);
+}
+
+.preferences-head strong {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-5);
+  font-weight: var(--ui-font-weight-bold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.preferences-head span,
+.preferences-note {
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-body-compact);
+}
+
+.preferences-body {
+  display: grid;
+  gap: var(--ui-space-4);
+  width: 100%;
+}
+
+.preferences-section {
+  display: grid;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+.preferences-section + .preferences-section {
+  padding-top: var(--ui-space-4);
+  border-top: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+}
+
+.preferences-section h3,
+.preferences-section p {
+  margin: 0;
+}
+
+.preferences-section h3 {
+  color: var(--ui-color-text-primary);
+  font: var(--ui-text-label);
+}
+
+.preferences-active-paths,
+.preferences-selection > span,
+.preferences-move-paths span {
+  overflow-wrap: anywhere;
+}
+
+.preferences-active-paths {
+  padding: var(--ui-space-3);
+  border-radius: var(--ui-radius-s);
+  background: var(--ui-color-surface-subtle);
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-body-compact);
+}
+
+.preferences-intents {
+  justify-content: flex-start;
+}
+
+.preferences-selection {
+  display: grid;
+  justify-items: start;
+  gap: var(--ui-space-2);
+}
+
+.preferences-selection span {
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-body-compact);
+}
+
+.preferences-selection b,
+.preferences-move-paths b,
+.preferences-warnings b {
+  color: var(--ui-color-text-primary);
+}
+
+.preferences-summary {
+  margin-top: var(--ui-space-1);
+}
+
+.preferences-summary-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+}
+
+.preferences-summary-head h3 {
+  margin-top: var(--ui-space-1);
+  font-size: var(--ui-font-size-3);
+  font-weight: var(--ui-font-weight-bold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.preferences-eyebrow {
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-label);
+  letter-spacing: var(--ui-letter-spacing-widest);
+}
+
+.preferences-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ui-space-2);
+}
+
+.preferences-summary-grid div,
+.preferences-move-paths span {
+  display: grid;
+  gap: var(--ui-space-1);
+  min-width: 0;
+  padding: var(--ui-space-2);
+  border-radius: var(--ui-radius-s);
+  background: var(--ui-color-surface);
+}
+
+.preferences-summary-grid b {
+  overflow-wrap: anywhere;
+  color: var(--ui-color-text-primary);
+  font: var(--ui-text-label);
+}
+
+.preferences-summary-grid span,
+.preferences-move-paths span {
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-body-compact);
+}
+
+.preferences-move-paths {
+  display: grid;
+  gap: var(--ui-space-2);
+}
+
+.preferences-warnings {
+  color: var(--ui-color-text-primary);
+  font: var(--ui-text-body-compact);
+}
+
+.preferences-warnings ul {
+  display: grid;
+  gap: var(--ui-space-1);
+  margin: var(--ui-space-1) 0 0;
+  padding-left: var(--ui-space-4);
+  color: var(--ui-color-text-tertiary);
+}
+
+.preferences-message {
+  margin-top: var(--ui-space-1);
+}
+
+@media (max-width: 620px) {
+  .preferences-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preferences-summary-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

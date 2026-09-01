@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN" data-dialog-matrix-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Dialog Live</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css">
+</head>
+<body class="foundations-matrix-page">
+  <header class="actions-live-toolbar">
+    <div><span class="actions-live-kicker">Dialog · Live gate pending-human-confirmation</span><h1>Dialog 实时矩阵</h1><p>逐项打开十个合法组合，检查尺寸、长文本、操作布局、关闭、键盘焦点与 Confirmation 提交状态。</p></div>
+    <span data-dialog-status role="status">正在启动 6 个实时情境…</span>
+  </header>
+  <main class="actions-live-grid" aria-label="Dialog 实时比较矩阵">
+    <article class="actions-live-card" data-dialog-case data-theme="light" data-viewport="desktop" data-locale="zh-CN" data-content="normal" data-motion="standard"><header><strong>Light · Desktop · 中文</strong><span>Standard</span></header><iframe title="Dialog Light Desktop Chinese"></iframe></article>
+    <article class="actions-live-card" data-dialog-case data-theme="dark" data-viewport="desktop" data-locale="en" data-content="normal" data-motion="standard"><header><strong>Dark · Desktop · English</strong><span>Standard</span></header><iframe title="Dialog Dark Desktop English"></iframe></article>
+    <article class="actions-live-card" data-dialog-case data-theme="light" data-viewport="narrow" data-locale="zh-CN" data-content="long" data-motion="standard"><header><strong>Light · Narrow · 中文长文本</strong><span>Standard</span></header><iframe title="Dialog Light Narrow Chinese"></iframe></article>
+    <article class="actions-live-card" data-dialog-case data-theme="dark" data-viewport="narrow" data-locale="en" data-content="long" data-motion="standard"><header><strong>Dark · Narrow · Long English</strong><span>Standard</span></header><iframe title="Dialog Dark Narrow English"></iframe></article>
+    <article class="actions-live-card" data-dialog-case data-theme="light" data-viewport="desktop" data-locale="en" data-content="long" data-motion="reduced"><header><strong>Light · Desktop · Long English</strong><span>Reduced</span></header><iframe title="Dialog Light Reduced"></iframe></article>
+    <article class="actions-live-card" data-dialog-case data-theme="dark" data-viewport="narrow" data-locale="zh-CN" data-content="long" data-motion="reduced"><header><strong>Dark · Narrow · 中文长文本</strong><span>Reduced</span></header><iframe title="Dialog Dark Narrow Reduced"></iframe></article>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/dialog-matrix.js"></script>
+</body>
+</html>

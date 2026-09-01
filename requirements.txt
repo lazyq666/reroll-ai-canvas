@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+requests
+pydantic
+python-multipart
+httpx[socks]
+pillow
+cryptography>=50,<51
+numpy>=1.26,<3
+scipy>=1.11
+pymatting==1.1.15
+onnxruntime>=1.19,<2

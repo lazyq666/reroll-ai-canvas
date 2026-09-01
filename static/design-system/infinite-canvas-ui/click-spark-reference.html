@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="click-spark-reference">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>点击反馈动画实验 · Reroll UI</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.07.25.1.1787638115">
+  <style>
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; }
+    body { color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-family); }
+    button,input { font:inherit; }
+    h1,h2,p { margin:0; }
+    .reference { display:grid; gap:var(--ui-space-5); padding:clamp(var(--ui-space-4), 4vw, var(--ui-space-7)); }
+    .reference-header { display:flex; justify-content:space-between; gap:var(--ui-space-4); align-items:start; }
+    .reference-copy { display:grid; gap:var(--ui-space-2); max-width:52rem; }
+    .kicker { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); letter-spacing:var(--ui-letter-spacing-wide); text-transform:uppercase; }
+    .reference-copy h1 { font-size:var(--ui-font-size-7); line-height:1.15; }
+    .description { color:var(--ui-color-text-tertiary); line-height:1.65; }
+    .badge,.status-pill { display:inline-flex; align-items:center; min-height:28px; padding:0 var(--ui-space-2); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-pill); color:var(--ui-color-text-tertiary); background:var(--ui-color-surface); font:var(--ui-text-caption); white-space:nowrap; }
+    .layout { display:grid; grid-template-columns:minmax(17rem, 20rem) minmax(0, 1fr); gap:var(--ui-space-4); align-items:start; }
+    .parameter-panel,.preview-panel { min-width:0; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-floating); box-shadow:var(--ui-shadow-raised); }
+    .parameter-panel { position:sticky; inset-block-start:var(--ui-space-4); display:grid; gap:var(--ui-space-4); padding:var(--ui-space-4); }
+    .panel-heading { display:grid; gap:var(--ui-space-1); }
+    .panel-heading h2 { font-size:var(--ui-font-size-4); }
+    .panel-heading p { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); line-height:1.5; }
+    .parameter-stack { display:grid; gap:var(--ui-space-3); }
+    .parameter-group { display:grid; gap:var(--ui-space-3); padding-block-start:var(--ui-space-3); border-block-start:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .parameter-group:first-child { padding-block-start:0; border-block-start:0; }
+    .parameter-group > strong { font-size:var(--ui-font-size-2); }
+    .parameter-actions { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .parameter-output { display:grid; gap:var(--ui-space-1); padding:var(--ui-space-3); border-radius:var(--ui-radius-m); color:var(--ui-color-text-tertiary); background:var(--ui-color-surface-subtle); font:var(--ui-text-caption); }
+    .parameter-output code { color:var(--ui-color-text-primary); font-family:var(--ui-font-mono); line-height:1.55; overflow-wrap:anywhere; }
+    .preview-panel { overflow:hidden; }
+    .preview-toolbar { display:flex; align-items:center; justify-content:space-between; gap:var(--ui-space-3); padding:var(--ui-space-3) var(--ui-space-4); border-block-end:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .preview-status { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .status-pill[data-state="idle"] { color:var(--ui-color-text-success); }
+    .preview-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ui-space-4); padding:var(--ui-space-4); background:var(--ui-color-surface-subtle); }
+    .theme-card { display:grid; gap:var(--ui-space-2); min-width:0; }
+    .theme-label { display:flex; justify-content:space-between; gap:var(--ui-space-2); align-items:center; color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .spark-surface { height:22rem; border:1px solid var(--preview-border); border-radius:var(--ui-radius-l); color:var(--preview-text); background-color:var(--preview-bg); background-image:radial-gradient(circle at 1px 1px,var(--preview-grid) 1px,transparent 0); background-size:22px 22px; box-shadow:var(--ui-shadow-raised); --click-spark-color:var(--ui-color-border-focus); --click-spark-outline:var(--preview-outline); }
+    .theme-card[data-preview-theme="light"] { color-scheme:light; --preview-bg:#f7f8fb; --preview-border:#d7dbe4; --preview-text:#20232b; --preview-grid:rgba(60,68,84,.14); --preview-outline:rgba(255,255,255,.92); }
+    .theme-card[data-preview-theme="dark"] { color-scheme:dark; --preview-bg:#202225; --preview-border:#3b3f46; --preview-text:#f3f4f6; --preview-grid:rgba(232,235,241,.13); --preview-outline:rgba(18,20,24,.86); }
+    .surface-copy { position:absolute; inset:var(--ui-space-4); display:grid; align-content:start; gap:var(--ui-space-1); pointer-events:none; }
+    .surface-copy strong { color:var(--preview-text); font-size:var(--ui-font-size-3); }
+    .surface-copy span { color:color-mix(in srgb,var(--preview-text) 62%,transparent); font:var(--ui-text-caption); }
+    .drag-token { position:absolute; z-index:3; left:50%; top:58%; display:grid; width:58px; aspect-ratio:1; place-items:center; border:1px solid color-mix(in srgb,var(--ui-color-border-focus) 48%,var(--preview-border)); border-radius:18px; color:var(--preview-text); background:color-mix(in srgb,var(--preview-bg) 84%,var(--ui-color-border-focus)); box-shadow:0 8px 24px color-mix(in srgb,var(--preview-text) 18%,transparent); transform:translate(-50%,-50%); cursor:grab; user-select:none; touch-action:none; }
+    .drag-token[data-dragging] { cursor:grabbing; transform:translate(-50%,-50%) scale(.96); }
+    .drag-token::before { content:""; width:18px; height:18px; border:2px dotted currentColor; border-radius:50%; opacity:.72; }
+    .notes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--ui-space-3); padding:var(--ui-space-4); border-block-start:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .note { display:grid; gap:var(--ui-space-1); padding:var(--ui-space-3); border-radius:var(--ui-radius-m); background:var(--ui-color-surface-subtle); }
+    .note strong { font-size:var(--ui-font-size-2); }
+    .note span { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); line-height:1.5; }
+    @media (max-width:920px) { .layout { grid-template-columns:1fr; } .parameter-panel { position:static; } }
+    @media (max-width:680px) { .reference { padding:var(--ui-space-3); } .reference-header,.preview-toolbar { align-items:start; flex-direction:column; } .preview-grid,.notes { grid-template-columns:1fr; } .spark-surface { height:18rem; } }
+  </style>
+</head>
+<body>
+  <main class="reference">
+    <header class="reference-header">
+      <div class="reference-copy">
+        <p class="kicker">Reference · Pointer Feedback</p>
+        <h1>点击与拖动松手反馈</h1>
+        <p class="description">参考 Click Spark 的放射线段运动，改为适配 Reroll 的按需 Canvas 实验。按下后原地松手是点击；拖动后松手也会在最终位置播放一次。</p>
+      </div>
+      <span class="badge">参考实现 · 非公共组件</span>
+    </header>
+
+    <div class="layout">
+      <form class="parameter-panel" data-click-spark-form>
+        <header class="panel-heading">
+          <h2>动画参数</h2>
+          <p>参数会同时应用到浅色与深色预览，便于比较对比度和运动节奏。</p>
+        </header>
+        <div class="parameter-stack">
+          <section class="parameter-group">
+            <strong>形态</strong>
+            <ic-slider label="火花数量" min="4" max="16" step="1" value="8" value-text="8" data-setting="count"></ic-slider>
+            <ic-slider label="扩散半径" min="12" max="42" step="1" value="16" value-text="16px" data-setting="radius"></ic-slider>
+            <ic-slider label="线段长度" min="4" max="18" step="1" value="10" value-text="10px" data-setting="length"></ic-slider>
+            <ic-slider label="线宽" min="0.5" max="2.5" step="0.1" value="1.5" value-text="1.5px" data-setting="lineWidth"></ic-slider>
+          </section>
+          <section class="parameter-group">
+            <strong>节奏与并发</strong>
+            <ic-slider label="动画时长" min="160" max="700" step="20" value="360" value-text="360ms" data-setting="duration"></ic-slider>
+            <ic-slider label="最大同时爆发" min="1" max="6" step="1" value="3" value-text="3" data-setting="maxBursts"></ic-slider>
+          </section>
+          <section class="parameter-group">
+            <strong>颜色</strong>
+            <ic-switch label="使用自定义颜色" data-setting="useCustomColor"></ic-switch>
+            <ic-color-field label="自定义颜色" value="#675cff" data-setting="color"></ic-color-field>
+          </section>
+        </div>
+        <div class="parameter-actions">
+          <ic-button type="button" hierarchy="secondary" data-play-example>播放示例</ic-button>
+          <ic-button type="button" hierarchy="quiet" data-reset-settings>恢复默认</ic-button>
+        </div>
+        <output class="parameter-output" data-click-spark-output aria-live="polite"><span>当前参数</span><code></code></output>
+      </form>
+
+      <section class="preview-panel" aria-label="点击反馈浅色与深色实时预览">
+        <header class="preview-toolbar">
+          <div class="preview-status">
+            <span class="status-pill" data-trigger-status>等待操作</span>
+            <span class="status-pill" data-animation-status data-state="idle">RAF 已停止</span>
+          </div>
+          <span class="badge">Canvas 2D · DPR ≤ 1.5</span>
+        </header>
+        <div class="preview-grid">
+          <article class="theme-card" data-preview-theme="light">
+            <div class="theme-label"><strong>浅色环境</strong><span>border-focus · light</span></div>
+            <ic-click-spark-reference class="spark-surface" aria-label="浅色点击反馈预览">
+              <div class="surface-copy"><strong>点击空白区域</strong><span>或拖动中央目标后松手</span></div>
+              <div class="drag-token" data-drag-token aria-label="可拖动测试目标"></div>
+            </ic-click-spark-reference>
+          </article>
+          <article class="theme-card" data-preview-theme="dark">
+            <div class="theme-label"><strong>深色环境</strong><span>border-focus · dark</span></div>
+            <ic-click-spark-reference class="spark-surface" aria-label="深色点击反馈预览">
+              <div class="surface-copy"><strong>点击空白区域</strong><span>或拖动中央目标后松手</span></div>
+              <div class="drag-token" data-drag-token aria-label="可拖动测试目标"></div>
+            </ic-click-spark-reference>
+          </article>
+        </div>
+        <div class="notes">
+          <div class="note"><strong>空闲零开销</strong><span>没有活动火花时不保留 requestAnimationFrame。</span></div>
+          <div class="note"><strong>只做视觉反馈</strong><span>拖动松手不会补发真正的 click，不改变业务行为。</span></div>
+          <div class="note"><strong>减少动态效果</strong><span>系统开启 reduced motion 时，只显示短暂静态定位点。</span></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/click-spark-reference.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

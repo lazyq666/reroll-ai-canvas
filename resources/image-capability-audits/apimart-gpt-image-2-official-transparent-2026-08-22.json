@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "provider_id": "apimart",
+  "model_id": "gpt-image-2-official",
+  "environment": "documented-contract",
+  "confirmed_at": "2026-08-22",
+  "privacy": "No prompt, credential, image, URL, or user data was submitted or recorded.",
+  "request_accounting": {
+    "new_external_requests": 0,
+    "live_generation_verified": false
+  },
+  "documented_evidence": {
+    "source_url": "https://docs.apimart.ai/en/api-reference/images/gpt-image-2/official",
+    "endpoint": "POST /v1/images/generations",
+    "background_values": ["auto", "opaque", "transparent"],
+    "output_format_values": ["png", "jpeg", "webp"],
+    "transparent_constraint": "Transparent background requires png or webp output.",
+    "request_mapping": {
+      "background": "transparent",
+      "output_format": "png"
+    },
+    "routing_boundary": "This contract applies only to the exact APIMART model id gpt-image-2-official. The separate gpt-image-2 generation documentation does not declare these parameters."
+  },
+  "confirmed_capability": {
+    "supports_transparent_png": true
+  }
+}

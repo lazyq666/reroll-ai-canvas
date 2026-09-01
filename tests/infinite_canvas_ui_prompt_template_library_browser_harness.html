@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+  <style>
+    #libraryDialog::part(body) { min-height:0; padding:0; overflow:hidden; }
+    #library { width:100%; height:100%; min-height:0; }
+  </style>
+</head>
+<body>
+  <ic-dialog id="libraryDialog" label="提示词模板库" size="x-large" dismiss-policy="explicit" without-visible-header>
+    <ic-prompt-template-library id="library" active-library="canvas" active-category="all" selected-template="" can-manage aria-label="提示词模板库"></ic-prompt-template-library>
+  </ic-dialog>
+  <script type="module">
+    await customElements.whenDefined('ic-prompt-template-library');
+    await customElements.whenDefined('ic-dialog');
+    const dialog = document.querySelector('#libraryDialog');
+    const library = document.querySelector('#library');
+    library.libraries = [
+      { id: 'common', name: '通用', scope: 'common', readonly: false, categories: [{ id: 'view', name: '视角', library_id:'system', category_id:'view' }, { id: 'light', name: '光影', library_id:'system', category_id:'light' }] },
+      { id: 'canvas', name: '当前画布', scope: 'canvas', readonly: false, categories: [] },
+    ];
+    library.templates = [
+      { id: 'wide', source_id:'wide-source', library_id:'system', libraryId: 'common', category: 'view', name: '广角建立镜头', positive: '远景，广角，空间层次', cover:'/static/images/favicon.png' },
+      { id: 'soft', source_id:'soft-source', library_id:'system', libraryId: 'common', category: 'light', name: '柔光人像', positive: '柔和侧光，浅景深，空气颗粒清晰，冷暖光形成细腻层次。人物站在窗边，轮廓被晨光轻轻勾勒，背景保留朦胧的城市结构与细微雾气。画面强调自然肤色、柔软阴影、克制高光与真实的镜头质感，构图关系稳定，动作关系自然。场景信息只提炼画面核心，不加入多余装饰。' },
+    ];
+    window.events = [];
+    window.canvasShortcutKeys = [];
+    window.addEventListener('keydown', event => window.canvasShortcutKeys.push(event.key.toLowerCase()));
+    for (const type of ['ic-library-change', 'ic-category-change', 'ic-template-select', 'ic-template-copy', 'ic-template-promote', 'ic-template-create', 'ic-template-delete', 'ic-template-reorder', 'ic-template-move', 'ic-category-create', 'ic-category-edit', 'ic-category-delete', 'ic-close']) {
+      library.addEventListener(type, event => {
+        window.events.push({ type, detail: event.detail });
+        if (type === 'ic-library-change') {
+          library.activeLibrary = event.detail.libraryId;
+          library.activeCategory = 'all';
+        }
+        if (type === 'ic-category-change') library.activeCategory = event.detail.categoryId;
+        if (type === 'ic-template-select') library.selectedTemplate = event.detail.templateId;
+        if (type === 'ic-template-copy') {
+          const source = library.templates.find(item => item.id === event.detail.templateId);
+          library.templates = [...library.templates, {...source, id:'copy-wide', libraryId:'canvas', category:'', name:`${source.name}副本`}];
+        }
+        if (type === 'ic-template-promote') {
+          const source = library.templates.find(item => item.id === event.detail.templateId);
+          library.templates = library.templates
+            .filter(item => item.id !== event.detail.templateId)
+            .concat({...source, id:'promoted-wide', libraryId:'common', category:'view'});
+          library.closePromotion();
+        }
+        if (type === 'ic-template-create') {
+          library.templates = [...library.templates, {
+            id: 'created-template',
+            libraryId: event.detail.libraryId,
+            ...event.detail.draft,
+          }];
+          library.closeEditor();
+        }
+        if (type === 'ic-template-delete') {
+          library.templates = library.templates.filter(item => item.id !== event.detail.templateId);
+          library.closeEditor();
+        }
+        if (type === 'ic-template-reorder' && event.detail.scope === 'categories') {
+          library.libraries = library.libraries.map(item => item.id === library.activeLibrary
+            ? {...item, categories:event.detail.categoryIds.map(id => item.categories.find(category => category.id === id)).filter(Boolean)}
+            : item);
+        }
+        if (type === 'ic-template-move') {
+          library.templates = library.templates.map(item => item.id === event.detail.templateId
+            ? {...item, category:event.detail.categoryId}
+            : item);
+          library.activeCategory = event.detail.categoryId;
+        }
+        if (type === 'ic-category-create') {
+          library.libraries = library.libraries.map(item => item.id === event.detail.libraryId
+            ? {...item, categories:[...item.categories, {id:'created', name:event.detail.name}]}
+            : item);
+          library.closeCategoryEditor();
+        }
+        if (type === 'ic-category-edit') {
+          library.libraries = library.libraries.map(item => item.id === event.detail.libraryId
+            ? {...item, categories:item.categories.map(category => category.id === event.detail.categoryId
+              ? {...category, name:event.detail.name}
+              : category)}
+            : item);
+          library.closeCategoryEditor();
+        }
+        if (type === 'ic-category-delete') {
+          const common = library.libraries.find(item => item.id === event.detail.libraryId);
+          const deleted = common?.categories.find(category => category.id === event.detail.categoryId);
+          const uncategorized = {id:'uncategorized', name:'未分类', managed:true, library_id:'system', category_id:'uncategorized'};
+          if (common && deleted) {
+            library.libraries = library.libraries.map(item => item.id === common.id
+              ? {...item, categories:[...item.categories.filter(category => category.id !== deleted.id), uncategorized]}
+              : item);
+            library.templates = library.templates.map(template => template.category === deleted.id
+              ? {...template, category:'uncategorized'}
+              : template);
+          }
+        }
+        if (type === 'ic-close') dialog.hide(event.detail?.reason || 'programmatic');
+      });
+    }
+    await dialog.show();
+    document.documentElement.dataset.ready = 'true';
+  </script>
+</body>
+</html>

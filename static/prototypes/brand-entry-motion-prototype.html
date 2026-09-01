@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light" data-studio-scale="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reroll Brand Entry Motion Prototype</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.29.brand-entry-prototype.1">
+  <link rel="stylesheet" href="/static/prototypes/brand-entry-motion-prototype.css?v=2026.08.29.1">
+</head>
+<body>
+  <!-- PROTOTYPE: Three variants for how the REROLL wordmark should enter after the fluid logo, switchable via ?variant=. -->
+  <main class="prototype-shell">
+    <section class="workspace-preview" aria-hidden="true">
+      <aside class="workspace-rail sidebar is-pinned">
+        <div class="workspace-sidebar-logo-area sidebar-logo-area">
+          <div class="workspace-sidebar-logo-toggle sidebar-logo-toggle">
+            <img class="sidebar-logo-image sidebar-logo-wordmark" src="/static/images/wordmark.svg" alt="Reroll">
+          </div>
+        </div>
+        <div class="workspace-nav-placeholder"><i></i><span></span></div>
+        <div class="workspace-nav-placeholder"><i></i><span></span></div>
+        <div class="workspace-nav-placeholder"><i></i><span></span></div>
+        <div class="workspace-nav-placeholder rail-bottom"><i></i><span></span></div>
+      </aside>
+      <header class="workspace-header">
+        <div><strong>我的工作台</strong><small id="workspaceGreeting">准备你的创作空间</small></div>
+        <div class="workspace-actions"><i></i><i></i><b></b></div>
+      </header>
+      <div class="workspace-canvas">
+        <article class="canvas-card canvas-card-primary"><span></span><strong>品牌视觉探索</strong><small>刚刚编辑</small></article>
+        <article class="canvas-card canvas-card-secondary"><span></span><strong>产品概念草图</strong><small>12 个节点</small></article>
+        <button class="new-canvas-card" type="button" tabindex="-1"><i>＋</i><span>新建画布</span></button>
+      </div>
+    </section>
+
+    <section id="brandStage" class="brand-stage" aria-label="Reroll 品牌入场动画">
+      <div class="canvas-seed-grid"></div>
+      <div class="ambient ambient-one"></div>
+      <div class="ambient ambient-two"></div>
+      <div class="brand-lockup">
+        <div class="mark-frame">
+          <video id="logoMotion" class="logo-motion" muted playsinline preload="auto"
+            poster="/static/images/logo.png"
+            src="/static/images/reroll-logo-motion-transparent.webm"></video>
+        </div>
+        <div class="wordmark-block">
+          <div class="wordmark" aria-label="Reroll">
+            <span style="--i:0;--dx:-86px;--dy:38px">R</span>
+            <span style="--i:1;--dx:42px;--dy:-58px">E</span>
+            <span style="--i:2;--dx:-24px;--dy:-76px">R</span>
+            <span style="--i:3;--dx:72px;--dy:46px">O</span>
+            <span style="--i:4;--dx:-56px;--dy:64px">L</span>
+            <span style="--i:5;--dx:94px;--dy:-26px">L</span>
+          </div>
+          <div class="wordmark-svg-frame" aria-label="Reroll">
+            <img class="wordmark-svg" src="/static/images/word.svg" alt="Reroll">
+            <span class="wordmark-scan" aria-hidden="true"><i></i><i></i><i></i></span>
+          </div>
+          <div class="wordmark-rule"></div>
+          <p id="brandEyebrow" class="brand-eyebrow">AI CREATIVE STUDIO</p>
+          <p id="brandMessage" class="brand-message">把想法连接成无限画布</p>
+        </div>
+      </div>
+      <div class="status-copy" id="statusCopy">正在准备你的创作空间</div>
+    </section>
+  </main>
+
+  <nav class="prototype-switcher" aria-label="动效 Demo 切换">
+    <button id="previousVariant" type="button" aria-label="上一个方案">←</button>
+    <div class="variant-copy"><small>THROWAWAY PROTOTYPE</small><strong id="variantLabel">A · 横向锁定</strong></div>
+    <button id="nextVariant" type="button" aria-label="下一个方案">→</button>
+    <span class="switcher-divider"></span>
+    <div class="scenario-toggle" aria-label="播放场景">
+      <button type="button" data-scenario="launch">首次启动</button>
+      <button type="button" data-scenario="login">登录成功</button>
+    </div>
+    <button id="replayMotion" class="replay-button" type="button">重新播放</button>
+  </nav>
+
+  <script src="/static/prototypes/brand-entry-motion-prototype.js?v=2026.08.29.1"></script>
+</body>
+</html>

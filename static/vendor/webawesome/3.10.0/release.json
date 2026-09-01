@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "package": "@awesome.me/webawesome",
+  "version": "3.10.0",
+  "license": "MIT",
+  "frozenOn": "2026-08-07",
+  "officialSources": {
+    "documentation": "https://webawesome.com/docs/",
+    "release": "https://github.com/shoelace-style/webawesome/releases/tag/v3.10.0",
+    "repository": "https://github.com/shoelace-style/webawesome",
+    "tarball": "https://registry.npmjs.org/@awesome.me/webawesome/-/webawesome-3.10.0.tgz",
+    "browserSupport": "https://webawesome.com/docs/resources/browser-support"
+  },
+  "sourceCommit": "d94cd040829d8d209765b7b2924183a0ca637aea",
+  "archive": "webawesome-3.10.0.tgz",
+  "archiveSha256": "95487f23ce9363fad926e27752b7538349a4f327d546cab130f5178798697796",
+  "archiveSha512": "42b54a1938b3f4e86d2280e273b445ea8d71e52867248ee38312bddeea12061dc8358954c9e8ca617a215eaa49d9c823209a9fa348cc490ca07754f2f7a40e30",
+  "npmIntegrity": "sha512-QrVKGTiz9OhtIoDic7RF6o1x5ShnJI7jgxK93uoSBh3INYlUyejKYXohXqpJ2cgjIJqfo0jMSQygd1Ty96QOMA==",
+  "npmShasum": "85930336d5aa5f54bc28f771a0439cf3d44b4c73",
+  "packageRoot": "package",
+  "runtimeDistribution": "package/dist-cdn",
+  "expectedFileCount": 2121,
+  "includesPro": false,
+  "automaticUpdates": false
+}

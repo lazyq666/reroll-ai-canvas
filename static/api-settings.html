@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui-scope="api-settings" data-studio-scale="off">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <title data-i18n="api.title">API 设置</title>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <script>
+        (function(){
+            try {
+                document.documentElement.dataset.studioFitScale = 'off';
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <script src="/static/js/model-vendor-icons.js?v=2026.09.01.2.1786933744"></script>
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/api-settings.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/api-settings-t18.css?v=2026.09.01.2.1788146221">
+    <link rel="stylesheet" href="/static/css/api-settings-t19.css?v=2026.09.01.2.1787561133">
+    <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.2.1787561133">
+</head>
+<body>
+    <main class="page api-settings-page">
+        <div class="wrap">
+            <ic-heading class="page-heading" level="1" subtitle="管理平台地址、模型列表和 Key。Key 写入后端 env，页面不会回显完整内容。" data-i18n="api.title" data-i18n-subtitle="api.subtitle" data-legal-combination="h1-with-subtitle">API 设置</ic-heading>
+
+            <div class="layout">
+                <ic-card id="providerNavigation" class="sidebar" label="API 设置导航" data-i18n-label="api.navigation" size="small">
+                    <nav class="provider-navigation-content" aria-label="API 设置导航" data-i18n-aria-label="api.navigation">
+                    <ic-heading class="side-section-title" level="3" data-i18n="api.providersTitle" data-legal-combination="h3-title">平台列表</ic-heading>
+                    <ic-tabs id="providerList" class="provider-list" label="平台列表" data-i18n-label="api.providersTitle" data-legal-combination="vertical-manual-label" orientation="vertical" activation="manual"></ic-tabs>
+                    <ic-button class="sidebar-action sidebar-primary-action" size="medium" type="button" hierarchy="primary" onclick="addProvider()"><ic-icon slot="start" name="add"></ic-icon><span data-i18n="api.addProvider">新增平台</span></ic-button>
+                    <div class="cli-quick-group">
+                        <ic-heading class="side-section-title" level="3" data-i18n="api.cliSettings" data-legal-combination="h3-title">CLI 设置</ic-heading>
+                        <div class="cli-quick-list">
+                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('jimeng')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/jimeng.svg" alt=""><span data-i18n="api.jimengCli">即梦 CLI</span></ic-button>
+                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('codex')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/chatgpt.svg" alt=""><span>GPT CLI</span></ic-button>
+                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('gemini-cli')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/gemini.svg" alt=""><span>Antigravity CLI</span></ic-button>
+                            <!-- CLI 依赖提示已按视觉复核移除。 -->
+                        </div>
+                    </div>
+                    <div class="api-transfer-group">
+                        <ic-heading class="side-section-title" level="3" data-i18n="api.settingsMigration" data-legal-combination="h3-title">API 设置迁移</ic-heading>
+                        <div class="api-transfer-note" data-i18n="api.transferScope">仅包含 ModelScope、RunningHub、火山引擎和非 CLI 自定义平台。</div>
+                        <div class="api-transfer-actions"><ic-button class="sidebar-action" type="button" hierarchy="secondary" onclick="exportEncryptedApiSettings()"><ic-icon slot="start" name="download"></ic-icon><span data-i18n="api.exportEncrypted">导出加密包</span></ic-button>
+                        <ic-button class="sidebar-action" type="button" hierarchy="secondary" onclick="chooseEncryptedApiSettings()"><ic-icon slot="start" name="upload"></ic-icon><span data-i18n="api.importEncrypted">导入加密包</span></ic-button></div><ic-file-input id="apiSettingsImportInput" name="api_settings_package" label="导入 API 设置加密包" data-i18n-label="api.importEncryptedPackage" accept=".icapi,application/vnd.infinite-canvas.api-settings" hidden></ic-file-input>
+                    </div>
+                    </nav>
+                </ic-card>
+
+                <section id="settingsContent" class="content">
+                    <div id="providerOnboardingHost" hidden></div>
+
+                    <ic-card id="providerSettingsCard" class="provider-settings-card" label="平台设置" data-i18n-label="api.providerSettings">
+                    <div class="content-head">
+                        <div>
+                            <ic-heading id="editorTitle" class="card-heading" level="3" subtitle="配置基础信息、API Key 和可用模型" data-i18n="api.provider" data-i18n-subtitle="api.editorSub" data-legal-combination="h3-with-subtitle">平台</ic-heading>
+                        </div>
+                    </div>
+                    <ic-divider></ic-divider>
+                    <section class="block">
+                        <div class="form">
+                            <div class="field full">
+                                <ic-form-field id="nameFormField" label="平台名称" data-i18n-label="api.platformName" data-i18n-hint="api.platformIdEmpty" hint="平台 ID：—">
+                                    <ic-input id="nameInput" slot="control" name="provider_name" type="text" placeholder="Comfly" data-auto-save="setting"></ic-input>
+                                </ic-form-field>
+                                <input id="idInput" type="hidden">
+                            </div>
+                            <div class="field full api-base-url-field">
+                                <ic-form-field id="baseUrlFormField" label="请求地址" data-i18n-label="api.baseUrl" hint="">
+                                    <ic-input id="baseInput" slot="control" name="base_url" type="url" placeholder="https://api.example.com/v1" data-auto-save="connection"></ic-input>
+                                </ic-form-field>
+                            </div>
+                            <div class="field full api-key-field">
+                                <div class="api-standard-key-row">
+                                    <ic-form-field id="keyFormField" label="API Key" hint="">
+                                        <ic-input id="keyInput" slot="control" name="api_key" type="password" data-auto-save="connection" end-action>
+                                            <ic-icon-button id="clearSavedKeyBtn" slot="end" type="button" hierarchy="quiet" tone="danger" icon="delete" label="清除已保存 Key" data-i18n-label="api.clearKeyTitle" onclick="clearKeyOnly()" hidden></ic-icon-button>
+                                            <ic-button id="testUrlBtn" slot="end" size="medium" type="button" hierarchy="quiet" onclick="testConnection()"><span data-i18n="api.testUrl">检测地址</span></ic-button>
+                                        </ic-input>
+                                    </ic-form-field>
+                                </div>
+                                <div class="rh-key-stack">
+                                    <ic-card class="provider-key-card" size="small" tone="subtle" label="RH币 API Key · 必填" data-i18n-label="api.rhCoinApiKeyRequired">
+                                        <div class="provider-key-head">
+                                            <div>
+                                                <div class="provider-key-title" data-i18n="api.rhCoinApiKeyRequired">RH币 API Key · 必填</div>
+                                                <div class="provider-key-description" data-i18n="api.rhCoinKeyDesc">使用 RH币 接口时填写</div>
+                                            </div>
+                                            <ic-button-group class="provider-key-links" label="获取 Key" data-i18n-label="api.get">
+                                                <ic-button size="small" hierarchy="secondary" href="https://www.runninghub.cn/enterprise-api/consumerApi?inviteCode=rh-v1331" target="_blank"><ic-icon slot="start" name="link"></ic-icon><span data-i18n="api.cnKey">国内 Key</span></ic-button>
+                                                <ic-button size="small" hierarchy="secondary" href="https://www.runninghub.ai/enterprise-api/consumerApi?inviteCode=rh-v1331" target="_blank"><ic-icon slot="start" name="link"></ic-icon><span data-i18n="api.globalKey">国外 Key</span></ic-button>
+                                            </ic-button-group>
+                                        </div>
+                                        <div class="key-input-line">
+                                            <ic-input id="rhFreeKeyInput" name="runninghub_coin_key" type="password" label="RH币 API Key · 必填" data-i18n-label="api.rhCoinApiKeyRequired" data-auto-save="connection"></ic-input>
+                                            <div class="key-actions">
+                                                <ic-icon-button size="medium" type="button" hierarchy="quiet" tone="danger" icon="delete" label="清除 RH币 Key" data-i18n-label="api.clearRhCoinKeyTitle" onclick="clearRhKeyOnly('free')"></ic-icon-button>
+                                            </div>
+                                        </div>
+                                        <span id="rhFreeKeyHint" class="hint"></span>
+                                    </ic-card>
+                                    <ic-card class="provider-key-card" size="small" tone="subtle" label="账户余额 API Key · 可选" data-i18n-label="api.rhWalletApiKeyOptional">
+                                        <div class="provider-key-head">
+                                            <div>
+                                                <div class="provider-key-title" data-i18n="api.rhWalletApiKeyOptional">账户余额 API Key · 可选</div>
+                                                <div class="provider-key-description" data-i18n="api.rhWalletKeyDesc">使用账户余额接口时填写</div>
+                                            </div>
+                                            <ic-button-group class="provider-key-links" label="获取 Key" data-i18n-label="api.get">
+                                                <ic-button size="small" hierarchy="secondary" href="https://www.runninghub.cn/enterprise-api/sharedApi?inviteCode=rh-v1331" target="_blank"><ic-icon slot="start" name="link"></ic-icon><span data-i18n="api.cnKey">国内 Key</span></ic-button>
+                                                <ic-button size="small" hierarchy="secondary" href="https://www.runninghub.ai/enterprise-api/sharedApi?inviteCode=rh-v1331" target="_blank"><ic-icon slot="start" name="link"></ic-icon><span data-i18n="api.globalKey">国外 Key</span></ic-button>
+                                            </ic-button-group>
+                                        </div>
+                                        <div class="key-input-line">
+                                            <ic-input id="rhWalletKeyInput" name="runninghub_wallet_key" type="password" label="账户余额 API Key · 可选" data-i18n-label="api.rhWalletApiKeyOptional" data-auto-save="connection"></ic-input>
+                                            <div class="key-actions">
+                                                <ic-icon-button size="medium" type="button" hierarchy="quiet" tone="danger" icon="delete" label="清除账户余额 Key" data-i18n-label="api.clearRhWalletKeyTitle" onclick="clearRhKeyOnly('wallet')"></ic-icon-button>
+                                            </div>
+                                        </div>
+                                        <span id="rhWalletKeyHint" class="hint"></span>
+                                    </ic-card>
+                                </div>
+                                <div class="volcengine-key-stack" hidden>
+                                    <ic-card class="provider-key-card" size="small" tone="subtle" label="方舟 API Key · 生成视频" data-i18n-label="api.volcengineArkKey">
+                                        <div class="provider-key-head">
+                                            <div>
+                                                <div class="provider-key-title" data-i18n="api.volcengineArkKey">方舟 API Key · 生成视频</div>
+                                                <div class="provider-key-description" data-i18n="api.volcengineArkKeyDesc">用于 Seedance 2.0 生成接口，Authorization: Bearer。</div>
+                                            </div>
+                                        </div>
+                                        <span id="volcArkKeyHint" class="hint"></span>
+                                    </ic-card>
+                                    <ic-card class="provider-key-card" size="small" tone="subtle" label="素材库 AK/SK · 上传素材" data-i18n-label="api.volcengineAssetKeys">
+                                        <div class="provider-key-head">
+                                            <div>
+                                                <div class="provider-key-title" data-i18n="api.volcengineAssetKeys">素材库 AK/SK · 上传素材</div>
+                                                <div class="provider-key-description" data-i18n="api.volcengineAssetKeysDesc">用于 CreateAssetGroup / CreateAsset / GetAsset 的 Access Key 鉴权。</div>
+                                            </div>
+                                        </div>
+                                        <div class="key-input-line">
+                                            <ic-input id="volcAkInput" name="volcengine_access_key" type="password" label="Access Key ID" placeholder="Access Key ID" data-auto-save="connection"></ic-input>
+                                        </div>
+                                        <div class="key-input-line">
+                                            <ic-input id="volcSkInput" name="volcengine_secret_key" type="password" label="Secret Access Key" placeholder="Secret Access Key" data-auto-save="connection"></ic-input>
+                                            <div class="key-actions">
+                                                <ic-icon-button type="button" hierarchy="quiet" tone="danger" icon="delete" label="清除火山素材库 AK/SK" onclick="clearVolcengineAssetKeys()" data-i18n-label="api.clearVolcAssetKeys"></ic-icon-button>
+                                            </div>
+                                        </div>
+                                        <span id="volcAssetKeyHint" class="hint"></span>
+                                    </ic-card>
+                                    <ic-card class="volcengine-project-card" size="small" tone="subtle" label="素材库项目" data-i18n-label="api.volcengineProject">
+                                        <div class="provider-key-head">
+                                            <div>
+                                                <ic-heading class="card-heading" level="3" subtitle="ProjectName 必须和视频生成 API Key 所属项目一致。" data-i18n="api.volcengineProject" data-i18n-subtitle="api.volcengineProjectDesc" data-legal-combination="h3-with-subtitle">素材库项目</ic-heading>
+                                            </div>
+                                        </div>
+                                        <div class="volcengine-project-grid">
+                                            <div class="rh-card-title-field">
+                                                <span>ProjectName</span>
+                                                <ic-input id="volcProjectInput" name="volcengine_project" type="text" label="ProjectName" value="default" data-auto-save="connection"></ic-input>
+                                            </div>
+                                            <div class="rh-card-title-field">
+                                                <span>Region</span>
+                                                <ic-input id="volcRegionInput" name="volcengine_region" type="text" label="Region" value="cn-beijing" data-auto-save="connection"></ic-input>
+                                            </div>
+                                        </div>
+                                    </ic-card>
+                                </div>
+                                <div class="ms-hint form-supporting-text api-key-reference-hint">
+                                    <span class="ms-line"><span data-i18n="api.msTokenCn">获取 Token · 国内：</span><a href="https://www.modelscope.cn/my/access/token" target="_blank">https://www.modelscope.cn/my/access/token</a></span>
+                                    <span class="ms-line"><span data-i18n="api.msTokenGlobal">获取 Token · 国外：</span><a href="https://www.modelscope.ai/my/access/token" target="_blank">https://www.modelscope.ai/my/access/token</a></span>
+                                </div>
+                            </div>
+                            <ic-card id="jimengCliPanel" class="jimeng-cli-panel jimeng-cli-card" tone="plain" label="即梦 CLI 账户" data-i18n-label="api.jimengAccount" hidden>
+                                <div class="jimeng-cli-content">
+                                <div class="jimeng-cli-head">
+                                    <div>
+                                        <ic-heading class="card-heading" level="3" subtitle="使用本机 dreamina 登录态，无需 API Key。" data-i18n="api.jimengAccount" data-i18n-subtitle="api.jimengAccountDesc" data-legal-combination="h3-with-subtitle">即梦 CLI 账户</ic-heading>
+                                    </div>
+                                    <ic-badge id="jimengCliStatus" kind="status" tone="neutral" data-i18n="api.notChecked">未检测</ic-badge>
+                                </div>
+                                <ic-button-group class="jimeng-actions" label="即梦 CLI 账户操作" data-i18n-label="api.jimengAccountActions">
+                                    <ic-button size="medium" hierarchy="primary" type="button" onclick="startJimengLogin()"><span data-i18n="api.scanLogin">扫码登录</span></ic-button>
+                                    <ic-button size="medium" hierarchy="secondary" type="button" onclick="refreshJimengCredit()"><span data-i18n="api.checkCredits">查询积分</span></ic-button>
+                                    <ic-button size="medium" hierarchy="secondary" type="button" onclick="openJimengHelp()"><span data-i18n="api.help">帮助</span></ic-button>
+                                    <ic-button size="medium" hierarchy="secondary" tone="danger" type="button" onclick="logoutJimeng()"><span data-i18n="api.logout">退出登录</span></ic-button>
+                                </ic-button-group>
+                                <ic-alert id="jimengCredit" class="jimeng-credit" tone="neutral" hidden></ic-alert>
+                                <ic-card id="jimengLoginBox" class="jimeng-output" size="small" tone="subtle" label="即梦 CLI 登录" data-i18n-label="api.jimengLogin" hidden></ic-card>
+                                </div>
+                            </ic-card>
+                            <ic-card id="codexCliPanel" class="jimeng-cli-panel jimeng-cli-card" tone="plain" label="OpenAI CLI 账户" data-i18n-label="api.codexAccount" hidden>
+                                <div class="jimeng-cli-content">
+                                <div class="jimeng-cli-head">
+                                    <div>
+                                        <ic-heading class="card-heading" level="3" subtitle="使用本机 codex 登录态，无需在本项目保存 API Key。" data-i18n="api.codexAccount" data-i18n-subtitle="api.codexAccountDesc" data-legal-combination="h3-with-subtitle">OpenAI CLI 账户</ic-heading>
+                                    </div>
+                                    <ic-badge id="codexCliStatus" kind="status" tone="neutral" data-i18n="api.notChecked">未检测</ic-badge>
+                                </div>
+                                <ic-button-group class="jimeng-actions" label="OpenAI CLI 账户操作" data-i18n-label="api.codexAccountActions">
+                                    <ic-button size="medium" hierarchy="primary" type="button" onclick="refreshCodexStatus()"><span data-i18n="api.checkCli">检测 CLI</span></ic-button>
+                                    <ic-button size="medium" hierarchy="secondary" type="button" onclick="openCodexHelp()"><span data-i18n="api.help">帮助</span></ic-button>
+                                </ic-button-group>
+                                <ic-alert id="codexCliInfo" class="jimeng-credit" tone="neutral" hidden></ic-alert>
+                                </div>
+                            </ic-card>
+                            <ic-card id="geminiCliPanel" class="jimeng-cli-panel jimeng-cli-card" tone="plain" label="Antigravity CLI 账户" data-i18n-label="api.antigravityAccount" hidden>
+                                <div class="jimeng-cli-content">
+                                <div class="jimeng-cli-head">
+                                    <div>
+                                        <ic-heading class="card-heading" level="3" subtitle="使用本机 agy 登录态，无需在本项目保存 API Key。" data-i18n="api.antigravityAccount" data-i18n-subtitle="api.antigravityAccountDesc" data-legal-combination="h3-with-subtitle">Antigravity CLI 账户</ic-heading>
+                                    </div>
+                                    <ic-badge id="geminiCliStatus" kind="status" tone="neutral" data-i18n="api.notChecked">未检测</ic-badge>
+                                </div>
+                                <ic-button-group class="jimeng-actions" label="Antigravity CLI 账户操作" data-i18n-label="api.antigravityAccountActions">
+                                    <ic-button size="medium" hierarchy="primary" type="button" onclick="refreshGeminiCliStatus()"><span data-i18n="api.checkCli">检测 CLI</span></ic-button>
+                                    <ic-button size="medium" hierarchy="secondary" type="button" onclick="openGeminiCliHelp()"><span data-i18n="api.help">帮助</span></ic-button>
+                                </ic-button-group>
+                                <ic-alert id="geminiCliInfo" class="jimeng-credit" tone="neutral" hidden></ic-alert>
+                                </div>
+                            </ic-card>
+                            <div class="protocol-state-controls" hidden aria-hidden="true">
+                                <ic-select id="protocolInput" name="protocol" aria-label="协议" data-i18n-aria-label="api.protocol">
+                                    <option value="openai">OpenAI</option>
+                                    <option value="apimart">APIMart</option>
+                                    <option value="gemini">Gemini</option>
+                                    <option value="volcengine">Volcengine</option>
+                                    <option value="runninghub">RunningHub</option>
+                                    <option value="jimeng">Jimeng</option>
+                                    <option value="codex">Codex</option>
+                                    <option value="gemini-cli">Antigravity</option>
+                                </ic-select>
+                                <ic-select id="imageRequestModeInput" name="image_request_mode" aria-label="图片接口" data-i18n-aria-label="api.imageInterface">
+                                    <option value="openai">OpenAI</option>
+                                    <option value="openai-json">OpenAI JSON</option>
+                                    <option value="openai-video-proxy">OpenAI Proxy</option>
+                                    <option value="openai-responses">OpenAI Responses</option>
+                                </ic-select>
+                            </div>
+                        </div>
+                    </section>
+                    </ic-card>
+
+                    <ic-card id="runninghubConfigBlock" class="runninghub-workspace-card" tone="plain" label="应用与工作流" data-i18n-label="api.appsAndWorkflows" hidden>
+                        <ic-heading slot="header" class="card-heading" level="3" subtitle="粘贴运行路径后，点击右侧创建卡片。" data-i18n="api.appsAndWorkflows" data-i18n-subtitle="api.appsAndWorkflowsDesc" data-legal-combination="h3-with-subtitle">应用与工作流</ic-heading>
+                        <ic-form-field class="rh-run-path-field" label="运行路径" data-i18n-label="api.runPath" hint="支持 AI 应用或工作流运行路径" data-i18n-hint="api.runPathHint">
+                            <ic-input id="rhPasteInput" slot="control" name="runninghub_run_path" type="text" placeholder="/run/ai-app/... 或 /run/workflow/..." data-i18n-placeholder="api.runPathPlaceholder" end-action>
+                                <ic-button slot="end" size="medium" hierarchy="quiet" type="button" onclick="createRhEntryFromPaste()"><ic-icon slot="start" name="add"></ic-icon><span data-i18n="api.create">创建</span></ic-button>
+                            </ic-input></ic-form-field>
+                        <div class="rh-entry-columns">
+                            <ic-card class="rh-entry-collection" size="small" tone="plain" label="AI 应用" data-i18n-label="api.aiApps">
+                                <div class="rh-entry-group-head">
+                                    <ic-heading class="rh-entry-group-title" level="3" data-i18n="api.aiApps" data-legal-combination="h3-title">AI 应用</ic-heading>
+                                    <ic-badge id="rhAppsCount" kind="count" tone="neutral">0</ic-badge>
+                                </div>
+                                <div id="rhAppsList" class="rh-entry-list"></div>
+                            </ic-card>
+                            <ic-card class="rh-entry-collection" size="small" tone="plain" label="工作流" data-i18n-label="api.workflows">
+                                <div class="rh-entry-group-head">
+                                    <ic-heading class="rh-entry-group-title" level="3" data-i18n="api.workflows" data-legal-combination="h3-title">工作流</ic-heading>
+                                    <ic-badge id="rhWorkflowsCount" kind="count" tone="neutral">0</ic-badge>
+                                </div>
+                                <div id="rhWorkflowsList" class="rh-entry-list"></div>
+                            </ic-card>
+                        </div>
+                    </ic-card>
+
+                    <ic-card id="modelsCard" class="models-card" tone="plain" label="模型列表" data-i18n-label="api.modelsTitle">
+                        <div slot="header" class="models-card-header">
+                            <ic-heading id="modelsTitle" class="card-heading models-title" level="3" data-i18n="api.modelsTitle" data-legal-combination="h3-title">模型列表</ic-heading>
+                            <ic-toolbar id="modelsHead" class="models-actions-toolbar" appearance="plain" label="模型列表操作" data-i18n-label="api.modelsActions">
+                                <ic-button id="fetchModelsBtn" size="medium" hierarchy="secondary" type="button" onclick="fetchModels()"><span data-i18n="api.fetchModels">拉取模型</span></ic-button>
+                                <ic-button id="openPickerBtn" size="medium" hierarchy="secondary" type="button" onclick="openModelPicker()" disabled><span data-i18n="api.selectModels">选择模型</span></ic-button>
+                            </ic-toolbar>
+                        </div>
+
+                        <ic-tabs id="modelCategoryTabs" class="model-category-tabs" label="模型类型" data-i18n-label="api.modelTypes" value="image" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                            <button id="imageModelTab" data-value="image" aria-controls="imageModelPanel" data-i18n="api.modelCategoryImage">图片模型</button>
+                            <button id="videoModelTab" data-value="video" aria-controls="videoModelPanel" data-i18n="api.modelCategoryVideo">视频模型</button>
+                            <button id="chatModelTab" data-value="chat" aria-controls="chatModelPanel" data-i18n="api.modelCategoryText">文本模型</button>
+                        </ic-tabs>
+
+                        <div class="model-tab-panels" data-ui-density="small">
+                            <section id="imageModelPanel" class="model-tab-panel" role="tabpanel" aria-labelledby="imageModelTab" data-model-category="image">
+                                <div class="model-panel-actions">
+                                    <span class="model-panel-hint" data-i18n="api.imageHint">在线批量生成和 Reroll 画布 API 生成使用。</span>
+                                </div>
+                                <div class="ms-hint">
+                                    <span class="ms-line"><span data-i18n="api.msModelExample">模型名称示意：</span><span>Tongyi-MAI/Z-Image-Turbo</span></span>
+                                </div>
+                                <div id="imageModelList" class="model-list" role="list"></div>
+                                <div class="model-panel-footer-actions">
+                                    <ic-button size="medium" hierarchy="quiet" type="button" onclick="addModel('image')"><span data-i18n="api.manualAddModel">手动添加模型</span></ic-button>
+                                </div>
+                            </section>
+
+                            <section id="videoModelPanel" class="model-tab-panel" role="tabpanel" aria-labelledby="videoModelTab" data-model-category="video" hidden>
+                                <div class="model-panel-actions">
+                                    <span class="model-panel-hint" data-i18n="api.videoHint">Reroll 画布视频生成节点使用。</span>
+                                </div>
+                                <div id="videoModelList" class="model-list" role="list"></div>
+                                <div class="model-panel-footer-actions">
+                                    <ic-button size="medium" hierarchy="quiet" type="button" onclick="addModel('video')"><span data-i18n="api.manualAddModel">手动添加模型</span></ic-button>
+                                </div>
+                            </section>
+
+                            <section id="chatModelPanel" class="model-tab-panel" role="tabpanel" aria-labelledby="chatModelTab" data-model-category="chat" hidden>
+                                <div class="model-panel-actions">
+                                    <span class="model-panel-hint" data-i18n="api.chatHint">Reroll 画布中的 LLM 节点使用。</span>
+                                </div>
+                                <div id="chatModelList" class="model-list" role="list"></div>
+                                <div class="model-panel-footer-actions">
+                                    <ic-button size="medium" hierarchy="quiet" type="button" onclick="addModel('chat')"><span data-i18n="api.manualAddModel">手动添加模型</span></ic-button>
+                                </div>
+                            </section>
+                        </div>
+                    </ic-card>
+
+                    <div class="model-grid" data-ui-density="small" id="modelExtensions" hidden>
+                        <ic-card id="msLoraBlock" class="model-section-card ms-lora-block" tone="plain" label="LoRA 管理" data-i18n-label="api.loraManager">
+                            <div slot="header" class="block-head">
+                                <div>
+                                    <ic-heading class="card-heading" level="3" subtitle="为 ModelScope 生图模型绑定可用 LoRA。Reroll 画布 MS 节点会按当前模型自动筛选。" data-i18n="api.loraManager" data-i18n-subtitle="api.loraManagerDesc" data-legal-combination="h3-with-subtitle">LoRA 管理</ic-heading>
+                                    <div class="ms-hint">
+                                        <span class="ms-line"><span data-i18n="api.msCnModels">中文模型库：</span><a href="https://www.modelscope.cn/aigc/models" target="_blank">https://www.modelscope.cn/aigc/models</a></span>
+                                        <span class="ms-line"><span data-i18n="api.msEnModels">英文模型库：</span><a href="https://www.modelscope.ai/civision/models" target="_blank">https://www.modelscope.ai/civision/models</a></span>
+                                    </div>
+                                </div>
+                                <ic-button hierarchy="secondary" type="button" onclick="addMsLora()"><ic-icon slot="start" name="add"></ic-icon><span>LoRA</span></ic-button>
+                            </div>
+                            <ic-divider slot="header" class="model-section-divider"></ic-divider>
+                            <div id="msLoraList" class="lora-list"></div>
+                        </ic-card>
+                </div>
+                    <div class="provider-delete-action">
+                        <ic-button id="deleteBtn" size="medium" class="quiet-danger-action" type="button" hierarchy="quiet" tone="danger" data-legal-combination="quiet-danger-action" onclick="deleteProvider()"><span data-i18n="api.deleteProvider">删除平台</span></ic-button>
+                    </div>
+                </section>
+        </div>
+        </div>
+    </main>
+
+    <!-- 模型选择浮层 -->
+
+    <ic-dialog id="modelPickerOverlay" class="model-picker-dialog" label="选择模型" data-i18n-label="api.selectModels" data-legal-combination="h2-with-subtitle" size="x-large" dismiss-policy="explicit">
+        <span slot="label" class="model-selection-heading"><span data-i18n="api.selectModels">选择模型</span><span id="pickerCount" class="model-selection-count">—</span></span>
+        <ic-toolbar class="model-selection-filters" appearance="plain" label="筛选上游模型" data-i18n-label="api.filterUpstream">
+            <ic-tabs id="pickerCategoryTabs" label="模型类型" data-i18n-label="api.modelTypes" value="all" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                <button data-value="all" data-cat="all" data-i18n="api.all">全部</button>
+                <button data-value="image" data-cat="image" data-i18n="api.imageGeneration">生图</button>
+                <button data-value="chat" data-cat="chat">LLM</button>
+                <button data-value="video" data-cat="video" data-i18n="api.videoGeneration">视频</button>
+            </ic-tabs>
+            <ic-input id="pickerFilter" class="model-selection-search" name="model_search" type="search" aria-label="搜索模型" placeholder="按名称搜索模型…" data-i18n-aria-label="api.searchModels" data-i18n-placeholder="api.searchModels" oninput="renderModelPicker(event)"></ic-input>
+        </ic-toolbar>
+        <ic-table id="pickerList" class="model-selection-table" label="上游模型清单" data-i18n-label="api.upstreamModels" row-selection="multiple" data-ui-density="small">
+            <table><caption class="visually-hidden" data-i18n="api.upstreamModels">从上游拉取的模型清单</caption>
+            <thead><tr><th scope="col" data-i18n="api.modelName">模型</th><th scope="col" data-i18n="api.modelId">模型 ID</th><th scope="col" data-i18n="api.modelType">类型</th><th scope="col" data-i18n="api.modelSeries">系列</th></tr></thead>
+            <tbody><tr><td colspan="4"><ic-empty-state title="无匹配" label="无匹配" data-i18n="api.noMatches">按名称搜索模型…</ic-empty-state></td></tr></tbody></table>
+        </ic-table>
+        <ic-toolbar id="pickerSummary" class="model-selection-summary" appearance="plain" label="待应用模型汇总" data-i18n-label="api.selectionSummary">
+            <span data-i18n="api.willApply">将应用：</span>
+            <ic-badge id="sumImage" kind="count" tone="neutral" data-i18n="api.imageSummaryZero">生图 0</ic-badge>
+            <ic-badge id="sumChat" kind="count" tone="neutral" data-i18n="api.chatSummaryZero">聊天 0</ic-badge>
+            <ic-badge id="sumVideo" kind="count" tone="neutral" data-i18n="api.videoSummaryZero">视频 0</ic-badge>
+            <ic-badge id="sumUnsel" kind="count" tone="neutral" data-i18n="api.unselectedSummaryZero">未选 0</ic-badge>
+        </ic-toolbar>
+        <ic-button slot="footer" type="button" hierarchy="secondary" onclick="closeModelPicker()" data-i18n="common.cancel">取消</ic-button>
+        <ic-button slot="footer" type="button" hierarchy="primary" onclick="applyModelPicker()" data-i18n="api.applyModels">应用到模型列表</ic-button>
+    </ic-dialog>
+
+
+    <ic-dialog id="jimengHelpOverlay" class="jimeng-help-dialog" label="即梦 CLI 帮助" data-i18n-label="api.jimengHelp" size="medium" dismiss-policy="explicit">
+            <p class="jimeng-help-description" data-i18n="api.jimengHelpDesc">查看 dreamina 官方命令帮助输出</p>
+            <ic-toolbar class="jimeng-help-toolbar" appearance="plain" label="即梦 CLI 帮助命令" data-i18n-label="api.jimengHelpCommands">
+                <ic-select id="jimengHelpCommand" name="jimeng_help_command" label="即梦 CLI 命令" data-i18n-label="api.jimengCommand">
+                    <option value="__root__">dreamina</option>
+                    <option value="login">login</option>
+                    <option value="logout">logout</option>
+                    <option value="user_credit">user_credit</option>
+                    <option value="text2image">text2image</option>
+                    <option value="image2image">image2image</option>
+                    <option value="image_upscale">image_upscale</option>
+                    <option value="text2video">text2video</option>
+                    <option value="image2video">image2video</option>
+                    <option value="multimodal2video">multimodal2video</option>
+                    <option value="frames2video">frames2video</option>
+                    <option value="multiframe2video">multiframe2video</option>
+                    <option value="list_task">list_task</option>
+                    <option value="query_result">query_result</option>
+                </ic-select>
+                <ic-button size="medium" hierarchy="secondary" type="button" onclick="loadJimengHelp()"><ic-icon slot="start" name="refresh"></ic-icon><span data-i18n="api.refresh">刷新</span></ic-button>
+            </ic-toolbar>
+            <pre id="jimengHelpOutput" class="jimeng-help-output"></pre>
+            <ic-button slot="footer" type="button" hierarchy="secondary" onclick="closeJimengHelp()" data-i18n="common.close">关闭</ic-button>
+    </ic-dialog>
+
+    <ic-dialog id="codexHelpOverlay" class="jimeng-help-dialog" label="OpenAI Codex CLI 帮助" data-i18n-label="api.codexHelp" size="medium" dismiss-policy="explicit">
+            <p class="jimeng-help-description" data-i18n="api.codexHelpDesc">查看 codex 官方命令帮助输出</p>
+            <ic-toolbar class="jimeng-help-toolbar" appearance="plain" label="Codex CLI 帮助命令" data-i18n-label="api.codexHelpCommands">
+                <ic-select id="codexHelpCommand" name="codex_help_command" label="Codex CLI 命令" data-i18n-label="api.codexCommand">
+                    <option value="__root__">codex</option>
+                    <option value="exec">exec</option>
+                    <option value="login">login</option>
+                    <option value="logout">logout</option>
+                    <option value="doctor">doctor</option>
+                    <option value="mcp">mcp</option>
+                    <option value="app">app</option>
+                    <option value="update">update</option>
+                </ic-select>
+                <ic-button size="medium" hierarchy="secondary" type="button" onclick="loadCodexHelp()"><ic-icon slot="start" name="refresh"></ic-icon><span data-i18n="api.refresh">刷新</span></ic-button>
+            </ic-toolbar>
+            <pre id="codexHelpOutput" class="jimeng-help-output"></pre>
+            <ic-button slot="footer" type="button" hierarchy="secondary" onclick="closeCodexHelp()" data-i18n="common.close">关闭</ic-button>
+    </ic-dialog>
+
+    <ic-dialog id="geminiCliHelpOverlay" class="jimeng-help-dialog" label="Antigravity CLI 帮助" data-i18n-label="api.antigravityHelp" size="medium" dismiss-policy="explicit">
+            <p class="jimeng-help-description" data-i18n="api.antigravityHelpDesc">查看 gemini 官方命令帮助输出</p>
+            <ic-toolbar class="jimeng-help-toolbar" appearance="plain" label="Antigravity CLI 帮助命令" data-i18n-label="api.antigravityHelpCommands">
+                <ic-select id="geminiCliHelpCommand" name="gemini_help_command" label="Antigravity CLI 命令" data-i18n-label="api.antigravityCommand">
+                    <option value="__root__">gemini</option>
+                    <option value="help">help</option>
+                    <option value="mcp">mcp</option>
+                    <option value="extensions">extensions</option>
+                </ic-select>
+                <ic-button size="medium" hierarchy="secondary" type="button" onclick="loadGeminiCliHelp()"><ic-icon slot="start" name="refresh"></ic-icon><span data-i18n="api.refresh">刷新</span></ic-button>
+            </ic-toolbar>
+            <pre id="geminiCliHelpOutput" class="jimeng-help-output"></pre>
+            <ic-button slot="footer" type="button" hierarchy="secondary" onclick="closeGeminiCliHelp()" data-i18n="common.close">关闭</ic-button>
+    </ic-dialog>
+
+    <ic-dialog id="rhWorkflowEditorOverlay" class="rh-workflow-editor-dialog" label="RunningHub 工作流" data-i18n-label="api.runningHubWorkflow" size="x-large" dismiss-policy="explicit">
+        <div class="rh-workflow-editor-shell">
+            <span id="rhWorkflowEditorSub" class="rh-workflow-editor-sub" data-i18n="api.runPath">运行路径</span>
+            <div class="rh-workflow-editor-body">
+                <section class="rh-workflow-editor-side" aria-label="工作流信息与预览" data-i18n-aria-label="api.workflowInfoPreview">
+                    <ic-form-field class="rh-editor-field" label="名称" data-i18n-label="api.name"><ic-input id="rhWorkflowEditName" slot="control" name="runninghub_workflow_name" oninput="updateRhWorkflowEditorMeta('title', this.value)"></ic-input></ic-form-field>
+                    <ic-form-field class="rh-editor-field" label="备注" data-i18n-label="api.note"><ic-textarea id="rhWorkflowEditNote" slot="control" name="runninghub_workflow_note" oninput="updateRhWorkflowEditorMeta('description', this.value)"></ic-textarea></ic-form-field>
+                    <div id="rhWorkflowEditorSummary" class="rh-editor-summary"></div>
+                    <div id="rhWorkflowEditorNodeList" class="rh-editor-node-list"></div>
+                </section>
+                <section class="rh-workflow-editor-canvas" aria-label="参数编辑画布" data-i18n-aria-label="api.parameterCanvas">
+                    <div id="rhWorkflowEditorGraphWrap" class="rh-editor-graph-wrap">
+                        <svg id="rhWorkflowEditorGraphSvg" class="rh-editor-graph-svg"></svg>
+                        <ic-toolbar class="rh-editor-graph-controls" appearance="plain" label="工作流画布缩放" data-i18n-label="api.workflowCanvasZoom">
+                            <ic-icon-button type="button" hierarchy="secondary" icon="zoom-out" label="缩小" onclick="rhEditorGraphZoom(-1)" data-i18n-label="canvas.decrease"></ic-icon-button>
+                            <ic-badge id="rhWorkflowEditorZoom" kind="label" tone="neutral">100%</ic-badge>
+                            <ic-icon-button type="button" hierarchy="secondary" icon="zoom-in" label="放大" onclick="rhEditorGraphZoom(1)" data-i18n-label="canvas.increase"></ic-icon-button>
+                            <ic-icon-button type="button" hierarchy="secondary" icon="fit" label="适应窗口" onclick="rhEditorGraphFit()" data-i18n-label="canvas.fit"></ic-icon-button>
+                        </ic-toolbar>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <ic-file-input id="rhAssetFileInput" name="runninghub_asset" label="上传 RunningHub 素材" data-i18n-label="api.runningHubAsset" accept="image/*" hidden></ic-file-input>
+        <ic-button slot="footer" size="medium" type="button" hierarchy="secondary" onclick="closeRhWorkflowEditor()"><span data-i18n="common.close">关闭</span></ic-button>
+        <ic-button slot="footer" size="medium" type="button" hierarchy="secondary" onclick="fetchRhWorkflowEditor(true)"><span data-i18n="api.refetch">重新拉取</span></ic-button>
+        <ic-button id="rhWorkflowSaveBtn" slot="footer" size="medium" type="button" hierarchy="primary" onclick="saveRhWorkflowEditor()"><span data-i18n="common.save">保存</span></ic-button>
+    </ic-dialog>
+
+    <ic-dialog id="apiTransferDialog" class="api-transfer-dialog" label="API 设置加密包" data-i18n-label="api.encryptedPackage" size="small" dismiss-policy="explicit">
+        <form class="api-transfer-modal" onsubmit="submitApiTransferPassword(event)">
+            <div id="apiTransferTitle" class="visually-hidden" data-i18n="api.encryptedPackage">API 设置加密包</div>
+            <div id="apiTransferDescription" class="picker-count"></div>
+            <div class="api-transfer-password-body">
+                <ic-form-field class="field full" label="加密密码" data-i18n-label="api.encryptionPassword" required>
+                    <ic-input id="apiTransferPassword" slot="control" name="transfer_password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></ic-input>
+                </ic-form-field>
+                <ic-form-field id="apiTransferConfirmField" class="field full" label="再次输入密码" data-i18n-label="api.passwordAgain">
+                    <ic-input id="apiTransferPasswordConfirm" slot="control" name="transfer_password_confirm" type="password" minlength="8" maxlength="256" autocomplete="new-password"></ic-input>
+                </ic-form-field>
+            </div>
+        </form>
+        <ic-button slot="footer" type="button" hierarchy="secondary" onclick="closeApiTransferPassword()" data-i18n="common.cancel">取消</ic-button>
+        <ic-button slot="footer" type="button" hierarchy="primary" onclick="submitApiTransferPassword(event)" data-i18n="api.continue">继续</ic-button>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="apiImportConfirmation" label="确认导入 API 设置" data-i18n-label="api.confirmImportTitle" description="导入会按平台 ID 合并非 CLI 平台，并更新包内已有密钥。CLI 平台不会改变。是否继续？" data-i18n-description="api.confirmPackageImport" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确认导入" data-i18n-confirm-label="api.confirmImportAction" consequence="neutral"><p data-confirmation-copy data-i18n="api.confirmPackageImport">导入会按平台 ID 合并非 CLI 平台，并更新包内已有密钥。CLI 平台不会改变。是否继续？</p></ic-confirmation-dialog>
+    <ic-confirmation-dialog id="apiActionConfirmation" label="确认操作" data-i18n-label="api.confirmActionTitle" description="确认执行此操作。" data-i18n-description="api.confirmActionDescription" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确定" data-i18n-confirm-label="common.confirm" consequence="destructive"><p data-confirmation-copy data-i18n="api.confirmActionDescription">确认执行此操作。</p></ic-confirmation-dialog>
+
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script src="/static/js/api-settings.js?v=2026.09.01.2.1788146221" defer></script>
+</body>
+</html>

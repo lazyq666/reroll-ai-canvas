@@ -1,0 +1,37 @@
+@import url('/static/vendor/css/fonts.css?v=2026.07.25.1.1785206114');
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+    margin: var(--ui-space-0);
+    color: var(--ui-color-text-primary);
+    background: var(--ui-color-surface-canvas);
+    font-family: var(--ui-font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+.online-workbench {
+    width: min(100%, 82rem);
+    min-height: 100vh;
+    margin-inline: auto;
+    padding: var(--ui-space-8) var(--ui-space-8) var(--ui-space-24);
+}
+.batch-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-4);
+    margin-bottom: var(--ui-space-8);
+}
+.batch-page-header ic-heading { margin: var(--ui-space-0); }
+
+@media (max-width: 68rem) {
+    .online-workbench { padding-inline: var(--ui-space-6); }
+}
+
+@media (max-width: 42rem) {
+    .online-workbench { padding: var(--ui-space-5) var(--ui-space-4) var(--ui-space-16); }
+    .batch-page-header { align-items: stretch; flex-direction: column; }
+    .batch-history-button { justify-content: center; }
+}

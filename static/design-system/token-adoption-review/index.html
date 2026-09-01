@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll · Design Token 接入验收台</title>
+  <style>
+    :root{color-scheme:light;--page:#eef2f6;--surface:#fff;--soft:#f6f8fb;--border:#d8e0ea;--text:#172033;--muted:#68758a;--accent:#315efb;--success:#147648;--warning:#8d6400;--shadow:0 12px 36px rgba(22,32,51,.1);font-family:Inter,"PingFang SC","Microsoft YaHei",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--text)}button,input,select{font:inherit}.topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.94);backdrop-filter:blur(14px)}h1{margin:0;font-size:18px}.subtitle{margin:4px 0 0;color:var(--muted);font-size:12px}.status{display:inline-flex;align-items:center;min-height:30px;padding:5px 10px;border-radius:999px;background:#fff5d6;color:var(--warning);font-size:11px;font-weight:700}.toolbar{display:flex;align-items:end;gap:8px;flex-wrap:wrap}.field{display:grid;gap:4px}.field label{color:var(--muted);font-size:10px}.field input,.field select,.button{min-height:36px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}.button{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none}.button:hover{border-color:var(--accent)}.workspace{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;padding:16px}.sidebar,.review{min-width:0;border:1px solid var(--border);border-radius:13px;background:var(--surface);box-shadow:var(--shadow)}.sidebar{position:sticky;top:84px;align-self:start;max-height:calc(100vh - 100px);overflow:auto}.summary{padding:13px;border-bottom:1px solid var(--border);font-size:11px;line-height:1.5}.summary strong{display:block;font-size:14px}.summary span{color:var(--muted)}.page-list{display:grid;gap:3px;padding:6px}.page-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;min-height:40px;padding:7px 8px;border:0;border-radius:8px;background:transparent;color:var(--text);text-align:left;cursor:pointer}.page-item:hover,.page-item[aria-current="true"]{background:#edf2ff}.page-item small{color:var(--muted);font-size:9px}.review{overflow:hidden}.review-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-bottom:1px solid var(--border)}.review-head h2{margin:0;font-size:16px}.review-head p{margin:4px 0 0;color:var(--muted);font-size:11px}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px;background:var(--soft)}.viewport{min-width:0;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden}.viewport-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700}.theme-dot{width:9px;height:9px;border-radius:999px;background:#fff;border:1px solid #cbd5e1}.viewport[data-theme="dark"] .theme-dot{background:#151b26;border-color:#475569}.frame-stage{display:grid;place-items:start center;min-height:680px;padding:8px;background:#dfe5ed;overflow:auto}.viewport[data-theme="dark"] .frame-stage{background:#0c1119}.frame-shell{width:100%;height:680px;transition:width .18s ease}.comparison[data-width="mobile"] .frame-shell{width:390px;max-width:100%}.frame-shell iframe{display:block;width:100%;height:100%;border:0;border-radius:6px;background:#fff}.review-note{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0 10px 10px}.note{padding:9px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:10px;line-height:1.45}.note strong{display:block;margin-bottom:3px;font-size:11px}.note span{color:var(--muted)}.ok{color:var(--success)}@media(max-width:1100px){.comparison{grid-template-columns:1fr}.review-note{grid-template-columns:1fr 1fr}}@media(max-width:760px){.topbar{position:static;align-items:flex-start;flex-direction:column}.workspace{grid-template-columns:1fr;padding:10px}.sidebar{position:static;max-height:none}.page-list{grid-template-columns:repeat(2,minmax(0,1fr))}.review-note{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div><h1>Design Token 接入验收台</h1><p class="subtitle">真实页面 · 浅色 / 深色并排 · 组件化与页面替换保持暂停</p></div>
+    <div class="toolbar">
+      <span class="status">仅验收 Token</span>
+      <div class="field"><label for="pageSearch">筛选页面</label><input id="pageSearch" type="search" placeholder="输入页面名称"></div>
+      <div class="field"><label for="viewportWidth">视口</label><select id="viewportWidth"><option value="desktop">桌面端</option><option value="mobile">移动端 390px</option></select></div>
+      <a class="button" id="openPage" target="_blank" rel="noopener">打开当前页面 ↗</a>
+    </div>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="summary"><strong>16 个原生入口</strong><span>已加载统一 Token；T29 GPT Chat 已删除，不再计入当前 UI。</span></div>
+      <div class="page-list" id="pageList"></div>
+    </aside>
+    <main class="review">
+      <header class="review-head"><div><h2 id="pageTitle"></h2><p id="pageMeta"></p></div><span class="ok" id="loadStatus">正在加载真实页面…</span></header>
+      <div class="comparison" id="comparison" data-width="desktop">
+        <section class="viewport" data-theme="light"><div class="viewport-head"><span>浅色主题</span><span class="theme-dot"></span></div><div class="frame-stage"><div class="frame-shell"><iframe id="lightFrame" title="浅色主题真实页面"></iframe></div></div></section>
+        <section class="viewport" data-theme="dark"><div class="viewport-head"><span>深色主题</span><span class="theme-dot"></span></div><div class="frame-stage"><div class="frame-shell"><iframe id="darkFrame" title="深色主题真实页面"></iframe></div></div></section>
+      </div>
+      <div class="review-note">
+        <div class="note"><strong>先看层级</strong><span>页面、面板、卡片、浮层是否仍能清楚区分。</span></div>
+        <div class="note"><strong>再看文字</strong><span>标题、正文、标签、弱化文字的字号和对比是否合理。</span></div>
+        <div class="note"><strong>检查密度</strong><span>间距、圆角、控件高度是否破坏既有业务布局。</span></div>
+        <div class="note"><strong>记录例外</strong><span>大于 60px 的业务高度、画布几何和局部动效没有被强制归并。</span></div>
+      </div>
+    </main>
+  </div>
+  <script>
+    const pages=[
+      ['主界面','index.html','studio-shell'],['画布管理','canvas-list.html','canvas-list'],['经典画布','canvas.html','canvas'],['智能画布','smart-canvas.html','smart-canvas'],['API 设置','api-settings.html','api-settings'],['账号管理','account-management.html','account'],['模型管理','available-model-management.html','settings'],['ComfyUI 设置','comfyui-settings.html','settings'],['画布分享','share.html','share'],['在线批量生成','online.html','generation'],['视角生成','angle.html','generation'],['图片增强','enhance.html','generation'],['Klein 图像生成','klein.html','generation'],['Z-Image 图像生成','zimage.html','zimage'],['登录与注册','login.html','auth'],['首次设置','setup.html','auth']
+    ].map(([name,path,scope])=>({name,path,scope}));
+    const pageList=document.getElementById('pageList'),pageSearch=document.getElementById('pageSearch'),viewportWidth=document.getElementById('viewportWidth'),comparison=document.getElementById('comparison'),pageTitle=document.getElementById('pageTitle'),pageMeta=document.getElementById('pageMeta'),openPage=document.getElementById('openPage'),lightFrame=document.getElementById('lightFrame'),darkFrame=document.getElementById('darkFrame'),loadStatus=document.getElementById('loadStatus');
+    let active=pages[0],loaded=0;
+    function pageUrl(page,theme=''){const themeParam=theme?`&token-review-theme=${theme}`:'';return`/static/${page.path}?token-review=1${themeParam}`}
+    function applyTheme(frame,theme){try{frame.contentWindow?.StudioTheme?.apply(theme);const doc=frame.contentDocument,root=doc.documentElement,body=doc.body,dark=theme==='dark';root.classList.toggle('theme-dark',dark);root.classList.toggle('studio-theme-dark',dark);root.dataset.uiTheme=dark?'dark':'light';body?.classList.toggle('theme-dark',dark);body?.classList.toggle('studio-theme-dark',dark);root.style.colorScheme=theme}catch(error){loadStatus.textContent='页面已加载；主题注入受浏览器限制'}}
+    function onFrameLoad(frame,theme){applyTheme(frame,theme);loaded++;loadStatus.textContent=loaded>=2?'浅色与深色页面已加载':'正在加载另一个主题…';setTimeout(()=>applyTheme(frame,theme),250)}
+    lightFrame.addEventListener('load',()=>onFrameLoad(lightFrame,'light'));darkFrame.addEventListener('load',()=>onFrameLoad(darkFrame,'dark'));
+    function selectPage(page){active=page;loaded=0;pageTitle.textContent=page.name;pageMeta.textContent=`static/${page.path} · data-ui-scope="${page.scope}"`;openPage.href=pageUrl(page);loadStatus.textContent='正在加载真实页面…';lightFrame.src=pageUrl(page,'light');darkFrame.src=pageUrl(page,'dark');renderList()}
+    function renderList(){const query=pageSearch.value.trim().toLowerCase();pageList.innerHTML='';pages.filter(page=>!query||`${page.name} ${page.path}`.toLowerCase().includes(query)).forEach(page=>{const button=document.createElement('button');button.type='button';button.className='page-item';button.setAttribute('aria-current',String(page===active));button.innerHTML='<span></span><small></small>';button.querySelector('span').textContent=page.name;button.querySelector('small').textContent=page.scope;button.onclick=()=>selectPage(page);pageList.appendChild(button)})}
+    pageSearch.addEventListener('input',renderList);viewportWidth.addEventListener('change',()=>comparison.dataset.width=viewportWidth.value);selectPage(active);
+  </script>
+</body>
+</html>

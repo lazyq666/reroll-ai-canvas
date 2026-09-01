@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "candidates": [
+    {
+      "id": "smart-canvas.run-button",
+      "inventoryVariantId": "76d7858a6aeaca66",
+      "label": "智能画布 · 运行按钮",
+      "categoryId": "buttons-actions",
+      "componentType": "button",
+      "targetId": "button.primary",
+      "size": "normal",
+      "contentForm": "leading-icon",
+      "trust": "verified-live",
+      "verification": {
+        "method": "browser-original-vs-sandbox",
+        "visualComparisons": ["light.default", "dark.default", "light.disabled"],
+        "interactionChecks": ["natural-click", "forced-disabled", "reset"],
+        "evidence": "docs/design-system/verification/live-catalog-primary-button.json"
+      },
+      "coverage": {
+        "componentStates": ["light", "dark"],
+        "interactionStates": ["default", "hover", "disabled"]
+      },
+      "sources": [
+        {
+          "page": "static/smart-canvas.html",
+          "file": "static/smart-canvas.html",
+          "line": 65,
+          "selector": "#runBtn",
+          "domPath": "#shell > #composer.composer > .composer-card > .composer-actions > #runBtn"
+        },
+        {
+          "page": "static/smart-canvas.html",
+          "file": "static/css/smart-canvas.css",
+          "line": 1017,
+          "selector": ".run-btn"
+        }
+      ],
+      "fixture": {
+        "adapter": "primary-button",
+        "stylesheets": [
+          "/static/css/design-tokens.css",
+          "/static/css/smart-canvas.css"
+        ],
+        "markup": "<div class=\"shell\"><div id=\"composer\" class=\"composer open\"><div class=\"composer-card\"><div class=\"composer-actions\"><button id=\"runBtn\" class=\"run-btn\" type=\"button\"><i data-lucide=\"sparkles\"></i><span>运行</span></button></div></div></div></div>",
+        "rootSelector": "#runBtn",
+        "resetState": {
+          "theme": "light",
+          "interaction": "default"
+        }
+      },
+      "hashInputs": [
+        {"path": "static/smart-canvas.html"},
+        {"path": "static/css/design-tokens.css"},
+        {"path": "static/css/smart-canvas.css"},
+        {"path": "static/vendor/js/lucide.js"},
+        {"path": "static/js/ui-component-library/fixture-adapters.js"}
+      ]
+    }
+  ],
+  "exclusions": []
+}

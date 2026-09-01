@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reroll UI · 智能画布工具栏</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    html,body{margin:0;min-height:100%;background:var(--ui-color-surface-canvas);color:var(--ui-color-text-primary);font-family:var(--ui-font-sans)}
+    body{padding:var(--ui-space-6)}
+    main{display:grid;grid-template-columns:minmax(12rem,16rem) minmax(28rem,1fr);gap:var(--ui-space-4)}
+    article{min-width:0;min-height:28rem;display:grid;place-items:center;padding:var(--ui-space-4);border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary);border-radius:var(--ui-radius-l);background:var(--ui-color-surface)}
+    article .ic-component-name-example{align-items:center}
+    @media(max-width:760px){main{grid-template-columns:1fr}article{min-height:12rem}}
+  </style>
+</head>
+<body>
+  <main aria-label="智能画布工具栏 Block">
+    <article data-smart-canvas-dock-variant="left">
+      <ic-smart-canvas-dock data-preview-state="static" data-component-name="ic-smart-canvas-dock-left" label="智能画布工具栏" orientation="vertical" data-position="left">
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="cursor" label="指针" shortcut="V" toggle pressed></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="hand" label="抓手" shortcut="H" toggle></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="brush" label="画笔" shortcut="P" toggle></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="text" label="文字" shortcut="T" toggle></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="frame" label="分区" shortcut="Shift+S" toggle></ic-icon-button>
+        <ic-divider class="smart-canvas-dock-divider" orientation="horizontal"></ic-divider>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="workflow-library" label="节点导入/导出"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="keyboard" label="快捷键"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="log" label="日志"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="prompt-library" label="提示词模板"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="settings" label="设置"></ic-icon-button>
+      </ic-smart-canvas-dock>
+    </article>
+    <article data-smart-canvas-dock-variant="bottom">
+      <ic-smart-canvas-dock data-preview-state="static" data-component-name="ic-smart-canvas-dock-bottom" label="智能画布工具栏" orientation="horizontal" data-position="bottom">
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="cursor" label="指针" shortcut="V" toggle pressed></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="hand" label="抓手" shortcut="H" toggle></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="brush" label="画笔" shortcut="P" toggle></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="text" label="文字" shortcut="T" toggle></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="frame" label="分区" shortcut="Shift+S" toggle></ic-icon-button>
+        <ic-divider class="smart-canvas-dock-divider" orientation="vertical"></ic-divider>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="workflow-library" label="节点导入/导出"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="keyboard" label="快捷键"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="log" label="日志"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="prompt-library" label="提示词模板"></ic-icon-button>
+        <ic-icon-button class="smart-canvas-dock-btn" type="button" size="s" hierarchy="quiet" icon="settings" label="设置"></ic-icon-button>
+      </ic-smart-canvas-dock>
+    </article>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

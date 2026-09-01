@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN" data-scrollbar-case-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Scrollbar Foundation</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.14.theme-refactor.1">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-scrollbar-case.css?v=2026.08.28.1">
+</head>
+<body class="scrollbar-case-page">
+  <header class="scrollbar-case-header">
+    <div>
+      <span>Foundation · implemented</span>
+      <h1>滚动条</h1>
+      <p>真实消费 Reroll UI Core；拖动 Thumb、滚动内容或切换组件库主题即可验收。</p>
+    </div>
+    <strong data-scrollbar-status role="status" aria-live="polite">正在验证公共样式…</strong>
+  </header>
+
+  <main>
+    <section class="scrollbar-contract" data-component-name="ic-scrollbar" data-copy-kind="视觉基础" aria-label="Scrollbar Foundation 合同">
+      <dl>
+        <div><dt>Thickness</dt><dd><code>4px</code></dd></div>
+        <div><dt>Track / Corner</dt><dd><code>transparent</code></dd></div>
+        <div><dt>Thumb</dt><dd><code>--ui-color-border-primary</code></dd></div>
+        <div><dt>Hover</dt><dd><code>--ui-color-text-tertiary</code></dd></div>
+        <div><dt>Radius / Inset</dt><dd><code>0 / 0</code></dd></div>
+      </dl>
+    </section>
+
+    <section class="scrollbar-case-grid" aria-label="滚动条真实情境">
+      <article class="scrollbar-case-card" data-scrollbar-sample="vertical">
+        <header><div><span>Light DOM</span><h2>纵向滚动</h2></div><code>overflow-y: scroll</code></header>
+        <div class="scrollbar-demo-frame">
+          <div class="scrollbar-demo-scroll is-vertical" data-scrollbar-vertical tabindex="0" aria-label="纵向滚动示例">
+            <ol class="scrollbar-vertical-content">
+              <li><strong>Prompt draft</strong><span>建立画面主体与构图</span></li>
+              <li><strong>Reference</strong><span>绑定角色与场景参考</span></li>
+              <li><strong>Composition</strong><span>调整镜头距离和视角</span></li>
+              <li><strong>Lighting</strong><span>统一主光与环境色</span></li>
+              <li><strong>Motion</strong><span>补充动作和镜头运动</span></li>
+              <li><strong>Output</strong><span>选择比例与生成数量</span></li>
+            </ol>
+          </div>
+        </div>
+        <button type="button" data-scrollbar-action="vertical">滚动到末尾</button>
+      </article>
+
+      <article class="scrollbar-case-card" data-scrollbar-sample="horizontal">
+        <header><div><span>Light DOM</span><h2>横向滚动</h2></div><code>overflow-x: scroll</code></header>
+        <div class="scrollbar-demo-frame is-wide">
+          <div class="scrollbar-demo-scroll is-horizontal" data-scrollbar-horizontal tabindex="0" aria-label="横向滚动示例">
+            <div class="scrollbar-horizontal-content">
+              <span>Draft</span><span>Reference</span><span>Layout</span><span>Lighting</span><span>Motion</span><span>Export</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" data-scrollbar-action="horizontal">滚动到末尾</button>
+      </article>
+
+      <article class="scrollbar-case-card" data-scrollbar-sample="shadow">
+        <header><div><span>Open Shadow DOM</span><h2>组件内部滚动</h2></div><code>adoptedStyleSheets</code></header>
+        <div class="scrollbar-demo-frame">
+          <div data-scrollbar-shadow-mount aria-label="Shadow DOM 滚动示例"></div>
+        </div>
+        <button type="button" data-scrollbar-action="shadow">滚动到末尾</button>
+      </article>
+
+      <article class="scrollbar-case-card" data-scrollbar-sample="hidden" data-component-name="ic-scrollbar-hidden" data-copy-kind="视觉基础变体">
+        <header><div><span>Explicit exception</span><h2>隐藏但可滚动</h2></div><code>scrollbar-width: none</code></header>
+        <div class="scrollbar-demo-frame">
+          <div class="scrollbar-demo-scroll is-vertical is-scrollbar-hidden" data-scrollbar-hidden tabindex="0" aria-label="隐藏滚动条示例">
+            <ol class="scrollbar-vertical-content">
+              <li><strong>Wheel</strong><span>滚轮仍可滚动</span></li>
+              <li><strong>Trackpad</strong><span>触控板仍可滚动</span></li>
+              <li><strong>Keyboard</strong><span>方向键仍可滚动</span></li>
+              <li><strong>Programmatic</strong><span>脚本仍可控制位置</span></li>
+              <li><strong>Overflow</strong><span>内容不会被裁掉</span></li>
+            </ol>
+          </div>
+        </div>
+        <button type="button" data-scrollbar-action="hidden">滚动到末尾</button>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="/static/js/infinite-canvas-ui/scrollbar-case.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

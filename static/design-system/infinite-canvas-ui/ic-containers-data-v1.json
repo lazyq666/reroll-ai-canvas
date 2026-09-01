@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.containers-data",
+  "interfaceVersion": 5,
+  "ticket": "7425068E99C5-16",
+  "uuid": "2e38216e-ec2f-4fb8-bd86-40dbd4b793ac",
+  "module": {
+    "layer": "primitive-and-pattern",
+    "publicSeam": "ic-card, ic-divider, ic-list, ic-table and ic-media-container custom elements, native platform/ARIA behavior, and central --ui-* Tokens",
+    "adapter": "Vendor elements, private DOM, events and custom properties remain replaceable inside the implementation.",
+    "responsibility": "Own generic grouping, separation and data presentation structure while callers retain business meaning, data operations and domain state."
+  },
+  "dependencyStatus": {
+    "status": "satisfied",
+    "evidence": ["Foundations confirmed", "Selection/Adjustment confirmed", "Feedback/Progress confirmed", "Dialog Dialog confirmed", "Menu/Popover/Tooltip confirmed", "Navigation/Command confirmed"]
+  },
+  "review": {
+    "contract": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "同意 Containers/Data 判断 1–10，并确认 25 个通用 Legacy 映射；31 个领域实例保持原处置。", "confirmedOn": "2026-08-09", "evidence": "User explicitly replied ‘同意 开始开发’ after reviewing the ten enumerated judgments and Legacy mapping."},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-09", "evidence": ["/static/js/infinite-canvas-ui/containers-data.js", "/static/design-system/infinite-canvas-ui/containers-data.html"]},
+    "live": {"status": "confirmed", "reviewer": "User (Codex task)", "confirmedOn": "2026-08-10", "note": "验收通过。", "evidence": "/docs/design-system/verification/containers-data-browser.json"},
+    "migration": {"status": "confirmed", "confirmedOn": "2026-08-10", "evidence": "Second human Gate approved Containers/Data migration eligibility; no business page migration was performed."}
+  },
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "evidenceInstanceCount": 56,
+    "genericInstanceCount": 25,
+    "byLegacyTarget": {"card.choice-card": 2, "card.content-card": 16, "card.settings-card": 2, "divider.divider": 5, "card.media-card": 17, "card.workflow-or-node-card": 14},
+    "byGenericTarget": {"ic-card": 20, "ic-divider": 5, "ic-list": 0, "ic-table": 0, "ic-media-container": 0},
+    "bySourceFile": {"static/api-settings.html": 5, "static/canvas.html": 2, "static/comfyui-settings.html": 4, "static/js/api-settings.js": 4, "static/js/batch-generation.js": 2, "static/js/canvas-list.js": 1, "static/js/canvas.js": 4, "static/js/comfyui-settings.js": 5, "static/js/ltx-director-timeline.js": 1, "static/js/smart-canvas.js": 15, "static/login.html": 1, "static/online.html": 4, "static/setup.html": 1, "static/smart-canvas.html": 5, "static/zimage.html": 2},
+    "bySourceKind": {"html": 24, "javascript_create_element": 1, "javascript_markup": 31},
+    "zeroEvidenceScope": ["ic-list", "ic-table", "ic-media-container"],
+    "reservedDomainEvidence": {"ic-media-card": 17, "ic-node-card-or-ic-workflow-card": 14},
+    "rule": "Legacy evidence proves coverage and demand, not target appearance. Media and workflow/node cards retain their domain dispositions and are not silently remapped to a generic container."
+  },
+  "judgments": [
+    "Card is a generic non-interactive grouping surface; selection belongs to an owned Selection/Adjustment control or a separately confirmed selectable pattern.",
+    "Divider separates adjacent groups and never substitutes for spacing, a heading or a status boundary.",
+    "List owns repeated-item structure only; commands, selection and navigation retain their confirmed component semantics.",
+    "Table is for comparable labeled columns, not responsive page layout, property forms or arbitrary card grids.",
+    "Media Container owns aspect, fit, placeholder and caption structure but no Generation Output, Node, workflow or Asset Library behavior.",
+    "Card and Media Container may compose; neither may absorb Dialog, Alert, Menu, Toolbar, Tabs or domain state.",
+    "Card exposes an explicit Small, Medium or Large padding size independent of inherited page density; Medium is the backward-compatible default.",
+    "Table exposes an explicit Small, Medium or Large spacing size independent of inherited page density; Medium is the backward-compatible default.",
+    "Interactive descendants keep native tab order; containers do not create roving focus or make the whole surface clickable.",
+    "Narrow layouts reflow Card regions, List metadata and Table presentation without truncating meaning or changing reading order.",
+    "Invalid semantic combinations fail closed through the public ic-contract-error state after Contract confirmation.",
+    "Container motion remains deliberately sparse: Card, Divider, List and Media Container are stable structure and do not add family-level entrance, hover lift or layout movement. Table retains only its existing fast row background transition for hover and selection feedback, with Reduced Motion inherited from central duration Tokens."
+  ],
+  "components": [
+    {
+      "tag": "ic-card", "purpose": "Group reusable non-domain content into one bounded surface.",
+      "useWhen": ["Related heading, body and optional actions need one reusable visual group.", "A settings or content section benefits from surface separation."],
+      "prohibitedUses": ["whole-page layout wrapper", "clickable choice without an explicit selection control", "Dialog or Alert", "Node, workflow or Generation Output card"],
+      "attributes": ["label", "tone", "size"], "slots": ["header", "default", "footer"], "parts": ["base", "header", "body", "footer"],
+      "semanticDimensions": {"tone": ["plain", "subtle"], "size": ["small", "medium", "large"], "content": ["body", "header-body", "header-body-footer"]},
+      "presentation": {"elevation": "flat", "radius": "--ui-radius-m (16px)", "tones": {"plain": "surface background with thin border", "subtle": "global surface-subtle background without border"}, "defaultSize": "medium", "padding": {"small": "--ui-space-4 (16px)", "medium": "--ui-space-5 (20px)", "large": "--ui-space-6 (24px)"}, "contentGap": {"small": "--ui-space-2 (8px)", "medium": "--ui-space-3 (12px)", "large": "--ui-space-4 (16px)"}, "contentGapOverride": "--ic-card-content-gap may be set to 0 or another spacing value for specialized body layouts", "optionalRegions": "unassigned header and footer slots render no box or spacing"},
+      "legalCombinations": [{"id": "plain-small", "tone": "plain", "size": "small", "content": "body"}, {"id": "plain-medium", "tone": "plain", "size": "medium", "content": "body"}, {"id": "plain-large", "tone": "plain", "size": "large", "content": "body"}, {"id": "subtle-small", "tone": "subtle", "size": "small", "content": "body"}, {"id": "subtle-medium", "tone": "subtle", "size": "medium", "content": "body"}, {"id": "subtle-large", "tone": "subtle", "size": "large", "content": "body"}],
+      "actionLayout": {"footerAlignment": "inline-end", "wrapping": "Actions wrap only when their visible labels cannot fit; content and headings retain start alignment.", "rule": "Footer actions default to the reading-direction inline end without making the Card itself interactive."}
+    },
+    {
+      "tag": "ic-divider", "purpose": "Separate adjacent content groups without creating a surface or focus stop.",
+      "useWhen": ["Two adjacent groups need a perceivable structural separator."], "prohibitedUses": ["decorative line", "spacing replacement", "text punctuation", "interactive resize handle"],
+      "attributes": ["orientation"], "semanticDimensions": {"orientation": ["horizontal", "vertical"]},
+      "legalCombinations": [{"id": "horizontal", "orientation": "horizontal"}, {"id": "vertical", "orientation": "vertical"}]
+    },
+    {
+      "tag": "ic-list", "purpose": "Present a labeled ordered or unordered collection with consistent item structure.",
+      "useWhen": ["Repeated items share one reading and metadata pattern.", "DOM order is the meaningful reading order."],
+      "prohibitedUses": ["command Menu", "route navigation", "Tab list", "multi-column comparison", "virtualized infinite canvas content"],
+      "requiredAttributes": ["label"], "attributes": ["label", "kind"], "slots": ["default"],
+      "semanticDimensions": {"kind": ["unordered", "ordered", "description"], "density": ["medium", "small"]},
+      "legalCombinations": [{"id": "unordered-medium", "kind": "unordered", "density": "medium"}, {"id": "ordered-medium", "kind": "ordered", "density": "medium"}, {"id": "description-medium", "kind": "description", "density": "medium"}, {"id": "unordered-small", "kind": "unordered", "density": "small"}]
+    },
+    {
+      "tag": "ic-table", "purpose": "Present labeled rows whose values are meaningfully comparable across stable columns.",
+      "useWhen": ["Users compare values vertically or horizontally.", "Column headers remain meaningful for every row."],
+      "prohibitedUses": ["page layout", "form alignment", "card gallery", "unknown-schema arbitrary content", "Canvas geometry"],
+      "requiredAttributes": ["label"], "attributes": ["label", "row-selection", "size"],
+      "semanticDimensions": {"size": ["small", "medium", "large"], "rowSelection": ["none", "single", "multiple"]},
+      "legalCombinations": [{"id": "small-readonly", "size": "small", "rowSelection": "none"}, {"id": "medium-readonly", "size": "medium", "rowSelection": "none"}, {"id": "large-readonly", "size": "large", "rowSelection": "none"}, {"id": "medium-single", "size": "medium", "rowSelection": "single"}, {"id": "medium-multiple", "size": "medium", "rowSelection": "multiple"}],
+      "presentation": {"defaultSize": "medium", "cellPadding": {"small": "8px block / 12px inline", "medium": "12px block / 16px inline", "large": "16px block / 20px inline"}, "headerPadding": {"small": "12px", "medium": "16px", "large": "20px"}, "motion": "Body-row cell background changes use --ui-motion-duration-fast; table geometry, row position and container elevation do not animate. Reduced Motion resolves the shared duration to 1ms.", "rule": "Table size is selected with size=small|medium|large and does not change implicitly with page density."}
+    },
+    {
+      "tag": "ic-media-container", "purpose": "Frame image, video, audio or file preview content with stable fit, aspect and fallback structure.",
+      "useWhen": ["A reusable surface needs predictable media sizing and fallback.", "Caption or accessible media labeling belongs next to the preview."],
+      "prohibitedUses": ["Generation Output actions", "Node or Smart Group behavior", "workflow identity", "Asset Library ownership", "lightbox or Dialog behavior"],
+      "requiredAttributes": ["label", "kind"], "attributes": ["label", "kind", "fit", "aspect", "state"], "slots": ["default", "fallback", "caption"],
+      "semanticDimensions": {"kind": ["image", "video", "audio", "file"], "fit": ["contain", "cover"], "aspect": ["auto", "square", "landscape", "portrait"], "state": ["ready", "loading", "unavailable"]},
+      "legalCombinations": [{"id": "image-cover", "kind": "image", "fit": "cover"}, {"id": "visual-contain", "kind": "image-or-video", "fit": "contain"}, {"id": "audio-structured", "kind": "audio", "fit": "contain"}, {"id": "file-fallback", "kind": "file", "fit": "contain"}],
+      "presentation": {"image": "framed", "video": "framed", "audio": "unframed-native-control-and-caption", "file": "framed-fallback", "rule": "Audio does not receive the generic visual preview frame; its native control and caption provide the visible structure."}
+    }
+  ],
+  "density": {"contextAttribute": "data-ui-density", "contexts": ["medium", "small"], "default": "medium", "rule": "Density remains inherited for List and compact media collections. Card and Table sizing are selected explicitly with size=small|medium|large and do not change implicitly with page density."},
+  "keyboard": {"containers": "Card, Divider and Media Container add no focus stop; interactive descendants remain in native DOM order.", "list": "List adds no composite keyboard scope; owned controls retain their confirmed keyboard behavior.", "table": "Tab reaches interactive cell content in DOM order; row selection uses explicit Selection/Adjustment controls. Arrow-key grid behavior is out of scope unless a later editable-grid contract is approved."},
+  "accessibility": {"card": "A Card uses a labeled region only when its grouping needs an accessible landmark; otherwise it remains neutral structure.", "divider": "Divider exposes separator semantics and orientation but is not focusable.", "list": "Native list semantics and one accessible label preserve item count and order.", "table": "The required ic-table label supplies the native table's accessible name when a visible caption is absent; native headers preserve data relationships in responsive presentation.", "mediaContainer": "The caller supplies the media alternative or accessible label; loading and unavailable states use the confirmed Feedback/Progress status/alert semantics without duplicating them."},
+  "liveMatrix": {"status": "confirmed", "fixture": "/static/design-system/infinite-canvas-ui/containers-data.html", "caseFixture": "/static/design-system/infinite-canvas-ui/containers-data-case.html", "caseCount": 6, "legalCombinationCount": 21, "themes": ["light", "dark"], "densities": ["medium", "small-by-approved-use"], "viewports": ["desktop", "narrow"], "locales": ["zh-CN", "en"], "content": ["normal", "long"], "motion": ["standard", "reduced"], "states": ["default", "hover", "focus-visible-descendants", "loading", "unavailable", "invalid"], "interaction": ["native-tab-order", "focus-visible", "selection-controls", "aria", "contrast", "reduced-motion"]},
+  "runtimeContract": {"status": "implemented", "invalidCombination": {"statusAttribute": "data-ic-contract-status=invalid", "reasonAttribute": "data-ic-contract-reason", "event": "ic-contract-error", "activation": "fail-closed"}, "engineBoundary": "Business and acceptance sources consume only ic-* tags, native platform/ARIA behavior and central --ui-* Tokens."}
+}

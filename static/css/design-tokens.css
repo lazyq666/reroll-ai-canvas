@@ -1,0 +1,421 @@
+/*
+ * Reroll Design Tokens
+ *
+ * 本文件是共享视觉决策的唯一 Token 来源。
+ * 原子 Token（--ui-palette-*）是“颜料”，语义 Token（--ui-color-*）说明“用在哪里”。
+ * light-dark(浅色值, 深色值) 的参数顺序固定为：先浅色主题，后深色主题。
+ * 组件与页面只使用语义 Token；组件独有含义在组件旁定义，并继续引用这里的语义 Token。
+ */
+
+:root {
+    color-scheme: light;
+
+    /* 原子色板：一套色阶同时服务浅色与深色主题，不按主题复制 */
+    --ui-palette-gray-0: #FFFFFF;
+    --ui-palette-gray-50: #F8F8F8;
+    --ui-palette-gray-100: #F5F5F5;
+    --ui-palette-gray-200: #E5E5E5;
+    --ui-palette-gray-300: #D4D4D4;
+    --ui-palette-gray-400: #A5A5A5;
+    --ui-palette-gray-500: #737373;
+    --ui-palette-gray-600: #525252;
+    --ui-palette-gray-700: #404040;
+    --ui-palette-gray-800: #212121;
+    --ui-palette-gray-950: #141414;
+    --ui-palette-gray-1000: #0A0A0A;
+
+    --ui-palette-blue-50: #EFF6FF;
+    --ui-palette-blue-100: #DBEAFE;
+    --ui-palette-blue-200: #BFDBFE;
+    --ui-palette-blue-300: #A9D1FD;
+    --ui-palette-blue-400: #60A5FA;
+    --ui-palette-blue-500: #3B82F6;
+    --ui-palette-blue-600: #2563EB;
+    --ui-palette-blue-700: #1D4ED8;
+    --ui-palette-blue-800: #1E40AF;
+
+    --ui-palette-green-50: #ECFDF5;
+    --ui-palette-green-100: #E6F2EE;
+    --ui-palette-green-200: #A7F3D0;
+    --ui-palette-green-300: #8BECC5;
+    --ui-palette-green-400: #34D399;
+    --ui-palette-green-700: #047857;
+    --ui-palette-green-800: #065F46;
+    --ui-palette-green-950: #193329;
+    --ui-palette-amber-50: #FFFBEB;
+    --ui-palette-amber-100: #F8EEE6;
+    --ui-palette-amber-200: #FDE68A;
+    --ui-palette-amber-400: #FBBF24;
+    --ui-palette-amber-700: #B45309;
+    --ui-palette-amber-800: #92400E;
+    --ui-palette-amber-950: #392F17;
+    --ui-palette-red-50: #FFF0F2;
+    --ui-palette-red-100: #F8E8E8;
+    --ui-palette-red-150: #F4DBDB;
+    --ui-palette-red-200: #FECACA;
+    --ui-palette-red-300: #F0CDCD;
+    --ui-palette-red-400: #F87171;
+    --ui-palette-red-600: #e03333;
+    --ui-palette-red-700: #B91C1C;
+    --ui-palette-red-800: #991B1B;
+    --ui-palette-red-900: #583030;
+    --ui-palette-red-950: #4B2A2A;
+    --ui-palette-red-1000: #382323;
+    --ui-palette-orange-50: #FFF7ED;
+    --ui-palette-orange-200: #FED7AA;
+    --ui-palette-orange-400: #FB923C;
+    --ui-palette-orange-700: #C2410C;
+    --ui-palette-teal-50: #F0FDFA;
+    --ui-palette-teal-200: #99F6E4;
+    --ui-palette-teal-400: #2DD4BF;
+    --ui-palette-teal-700: #0F766E;
+    --ui-palette-cyan-50: #ECFEFF;
+    --ui-palette-cyan-200: #A5F3FC;
+    --ui-palette-cyan-400: #22D3EE;
+    --ui-palette-cyan-700: #0E7490;
+    --ui-palette-lime-50: #F7FEE7;
+    --ui-palette-lime-200: #D9F99D;
+    --ui-palette-lime-400: #A3E635;
+    --ui-palette-lime-700: #4D7C0F;
+    --ui-palette-indigo-50: #EEF2FF;
+    --ui-palette-indigo-200: #C7D2FE;
+    --ui-palette-indigo-400: #818CF8;
+    --ui-palette-indigo-700: #4338CA;
+    --ui-palette-violet-50: #F5F3FF;
+    --ui-palette-violet-200: #DDD6FE;
+    --ui-palette-violet-400: #A78BFA;
+    --ui-palette-violet-700: #6D28D9;
+    --ui-palette-pink-50: #FDF2F8;
+    --ui-palette-pink-200: #FBCFE8;
+    --ui-palette-pink-400: #F472B6;
+    --ui-palette-pink-700: #BE185D;
+    --ui-palette-transparent: #00000000;
+    --ui-palette-brand: #A7F443;
+
+    /* 语义颜色：类别先表达视觉责任，再按需附加强调度、意图和交互状态 */
+    /* Surface 只表达静态 UI 容器；可交互容器使用 Action */
+    --ui-color-surface-canvas: light-dark(var(--ui-palette-gray-50), var(--ui-palette-gray-1000));
+    --ui-color-surface: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-800));
+    --ui-color-surface-subtle: light-dark(var(--ui-palette-gray-50), var(--ui-palette-gray-950));
+    --ui-color-surface-floating: light-dark(
+        color-mix(in srgb, var(--ui-palette-gray-0) 92%, var(--ui-palette-transparent)),
+        color-mix(in srgb, var(--ui-palette-gray-950) 94%, var(--ui-palette-transparent))
+    );
+    --ui-color-surface-success: light-dark(var(--ui-palette-green-100), var(--ui-palette-gray-800));
+    --ui-color-surface-warning: light-dark(var(--ui-palette-amber-100), var(--ui-palette-gray-800));
+    --ui-color-surface-danger: light-dark(var(--ui-palette-red-100), var(--ui-palette-gray-800));
+
+    /* Text 和 Icon 可以引用同一原子色；配对图标优先继承 currentColor */
+    --ui-color-text-primary: light-dark(var(--ui-palette-gray-950), var(--ui-palette-gray-50));
+    --ui-color-text-secondary: light-dark(var(--ui-palette-gray-700), var(--ui-palette-gray-300));
+    --ui-color-text-tertiary: light-dark(var(--ui-palette-gray-400), var(--ui-palette-gray-500));
+    --ui-color-text-placeholder: light-dark(var(--ui-palette-gray-400), var(--ui-palette-gray-500));
+    --ui-color-text-disabled: light-dark(var(--ui-palette-gray-300), var(--ui-palette-gray-400));
+    --ui-color-text-white: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-0));
+    --ui-color-text-link: light-dark(var(--ui-palette-blue-600), var(--ui-palette-blue-400));
+    --ui-color-text-caret: light-dark(var(--ui-palette-blue-600), var(--ui-palette-blue-400));
+    --ui-color-text-success: light-dark(var(--ui-palette-green-400), var(--ui-palette-green-400));
+    --ui-color-text-warning: light-dark(var(--ui-palette-amber-400), var(--ui-palette-amber-400));
+    --ui-color-text-danger: light-dark(var(--ui-palette-red-600), var(--ui-palette-red-400));
+    --ui-color-icon-primary: light-dark(var(--ui-palette-gray-1000), var(--ui-palette-gray-0));
+    --ui-color-icon-secondary: light-dark(var(--ui-palette-gray-950), var(--ui-palette-gray-50));
+    --ui-color-icon-tertiary: light-dark(var(--ui-palette-gray-500), var(--ui-palette-gray-500));
+    --ui-color-icon-disabled: light-dark(var(--ui-palette-gray-400), var(--ui-palette-gray-400));
+    --ui-color-icon-success: light-dark(var(--ui-palette-green-400), var(--ui-palette-green-400));
+    --ui-color-icon-warning: light-dark(var(--ui-palette-amber-400), var(--ui-palette-amber-400));
+    --ui-color-icon-danger: light-dark(var(--ui-palette-red-400), var(--ui-palette-red-400));
+
+    /* Border 按强度排序；蓝色仅保留给选取描边 */
+    --ui-color-border-primary: light-dark(var(--ui-palette-gray-200), var(--ui-palette-gray-600));
+    --ui-color-border-secondary: light-dark(var(--ui-palette-gray-100), var(--ui-palette-gray-700));
+    --ui-color-border-nodes: light-dark(var(--ui-palette-gray-300), var(--ui-palette-gray-700));
+    --ui-color-border-connections: light-dark(var(--ui-palette-gray-400), var(--ui-palette-gray-500));
+    --ui-color-border-tertiary: light-dark(var(--ui-palette-gray-50), var(--ui-palette-gray-800));
+    --ui-color-border-segmented-control: var(--ui-palette-gray-100);
+    --ui-color-border-disabled: light-dark(var(--ui-palette-gray-200), var(--ui-palette-gray-800));
+    --ui-color-border-focus: light-dark(var(--ui-palette-gray-500), var(--ui-palette-gray-400));
+    --ui-color-border-selected: light-dark(var(--ui-palette-gray-800), var(--ui-palette-gray-100));
+    --ui-color-border-canvas-grid: light-dark(var(--ui-palette-gray-300), var(--ui-palette-gray-800));
+    --ui-color-border-success: light-dark(var(--ui-palette-green-400), var(--ui-palette-green-700));
+    --ui-color-border-warning: light-dark(var(--ui-palette-amber-400), var(--ui-palette-amber-700));
+    --ui-color-border-danger: light-dark(var(--ui-palette-red-400), var(--ui-palette-red-600));
+
+    /* Action 是可交互容器 */
+    --ui-color-action-primary: light-dark(var(--ui-palette-gray-950), var(--ui-palette-gray-0));
+    --ui-color-action-primary-hover: light-dark(var(--ui-palette-gray-700), var(--ui-palette-gray-50));
+    --ui-color-action-primary-disabled: light-dark(var(--ui-palette-gray-200), var(--ui-palette-gray-700));
+    --ui-color-action-secondary: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-800));
+    --ui-color-action-secondary-hover: light-dark(var(--ui-palette-gray-100), var(--ui-palette-gray-700));
+    --ui-color-action-secondary-disabled: light-dark(var(--ui-palette-gray-100), var(--ui-palette-gray-600));
+    --ui-color-action-secondary-selected: light-dark(var(--ui-palette-gray-100), var(--ui-palette-gray-700));
+    --ui-color-action-secondary-selected-hover: light-dark(var(--ui-palette-gray-200), var(--ui-palette-gray-600));
+    --ui-color-action-tertiary: var(--ui-palette-transparent);
+    --ui-color-action-tertiary-hover: light-dark(var(--ui-palette-gray-50), var(--ui-palette-gray-800));
+    --ui-color-action-tertiary-disabled: var(--ui-palette-transparent);
+    --ui-color-action-tertiary-selected: var(--ui-palette-transparent);
+    --ui-color-action-tertiary-selected-hover: var(--ui-palette-transparent);
+    --ui-color-text-on-action-primary: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-text-on-action-primary-disabled: light-dark(var(--ui-palette-gray-400), var(--ui-palette-gray-400));
+
+    /* Danger 可表达危险操作和失败状态；Success / Warning 暂不创建 Action */
+    --ui-color-action-primary-danger: light-dark(var(--ui-palette-red-600), var(--ui-palette-red-400));
+    --ui-color-action-primary-danger-hover: light-dark(var(--ui-palette-red-700), var(--ui-palette-red-200));
+    --ui-color-action-primary-danger-disabled: light-dark(var(--ui-palette-gray-200), var(--ui-palette-gray-700));
+    --ui-color-action-secondary-danger: light-dark(var(--ui-palette-red-50), var(--ui-palette-gray-950));
+    --ui-color-action-secondary-danger-hover: light-dark(var(--ui-palette-red-100), var(--ui-palette-gray-800));
+    --ui-color-action-tertiary-danger: var(--ui-palette-transparent);
+    --ui-color-action-tertiary-danger-hover: light-dark(var(--ui-palette-red-50), var(--ui-palette-gray-800));
+    --ui-color-text-on-action-primary-danger: var(--ui-palette-gray-0);
+
+    /* Backdrop 阻断整个页面，Mask 只覆盖局部内容 */
+    --ui-color-backdrop: light-dark(
+        color-mix(in srgb, var(--ui-palette-gray-50) 45%, var(--ui-palette-transparent)),
+        color-mix(in srgb, var(--ui-palette-gray-1000) 58%, var(--ui-palette-transparent))
+    ); /* Dialog、Drawer 与 Lightbox 背后的页面级遮罩 */
+    --ui-color-mask: rgb(0 0 0 / 60%); /* 局部内容上的遮罩基色 */
+    --ui-color-minimap-group: light-dark(var(--ui-palette-gray-300), var(--ui-palette-gray-600));
+    --ui-color-minimap-media: light-dark(var(--ui-palette-blue-300), var(--ui-palette-blue-700));
+    --ui-color-minimap-text: light-dark(var(--ui-palette-green-300), var(--ui-palette-green-700));
+    --ui-color-prompt-template-placeholder-1: linear-gradient(145deg, #476794 0%, #39567D 100%); /* 无封面 Prompt Template：Slate */
+    --ui-color-prompt-template-placeholder-2: linear-gradient(145deg, #4A783A 0%, #3C652E 100%); /* 无封面 Prompt Template：Sage */
+    --ui-color-prompt-template-placeholder-3: linear-gradient(145deg, #994995 0%, #823B7E 100%); /* 无封面 Prompt Template：Plum */
+    --ui-color-prompt-template-placeholder-4: linear-gradient(145deg, #866240 0%, #715134 100%); /* 无封面 Prompt Template：Umber */
+    --ui-color-prompt-template-placeholder-5: linear-gradient(145deg, #387075 0%, #2D5E62 100%); /* 无封面 Prompt Template：Teal */
+    --ui-color-prompt-template-placeholder-6: linear-gradient(145deg, #525DAB 0%, #434D93 100%); /* 无封面 Prompt Template：Indigo */
+
+    /* Account Avatar 与 Realtime Pointer 共用编号、保持视觉语义独立 */
+    --ui-color-collaborator-avatar-background-1: light-dark(var(--ui-palette-red-50), var(--ui-palette-red-950));
+    --ui-color-collaborator-avatar-text-1: light-dark(var(--ui-palette-red-400), var(--ui-palette-red-200));
+    --ui-color-collaborator-pointer-1: light-dark(var(--ui-palette-red-700), var(--ui-palette-red-200));
+    --ui-color-collaborator-pointer-text-1: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-2: light-dark(var(--ui-palette-orange-50), color-mix(in srgb, var(--ui-palette-orange-700) 30%, var(--ui-palette-gray-950)));
+    --ui-color-collaborator-avatar-text-2: light-dark(var(--ui-palette-orange-400), var(--ui-palette-orange-200));
+    --ui-color-collaborator-pointer-2: light-dark(var(--ui-palette-orange-700), var(--ui-palette-orange-200));
+    --ui-color-collaborator-pointer-text-2: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-3: light-dark(var(--ui-palette-amber-50), var(--ui-palette-amber-950));
+    --ui-color-collaborator-avatar-text-3: light-dark(var(--ui-palette-amber-400), var(--ui-palette-amber-200));
+    --ui-color-collaborator-pointer-3: light-dark(var(--ui-palette-amber-700), var(--ui-palette-amber-200));
+    --ui-color-collaborator-pointer-text-3: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-4: light-dark(var(--ui-palette-green-50), var(--ui-palette-green-950));
+    --ui-color-collaborator-avatar-text-4: light-dark(var(--ui-palette-green-400), var(--ui-palette-green-200));
+    --ui-color-collaborator-pointer-4: light-dark(var(--ui-palette-green-700), var(--ui-palette-green-200));
+    --ui-color-collaborator-pointer-text-4: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-5: light-dark(var(--ui-palette-teal-50), color-mix(in srgb, var(--ui-palette-teal-700) 32%, var(--ui-palette-gray-950)));
+    --ui-color-collaborator-avatar-text-5: light-dark(var(--ui-palette-teal-400), var(--ui-palette-teal-200));
+    --ui-color-collaborator-pointer-5: light-dark(var(--ui-palette-teal-700), var(--ui-palette-teal-200));
+    --ui-color-collaborator-pointer-text-5: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-6: light-dark(var(--ui-palette-cyan-50), color-mix(in srgb, var(--ui-palette-cyan-700) 32%, var(--ui-palette-gray-950)));
+    --ui-color-collaborator-avatar-text-6: light-dark(var(--ui-palette-cyan-400), var(--ui-palette-cyan-200));
+    --ui-color-collaborator-pointer-6: light-dark(var(--ui-palette-cyan-700), var(--ui-palette-cyan-200));
+    --ui-color-collaborator-pointer-text-6: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-7: light-dark(var(--ui-palette-lime-50), color-mix(in srgb, var(--ui-palette-lime-700) 34%, var(--ui-palette-gray-950)));
+    --ui-color-collaborator-avatar-text-7: light-dark(var(--ui-palette-lime-400), var(--ui-palette-lime-200));
+    --ui-color-collaborator-pointer-7: light-dark(var(--ui-palette-lime-700), var(--ui-palette-lime-200));
+    --ui-color-collaborator-pointer-text-7: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-8: light-dark(var(--ui-palette-indigo-50), color-mix(in srgb, var(--ui-palette-indigo-700) 34%, var(--ui-palette-gray-950)));
+    --ui-color-collaborator-avatar-text-8: light-dark(var(--ui-palette-indigo-400), var(--ui-palette-indigo-200));
+    --ui-color-collaborator-pointer-8: light-dark(var(--ui-palette-indigo-700), var(--ui-palette-indigo-200));
+    --ui-color-collaborator-pointer-text-8: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-9: light-dark(var(--ui-palette-violet-50), color-mix(in srgb, var(--ui-palette-violet-700) 34%, var(--ui-palette-gray-950)));
+    --ui-color-collaborator-avatar-text-9: light-dark(var(--ui-palette-violet-400), var(--ui-palette-violet-200));
+    --ui-color-collaborator-pointer-9: light-dark(var(--ui-palette-violet-700), var(--ui-palette-violet-200));
+    --ui-color-collaborator-pointer-text-9: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+    --ui-color-collaborator-avatar-background-10: light-dark(var(--ui-palette-pink-50), color-mix(in srgb, var(--ui-palette-pink-700) 34%, var(--ui-palette-gray-950)));
+    --ui-color-collaborator-avatar-text-10: light-dark(var(--ui-palette-pink-400), var(--ui-palette-pink-200));
+    --ui-color-collaborator-pointer-10: light-dark(var(--ui-palette-pink-700), var(--ui-palette-pink-200));
+    --ui-color-collaborator-pointer-text-10: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-1000));
+
+    /* 字体基础值：字族、字号、字重、行高和字间距 */
+    --ui-font-sans: "PingFang SC", "PingFang TC", "PingFang HK", "Space Grotesk", Inter, "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ui-font-display: var(--ui-font-sans);
+    --ui-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --ui-font-size-1: .625rem;
+    --ui-font-size-2: .75rem;
+    --ui-font-size-3: .875rem;
+    --ui-font-size-4: 1rem;
+    --ui-font-size-5: 1.125rem;
+    --ui-font-size-6: 1.25rem;
+    --ui-font-size-7: 1.625rem;
+    --ui-font-size-8: 2.25rem;
+    --ui-font-weight-regular: 400;
+    --ui-font-weight-medium: 500;
+    --ui-font-weight-bold: 600;
+    --ui-line-height-tight: 1.25;
+    --ui-line-height-compact: 1.4;
+    --ui-line-height-body: 1.5;
+    --ui-line-height-code: 1.43;
+    --ui-letter-spacing-normal: 0em;
+    --ui-letter-spacing-tight: -.01em;
+    --ui-letter-spacing-tighter: -.02em;
+    --ui-letter-spacing-wide: .05em;
+    --ui-letter-spacing-widest: .1em;
+
+    /* 语义文字样式：组合好的标题、正文、标签等排版配方，可直接用于 font 属性 */
+    --ui-text-title-1: var(--ui-font-weight-bold) var(--ui-font-size-6) / var(--ui-line-height-tight) var(--ui-font-display);
+    --ui-text-title-2: var(--ui-font-weight-bold) var(--ui-font-size-5) / var(--ui-line-height-tight) var(--ui-font-display);
+    --ui-text-title-3: var(--ui-font-weight-medium) var(--ui-font-size-4) / var(--ui-line-height-tight) var(--ui-font-display);
+    --ui-text-subtitle: var(--ui-font-weight-regular) var(--ui-font-size-3) / var(--ui-line-height-body) var(--ui-font-sans);
+    --ui-text-body: var(--ui-font-weight-regular) var(--ui-font-size-3) / var(--ui-line-height-body) var(--ui-font-sans);
+    --ui-text-body-compact: var(--ui-font-weight-regular) var(--ui-font-size-2) / var(--ui-line-height-compact) var(--ui-font-sans);
+    --ui-text-label: var(--ui-font-weight-medium) var(--ui-font-size-2) / var(--ui-line-height-compact) var(--ui-font-sans);
+    --ui-text-caption: var(--ui-font-weight-regular) var(--ui-font-size-1) / var(--ui-line-height-compact) var(--ui-font-sans);
+    --ui-text-code: var(--ui-font-weight-regular) var(--ui-font-size-2) / var(--ui-line-height-code) var(--ui-font-mono);
+
+    /* 间距阶梯：统一内边距、外边距和元素间隔 */
+    --ui-space-0: 0;
+    --ui-space-1: .25rem;
+    --ui-space-2: .5rem;
+    --ui-space-3: .75rem;
+    --ui-space-4: 1rem;
+    --ui-space-5: 1.25rem;
+    --ui-space-6: 1.5rem;
+    --ui-space-8: 2rem;
+    --ui-space-10: 2.5rem;
+    --ui-space-16: 4rem;
+    --ui-space-24: 6rem;
+
+    /* 形状与层次：圆角、描边、控件尺寸、焦点和阴影 */
+    /* 尺寸后缀统一为 xs / s / m / l / xl；特殊形态使用 none / pill */
+    /* 圆角与描边：定义轮廓的圆润程度和视觉强度 */
+    --ui-radius-none: 0;
+    --ui-radius-xs: .25rem;
+    --ui-radius-s: 0.5rem;
+    --ui-radius-m: 1rem;
+    --ui-radius-l: 1.5rem;
+    --ui-radius-pill: 999px;
+    --ui-border-width-none: 0;
+    --ui-border-width-thin: 1px;
+    --ui-border-width-strong: 2px;
+    --ui-border-width-heavy: 4px;
+
+    /* 控件与图标：保持按钮、输入框和图标尺寸一致 */
+    --ui-control-height-xs: 1.5rem;
+    --ui-control-height-s: 2rem;
+    --ui-control-height-m: 2.25rem;
+    --ui-control-height-l: 2.5rem;
+    --ui-icon-size-xs: .75rem;
+    --ui-icon-size-s: 1rem;
+    --ui-icon-size-m: 1.25rem;
+    --ui-icon-size-l: 1.5rem;
+    --ui-icon-size-xl: 3rem;
+    --ui-icon-stroke-width-xs: 1.33;
+    --ui-icon-stroke-width-s: 1.33;
+    --ui-icon-stroke-width-m: 1.5;
+    --ui-icon-stroke-width-l: 2;
+    --ui-icon-stroke-width-xl: 2.5;
+    --ui-icon-stroke-width: var(--ui-icon-stroke-width-m); /* 旧版单值兼容别名 */
+
+    /* 焦点：标识键盘当前操作位置 */
+    --ui-focus-ring-width: var(--ui-border-width-thin);
+    --ui-focus-ring-offset: calc(-1 * var(--ui-focus-ring-width));
+    --ui-focus-ring-enabled: var(--ui-focus-ring-width) solid var(--ui-color-border-focus);
+    --ui-focus-ring-shadow-enabled: none;
+    --ui-focus-background-enabled: var(--ui-color-action-tertiary-hover);
+    --ui-focus-ring: var(--ui-focus-ring-enabled);
+    --ui-focus-ring-shadow: var(--ui-focus-ring-shadow-enabled);
+    --ui-focus-background: var(--ui-focus-background-enabled);
+
+    /* 阴影：从静态表面到模态任务的四级高度层级 */
+    --ui-shadow-none: none; /* 无阴影 */
+    --ui-shadow-raised: 0 1px 3px 0 rgba(0, 0, 0, 0.05); /* 轻微抬升 */
+    --ui-shadow-overlay: 0 8px 10px -5px rgba(0, 0, 0, 0.15); /* 菜单、Popover 等浮层 */
+    --ui-shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* 模态任务 */
+
+    /* 动效：统一持续时间、运动节奏、位移幅度和循环次数 */
+    --ui-motion-duration-press: 90ms;
+    --ui-motion-duration-fast: 150ms;
+    --ui-motion-duration-normal: 200ms;
+    --ui-motion-duration-release: 240ms;
+    --ui-motion-duration-slow: 300ms;
+    --ui-motion-duration-deliberate: 400ms;
+    --ui-motion-ease-press: cubic-bezier(.4, 0, 1, 1);
+    --ui-motion-ease-standard: cubic-bezier(.4, 0, .2, 1);
+    --ui-motion-ease-fluid: cubic-bezier(.3, 0, 0, 1);
+    --ui-motion-ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+    --ui-motion-ease-linear: linear;
+    --ui-motion-distance-factor: 1;
+    --ui-motion-iteration-count: infinite;
+
+    /* 空间层级：普通 DOM 的语义回退顺序；标准浮层优先使用浏览器 Top Layer */
+    --ui-z-base: 0;
+    --ui-z-raised: 10;
+    --ui-z-sticky: 20;
+    --ui-z-drag-preview: 40;
+    --ui-z-popover: 50;
+    --ui-z-backdrop: 90;
+    --ui-z-modal: 100;
+    --ui-z-toast: 200;
+    --ui-z-tooltip: 210;
+
+}
+
+:where(input, textarea)::placeholder {
+    color: var(--ui-color-text-placeholder);
+    opacity: 1;
+}
+
+/* data-ui-theme 是唯一标准主题接口。以下两个 class 只兼容尚未迁移的旧页面；
+ * 一旦页面提供 data-ui-theme，标准接口始终优先。 */
+html.theme-dark:not([data-ui-theme]),
+html.studio-theme-dark:not([data-ui-theme]),
+html[data-ui-theme="dark"] {
+    color-scheme: dark;
+}
+
+html[data-ui-theme="light"] {
+    color-scheme: light;
+}
+
+:root,
+html[data-ui-density="medium"] {
+    /* 中等密度：默认的控件尺寸与内容间距 */
+    --ui-density-control-height: var(--ui-control-height-m);
+    --ui-density-icon-size: var(--ui-icon-size-m);
+    --ui-density-font-size: var(--ui-font-size-3);
+    --ui-density-inline-padding: var(--ui-space-3);
+    --ui-density-gap: var(--ui-space-2);
+}
+
+html[data-ui-density="small"] {
+    /* 紧凑密度：适合信息量较大的界面 */
+    --ui-density-control-height: var(--ui-control-height-s);
+    --ui-density-icon-size: var(--ui-icon-size-s);
+    --ui-density-font-size: var(--ui-font-size-2);
+    --ui-density-inline-padding: var(--ui-space-2);
+    --ui-density-gap: var(--ui-space-1);
+}
+
+html[data-ui-density="large"] {
+    /* 宽松密度：更大的控件和留白，便于触控或突出内容 */
+    --ui-density-control-height: var(--ui-control-height-l);
+    --ui-density-icon-size: var(--ui-icon-size-l);
+    --ui-density-font-size: var(--ui-font-size-4);
+    --ui-density-inline-padding: var(--ui-space-4);
+    --ui-density-gap: var(--ui-space-3);
+}
+
+html[data-ui-motion="reduced"] {
+    /* 手动减少动效：保留状态变化，移除明显运动和循环 */
+    --ui-motion-duration-press: 1ms;
+    --ui-motion-duration-fast: 1ms;
+    --ui-motion-duration-normal: 1ms;
+    --ui-motion-duration-release: 1ms;
+    --ui-motion-duration-slow: 1ms;
+    --ui-motion-duration-deliberate: 1ms;
+    --ui-motion-distance-factor: 0;
+    --ui-motion-iteration-count: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        /* 跟随系统的“减少动态效果”无障碍偏好 */
+        --ui-motion-duration-press: 1ms;
+        --ui-motion-duration-fast: 1ms;
+        --ui-motion-duration-normal: 1ms;
+        --ui-motion-duration-release: 1ms;
+        --ui-motion-duration-slow: 1ms;
+        --ui-motion-duration-deliberate: 1ms;
+        --ui-motion-distance-factor: 0;
+        --ui-motion-iteration-count: 1;
+    }
+}

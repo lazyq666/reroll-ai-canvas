@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="generation" data-studio-scale="off">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <title data-i18n="studio.anglePageTitle">视角控制 | 视角重塑</title>
+    <script>
+        (function () {
+            try {
+                document.documentElement.dataset.studioFitScale = 'off';
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch (_) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <script src="/static/js/image-preview.js?v=2026.09.01.2.1787561133"></script>
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/angle.css?v=2026.09.01.2.1787875924">
+</head>
+<body>
+    <main class="angle-page">
+        <header class="angle-header">
+            <ic-heading class="angle-title" level="1" subtitle="Camera &amp; Perspective Control" data-i18n-subtitle="studio.cameraPerspective" data-legal-combination="h1-with-subtitle">Angle Control</ic-heading>
+            <ic-badge kind="label" tone="neutral" data-i18n="nav.angle">视角</ic-badge>
+        </header>
+
+        <ic-alert id="pageAlert" class="page-alert" tone="neutral" dismissible hidden data-i18n="studio.angleStatus">Angle 工作台状态</ic-alert>
+
+        <section class="angle-workspace" aria-label="视角生成工作台" data-i18n-aria-label="studio.angleWorkspace">
+            <article class="angle-panel input-panel">
+                <ic-heading level="3" data-legal-combination="h3-title"><span class="step-number">01</span><span data-i18n="studio.inputSource">输入图片</span></ic-heading>
+                <ic-image-frame id="inputPreview" label="输入图片" data-i18n-label="studio.inputSource" data-component-name="ic-image-frame-upload" state="upload" size="large" upload-button-label="选择图片" data-i18n-upload-button-label="studio.chooseImage"></ic-image-frame>
+            </article>
+
+            <article class="angle-panel camera-panel">
+                <ic-heading level="3" data-legal-combination="h3-title"><span class="step-number">02</span><span data-i18n="studio.cameraControl">相机控制</span></ic-heading>
+                <ic-card class="camera-card" label="相机控制" data-i18n-label="studio.cameraControl" size="small">
+                    <div class="camera-layout">
+                        <div id="threeContainer" class="three-viewport" role="img" aria-label="视角实时预览" data-i18n-aria-label="studio.angleLivePreview"></div>
+                        <div class="camera-controls">
+                        <div class="control-row">
+                            <div class="control-copy"><span data-i18n="studio.rotation">旋转</span><span class="control-hint">−90° — 90°</span></div>
+                            <ic-icon-button id="resetHorizontal" type="button" size="s" hierarchy="quiet" icon="restore" label="重置旋转" data-i18n-label="studio.resetTitle"></ic-icon-button>
+                            <ic-number-input id="val-horizontal" name="angle_horizontal" label="旋转角度" data-i18n-label="studio.rotationAngle" min="-90" max="90" step="1" value="0"></ic-number-input>
+                            <ic-slider id="rotate-h" label="旋转角度" data-i18n-label="studio.rotationAngle" min="-90" max="90" step="1" value="0" value-text="0°"></ic-slider>
+                        </div>
+                        <div class="control-row">
+                            <div class="control-copy"><span data-i18n="studio.pitch">俯仰</span><span class="control-hint">−90° — 90°</span></div>
+                            <ic-icon-button id="resetVertical" type="button" size="s" hierarchy="quiet" icon="restore" label="重置俯仰" data-i18n-label="studio.resetTitle"></ic-icon-button>
+                            <ic-number-input id="val-vertical" name="angle_vertical" label="俯仰角度" data-i18n-label="studio.pitchAngle" min="-90" max="90" step="1" value="0"></ic-number-input>
+                            <ic-slider id="rotate-v" label="俯仰角度" data-i18n-label="studio.pitchAngle" min="-90" max="90" step="1" value="0" value-text="0°"></ic-slider>
+                        </div>
+                        <div class="control-row">
+                            <div class="control-copy"><span data-i18n="studio.distance">距离</span><span class="control-hint">0.1 — 8.0</span></div>
+                            <ic-icon-button id="resetDistance" type="button" size="s" hierarchy="quiet" icon="restore" label="重置距离" data-i18n-label="studio.resetTitle"></ic-icon-button>
+                            <ic-number-input id="val-distance" name="angle_distance" label="相机距离" data-i18n-label="studio.cameraDistance" min="0.1" max="8" step="0.1" value="4.0"></ic-number-input>
+                            <ic-slider id="distance" label="相机距离" data-i18n-label="studio.cameraDistance" min="0.1" max="8" step="0.1" value="4" value-text="4.0"></ic-slider>
+                        </div>
+                        </div>
+                    </div>
+                </ic-card>
+            </article>
+
+            <article class="angle-panel parameter-panel">
+                <ic-heading level="3" data-legal-combination="h3-title"><span class="step-number">03</span><span data-i18n="studio.parameters">参数</span></ic-heading>
+                <ic-card class="parameter-card" label="生成参数" data-i18n-label="studio.generationParameters" size="small">
+                    <ic-textarea id="promptInput" name="angle_prompt" label="提示词" data-i18n-label="studio.prompt" placeholder="请通过右侧控制器调整，或输入提示词" data-i18n-placeholder="studio.adjustOrPrompt" rows="8" resize="vertical"></ic-textarea>
+                    <div class="engine-field">
+                        <span class="field-label" data-i18n="studio.engine">引擎</span>
+                        <ic-segmented-control id="engineMode" label="生成引擎" data-i18n-label="studio.generationEngine" value="local" data-legal-combination="single-label">
+                            <button type="button" data-value="local"><ic-icon name="canvas" size="small"></ic-icon><span data-i18n="studio.local">本地</span></button>
+                            <button type="button" data-value="cloud"><ic-icon name="models" size="small"></ic-icon><span>ModelScope</span></button>
+                        </ic-segmented-control>
+                    </div>
+                    <ic-button id="genBtn" class="generate-button" type="button" hierarchy="primary">
+                        <ic-icon slot="start" name="generate"></ic-icon>
+                        <span id="btnText" data-i18n="studio.generateAngle">生成新角度</span>
+                    </ic-button>
+                </ic-card>
+            </article>
+
+            <article class="angle-panel result-panel">
+                <ic-heading level="3" data-legal-combination="h3-title"><span class="step-number">04</span><span data-i18n="studio.resultPreview">结果预览</span></ic-heading>
+                <ic-card id="resultBox" class="result-card" label="结果预览" data-i18n-label="studio.resultPreview" size="small">
+                    <ic-empty-state id="emptyState" title="画布就绪" label="画布就绪" data-i18n-title="studio.canvasReady" data-i18n-label="studio.canvasReady">
+                        <ic-icon slot="illustration" name="image" size="x-large"></ic-icon>
+                    </ic-empty-state>
+                    <div id="loadingState" class="loading-state" hidden>
+                        <ic-loading id="generationLoading" label="处理中..." presentation="region" data-i18n-label="studio.processing"></ic-loading>
+                        <ic-progress id="cloudProgress" label="等待中..." value="0" max="100" value-text="0%" data-i18n-label="studio.pending" hidden></ic-progress>
+                    </div>
+                    <div id="textResult" class="text-result" hidden>
+                        <ic-icon name="help" size="x-large"></ic-icon>
+                        <ic-heading id="generatedText" level="2" data-i18n="studio.generatedCommand" data-legal-combination="h2-title">生成指令</ic-heading>
+                        <ic-button id="copyTextBtn" type="button" hierarchy="secondary"><ic-icon slot="start" name="duplicate"></ic-icon><span data-i18n="studio.copy">复制</span></ic-button>
+                    </div>
+                    <ic-media-container id="outputMedia" class="output-media" kind="image" fit="contain" aspect="landscape" label="生成结果" data-i18n-label="studio.generatedResult" hidden>
+                        <img id="outputImg" alt="生成的视角图片" data-i18n-alt="studio.generatedAngleImage">
+                    </ic-media-container>
+                    <div id="resultActions" class="result-actions" hidden>
+                        <ic-button id="previewResultBtn" type="button" hierarchy="secondary"><ic-icon slot="start" name="preview"></ic-icon><span data-i18n="studio.viewFullSize">查看大图</span></ic-button>
+                        <ic-button id="downloadBtn" type="button" hierarchy="secondary"><ic-icon slot="start" name="download"></ic-icon><span data-i18n="studio.saveMaster">保存原图</span></ic-button>
+                    </div>
+                </ic-card>
+            </article>
+        </section>
+
+        <section class="archive-section" aria-labelledby="archiveTitle">
+            <div class="archive-heading">
+                <ic-heading id="archiveTitle" level="2" data-i18n="studio.archive" data-legal-combination="h2-title">归档</ic-heading>
+                <ic-divider></ic-divider>
+            </div>
+            <ic-toolbar class="archive-toolbar" label="归档管理" data-i18n-label="studio.archiveManagement" appearance="plain">
+                <ic-button id="archiveManageBtn" type="button" hierarchy="secondary"><ic-icon slot="start" name="check"></ic-icon><span data-i18n="bulk.manage">管理归档</span></ic-button>
+                <ic-badge id="archiveSelectionCount" kind="count" tone="neutral" data-i18n="studio.selectedArchivesZero" hidden>已选择 0 项</ic-badge>
+                <ic-button id="archiveSelectAllBtn" type="button" hierarchy="secondary" data-i18n="bulk.selectAll" hidden>全选</ic-button>
+                <ic-button id="archiveDeleteBtn" type="button" hierarchy="secondary" tone="danger" hidden disabled><ic-icon slot="start" name="delete"></ic-icon><span data-i18n="bulk.deleteSelected">删除所选</span></ic-button>
+                <ic-button id="archiveExitBtn" type="button" hierarchy="quiet" hidden><span data-i18n="bulk.exit">退出管理</span></ic-button>
+            </ic-toolbar>
+            <div id="masonry" class="archive-grid"></div>
+            <ic-empty-state id="archiveEmpty" title="暂无归档" label="暂无归档" data-i18n-title="studio.noArchives" data-i18n-label="studio.noArchives" hidden></ic-empty-state>
+            <ic-loading id="archiveLoading" label="正在加载归档..." data-i18n-label="studio.loadingArchives" presentation="region"></ic-loading>
+            <p id="loadMoreTrigger" class="archive-end" data-i18n="studio.endOfArchive">归档已到底</p>
+        </section>
+    </main>
+
+    <ic-dialog id="lightbox" class="result-dialog" label="图片预览" data-i18n-label="studio.previewImage" size="x-large" dismiss-policy="light">
+        <div id="lightboxFrame" class="studio-preview-frame">
+            <ic-media-container kind="image" fit="contain" label="图片预览" data-i18n-label="studio.previewImage">
+                <img id="lightboxImg" src="" alt="预览图片" data-i18n-alt="studio.previewImage">
+            </ic-media-container>
+            <ic-badge id="lightboxRes" class="lightbox-resolution" kind="label" tone="neutral" hidden>0 × 0</ic-badge>
+        </div>
+        <ic-button id="downloadLightboxBtn" slot="footer" type="button" hierarchy="secondary"><ic-icon slot="start" name="download"></ic-icon><span data-i18n="studio.saveMaster">保存原图</span></ic-button>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="waitDialog" label="继续等待云端结果？" data-i18n-label="studio.continueWaitingTitle" description="云端生成超过预期时间，队列可能繁忙。你可以继续等待，或返回后稍后重试。" data-i18n-description="studio.continueWaitingDescription" confirm-label="继续等待" data-i18n-confirm-label="studio.continueWaiting" cancel-label="停止等待" data-i18n-cancel-label="studio.stopWaiting" consequence="neutral"></ic-confirmation-dialog>
+    <ic-confirmation-dialog id="archiveDeleteDialog" label="删除所选归档？" data-i18n-label="studio.deleteArchives" description="删除后无法恢复。生成文件本身不会从其他已保存位置移除。" data-i18n-description="studio.deleteArchivesFilesDescription" confirm-label="删除" data-i18n-confirm-label="common.delete" cancel-label="取消" data-i18n-cancel-label="common.cancel" consequence="destructive"></ic-confirmation-dialog>
+    <ic-file-input id="dropzone" name="angle_image" label="选择输入图片" data-i18n-label="studio.chooseImage" accept="image/*" hidden></ic-file-input>
+
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script type="module" src="/static/js/angle-3d.js?v=2026.09.01.2.1787536549"></script>
+    <script type="module" src="/static/js/angle.js?v=2026.09.01.2.1788146221"></script>
+</body>
+</html>

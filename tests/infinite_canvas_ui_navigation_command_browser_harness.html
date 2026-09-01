@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <ic-tabs id="tabs" label="Views" value="one" data-legal-combination="horizontal-automatic-label" style="inline-size:max-content">
+    <button data-value="one">One</button>
+    <button data-value="two">Two</button>
+  </ic-tabs>
+  <ic-tabs id="mediumTabs" label="Medium views" value="one" size="medium" data-legal-combination="horizontal-automatic-label">
+    <button data-value="one">One</button>
+    <button data-value="two">Two</button>
+  </ic-tabs>
+  <ic-tabs id="spacedTabs" label="Compact spaced views" value="one" space="0.125rem" data-legal-combination="horizontal-automatic-label">
+    <button data-value="one">One</button>
+    <button data-value="two">Two</button>
+  </ic-tabs>
+  <ic-segmented-control id="segments" label="Mode" value="grid" data-legal-combination="single-label">
+    <button data-value="grid">Grid</button>
+    <button data-value="list">List</button>
+  </ic-segmented-control>
+  <ic-segmented-control id="iconSegments" label="Presentation" value="fit" data-legal-combination="single-icon-label">
+    <button data-value="fit">↙ Fit</button>
+    <button data-value="actual">● Actual</button>
+  </ic-segmented-control>
+  <div id="segmentSizes">
+    <ic-segmented-control label="Small mode" value="grid" size="small"><button data-value="grid">Grid</button><button data-value="list">List</button></ic-segmented-control>
+    <ic-segmented-control label="Medium mode" value="grid" size="medium"><button data-value="grid">Grid</button><button data-value="list">List</button></ic-segmented-control>
+    <ic-segmented-control label="Large mode" value="grid" size="large"><button data-value="grid">Grid</button><button data-value="list">List</button></ic-segmented-control>
+  </div>
+  <ic-toolbar id="toolbar" label="Commands">
+    <button id="first">First</button>
+    <button id="second">Second</button>
+  </ic-toolbar>
+  <nav aria-label="Main">
+    <ic-nav-item id="nav" label="当前页" secondary-label="Current page" href="#current" current="page"></ic-nav-item>
+    <ic-nav-disclosure id="disclosure" label="Local tools" icon="project-default" open-icon="project">
+      <ic-nav-item label="Text to image" href="#text-to-image"></ic-nav-item>
+      <ic-nav-item label="Enhance" href="#enhance"></ic-nav-item>
+    </ic-nav-disclosure>
+  </nav>
+  <ic-breadcrumb id="crumb" label="Breadcrumb">
+    <a href="#root">Root</a>
+    <span>Current</span>
+  </ic-breadcrumb>
+  <ic-pagination id="pages" label="Pages" page="2" page-count="5"></ic-pagination>
+  <ic-steps id="steps" label="Workflow progress" current="2">
+    <span data-step="1">Configure</span>
+    <span data-step="2">Preview</span>
+    <span data-step="3">Details</span>
+  </ic-steps>
+  <ic-tabs id="invalid" label="Invalid" value="one" activation="bad">
+    <button data-value="one">One</button>
+  </ic-tabs>
+  <script type="module">
+    import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4';
+
+    await Promise.all([
+      'ic-tabs',
+      'ic-segmented-control',
+      'ic-toolbar',
+      'ic-nav-item',
+      'ic-nav-disclosure',
+      'ic-breadcrumb',
+      'ic-pagination',
+      'ic-steps',
+    ].map(tag => customElements.whenDefined(tag)));
+
+    const checks = {};
+    const resolveColorToken = token => {
+      const probe = document.createElement('span');
+      probe.style.cssText = `position:absolute;visibility:hidden;background:var(${token})`;
+      document.body.append(probe);
+      const color = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return color;
+    };
+    const tabs = document.querySelector('#tabs');
+    tabs.children[1].click();
+    await new Promise(resolve => setTimeout(resolve, 180));
+    checks.tabs = tabs.getAttribute('value') === 'two'
+      && tabs.children[1].getAttribute('aria-selected') === 'true';
+    checks.tabsGap = getComputedStyle(tabs).columnGap === '2px';
+    const spacedTabs = document.querySelector('#spacedTabs');
+    checks.tabsSpaceParameter = spacedTabs.dataset.icContractStatus === 'ready'
+      && getComputedStyle(spacedTabs).columnGap === '2px';
+    const selectedTabStyle = getComputedStyle(tabs.children[1]);
+    checks.tabsHorizontalAutomaticRadius = getComputedStyle(tabs).borderRadius === '10px'
+      && selectedTabStyle.borderRadius === getComputedStyle(document.documentElement)
+        .getPropertyValue('--ui-radius-s').trim();
+    checks.tabsNoUnderline = selectedTabStyle.borderBottomWidth === '0px'
+      && selectedTabStyle.borderRightWidth === '0px';
+    checks.tabsLightContrast = selectedTabStyle.backgroundColor === resolveColorToken('--ui-color-action-secondary-selected')
+      && selectedTabStyle.color === resolveColorToken('--ui-color-text-primary');
+    const unselectedTabStyle = getComputedStyle(tabs.children[0]);
+    checks.tabsUnselectedLight = unselectedTabStyle.backgroundColor === 'rgba(0, 0, 0, 0)'
+      && unselectedTabStyle.color === resolveColorToken('--ui-color-text-tertiary');
+    const mediumTabs = document.querySelector('#mediumTabs');
+    checks.mediumTabsSelectedBackground = getComputedStyle(mediumTabs.children[0]).backgroundColor
+      === resolveColorToken('--ui-color-action-secondary-selected');
+    tabs.children[1].focus();
+    const tabsRect = tabs.getBoundingClientRect();
+    const focusedTabRect = tabs.children[1].getBoundingClientRect();
+    const focusWidth = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ui-border-width-strong')) || 0;
+    checks.tabsFocusRingContained = focusedTabRect.left - focusWidth >= tabsRect.left
+      && focusedTabRect.top - focusWidth >= tabsRect.top
+      && focusedTabRect.right + focusWidth <= tabsRect.right
+      && focusedTabRect.bottom + focusWidth <= tabsRect.bottom;
+
+    const segments = document.querySelector('#segments');
+    segments.children[1].click();
+    await new Promise(resolve => setTimeout(resolve, 180));
+    checks.segmented = segments.getAttribute('value') === 'list'
+      && segments.children[1].getAttribute('aria-checked') === 'true';
+    const lightSelectedStyle = getComputedStyle(segments.children[1]);
+    checks.segmentedLightContrast = lightSelectedStyle.backgroundColor
+      === resolveColorToken('--ui-color-surface');
+    checks.segmentedSizeSelectedSurface = [...document.querySelectorAll('#segmentSizes ic-segmented-control')]
+      .every(control => getComputedStyle(control.children[0]).backgroundColor
+        === resolveColorToken('--ui-color-surface'));
+    const segmentedSizeSpecs = [
+      ['small', '--ui-control-height-s', '--ui-font-size-1', '--ui-space-2'],
+      ['medium', '--ui-control-height-m', '--ui-font-size-2', '10px'],
+      ['large', '--ui-control-height-l', '--ui-font-size-3', '--ui-space-3'],
+    ];
+    checks.segmentedSizes = segmentedSizeSpecs.every(([size, heightToken, fontToken, paddingToken]) => {
+      const control = document.querySelector(`#segmentSizes ic-segmented-control[size="${size}"]`);
+      const optionStyle = getComputedStyle(control.children[0]);
+      const expectedPadding = paddingToken.startsWith('--')
+        ? getComputedStyle(document.documentElement).getPropertyValue(paddingToken).trim()
+        : paddingToken;
+      return control.getBoundingClientRect().height === parseFloat(getComputedStyle(document.documentElement).getPropertyValue(heightToken))
+        && optionStyle.fontSize === getComputedStyle(document.documentElement).getPropertyValue(fontToken).trim()
+        && optionStyle.paddingLeft === expectedPadding
+        && optionStyle.paddingRight === expectedPadding;
+    });
+    checks.segmentedBorders = getComputedStyle(segments).borderColor === resolveColorToken('--ui-color-border-segmented-control')
+      && lightSelectedStyle.borderColor === 'rgba(0, 0, 0, 0)'
+      && lightSelectedStyle.outlineColor === resolveColorToken('--ui-color-border-secondary')
+      && lightSelectedStyle.outlineStyle === 'solid'
+      && lightSelectedStyle.outlineWidth === getComputedStyle(document.documentElement).getPropertyValue('--ui-border-width-thin').trim();
+    document.documentElement.dataset.uiTheme = 'dark';
+    await new Promise(resolve => setTimeout(resolve, 250));
+    const darkSelectedStyle = getComputedStyle(segments.children[1]);
+    checks.segmentedDarkContrast = darkSelectedStyle.backgroundColor
+      === resolveColorToken('--ui-color-surface');
+    const darkSelectedTabStyle = getComputedStyle(tabs.children[1]);
+    checks.tabsDarkContrast = darkSelectedTabStyle.backgroundColor === resolveColorToken('--ui-color-action-secondary-selected')
+      && darkSelectedTabStyle.color === resolveColorToken('--ui-color-text-primary');
+    const darkUnselectedTabStyle = getComputedStyle(tabs.children[0]);
+    checks.tabsUnselectedDark = darkUnselectedTabStyle.backgroundColor === 'rgba(0, 0, 0, 0)'
+      && darkUnselectedTabStyle.color === resolveColorToken('--ui-color-text-tertiary');
+    const iconSegments = document.querySelector('#iconSegments');
+    iconSegments.children[1].click();
+    await new Promise(resolve => setTimeout(resolve, 260));
+    const iconSelectedStyle = getComputedStyle(iconSegments.children[1]);
+    checks.segmentedIconLabelSelected = iconSelectedStyle.backgroundColor
+      === resolveColorToken('--ui-color-surface');
+
+    const first = document.querySelector('#first');
+    first.focus();
+    first.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));
+    checks.toolbar = document.activeElement === document.querySelector('#second');
+    const nav = document.querySelector('#nav');
+    const navAnchor = () => nav.shadowRoot.querySelector('a');
+    checks.navigation = navAnchor().getAttribute('aria-current') === 'page';
+    checks.navigationSecondaryLabel = navAnchor().querySelector('.secondary-label')?.textContent === 'Current page'
+      && navAnchor().textContent.includes('当前页');
+    nav.removeAttribute('current');
+    nav.setAttribute('current', 'section');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    checks.navigationCurrentMutation = navAnchor().getAttribute('aria-current') === 'location'
+      && getComputedStyle(navAnchor()).backgroundColor === resolveColorToken('--ui-color-action-secondary-selected');
+    const disclosure = document.querySelector('#disclosure');
+    let disclosureEvents = 0;
+    disclosure.addEventListener('ic-toggle', event => {
+      if (event.detail.open) disclosureEvents += 1;
+    });
+    disclosure.shadowRoot.querySelector('button').click();
+    checks.navDisclosure = disclosure.open
+      && disclosureEvents === 1
+      && disclosure.shadowRoot.querySelector('button').getAttribute('aria-expanded') === 'true'
+      && disclosure.shadowRoot.querySelector('ic-icon').getAttribute('name') === 'project';
+    const disclosureItemHeightProbe = document.createElement('span');
+    disclosureItemHeightProbe.style.cssText = 'position:absolute;visibility:hidden;height:var(--ui-control-height-m)';
+    document.body.append(disclosureItemHeightProbe);
+    const expectedDisclosureItemHeight = disclosureItemHeightProbe.getBoundingClientRect().height;
+    disclosureItemHeightProbe.remove();
+    checks.navDisclosureItemHeight = [...disclosure.querySelectorAll(':scope > ic-nav-item')].every(item =>
+      item.getBoundingClientRect().height === expectedDisclosureItemHeight
+      && item.shadowRoot.querySelector('a').getBoundingClientRect().height === expectedDisclosureItemHeight);
+    checks.breadcrumb = document.querySelector('#crumb').lastElementChild
+      .getAttribute('aria-current') === 'page';
+
+    const pages = document.querySelector('#pages');
+    pages.shadowRoot.querySelector('[data-page="3"]').click();
+    checks.pagination = pages.getAttribute('page') === '3'
+      && pages.shadowRoot.querySelector('[aria-current="page"]')?.textContent === '3';
+    const steps = document.querySelector('#steps');
+    const originalStepsRender = steps.render.bind(steps);
+    let stepsRenderCount = 0;
+    steps.render = (...args) => {
+      stepsRenderCount += 1;
+      if (stepsRenderCount > 20) {
+        steps._childObserver.disconnect();
+        return undefined;
+      }
+      return originalStepsRender(...args);
+    };
+    steps.setAttribute('current', '3');
+    steps.children[0].textContent = 'Configure updated';
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const currentStep = steps.shadowRoot.querySelector('[aria-current="step"]');
+    const stepIndicator = currentStep?.querySelector('.indicator');
+    checks.steps = steps.dataset.icContractStatus === 'ready'
+      && currentStep?.textContent.includes('Details')
+      && steps.shadowRoot.textContent.includes('Configure updated')
+      && getComputedStyle(stepIndicator).width === '28px'
+      && getComputedStyle(stepIndicator).height === '28px';
+    checks.stepsStableRender = stepsRenderCount <= 3;
+    checks.invalid = document.querySelector('#invalid').dataset.icContractStatus === 'invalid';
+    checks.aria = [
+      tabs.getAttribute('role'),
+      segments.getAttribute('role'),
+      document.querySelector('#toolbar').getAttribute('role'),
+    ].join(',') === 'tablist,radiogroup,toolbar';
+
+    document.documentElement.dataset.icNavigationCommandTestStatus = Object.values(checks).every(Boolean)
+      ? 'passed'
+      : 'failed';
+    document.body.dataset.checks = JSON.stringify(checks);
+  </script>
+</body>
+</html>

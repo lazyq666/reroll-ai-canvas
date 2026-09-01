@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 提示词库导航层级</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    Three compact accordion Sidebar variants based on direction H, switchable with ?variant=H1|H2|H3.
+    Run: ./.venv/bin/python -m http.server 9800
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/prompt-library-navigation-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+</head>
+<body>
+  <main class="prototype-stage">
+    <div class="stage-context" aria-hidden="true">
+      <span class="context-brand">Reroll</span>
+      <span>Smart Canvas / 角色视觉开发</span>
+    </div>
+
+    <ic-dialog id="libraryDialog" label="提示词模板库" size="x-large" dismiss-policy="explicit" without-visible-header>
+      <ic-prompt-template-library id="library" active-library="common" active-category="all" selected-template="" can-manage aria-label="提示词模板库"></ic-prompt-template-library>
+    </ic-dialog>
+  </main>
+
+  <div class="prototype-toast" role="status" hidden></div>
+  <script type="module" src="/static/prototypes/prompt-library-navigation-prototype.js"></script>
+</body>
+</html>

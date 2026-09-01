@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Reroll UI core browser contract</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/css/design-tokens.css">
+    <style>
+      .scrollbar-probe {
+        width: 5rem;
+        height: 3rem;
+        overflow: auto;
+      }
+      .scrollbar-probe-content { width: 10rem; height: 8rem; }
+      .scrollbar-probe-hidden { scrollbar-width: none; }
+      .scrollbar-probe-hidden::-webkit-scrollbar { display: none; }
+    </style>
+  </head>
+  <body>
+    <form id="button-form">
+      <ic-button id="save-button" type="submit" name="intent" value="save">
+        Save canvas
+      </ic-button>
+    </form>
+    <form id="input-form">
+      <ic-input
+        id="project-name"
+        name="projectName"
+        label="Project name"
+        value="Draft"
+        minlength="3"
+        required
+      ></ic-input>
+    </form>
+    <button id="dialog-trigger" type="button">Open delete dialog</button>
+    <ic-button id="focus-policy-button" type="button">Focus policy target</ic-button>
+    <button id="focus-menu-trigger" type="button">Open focus menu</button>
+    <ic-menu id="focus-policy-menu" label="Focus policy menu" trigger="dropdown" selection="command">
+      <ic-menu-item label="First item" value="first"></ic-menu-item>
+      <ic-menu-item label="Second item" value="second"></ic-menu-item>
+    </ic-menu>
+    <ic-dialog id="delete-dialog" label="Delete node">
+      <p>This removes the selected node.</p>
+      <button id="confirm-delete" type="button" slot="footer" autofocus>Confirm deletion</button>
+    </ic-dialog>
+    <div id="light-scrollbar-probe" class="scrollbar-probe"><div class="scrollbar-probe-content"></div></div>
+    <div id="hidden-scrollbar-probe" class="scrollbar-probe scrollbar-probe-hidden"><div class="scrollbar-probe-content"></div></div>
+    <pre id="ic-results"></pre>
+
+    <script type="module">
+      import { INFINITE_CANVAS_UI_ENGINE } from '/static/js/infinite-canvas-ui/core.js';
+
+      const resultsElement = document.querySelector('#ic-results');
+      const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      try {
+        customElements.define('ic-shadow-scrollbar-probe', class extends HTMLElement {
+          constructor() {
+            super();
+            this.attachShadow({ mode: 'open' }).innerHTML = `
+              <style>
+                .surface { width:5rem; height:3rem; overflow:auto; }
+                .content { width:10rem; height:8rem; }
+              </style>
+              <div class="surface"><div class="content"></div></div>
+            `;
+          }
+        });
+        const shadowScrollbarProbe = document.createElement('ic-shadow-scrollbar-probe');
+        document.body.append(shadowScrollbarProbe);
+        await Promise.all([
+          customElements.whenDefined('ic-button'),
+          customElements.whenDefined('ic-dialog'),
+          customElements.whenDefined('ic-input'),
+          customElements.whenDefined('ic-menu'),
+          customElements.whenDefined('ic-menu-item'),
+        ]);
+        await nextPaint();
+
+        const readScrollbar = element => {
+          const bar = getComputedStyle(element, '::-webkit-scrollbar');
+          const thumb = getComputedStyle(element, '::-webkit-scrollbar-thumb');
+          return {
+            width: bar.width,
+            height: bar.height,
+            thumbBackground: thumb.backgroundColor,
+            thumbRadius: thumb.borderRadius,
+            standardWidth: getComputedStyle(element).scrollbarWidth,
+          };
+        };
+        const lightScrollbar = readScrollbar(document.querySelector('#light-scrollbar-probe'));
+        const shadowScrollbar = readScrollbar(shadowScrollbarProbe.shadowRoot.querySelector('.surface'));
+        const hiddenScrollbar = {
+          standardWidth: getComputedStyle(document.querySelector('#hidden-scrollbar-probe')).scrollbarWidth,
+          display: getComputedStyle(document.querySelector('#hidden-scrollbar-probe'), '::-webkit-scrollbar').display,
+        };
+        document.documentElement.dataset.uiTheme = 'dark';
+        await nextPaint();
+        const darkScrollbar = readScrollbar(document.querySelector('#light-scrollbar-probe'));
+        const darkThumbProbe = document.createElement('span');
+        darkThumbProbe.style.background = 'var(--ui-color-border-primary)';
+        document.body.append(darkThumbProbe);
+        const expectedDarkThumb = getComputedStyle(darkThumbProbe).backgroundColor;
+        darkThumbProbe.remove();
+        document.documentElement.dataset.uiTheme = 'light';
+        await nextPaint();
+
+        const focusMenuTrigger = document.querySelector('#focus-menu-trigger');
+        const focusPolicyMenu = document.querySelector('#focus-policy-menu');
+        focusMenuTrigger.addEventListener('click', () => focusPolicyMenu.show(focusMenuTrigger));
+
+        const initialFocusModality = document.documentElement.dataset.icInputModality;
+        document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
+        const pointerFocusModality = document.documentElement.dataset.icInputModality;
+        const pointerRootStyle = getComputedStyle(document.documentElement);
+        const pointerFocusTokensSuppressed =
+          pointerRootStyle.getPropertyValue('--ui-focus-ring').trim() === 'none' &&
+          pointerRootStyle.getPropertyValue('--ui-focus-ring-shadow').trim() === 'none';
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+        const keyboardFocusModality = document.documentElement.dataset.icInputModality;
+        const keyboardFocusTokensEnabled =
+          getComputedStyle(document.documentElement).getPropertyValue('--ui-focus-ring').trim() !== 'none';
+
+        const form = document.querySelector('#button-form');
+        const button = document.querySelector('#save-button');
+        let clicks = 0;
+        let submits = 0;
+        let submittedIntent = null;
+        let clickTargetIsHost = false;
+
+        button.addEventListener('click', event => {
+          clicks += 1;
+          clickTargetIsHost = event.target === button;
+        });
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          submits += 1;
+          submittedIntent = new FormData(form, event.submitter).get('intent');
+        });
+
+        button.focus();
+        const focusedThroughHost = document.activeElement === button;
+        button.click();
+        await nextPaint();
+
+        button.disabled = true;
+        button.click();
+        await nextPaint();
+
+        const inputForm = document.querySelector('#input-form');
+        const input = document.querySelector('#project-name');
+        let inputEvents = 0;
+        let invalidEvents = 0;
+        input.addEventListener('input', () => {
+          inputEvents += 1;
+        });
+        input.addEventListener('ic-invalid', () => {
+          invalidEvents += 1;
+        });
+
+        const initialValue = input.value;
+        const initialFormValue = new FormData(inputForm).get('projectName');
+        input.value = '';
+        await nextPaint();
+        input.focus();
+        const inputFocusedThroughHost = document.activeElement === input;
+        const editCommandAccepted = document.execCommand('insertText', false, 'Studio');
+        await nextPaint();
+        input.blur();
+        const editedValue = input.value;
+        const editedFormValue = new FormData(inputForm).get('projectName');
+
+        input.value = '';
+        await nextPaint();
+        const invalidWhenRequired = !input.checkValidity();
+        inputForm.reset();
+        await nextPaint();
+        const resetValue = input.value;
+
+        const trigger = document.querySelector('#dialog-trigger');
+        const dialog = document.querySelector('#delete-dialog');
+        const confirmation = document.querySelector('#confirm-delete');
+        const once = (element, eventName) =>
+          new Promise(resolve => element.addEventListener(eventName, resolve, { once: true }));
+        let showEvents = 0;
+        let afterShowEvents = 0;
+        let hideEvents = 0;
+        let afterHideEvents = 0;
+        let cancelFirstHide = true;
+        let hideSourceIsHost = true;
+        dialog.addEventListener('ic-show', () => {
+          showEvents += 1;
+        });
+        dialog.addEventListener('ic-after-show', () => {
+          afterShowEvents += 1;
+        });
+        dialog.addEventListener('ic-hide', event => {
+          hideEvents += 1;
+          hideSourceIsHost = hideSourceIsHost && event.detail.source === dialog;
+          if (cancelFirstHide) {
+            cancelFirstHide = false;
+            event.preventDefault();
+          }
+        });
+        dialog.addEventListener('ic-after-hide', () => {
+          afterHideEvents += 1;
+        });
+        trigger.focus();
+        let afterShow = once(dialog, 'ic-after-show');
+        dialog.open = true;
+        await afterShow;
+        await nextPaint();
+        const focusEnteredDialog = document.activeElement === confirmation;
+
+        dialog.open = false;
+        await nextPaint();
+        const canceledHideKeptDialogOpen = dialog.open;
+
+        const afterHide = once(dialog, 'ic-after-hide');
+        dialog.open = false;
+        await afterHide;
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const focusReturnedToTrigger = document.activeElement === trigger;
+
+        afterShow = once(dialog, 'ic-after-show');
+        dialog.open = true;
+        await afterShow;
+        await nextPaint();
+
+        const platformFeatures = {
+          customElements: typeof customElements !== 'undefined',
+          ShadowRoot: typeof ShadowRoot !== 'undefined',
+          ElementInternals: typeof ElementInternals !== 'undefined',
+          formAssociatedCustomElements:
+            typeof ElementInternals !== 'undefined' &&
+            typeof ElementInternals.prototype.setFormValue === 'function',
+          HTMLDialogElement: typeof HTMLDialogElement !== 'undefined',
+        };
+
+        const report = {
+          engine: INFINITE_CANVAS_UI_ENGINE,
+          checks: {
+            platform: Object.values(platformFeatures).every(Boolean),
+            focusPolicy:
+              initialFocusModality === 'keyboard' &&
+              pointerFocusModality === 'pointer' &&
+              pointerFocusTokensSuppressed &&
+              keyboardFocusModality === 'keyboard' &&
+              keyboardFocusTokensEnabled,
+            button:
+              focusedThroughHost &&
+              clickTargetIsHost &&
+              clicks === 1 &&
+              submits === 1 &&
+              submittedIntent === 'save',
+            input:
+              initialValue === 'Draft' &&
+              initialFormValue === 'Draft' &&
+              inputFocusedThroughHost &&
+              editCommandAccepted &&
+              editedValue === 'Studio' &&
+              editedFormValue === 'Studio' &&
+              inputEvents === 1 &&
+              invalidWhenRequired &&
+              invalidEvents === 1 &&
+              resetValue === 'Draft',
+            dialog:
+              focusEnteredDialog &&
+              canceledHideKeptDialogOpen &&
+              focusReturnedToTrigger &&
+              hideSourceIsHost &&
+              showEvents === 2 &&
+              afterShowEvents === 2 &&
+              hideEvents === 2 &&
+              afterHideEvents === 1 &&
+              dialog.open,
+            scrollbar:
+              lightScrollbar.width === '4px' &&
+              lightScrollbar.height === '4px' &&
+              lightScrollbar.thumbRadius === '0px' &&
+              lightScrollbar.standardWidth === 'thin' &&
+              shadowScrollbar.width === lightScrollbar.width &&
+              shadowScrollbar.height === lightScrollbar.height &&
+              shadowScrollbar.thumbBackground === lightScrollbar.thumbBackground &&
+              shadowScrollbar.thumbRadius === lightScrollbar.thumbRadius &&
+              darkScrollbar.thumbBackground === expectedDarkThumb &&
+              darkScrollbar.thumbBackground !== lightScrollbar.thumbBackground &&
+              hiddenScrollbar.standardWidth === 'none' &&
+              hiddenScrollbar.display === 'none',
+          },
+          observations: {
+            platformFeatures,
+            initialFocusModality,
+            pointerFocusModality,
+            pointerFocusTokensSuppressed,
+            keyboardFocusModality,
+            keyboardFocusTokensEnabled,
+            focusedThroughHost,
+            clickTargetIsHost,
+            clicks,
+            submits,
+            submittedIntent,
+            initialValue,
+            initialFormValue,
+            inputFocusedThroughHost,
+            editCommandAccepted,
+            editedValue,
+            editedFormValue,
+            inputEvents,
+            invalidWhenRequired,
+            invalidEvents,
+            resetValue,
+            focusEnteredDialog,
+            canceledHideKeptDialogOpen,
+            focusReturnedToTrigger,
+            hideSourceIsHost,
+            showEvents,
+            afterShowEvents,
+            hideEvents,
+            afterHideEvents,
+            dialogOpenForAccessibility: dialog.open,
+            lightScrollbar,
+            shadowScrollbar,
+            darkScrollbar,
+            expectedDarkThumb,
+            hiddenScrollbar,
+          },
+        };
+        resultsElement.textContent = JSON.stringify(report);
+        document.documentElement.dataset.icTestStatus = Object.values(report.checks).every(Boolean)
+          ? 'passed'
+          : 'failed';
+      } catch (error) {
+        resultsElement.textContent = JSON.stringify({ error: String(error?.stack || error) });
+        document.documentElement.dataset.icTestStatus = 'failed';
+      }
+    </script>
+  </body>
+</html>

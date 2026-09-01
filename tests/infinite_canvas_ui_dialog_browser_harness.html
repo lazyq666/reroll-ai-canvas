@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" data-ic-dialog-test-status="loading">
+<head><meta charset="utf-8"><title>Dialog browser contract</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/static/css/design-tokens.css"></head>
+<body>
+  <button id="explicit-launcher" type="button">Open explicit</button>
+  <ic-tooltip id="stale-tooltip" content="Stale page tooltip"><button id="stale-tooltip-trigger" slot="trigger" type="button">Page help</button></ic-tooltip>
+  <button id="light-launcher" type="button">Open light</button>
+  <button id="confirmation-launcher" type="button">Open confirmation</button>
+  <button id="motion-launcher" type="button">Open motion test</button>
+  <ic-dialog id="explicit" label="Edit workspace" size="medium" dismiss-policy="explicit"><ic-input id="invalid-field" label="Workspace" required aria-invalid="true" autofocus></ic-input><ic-icon-button id="dialog-help" icon="collapse-editor" label="Collapse editor"></ic-icon-button><ic-button slot="footer" hierarchy="secondary">Cancel</ic-button><ic-button slot="footer" hierarchy="primary">Save</ic-button></ic-dialog>
+  <ic-dialog id="light" label="Read-only preview" size="x-large" dismiss-policy="light"><p>Lossless read-only content.</p></ic-dialog>
+  <ic-confirmation-dialog id="confirmation" label="Delete canvas?" description="This cannot be undone." confirm-label="Delete" cancel-label="Cancel" consequence="destructive"></ic-confirmation-dialog>
+  <ic-dialog id="motion" label="Motion test" size="small" dismiss-policy="explicit"><button type="button">Continue</button></ic-dialog>
+  <ic-dialog id="invalid" label="Broken" size="giant"></ic-dialog>
+  <pre id="ic-results"></pre>
+  <div id="layer-cover" style="position:fixed;inset:0;z-index:2147483647;pointer-events:auto"></div>
+  <script type="module">
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const settle = () => new Promise(resolve => setTimeout(resolve, 500));
+    const once = (target, type) => new Promise(resolve => target.addEventListener(type, resolve, { once:true }));
+    const report = { checks: {}, observations: {} };
+    const errors = [];
+    document.addEventListener('ic-contract-error', event => errors.push(event.detail));
+    await import('/static/js/infinite-canvas-ui/core.js');
+    await Promise.all(['ic-dialog', 'ic-confirmation-dialog'].map(tag => customElements.whenDefined(tag)));
+    await paint();
+    const explicit = document.querySelector('#explicit');
+    const light = document.querySelector('#light');
+    const confirmation = document.querySelector('#confirmation');
+    const motion = document.querySelector('#motion');
+    const explicitLauncher = document.querySelector('#explicit-launcher');
+    const lightLauncher = document.querySelector('#light-launcher');
+    const confirmationLauncher = document.querySelector('#confirmation-launcher');
+    const motionLauncher = document.querySelector('#motion-launcher');
+    explicitLauncher.addEventListener('click', () => explicit.show());
+    lightLauncher.addEventListener('click', () => light.show());
+    confirmationLauncher.addEventListener('click', () => confirmation.show());
+    motionLauncher.addEventListener('click', () => motion.show());
+    const motionEvents = [];
+    ['ic-show', 'ic-after-show', 'ic-hide', 'ic-after-hide'].forEach(type => motion.addEventListener(type, () => motionEvents.push(type)));
+    window.dialogContract = {
+      report,
+      async runMotion() {
+        const surface = motion.shadowRoot.querySelector('[part="dialog"]');
+        report.checks.motionInitial = motion.dataset.motionState === 'closed' && !motion.open;
+        motionLauncher.focus();
+        const firstShow = motion.show();
+        await paint();
+        const entryStyle = getComputedStyle(surface);
+        const backdropStyle = getComputedStyle(surface, '::backdrop');
+        report.checks.motionEntering = motion.dataset.motionState === 'entering'
+          && motion.open
+          && surface.open
+          && surface.classList.contains('show')
+          && entryStyle.animationName === 'ic-dialog-surface-enter'
+          && Number.parseFloat(entryStyle.animationDuration) === .24
+          && Number.parseFloat(backdropStyle.animationDuration) === .2;
+        await firstShow;
+        report.checks.motionOpen = motion.dataset.motionState === 'open'
+          && motion.open
+          && getComputedStyle(surface).transform === 'none';
+
+        const firstHide = motion.hide('motion-test');
+        await paint();
+        const exitStyle = getComputedStyle(surface);
+        report.checks.motionExiting = motion.dataset.motionState === 'exiting'
+          && motion.open
+          && surface.open
+          && surface.classList.contains('hide')
+          && Number.parseFloat(exitStyle.animationDuration) === .15;
+        await firstHide;
+        report.checks.motionClosed = motion.dataset.motionState === 'closed' && !motion.open && !surface.open;
+        report.checks.motionLifecycle = motionEvents.join(',') === 'ic-show,ic-after-show,ic-hide,ic-after-hide';
+
+        await motion.show();
+        const interruptedHide = motion.hide('interrupt');
+        await paint();
+        const reopened = once(motion, 'ic-after-show');
+        const reopenPromise = motion.show();
+        await reopened;
+        await interruptedHide;
+        await reopenPromise;
+        report.checks.motionInterruptible = motion.dataset.motionState === 'open'
+          && motion.open
+          && surface.open
+          && motionEvents.filter(type => type === 'ic-after-hide').length === 1;
+        await motion.hide('cleanup');
+
+        document.documentElement.dataset.uiMotion = 'reduced';
+        const reducedShow = motion.show();
+        await paint();
+        const hostStyle = getComputedStyle(motion);
+        report.checks.motionReduced = hostStyle.getPropertyValue('--show-duration').trim() === '1ms'
+          && hostStyle.getPropertyValue('--ic-dialog-motion-y').trim() === '0'
+          && hostStyle.getPropertyValue('--ic-dialog-motion-scale').trim() === '1';
+        await reducedShow;
+        await motion.hide('cleanup');
+        delete document.documentElement.dataset.uiMotion;
+        report.observations.motion = {
+          events:motionEvents,
+          backdropFilter:backdropStyle.backdropFilter,
+        };
+      },
+      async runEscape() {
+        explicitLauncher.focus(); explicitLauncher.click(); await paint();
+        report.observations.initialFocus = document.activeElement?.id || document.activeElement?.localName;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await settle();
+        report.checks.escape = !explicit.open;
+        report.checks.focusReturn = document.activeElement === explicitLauncher;
+      },
+      async openExplicit() {
+        const staleTooltip = document.querySelector('#stale-tooltip');
+        staleTooltip.show();
+        await paint();
+        const staleWasOpen = staleTooltip.hasAttribute('open');
+        explicitLauncher.focus();
+        await explicit.show();
+        await paint();
+        const dialogHelp = document.querySelector('#dialog-help');
+        dialogHelp.showTooltip();
+        await paint();
+        const dialogTooltip = dialogHelp.tooltip?.shadowRoot.querySelector('[role="tooltip"]');
+        const rect = dialogTooltip?.getBoundingClientRect();
+        const previousPointerEvents = dialogTooltip?.style.pointerEvents || '';
+        if (dialogTooltip) dialogTooltip.style.pointerEvents = 'auto';
+        const hit = rect ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) : null;
+        if (dialogTooltip) dialogTooltip.style.pointerEvents = previousPointerEvents;
+        report.checks.scopePolicy = staleWasOpen && !staleTooltip.hasAttribute('open');
+        report.checks.dialogTooltipTopLayer = Boolean(
+          dialogTooltip?.matches(':popover-open')
+          && hit !== document.querySelector('#layer-cover')
+        );
+        const dialogToast = customElements.get('ic-toast').notify(
+          'Dialog saved', { tone: 'success', duration: 0 },
+        );
+        await paint();
+        report.checks.toastScope = explicit.contains(dialogToast)
+          && dialogToast.matches(':popover-open');
+        dialogToast.dismiss();
+        dialogHelp.hideTooltip();
+      },
+      async openLight() { lightLauncher.focus(); await light.show(); await paint(); },
+      async openConfirmation() { confirmationLauncher.focus(); await confirmation.show(); await paint(); report.observations.confirmationInitialFocus = document.activeElement?.textContent?.trim(); },
+      async finish() {
+        report.checks.registered = Boolean(customElements.get('ic-dialog')) && Boolean(customElements.get('ic-confirmation-dialog'));
+        report.checks.contract = explicit.dataset.icContractStatus === 'ready' && light.dataset.icContractStatus === 'ready' && confirmation.dataset.icContractStatus === 'ready' && document.querySelector('#invalid').dataset.icContractStatus === 'invalid';
+        report.observations.contractStatuses = [...document.querySelectorAll('ic-dialog,ic-confirmation-dialog')].map(node => ({ id: node.id, status: node.dataset.icContractStatus, reason: node.dataset.icContractReason || '' }));
+        report.checks.initialFocus = report.observations.initialFocus === 'invalid-field';
+        report.checks.confirmation = report.observations.confirmationInitialFocus === 'Cancel';
+        report.checks.errors = errors.some(error => error.component === 'ic-dialog');
+        report.observations.errors = errors;
+        document.querySelector('#ic-results').textContent = JSON.stringify(report);
+        document.documentElement.dataset.icDialogTestStatus = Object.values(report.checks).every(Boolean) ? 'passed' : 'failed';
+      },
+    };
+    document.documentElement.dataset.icDialogTestStatus = 'ready';
+  </script>
+</body>
+</html>

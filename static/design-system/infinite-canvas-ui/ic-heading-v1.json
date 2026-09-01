@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.heading",
+  "interfaceVersion": 2,
+  "review": {
+    "contract": {
+      "status": "pending-human-confirmation",
+      "requestedOn": "2026-08-11",
+      "note": "Awaiting visual review of H1, H2, H3 and optional subtitle combinations."
+    },
+    "implementation": {
+      "status": "implemented",
+      "implementedOn": "2026-08-11",
+      "evidence": [
+        "/static/js/infinite-canvas-ui/heading.js",
+        "/static/design-system/infinite-canvas-ui/heading.html"
+      ]
+    },
+    "live": {
+      "status": "pending-human-confirmation"
+    }
+  },
+  "components": [
+    {
+      "tag": "ic-heading",
+      "purpose": "Render one explicit H1, H2 or H3 title with an optional supporting subtitle.",
+      "attributes": [
+        "level",
+        "subtitle"
+      ],
+      "requiredAttributes": [
+        "level"
+      ],
+      "slots": [
+        "default"
+      ],
+      "levels": [
+        {
+          "level": "1",
+          "element": "h1",
+          "fontToken": "--ui-text-title-1"
+        },
+        {
+          "level": "2",
+          "element": "h2",
+          "fontToken": "--ui-text-title-2"
+        },
+        {
+          "level": "3",
+          "element": "h3",
+          "fontToken": "--ui-text-title-3"
+        }
+      ],
+      "subtitle": {
+        "optional": true,
+        "attribute": "subtitle",
+        "element": "p",
+        "colorToken": "--ui-color-text-tertiary",
+        "fontToken": "--ui-text-subtitle"
+      },
+      "legalCombinations": [
+        { "id": "h1-title", "level": "1", "subtitle": false },
+        { "id": "h1-with-subtitle", "level": "1", "subtitle": true },
+        { "id": "h2-title", "level": "2", "subtitle": false },
+        { "id": "h2-with-subtitle", "level": "2", "subtitle": true },
+        { "id": "h3-title", "level": "3", "subtitle": false },
+        { "id": "h3-with-subtitle", "level": "3", "subtitle": true }
+      ],
+      "accessibility": {
+        "rule": "The level attribute creates the matching native h1, h2 or h3 element; visual size never replaces document hierarchy.",
+        "title": "The default slot must contain a visible title.",
+        "subtitle": "When supplied, the subtitle follows the native heading as supporting paragraph text."
+      }
+    }
+  ],
+  "liveMatrix": {
+    "fixture": "/static/design-system/infinite-canvas-ui/heading.html",
+    "caseFixture": "/static/design-system/infinite-canvas-ui/heading-case.html",
+    "legalCombinationCount": 6,
+    "caseCount": 4
+  }
+}

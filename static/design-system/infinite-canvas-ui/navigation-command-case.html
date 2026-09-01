@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Navigation / Command Case</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.26.1">
+  <style>
+    html { --ui-library-matrix-cell-min-width: 360px; }
+    html, body { margin: 0; color: var(--ui-color-text-primary); background: var(--ui-color-surface-canvas); font-family: var(--ui-font-sans); }
+    body { padding: var(--ui-space-4); }
+    main { display: grid; gap: var(--ui-space-6); }
+    section { min-width: 0; display: grid; gap: var(--ui-space-5); padding: var(--ui-space-5); border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius: var(--ui-radius-l); background: var(--ui-color-surface); }
+    article { min-width: 0; display: grid; gap: var(--ui-space-3); }
+    h2, h3 { margin: 0; }
+    h2 { font-size: var(--ui-font-size-5); }
+    h3 { font-size: var(--ui-font-size-3); }
+    button, a { font: inherit; }
+    .examples { display: grid; gap: var(--ui-space-3); }
+    .navigation-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-4); align-items: start; }
+    .narrow { max-width: 340px; }
+    .long { max-width: 460px; }
+    .narrow section { padding: var(--ui-space-4); }
+    .narrow .navigation-items { grid-template-columns: minmax(0, 1fr); }
+  </style>
+  <script>
+    const q = new URLSearchParams(location.search);
+    document.documentElement.dataset.uiTheme = q.get('theme') || 'light';
+    document.documentElement.dataset.uiDensity = q.get('density') || 'medium';
+    document.documentElement.dataset.uiMotion = q.get('motion') || 'standard';
+    document.documentElement.lang = q.get('locale') || 'zh-CN';
+    addEventListener('DOMContentLoaded', () => {
+      if (q.get('viewport') === 'narrow') document.querySelector('main').classList.add('narrow');
+      if (q.has('long')) document.querySelector('main').classList.add('long');
+    });
+  </script>
+</head>
+<body>
+  <main>
+    <section data-navigation-command-group="view-switching">
+      <h2>视图切换 · View switching</h2>
+      <article>
+        <h3>Tabs</h3>
+        <div class="examples">
+          <ic-tabs data-legal-combination="horizontal-automatic-label" data-component-name="ic-tabs-horizontal" data-copy-kind="组件别名" data-ui-library-matrix-label="横向 · 文字" label="Workspace views" value="canvas" activation="automatic" space="0.125rem"><button data-value="canvas">Canvas</button><button data-value="assets">Assets</button><button data-value="history">Generation history with a deliberately long label</button></ic-tabs>
+          <ic-tabs data-legal-combination="horizontal-manual-label-icon" data-component-name="ic-tabs-horizontal-icon" data-copy-kind="组件别名" data-ui-library-matrix-label="横向 · 图标与文字" label="Inspector views" value="properties" activation="manual"><button data-value="properties"><ic-icon name="settings" aria-hidden="true"></ic-icon>Properties</button><button data-value="history"><ic-icon name="history" aria-hidden="true"></ic-icon>History</button></ic-tabs>
+          <ic-tabs data-legal-combination="vertical-manual-label" data-component-name="ic-tabs-vertical" data-copy-kind="组件别名" data-ui-library-matrix-label="纵向 · 文字" label="Configuration areas" value="general" orientation="vertical" activation="manual" space="0.125rem"><button data-value="general">General</button><button data-value="advanced">Advanced</button></ic-tabs>
+        </div>
+      </article>
+      <article>
+        <h3>Tabs 尺寸</h3>
+        <div class="examples">
+          <ic-tabs data-component-name="ic-tabs-small" data-ui-library-matrix-label="小" data-legal-combination="horizontal-automatic-label" label="Small workspace views" value="canvas" size="small"><button data-value="canvas">Canvas</button><button data-value="assets">Assets</button></ic-tabs>
+          <ic-tabs data-component-name="ic-tabs-medium" data-ui-library-matrix-label="中" data-legal-combination="horizontal-automatic-label" label="Medium workspace views" value="canvas" size="medium"><button data-value="canvas">Canvas</button><button data-value="assets">Assets</button></ic-tabs>
+          <ic-tabs data-component-name="ic-tabs-large" data-ui-library-matrix-label="大" data-legal-combination="horizontal-automatic-label" label="Large workspace views" value="canvas" size="large"><button data-value="canvas">Canvas</button><button data-value="assets">Assets</button></ic-tabs>
+        </div>
+      </article>
+      <article>
+        <h3>Segmented Control</h3>
+        <div class="examples">
+          <ic-segmented-control data-legal-combination="single-label" data-component-name="ic-segmented-control" data-copy-kind="组件别名" data-ui-library-matrix-label="文字" label="View mode" value="grid"><button data-value="grid">Grid</button><button data-value="list">List</button><button data-value="compare">Compare</button></ic-segmented-control>
+          <ic-segmented-control data-legal-combination="single-icon-label" data-component-name="ic-segmented-control-icon" data-copy-kind="组件别名" data-ui-library-matrix-label="图标与文字" label="Canvas presentation" value="fit"><button data-value="fit">↙ Fit</button><button data-value="actual">● Actual size</button></ic-segmented-control>
+        </div>
+      </article>
+      <article>
+        <h3>Segmented Control 尺寸</h3>
+        <div class="examples">
+          <ic-segmented-control data-component-name="ic-segmented-control-small" data-ui-library-matrix-label="小" label="Small view mode" value="grid" size="small"><button data-value="grid">Grid</button><button data-value="list">List</button></ic-segmented-control>
+          <ic-segmented-control data-component-name="ic-segmented-control-medium" data-ui-library-matrix-label="中" label="Medium view mode" value="grid" size="medium"><button data-value="grid">Grid</button><button data-value="list">List</button></ic-segmented-control>
+          <ic-segmented-control data-component-name="ic-segmented-control-large" data-ui-library-matrix-label="大" label="Large view mode" value="grid" size="large"><button data-value="grid">Grid</button><button data-value="list">List</button></ic-segmented-control>
+        </div>
+      </article>
+    </section>
+
+    <section data-navigation-command-group="wayfinding">
+      <h2>位置导航 · Wayfinding</h2>
+      <article>
+        <h3>Navigation Item</h3>
+        <nav class="navigation-items" aria-label="Settings">
+          <ic-nav-item data-legal-combination="route-icon-label" label="General settings" href="#general" icon="settings" current="page"></ic-nav-item>
+          <ic-nav-item data-legal-combination="route-label" label="Models and providers" href="#models"></ic-nav-item>
+          <ic-nav-item data-legal-combination="route-label-secondary" label="按钮" secondary-label="Button" href="#buttons"></ic-nav-item>
+          <ic-nav-item data-legal-combination="section-label" label="Keyboard shortcuts" href="#shortcuts" current="section"></ic-nav-item>
+          <ic-nav-item data-legal-combination="section-label-secondary" label="设计参数" secondary-label="Design tokens" href="#tokens"></ic-nav-item>
+        </nav>
+      </article>
+      <article>
+        <h3>Expandable Navigation</h3>
+        <div class="examples">
+          <ic-nav-disclosure data-component-name="ic-nav-disclosure" data-ui-library-matrix-label="展开" label="Local tools" icon="project-default" open-icon="project" open><ic-nav-item label="Text to image" href="#text-to-image" current="page"></ic-nav-item><ic-nav-item label="Detail enhancement" href="#enhance"></ic-nav-item><ic-nav-item label="Image editing" href="#edit"></ic-nav-item></ic-nav-disclosure>
+          <ic-nav-disclosure data-component-name="ic-nav-disclosure-compact" data-ui-library-matrix-label="紧凑" label="Local tools" icon="project-default" open-icon="project" compact><ic-nav-item label="Text to image" href="#compact-text-to-image"></ic-nav-item></ic-nav-disclosure>
+        </div>
+      </article>
+      <article>
+        <h3>分区导航 · Section Navigation</h3>
+        <ic-prompt-template-library id="librarySwitchDemo" data-component-name="section-navigation" aria-label="分区导航示例" active-library="common" active-category="all" open></ic-prompt-template-library>
+      </article>
+      <article>
+        <h3>Breadcrumb</h3>
+        <ic-breadcrumb data-legal-combination="ancestor-links-current-text" label="Breadcrumb"><a href="#workspace">Workspace</a><a href="#projects">Projects</a><span>Extremely long current project location that must remain understandable</span></ic-breadcrumb>
+      </article>
+    </section>
+
+    <section data-navigation-command-group="pagination">
+      <h2>内容翻页 · Pagination</h2>
+      <article>
+        <h3>Pagination</h3>
+        <div class="examples">
+          <ic-pagination data-legal-combination="known-pages" data-ui-library-matrix-label="页码" label="Generation results pages" page="8" page-count="24" mode="pages"></ic-pagination>
+          <ic-pagination data-legal-combination="sequential" data-ui-library-matrix-label="上一页与下一页" label="Sequential activity pages" page="3" mode="previous-next"></ic-pagination>
+        </div>
+      </article>
+    </section>
+
+    <section data-navigation-command-group="commands">
+      <h2>内容操作 · Commands</h2>
+      <article>
+        <h3>Toolbar</h3>
+        <div class="examples">
+          <ic-toolbar data-legal-combination="horizontal-inline" data-ui-library-matrix-label="横向" label="Canvas commands"><ic-icon-button icon="add" label="Add"></ic-icon-button><ic-icon-button icon="save" label="Save"></ic-icon-button><ic-button hierarchy="secondary">Export current selection</ic-button></ic-toolbar>
+          <ic-toolbar data-legal-combination="horizontal-inline-plain" data-ui-library-matrix-label="无边框" label="Inline form commands" appearance="plain"><ic-button hierarchy="secondary">Verify</ic-button><ic-button hierarchy="primary">Save</ic-button></ic-toolbar>
+          <ic-toolbar data-legal-combination="vertical-inline-plain" data-ui-library-matrix-label="纵向无边框" label="Drawing commands" orientation="vertical" appearance="plain"><ic-icon-button icon="add" label="Add"></ic-icon-button><ic-icon-button icon="delete" label="Delete"></ic-icon-button></ic-toolbar>
+        </div>
+      </article>
+      <article>
+        <h3>Floating Toolbar</h3>
+        <div class="examples">
+          <ic-floating-toolbar data-legal-combination="inline-scroll" data-ui-library-matrix-label="单行滚动" label="Selected node commands"><ic-icon-button icon="edit" label="Edit"></ic-icon-button><ic-icon-button icon="download" label="Download"></ic-icon-button></ic-floating-toolbar>
+          <ic-floating-toolbar data-legal-combination="inline-clip" data-ui-library-matrix-label="单行裁切" label="Annotation options" overflow="clip"><ic-button size="xs" hierarchy="quiet">Small</ic-button><ic-button size="xs" hierarchy="quiet">Medium</ic-button><ic-button size="xs" hierarchy="quiet">Large</ic-button></ic-floating-toolbar>
+        </div>
+      </article>
+    </section>
+
+    <section data-navigation-command-group="progress">
+      <h2>流程进度 · Progress</h2>
+      <article>
+        <h3>Steps</h3>
+        <ic-steps data-legal-combination="horizontal-progress" label="Batch generation progress" current="2"><span data-step="1">Configure</span><span data-step="2">Task preview</span><span data-step="3">Batch details</span></ic-steps>
+      </article>
+    </section>
+
+    <section data-navigation-command-group="states">
+      <h2>状态 · States</h2>
+      <article>
+        <h3>不可用、处理中与无效</h3>
+        <div class="examples">
+          <ic-segmented-control data-ui-library-matrix-label="不可用" label="Disabled mode selector" value="grid" disabled><button data-value="grid">Grid</button><button data-value="list">List</button></ic-segmented-control>
+          <ic-pagination data-ui-library-matrix-label="处理中" label="Busy pages" page="2" page-count="8" busy></ic-pagination>
+          <ic-tabs data-ui-library-matrix-label="无效" label="Invalid tabs without an accepted activation" value="one" activation="invalid"><button data-value="one">Invalid contract</button></ic-tabs>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <style>
+    ic-prompt-template-library#librarySwitchDemo { width: min(20rem, 100%); height: 23rem; display: block; }
+    ic-prompt-template-library#librarySwitchDemo::part(header),
+    ic-prompt-template-library#librarySwitchDemo::part(search),
+    ic-prompt-template-library#librarySwitchDemo::part(grid) { display: none; }
+    ic-prompt-template-library#librarySwitchDemo::part(library-layout) { height: 100%; grid-template-columns: minmax(0, 1fr); padding: 0; }
+    ic-prompt-template-library#librarySwitchDemo::part(sidebar) { width: 100%; min-width: 0; max-height: none; border: 0; }
+  </style>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module">
+    await customElements.whenDefined('ic-prompt-template-library');
+    const demo = document.querySelector('#librarySwitchDemo');
+    demo.libraries = [
+      { id: 'common', name: '通用', categories: [{ id: 'lens', name: '镜头' }, { id: 'light', name: '光影' }] },
+      { id: 'canvas', name: '当前画布', scope: 'canvas', categories: [] },
+    ];
+    demo.templates = [
+      { id: 'wide', libraryId: 'common', category: 'lens', name: '广角镜头', positive: '远景，广角。' },
+      { id: 'canvas-note', libraryId: 'canvas', name: '角色约束', positive: '保持角色一致。' },
+    ];
+    demo.addEventListener('ic-library-change', event => {
+      demo.activeLibrary = event.detail.libraryId;
+      demo.activeCategory = 'all';
+    });
+    demo.addEventListener('ic-category-change', event => {
+      demo.activeCategory = event.detail.categoryId;
+    });
+  </script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="smart-canvas-booting" data-canvas-opening-phase="booting" data-studio-scale="off" data-ui-scope="smart-canvas">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>html.smart-canvas-booting body *{visibility:hidden!important}</style>
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <title data-i18n="smart.title">智能画布</title>
+    <script>
+        (function(){
+            window.__showSmartCanvasBootError = function(){
+                var reveal = function(){
+                    document.documentElement.classList.remove('smart-canvas-booting');
+                    document.documentElement.dataset.canvasOpeningPhase = 'error';
+                    document.getElementById('shell')?.setAttribute('aria-hidden','true');
+                    document.getElementById('canvasOpeningError')?.removeAttribute('aria-hidden');
+                };
+                if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', reveal, {once:true});
+                else reveal();
+            };
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('theme-dark');
+                    document.documentElement.classList.add('studio-theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <link rel="stylesheet" href="/static/css/account-avatar.css?v=2026.09.01.2.1788146221">
+    <script src="/static/vendor/js/lucide.js?v=2026.09.01.2.1785206114"></script>
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/touch-mouse.js?v=2026.09.01.2.1785221122"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+    <script src="/static/js/model-vendor-icons.js?v=2026.09.01.2.1786933744"></script>
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=2026.09.01.2.1788164774">
+    <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.2.1787561133">
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=2026.09.01.2.1788146221"></script>
+</head>
+<body>
+    <main id="canvasOpeningError" class="canvas-opening-error" role="alert" aria-hidden="true">
+        <div class="canvas-opening-error-card">
+            <span class="canvas-opening-error-mark" aria-hidden="true">!</span>
+            <h1 data-i18n="smart.openingErrorTitle">无法打开画布</h1>
+            <p id="canvasOpeningErrorMessage" data-i18n="smart.openingErrorGeneric">画布暂时无法打开，请重试。</p>
+            <div class="canvas-opening-error-actions">
+                <button id="canvasOpeningRetry" type="button" data-i18n="smart.openingRetry">重试</button>
+                <button id="canvasOpeningBack" type="button" data-i18n="canvas.backToList">返回画布列表</button>
+            </div>
+        </div>
+    </main>
+    <p id="canvasOpeningStatus" class="canvas-opening-status" role="status" aria-live="polite" data-i18n="smart.openingPreparing">正在准备画布…</p>
+    <div id="shell" class="shell" tabindex="0" aria-label="智能画布" data-i18n-aria-label="smart.title">
+        <ic-canvas-grid id="smartCanvasGrid"></ic-canvas-grid>
+        <div id="world" class="world"></div>
+        <div id="presencePointerOverlay" class="presence-pointer-overlay" aria-hidden="true"></div>
+        <div id="presenceMembers" class="presence-members" aria-label="在线成员" data-i18n-aria-label="smart.presenceMembers" hidden></div>
+        <div id="smartNodeFloatingPortal" class="smart-node-floating-portal" aria-hidden="true"></div>
+        <ic-floating-toolbar id="smartTextOptions" class="smart-annotation-options smart-text-options" label="文字大小" data-i18n-label="smart.textSize" overflow="clip">
+            <button type="button" data-smart-text-size="small">Small</button>
+            <button type="button" data-smart-text-size="medium" class="active">Medium</button>
+            <button type="button" data-smart-text-size="large">Large</button>
+        </ic-floating-toolbar>
+        <ic-canvas-multi-selection id="smartMultiSelectionBox" class="smart-multi-selection-box" label="整体缩放" data-i18n-label="smart.scaleSelection" aria-hidden="true"></ic-canvas-multi-selection>
+        <ic-smart-node-context-menu id="smartNodeContextMenu" label="节点操作" data-i18n-label="smart.nodeActions" data-legal-combination="context-command-iconless"></ic-smart-node-context-menu>
+        <div id="composerFocusBackdrop" class="composer-focus-backdrop" aria-hidden="true"></div>
+        <div id="composer" class="composer">
+                <div class="composer-card">
+                    <div id="inputThumbsRow" class="input-thumbs-row"></div>
+                    <ic-icon-button id="composerFocusToggle" class="composer-focus-toggle" type="button" size="s" hierarchy="quiet" icon="focus-editor" label="展开" data-i18n-label="smart.focusEdit" tooltip-placement="block-start" data-action-combination="quiet-icon-action" aria-expanded="false"></ic-icon-button>
+                    <div class="prompt-row prompt-editor-shell">
+                        <ic-prompt-composer id="promptInput" contenteditable="true" aria-label="提示词编辑器" aria-describedby="promptCharacterCount" data-i18n-aria-label="smart.promptEditor" data-i18n-placeholder="smart.promptPlaceholder" data-placeholder="描述你想生成的图片、视频或文本，输入 @ 引用素材，或从提示词库开始…"></ic-prompt-composer>
+                        <span id="promptCharacterCount" class="prompt-character-count" data-prompt-character-count>0</span>
+                    </div>
+                    <div class="param-row">
+                        <ic-button id="apiKindToggle" type="button" value="image" aria-label="切换为视频生成" data-i18n-aria-label="smart.switchToVideoGeneration" hierarchy="quiet" size="small" data-component-variant="generation-kind" data-legal-combination="quiet-action" style="display:none">
+                            <ic-icon id="apiKindIcon" name="image-generate" size="small" slot="start" aria-hidden="true"></ic-icon>
+                            <span id="apiKindLabel" data-i18n="smart.kindImageGeneration">图片生成</span>
+                            <ic-icon name="switch-horizontal" size="small" slot="end" aria-hidden="true"></ic-icon>
+                        </ic-button>
+                        <div id="dynamicParams" class="dynamic-params"></div>
+                        <ic-icon-button id="composerTemplateBtn" class="composer-template-btn" type="button" size="small" hierarchy="quiet" icon="prompt-library" label="模板" data-i18n-label="smart.template" tooltip-placement="block-start" data-action-combination="quiet-icon-toggle" aria-controls="promptTemplateDialog" aria-expanded="false" toggle></ic-icon-button>
+                    </div>
+                    <div class="composer-actions">
+                        <ic-icon-button id="runBtn" class="run-btn" type="button" size="large" hierarchy="primary" icon="submit" label="运行" data-i18n-label="smart.run" tooltip-placement="block-start" data-action-combination="primary-icon-action"></ic-icon-button>
+                    </div>
+                </div>
+        </div>
+        <ic-mention-picker id="mentionPicker" label="提示建议" data-i18n-label="smart.mentionSuggestions" empty-label="没有匹配项" data-i18n-empty-label="smart.noMatches"></ic-mention-picker>
+        <ic-tooltip id="inputTextPreviewTooltip" class="input-text-preview-tooltip" content="引用文本预览" data-i18n-content="smart.referencedTextPreview" placement="block-start"></ic-tooltip>
+        <ic-menu id="referenceGenerateMenu" class="reference-generate-menu" label="引用该节点生成" data-i18n-label="smart.referenceGenerate" trigger="context" selection="command" size="small" variant="reference-generate" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
+            <span class="reference-generate-label" role="presentation" aria-hidden="true" data-i18n="smart.referenceGenerate">引用该节点生成</span>
+            <ic-menu-item kind="command" value="text" icon="text" label="文本" data-i18n-label="smart.kindText"></ic-menu-item>
+            <ic-menu-item kind="command" value="image" icon="image" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
+            <ic-menu-item kind="command" value="video" icon="video" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
+        </ic-menu>
+        <ic-menu id="upstreamInputMenu" class="reference-generate-menu upstream-input-menu" label="添加上游输入" data-i18n-label="smart.addUpstreamInput" trigger="context" selection="command" size="small" variant="reference-generate" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
+            <span class="reference-generate-label" role="presentation" aria-hidden="true" data-i18n="smart.addUpstreamInput">添加上游输入</span>
+            <ic-menu-item kind="command" value="text" icon="text" label="文本" data-i18n-label="smart.kindText"></ic-menu-item>
+            <ic-menu-item kind="command" value="image" icon="image" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
+            <ic-menu-item kind="command" value="video" icon="video" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
+        </ic-menu>
+        <svg id="smartAnnotationPreview" class="smart-annotation-preview" aria-hidden="true"></svg>
+        <div id="smartAnnotationCursor" class="smart-annotation-cursor" aria-hidden="true" hidden>
+            <span class="smart-annotation-cursor-symbol"></span>
+            <svg class="smart-annotation-brush-cursor-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path class="smart-annotation-brush-cursor-shape" d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path>
+                <path class="smart-annotation-brush-cursor-detail" d="m15 5 4 4"></path>
+            </svg>
+            <small class="smart-annotation-cursor-label"></small>
+        </div>
+        <ic-button class="smart-back" type="button" size="m" hierarchy="secondary" onclick="backToCanvasList()" aria-label="返回画布列表" data-i18n-aria-label="canvas.backToList">
+            <ic-icon name="back" size="small" slot="start"></ic-icon>
+            <span id="smartTitle" data-i18n="smart.title">智能画布</span>
+        </ic-button>
+        <div id="canvasSyncStatus" class="canvas-sync-status is-idle" role="status" aria-live="polite" hidden data-i18n="smart.syncPreparing">正在准备实时协作…</div>
+        <ic-menu id="createMenu" class="create-menu" size="small" label="创建节点" data-i18n-label="smart.createNode" trigger="dropdown" selection="command" placement="block-end" alignment="start" data-legal-combination="dropdown-command-small">
+            <ic-menu-item kind="command" value="upload" icon="upload" label="上传媒体" data-i18n-label="smart.uploadMedia"></ic-menu-item>
+            <ic-menu-item kind="command" value="prompt" icon="prompt" label="提示词" data-i18n-label="smart.promptNode"></ic-menu-item>
+            <ic-menu-item kind="command" value="generate" icon="generate" label="生成图片/视频" data-i18n-label="smart.action.generateMedia"></ic-menu-item>
+            <span data-create-menu-structure-separator role="separator" aria-hidden="true"></span>
+            <ic-menu-item kind="command" value="group" icon="group" label="编组" data-i18n-label="smart.group"></ic-menu-item>
+            <ic-menu-item kind="command" value="frame" icon="frame" label="分区" data-i18n-label="smart.frame"></ic-menu-item>
+            <ic-menu-item kind="command" value="splitter" icon="split" label="分隔符" data-i18n-label="smart.separator"></ic-menu-item>
+            <ic-menu-item kind="command" value="loop" icon="loop" label="批量运行" data-i18n-label="smart.loop"></ic-menu-item>
+            <span data-create-menu-paste-separator role="separator" aria-hidden="true" hidden></span>
+            <ic-menu-item kind="command" value="paste" icon="paste" label="粘贴节点" data-i18n-label="smart.contextPaste" hidden disabled><kbd></kbd></ic-menu-item>
+            <ic-menu-item kind="command" value="batch-import" icon="upload" label="批量导入节点" data-i18n-label="smart.batchImportNodes" hidden></ic-menu-item>
+        </ic-menu>
+        <ic-file-input id="fileInput" label="上传媒体" data-i18n-label="smart.uploadMedia" accept="image/*,video/*,audio/*,.png,.jpg,.jpeg,.webp,.gif,.mp4,.webm,.mov,.m4v,.mp3,.wav,.m4a,.aac,.ogg,.flac" max-files="20" multiple hidden></ic-file-input>
+        <input id="referenceFileInput" type="file" accept="text/plain,.txt,image/*,video/*,audio/*" multiple hidden aria-label="上传本地引用" data-i18n-aria-label="smart.uploadLocalReference">
+        <ic-smart-minimap id="minimap" class="smart-minimap" aria-label="导航地图" data-i18n-aria-label="share.minimap"></ic-smart-minimap>
+        <ic-smart-canvas-dock id="smartCanvasDock" label="智能画布工具栏" data-i18n-label="smart.toolbar" orientation="vertical" data-position="left">
+            <ic-icon-button id="smartPointerTool" class="smart-canvas-dock-btn active" data-value="pointer" type="button" size="s" hierarchy="quiet" icon="cursor" label="指针" data-i18n-label="smart.pointer" shortcut="V" toggle pressed></ic-icon-button>
+            <ic-icon-button id="smartHandTool" class="smart-canvas-dock-btn" data-value="hand" type="button" size="s" hierarchy="quiet" icon="hand" label="抓手" data-i18n-label="smart.hand" shortcut="H" toggle></ic-icon-button>
+            <ic-icon-button id="smartBrushTool" class="smart-canvas-dock-btn smart-brush-tool" data-value="brush" type="button" size="s" hierarchy="quiet" icon="brush" label="画笔" data-i18n-label="smart.brush" shortcut="P" toggle></ic-icon-button>
+            <ic-icon-button id="smartTextTool" class="smart-canvas-dock-btn" data-value="text" type="button" size="s" hierarchy="quiet" icon="text" label="文字" data-i18n-label="smart.text" shortcut="T" toggle></ic-icon-button>
+            <ic-icon-button id="smartFrameTool" class="smart-canvas-dock-btn" data-value="frame" type="button" size="s" hierarchy="quiet" icon="frame" label="分区" data-i18n-label="smart.frame" shortcut="Shift+S" toggle></ic-icon-button>
+            <ic-divider class="smart-canvas-dock-divider" orientation="horizontal"></ic-divider>
+            <ic-icon-button id="smartLogToggle" class="smart-canvas-dock-btn smart-log-toggle" data-value="logs" type="button" size="s" hierarchy="quiet" icon="log" label="日志" data-i18n-label="canvas.logs" onclick="openSmartCanvasLog()"></ic-icon-button>
+            <ic-icon-button id="promptTemplateDockToggle" class="smart-canvas-dock-btn prompt-template-dock-toggle" data-value="prompt-templates" type="button" size="s" hierarchy="quiet" icon="prompt-library" label="提示词模板" data-i18n-label="smart.promptTemplates" aria-controls="promptTemplateDialog" aria-expanded="false"></ic-icon-button>
+            <ic-icon-button id="workspaceAssetDockToggle" class="smart-canvas-dock-btn workspace-asset-dock-toggle" data-value="workspace-assets" type="button" size="s" hierarchy="quiet" icon="collection" label="资产库" data-i18n-label="smart.workspaceAssetLibrary" aria-controls="workspaceAssetDialog" aria-expanded="false"></ic-icon-button>
+            <ic-icon-button id="smartSettingsToggle" class="smart-canvas-dock-btn smart-settings-toggle" data-value="settings" type="button" size="s" hierarchy="quiet" icon="settings" label="设置" data-i18n-label="common.settings" aria-controls="smartSettingsPanel" aria-expanded="false"></ic-icon-button>
+            <ic-floating-toolbar id="smartBrushOptions" class="smart-annotation-options smart-brush-options" label="画笔设置" data-i18n-label="smart.brushSettings" overflow="clip">
+                <div class="smart-brush-size-options" aria-label="画笔粗细" data-i18n-aria-label="smart.brushWidth">
+                    <button type="button" data-smart-brush-size="3" title="细画笔" aria-label="细画笔" data-i18n-title="smart.brushThin" data-i18n-aria-label="smart.brushThin"><span style="height:3px"></span></button>
+                    <button type="button" data-smart-brush-size="6" class="active" title="中画笔" aria-label="中画笔" data-i18n-title="smart.brushMedium" data-i18n-aria-label="smart.brushMedium"><span style="height:6px"></span></button>
+                    <button type="button" data-smart-brush-size="10" title="粗画笔" aria-label="粗画笔" data-i18n-title="smart.brushThick" data-i18n-aria-label="smart.brushThick"><span style="height:10px"></span></button>
+                </div>
+                <span class="smart-annotation-options-divider" aria-hidden="true"></span>
+                <div class="smart-brush-color-options" aria-label="画笔颜色" data-i18n-aria-label="smart.brushColor">
+                    <button type="button" data-smart-brush-color="#111827" class="active" style="--smart-mark-color:#111827" title="黑色" aria-label="黑色" data-i18n-title="smart.colorBlack" data-i18n-aria-label="smart.colorBlack"></button>
+                    <button type="button" data-smart-brush-color="#ef4444" style="--smart-mark-color:#ef4444" title="红色" aria-label="红色" data-i18n-title="smart.colorRed" data-i18n-aria-label="smart.colorRed"></button>
+                    <button type="button" data-smart-brush-color="#f59e0b" style="--smart-mark-color:#f59e0b" title="橙色" aria-label="橙色" data-i18n-title="smart.colorOrange" data-i18n-aria-label="smart.colorOrange"></button>
+                    <button type="button" data-smart-brush-color="#3b82f6" style="--smart-mark-color:#3b82f6" title="蓝色" aria-label="蓝色" data-i18n-title="smart.colorBlue" data-i18n-aria-label="smart.colorBlue"></button>
+                    <button type="button" data-smart-brush-color="#22c55e" style="--smart-mark-color:#22c55e" title="绿色" aria-label="绿色" data-i18n-title="smart.colorGreen" data-i18n-aria-label="smart.colorGreen"></button>
+                </div>
+            </ic-floating-toolbar>
+            <div id="smartSettingsPanel" class="smart-canvas-settings-panel" aria-label="画布设置" data-i18n-aria-label="smart.canvasSettings">
+                <div class="smart-canvas-settings-body">
+                    <section class="smart-canvas-settings-section">
+                        <div class="smart-canvas-settings-section-heading">
+                            <h2 data-i18n="smart.canvasSection">画布</h2>
+                            <ic-icon-button id="smartCanvasThemeToggle" class="smart-canvas-theme-toggle" type="button" size="s" hierarchy="quiet" icon="theme" label="切换深色模式" data-i18n-label="smart.switchToDarkTheme"></ic-icon-button>
+                        </div>
+                        <div class="smart-canvas-settings-row smart-canvas-dock-position-row">
+                            <div class="smart-canvas-settings-copy">
+                                <strong data-i18n="smart.dockPosition">工具栏位置</strong>
+                            </div>
+                            <ic-tabs id="smartCanvasDockPositionControl" class="smart-canvas-dock-position-control" data-component-name="ic-tabs-small" label="工具栏位置" data-i18n-label="smart.dockPosition" value="left" size="small" orientation="horizontal" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                                <button type="button" data-value="bottom" data-i18n="smart.dockBottom">底部</button>
+                                <button type="button" data-value="left" data-i18n="smart.dockLeft">左侧</button>
+                            </ic-tabs>
+                        </div>
+                        <div class="smart-canvas-settings-row">
+                            <div class="smart-canvas-settings-copy">
+                                <strong id="smartImagePerformanceLabel" data-i18n="smart.imagePerformance">图片性能优化</strong>
+                            </div>
+                            <ic-switch id="smartImagePerformanceToggle" class="smart-canvas-setting-switch" name="smart-canvas-image-performance" label="图片性能优化" data-i18n-label="smart.imagePerformance" aria-labelledby="smartImagePerformanceLabel" checked></ic-switch>
+                        </div>
+                    </section>
+                    <section class="smart-canvas-settings-section">
+                        <h2 data-i18n="smart.generationSection">生成</h2>
+                        <div class="smart-canvas-settings-row smart-canvas-settings-select-row">
+                            <span class="smart-canvas-settings-copy">
+                                <strong data-i18n="smart.generationEngine">生成引擎</strong>
+                            </span>
+                            <ic-select id="engineSelect" class="engine-select" data-component-name="ic-select-small" name="generation-engine" aria-label="生成引擎" data-i18n-aria-label="smart.generationEngine" size="small" placement="top">
+                                <option value="api" data-i18n="smart.engineApi" selected>API 生成</option>
+                                <option value="volcengine" data-i18n="smart.engineVolcengine">火山引擎</option>
+                                <option value="modelscope" data-i18n="smart.engineMs">MS生成</option>
+                                <option value="comfy" data-i18n="smart.engineComfy">ComfyUI生成</option>
+                                <option value="runninghub" data-i18n="smart.engineRh">RunningHub</option>
+                                <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
+                            </ic-select>
+                        </div>
+                        <div class="smart-canvas-settings-row smart-canvas-generation-layout-row">
+                            <div class="smart-canvas-settings-copy">
+                                <strong data-i18n="smart.generationBatchLayout">多结果布局</strong>
+                            </div>
+                            <ic-tabs id="smartGenerationBatchLayoutControl" class="smart-canvas-generation-layout-control" data-component-name="ic-tabs-small" label="多结果布局" data-i18n-label="smart.generationBatchLayout" value="horizontal" size="small" orientation="horizontal" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                                <button type="button" data-value="horizontal" data-i18n="smart.generationBatchHorizontal">横向</button>
+                                <button type="button" data-value="vertical" data-i18n="smart.generationBatchVertical">纵向</button>
+                            </ic-tabs>
+                        </div>
+                    </section>
+                    <section class="smart-canvas-settings-section">
+                        <h2 data-i18n="smart.operationSection">操作</h2>
+                        <div class="smart-canvas-settings-row smart-canvas-settings-speed-row">
+                            <span class="smart-canvas-settings-copy"><strong data-i18n="smart.zoomSpeed">缩放速度</strong></span>
+                            <span class="smart-canvas-settings-slider-control">
+                                <ic-slider id="smartCanvasZoomSpeed" class="smart-canvas-settings-slider" label="缩放速度" data-i18n-label="smart.zoomSpeed" name="smart-canvas-zoom-speed" size="s" min="50" max="200" step="10" value="100" value-text="1×"></ic-slider>
+                                <output id="smartCanvasZoomSpeedValue" for="smartCanvasZoomSpeed">1×</output>
+                            </span>
+                        </div>
+                        <div class="smart-canvas-settings-row smart-canvas-settings-speed-row">
+                            <span class="smart-canvas-settings-copy"><strong data-i18n="smart.panSpeed">滑动速度</strong></span>
+                            <span class="smart-canvas-settings-slider-control">
+                                <ic-slider id="smartCanvasPanSpeed" class="smart-canvas-settings-slider" label="滑动速度" data-i18n-label="smart.panSpeed" name="smart-canvas-pan-speed" size="s" min="50" max="200" step="10" value="100" value-text="1×"></ic-slider>
+                                <output id="smartCanvasPanSpeedValue" for="smartCanvasPanSpeed">1×</output>
+                            </span>
+                        </div>
+                    </section>
+                </div>
+                <footer class="smart-canvas-settings-footer">
+                    <button id="smartShortcutSettingsAction" class="smart-canvas-settings-link" type="button" aria-controls="smartShortcutDialog" aria-expanded="false" onclick="openSmartCanvasShortcuts()">
+                        <ic-icon name="keyboard" size="small" aria-hidden="true"></ic-icon>
+                        <span data-i18n="smart.shortcuts">快捷键</span>
+                        <kbd id="smartShortcutSettingsShortcut">⌘ /</kbd>
+                        <ic-icon name="forward" size="small" aria-hidden="true"></ic-icon>
+                    </button>
+                </footer>
+            </div>
+        </ic-smart-canvas-dock>
+        <input id="smartNodeImportInput" type="file" accept=".json,.zip,application/json,application/zip" hidden>
+        <div id="selectionBox" class="selection-box"></div>
+        <div id="generationFailureAlertQueue" class="generation-failure-alert-queue" data-generation-failure-queue data-queue-length="0" aria-label="生成失败提醒" data-i18n-aria-label="smart.generationFailureNotifications"></div>
+        <div id="mentionPreview" class="mention-preview" aria-hidden="true"></div>
+    </div>
+    <ic-prompt-node-focus-surface id="promptNodeFocusSurface" class="prompt-node-focus-surface" label="提示词编辑器" data-i18n-label="smart.promptEditor"></ic-prompt-node-focus-surface>
+        <ic-dialog id="imageEditModal" class="image-edit-dialog" label="图片编辑" data-i18n-label="smart.imageEditing" size="x-large" dismiss-policy="explicit" immersive>
+            <ic-image-edit-mode-toolbar id="imageEditModeToolbar" label="图片编辑模式栏" data-i18n-label="smart.imageEditModes"></ic-image-edit-mode-toolbar>
+                <ic-image-edit-dock id="imageEditWorkbench" class="image-edit-workbench" label="图片工作栏" data-i18n-label="smart.imageEditControls" slot="footer">
+                  <div class="image-edit-workbench-tools" slot="tools">
+                    <ic-toolbar id="imagePreviewTools" class="image-edit-tools image-preview-tools" label="图片预览控制" data-i18n-label="smart.imagePreviewControls" appearance="plain" orientation="horizontal" hidden>
+                        <div id="imagePreviewActions" class="image-preview-actions image-preview-command-section" hidden>
+                            <ic-button id="previewDownloadBtn" type="button" size="small" hierarchy="quiet" onclick="downloadPreviewImage()"><ic-icon name="download" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="canvas.download">下载</span></ic-button>
+                            <ic-button id="previewDownloadAllBtn" type="button" size="small" hierarchy="quiet" onclick="downloadPreviewGroup()" style="display:none"><ic-icon name="zip" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.downloadAll">下载全部</span></ic-button>
+                            <ic-button id="compareToggleBtn" type="button" size="small" hierarchy="quiet" toggle onclick="togglePreviewCompare()" style="display:none"><ic-icon name="layout-horizontal" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.compareSource">对比原图</span></ic-button>
+                            <ic-tabs id="compareThumbs" class="compare-thumbs" label="父图对比来源" data-i18n-label="smart.compareSource" value="none" orientation="horizontal" activation="manual" style="display:none">
+                                <template id="compareThumbTemplate"><button type="button" class="compare-thumb"></button></template>
+                            </ic-tabs>
+                        </div>
+                        <div id="videoFrameTools" class="video-frame-tools image-preview-command-section" style="display:none">
+                            <ic-button id="previewVideoLoopBtn" type="button" size="small" hierarchy="secondary" aria-pressed="false" toggle onclick="togglePreviewVideoLoop()"><ic-icon name="loop" size="small" slot="start" aria-hidden="true"></ic-icon><span data-video-loop-label data-i18n="smart.action.autoLoop">自动循环</span></ic-button>
+                            <ic-button type="button" size="small" hierarchy="secondary" onclick="exportVideoFrame('first')"><ic-icon name="first-last-frames" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportFirstFrame">导出首帧</span></ic-button>
+                            <ic-button type="button" size="small" hierarchy="primary" onclick="exportVideoFrame('current')"><ic-icon name="extract-frame" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportCurrentFrame">导出当前帧</span></ic-button>
+                            <ic-button type="button" size="small" hierarchy="secondary" onclick="exportVideoFrame('last')"><ic-icon name="first-last-frames" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportLastFrame">导出尾帧</span></ic-button>
+                        </div>
+                        <span id="previewGroupNavHint" class="image-preview-control-group preview-group-nav-hint">
+                            <ic-image-edit-value class="preview-group-nav-position" label="编组内图片位置" data-i18n-label="smart.groupImagePosition" role="status" aria-live="polite" aria-atomic="true">
+                                <ic-icon-button id="previewGroupPrevBtn" type="button" size="small" hierarchy="quiet" icon="back" label="上一张" data-i18n-label="smart.previous" onclick="navigatePreviewImage(-1)"></ic-icon-button>
+                                <strong id="previewGroupNavCount">1 / 1</strong>
+                                <ic-icon-button id="previewGroupNextBtn" type="button" size="small" hierarchy="quiet" icon="forward" label="下一张" data-i18n-label="smart.next" onclick="navigatePreviewImage(1)"></ic-icon-button>
+                            </ic-image-edit-value>
+                        </span>
+                        <span class="image-preview-control-group image-preview-zoom-controls">
+                            <ic-icon-button type="button" size="small" hierarchy="quiet" icon="zoom-out" label="缩小" data-i18n-label="canvas.decrease" onclick="stepImageStudioPreviewZoom(-0.1)"></ic-icon-button>
+                            <ic-image-edit-value id="imageEditZoomLabel" class="image-edit-zoom-label" label="预览缩放比例" title="双击重置缩放" data-i18n-title="canvas.resetZoomTitle" ondblclick="resetImageEditZoom()">100%</ic-image-edit-value>
+                            <ic-icon-button type="button" size="small" hierarchy="quiet" icon="zoom-in" label="放大" data-i18n-label="canvas.increase" onclick="stepImageStudioPreviewZoom(0.1)"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="quiet" icon="fit" label="适应/复位" data-i18n-label="canvas.fit" onclick="resetImageEditZoom()"></ic-icon-button>
+                        </span>
+                    </ic-toolbar>
+                    <ic-toolbar id="imagePanoramaTools" class="image-edit-tools image-panorama-tools" label="360全景参数" data-i18n-label="smart.panoramaControls" appearance="plain" orientation="horizontal" hidden>
+                        <div id="panoramaControls" class="panorama-controls" style="display:none">
+                            <div class="panorama-control-group">
+                                <ic-image-edit-selector class="panorama-control-line" label="全景视窗比例" data-i18n-label="smart.panoramaRatio">
+                                    <span class="panorama-control-label" data-i18n="smart.panoramaRatio">视窗比例</span>
+                                    <ic-tabs id="panoramaRatioTabs" class="panorama-ratio-tabs" label="全景视窗比例" data-i18n-label="smart.panoramaRatio" value="wide" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                                        <button type="button" data-value="square" data-panorama-ratio="square">1:1</button>
+                                        <button type="button" data-value="portrait" data-panorama-ratio="portrait">2:3</button>
+                                        <button type="button" data-value="landscape" data-panorama-ratio="landscape">3:2</button>
+                                        <button type="button" data-value="portrait43" data-panorama-ratio="portrait43">3:4</button>
+                                        <button type="button" data-value="landscape43" data-panorama-ratio="landscape43">4:3</button>
+                                        <button type="button" data-value="story" data-panorama-ratio="story">9:16</button>
+                                        <button type="button" data-value="wide" data-panorama-ratio="wide">16:9</button>
+                                        <button type="button" data-value="ultrawide" data-panorama-ratio="ultrawide">21:9</button>
+                                        <button type="button" data-value="ultratall" data-panorama-ratio="ultratall">9:21</button>
+                                        <button type="button" data-value="custom" data-panorama-ratio="custom" data-i18n="smart.custom">自定义</button>
+                                    </ic-tabs>
+                                    <span id="panoramaCustomRatio" class="panorama-custom-ratio" style="display:none">
+                                        <ic-number-input id="panoramaRatioW" name="panorama-ratio-width" label="全景比例宽度" data-i18n-label="smart.panoramaWidth" min="1" max="999" step="1" value="16" size="small"></ic-number-input>
+                                        <span>:</span>
+                                        <ic-number-input id="panoramaRatioH" name="panorama-ratio-height" label="全景比例高度" data-i18n-label="smart.panoramaHeight" min="1" max="999" step="1" value="9" size="small"></ic-number-input>
+                                    </span>
+                                </ic-image-edit-selector>
+                            </div>
+                        </div>
+                        <ic-icon-button id="panoramaResetBtn" type="button" size="small" hierarchy="quiet" icon="fit" label="重置视角" data-i18n-label="smart.panoramaReset" onclick="resetPanoramaView()" style="display:none"></ic-icon-button>
+                        <ic-button id="panoramaExportBtn" type="button" size="small" hierarchy="secondary" onclick="exportPanoramaFrame()" style="display:none"><ic-icon name="extract-frame" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.panoramaExport">导出画面</span></ic-button>
+                    </ic-toolbar>
+                    <ic-toolbar id="imageCropTools" class="image-edit-tools crop-ratio-tools" label="裁剪比例" data-i18n-label="smart.cropRatio" appearance="plain" orientation="horizontal" hidden>
+                    <ic-image-edit-selector class="image-edit-option-row image-edit-option-row-start" label="裁剪比例" data-i18n-label="smart.cropRatio">
+                        <span class="image-edit-option-name" data-i18n="smart.cropRatio">裁剪比例</span>
+                        <div class="image-edit-option-input">
+                            <ic-aspect-ratio-picker id="cropRatioTabs" class="crop-ratio-picker" name="crop-ratio" label="裁剪比例" data-i18n-label="smart.cropRatio" presets="adaptive,keep_ratio,1:1,4:3,3:4,16:9,9:16,3:2,2:3" value="adaptive" adaptive-label="自由" data-i18n-adaptive-label="smart.freeRatio" keep-ratio-label="原图" data-i18n-keep-ratio-label="smart.originalImage" hide-label data-component-variant="toolbar" data-component-name="ic-aspect-ratio-picker-toolbar"></ic-aspect-ratio-picker>
+                        </div>
+                    </ic-image-edit-selector>
+                    </ic-toolbar>
+                    <ic-toolbar id="imageMaskTools" class="image-edit-tools" label="遮罩工具" data-i18n-label="smart.maskTools" appearance="plain" orientation="horizontal" hidden>
+                    <ic-image-edit-slider class="image-edit-option-row" label="笔刷大小" data-i18n-label="smart.brushSize">
+                        <span class="image-edit-option-name" data-i18n="smart.thickness">粗细</span>
+                        <div class="image-edit-option-input"><ic-slider id="maskBrushSize" name="mask-brush-size" label="笔刷大小" data-i18n-label="canvas.brushSize" min="4" max="160" step="1" value="42" value-text="42"></ic-slider></div>
+                    </ic-image-edit-slider>
+                    <ic-image-edit-selector class="image-edit-option-row" label="历史操作" data-i18n-label="smart.editHistory">
+                        <div class="image-edit-option-input image-edit-inline-actions">
+                            <ic-icon-button id="maskUndoBtn" type="button" size="small" hierarchy="secondary" icon="restore" label="撤销" data-i18n-label="canvas.undo" onclick="undoEditDrawing()"></ic-icon-button>
+                            <ic-icon-button id="maskRedoBtn" type="button" size="small" hierarchy="secondary" icon="redo" label="恢复" data-i18n-label="canvas.redo" onclick="redoEditDrawing()"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="delete" label="清空" data-i18n-label="canvas.clear" onclick="clearEditDrawing()"></ic-icon-button>
+                        </div>
+                    </ic-image-edit-selector>
+                    <span class="image-edit-inspector-note" data-i18n="canvas.maskHint">白色区域为要编辑的遮罩</span>
+                    </ic-toolbar>
+                    <ic-toolbar id="imageBrushTools" class="image-edit-tools" label="画笔工具" data-i18n-label="smart.brushTools" appearance="plain" orientation="horizontal" hidden>
+                    <ic-image-edit-selector class="image-edit-option-row image-edit-option-row-start" label="标注工具" data-i18n-label="smart.annotationTools">
+                        <div class="image-edit-option-input image-edit-inline-actions image-edit-inline-actions-wrap">
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="pencil" label="自由画笔" data-i18n-label="canvas.freeBrush" data-brush-tool="free" toggle pressed onclick="setBrushTool('free')"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="rectangle-horizontal" label="矩形" data-i18n-label="canvas.rectangle" data-brush-tool="rect" toggle onclick="setBrushTool('rect')"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="circle" label="椭圆" data-i18n-label="canvas.ellipse" data-brush-tool="ellipse" toggle onclick="setBrushTool('ellipse')"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="number-label" label="数字标签" data-i18n-label="canvas.numberLabel" data-brush-tool="label" toggle onclick="setBrushTool('label')"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="text-label" label="文字标签" data-i18n-label="canvas.textLabel" data-brush-tool="text" toggle onclick="setBrushTool('text')"></ic-icon-button>
+                        </div>
+                    </ic-image-edit-selector>
+                    <ic-image-edit-slider class="image-edit-option-row brush-style-control" label="粗细和颜色" data-i18n-label="smart.brushStyle">
+                        <span class="image-edit-option-name" data-i18n="smart.thickness">粗细</span>
+                        <div class="image-edit-option-input">
+                            <ic-slider id="paintBrushSize" name="paint-brush-size" label="粗细" data-i18n-label="smart.thickness" min="2" max="80" step="1" value="14" value-text="14"></ic-slider>
+                            <span id="paintBrushSizeValue" class="brush-size-value" aria-hidden="true">14</span>
+                            <ic-color-field id="paintBrushColor" name="paint-brush-color" label="画笔颜色" data-i18n-label="smart.brushColor" value="#ff2d55" size="small"></ic-color-field>
+                        </div>
+                    </ic-image-edit-slider>
+                    <ic-image-edit-selector class="image-edit-option-row" label="历史操作" data-i18n-label="smart.editHistory">
+                        <div class="image-edit-option-input image-edit-inline-actions">
+                            <ic-icon-button id="brushUndoBtn" type="button" size="small" hierarchy="secondary" icon="restore" label="撤销" data-i18n-label="canvas.undo" onclick="undoEditDrawing()"></ic-icon-button>
+                            <ic-icon-button id="brushRedoBtn" type="button" size="small" hierarchy="secondary" icon="redo" label="恢复" data-i18n-label="canvas.redo" onclick="redoEditDrawing()"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="delete" label="清空" data-i18n-label="canvas.clear" onclick="clearEditDrawing()"></ic-icon-button>
+                        </div>
+                    </ic-image-edit-selector>
+                    </ic-toolbar>
+                    <ic-toolbar id="imageResizeTools" class="image-edit-tools image-resize-tools" label="图片缩放" data-i18n-label="smart.imageResize" appearance="plain" orientation="horizontal" hidden>
+                    <ic-image-edit-slider class="image-edit-option-row image-edit-option-row-start" label="缩放倍数" data-i18n-label="smart.scaleFactor">
+                        <span class="image-edit-option-name" data-i18n="canvas.scale">缩放倍数</span>
+                        <div class="image-edit-option-input image-resize-option-input">
+                            <ic-slider id="imageResizeScaleRange" name="image-resize-scale" label="缩放倍数" data-i18n-label="canvas.scale" min="0.05" max="1" step="0.05" value="0.5" value-text="0.5×"></ic-slider>
+                            <span class="image-resize-number"><ic-number-input id="imageResizeScaleInput" name="image-resize-scale-number" label="缩放倍数" data-i18n-label="smart.scaleFactor" min="0.05" max="1" step="0.05" value="0.5" size="small"></ic-number-input><span>×</span></span>
+                        </div>
+                    </ic-image-edit-slider>
+                    <ic-image-edit-value class="image-edit-option-row" label="输出尺寸" data-i18n-label="smart.outputSize">
+                        <span class="image-edit-option-name" data-i18n="smart.outputSize">输出尺寸</span>
+                        <div class="image-edit-option-input"><ic-badge kind="label" tone="neutral"><span id="imageResizeResolution" class="image-resize-resolution">-</span></ic-badge></div>
+                    </ic-image-edit-value>
+                    </ic-toolbar>
+                    <ic-toolbar id="imageGridTools" class="image-edit-tools" label="宫格工具" data-i18n-label="smart.gridTools" appearance="plain" orientation="horizontal" data-dock-width="wide" hidden>
+                    <ic-image-edit-selector class="image-edit-option-row" label="宫格操作" data-i18n-label="smart.gridOperation">
+                        <span class="image-edit-option-name" data-i18n="smart.gridOperation">宫格操作</span>
+                        <div class="image-edit-option-input">
+                            <ic-segmented-control id="gridOperationControl" class="grid-operation-toggle" label="宫格操作" data-i18n-label="smart.gridOperation" value="split" data-legal-combination="single-label">
+                                <button id="gridSplitModeBtn" type="button" data-value="split" onclick="setGridOperationMode('split')" data-i18n="smart.split">切分</button>
+                                <button id="gridJoinModeBtn" type="button" data-value="join" onclick="setGridOperationMode('join')" data-i18n="smart.join">拼接</button>
+                            </ic-segmented-control>
+                        </div>
+                    </ic-image-edit-selector>
+                    <ic-image-edit-selector class="image-edit-option-row grid-split-control" label="自定义" data-i18n-label="smart.customGrid">
+                        <span class="image-edit-option-name" data-i18n="canvas.gridCustom">自定义</span>
+                        <div class="image-edit-option-input"><ic-button id="gridCustomToggle" type="button" size="small" hierarchy="secondary" toggle onclick="toggleGridCustomMode()" data-i18n="canvas.gridCustom" data-i18n-title="canvas.gridCustomTitle">自定义</ic-button></div>
+                    </ic-image-edit-selector>
+                    <ic-image-edit-selector class="image-edit-option-row image-edit-option-row-start grid-preset-row grid-split-control" label="宫格切分预设" data-i18n-label="smart.gridSplitPresets">
+                        <span class="image-edit-option-name" data-i18n="canvas.gridPresets">预设</span>
+                        <div class="image-edit-option-input image-edit-preset-actions">
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridPreset(1, 2)">1×2</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridPreset(2, 1)">2×1</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridPreset(2, 2)">2×2</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridPreset(2, 3)">2×3</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridPreset(3, 2)">3×2</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridPreset(3, 3)">3×3</ic-button>
+                        </div>
+                    </ic-image-edit-selector>
+                    <ic-image-edit-selector id="gridJoinPresetRow" class="image-edit-option-row image-edit-option-row-start grid-preset-row grid-join-control" label="宫格拼接预设" data-i18n-label="smart.gridJoinPresets" style="display:none">
+                        <span class="image-edit-option-name" data-i18n="canvas.gridPresets">预设</span>
+                        <div class="image-edit-option-input image-edit-preset-actions">
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridJoinPreset(1, 2)">1×2</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridJoinPreset(2, 1)">2×1</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridJoinPreset(2, 2)">2×2</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridJoinPreset(2, 3)">2×3</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridJoinPreset(3, 2)">3×2</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="applyGridJoinPreset(3, 3)">3×3</ic-button>
+                            <ic-button size="small" hierarchy="quiet" type="button" onclick="resetGridJoinLayout()" data-i18n="smart.qualityAuto">自动</ic-button>
+                        </div>
+                    </ic-image-edit-selector>
+                    <ic-image-edit-selector id="gridJoinSizeRow" class="image-edit-option-row grid-join-control" label="拼接输出尺寸" data-i18n-label="smart.gridJoinOutputSize" style="display:none">
+                        <span class="image-edit-option-name" data-i18n="smart.dimension">输出尺寸</span>
+                        <div class="image-edit-option-input"><ic-segmented-control id="gridJoinSizeControl" label="拼接输出尺寸" data-i18n-label="smart.gridJoinOutputSize" value="2048" data-legal-combination="single-label">
+                                <button type="button" data-value="1024" data-grid-join-size="1024" onclick="setGridJoinOutputSize(1024)">1K</button>
+                                <button type="button" data-value="2048" data-grid-join-size="2048" onclick="setGridJoinOutputSize(2048)">2K</button>
+                                <button type="button" data-value="4096" data-grid-join-size="4096" onclick="setGridJoinOutputSize(4096)">4K</button>
+                            </ic-segmented-control></div>
+                    </ic-image-edit-selector>
+                    <div id="gridRegularControls" class="grid-split-control grid-number-controls" style="display:contents">
+                        <ic-image-edit-selector class="image-edit-option-row" label="横向线"><span class="image-edit-option-name" data-i18n="canvas.gridHLines">横向线</span><div class="image-edit-option-input"><ic-number-input id="gridHorizontalLines" name="grid-horizontal-lines" label="横向线" data-i18n-label="canvas.gridHLines" min="0" max="20" step="1" value="2" size="small"></ic-number-input></div></ic-image-edit-selector>
+                        <ic-image-edit-selector class="image-edit-option-row" label="竖向线"><span class="image-edit-option-name" data-i18n="canvas.gridVLines">竖向线</span><div class="image-edit-option-input"><ic-number-input id="gridVerticalLines" name="grid-vertical-lines" label="竖向线" data-i18n-label="canvas.gridVLines" min="0" max="20" step="1" value="2" size="small"></ic-number-input></div></ic-image-edit-selector>
+                    </div>
+                    <ic-image-edit-selector id="gridCustomControls" class="image-edit-option-row grid-split-control" label="切割线方向" data-i18n-label="smart.gridLineDirection" style="display:none">
+                        <span class="image-edit-option-name" data-i18n="smart.direction">方向</span>
+                        <div class="image-edit-option-input image-edit-inline-actions">
+                            <ic-segmented-control id="gridOrientationControl" label="切割线方向" data-i18n-label="smart.gridLineDirection" value="h" data-legal-combination="single-label">
+                                <button id="gridOrientH" type="button" data-value="h" onclick="setGridCustomOrientation('h')" data-i18n="canvas.gridOrientH">水平</button>
+                                <button id="gridOrientV" type="button" data-value="v" onclick="setGridCustomOrientation('v')" data-i18n="canvas.gridOrientV">垂直</button>
+                            </ic-segmented-control>
+                            <ic-icon-button id="gridUndoBtn" type="button" size="small" hierarchy="secondary" icon="restore" label="撤销上一条线" data-i18n-label="canvas.gridUndo" onclick="undoGridCustomLine()" disabled></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="delete" label="清除所有自定义线" data-i18n-label="canvas.gridClearLines" onclick="clearGridCustomLines()"></ic-icon-button>
+                        </div>
+                    </ic-image-edit-selector>
+                    <ic-image-edit-slider class="image-edit-option-row grid-gap-control" label="间隔"><span class="image-edit-option-name" data-i18n="canvas.gridGap">间隔</span><div class="image-edit-option-input"><ic-slider id="gridGapSize" name="grid-gap-size" label="间隔(px)" data-i18n-label="canvas.gridGap" min="0" max="240" step="1" value="0" value-text="0px"></ic-slider><span id="gridGapValue" class="grid-gap-value">0</span></div></ic-image-edit-slider>
+                    <span id="gridSplitCount" class="image-edit-inspector-note"></span>
+                    </ic-toolbar>
+                  </div>
+                  <div id="imageEditCommitActions" class="image-edit-commit-actions" slot="actions" hidden>
+                    <ic-button id="imageEditCancelBtn" type="button" size="small" hierarchy="quiet" onclick="cancelImageEdit()" data-i18n="common.cancel">取消</ic-button>
+                    <ic-button id="imageEditApplyBtn" type="button" size="small" hierarchy="primary" onclick="applyImageEdit()"><ic-icon name="check" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.confirmChanges">确认修改</span></ic-button>
+                  </div>
+                </ic-image-edit-dock>
+            <div id="imageEditStage" class="image-edit-stage">
+                    <div id="imageStudioResolutionNotice" class="image-studio-resolution-notice" role="status" hidden></div>
+                    <div class="image-edit-stage-inner">
+                        <div id="previewStage" class="preview-stage" style="display:none">
+                            <ic-media-container id="previewMediaContainer" class="preview-media-container" label="媒体预览" data-i18n-label="smart.mediaPreview" kind="image" fit="contain" aspect="auto" state="ready">
+                            <div id="previewFrame" class="preview-frame">
+                                <img id="previewCurrentImage" class="preview-current" alt="current">
+                                <video id="previewCurrentVideo" class="preview-current preview-current-video" controls preload="metadata" crossorigin="anonymous" playsinline disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback nofullscreen" style="display:none"></video>
+                                <div id="panoramaStage" class="panorama-stage" style="display:none">
+                                    <canvas id="panoramaCanvas"></canvas>
+                                    <ic-loading id="panoramaLoading" class="panorama-loading" label="加载中..." data-i18n-label="smart.panoramaLoading" presentation="region"></ic-loading>
+                                </div>
+                                <div id="previewCompareLayer" class="preview-compare-layer">
+                                    <img id="previewCompareImage" alt="original">
+                                </div>
+                                <div id="previewCompareHandle" class="preview-compare-handle" data-i18n-title="smart.compareDrag" title="拖动对比"></div>
+                            </div>
+                            </ic-media-container>
+                        </div>
+                        <div id="cropCanvas" class="crop-canvas">
+                            <img id="cropImage" alt="crop source">
+                            <div class="crop-shade crop-shade-top" data-crop-shade="top" aria-hidden="true"></div>
+                            <div class="crop-shade crop-shade-right" data-crop-shade="right" aria-hidden="true"></div>
+                            <div class="crop-shade crop-shade-bottom" data-crop-shade="bottom" aria-hidden="true"></div>
+                            <div class="crop-shade crop-shade-left" data-crop-shade="left" aria-hidden="true"></div>
+                            <div id="gridJoinCanvas" class="grid-join-canvas"></div>
+                            <canvas id="editDrawCanvas" class="edit-draw-canvas"></canvas>
+                            <canvas id="editTextCanvas" class="edit-text-canvas"></canvas>
+                            <div id="cropBox" class="crop-box">
+                                <span class="crop-grid-line crop-grid-line-v crop-grid-line-one" aria-hidden="true"></span>
+                                <span class="crop-grid-line crop-grid-line-v crop-grid-line-two" aria-hidden="true"></span>
+                                <span class="crop-grid-line crop-grid-line-h crop-grid-line-one" aria-hidden="true"></span>
+                                <span class="crop-grid-line crop-grid-line-h crop-grid-line-two" aria-hidden="true"></span>
+                                <div class="crop-handle" data-crop-handle="nw"></div>
+                                <div class="crop-handle" data-crop-handle="n"></div>
+                                <div class="crop-handle" data-crop-handle="ne"></div>
+                                <div class="crop-handle" data-crop-handle="e"></div>
+                                <div id="cropHandle" class="crop-handle" data-crop-handle="se"></div>
+                                <div class="crop-handle" data-crop-handle="s"></div>
+                                <div class="crop-handle" data-crop-handle="sw"></div>
+                                <div class="crop-handle" data-crop-handle="w"></div>
+                            </div>
+                            <div id="resizeResolutionOverlay" class="resize-resolution-overlay"></div>
+                        </div>
+                    </div>
+            </div>
+        </ic-dialog>
+        <div id="smartContextResultBackdrop" class="smart-context-result-backdrop" hidden>
+            <section class="smart-context-result-panel" role="dialog" aria-modal="true" aria-labelledby="smartContextResultTitle">
+                <header>
+                    <div>
+                        <strong id="smartContextResultTitle" data-i18n="smart.contextReversePrompt">图片反推提示词</strong>
+                        <span id="smartContextResultStatus"></span>
+                    </div>
+                    <button id="smartContextResultClose" type="button" title="关闭" aria-label="关闭" data-i18n-title="common.close" data-i18n-aria-label="common.close"><i data-lucide="x"></i></button>
+                </header>
+                <section id="smartContextResultInputs" class="smart-context-result-inputs" aria-labelledby="smartContextResultInputsLabel" hidden>
+                    <strong id="smartContextResultInputsLabel" data-i18n="smart.runInputImages">输入图片</strong>
+                    <div id="smartContextResultInputList" class="smart-context-result-input-list"></div>
+                </section>
+                <textarea id="smartContextResultText" aria-label="结果文本" data-i18n-aria-label="smart.resultText"></textarea>
+                <footer>
+                    <button id="smartContextResultCopy" class="secondary" type="button"><i data-lucide="copy"></i><span data-i18n="canvas.copy">复制</span></button>
+                    <span></span>
+                    <button id="smartContextResultCreate" class="secondary" type="button"><i data-lucide="square-plus"></i><span data-i18n="smart.createPromptNode">创建提示词节点</span></button>
+                    <button id="smartContextResultApply" class="primary" type="button"><i data-lucide="corner-down-left"></i><span data-i18n="smart.fillPromptInput">填入提示词输入框</span></button>
+                </footer>
+            </section>
+        </div>
+        <div id="referenceViewerBackdrop" class="reference-viewer-backdrop" hidden>
+            <section class="reference-viewer" role="dialog" aria-modal="true" aria-labelledby="referenceViewerTitle">
+                <header><strong id="referenceViewerTitle" tabindex="-1" data-i18n="smart.referencePreview">引用预览</strong><button id="referenceViewerClose" type="button" title="关闭" aria-label="关闭" data-i18n-title="common.close" data-i18n-aria-label="common.close"><i data-lucide="x"></i></button></header>
+                <div id="referenceViewerContent" class="reference-viewer-content"></div>
+            </section>
+        </div>
+    <ic-dialog id="smartLogModal" class="generation-log-modal" label="生成日志" data-i18n-label="canvas.generationLogs" size="large" dismiss-policy="light">
+        <div class="generation-log-dialog">
+            <div id="smartLogList" class="generation-log-master-detail">
+                <aside class="generation-log-index" aria-label="生成任务" data-i18n-aria-label="smart.generationLog.taskIndex">
+                    <div class="generation-log-index-scroll" role="listbox" data-generation-log-index></div>
+                </aside>
+                <section class="generation-log-detail" aria-live="polite" data-generation-log-detail></section>
+            </div>
+            <div class="generation-log-lightbox" role="dialog" aria-modal="true" aria-label="查看引用图" data-i18n-aria-label="smart.generationLog.referencePreview" data-generation-log-lightbox hidden>
+                <img alt="引用图预览" data-i18n-alt="smart.referenceImagePreview">
+                <ic-icon-button type="button" size="s" hierarchy="quiet" icon="close" label="关闭图片预览" data-i18n-label="smart.generationLog.closeReferencePreview" data-generation-log-lightbox-close></ic-icon-button>
+            </div>
+        </div>
+    </ic-dialog>
+    <ic-dialog id="smartShortcutDialog" class="smart-shortcut-dialog" data-component-name="ic-dialog-compact-light" label="快捷键" data-i18n-label="smart.shortcuts" size="small" variant="compact" dismiss-policy="light">
+        <div class="smart-shortcut-dialog-content">
+            <ic-form-field class="smart-shortcut-search-field" data-component-name="ic-form-field-search">
+                <ic-input id="smartShortcutSearch" class="smart-shortcut-search" slot="control" type="search" aria-label="搜索快捷键" data-i18n-aria-label="smart.searchShortcuts" placeholder="搜索快捷键…" data-i18n-placeholder="smart.searchShortcutsPlaceholder" autocomplete="off" end-action>
+                    <ic-icon slot="start" name="search" aria-hidden="true"></ic-icon>
+                    <ic-icon-button id="smartShortcutSearchClear" slot="end" background="ghost" hierarchy="quiet" icon="close" label="清除搜索" data-i18n-label="smart.clearShortcutSearch" hidden></ic-icon-button>
+                </ic-input>
+            </ic-form-field>
+            <div id="smartShortcutScroll" class="smart-shortcut-scroll">
+                <section class="smart-shortcut-group" data-shortcut-group><h3 data-i18n="smart.shortcutGroupGeneral">通用</h3>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutUndo">撤销上一步操作</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd>Z</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutUndoAlt">恢复上一步操作</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd data-shortcut-key="shift">Shift</kbd><kbd>Z</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutCopy">复制选中的节点</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd>C</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutPaste">粘贴节点或剪贴板图片</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd>V</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutDelete">删除选中节点</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="delete">Del</kbd></span></div>
+                </section>
+                <section class="smart-shortcut-group" data-shortcut-group><h3 data-i18n="smart.shortcutGroupNavigation">画布导航</h3>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutPointer">切换到指针模式</span><span class="smart-shortcut-keys"><kbd>V</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutHand">切换到抓手模式</span><span class="smart-shortcut-keys"><kbd>H</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutTemporaryHand">按住临时抓手</span><span class="smart-shortcut-keys"><kbd>Space</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutOverview">缩小画布视图</span><span class="smart-shortcut-keys"><kbd>Z</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutZoomIn">放大画布</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd>+</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutZoomOut">缩小画布</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd>−</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutZoom">缩放画布或预览图片</span><span class="smart-shortcut-keys"><kbd data-i18n="smart.shortcutWheel">滚轮</kbd></span></div>
+                </section>
+                <section class="smart-shortcut-group" data-shortcut-group><h3 data-i18n="smart.shortcutGroupNodes">节点与编组</h3>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutBoxSelect">按住并拖拽框选节点</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutGroup">将选中节点创建为编组</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd>G</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutUngroup">释放选中的编组</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="primary">Ctrl</kbd><kbd data-shortcut-key="shift">Shift</kbd><kbd>G</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutAltCopy">按住并拖动复制节点</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="alternate">Alt</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutFrameCompact">绘制分区并包裹选区</span><span class="smart-shortcut-keys"><kbd data-shortcut-key="shift">Shift</kbd><kbd>S</kbd></span></div>
+                </section>
+                <section class="smart-shortcut-group" data-shortcut-group><h3 data-i18n="smart.shortcutGroupCreation">创建工具</h3>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutBrush">切换到画笔模式</span><span class="smart-shortcut-keys"><kbd>P</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutText">切换到文本模式</span><span class="smart-shortcut-keys"><kbd>T</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutCreateMenuCompact">双击打开快捷菜单</span><span class="smart-shortcut-keys"><kbd data-i18n="smart.shortcutDoubleClick">双击</kbd></span></div>
+                    <div class="smart-shortcut-row" data-shortcut-row><span data-i18n="smart.shortcutBoxSelectPointer">框选节点</span><span class="smart-shortcut-keys"><kbd data-i18n="smart.shortcutPointerKey">指针</kbd><kbd data-i18n="smart.shortcutBlankDrag">空白拖动</kbd></span></div>
+                </section>
+                <div id="smartShortcutEmpty" class="smart-shortcut-empty" hidden data-i18n="smart.shortcutNoResults">没有匹配的快捷键</div>
+            </div>
+        </div>
+    </ic-dialog>
+    <ic-dialog id="smartNodePackageImportDialog" class="smart-node-package-dialog" data-component-name="ic-dialog-compact-task" label="导入节点包" data-i18n-label="smart.importNodePackageTitle" size="small" variant="compact" dismiss-policy="explicit" data-action-combination="medium-explicit-task">
+        <span slot="label" class="smart-modal-heading" data-legal-combination="h2-with-subtitle"><span data-i18n="smart.importNodePackageTitle">导入节点包</span><span data-i18n="smart.importNodePackageSubtitle">上传 JSON 或包含资源的 ZIP 节点包，内容会追加到当前画布。</span></span>
+        <div id="smartNodePackageImportContent" class="smart-node-package-content" aria-live="polite">
+            <section data-node-package-step="choose">
+                <div id="smartNodePackageDropzone" class="smart-node-package-dropzone" role="button" tabindex="0" aria-label="选择或拖入节点包" data-i18n-aria-label="smart.chooseOrDropNodePackage" autofocus>
+                    <div class="smart-node-package-dropzone-copy"><span class="smart-node-package-dropzone-icon"><ic-icon name="upload" aria-hidden="true"></ic-icon></span><strong data-i18n="smart.dropNodePackageHere">将节点包拖到这里</strong><span data-i18n="smart.orBrowseFiles">或点击浏览文件</span><ic-button id="smartNodePackageBrowse" hierarchy="secondary" type="button" data-i18n="smart.chooseFile">选择文件</ic-button><small id="smartNodePackageLimits" data-i18n="smart.nodePackageFormats">支持 JSON、ZIP</small></div>
+                </div>
+                <div id="smartNodePackageSelected" class="smart-node-package-selected" hidden><span class="smart-node-package-file-icon"><ic-icon name="file" aria-hidden="true"></ic-icon></span><span class="smart-node-package-file-copy"><strong id="smartNodePackageFileName"></strong><small id="smartNodePackageFileMeta"></small></span><span id="smartNodePackageReadiness" class="smart-node-package-ready" data-i18n="smart.nodePackageReadable">可读取</span></div>
+                <div id="smartNodePackageSecondaryAction" class="smart-node-package-secondary-action" hidden><ic-button id="smartNodePackageClear" hierarchy="quiet" type="button" data-i18n="smart.chooseAnotherFile">重新选择文件</ic-button></div>
+                <div id="smartNodePackageChooseError" class="smart-node-package-error" role="alert" tabindex="-1" hidden></div>
+            </section>
+            <section data-node-package-step="review" hidden>
+                <div class="smart-node-package-step-heading"><div><h3 data-i18n="smart.reviewNodePackage">检查节点包内容</h3><p data-i18n="smart.reviewNodePackageHint">确认节点、连接和资源后再追加到当前画布。</p></div><span data-i18n="smart.nodePackageStep2">第 2 步，共 3 步</span></div>
+                <div class="smart-node-package-selected smart-node-package-selected-review"><span class="smart-node-package-file-icon"><ic-icon name="file" aria-hidden="true"></ic-icon></span><span class="smart-node-package-file-copy"><strong id="smartNodePackageReviewFileName"></strong><small id="smartNodePackageReviewFileMeta"></small></span><span class="smart-node-package-ready" data-i18n="smart.nodePackageReadable">可读取</span></div>
+                <div class="smart-node-package-summary"><span><strong id="smartNodePackageNodeCount">0</strong><small data-i18n="smart.nodesLabel">节点</small></span><span><strong id="smartNodePackageConnectionCount">0</strong><small data-i18n="smart.connectionsLabel">连接</small></span><span><strong id="smartNodePackageResourceSize">0 B</strong><small id="smartNodePackageResourceCount">0 个资源</small></span></div>
+                <div id="smartNodePackageWarning" class="smart-node-package-warning" hidden><ic-icon name="warning" aria-hidden="true"></ic-icon><span></span></div>
+                <div id="smartNodePackageReviewError" class="smart-node-package-error" role="alert" tabindex="-1" hidden></div>
+            </section>
+            <section class="smart-node-package-success" data-node-package-step="done" hidden><div><span><ic-icon name="check" aria-hidden="true"></ic-icon></span><h3 data-i18n="smart.nodePackageImportedTitle">节点包已导入</h3><p id="smartNodePackageSuccessCopy"></p></div></section>
+        </div>
+        <ic-button id="smartNodePackageCancel" slot="footer" type="button" hierarchy="secondary" data-i18n="common.cancel">取消</ic-button>
+        <ic-button id="smartNodePackagePrimary" slot="footer" type="button" hierarchy="primary" data-i18n="common.continue" disabled>继续</ic-button>
+    </ic-dialog>
+    <ic-dialog id="promptTemplateDialog" class="prompt-template-dialog" label="提示词库" data-i18n-label="smart.promptTemplateLibrary" size="x-large" dismiss-policy="explicit" without-visible-header>
+        <ic-prompt-template-library id="promptTemplatePanel" aria-label="提示词模板库" data-i18n-aria-label="smart.promptTemplateLibrary" can-manage></ic-prompt-template-library>
+    </ic-dialog>
+    <ic-dialog id="workspaceAssetDialog" class="workspace-asset-dialog" label="资产库" data-i18n-label="smart.workspaceAssetLibrary" size="x-large" dismiss-policy="explicit">
+        <ic-workspace-asset-library id="workspaceAssetPanel" aria-label="资产库" data-i18n-aria-label="smart.workspaceAssetLibrary"></ic-workspace-asset-library>
+    </ic-dialog>
+    <script src="/static/js/smart-image-resolution.js?v=2026.09.01.2.1785221122"></script>
+    <script src="/static/js/account-avatar.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/clipboard-ownership.js?v=2026.09.01.2.1787536549"></script>
+    <script src="/static/js/smart-canvas/node-review-fixture.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/node-kinds.js?v=2026.09.01.2.1787717943"></script>
+    <script src="/static/js/smart-canvas/node-geometry.js?v=2026.09.01.2.1787875924"></script>
+    <script src="/static/js/smart-canvas/canvas-level-of-detail.js?v=2026.09.01.2.1787536549"></script>
+    <script src="/static/js/smart-canvas/canvas-far-presentation.js?v=2026.09.01.2.1787884294"></script>
+    <script src="/static/js/smart-canvas/node-placement.js?v=2026.09.01.2.1787738602"></script>
+    <script src="/static/js/smart-canvas/selection-arrangement.js?v=2026.09.01.2.1787884016"></script>
+    <script src="/static/js/smart-canvas/canvas-virtualization.js?v=2026.09.01.2.1787536549"></script>
+    <script src="/static/js/smart-canvas/image-studio-geometry.js?v=2026.09.01.2.1785206114"></script>
+    <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script src="/static/js/smart-canvas/canvas-opening.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/canvas-persistence.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/viewport-selection.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/realtime-presence.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/canvas-mutation.js?v=2026.09.01.2.1787813149"></script>
+    <script src="/static/js/smart-canvas/smart-container.js?v=2026.09.01.2.1787536549"></script>
+    <script src="/static/js/smart-canvas/canvas-interaction.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/image-studio.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/image-capabilities.js?v=2026.09.01.2.1787901032"></script>
+    <script src="/static/js/smart-canvas/reference-instances.js?v=2026.09.01.2.1786933745"></script>
+    <script src="/static/js/smart-canvas/video-capabilities.js?v=2026.09.01.2.1786933745"></script>
+    <script src="/static/js/smart-canvas/generation-settings.js?v=2026.09.01.2.1787897152"></script>
+    <script src="/static/js/smart-canvas/prompt-authoring.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/generation-provider.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=2026.09.01.2.1787818303"></script>
+    <script src="/static/js/smart-canvas/generation-log-modal.js?v=2026.09.01.2.1787886993"></script>
+    <script src="/static/js/smart-canvas/task-modals.js?v=2026.09.01.2.1788169473"></script>
+    <script src="/static/js/smart-canvas/generation-pending.js?v=2026.09.01.2.1785996020"></script>
+    <script src="/static/js/smart-canvas/generation-output.js?v=2026.09.01.2.1787738602"></script>
+    <script src="/static/js/smart-canvas/smart-matting.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/generation-run.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/generation-recovery.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/smart-depth-map.js?v=2026.09.01.2.1788146221"></script>
+    <script src="/static/js/smart-canvas/generation-cascade.js?v=2026.09.01.2.1787811722"></script>
+    <script src="/static/js/smart-canvas/click-spark-feedback.js?v=2026.09.01.2.1787730850"></script>
+    <script src="/static/js/smart-canvas/connection-layer.js?v=2026.09.01.2.1787886352"></script>
+    <script src="/static/js/smart-canvas.js?v=2026.09.01.2.1788249901" onerror="window.__showSmartCanvasBootError()"></script>
+</body>
+</html>

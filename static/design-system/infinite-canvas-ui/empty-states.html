@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN" data-empty-states-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · 空状态</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/smart-canvas.css">
+  <style>
+    body { margin:0; padding:var(--ui-space-4); color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
+    header { display:grid; gap:var(--ui-space-1); margin-bottom:var(--ui-space-4); }
+    h1,h2,p { margin:0; }
+    h1 { font:var(--ui-text-title-2); }
+    header p,.empty-state-card > header span { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .empty-state-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ui-space-4); align-items:start; }
+    .empty-state-card { min-width:0; display:grid; gap:var(--ui-space-3); padding:var(--ui-space-4); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-floating); }
+    .empty-state-card > header { display:grid; gap:var(--ui-space-1); margin:0; }
+    .empty-state-card h2 { font:var(--ui-text-title-3); }
+    .empty-state-stage { min-width:0; min-height:220px; display:grid; place-items:center; overflow:hidden; border-radius:var(--ui-radius-m); background:var(--ui-color-surface-subtle); }
+    .empty-state-stage .image-node { position:relative; inset:auto; width:min(100%,320px); height:180px; min-height:0; cursor:default; }
+    .empty-state-stage .image-node.smart-group-node { height:220px; }
+    .empty-state-stage .node-body { width:100%; height:100%; }
+    .empty-state-stage--component { align-content:center; gap:var(--ui-space-4); padding:var(--ui-space-4); }
+    .empty-state-component-example { width:min(100%,32rem); border:var(--ui-border-width-thin) dashed var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); }
+    @media (max-width:720px) { .empty-state-grid { grid-template-columns:minmax(0,1fr); } body { padding:var(--ui-space-3); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>空状态 · Empty states</h1>
+    <p>集中比较通用无内容反馈与 Smart Canvas 远景模式的真实占位样式。</p>
+  </header>
+  <main class="empty-state-grid">
+    <article class="empty-state-card" data-component-name="ic-empty-state">
+      <header><h2>通用空状态 · Empty State</h2><span>可提供一个恢复动作，也可仅说明当前没有内容</span></header>
+      <div class="empty-state-stage empty-state-stage--component">
+        <div class="empty-state-component-example">
+          <ic-empty-state id="empty-action" data-legal-combination title="还没有生成结果" label="生成结果为空">
+            <span>完成一次生成后，结果会显示在这里。</span>
+            <ic-button slot="action" hierarchy="secondary">开始生成</ic-button>
+          </ic-empty-state>
+        </div>
+        <div class="empty-state-component-example">
+          <ic-empty-state id="empty-none" data-legal-combination title="没有匹配结果" label="搜索结果为空">
+            <span>调整筛选条件后再试一次。</span>
+          </ic-empty-state>
+        </div>
+      </div>
+    </article>
+
+    <article class="empty-state-card" data-component-name="smart-canvas-far-generation-pending">
+      <header><h2>正在生成图片</h2><span>单层渐变，不叠加第二个框</span></header>
+      <div class="empty-state-stage">
+        <div class="image-node canvas-lod-node-far node-running">
+          <div class="node-body"><div class="far-node-pending"><span>正在生成图片</span></div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="empty-state-card" data-component-name="smart-canvas-far-empty-upload">
+      <header><h2>空上传节点</h2><span>远景使用 Surface 背景，与生成中状态区分</span></header>
+      <div class="empty-state-stage">
+        <div class="image-node canvas-lod-node-far">
+          <div class="node-body"><div class="far-node-marker"><span>上传节点</span></div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="empty-state-card" data-component-name="smart-canvas-far-prompt-skeleton">
+      <header><h2>提示词文本骨架</h2><span>适用于 Prompt Node 与 Prompt Generation Node</span></header>
+      <div class="empty-state-stage">
+        <div class="image-node prompt-smart-node canvas-lod-node-far">
+          <div class="node-body"><div class="far-prompt-skeleton" role="img" aria-label="提示词文本占位"></div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="empty-state-card" data-component-name="smart-canvas-far-smart-group-media-skeleton">
+      <header><h2>编组图片格</h2><span>每张图片保留一个带图标的格子</span></header>
+      <div class="empty-state-stage">
+        <div class="image-node smart-group-node canvas-lod-node-far">
+          <div class="node-body"><div class="far-smart-group-media-skeleton" style="--far-group-cols:2" role="img" aria-label="4 张图片占位">
+            <span class="far-smart-group-media-skeleton-item" aria-hidden="true"><ic-icon name="image" size="medium"></ic-icon></span>
+            <span class="far-smart-group-media-skeleton-item" aria-hidden="true"><ic-icon name="image" size="medium"></ic-icon></span>
+            <span class="far-smart-group-media-skeleton-item" aria-hidden="true"><ic-icon name="image" size="medium"></ic-icon></span>
+            <span class="far-smart-group-media-skeleton-item" aria-hidden="true"><ic-icon name="image" size="medium"></ic-icon></span>
+          </div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="empty-state-card" data-component-name="smart-canvas-far-audio-placeholder">
+      <header><h2>音频占位</h2><span>保留音频节点的背景、边框与原始宽高</span></header>
+      <div class="empty-state-stage">
+        <div class="image-node canvas-lod-node-far">
+          <div class="node-body"><div class="far-node-audio node-img media-card media-audio-card" style="--node-img-w:320px;--node-img-h:180px"><ic-icon name="audio" size="large" aria-hidden="true"></ic-icon></div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="empty-state-card" data-component-name="smart-canvas-far-video-placeholder">
+      <header><h2>视频占位</h2><span>仅在静态封面不可用时显示，不挂载视频播放器</span></header>
+      <div class="empty-state-stage">
+        <div class="image-node canvas-lod-node-far">
+          <div class="node-body"><div class="far-node-video-placeholder"><ic-icon name="video" size="large" aria-hidden="true"></ic-icon></div></div>
+        </div>
+      </div>
+    </article>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/empty-states.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

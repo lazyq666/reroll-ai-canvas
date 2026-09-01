@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "provider_id": "codex",
+  "model_id": "gpt-image-2",
+  "environment": "local-gpt-image-2-skill-contract",
+  "confirmed_at": "2026-08-22",
+  "privacy": "No prompt, credential, image, URL, or user data was submitted or recorded.",
+  "request_accounting": {
+    "new_external_requests": 0,
+    "live_generation_verified": false
+  },
+  "documented_evidence": {
+    "source_url": "https://github.com/Wangnov/gpt-image-2-skill",
+    "installed_help_checked": true,
+    "text_to_image_mapping": "gpt-image-2-skill --json --provider codex transparent generate --prompt ... --out ... --size ... --quality high",
+    "openai_compatible_mapping": "gpt-image-2-skill --json --provider openai images generate --background transparent --format png ...",
+    "reference_edit_mapping": "gpt-image-2-skill --json images edit --background transparent --format png --ref-image ...",
+    "routing_boundary": "The Codex text-to-image path uses the helper's transparent pipeline because its documentation warns that provider-native transparent background is unreliable for Codex."
+  },
+  "confirmed_capability": {
+    "supports_transparent_png": true
+  }
+}

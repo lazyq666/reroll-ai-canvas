@@ -1,0 +1,18 @@
+{
+  "version": "2026.09.01.2",
+  "updated_at": "2026-09-01T16:28:34+08:00",
+  "items": [
+    {
+      "type": "feature",
+      "text": "公开项目身份统一为 Reroll AI Canvas，并补充真实产品截图与中英文定位"
+    },
+    {
+      "type": "feature",
+      "text": "公开仓库、安全报告、Issue 跟踪与 ModelScope 镜像发布边界已对齐"
+    },
+    {
+      "type": "fix",
+      "text": "启动时不再覆盖 i18n 内容指纹，避免测试顺序导致静态页面被意外改写"
+    }
+  ]
+}

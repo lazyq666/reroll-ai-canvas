@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "capabilities": [
+    {
+      "provider_id": "apimart",
+      "model_id": "gemini-3.1-flash-image-preview",
+      "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+      "resolution_tiers": ["1K", "2K", "4K"],
+      "default_resolution_tier": "1K",
+      "confirmed_at": "2026-08-14"
+    },
+    {
+      "provider_id": "apimart",
+      "model_id": "gpt-image-2",
+      "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
+      "resolution_tiers": ["1K", "2K", "4K"],
+      "default_resolution_tier": "1K",
+      "confirmed_at": "2026-08-14"
+    },
+    {
+      "provider_id": "apimart",
+      "model_id": "gpt-image-2-official",
+      "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
+      "resolution_tiers": ["1K", "2K", "4K"],
+      "default_resolution_tier": "1K",
+      "supports_transparent_png": true,
+      "confirmed_at": "2026-08-22"
+    },
+    {
+      "provider_id": "jimeng",
+      "model_id": "5.0",
+      "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+      "resolution_tiers": ["2K", "4K"],
+      "default_resolution_tier": "2K",
+      "confirmed_at": "2026-08-14"
+    },
+    {
+      "provider_id": "gemini-cli",
+      "model_id": "auto",
+      "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+      "resolution_tiers": ["1K", "2K", "4K"],
+      "default_resolution_tier": "1K",
+      "confirmed_at": "2026-08-15"
+    },
+    {
+      "provider_id": "codex",
+      "model_id": "gpt-image-2",
+      "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
+      "resolution_tiers": ["1K", "2K", "4K"],
+      "default_resolution_tier": "1K",
+      "supports_transparent_png": true,
+      "confirmed_at": "2026-08-15"
+    },
+    {
+      "provider_id": "jimeng",
+      "model_id": "5.0Pro",
+      "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+      "resolution_tiers": ["2K", "4K"],
+      "default_resolution_tier": "2K",
+      "confirmed_at": "2026-08-15"
+    }
+  ]
+}

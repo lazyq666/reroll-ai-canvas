@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN" data-composer-library-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Composer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.15.1">
+  <link rel="stylesheet" href="/static/css/smart-canvas.css?v=2026.08.27.issue-129-character-count.2">
+  <style>
+    html,
+    body {
+      min-height: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    body {
+      padding: var(--ui-space-6);
+      background: var(--ui-color-surface-canvas);
+    }
+
+    .composer-library-page {
+      width: min(76rem, 100%);
+      margin-inline: auto;
+      display: grid;
+      gap: var(--ui-space-5);
+    }
+
+    .composer-library-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--ui-space-4);
+      flex-wrap: wrap;
+    }
+
+    .composer-library-kicker,
+    .composer-library-status {
+      color: var(--ui-color-text-secondary);
+      font: var(--ui-text-caption);
+    }
+
+    .composer-library-header h1 {
+      margin: var(--ui-space-1) 0 var(--ui-space-2);
+      color: var(--ui-color-text-primary);
+      font: var(--ui-text-title-1);
+    }
+
+    .composer-library-header p {
+      max-width: 52rem;
+      margin: 0;
+      color: var(--ui-color-text-tertiary);
+      font: var(--ui-text-body);
+    }
+
+    .composer-library-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--ui-space-2);
+      flex-wrap: wrap;
+    }
+
+    .composer-library-controls button {
+      min-height: var(--ui-control-height-s);
+      padding-inline: var(--ui-space-3);
+      border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+      border-radius: var(--ui-radius-pill);
+      background: var(--ui-color-surface);
+      color: var(--ui-color-text-primary);
+      font: var(--ui-text-body-compact);
+    }
+
+    .composer-library-controls button:hover,
+    .composer-library-controls button[aria-pressed="true"] {
+      background: var(--ui-color-action-tertiary-hover);
+      border-color: var(--ui-color-border-primary);
+    }
+
+    .composer-library-stage {
+      min-height: 26rem;
+      padding: var(--ui-space-8) var(--ui-space-5);
+      display: grid;
+      place-items: center;
+      overflow: visible;
+      border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+      border-radius: var(--ui-radius-l);
+      background-color: var(--ui-color-surface-subtle);
+      background-image: radial-gradient(var(--ui-color-border-canvas-grid) .5px, transparent .5px);
+      background-size: 15px 15px;
+    }
+
+    .composer-library-stage .composer {
+      position: relative;
+      inset: auto;
+      width: min(48rem, 100%);
+    }
+
+    .composer-library-stage .composer:not(.focused) {
+      translate: none;
+    }
+
+    .composer-library-notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--ui-space-3);
+    }
+
+    .composer-library-notes article {
+      padding: var(--ui-space-4);
+      border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+      border-radius: var(--ui-radius-m);
+      background: var(--ui-color-surface);
+    }
+
+    .composer-library-notes h2 {
+      margin: 0 0 var(--ui-space-2);
+      color: var(--ui-color-text-primary);
+      font: var(--ui-text-title-3);
+    }
+
+    .composer-library-notes p {
+      margin: 0;
+      color: var(--ui-color-text-tertiary);
+      font: var(--ui-text-body-compact);
+    }
+
+    @media (max-width: 48rem) {
+      body { padding: var(--ui-space-3); }
+      .composer-library-stage { padding-inline: var(--ui-space-2); }
+      .composer-library-notes { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="composer-library-page">
+    <header class="composer-library-header">
+      <div>
+        <span class="composer-library-kicker">Composite business component · Smart Canvas</span>
+        <h1>Composer</h1>
+        <p>用于图片与视频生成的复合输入组件。这里直接复用线上 Composer 的结构、公共 <code>ic-*</code> 子组件和 <code>smart-canvas.css</code>，用于验收真实布局与交互。</p>
+      </div>
+      <span class="composer-library-status" data-composer-library-live-status role="status" aria-live="polite">正在初始化…</span>
+    </header>
+
+    <nav class="composer-library-controls" aria-label="Composer 验收控制">
+      <button type="button" data-composer-visibility-toggle aria-pressed="true">隐藏 Composer</button>
+      <button type="button" data-composer-reference-toggle aria-pressed="false">显示参考素材</button>
+      <button type="button" data-composer-long-prompt-toggle aria-pressed="false">长提示词</button>
+      <button type="button" data-composer-theme-toggle aria-pressed="false">深色主题</button>
+    </nav>
+
+    <section class="composer-library-stage" aria-label="Composer 实时预览">
+      <div id="composerFocusBackdrop" class="composer-focus-backdrop" aria-hidden="true"></div>
+      <div id="composer" class="composer open" data-component-name="smart-composer" data-business-component="composer" data-generation-kind="image">
+        <div class="composer-card">
+          <div id="inputThumbsRow" class="input-thumbs-row"></div>
+          <ic-icon-button id="composerFocusToggle" class="composer-focus-toggle" type="button" size="s" hierarchy="quiet" icon="focus-editor" label="展开" tooltip-placement="block-start" data-action-combination="quiet-icon-action" aria-expanded="false"></ic-icon-button>
+          <div class="prompt-row prompt-editor-shell">
+            <ic-prompt-composer id="promptInput" contenteditable="true" aria-label="提示词编辑器" aria-describedby="promptCharacterCount" data-placeholder="描述你想生成的图片或视频，输入 @ 引用素材…">一只纸艺鲸鱼穿过云层，柔和晨光，细腻的材质细节</ic-prompt-composer>
+            <span id="promptCharacterCount" class="prompt-character-count" data-prompt-character-count>0 字符</span>
+          </div>
+          <div class="param-row">
+            <ic-button id="apiKindToggle" type="button" value="image" aria-label="切换为视频生成" hierarchy="quiet" size="small" data-component-variant="generation-kind" data-legal-combination="quiet-action">
+              <ic-icon id="apiKindIcon" name="image-generate" size="small" slot="start" aria-hidden="true"></ic-icon>
+              <span id="apiKindLabel">图片生成</span>
+              <ic-icon name="switch-horizontal" size="small" slot="end" aria-hidden="true"></ic-icon>
+            </ic-button>
+            <div id="dynamicParams" class="dynamic-params"></div>
+            <ic-icon-button id="composerTemplateBtn" class="composer-template-btn" type="button" size="small" hierarchy="quiet" icon="prompt-library" label="模板" tooltip-placement="block-start" data-action-combination="quiet-icon-toggle" aria-expanded="false" toggle></ic-icon-button>
+          </div>
+          <div class="composer-actions">
+            <ic-icon-button id="runBtn" class="run-btn" type="button" size="large" hierarchy="primary" icon="submit" label="运行" tooltip-placement="block-start" data-action-combination="primary-icon-action"></ic-icon-button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="composer-library-notes" aria-label="Composer 组件说明">
+      <article>
+        <h2>组件边界</h2>
+        <p>Composer 负责提示词、参考素材、生成类型、动态参数与提交动作的编排；模型能力和实际生成请求仍由业务页面提供。</p>
+      </article>
+      <article>
+        <h2>公开状态</h2>
+        <p>显示 / 隐藏、图片生成 / 视频生成、无参考 / 有参考、常规 / 展开编辑、浅色 / 深色，以及参数自动换行。</p>
+      </article>
+      <article>
+        <h2>复用基础组件</h2>
+        <p><code>ic-reference-thumbnail-image</code>、<code>ic-reference-thumbnail-text</code>（Hover 时组合 <code>ic-thumb-hovercard</code>）、<code>ic-prompt-composer</code>、<code>ic-button</code>、<code>ic-icon-button</code>、<code>ic-select</code> 与 <code>ic-generation-settings-picker</code>。</p>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/composer-case.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

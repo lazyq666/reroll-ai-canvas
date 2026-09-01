@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/static/css/design-tokens.css"></head><body>
+<ic-card id="card" label="Settings"><span slot="header">Settings</span><p>Account settings</p><button id="inside" slot="footer">Edit</button></ic-card>
+<ic-card id="card-small" size="small"><div>First</div><div>Second</div></ic-card>
+<ic-card id="card-medium" size="medium"><div>First</div><div>Second</div></ic-card>
+<ic-card id="card-large" size="large"><div>First</div><div>Second</div></ic-card>
+<ic-card id="card-gap-none" style="--ic-card-content-gap:0px"><div>First</div><div>Second</div></ic-card>
+<ic-divider id="horizontal-divider"></ic-divider>
+<div id="divider-row" style="display:flex;align-items:stretch;height:64px"><span style="display:flex;align-items:center">General</span><ic-divider id="divider" orientation="vertical"></ic-divider><span style="display:flex;align-items:center">Advanced</span></div>
+<ic-list id="list" label="Items" kind="ordered"><ol><li>One</li><li>Two</li></ol></ic-list>
+<ic-table id="table" label="Runs" row-selection="none"><table><caption>Runs</caption><thead><tr><th scope="col">Name</th><th scope="col">State</th></tr></thead><tbody><tr><td>One</td><td>Ready</td></tr></tbody></table></ic-table>
+<ic-table id="table-small" label="Small runs" row-selection="none" size="small"><table><thead><tr><th scope="col">Name</th></tr></thead><tbody><tr><td>One</td></tr></tbody></table></ic-table>
+<ic-table id="table-medium" label="Medium runs" row-selection="none" size="medium"><table><thead><tr><th scope="col">Name</th></tr></thead><tbody><tr><td>One</td></tr></tbody></table></ic-table>
+<ic-table id="table-large" label="Large runs" row-selection="none" size="large"><table><thead><tr><th scope="col">Name</th></tr></thead><tbody><tr><td>One</td></tr></tbody></table></ic-table>
+<ic-media-container id="media" label="Preview" kind="image" fit="cover" aspect="landscape" state="loading"><img alt="Preview"><span slot="fallback">Loading preview</span></ic-media-container>
+<ic-card id="invalid-card" href="#bad">Bad</ic-card>
+<ic-card id="invalid-card-size" size="extra-large">Bad size</ic-card>
+<ic-list id="invalid-list" label="Bad" kind="ordered"><ul><li>Wrong</li></ul></ic-list>
+<ic-table id="invalid-table-size" label="Bad table" size="extra-large"><table><thead><tr><th scope="col">Name</th></tr></thead><tbody><tr><td>One</td></tr></tbody></table></ic-table>
+<ic-media-container id="invalid-media" label="Audio" kind="audio" fit="cover"></ic-media-container>
+<script type="module">import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4';await Promise.all(['ic-card','ic-divider','ic-list','ic-table','ic-media-container'].map(tag=>customElements.whenDefined(tag)));await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));const checks={};
+checks.card=document.querySelector('#card').getAttribute('role')==='region'&&document.querySelector('#card').getAttribute('aria-label')==='Settings';
+const cardSizeHeights=['small','medium','large'].map(size=>document.querySelector(`#card-${size}`).getBoundingClientRect().height);checks.cardSizes=cardSizeHeights[0]<cardSizeHeights[1]&&cardSizeHeights[1]<cardSizeHeights[2]&&['small','medium','large'].every(size=>document.querySelector(`#card-${size}`).dataset.icContractStatus==='ready');
+checks.cardRadius=['card','card-small','card-medium','card-large'].every(id=>getComputedStyle(document.querySelector(`#${id}`).shadowRoot.querySelector('.card')).borderRadius==='16px');
+const contentGap=id=>{const [first,second]=document.querySelector(id).children;return Math.round(second.getBoundingClientRect().top-first.getBoundingClientRect().bottom)};checks.cardContentGaps=contentGap('#card-small')===8&&contentGap('#card-medium')===12&&contentGap('#card-large')===16&&contentGap('#card-gap-none')===0;
+const cardRect=document.querySelector('#card').getBoundingClientRect();const footerButtonRect=document.querySelector('#inside').getBoundingClientRect();checks.cardFooterEnd=footerButtonRect.right>cardRect.left+(cardRect.width*.7)&&footerButtonRect.right<=cardRect.right;
+checks.divider=document.querySelector('#divider').getAttribute('role')==='separator'&&document.querySelector('#divider').getAttribute('aria-orientation')==='vertical'&&document.querySelector('#divider').tabIndex===-1;
+const horizontalDividerStyle=getComputedStyle(document.querySelector('#horizontal-divider'));const verticalDividerStyle=getComputedStyle(document.querySelector('#divider'));checks.dividerSpacing=horizontalDividerStyle.marginBlockStart==='4px'&&horizontalDividerStyle.marginBlockEnd==='4px'&&verticalDividerStyle.marginInlineStart==='4px'&&verticalDividerStyle.marginInlineEnd==='4px';
+const dividerRowRect=document.querySelector('#divider-row').getBoundingClientRect();const dividerRect=document.querySelector('#divider').getBoundingClientRect();checks.verticalDividerCentered=Math.abs((dividerRect.top+dividerRect.height/2)-(dividerRowRect.top+dividerRowRect.height/2))<2&&dividerRect.height<dividerRowRect.height;
+checks.list=document.querySelector('#list').dataset.icContractStatus==='ready'&&document.querySelector('#list').querySelector('ol')!==null;
+const table=document.querySelector('#table');const tableHeader=table.querySelector('th');const tableCell=table.querySelector('td');
+checks.table=table.dataset.icContractStatus==='ready'&&table.querySelector('table caption')?.textContent==='Runs';
+checks.tablePresentation=getComputedStyle(tableHeader).backgroundColor!==getComputedStyle(tableCell).backgroundColor
+  && parseFloat(getComputedStyle(tableCell).paddingInlineStart)>0;
+const tableSizes=['small','medium','large'].map(size=>{const host=document.querySelector(`#table-${size}`);return {status:host.dataset.icContractStatus,header:parseFloat(getComputedStyle(host.querySelector('th')).paddingBlockStart),cell:parseFloat(getComputedStyle(host.querySelector('td')).paddingBlockStart)};});
+checks.tableSizes=tableSizes.map(item=>item.header).join(',')==='12,16,20'&&tableSizes.map(item=>item.cell).join(',')==='8,12,16'&&tableSizes.every(item=>item.status==='ready');
+document.documentElement.dataset.uiDensity='small';await new Promise(resolve=>requestAnimationFrame(resolve));checks.tableSizeDensityIndependent=parseFloat(getComputedStyle(document.querySelector('#table-medium td')).paddingBlockStart)===12;
+checks.media=document.querySelector('#media').getAttribute('aria-busy')==='true'&&document.querySelector('#media').getAttribute('role')==='group';
+document.querySelector('#inside').focus();checks.focus=document.activeElement===document.querySelector('#inside');
+checks.invalid=['#invalid-card','#invalid-card-size','#invalid-list','#invalid-table-size','#invalid-media'].every(selector=>document.querySelector(selector).dataset.icContractStatus==='invalid');
+document.documentElement.dataset.icContainersDataTestStatus=Object.values(checks).every(Boolean)?'passed':'failed';document.body.dataset.checks=JSON.stringify(checks);</script></body></html>

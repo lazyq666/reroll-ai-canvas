@@ -1,0 +1,62 @@
+(function(){
+    const KEY = 'studio_theme';
+    const LEGACY_KEY = 'canvas_theme';
+    const REVIEW_THEME = (() => {
+        try {
+            const theme = new URLSearchParams(window.location.search).get('token-review-theme');
+            return theme === 'dark' || theme === 'light' ? theme : null;
+        } catch(e) {
+            return null;
+        }
+    })();
+
+    function currentTheme(){
+        if(REVIEW_THEME) return REVIEW_THEME;
+        try {
+            return localStorage.getItem(KEY) || localStorage.getItem(LEGACY_KEY) || 'light';
+        } catch(e) {
+            return 'light';
+        }
+    }
+
+    function applyTheme(theme){
+        const next = REVIEW_THEME || (theme === 'dark' ? 'dark' : 'light');
+        const dark = next === 'dark';
+        document.documentElement.classList.toggle('studio-theme-dark', dark);
+        document.documentElement.classList.toggle('theme-dark', dark);
+        document.documentElement.dataset.uiTheme = next;
+        if(document.body){
+            document.body.classList.toggle('studio-theme-dark', dark);
+            document.body.classList.toggle('theme-dark', dark);
+        }
+        window.dispatchEvent(new CustomEvent('studio-theme-change', { detail: { theme: next } }));
+    }
+
+    window.StudioTheme = {
+        key: KEY,
+        get: currentTheme,
+        apply: applyTheme,
+        set(theme){
+            const next = theme === 'dark' ? 'dark' : 'light';
+            if(!REVIEW_THEME) {
+                try {
+                    localStorage.setItem(KEY, next);
+                    localStorage.setItem(LEGACY_KEY, next);
+                } catch(e) {}
+            }
+            applyTheme(next);
+        }
+    };
+
+    applyTheme(currentTheme());
+
+    document.addEventListener('DOMContentLoaded', () => {
+        applyTheme(currentTheme());
+    });
+    window.addEventListener('message', event => {
+        if(event.data?.type === 'studio-theme') applyTheme(event.data.theme);
+    });
+    window.addEventListener('storage', event => {
+        if(event.key === KEY || event.key === LEGACY_KEY) applyTheme(currentTheme());
+    });
+})();

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN" data-issue-109-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Issue 109 mention token spacing</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/smart-canvas.css">
+  <style>
+    body { margin: 0; padding: 24px; background: var(--ui-color-surface-canvas); }
+    .fixture { width: 480px; margin-block-end: 16px; }
+  </style>
+</head>
+<body>
+  <ic-prompt-composer id="promptInput" class="fixture" contenteditable="true" aria-label="Composer">
+    <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
+  </ic-prompt-composer>
+  <ic-prompt-composer class="fixture prompt-node-text prompt-node-control" contenteditable="true" aria-label="提示词节点">
+    <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
+  </ic-prompt-composer>
+  <ic-prompt-composer class="fixture prompt-node-control prompt-llm-instruction" contenteditable="true" aria-label="提示词生成节点">
+    <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
+  </ic-prompt-composer>
+  <pre id="results"></pre>
+  <script type="module">
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await import('/static/js/infinite-canvas-ui/core.js');
+    await customElements.whenDefined('ic-prompt-composer');
+    await paint();
+
+    const contexts = [...document.querySelectorAll('ic-prompt-composer')].map(editor => {
+      const tokens = [...editor.querySelectorAll('.mention-image-token')];
+      const firstRect = tokens[0].getBoundingClientRect();
+      const secondRect = tokens[1].getBoundingClientRect();
+      const style = getComputedStyle(tokens[0]);
+      return {
+        label: editor.getAttribute('aria-label'),
+        marginInlineStart: style.marginInlineStart,
+        marginInlineEnd: style.marginInlineEnd,
+        visualGap: secondRect.left - firstRect.right,
+        spacer: tokens[0].nextSibling?.nodeType === Node.TEXT_NODE
+          ? tokens[0].nextSibling.textContent
+          : null,
+      };
+    });
+    const checks = {
+      allContextsCovered: contexts.length === 3,
+      componentAddsNoInlineMargin: contexts.every(context => (
+        context.marginInlineStart === '0px' && context.marginInlineEnd === '0px'
+      )),
+      oneAuthoredSpaceRemains: contexts.every(context => context.spacer === ' '),
+      visualGapIsOneTextSpace: contexts.every(context => context.visualGap > 2 && context.visualGap <= 6),
+    };
+    document.querySelector('#results').textContent = JSON.stringify({ checks, contexts });
+    document.documentElement.dataset.issue109Status = Object.values(checks).every(Boolean)
+      ? 'passed'
+      : 'failed';
+  </script>
+</body>
+</html>

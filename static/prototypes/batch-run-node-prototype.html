@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>批量运行节点 · 交互原型</title>
+  <!-- THROWAWAY PROTOTYPE: Three variants of the Loop Node semantic redesign, switchable via ?variant=. -->
+  <style>
+    :root{
+      color-scheme:light;
+      --bg:#f5f7fa;--grid:#d8dee8;--surface:#fff;--surface-2:#f7f8fa;--text:#161a22;
+      --muted:#667085;--line:#d9dee8;--strong:#20242d;--accent:#5b48e8;--accent-soft:#eeebff;
+      --green:#16794b;--green-soft:#eaf8f0;--shadow:0 18px 50px rgba(31,35,48,.16);
+      --r:18px;--sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    }
+    *{box-sizing:border-box} body{margin:0;font-family:var(--sans);color:var(--text);background:var(--bg)}
+    button,input,select{font:inherit} button{cursor:pointer}
+    .app{min-height:100vh;display:grid;grid-template-rows:56px 1fr}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:rgba(255,255,255,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(12px);z-index:4}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:700}.brand-mark{width:30px;height:30px;border-radius:9px;background:var(--strong);color:#fff;display:grid;place-items:center;font-size:14px}.brand small{font-weight:500;color:var(--muted)}
+    .prototype-tag{padding:6px 10px;border:1px solid #e3d28c;background:#fff8d8;color:#715b00;border-radius:999px;font-size:12px;font-weight:700}
+    .canvas{position:relative;overflow:auto;min-height:680px;background-color:var(--bg);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px}
+    .canvas::before{content:"智能画布 / 节点语义探索";position:absolute;top:20px;left:24px;color:#778195;font-size:12px;font-weight:650;letter-spacing:.02em}
+    .variant{display:none;min-height:calc(100vh - 56px);padding:74px 40px 110px}.variant.active{display:flex}
+    .node{background:var(--surface);border:1px solid #cfd5df;border-radius:var(--r);box-shadow:var(--shadow)}
+    .node-head{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 18px 13px;border-bottom:1px solid var(--line)}
+    .titleline{display:flex;align-items:center;gap:10px}.node-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:900}.node h2{font-size:15px;margin:0}.node-sub{font-size:11px;color:var(--muted);margin-top:3px}.more{border:0;background:none;color:var(--muted);font-size:20px;line-height:1}
+    .section{padding:14px 18px;border-bottom:1px solid var(--line)}.section:last-child{border-bottom:0}.section-label{font-size:11px;font-weight:750;color:#7a8394;text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px}.row+.row{margin-top:7px}.row-title{font-size:13px;font-weight:650}.row-note{font-size:11px;color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-size:11px;color:#475064}.pill strong{color:var(--text)}
+    .toggle{width:32px;height:19px;border:0;border-radius:999px;padding:2px;background:#c7cdd8;transition:.2s}.toggle::after{content:"";display:block;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #687080;transition:.2s}.toggle.on{background:var(--accent)}.toggle.on::after{transform:translateX(13px)}
+    .seg{display:flex;background:#eef0f4;border-radius:9px;padding:3px;gap:2px}.seg button{border:0;background:transparent;color:var(--muted);padding:6px 10px;border-radius:7px;font-size:11px}.seg button.on{background:#fff;color:var(--text);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+    .select{border:1px solid var(--line);border-radius:9px;background:#fff;padding:6px 28px 6px 9px;font-size:11px;color:#303745}
+    .summary{background:#f8f7ff;border:1px solid #ddd8ff;border-radius:12px;padding:11px 12px;display:flex;align-items:center;justify-content:space-between}.summary strong{font-size:18px}.summary span{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+    .actions{display:flex;gap:8px;margin-top:10px}.btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;color:#374151}.btn.primary{background:var(--strong);border-color:var(--strong);color:#fff;flex:1}.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}.btn:active{transform:translateY(1px)}
+    .status{display:none;align-items:center;gap:8px;padding:9px 11px;margin-top:10px;border-radius:10px;background:var(--green-soft);color:var(--green);font-size:11px;font-weight:700}.status.show{display:flex}.spinner{width:12px;height:12px;border:2px solid #99d5b5;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    .connection{height:2px;background:#7d8798;position:relative}.connection::after{content:"";position:absolute;right:-1px;top:-4px;border-left:7px solid #7d8798;border-top:5px solid transparent;border-bottom:5px solid transparent}.mini-node{width:180px;background:#fff;border:1px solid #cfd5df;border-radius:14px;box-shadow:0 8px 25px rgba(31,35,48,.1);padding:14px}.mini-node b{font-size:13px}.mini-node p{font-size:10px;color:var(--muted);margin:5px 0 0}.port{width:10px;height:10px;border:2px solid #687386;background:#fff;border-radius:50%;position:absolute;top:50%;transform:translateY(-50%)}
+    /* A: everything inside the canvas node */
+    #variant-A{align-items:center;justify-content:center;gap:0}.a-node{width:370px;position:relative}.a-node .port.in{left:-6px}.a-node .port.out{right:-6px}.a-source,.a-target{position:relative}.a-source{margin-right:42px}.a-target{margin-left:42px}.a-link{width:42px}
+    /* B: canvas node + property inspector */
+    #variant-B{align-items:stretch;justify-content:space-between;padding-right:0}.b-stage{flex:1;display:flex;align-items:center;justify-content:center;min-width:620px}.b-chip-node{width:265px;position:relative}.b-chip-body{padding:16px 18px}.b-metric{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.b-metric div{padding:9px 6px;text-align:center;border-radius:10px;background:var(--surface-2)}.b-metric strong{font-size:15px}.b-metric span{display:block;color:var(--muted);font-size:9px;margin-top:2px}.inspector{width:370px;background:rgba(255,255,255,.98);border-left:1px solid var(--line);box-shadow:-12px 0 35px rgba(27,31,42,.08);padding:18px 20px 100px;overflow:auto}.inspector-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.inspector-head h2{font-size:15px;margin:0}.field{padding:13px 0;border-bottom:1px solid var(--line)}.field>label{display:block;font-size:11px;font-weight:750;color:#737d90;margin-bottom:9px}.variable-card{border:1px solid var(--line);border-radius:12px;padding:10px 11px}.variable-card+.variable-card{margin-top:8px}.variable-top{display:flex;justify-content:space-between;align-items:center}.thumbs{display:flex;margin-top:9px}.thumb{width:29px;height:29px;border-radius:7px;border:2px solid #fff;margin-right:-6px;background:linear-gradient(135deg,#eccaa3,#a98766);box-shadow:0 0 0 1px #cfd4dd}.thumb:nth-child(2){background:linear-gradient(135deg,#b4d6dd,#4d7d8b)}.thumb:nth-child(3){background:linear-gradient(135deg,#d7b4d9,#805b87)}.thumb.more-thumb{display:grid;place-items:center;background:#eef0f4;color:#667085;font-size:9px}
+    /* C: guided builder, wide workflow node */
+    #variant-C{align-items:center;justify-content:center}.c-node{width:790px}.c-head{padding:18px 20px;display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}.steps{display:grid;grid-template-columns:1.25fr 1fr 1fr}.step{padding:18px;border-right:1px solid var(--line);min-height:248px}.step:last-child{border-right:0}.step-num{width:23px;height:23px;border-radius:50%;display:inline-grid;place-items:center;background:#eceef2;color:#5c6678;font-size:11px;font-weight:800;margin-right:7px}.step h3{display:inline;font-size:13px}.step-copy{font-size:10px;color:var(--muted);margin:7px 0 15px 31px}.choice{border:1px solid var(--line);border-radius:11px;padding:10px;margin-bottom:8px}.choice.selected{border-color:#968bea;background:#faf9ff}.choice-head{display:flex;justify-content:space-between;font-size:12px;font-weight:700}.choice small{display:block;color:var(--muted);font-size:9px;margin-top:4px}.formula{border-radius:12px;background:#222631;color:#fff;padding:12px;margin-top:12px}.formula span{font-size:10px;color:#adb5c4}.formula strong{display:block;font-size:20px;margin-top:4px}.c-footer{padding:13px 18px;background:#fafbfc;border-radius:0 0 var(--r) var(--r);display:flex;align-items:center;justify-content:space-between}.c-footer p{font-size:11px;color:var(--muted);margin:0}.c-footer .actions{margin:0}
+    /* Modal / prototype switcher */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(18,21,29,.42);display:none;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(3px)}.modal-backdrop.show{display:flex}.modal{width:min(820px,calc(100vw - 40px));max-height:76vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.25)}.modal-head{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line)}.modal h2{font-size:16px;margin:0}.modal p{font-size:11px;color:var(--muted);margin:5px 0 0}.close{border:0;background:#eef0f4;width:30px;height:30px;border-radius:9px}.task-table{width:100%;border-collapse:collapse;font-size:11px}.task-table th{color:var(--muted);font-weight:650;text-align:left;background:#fafbfc}.task-table th,.task-table td{padding:11px 14px;border-bottom:1px solid var(--line)}.task-image{width:32px;height:25px;border-radius:6px;display:inline-block;vertical-align:middle;margin-right:7px;background:linear-gradient(135deg,#eac9a2,#8a6546)}.state-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#aeb6c3;margin-right:5px}.modal-foot{padding:14px 18px;display:flex;justify-content:space-between;align-items:center}.modal-foot span{font-size:11px;color:var(--muted)}
+    .switcher{position:fixed;z-index:30;bottom:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:#171a21;color:#fff;padding:6px;border-radius:14px;box-shadow:0 14px 38px rgba(0,0,0,.28)}.switcher button{width:34px;height:32px;border:0;border-radius:9px;background:#2b303a;color:#fff;font-size:18px}.switcher-label{min-width:205px;text-align:center;font-size:11px}.switcher-label strong{display:block;font-size:12px}.switcher small{color:#aeb5c2}.hint{position:fixed;right:18px;bottom:20px;color:#758094;font-size:10px;background:rgba(255,255,255,.8);padding:7px 9px;border-radius:8px}
+    @media(max-width:900px){.variant{padding:68px 18px 110px}.a-source,.a-target{display:none}.a-link{display:none}#variant-B{padding-right:0}.b-stage{display:none}.inspector{width:100%;border:0}.c-node{width:100%}.steps{grid-template-columns:1fr}.step{border-right:0;border-bottom:1px solid var(--line);min-height:auto}.hint{display:none}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">∞</span><span>智能画布 <small>／批量运行节点</small></span></div>
+    <span class="prototype-tag">交互原型 · 不进入生产</span>
+  </header>
+  <main class="canvas">
+    <section class="variant" id="variant-A" data-name="紧凑节点">
+      <div class="mini-node a-source"><b>商品参考图</b><p>8 张图片</p></div><div class="connection a-link"></div>
+      <article class="node a-node">
+        <span class="port in"></span><span class="port out"></span>
+        <header class="node-head"><div class="titleline"><span class="node-icon">↻</span><div><h2>批量运行</h2><div class="node-sub">按顺序替换输入并运行下游流程</div></div></div><button class="more">···</button></header>
+        <section class="section"><div class="section-label">变量</div>
+          <div class="row"><div><div class="row-title">参考图变量</div><div class="row-note">按输入顺序使用</div></div><div class="pill"><strong>8</strong> 个选项</div><button class="toggle on" data-var="images" aria-label="参考图变量"></button></div>
+          <div class="row"><div><div class="row-title">提示词变量</div><div class="row-note">较短列表将从头重复</div></div><div class="pill"><strong>4</strong> 个选项</div><button class="toggle on" data-var="prompts" aria-label="提示词变量"></button></div>
+        </section>
+        <section class="section"><div class="section-label">组合与执行</div>
+          <div class="row"><span class="row-title">组合方式</span><select class="select"><option>按顺序配对</option><option disabled>全部组合（未来）</option></select></div>
+          <div class="row"><span class="row-title">执行方式</span><div class="seg" data-mode><button class="on" data-value="serial">依次执行</button><button data-value="parallel">并发执行</button></div></div>
+          <div class="row"><span class="row-title">每个任务使用图片</span><span class="pill"><strong>1</strong> 张</span></div>
+        </section>
+        <section class="section"><div class="summary"><div><strong data-task-count>8</strong><span>预计任务</span></div><div style="text-align:right"><strong data-output-count>8</strong><span>预计输出图片</span></div></div><div class="actions"><button class="btn" data-preview>检查任务</button><button class="btn primary" data-run>运行 8 个任务</button></div><div class="status" data-status><span class="spinner"></span>正在执行第 3 / 8 个任务</div></section>
+      </article>
+      <div class="connection a-link"></div><div class="mini-node a-target"><b>图片生成</b><p>Seedream · 1:1 · 1K</p></div>
+    </section>
+
+    <section class="variant" id="variant-B" data-name="属性面板">
+      <div class="b-stage">
+        <article class="node b-chip-node"><span class="port in"></span><span class="port out"></span>
+          <header class="node-head"><div class="titleline"><span class="node-icon">↻</span><div><h2>批量运行</h2><div class="node-sub">已选择 · 配置显示在右侧</div></div></div><button class="more">···</button></header>
+          <div class="b-chip-body"><div class="b-metric"><div><strong>2</strong><span>变量</span></div><div><strong data-task-count>8</strong><span>任务</span></div><div><strong>依次</strong><span>执行方式</span></div></div><div class="status" data-status><span class="spinner"></span>批量运行中 · 3 / 8</div></div>
+        </article>
+      </div>
+      <aside class="inspector">
+        <div class="inspector-head"><div><h2>批量运行设置</h2><div class="node-sub">节点只显示摘要，细节集中编辑</div></div><button class="more">×</button></div>
+        <div class="field"><label>变量（多选）</label>
+          <div class="variable-card"><div class="variable-top"><div><div class="row-title">参考图变量</div><div class="row-note">8 个选项</div></div><button class="toggle on" data-var="images"></button></div><div class="thumbs"><i class="thumb"></i><i class="thumb"></i><i class="thumb"></i><i class="thumb more-thumb">+5</i></div></div>
+          <div class="variable-card"><div class="variable-top"><div><div class="row-title">提示词变量</div><div class="row-note">4 个选项 · 按行拆分</div></div><button class="toggle on" data-var="prompts"></button></div></div>
+        </div>
+        <div class="field"><label>组合方式</label><div class="choice selected"><div class="choice-head"><span>按顺序配对</span><span>✓</span></div><small>图片 1 + 提示词 1，图片 2 + 提示词 2……</small></div></div>
+        <div class="field"><label>运行设置</label>
+          <div class="row"><span class="row-title">执行方式</span><div class="seg" data-mode><button class="on" data-value="serial">依次执行</button><button data-value="parallel">并发执行</button></div></div>
+          <div class="row"><span class="row-title">任务数量</span><span class="pill">自动 · <strong data-task-count>8</strong> 个</span></div>
+          <div class="row"><span class="row-title">每任务使用图片</span><span class="pill"><strong>1</strong> 张</span></div>
+        </div>
+        <div class="field" style="border:0"><div class="summary"><div><strong data-task-count>8</strong><span>预计任务</span></div><div style="text-align:right"><strong data-output-count>8</strong><span>预计输出</span></div></div><div class="actions"><button class="btn" data-preview>检查任务</button><button class="btn primary" data-run>运行 8 个任务</button></div></div>
+      </aside>
+    </section>
+
+    <section class="variant" id="variant-C" data-name="分步构建器">
+      <article class="node c-node">
+        <header class="c-head"><div class="titleline"><span class="node-icon">↻</span><div><h2>创建批量运行</h2><div class="node-sub">先定义变化内容，再确认任务，最后运行</div></div></div><span class="pill">连接到「图片生成」</span></header>
+        <div class="steps">
+          <section class="step"><span class="step-num">1</span><h3>选择变量</h3><p class="step-copy">哪些输入会随任务变化？</p>
+            <div class="choice selected"><div class="choice-head"><span>参考图变量</span><button class="toggle on" data-var="images"></button></div><small>来自上游节点 · 8 张图片</small></div>
+            <div class="choice selected"><div class="choice-head"><span>提示词变量</span><button class="toggle on" data-var="prompts"></button></div><small>4 条提示词 · 按行拆分</small></div>
+          </section>
+          <section class="step"><span class="step-num">2</span><h3>形成任务</h3><p class="step-copy">决定变量如何配对。</p>
+            <div class="choice selected"><div class="choice-head"><span>按顺序配对</span><span>✓</span></div><small>较短列表循环使用</small></div>
+            <div class="formula"><span>系统自动派生</span><strong><em data-task-count style="font-style:normal">8</em> 个任务</strong></div>
+          </section>
+          <section class="step"><span class="step-num">3</span><h3>设置执行</h3><p class="step-copy">如何运行这些任务？</p>
+            <div class="row"><span class="row-title">执行方式</span></div><div class="seg" data-mode style="margin-top:7px"><button class="on" data-value="serial">依次执行</button><button data-value="parallel">并发执行</button></div>
+            <div class="row" style="margin-top:13px"><span class="row-title">每任务图片</span><span class="pill"><strong>1</strong> 张</span></div>
+            <div class="row"><span class="row-title">预计输出</span><span class="pill"><strong data-output-count>8</strong> 张</span></div>
+          </section>
+        </div>
+        <footer class="c-footer"><p>提示：运行前检查最终提示词和参考图，可以避免批量消耗额度。</p><div class="actions"><button class="btn" data-preview>检查任务清单</button><button class="btn accent" data-run>确认并运行</button></div><div class="status" data-status><span class="spinner"></span>运行中 · 3 / 8</div></footer>
+      </article>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal"><header class="modal-head"><div><h2 id="modalTitle">检查任务清单</h2><p>任务由变量按顺序配对产生；本原型只展示前 5 条。</p></div><button class="close" data-close>×</button></header>
+    <table class="task-table"><thead><tr><th>#</th><th>参考图变量</th><th>最终提示词</th><th>执行状态</th></tr></thead><tbody id="taskRows"></tbody></table>
+    <footer class="modal-foot"><span><strong id="modalTaskCount">8</strong> 个任务 · 预计输出 <strong id="modalOutputCount">8</strong> 张</span><div class="actions" style="margin:0"><button class="btn" data-close>返回修改</button><button class="btn accent" id="modalRun">确认并运行</button></div></footer>
+  </div>
+</div>
+
+<nav class="switcher" aria-label="原型方案切换"><button id="prevVariant" aria-label="上一个方案">←</button><div class="switcher-label"><strong id="variantLabel">A · 紧凑节点</strong><small>方向键也可以切换</small></div><button id="nextVariant" aria-label="下一个方案">→</button></nav>
+<div class="hint">这是一次性原型，所有状态只保存在内存中</div>
+
+<script>
+  const variants=['A','B','C'];
+  const names={A:'紧凑节点',B:'属性面板',C:'分步构建器'};
+  const state={images:true,prompts:true,mode:'serial',running:false};
+  const currentKey=()=>{const key=new URLSearchParams(location.search).get('variant')?.toUpperCase();return variants.includes(key)?key:'A'};
+  function taskCount(){return state.images?8:(state.prompts?4:1)}
+  function sync(){
+    const key=currentKey();document.querySelectorAll('.variant').forEach(v=>v.classList.toggle('active',v.id===`variant-${key}`));
+    document.getElementById('variantLabel').textContent=`${key} · ${names[key]}`;
+    document.querySelectorAll('[data-task-count],[data-output-count]').forEach(el=>el.textContent=taskCount());
+    document.querySelectorAll('[data-run]').forEach(el=>{if(el.textContent.includes('运行')&&!el.textContent.includes('确认'))el.textContent=`运行 ${taskCount()} 个任务`});
+    document.querySelectorAll('[data-status]').forEach(el=>el.classList.toggle('show',state.running));
+    document.querySelectorAll('[data-var]').forEach(el=>el.classList.toggle('on',state[el.dataset.var]));
+    document.querySelectorAll('[data-mode] button').forEach(el=>el.classList.toggle('on',el.dataset.value===state.mode));
+  }
+  function setVariant(delta){const i=variants.indexOf(currentKey());const next=variants[(i+delta+variants.length)%variants.length];const u=new URL(location.href);u.searchParams.set('variant',next);history.replaceState({},'',u);sync()}
+  document.getElementById('prevVariant').onclick=()=>setVariant(-1);document.getElementById('nextVariant').onclick=()=>setVariant(1);
+  addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable)return;if(e.key==='ArrowLeft')setVariant(-1);if(e.key==='ArrowRight')setVariant(1);if(e.key==='Escape')document.getElementById('taskModal').classList.remove('show')});
+  document.querySelectorAll('[data-var]').forEach(btn=>btn.onclick=()=>{state[btn.dataset.var]=!state[btn.dataset.var];sync()});
+  document.querySelectorAll('[data-mode] button').forEach(btn=>btn.onclick=()=>{state.mode=btn.dataset.value;sync()});
+  function openPreview(){const count=taskCount(),prompts=['生成正面产品展示图','生成真实使用场景图','突出材质与工艺细节','制作核心卖点海报'];document.getElementById('taskRows').innerHTML=Array.from({length:Math.min(5,count)},(_,i)=>`<tr><td>${i+1}</td><td>${state.images?`<span class="task-image"></span>商品图 ${String(i+1).padStart(2,'0')}`:'—'}</td><td>${state.prompts?prompts[i%prompts.length]:'使用下游节点固定提示词'}</td><td><span class="state-dot"></span>等待运行</td></tr>`).join('');document.getElementById('modalTaskCount').textContent=count;document.getElementById('modalOutputCount').textContent=count;document.getElementById('taskModal').classList.add('show')}
+  function run(){state.running=true;document.getElementById('taskModal').classList.remove('show');sync()}
+  document.querySelectorAll('[data-preview]').forEach(btn=>btn.onclick=openPreview);document.querySelectorAll('[data-run]').forEach(btn=>btn.onclick=run);document.getElementById('modalRun').onclick=run;document.querySelectorAll('[data-close]').forEach(btn=>btn.onclick=()=>document.getElementById('taskModal').classList.remove('show'));document.getElementById('taskModal').onclick=e=>{if(e.target.id==='taskModal')e.currentTarget.classList.remove('show')};
+  sync();
+</script>
+</body>
+</html>

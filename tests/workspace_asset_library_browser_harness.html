@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN" data-workspace-asset-library-status="loading">
+<head>
+  <meta charset="utf-8">
+  <title>Workspace asset library browser contract</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <ic-workspace-asset-library id="library" aria-label="资产库" style="display:block;width:760px;height:680px"></ic-workspace-asset-library>
+  <script type="module">
+    const initialItems = [
+      { id:'asset-1', name:'晨雾森林', url:'/static/images/logo.png', folder_id:'folder-scenes', can_manage:true },
+      { id:'asset-2', name:'夜色城市', url:'/static/images/logo.png', folder_id:'', can_manage:true },
+    ];
+    let items = initialItems.map(item => ({ ...item }));
+    let folders = [{ id:'folder-scenes', name:'场景', order:0, item_count:1 }];
+    globalThis.workspaceAssetRequests = [];
+    globalThis.fetch = async (input, init = {}) => {
+      const url = new URL(String(input), location.origin);
+      const method = String(init.method || 'GET').toUpperCase();
+      const formFolderId = init.body instanceof FormData ? String(init.body.get('folder_id') || '') : '';
+      globalThis.workspaceAssetRequests.push({ method, path:url.pathname, query:url.searchParams.get('query') || '', folder_id:formFolderId });
+      if (method === 'GET') {
+        const query = (url.searchParams.get('query') || '').trim();
+        const folderId = url.searchParams.get('folder_id') || '';
+        const folderItems = folderId ? items.filter(item => item.folder_id === folderId) : items;
+        const visibleItems = query ? folderItems.filter(item => item.name.includes(query)) : folderItems;
+        folders = folders.map(folder => ({ ...folder, item_count:items.filter(item => item.folder_id === folder.id).length }));
+        return Response.json({ items:visibleItems, folders, all_count:items.length, next_cursor:'', at_capacity:false });
+      }
+      if (url.pathname === '/api/workspace-assets/folders' && method === 'POST') {
+        const payload = JSON.parse(init.body || '{}');
+        const folder = { id:`folder-${folders.length + 1}`, name:payload.name, order:folders.length, item_count:0 };
+        folders.push(folder);
+        return Response.json({ folder });
+      }
+      if (url.pathname === '/api/workspace-assets/import' && method === 'POST') {
+        const files = init.body.getAll('files');
+        const created = files.map((file, index) => ({
+          id:`imported-${items.length + index + 1}`,
+          name:file.name,
+          url:'/static/images/logo.png',
+          folder_id:formFolderId,
+          can_manage:true,
+        }));
+        items.push(...created);
+        return Response.json({created:created.length, existing:0, failed:0, entries:created, failures:[]});
+      }
+      const id = decodeURIComponent(url.pathname.split('/').pop() || '');
+      if (method === 'PATCH') {
+        const payload = JSON.parse(init.body || '{}');
+        if (url.pathname.includes('/folders/')) {
+          folders = folders.map(folder => folder.id === id ? { ...folder, name:payload.name } : folder);
+          return Response.json({ folder:folders.find(folder => folder.id === id) });
+        }
+        items = items.map(item => item.id === id ? { ...item, ...(payload.name === undefined ? {} : {name:payload.name}), ...(payload.folder_id === undefined ? {} : {folder_id:payload.folder_id}) } : item);
+        return Response.json({ item:items.find(item => item.id === id) });
+      }
+      if (method === 'DELETE') {
+        if (url.pathname.includes('/folders/')) {
+          const moved = items.filter(item => item.folder_id === id).length;
+          items = items.map(item => item.folder_id === id ? { ...item, folder_id:'' } : item);
+          folders = folders.filter(folder => folder.id !== id);
+          return Response.json({ removed:1, id, moved });
+        }
+        items = items.filter(item => item.id !== id);
+        return new Response(null, { status:204 });
+      }
+      return Response.json({ detail:'Unsupported request' }, { status:400 });
+    };
+    await import('/static/js/infinite-canvas-ui/core.js');
+    await Promise.all(['ic-workspace-asset-library', 'ic-form-field', 'ic-input', 'ic-icon-button', 'ic-confirm-popover'].map(name => customElements.whenDefined(name)));
+    await document.querySelector('#library').refresh({ preserveQuery:false });
+    document.documentElement.dataset.workspaceAssetLibraryStatus = 'ready';
+  </script>
+</body>
+</html>

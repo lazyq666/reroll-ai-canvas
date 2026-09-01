@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 反推提示词配置 Modal</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    Refined direction: Variant A only. Templates come from the prompt-library
+    category named “反推提示词”; the template content is read-only here.
+    Run: ./.venv/bin/python -m http.server 9800
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/reverse-prompt-modal-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+</head>
+<body>
+  <main class="canvas-stage" aria-label="反推提示词 Modal 原型背景画布">
+    <header class="canvas-header">
+      <ic-button size="m" hierarchy="secondary"><ic-icon name="back" slot="start"></ic-icon>概念探索</ic-button>
+      <div class="canvas-meta"><span>智能画布</span><small>已保存</small></div>
+      <ic-button size="m" hierarchy="secondary"><ic-icon name="more" slot="start"></ic-icon>画布选项</ic-button>
+    </header>
+
+    <section class="canvas-world" aria-label="模拟节点画布">
+      <article class="canvas-note canvas-note-one"><span>01</span><p>选中图片后，从浮动菜单进入反推流程</p></article>
+      <article class="canvas-node prompt-node">
+        <header><ic-icon name="prompt"></ic-icon>产品视觉方向</header>
+        <p>暖色自然光、低饱和度、真实材质、编辑感构图</p>
+      </article>
+      <div class="canvas-connection" aria-hidden="true"></div>
+      <article class="canvas-node image-node selected">
+        <div class="node-floating-menu" aria-label="图片节点操作">
+          <ic-button id="prototypeReversePromptButton" size="xs" hierarchy="quiet"><ic-icon name="reverse-prompt" slot="start"></ic-icon>反推提示词</ic-button>
+          <ic-button size="xs" hierarchy="quiet"><ic-icon name="edit" slot="start"></ic-icon>编辑</ic-button>
+          <ic-button size="xs" hierarchy="quiet"><ic-icon name="cut" slot="start"></ic-icon>抠图</ic-button>
+        </div>
+        <img src="/static/prototypes/reverse-prompt-fixture.svg" alt="日落山谷中的现代玻璃小屋">
+        <footer><span>参考图 01</span><small>1536 × 1024</small></footer>
+      </article>
+      <article class="canvas-note canvas-note-two"><span>02</span><p>确认模板与模型后，再创建提示词生成节点</p></article>
+      <article id="prototypeOutputNode" class="canvas-node result-node" hidden>
+        <header><ic-icon name="text"></ic-icon>反推提示词</header>
+        <p id="prototypeOutputText">正在准备反推…</p>
+      </article>
+    </section>
+  </main>
+
+  <ic-dialog id="reversePromptDialog" class="reverse-dialog" label="反推提示词" size="medium" dismiss-policy="explicit">
+    <div class="reverse-layout">
+      <img class="source-image" src="/static/prototypes/reverse-prompt-fixture.svg" alt="待反推的日落山谷玻璃小屋">
+
+      <section class="configuration-panel">
+        <div class="section-heading">
+          <ic-heading level="3" data-legal-combination="h3-title">提示词模板</ic-heading>
+          <span id="templateLibrarySource" class="template-library-source">正在读取提示词模板库…</span>
+        </div>
+        <div id="reversePromptTemplateGrid" class="template-options">
+          <div class="template-loading"><ic-loading size="small"></ic-loading><span>正在读取“反推提示词”分组</span></div>
+        </div>
+
+        <ic-divider class="configuration-divider"></ic-divider>
+        <div class="section-heading model-heading">
+          <ic-heading level="3" data-legal-combination="h3-title">分析模型</ic-heading>
+        </div>
+        <div class="composer-model-row">
+          <ic-select
+            id="reversePromptModel"
+            class="catalog-model-select"
+            name="reverse-prompt-model"
+            aria-label="分析模型"
+            hierarchy="quiet"
+            placement="top"
+            value="gemini-2.5-pro"
+            data-component-variant="model-picker"
+            data-legal-combination="model-picker-vertical-manual-label"
+          >
+            <option value="gemini-2.5-pro" data-start-icon-src="/static/images/gemini.svg" data-start-icon-monochrome>Gemini 2.5 Pro</option>
+            <option value="gpt-5.5" data-start-icon-src="/static/images/chatgpt.svg" data-start-icon-monochrome>GPT-5.5</option>
+            <option value="qwen3-vl-plus" data-start-icon="sparkles">Qwen3 VL Plus</option>
+            <span id="selectedModelIcon" slot="start" aria-hidden="true"><img src="/static/images/gemini.svg" alt="" data-monochrome="true"></span>
+            <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
+          </ic-select>
+        </div>
+      </section>
+    </div>
+    <ic-button slot="footer" hierarchy="secondary" data-cancel>取消</ic-button>
+    <ic-button id="reversePromptRun" slot="footer" hierarchy="primary" data-run disabled><ic-icon name="reverse-prompt" slot="start"></ic-icon>开始反推</ic-button>
+  </ic-dialog>
+
+  <div id="prototypeToast" class="prototype-toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="/static/prototypes/reverse-prompt-modal-prototype.js"></script>
+</body>
+</html>

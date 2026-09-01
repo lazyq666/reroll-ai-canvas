@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 生成日志 Modal</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    One refined Generation History direction: task index + selected detail.
+    Run from the repository root:
+    ./.venv/bin/python -m http.server 9800 --bind 127.0.0.1 --directory .
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/generation-log-modal-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+  <script src="/static/vendor/js/lucide.js"></script>
+</head>
+<body>
+  <main class="canvas-stage" aria-hidden="true">
+    <header class="canvas-toolbar">
+      <div class="brand-dot"></div><strong>Reroll</strong><span>产品图探索</span>
+      <div class="toolbar-spacer"></div><button type="button">分享</button><div class="avatar">L</div>
+    </header>
+    <aside class="canvas-rail"><i data-lucide="mouse-pointer-2"></i><i data-lucide="hand"></i><i data-lucide="type"></i><i data-lucide="image"></i><i data-lucide="sparkles"></i></aside>
+    <section class="canvas-world">
+      <article class="ghost-node node-one"><img src="/static/prototypes/reverse-prompt-fixture.svg" alt=""><span>香氛主视觉</span></article>
+      <article class="ghost-node node-two"><div class="prompt-lines"></div><span>产品氛围图</span></article>
+      <svg class="ghost-connection" viewBox="0 0 600 220" aria-hidden="true"><path d="M30 155 C210 155 220 55 520 55"/></svg>
+    </section>
+  </main>
+
+  <div class="prototype-backdrop"></div>
+  <section class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <header class="modal-header">
+      <div class="header-copy">
+        <h1 id="modalTitle">生成日志</h1>
+      </div>
+      <button class="icon-button" type="button" data-close aria-label="关闭" title="关闭"><i data-lucide="x"></i></button>
+    </header>
+    <div id="variantHost" class="variant-host"></div>
+  </section>
+
+  <div class="prototype-toast" role="status" aria-live="polite" hidden></div>
+  <div class="image-lightbox" role="dialog" aria-modal="true" aria-label="查看引用图片" hidden>
+    <img alt="引用图片预览">
+    <button class="icon-button" type="button" aria-label="关闭图片预览"><i data-lucide="x"></i></button>
+  </div>
+
+  <script src="/static/prototypes/generation-log-modal-prototype.js"></script>
+</body>
+</html>

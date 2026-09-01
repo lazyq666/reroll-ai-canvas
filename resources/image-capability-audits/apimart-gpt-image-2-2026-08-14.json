@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "provider_id": "apimart",
+  "model_id": "gpt-image-2",
+  "environment": "apimart-production",
+  "confirmed_at": "2026-08-14",
+  "privacy": "Prompts, image contents, URLs, credentials, and user identifiers are excluded.",
+  "request_accounting": {
+    "historical_external_requests": 0,
+    "new_probe_submissions": 2,
+    "new_probe_results_with_recorded_dimensions": 2,
+    "probe_cost_field_available": false
+  },
+  "live_probe_evidence": [
+    {
+      "aspect_ratio": "21:9",
+      "resolution_tier": "1K",
+      "status": "supported",
+      "actual_size": "1915x821",
+      "relative_aspect_error": 0.0003480076561685712,
+      "remote_task_id": "task_01M00B84QJWPRMEJ0AJAT5DWF6"
+    },
+    {
+      "aspect_ratio": "9:21",
+      "resolution_tier": "1K",
+      "status": "supported",
+      "actual_size": "821x1915",
+      "relative_aspect_error": 0.0003481288076588873,
+      "remote_task_id": "task_01M00BP89J18GCQQSR262T2PCG"
+    }
+  ],
+  "documented_evidence": {
+    "apimart_url": "https://docs.apimart.ai/en/api-reference/images/gpt-image-2/generation",
+    "supports_product_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
+    "supports_resolution_tiers": ["1K", "2K", "4K"],
+    "openai_official_model_url": "https://developers.openai.com/api/docs/models/gpt-image-2",
+    "routing_boundary": "This capability applies to APIMART's gpt-image-2 route. The OpenAI model page describes flexible sizes but does not explicitly document 21:9."
+  },
+  "confirmed_capability": {
+    "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
+    "resolution_tiers": ["1K", "2K", "4K"],
+    "default_resolution_tier": "1K"
+  }
+}

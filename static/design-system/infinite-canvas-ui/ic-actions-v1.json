@@ -1,0 +1,426 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.actions",
+  "interfaceVersion": 6,
+  "review": {
+    "contract": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "五项通过，映射通过",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved all five Actions judgments and the Legacy mapping in the Codex task."
+    },
+    "implementation": {
+      "status": "implemented",
+      "implementedOn": "2026-08-09",
+      "evidence": [
+        "/static/js/infinite-canvas-ui/actions.js",
+        "/static/js/infinite-canvas-ui/actions/video-play-button.js",
+        "/static/js/infinite-canvas-ui/theme-adapter.js",
+        "/static/design-system/infinite-canvas-ui/actions.html"
+      ]
+    },
+    "live": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "Focus、Primary、Icon Button 通过；Foundations 重新确认，Actions 实时视觉与交互通过。",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved the corrected Focus, Primary and Icon Button visuals and the complete Actions live interaction matrix."
+    },
+    "migration": {
+      "status": "confirmed"
+    }
+  },
+  "principles": [
+    "The action purpose chooses the component; a legacy appearance never creates a new variant.",
+    "Theme, density, viewport, content language and interaction state are contexts rather than variants.",
+    "Danger communicates a destructive consequence and is never decorative.",
+    "Toggle behavior communicates a persistent pressed state and cannot be combined with danger or primary hierarchy.",
+    "Icon-only actions require an accessible action name and use the project-owned Lucide semantic icon interface."
+  ],
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "instanceCount": 718,
+    "byTarget": {
+      "ic-button": 699,
+      "ic-icon-button": 19,
+      "ic-button-group": 0
+    },
+    "byLegacyTarget": {
+      "button.secondary": 434,
+      "button.toggle": 140,
+      "button.primary": 61,
+      "button.link": 35,
+      "button.danger": 29,
+      "button.icon": 19
+    },
+    "rule": "Legacy counts prove coverage and scenario demand; they do not define target variants or appearance."
+  },
+  "runtimeContract": {
+    "invalidCombination": {
+      "statusAttribute": "data-ic-contract-status=invalid",
+      "reasonAttribute": "data-ic-contract-reason",
+      "event": "ic-contract-error",
+      "activation": "fail-closed"
+    },
+    "engineBoundary": "Business pages consume only ic-* tags, semantic attributes and --ui-* Tokens; Web Awesome remains internal.",
+    "iconLanguage": "ic-icon semantic names backed by the fixed local Lucide release",
+    "iconButtonBackground": "background=ghost stays transparent and strengthens only the icon on hover; hierarchy=primary provides the reusable primary icon action surface."
+  },
+  "liveMatrix": {
+    "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
+    "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
+    "caseCount": 6,
+    "legalCombinationCount": 15,
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "viewports": [
+      "desktop",
+      "narrow"
+    ],
+    "locales": [
+      "zh-CN",
+      "en"
+    ],
+    "content": [
+      "normal",
+      "long"
+    ],
+    "motion": [
+      "standard",
+      "reduced"
+    ],
+    "states": [
+      "default",
+      "hover",
+      "focus-visible",
+      "pressed",
+      "loading",
+      "disabled",
+      "selected"
+    ]
+  },
+  "components": [
+    {
+      "tag": "ic-button",
+      "purpose": "Trigger a labeled product action with constrained hierarchy, consequence tone and optional persistent toggle behavior.",
+      "useWhen": [
+        "The visible label names the action.",
+        "The action submits or resets a form.",
+        "A persistent pressed state is clearer as a labeled toggle action than as a selection field."
+      ],
+      "prohibitedUses": [
+        "navigation-link",
+        "radio-or-checkbox-selection",
+        "menu-item",
+        "decorative-status-label"
+      ],
+      "attributes": [
+        "hierarchy",
+        "tone",
+        "ghost",
+        "size",
+        "toggle",
+        "pressed",
+        "disabled",
+        "loading",
+        "type",
+        "name",
+        "value"
+      ],
+      "slots": [
+        "default",
+        "start",
+        "end"
+      ],
+      "semanticDimensions": {
+        "hierarchy": [
+          "primary",
+          "secondary",
+          "quiet"
+        ],
+        "tone": [
+          "neutral",
+          "danger"
+        ],
+        "behavior": [
+          "action",
+          "toggle"
+        ],
+        "presentation": [
+          "default",
+          "ghost"
+        ],
+        "density": [
+          "xs",
+          "small",
+          "medium",
+          "large"
+        ],
+        "content": [
+          "label",
+          "leading-icon",
+          "trailing-icon"
+        ]
+      },
+      "presentation": {
+        "radius": "medium",
+        "cornerShape": "squircle",
+        "secondary": "soft neutral fill without border",
+        "danger": "danger fill without border"
+      },
+      "legalCombinations": [
+        {
+          "id": "primary-action",
+          "hierarchy": "primary",
+          "tone": "neutral",
+          "behavior": "action"
+        },
+        {
+          "id": "secondary-action",
+          "hierarchy": "secondary",
+          "tone": "neutral",
+          "behavior": "action"
+        },
+        {
+          "id": "secondary-ghost-action",
+          "hierarchy": "secondary",
+          "tone": "neutral",
+          "behavior": "action",
+          "ghost": true
+        },
+        {
+          "id": "quiet-action",
+          "hierarchy": "quiet",
+          "tone": "neutral",
+          "behavior": "action"
+        },
+        {
+          "id": "primary-danger-action",
+          "hierarchy": "primary",
+          "tone": "danger",
+          "behavior": "action"
+        },
+        {
+          "id": "secondary-danger-action",
+          "hierarchy": "secondary",
+          "tone": "danger",
+          "behavior": "action"
+        },
+        {
+          "id": "quiet-danger-action",
+          "hierarchy": "quiet",
+          "tone": "danger",
+          "behavior": "action"
+        },
+        {
+          "id": "secondary-toggle",
+          "hierarchy": "secondary",
+          "tone": "neutral",
+          "behavior": "toggle"
+        },
+        {
+          "id": "quiet-toggle",
+          "hierarchy": "quiet",
+          "tone": "neutral",
+          "behavior": "toggle"
+        }
+      ],
+      "prohibitedContent": [
+        "icon-only",
+        "empty-label",
+        "two-icons-without-label"
+      ],
+      "invariants": [
+        "A region should expose at most one primary action at the same hierarchy level.",
+        "ghost is a presentation of the secondary neutral action: its default surface is transparent and its hover surface is --ui-color-action-tertiary-hover; ic-icon-button does not support ghost.",
+        "Secondary neutral, secondary ghost and secondary danger buttons use --ui-font-weight-regular and preserve their default foreground color on hover.",
+        "pressed is valid only when toggle is present.",
+        "toggle buttons use type=button and do not submit forms.",
+        "loading prevents repeated activation and exposes a named busy state.",
+        "Disabled and loading are states, never variants."
+      ]
+    },
+    {
+      "tag": "ic-icon-button",
+      "purpose": "Trigger a compact action whose only visible content is one project semantic icon.",
+      "useWhen": [
+        "The icon meaning is established in the immediate professional-tool context.",
+        "Space is constrained in a toolbar, Canvas overlay or repeated row action."
+      ],
+      "prohibitedUses": [
+        "primary-page-action",
+        "unfamiliar-action-without-visible-label-nearby",
+        "brand-or-provider-logo",
+        "decorative-icon"
+      ],
+      "requiredAttributes": [
+        "icon",
+        "label"
+      ],
+      "attributes": [
+        "icon",
+        "label",
+        "shortcut",
+        "tooltip-disabled",
+        "tooltip-placement",
+        "background",
+        "hierarchy",
+        "tone",
+        "size",
+        "toggle",
+        "pressed",
+        "disabled",
+        "loading",
+        "type",
+        "name",
+        "value"
+      ],
+      "semanticDimensions": {
+        "hierarchy": [
+          "primary",
+          "secondary",
+          "quiet"
+        ],
+        "tone": [
+          "neutral",
+          "danger"
+        ],
+        "behavior": [
+          "action",
+          "toggle"
+        ],
+        "density": [
+          "xs",
+          "small",
+          "medium",
+          "large"
+        ],
+        "content": [
+          "icon-only"
+        ],
+        "background": [
+          "auto",
+          "ghost"
+        ]
+      },
+      "legalCombinations": [
+        {
+          "id": "secondary-icon-action",
+          "hierarchy": "secondary",
+          "tone": "neutral",
+          "behavior": "action"
+        },
+        {
+          "id": "primary-icon-action",
+          "hierarchy": "primary",
+          "tone": "neutral",
+          "behavior": "action"
+        },
+        {
+          "id": "quiet-icon-action",
+          "hierarchy": "quiet",
+          "tone": "neutral",
+          "behavior": "action",
+          "background": "ghost"
+        },
+        {
+          "id": "quiet-danger-icon-action",
+          "hierarchy": "quiet",
+          "tone": "danger",
+          "behavior": "action"
+        },
+        {
+          "id": "secondary-icon-toggle",
+          "hierarchy": "secondary",
+          "tone": "neutral",
+          "behavior": "toggle"
+        },
+        {
+          "id": "quiet-icon-toggle",
+          "hierarchy": "quiet",
+          "tone": "neutral",
+          "behavior": "toggle"
+        }
+      ],
+      "invariants": [
+        "label is always the accessible action name and is never optional.",
+        "shortcut is optional Tooltip metadata and never replaces label as the accessible action name.",
+        "tooltip-disabled suppresses the generated Tooltip without changing the control's accessible name.",
+        "Button size maps to the shared control-height and icon-size tokens automatically: xs 20/10/12, small 28/12/16, medium 36/14/20, large 40/16/24; medium is the default.",
+        "The square control box remains circular with round corner geometry; it does not use the squircle shape reserved for non-circular buttons.",
+        "The xs icon uses a 1px stroke so the smallest control remains legible; larger icon buttons keep their size-specific stroke tokens.",
+        "background=ghost removes the base fill and border in every theme; hover strengthens only the icon color by one semantic step from --ui-color-text-tertiary to --ui-color-text-secondary.",
+        "hierarchy=primary provides the reusable primary icon action used by Composer run controls; the Actions family owns its fill, hover, shadow and icon stroke.",
+        "icon accepts only semantic names from ic-icon.",
+        "Primary ic-icon-button actions require a non-empty label attribute for their accessible name and Tooltip.",
+        "Danger icon actions remain quiet so destructive meaning does not become decorative emphasis."
+      ]
+    },
+    {
+      "tag": "ic-video-play-button",
+      "purpose": "Trigger video playback from a cover using the Figma-defined circular play treatment.",
+      "useWhen": [
+        "A video cover needs the product-standard play action before the native player is visible."
+      ],
+      "prohibitedUses": [
+        "generic-icon-action",
+        "audio-playback-control",
+        "native-video-control-replacement"
+      ],
+      "requiredAttributes": ["label"],
+      "attributes": ["label", "size", "disabled"],
+      "semanticDimensions": {
+        "size": ["small", "medium"],
+        "content": ["figma-play-asset"]
+      },
+      "invariants": [
+        "medium is the default and renders the Figma main-controller treatment at 4rem.",
+        "small renders the same asset at 32px for thumbnail video covers.",
+        "label is always forwarded to the internal native button as its accessible action name.",
+        "The action only enters playback; browser-native video controls remain responsible for playback after activation."
+      ]
+    },
+    {
+      "tag": "ic-button-group",
+      "purpose": "Give related actions one accessible group name and one visual relationship without taking over their individual semantics.",
+      "useWhen": [
+        "Two or more adjacent actions operate on the same object or task.",
+        "Toolbar actions need one announced group name."
+      ],
+      "prohibitedUses": [
+        "radio-group",
+        "checkbox-group",
+        "tab-list",
+        "navigation-list",
+        "single-standalone-action"
+      ],
+      "requiredAttributes": [
+        "label"
+      ],
+      "attributes": [
+        "label",
+        "orientation"
+      ],
+      "semanticDimensions": {
+        "orientation": [
+          "horizontal",
+          "vertical"
+        ]
+      },
+      "allowedChildren": [
+        "ic-button",
+        "ic-icon-button"
+      ],
+      "invariants": [
+        "The group does not change child hierarchy, tone, state or form behavior.",
+        "A group contains at most one primary action.",
+        "Selection widgets use their dedicated component family rather than button-group."
+      ]
+    }
+  ]
+}

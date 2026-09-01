@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN" data-generation-feedback-harness-status="loading" data-generation-feedback-library-page>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Canvas 生成失败反馈测试环境</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    body { margin:0; color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
+    main { width:min(64rem, calc(100% - 2 * var(--ui-space-5))); margin:var(--ui-space-7) auto; display:grid; gap:var(--ui-space-5); }
+    header, .fixture, .details, .scenario-group { display:grid; gap:var(--ui-space-3); }
+    h1, h2, h3, p { margin:0; }
+    h1 { font-size:var(--ui-font-size-6); }
+    h2 { font:var(--ui-text-body); }
+    h3 { color:var(--ui-color-text-tertiary); font:var(--ui-text-label); }
+    p { color:var(--ui-color-text-tertiary); line-height:var(--ui-line-height-body); }
+    .scenario-groups { display:grid; gap:var(--ui-space-4); }
+    .scenario-buttons { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .fixture, .details { padding:var(--ui-space-5); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface); }
+    .details[hidden] { display:none; }
+    .selection { display:grid; gap:var(--ui-space-1); padding-block:var(--ui-space-2); border-block:var(--ui-border-width-thin) solid var(--ui-color-border-tertiary); }
+    .selection strong { font:var(--ui-text-body); }
+    .selection span { color:var(--ui-color-text-tertiary); font:var(--ui-text-label); }
+    .details pre { margin:0; padding:var(--ui-space-3); overflow:auto; border-radius:var(--ui-radius-m); background:var(--ui-color-surface-subtle); font:var(--ui-text-code); white-space:pre-wrap; }
+    @media (max-width:640px) { main { width:min(100% - 2 * var(--ui-space-3), 64rem); margin:var(--ui-space-4) auto; } .fixture, .details { padding:var(--ui-space-3); } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>生成失败反馈测试环境</h1>
+      <p>共 25 个固定场景，覆盖图片、视频、文字、抠图四种操作名称、主要聚合状态、全部错误分类与真实平台错误原文。页面只调用生产环境的分类、聚合、i18n 与 ic-alert，不请求任何生成平台，也不会产生费用。</p>
+    </header>
+    <section class="fixture" aria-labelledby="scenario-title">
+      <h2 id="scenario-title">选择模拟场景</h2>
+      <div class="selection" aria-live="polite">
+        <strong id="current-label">尚未选择场景</strong>
+        <span id="current-note">选择上方任一场景查看真实提醒文案。</span>
+      </div>
+      <ic-alert id="scenario-alert" tone="danger" heading="生成失败" action-label="查看详情" dismissible hidden>请选择一个场景。</ic-alert>
+      <div id="scenario-groups" class="scenario-groups"></div>
+    </section>
+    <section id="details" class="details" aria-labelledby="details-title" hidden>
+      <h2 id="details-title">模拟诊断数据</h2>
+      <pre id="details-output"></pre>
+    </section>
+  </main>
+  <script src="/static/js/i18n-core.js"></script>
+  <script src="/static/js/i18n/smart-canvas.js"></script>
+  <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=2026.08.15.5"></script>
+  <script type="module">
+    await import('/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4');
+    await Promise.all(['ic-button', 'ic-alert'].map(tag => customElements.whenDefined(tag)));
+    const feedback = window.SmartCanvasModules.generationFailureFeedback;
+    const tr = key => window.StudioI18n.t(key);
+    const trf = (key, values) => window.StudioI18n.format(key, values);
+    const alert = document.querySelector('#scenario-alert');
+    const details = document.querySelector('#details');
+    const output = document.querySelector('#details-output');
+    const currentLabel = document.querySelector('#current-label');
+    const currentNote = document.querySelector('#current-note');
+    const succeeded = localTaskId => ({status:'succeeded', localTaskId});
+    const failed = (localTaskId, technicalError, options={}) => ({status:'failed', localTaskId, technicalError, ...options});
+    const apimartFailure = index => failed(
+      `apimart_${index}`,
+      'The provider account is temporarily restricted.',
+      {providerId:'apimart', httpStatus:401, billingEvidence:{cost:0}},
+    );
+    const scenarios = {
+      'partial-success': {group:'聚合结果', actionKind:'image', label:'生成图片 · 部分成功', note:'1 项成功；1 项超时；1 项审核失败。', tasks:[
+        succeeded('partial_ok_1'),
+        failed('partial_timeout_1', 'maximum processing time exceeded 15 minutes', {httpStatus:504}),
+        failed('partial_safety_1', 'content policy moderation safety violation', {httpStatus:400}),
+      ]},
+      'all-failed-mixed': {group:'聚合结果', actionKind:'video', label:'生成视频 · 全部失败', note:'2 项超时；1 项审核失败。', tasks:[
+        failed('mixed_timeout_1', 'maximum processing time exceeded 15 minutes'),
+        failed('mixed_timeout_2', 'processing timeout'),
+        failed('mixed_safety_1', 'content policy moderation safety violation'),
+      ]},
+      'apimart-restricted': {group:'聚合结果', actionKind:'image', label:'APIMART · 部分成功', note:'2 项成功；5 项账户受限；每个失败项 cost 为 0。', tasks:[
+        succeeded('apimart_ok_1'), succeeded('apimart_ok_2'),
+        ...Array.from({length:5}, (_, index) => apimartFailure(index + 1)),
+      ]},
+      'credential-missing': {group:'账户与平台', label:'未配置 API Key', note:'未配置平台凭证。', tasks:[failed('credential_missing_1', 'API key is not configured')]},
+      'credential-invalid': {group:'账户与平台', label:'API Key 无效', note:'HTTP 401 且上游明确返回 invalid API key。', tasks:[failed('credential_invalid_1', 'Invalid API key', {httpStatus:401})]},
+      'quota-insufficient': {group:'账户与平台', label:'额度不足', note:'平台明确返回 insufficient quota。', tasks:[failed('quota_1', 'Insufficient quota for this account')]},
+      'provider-account-restricted': {group:'账户与平台', label:'账户暂时受限', note:'非 APIMART 平台账户受限。', tasks:[failed('restricted_1', 'The provider account is temporarily restricted.', {providerId:'other-provider'})]},
+      'rate-limited': {group:'账户与平台', label:'请求过于频繁', note:'HTTP 429。', tasks:[failed('rate_1', 'Too many requests', {httpStatus:429})]},
+      'provider-busy': {group:'账户与平台', label:'平台繁忙', note:'HTTP 503。', tasks:[failed('busy_1', 'Service busy', {httpStatus:503})]},
+      'processing-timeout': {group:'网络与处理', label:'生成超时', note:'平台超过最大处理时间。', tasks:[failed('processing_timeout_1', 'maximum processing time exceeded 15 minutes')]},
+      'network-timeout': {group:'网络与处理', label:'连接超时', note:'HTTP 504 gateway timeout。', tasks:[failed('network_timeout_1', 'Gateway timeout', {httpStatus:504})]},
+      'connection-interrupted': {group:'网络与处理', label:'连接已中断', note:'连接被上游重置。', tasks:[failed('connection_1', 'Connection reset by peer')]},
+      'invalid-parameter': {group:'请求与内容', label:'参数不受支持', note:'HTTP 400 且上游明确返回 unsupported parameter。', tasks:[failed('invalid_parameter_1', 'Unsupported parameter: quality', {httpStatus:400})]},
+      'jimeng-prompt-too-long': {group:'请求与内容', label:'即梦 5.0 · 提示词过长', note:'复现 6070 字符超过 1500 字符稳定上限的错误。', tasks:[failed('jimeng_prompt_length_1', '即梦 5.0 文生图提示词长度为 6070 个字符，超过稳定上限 1500；请压缩到 1400 字符以内后重试', {providerId:'jimeng', httpStatus:400})]},
+      'unsupported-size': {group:'请求与内容', label:'尺寸不受支持', note:'复现 APIMART 中文原文，无 HTTP 状态码。', tasks:[failed('unsupported_size_1', '所选画幅或分辨率已不可用，请重新选择', {providerId:'apimart'})]},
+      'cli-invalid-size': {group:'请求与内容', label:'GPT CLI · 尺寸参数无效', note:'复现 GPT Image 2 Skill 对 1K 尺寸的 CLI 参数校验错误。', tasks:[
+        failed('cli_size_1', "GPT Image 2 Skill 调用失败：codex: error: invalid value '1K' for '--size <SIZE>': Image size must be auto, 2K, 4K, or WIDTHxHEIGHT.\n\nFor more information, try '--help'.", {providerId:'codex'}),
+        failed('cli_size_2', "GPT Image 2 Skill 调用失败：codex: error: invalid value '1K' for '--size <SIZE>': Image size must be auto, 2K, 4K, or WIDTHxHEIGHT.\n\nFor more information, try '--help'.", {providerId:'codex'}),
+      ]},
+      'safety-blocked': {group:'请求与内容', label:'内容未通过审核', note:'平台内容安全规则拦截。', tasks:[failed('safety_1', 'Content policy moderation safety violation', {httpStatus:400})]},
+      'empty-output': {group:'请求与内容', label:'未生成可用结果', note:'任务结束但未返回图片数据。', tasks:[failed('empty_1', 'No image data returned')]},
+      'local-dependency-missing': {group:'本地与系统', label:'缺少 GPT Image 2 组件', note:'复现用户提供的 helper 缺失原文与 HTTP 400。', tasks:[failed('helper_1', '未找到 GPT Image 2 helper，OpenAI CLI 生图已禁用 $imagegen 回退。请先安装 gpt-image-2-skill 后再生成图片。', {providerId:'codex', httpStatus:400})]},
+      'provider-internal-error': {group:'本地与系统', label:'平台处理失败', note:'HTTP 500。', tasks:[failed('provider_internal_1', 'Upstream internal error', {httpStatus:500})]},
+      'application-internal-error': {group:'本地与系统', label:'应用处理失败', note:'适配平台结果时发生代码异常。', tasks:[failed('application_internal_1', 'Unexpected keyword in adapter output')]},
+      'cancelled-or-replaced': {group:'本地与系统', label:'生成已取消', note:'当前运行被新的运行替换。', tasks:[failed('cancelled_1', 'Run was replaced', {httpStatus:409})]},
+      'unknown-error': {group:'本地与系统', label:'生成失败', note:'没有命中任何已知信号。', tasks:[failed('unknown_1', 'Mysterious provider response', {httpStatus:418})]},
+      'text-generation-failed': {group:'操作名称', actionKind:'text', label:'生成文字失败', note:'验证生成文字操作名称与参数错误分类。', tasks:[failed('text_1', 'Unsupported parameter: response format', {httpStatus:400})]},
+      'matting-failed': {group:'操作名称', actionKind:'matting', label:'抠图失败', note:'验证抠图操作名称与应用处理错误分类。', tasks:[failed('matting_1', 'Unexpected keyword in adapter output')]},
+    };
+    const groupHost = document.querySelector('#scenario-groups');
+    const groups = [...new Set(Object.values(scenarios).map(scenario => scenario.group))];
+    groups.forEach(group => {
+      const section = document.createElement('section');
+      section.className = 'scenario-group';
+      const heading = document.createElement('h3');
+      heading.textContent = group;
+      const buttons = document.createElement('div');
+      buttons.className = 'scenario-buttons';
+      Object.entries(scenarios).filter(([, scenario]) => scenario.group === group).forEach(([name, scenario]) => {
+        const button = document.createElement('ic-button');
+        button.setAttribute('hierarchy', group === '聚合结果' ? 'primary' : 'secondary');
+        button.dataset.scenario = name;
+        button.textContent = scenario.label;
+        button.addEventListener('click', () => show(name));
+        buttons.append(button);
+      });
+      section.append(heading, buttons);
+      groupHost.append(section);
+    });
+    let current = null;
+    function show(name){
+      const scenario = scenarios[name];
+      if(!scenario) throw new Error(`Unknown scenario: ${name}`);
+      document.querySelectorAll('ic-button[data-scenario]').forEach(button => {
+        button.setAttribute('aria-pressed', button.dataset.scenario === name ? 'true' : 'false');
+      });
+      const operationName = feedback.actionName({kind:scenario.actionKind || 'image'}, tr);
+      const aggregate = feedback.aggregate(scenario.tasks, tr, trf, {actionName:operationName});
+      current = {name, ...scenario, operationName, aggregate};
+      currentLabel.textContent = scenario.label;
+      currentNote.textContent = scenario.note;
+      alert.setAttribute('heading', aggregate.title);
+      alert.setAttribute('action-label', tr('smart.viewDetails'));
+      alert.textContent = aggregate.message;
+      alert.hidden = false;
+      details.hidden = true;
+      output.textContent = JSON.stringify({
+        scenario:name,
+        label:scenario.label,
+        counts:{success:aggregate.successfulCount, failed:aggregate.failedCount, total:aggregate.totalCount},
+        reasons:aggregate.reasons,
+        tasks:aggregate.tasks.map(task => ({
+          localTaskId:task.localTaskId,
+          status:task.status,
+          category:task.error?.category || null,
+          providerId:task.error?.providerId || '',
+          httpStatus:task.error?.httpStatus || 0,
+          billingEvidence:task.error?.billingEvidence || {},
+          technicalError:task.error?.technicalError || '',
+        })),
+      }, null, 2);
+      document.documentElement.dataset.generationFeedbackHarnessScenario = name;
+      return current;
+    }
+    alert.addEventListener('ic-action', () => { details.hidden = false; });
+    window.__generationFeedbackHarness = {show, scenarios, get current(){ return current; }};
+    document.documentElement.dataset.generationFeedbackHarnessScenarioCount = String(Object.keys(scenarios).length);
+    show('partial-success');
+    document.documentElement.dataset.generationFeedbackHarnessStatus = 'ready';
+  </script>
+</body>
+</html>

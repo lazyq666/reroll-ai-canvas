@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ui-scope="generation" data-studio-scale="off">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+    <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+    <title data-i18n="studio.kleinPageTitle">Flux Klein | 极简一体化终端</title>
+    <script>
+        (function () {
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark', 'theme-dark');
+                }
+            } catch (error) { }
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.2.1787875924">
+    <link rel="stylesheet" href="/static/css/klein.css?v=2026.09.01.2.1787875924">
+    <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+</head>
+
+<body>
+    <main class="klein-shell">
+        <header class="klein-header">
+            <ic-heading level="1" subtitle="下一代多参考图生成工作台" data-i18n-subtitle="studio.kleinSubtitle" data-legal-combination="h1-with-subtitle">FLUX KLEIN</ic-heading>
+        </header>
+
+        <div class="klein-workbench">
+            <section class="klein-controls" aria-label="Klein 生成设置" data-i18n-aria-label="studio.kleinSettings">
+                <ic-form-field id="promptField" label="输入提示词" data-i18n-label="studio.inputPrompt">
+                    <ic-textarea id="promptInput" slot="control" name="prompt" rows="5" resize="none" placeholder="描述你想生成的画面..." data-i18n-placeholder="studio.describeVision"></ic-textarea>
+                </ic-form-field>
+
+                <section class="reference-section" aria-labelledby="referenceTitle">
+                    <div class="section-heading-row">
+                        <ic-heading id="referenceTitle" level="3" data-i18n="studio.referenceLayers" data-legal-combination="h3-title">参考图层</ic-heading>
+                        <ic-badge id="cloudImgNote" kind="label" tone="info" size="small" data-i18n="studio.cloudUsesMain" hidden>云端使用主图</ic-badge>
+                    </div>
+                    <div class="reference-grid">
+                        <div class="reference-slot" data-slot="1">
+                            <ic-image-frame id="slotFrame1" state="upload" size="large" label="主图" data-i18n-label="studio.mainImage" upload-button-label="主图" data-i18n-upload-button-label="studio.mainImage"></ic-image-frame>
+                            <ic-file-input id="file1" name="main_image" label="主图" data-i18n-label="studio.mainImage" accept="image/*" hidden></ic-file-input>
+                        </div>
+                        <div class="reference-slot" data-slot="2">
+                            <ic-image-frame id="slotFrame2" state="upload" size="large" label="辅助图 A" data-i18n-label="studio.auxImageA" upload-button-label="辅助图 A" data-i18n-upload-button-label="studio.auxImageA"></ic-image-frame>
+                            <ic-file-input id="file2" name="aux_image_a" label="辅助图 A" data-i18n-label="studio.auxImageA" accept="image/*" hidden></ic-file-input>
+                        </div>
+                        <div class="reference-slot" data-slot="3">
+                            <ic-image-frame id="slotFrame3" state="upload" size="large" label="辅助图 B" data-i18n-label="studio.auxImageB" upload-button-label="辅助图 B" data-i18n-upload-button-label="studio.auxImageB"></ic-image-frame>
+                            <ic-file-input id="file3" name="aux_image_b" label="辅助图 B" data-i18n-label="studio.auxImageB" accept="image/*" hidden></ic-file-input>
+                        </div>
+                    </div>
+                    <p class="reference-hint" data-i18n="studio.referencePasteHint">选择图片框可上传；鼠标停留在图片框上时也可直接粘贴图片。</p>
+                </section>
+
+                <ic-card class="engine-card" label="生成引擎" data-i18n-label="studio.engine" size="small" tone="subtle">
+                    <div slot="header" class="engine-heading"><ic-icon name="workflow" size="small"></ic-icon><span data-i18n="studio.engine">引擎</span></div>
+                    <ic-segmented-control id="engineSwitch" class="engine-switch" label="生成引擎" data-i18n-label="studio.engine" value="local" data-legal-combination="single-label">
+                        <ic-button type="button" hierarchy="quiet" data-value="local"><ic-icon slot="start" name="app" size="small"></ic-icon><span data-i18n="studio.local">本地</span></ic-button>
+                        <ic-button type="button" hierarchy="quiet" data-value="cloud"><ic-icon slot="start" name="workflow" size="small"></ic-icon>ModelScope</ic-button>
+                    </ic-segmented-control>
+                    <ic-badge id="cloudStatusBar" kind="status" tone="info" loading hidden><span id="cloudStatusText" data-i18n="studio.connecting">连接中...</span></ic-badge>
+                    <div id="loraSection" class="lora-section" hidden>
+                        <ic-divider></ic-divider>
+                        <ic-switch id="loraSwitch" name="detail_lora" label="细节增强 LoRA" data-i18n-label="studio.detailLora"></ic-switch>
+                        <div id="loraStrengthRow" class="lora-strength" hidden>
+                            <ic-slider id="loraStrengthSlider" name="lora_strength" label="LoRA 强度" data-i18n-label="studio.loraStrength" min="0.1" max="1" step="0.05" value="0.8" value-text="0.80"></ic-slider>
+                            <ic-badge id="loraStrengthVal" kind="count" tone="neutral">0.80</ic-badge>
+                        </div>
+                    </div>
+                </ic-card>
+
+                <ic-button id="genBtn" class="generate-button" type="button" hierarchy="primary">
+                    <ic-icon slot="start" name="generate"></ic-icon>
+                    <span id="btnText" data-i18n="studio.executeSynthesis">开始合成</span>
+                </ic-button>
+            </section>
+
+            <ic-card id="resultBox" class="result-card" label="结果预览" data-i18n-label="studio.resultPreview" size="large">
+                <ic-empty-state id="placeholder" title="画布就绪" label="画布就绪" data-i18n-title="studio.canvasReady" data-i18n-label="studio.canvasReady">
+                    <ic-icon slot="illustration" name="image" size="x-large"></ic-icon>
+                </ic-empty-state>
+                <ic-loading id="loader" label="合成中" data-i18n-label="studio.synthesizing" presentation="region" hidden></ic-loading>
+                <ic-media-container id="resultMedia" kind="image" label="Klein 生成结果" data-i18n-label="studio.resultPreview" fit="contain" aspect="auto" state="ready" hidden>
+                    <img id="outputImg" src="" alt="Klein 生成结果" data-i18n-alt="studio.resultPreview">
+                </ic-media-container>
+                <ic-toolbar id="resultActions" class="result-actions" label="结果操作" data-i18n-label="studio.resultActions" appearance="plain" hidden>
+                    <ic-button id="previewResultBtn" type="button" hierarchy="secondary"><ic-icon slot="start" name="preview"></ic-icon><span data-i18n="studio.previewImage">预览图片</span></ic-button>
+                    <ic-button id="downloadBtn" type="button" hierarchy="primary"><ic-icon slot="start" name="download"></ic-icon><span data-i18n="studio.downloadImage">下载图片</span></ic-button>
+                </ic-toolbar>
+            </ic-card>
+        </div>
+
+        <section class="archives-section" aria-labelledby="archivesTitle">
+            <div class="archives-heading-row">
+                <ic-heading id="archivesTitle" level="2" data-i18n="studio.archives" data-legal-combination="h2-title">归档</ic-heading>
+                <ic-toolbar id="historyToolbar" class="history-toolbar" label="归档管理" data-i18n-label="studio.archiveManagement" appearance="plain">
+                    <ic-button id="manageHistoryBtn" type="button" hierarchy="secondary"><ic-icon slot="start" name="check"></ic-icon><span data-i18n="bulk.manage">管理</span></ic-button>
+                    <ic-badge id="historySelectionCount" kind="count" tone="neutral" hidden>0</ic-badge>
+                    <ic-button id="selectAllHistoryBtn" type="button" hierarchy="secondary" hidden><span data-i18n="bulk.selectAll">全选</span></ic-button>
+                    <ic-button id="deleteHistoryBtn" type="button" hierarchy="secondary" tone="danger" disabled hidden><ic-icon slot="start" name="delete"></ic-icon><span data-i18n="bulk.deleteSelected">删除所选</span></ic-button>
+                    <ic-button id="exitHistoryBtn" type="button" hierarchy="primary" hidden><span data-i18n="bulk.exit">完成</span></ic-button>
+                </ic-toolbar>
+            </div>
+            <div id="masonry" class="masonry-grid" aria-live="polite"></div>
+            <ic-button id="loadMoreTrigger" class="load-more" type="button" hierarchy="quiet" data-i18n="studio.loadMore">加载更多归档</ic-button>
+        </section>
+    </main>
+
+    <ic-dialog id="lightbox" label="图片预览" data-i18n-label="studio.previewImage" size="x-large" dismiss-policy="light">
+        <div id="singlePreview" class="dialog-preview">
+            <ic-media-container kind="image" label="图片预览" data-i18n-label="studio.previewImage" fit="contain" aspect="auto" state="ready">
+                <img id="lightboxImg" src="" alt="预览图片" data-i18n-alt="studio.previewImage">
+            </ic-media-container>
+            <ic-badge id="lightboxRes" kind="label" tone="neutral" hidden>—</ic-badge>
+        </div>
+        <div id="comparePreview" class="compare-preview" hidden>
+            <div id="compareContainer" class="compare-container">
+                <ic-media-container class="compare-generated" kind="image" label="生成结果" data-i18n-label="studio.generatedResult" fit="contain" aspect="auto" state="ready">
+                    <img id="compareGenerated" src="" alt="生成结果" data-i18n-alt="studio.generatedResult">
+                </ic-media-container>
+                <div id="compareOriginalWrapper" class="compare-original-wrapper">
+                    <ic-media-container kind="image" label="原图" data-i18n-label="studio.originalImage" fit="contain" aspect="auto" state="ready">
+                        <img id="compareOriginal" src="" alt="原图" data-i18n-alt="studio.originalImage">
+                    </ic-media-container>
+                </div>
+            </div>
+            <ic-slider id="compareSlider" name="compare_position" label="原图与生成图对比" data-i18n-label="studio.compareImages" min="0" max="100" step="1" value="50" value-text="50%"></ic-slider>
+        </div>
+        <ic-card class="prompt-card" label="提示词记录" data-i18n-label="studio.promptExecution" size="small" tone="subtle">
+            <span slot="header" data-i18n="studio.promptExecution">提示词记录</span>
+            <p id="lightboxPrompt"></p>
+        </ic-card>
+        <ic-button id="sameStyleBtn" slot="footer" type="button" hierarchy="secondary" hidden><ic-icon slot="start" name="restore"></ic-icon><span data-i18n="studio.replicate">复用</span></ic-button>
+        <ic-button id="downloadLightboxBtn" slot="footer" type="button" hierarchy="secondary"><ic-icon slot="start" name="download"></ic-icon><span data-i18n="studio.downloadImage">下载图片</span></ic-button>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="deleteHistoryDialog" label="删除所选归档" data-i18n-label="studio.deleteArchives" description="删除后无法恢复。" data-i18n-description="studio.deleteArchivesDescription" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="删除" data-i18n-confirm-label="common.delete" consequence="destructive">
+        <p id="deleteHistoryCopy" data-i18n="studio.deleteArchivesDescription">删除后无法恢复。</p>
+    </ic-confirmation-dialog>
+
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+    <script type="module" src="/static/js/klein.js?v=2026.09.01.2.1788146221"></script>
+</body>
+
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light" data-ui-motion="standard" data-pending-performance-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pending 动画性能对比 · Reroll UI</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
+    button { font:inherit; }
+    h1, h2, h3, p { margin:0; }
+    code { font-family:var(--ui-font-mono); }
+    .benchmark-shell { width:min(100%, 96rem); margin:0 auto; padding:var(--ui-space-5); }
+    .benchmark-header { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--ui-space-5); margin-block-end:var(--ui-space-5); }
+    .benchmark-heading { display:grid; gap:var(--ui-space-2); max-width:68rem; }
+    .benchmark-kicker { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); letter-spacing:.08em; text-transform:uppercase; }
+    h1 { font-size:clamp(1.5rem, 3vw, 2.25rem); line-height:1.1; }
+    .benchmark-description { color:var(--ui-color-text-tertiary); line-height:1.6; }
+    .prototype-badge { padding:var(--ui-space-2) var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:999px; color:var(--ui-color-text-tertiary); background:var(--ui-color-surface); font:var(--ui-text-caption); white-space:nowrap; }
+    .benchmark-controls { position:sticky; inset-block-start:var(--ui-space-3); z-index:10; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--ui-space-3); margin-block-end:var(--ui-space-4); padding:var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:color-mix(in srgb, var(--ui-color-surface-floating) 92%, transparent); box-shadow:var(--ui-shadow-raised); backdrop-filter:blur(12px); }
+    .candidate-tabs, .benchmark-actions { display:flex; align-items:center; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .candidate-tab, .run-button { min-height:2.25rem; padding:0 var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); color:var(--ui-color-text-primary); background:var(--ui-color-surface); cursor:pointer; }
+    .candidate-tab[aria-pressed="true"] { border-color:var(--ui-color-border-selected); background:var(--ui-color-action-tertiary-selected); box-shadow:var(--ui-shadow-none); }
+    .run-button { color:var(--ui-color-text-on-action-primary); border-color:var(--ui-color-action-primary); background:var(--ui-color-action-primary); font-weight:var(--ui-font-weight-bold); }
+    .run-button:disabled { opacity:.55; cursor:wait; }
+    .run-status { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .result-panel { display:grid; gap:var(--ui-space-3); margin-block-end:var(--ui-space-4); padding:var(--ui-space-4); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-floating); }
+    .result-panel[hidden] { display:none; }
+    .result-note { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); line-height:1.5; }
+    .result-table-wrap { overflow:auto; }
+    .result-table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    .result-table th, .result-table td { padding:var(--ui-space-2) var(--ui-space-3); border-block-end:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); text-align:end; white-space:nowrap; }
+    .result-table th:first-child, .result-table td:first-child { text-align:start; }
+    .result-table th { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .benchmark-stage { display:grid; gap:var(--ui-space-4); }
+    .candidate-section { overflow:hidden; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-floating); box-shadow:var(--ui-shadow-raised); }
+    .candidate-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--ui-space-3); padding:var(--ui-space-3) var(--ui-space-4); border-block-end:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .candidate-heading-copy { display:grid; gap:var(--ui-space-1); }
+    .candidate-heading h2 { font-size:var(--ui-font-size-4); }
+    .candidate-heading p { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .candidate-count { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); white-space:nowrap; }
+    .candidate-grid { --tile-width:154px; display:grid; grid-template-columns:repeat(5, var(--tile-width)); justify-content:center; gap:var(--ui-space-3); min-height:510px; padding:var(--ui-space-4); background-color:var(--ui-color-surface-subtle); background-image:radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ui-color-text-tertiary) 18%, transparent) 1px, transparent 0); background-size:22px 22px; }
+    .pending-tile { position:relative; inline-size:var(--tile-width); aspect-ratio:2 / 3; overflow:hidden; contain:strict; isolation:isolate; border:var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-color-border-primary) 72%, transparent); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-subtle); box-shadow:var(--ui-shadow-raised); }
+
+    /* Experiment A: exact defaults and motion model from generation-pending-motion-reference. */
+    .candidate-grid[data-candidate="a"] { --motion-duration:8s; --motion-blur:28px; --motion-drift:28%; --motion-blob-size:78%; --motion-opacity:.82; --motion-saturation:1; --blob-one-color:#ffbd8e; --blob-two-color:#9f7cff; --blob-three-color:#61d8d0; }
+    .motion-blob { position:absolute; z-index:0; inline-size:var(--motion-blob-size); aspect-ratio:1; border-radius:50%; opacity:var(--motion-opacity); filter:blur(var(--motion-blur)) saturate(var(--motion-saturation)); will-change:transform; }
+    .blob-one { inset:-30% auto auto -25%; background:var(--blob-one-color); animation:benchmark-float-one var(--motion-duration) ease-in-out infinite alternate; }
+    .blob-two { inset:auto -28% -34% auto; background:var(--blob-two-color); animation:benchmark-float-two calc(var(--motion-duration) * 1.22) ease-in-out infinite alternate; }
+    .blob-three { inset:12% auto auto 35%; inline-size:calc(var(--motion-blob-size) * .82); background:var(--blob-three-color); animation:benchmark-float-three calc(var(--motion-duration) * 1.08) ease-in-out infinite alternate; }
+    .pending-sheen { position:absolute; inset:0; z-index:1; background:linear-gradient(to bottom, color-mix(in srgb, white 14%, transparent), transparent 48%, color-mix(in srgb, var(--ui-color-text-primary) 12%, transparent)); pointer-events:none; }
+    .pending-content { position:absolute; inset:0; z-index:2; display:grid; place-items:center; pointer-events:none; }
+    .pending-spinner { display:grid; place-items:center; inline-size:3rem; aspect-ratio:1; border:var(--ui-border-width-thin) solid color-mix(in srgb, white 54%, transparent); border-radius:50%; color:color-mix(in srgb, white 92%, transparent); background:color-mix(in srgb, var(--ui-color-text-primary) 14%, transparent); box-shadow:var(--ui-shadow-raised); backdrop-filter:blur(10px); }
+    .pending-spinner::before { content:""; inline-size:1rem; aspect-ratio:1; border:2px solid currentColor; border-block-start-color:transparent; border-radius:50%; animation:benchmark-spin 1.4s linear infinite; }
+    .pending-label { position:absolute; z-index:3; inset-inline:var(--ui-space-3); inset-block-end:var(--ui-space-3); overflow:hidden; color:color-mix(in srgb, white 92%, transparent); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); text-align:center; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 12px color-mix(in srgb, var(--ui-color-text-primary) 35%, transparent); }
+    @keyframes benchmark-spin { to { transform:rotate(1turn); } }
+    @keyframes benchmark-float-one { from { transform:translate3d(calc(var(--motion-drift) * -.18), calc(var(--motion-drift) * -.12), 0) scale(.92); } to { transform:translate3d(var(--motion-drift), calc(var(--motion-drift) * .72), 0) scale(1.13); } }
+    @keyframes benchmark-float-two { from { transform:translate3d(calc(var(--motion-drift) * .14), calc(var(--motion-drift) * .18), 0) scale(1.08); } to { transform:translate3d(calc(var(--motion-drift) * -.92), calc(var(--motion-drift) * -.75), 0) scale(.94); } }
+    @keyframes benchmark-float-three { from { transform:translate3d(calc(var(--motion-drift) * -.48), calc(var(--motion-drift) * .58), 0) scale(.88); } to { transform:translate3d(calc(var(--motion-drift) * .42), calc(var(--motion-drift) * -.52), 0) scale(1.14); } }
+
+    /* Experiment B: Canvas layout from generation-pending-halftone-reference. */
+    .pending-halftone-canvas { position:absolute; inset:0; display:block; inline-size:100%; block-size:100%; }
+    .candidate-grid[data-candidate="b"] .pending-sheen { background:linear-gradient(to bottom, color-mix(in srgb, white 12%, transparent), transparent 42%, color-mix(in srgb, var(--ui-color-text-primary) 8%, transparent)); }
+    .candidate-grid[data-candidate="current"] ic-generation-pending { inline-size:100%; block-size:100%; }
+    .all-mode .candidate-grid { --tile-width:108px; grid-template-columns:repeat(10, var(--tile-width)); min-height:auto; }
+    .all-mode .candidate-section { box-shadow:none; }
+    @media (prefers-reduced-motion:reduce) { .motion-blob, .pending-spinner::before { animation:none !important; } }
+    :root[data-ui-motion="reduced"] .motion-blob, :root[data-ui-motion="reduced"] .pending-spinner::before { animation:none !important; }
+    @media (max-width:980px) { .candidate-grid, .all-mode .candidate-grid { --tile-width:min(18vw, 132px); grid-template-columns:repeat(5, var(--tile-width)); } }
+    @media (max-width:640px) { .benchmark-shell { padding:var(--ui-space-3); } .benchmark-header { display:grid; } .candidate-grid, .all-mode .candidate-grid { --tile-width:min(40vw, 154px); grid-template-columns:repeat(2, var(--tile-width)); } }
+  </style>
+</head>
+<body>
+  <main class="benchmark-shell">
+    <header class="benchmark-header">
+      <div class="benchmark-heading">
+        <p class="benchmark-kicker">Prototype · Generation Pending Performance</p>
+        <h1>Pending 动画性能对比</h1>
+        <p class="benchmark-description">同尺寸、同视口、每组同时运行 10 个实例。页面内测试适合快速比较帧稳定性；仓库脚本还会采集 Chrome Renderer / GPU / Browser CPU 时间，用于最终决策。</p>
+      </div>
+      <span class="prototype-badge">临时性能原型 · 不进入生产合同</span>
+    </header>
+
+    <section class="benchmark-controls" aria-label="测试控制">
+      <div class="candidate-tabs" role="group" aria-label="显示候选动画">
+        <button class="candidate-tab" type="button" data-candidate-select="a" aria-pressed="true">实验 A</button>
+        <button class="candidate-tab" type="button" data-candidate-select="b" aria-pressed="false">实验 B</button>
+        <button class="candidate-tab" type="button" data-candidate-select="current" aria-pressed="false">现有组件</button>
+        <button class="candidate-tab" type="button" data-candidate-select="all" aria-pressed="false">全部同屏</button>
+      </div>
+      <div class="benchmark-actions">
+        <span class="run-status" data-run-status>10 个实例 · 等待测试</span>
+        <button class="run-button" type="button" data-run-benchmark>依次测试三组</button>
+      </div>
+    </section>
+
+    <section class="result-panel" data-result-panel hidden aria-live="polite">
+      <h2>页面内采样结果</h2>
+      <p class="result-note">每组预热 1 秒、采样 5 秒。FPS 是页面 requestAnimationFrame 的交付稳定性；“动画更新”仅对由 JavaScript 驱动的实验 B 可精确计数。最终 CPU 对比请以自动脚本输出为准。</p>
+      <div class="result-table-wrap">
+        <table class="result-table">
+          <thead><tr><th>候选</th><th>FPS</th><th>P95 帧间隔</th><th>长帧率</th><th>Long Task</th><th>动画更新 FPS</th><th>JS Heap</th></tr></thead>
+          <tbody data-result-body></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="benchmark-stage" data-benchmark-stage></div>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/generation-pending-performance-prototype.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

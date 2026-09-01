@@ -1,0 +1,14 @@
+@import url('/static/css/account-avatar.css');
+.ic-account-panel { display: flex; align-items: center; gap: var(--ui-space-2); margin-top: var(--ui-space-1); padding: var(--ui-space-2) var(--ui-space-2); border-top: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); min-width: 0; }
+.ic-account-copy { flex: 1; min-width: 0; line-height: var(--ui-line-height-tight); }
+.ic-account-name { overflow: hidden; color: var(--ui-color-text-primary); font-size: var(--ui-font-size-2); font-weight: var(--ui-font-weight-bold); text-overflow: ellipsis; white-space: nowrap; }
+.ic-account-role { margin-top: var(--ui-space-1); color: var(--ui-color-text-tertiary); font-size: var(--ui-font-size-1); }
+.ic-account-logout { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; border: var(--ui-border-width-none); border-radius: var(--ui-radius-s); color: var(--ui-color-text-tertiary); background: transparent; cursor: pointer; }
+.ic-account-logout:hover { color: var(--ui-color-text-primary); background: var(--ui-color-surface-subtle); }
+.ic-account-logout svg { width: var(--ui-icon-size-s); height: var(--ui-icon-size-s); }
+.sidebar:not(.is-pinned) .ic-account-copy,
+.sidebar:not(.is-pinned) .ic-account-logout,
+.sidebar.is-collapsing .ic-account-copy,
+.sidebar.is-collapsing .ic-account-logout { display: none; }
+.sidebar:not(.is-pinned) .ic-account-panel,
+.sidebar.is-collapsing .ic-account-panel { justify-content: center; gap: var(--ui-space-0); padding-inline: 0; }

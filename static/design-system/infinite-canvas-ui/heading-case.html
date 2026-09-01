@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" data-heading-case-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Heading Case</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.11.1">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css?v=2026.08.11.1">
+</head>
+<body class="heading-case-page">
+  <main>
+    <section class="heading-case-section" aria-labelledby="heading-case-title">
+      <header>
+        <div><span>6 个合法组合</span><h2 id="heading-case-title">标题等级 × 副标题</h2></div>
+        <strong data-heading-legal-count>0/6</strong>
+      </header>
+      <div class="heading-combination-grid" data-heading-combinations></div>
+    </section>
+  </main>
+  <p class="target-case-status" data-heading-case-message role="status" aria-live="polite">正在启动 Heading…</p>
+  <script type="module" src="/static/js/infinite-canvas-ui/heading-case.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

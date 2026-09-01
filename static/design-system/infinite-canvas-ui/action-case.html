@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN" data-action-case-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Action Case</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.09.1">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css?v=2026.08.26.1">
+</head>
+<body class="action-case-page">
+  <main class="action-case-content">
+    <section class="action-case-section" aria-labelledby="legal-title">
+      <header><div><span>Approved contract</span><h2 id="legal-title">15 个合法组合</h2></div><strong data-legal-count>0/15</strong></header>
+      <div class="action-combination-grid" data-legal-combinations></div>
+    </section>
+
+    <section class="action-case-section" aria-labelledby="size-title">
+      <header><div><span>Density contract</span><h2 id="size-title">Button 尺寸</h2></div><strong>Small · Medium · Large</strong></header>
+      <div class="action-size-grid" data-action-sizes></div>
+    </section>
+
+    <section class="action-case-section" aria-labelledby="state-title">
+      <header><div><span>Interaction contract</span><h2 id="state-title">完整状态</h2></div><strong>键盘可操作</strong></header>
+      <div class="action-state-grid" data-action-states></div>
+      <p class="action-announcement" data-action-announcement role="status" aria-live="polite">操作状态将在这里播报。</p>
+    </section>
+
+    <section class="action-case-section" aria-labelledby="group-title">
+      <header><div><span>Association only</span><h2 id="group-title">Button Group</h2></div><strong>不是 Radio / Tab</strong></header>
+      <div class="action-group-grid" data-button-groups></div>
+    </section>
+
+    <section class="action-case-section" aria-labelledby="inline-video-play-title" data-component-name="ic-video-play-button" data-copy-kind="产品组件">
+      <header><div><span>Production component</span><h2 id="inline-video-play-title">视频封面播放按钮</h2></div><strong>进入节点内播放器</strong></header>
+      <div data-inline-video-play-pattern></div>
+    </section>
+
+    <section class="action-case-section" aria-labelledby="generation-task-query-title" data-component-name="ic-button-node-generation-task-query" data-copy-kind="产品组件">
+      <header><div><span>Production pattern</span><h2 id="generation-task-query-title">生成任务查询按钮</h2></div><strong>保留恢复任务状态</strong></header>
+      <div data-generation-task-query-pattern></div>
+    </section>
+
+
+  </main>
+  <p class="target-case-status" data-case-status role="status" aria-live="polite">正在启动 Actions…</p>
+  <script type="module" src="/static/js/infinite-canvas-ui/action-case.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

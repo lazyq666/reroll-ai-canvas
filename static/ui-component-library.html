@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="ui-component-library">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+  <title>UI 组件库 · Reroll</title>
+  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/ui-component-library.css?v=2026.09.01.2.1787875924">
+</head>
+<body data-active-surface="target">
+  <div class="catalog-page">
+    <header class="catalog-header" hidden>
+      <div class="catalog-heading">
+        <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-controls="catalog-sidebar" aria-expanded="false" aria-label="打开组件分类">☰</button>
+        <div>
+          <h1>组件验收</h1>
+        </div>
+      </div>
+      <nav class="surface-tabs" aria-label="组件管理区域" hidden>
+        <button type="button" class="active" data-surface-tab="target">验收</button>
+        <span class="surface-nav-label" aria-hidden="true">辅助工具</span>
+        <button type="button" data-surface-tab="legacy">旧界面证据</button>
+        <button type="button" data-surface-tab="migration">迁移映射</button>
+      </nav>
+      <div class="catalog-status" role="status" aria-live="polite" data-surface-status>正在载入组件目录…</div>
+      <div class="catalog-status" role="status" aria-live="polite" data-draft-status hidden>正在载入清单…</div>
+      <div class="catalog-actions" aria-label="旧版决策文件操作" hidden>
+        <button type="button" data-save-draft>保存草稿</button>
+        <button type="button" data-import-decisions>导入决策</button>
+        <button type="button" data-export-draft>导出草稿</button>
+        <button class="primary" type="button" data-export-decisions>导出 JSON</button>
+        <input type="file" accept="application/json,.json" data-import-file hidden>
+      </div>
+    </header>
+
+    <section class="surface-panel legacy-surface" data-surface-panel="legacy" hidden>
+      <header class="surface-intro">
+        <div><span class="surface-kicker">旧产品证据库</span><h2>Legacy Inventory</h2></div>
+        <p>只回答旧产品有什么、在哪里使用以及来源证据；历史外观不会成为 Target Variant。</p>
+      </header>
+      <div class="catalog-layout">
+        <button class="sidebar-backdrop" type="button" data-sidebar-backdrop aria-label="关闭组件分类" hidden></button>
+        <aside id="catalog-sidebar" class="catalog-sidebar" data-catalog-sidebar aria-label="组件分类">
+          <div class="panel-heading">
+            <div><span>Legacy 分类</span><small>8 类</small></div>
+            <button type="button" data-sidebar-close aria-label="关闭组件分类">×</button>
+          </div>
+          <nav data-category-list aria-label="组件分类列表">
+            <p class="panel-placeholder">正在载入分类…</p>
+          </nav>
+        </aside>
+
+        <main class="candidate-region" data-candidate-region tabindex="-1">
+          <section class="blocking-state" data-catalog-state role="alert">
+            <h2>正在载入 Legacy Manifest</h2>
+            <p>组件清单载入前不会使用陈旧的内置候选。</p>
+          </section>
+        </main>
+
+        <aside class="decision-panel" data-decision-panel aria-label="历史决策槽位" hidden>
+          <div class="panel-heading">
+            <div><span>历史决策槽位</span><small data-target-status>尚未选择目标</small></div>
+          </div>
+          <div data-decision-content>
+            <p class="panel-placeholder">该区域作为旧版审计实现保留，不再决定 Target 组件。</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="surface-panel target-surface" data-surface-panel="target">
+      <div class="target-surface-grid">
+        <aside class="target-review-sidebar" aria-label="组件目录">
+          <div class="target-review-sidebar-header">
+            <div class="target-review-sidebar-title">
+              <strong>UI 组件库</strong>
+              <button class="target-review-search-trigger" type="button" data-target-review-search-trigger aria-label="搜索组件" aria-expanded="false"><ic-icon name="search" aria-hidden="true"></ic-icon></button>
+            </div>
+            <div class="target-review-search-panel" data-target-review-search-panel hidden>
+              <label class="target-review-search">
+              <span class="visually-hidden">搜索组件名称</span>
+              <input type="search" data-target-review-search placeholder="搜索组件名称" autocomplete="off">
+              </label>
+              <span class="target-review-search-status" data-target-review-search-status aria-live="polite">正在建立组件索引…</span>
+              <div class="target-component-search-results" data-target-component-search-results hidden></div>
+            </div>
+          </div>
+          <nav class="target-review-tabs" data-navigation-pattern="section-navigation" aria-label="组件验收页面">
+            <section class="target-review-section" data-target-review-group="foundations" aria-labelledby="target-review-foundations-title">
+              <h2 id="target-review-foundations-title"><span>基础</span><small lang="en">Foundations</small></h2>
+              <div class="target-review-section-items">
+                <ic-nav-item label="设计参数" secondary-label="Design tokens" href="#design-tokens" data-target-review="design-tokens" data-target-review-group="foundations"></ic-nav-item>
+                <ic-nav-item label="设计基础" secondary-label="Design foundations" href="#foundations" data-target-review="foundations" data-target-review-group="foundations"></ic-nav-item>
+                <ic-nav-item label="滚动条" secondary-label="Scrollbar" href="#scrollbar" data-target-review="scrollbar" data-target-review-group="foundations"></ic-nav-item>
+              </div>
+            </section>
+            <section class="target-review-section" data-target-review-group="families" aria-labelledby="target-review-families-title">
+              <h2 id="target-review-families-title"><span>组件</span><small lang="en">Components</small></h2>
+              <div class="target-review-section-items">
+              <ic-nav-item label="按钮" secondary-label="Button" href="#actions" data-target-review="actions" data-target-review-group="families" current="page"></ic-nav-item>
+              <ic-nav-item label="标题" secondary-label="Heading" href="#heading" data-target-review="heading" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="文本输入" secondary-label="Text entry" href="#text-entry" data-target-review="text-entry" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="选择与调节" secondary-label="Selection &amp; adjustment" href="#selection-adjustment" data-target-review="selection-adjustment" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="文件与媒体输入" secondary-label="File &amp; media input" href="#file-media-input" data-target-review="file-media-input" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="容器与数据展示" secondary-label="Containers &amp; data" href="#containers-data" data-target-review="containers-data" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="导航与命令" secondary-label="Navigation &amp; commands" href="#navigation-command" data-target-review="navigation-command" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="对话框" secondary-label="Dialogs" href="#dialog" data-target-review="dialog" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="菜单、浮层与提示" secondary-label="Menus, popovers &amp; tooltips" href="#menu-popover" data-target-review="menu-popover" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="反馈与进度" secondary-label="Feedback &amp; progress" href="#feedback-progress" data-target-review="feedback-progress" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="节点" secondary-label="Nodes" href="#nodes" data-target-review="nodes" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="空状态" secondary-label="Empty states" href="#empty-states" data-target-review="empty-states" data-target-review-group="families"></ic-nav-item>
+              <ic-nav-item label="生成失败反馈" secondary-label="Generation failure" href="#generation-failure-feedback" data-target-review="generation-failure-feedback" data-target-review-group="families"></ic-nav-item>
+              </div>
+            </section>
+            <section class="target-review-section" data-target-review-group="blocks" aria-labelledby="target-review-blocks-title">
+              <h2 id="target-review-blocks-title"><span>组合模块</span><small lang="en">Blocks</small></h2>
+              <div class="target-review-section-items">
+              <ic-nav-item label="生成编辑器" secondary-label="Generation editor" href="#composer" data-target-review="composer" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="提示词模板库" secondary-label="Prompt template library" href="#prompt-template-library" data-target-review="prompt-template-library" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="检索导航侧栏" secondary-label="Search navigation sidebar" href="#search-navigation-sidebar" data-target-review="search-navigation-sidebar" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="图片编辑区" secondary-label="Image editing" href="#image-editing" data-target-review="image-editing" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="图片编辑模式栏" secondary-label="Image edit mode toolbar" href="#image-edit-mode-toolbar" data-target-review="image-edit-mode-toolbar" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="节点浮动操作栏" secondary-label="Smart node toolbar" href="#smart-node-toolbar" data-target-review="smart-node-toolbar" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="节点右键菜单" secondary-label="Smart node context menu" href="#smart-node-context-menu" data-target-review="smart-node-context-menu" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="智能画布工具栏" secondary-label="Smart Canvas dock" href="#smart-canvas-dock" data-target-review="smart-canvas-dock" data-target-review-group="blocks"></ic-nav-item>
+              <ic-nav-item label="智能画布导航地图" secondary-label="Smart minimap" href="#smart-minimap" data-target-review="smart-minimap" data-target-review-group="blocks"></ic-nav-item>
+              </div>
+            </section>
+            <section class="target-review-section" data-target-review-group="auxiliary" aria-labelledby="target-review-auxiliary-title">
+              <h2 id="target-review-auxiliary-title"><span>参考</span><small lang="en">Reference</small></h2>
+              <div class="target-review-section-items">
+              <ic-nav-item label="组件检查器" secondary-label="Component inspector" href="#components" data-target-review="components" data-target-review-group="auxiliary"></ic-nav-item>
+              </div>
+            </section>
+            <section class="target-review-section" data-target-review-group="experiments" aria-labelledby="target-review-experiments-title">
+              <h2 id="target-review-experiments-title"><span>实验</span><small lang="en">Experiments</small></h2>
+              <div class="target-review-section-items">
+                <ic-nav-item label="动画实验 A" secondary-label="Motion experiment A" href="#pending-motion-reference" data-target-review="pending-motion-reference" data-target-review-group="experiments"></ic-nav-item>
+                <ic-nav-item label="动画实验 B" secondary-label="Motion experiment B" href="#pending-halftone-reference" data-target-review="pending-halftone-reference" data-target-review-group="experiments"></ic-nav-item>
+                <ic-nav-item label="动画性能对比" secondary-label="Motion performance" href="#pending-performance-prototype" data-target-review="pending-performance-prototype" data-target-review-group="experiments"></ic-nav-item>
+                <ic-nav-item label="点击反馈实验" secondary-label="Click feedback" href="#click-spark-reference" data-target-review="click-spark-reference" data-target-review-group="experiments"></ic-nav-item>
+              </div>
+            </section>
+          </nav>
+        </aside>
+        <main class="target-tracer-panel">
+          <header class="target-review-toolbar">
+            <h1 data-target-review-title>按钮</h1>
+            <div class="target-review-toolbar-actions">
+              <button class="target-review-theme-toggle" type="button" data-target-theme-toggle aria-label="切换深色" aria-pressed="false"><span aria-hidden="true" data-target-theme-icon>☾</span><span data-target-theme-label>切换深色</span></button>
+            </div>
+          </header>
+          <div class="target-review-preview">
+          <iframe
+            data-nodes-matrix
+            title="Smart Canvas Nodes 生产交互验收"
+            data-src="/static/smart-canvas.html?componentReview=nodes&v=2026.09.01.2.1788251052"
+            hidden
+          ></iframe>
+          <iframe
+            data-image-editing-matrix
+            title="Image Studio 图片编辑 Block"
+            data-src="/static/design-system/infinite-canvas-ui/image-edit-controls.html?v=2026.09.01.2.1788146221"
+            hidden
+          ></iframe>
+          <iframe
+            data-image-edit-mode-toolbar-matrix
+            title="图片编辑模式栏 Block"
+            data-src="/static/design-system/infinite-canvas-ui/image-edit-mode-toolbar.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-smart-node-toolbar-matrix
+            title="节点浮动操作栏 Block"
+            data-src="/static/design-system/infinite-canvas-ui/smart-node-toolbar.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-smart-node-context-menu-matrix
+            title="节点右键菜单 Block"
+            data-src="/static/design-system/infinite-canvas-ui/smart-node-context-menu.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-smart-canvas-dock-matrix
+            title="智能画布工具栏 Block"
+            data-src="/static/design-system/infinite-canvas-ui/smart-canvas-dock.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-smart-minimap-matrix
+            title="智能画布导航地图交互预览"
+            data-src="/static/design-system/infinite-canvas-ui/smart-minimap.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-prompt-template-library-matrix
+            title="Prompt Template Library Block"
+            data-src="/static/design-system/infinite-canvas-ui/prompt-template-library.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-search-navigation-sidebar-matrix
+            title="检索导航侧栏 Block"
+            data-src="/static/design-system/infinite-canvas-ui/search-navigation-sidebar.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-composer-matrix
+            title="Smart Canvas Composer Block"
+            data-src="/static/design-system/infinite-canvas-ui/composer.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-file-media-input-matrix
+            title="文件与媒体输入组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/file-media-input-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-containers-data-matrix
+            title="容器与数据展示组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/containers-data-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-navigation-command-matrix
+            title="导航与命令组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/navigation-command-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-dialog-matrix
+            title="对话框组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/dialog-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-menu-popover-matrix
+            title="菜单、浮层与提示组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/menu-popover-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-feedback-progress-matrix
+            title="反馈与进度组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/feedback-progress-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-empty-states-matrix
+            title="空状态组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/empty-states.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-generation-failure-feedback-matrix
+            title="Smart Canvas 生成失败反馈完整场景"
+            data-src="/static/design-system/infinite-canvas-ui/generation-failure-feedback.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-selection-adjustment-matrix
+            title="选择与调节组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/selection-adjustment-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-heading-matrix
+            title="标题组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/heading-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <section class="target-component-matrix" data-actions-matrix aria-label="按钮对比矩阵">
+            <div class="target-component-matrix-scroll">
+              <table class="target-component-matrix-table">
+                <caption>状态矩阵</caption>
+                <thead>
+                  <tr><th scope="col">类型</th><th scope="col">默认</th><th scope="col">悬停</th><th scope="col">处理中</th><th scope="col">不可用</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">主要按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary" data-copy-kind="组件变量"><ic-button hierarchy="primary">保存</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary-hover" data-copy-kind="组件变量"><ic-button hierarchy="primary" data-preview-state="hover">保存</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary-loading" data-copy-kind="组件变量"><ic-button hierarchy="primary" loading>保存</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary-disabled" data-copy-kind="组件变量"><ic-button hierarchy="primary" disabled>保存</ic-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">次要按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary" data-copy-kind="组件变量"><ic-button hierarchy="secondary">导出</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary-hover" data-copy-kind="组件变量"><ic-button hierarchy="secondary" data-preview-state="hover">导出</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary-loading" data-copy-kind="组件变量"><ic-button hierarchy="secondary" loading>导出</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary-disabled" data-copy-kind="组件变量"><ic-button hierarchy="secondary" disabled>导出</ic-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">三级按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary" data-copy-kind="组件变量"><ic-button hierarchy="secondary" ghost>导出</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary-hover" data-copy-kind="组件变量"><ic-button hierarchy="secondary" ghost data-preview-state="hover">导出</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary-loading" data-copy-kind="组件变量"><ic-button hierarchy="secondary" ghost loading>导出</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary-disabled" data-copy-kind="组件变量"><ic-button hierarchy="secondary" ghost disabled>导出</ic-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">主要危险按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary-danger" data-copy-kind="组件变量"><ic-button hierarchy="primary" tone="danger">删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary-danger-hover" data-copy-kind="组件变量"><ic-button hierarchy="primary" tone="danger" data-preview-state="hover">删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary-danger-loading" data-copy-kind="组件变量"><ic-button hierarchy="primary" tone="danger" loading>删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-primary-danger-disabled" data-copy-kind="组件变量"><ic-button hierarchy="primary" tone="danger" disabled>删除</ic-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">次要危险按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary-danger" data-copy-kind="组件变量"><ic-button hierarchy="secondary" tone="danger">删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary-danger-hover" data-copy-kind="组件变量"><ic-button hierarchy="secondary" tone="danger" data-preview-state="hover">删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary-danger-loading" data-copy-kind="组件变量"><ic-button hierarchy="secondary" tone="danger" loading>删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-secondary-danger-disabled" data-copy-kind="组件变量"><ic-button hierarchy="secondary" tone="danger" disabled>删除</ic-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">三级危险按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary-danger" data-copy-kind="组件变量"><ic-button hierarchy="quiet" tone="danger">删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary-danger-hover" data-copy-kind="组件变量"><ic-button hierarchy="quiet" tone="danger" data-preview-state="hover">删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary-danger-loading" data-copy-kind="组件变量"><ic-button hierarchy="quiet" tone="danger" loading>删除</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-tertiary-danger-disabled" data-copy-kind="组件变量"><ic-button hierarchy="quiet" tone="danger" disabled>删除</ic-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">一级图标按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-primary" data-copy-kind="组件变量"><ic-icon-button hierarchy="primary" icon="submit" label="运行"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-primary-hover" data-copy-kind="组件变量"><ic-icon-button hierarchy="primary" data-preview-state="hover" icon="submit" label="运行"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-primary-loading" data-copy-kind="组件变量"><ic-icon-button hierarchy="primary" icon="submit" label="运行" loading></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-primary-disabled" data-copy-kind="组件变量"><ic-icon-button hierarchy="primary" icon="submit" label="运行" disabled></ic-icon-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">二级图标按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-secondary" data-copy-kind="组件变量"><ic-icon-button hierarchy="secondary" icon="save" label="保存"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-secondary-hover" data-copy-kind="组件变量"><ic-icon-button hierarchy="secondary" icon="save" label="保存" data-preview-state="hover"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-secondary-loading" data-copy-kind="组件变量"><ic-icon-button hierarchy="secondary" icon="save" label="保存" loading></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-secondary-disabled" data-copy-kind="组件变量"><ic-icon-button hierarchy="secondary" icon="save" label="保存" disabled></ic-icon-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">三级图标按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-tertiary" data-copy-kind="组件变量"><ic-icon-button background="ghost" icon="detect" label="验证"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-tertiary-hover" data-copy-kind="组件变量"><ic-icon-button background="ghost" data-preview-state="hover" icon="detect" label="验证"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-tertiary-loading" data-copy-kind="组件变量"><ic-icon-button background="ghost" icon="detect" label="验证" loading></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-tertiary-disabled" data-copy-kind="组件变量"><ic-icon-button background="ghost" icon="detect" label="验证" disabled></ic-icon-button></div></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <table class="target-component-matrix-table">
+                <caption>尺寸与组合</caption>
+                <thead>
+                  <tr><th scope="col">类型</th><th scope="col">超小</th><th scope="col">小</th><th scope="col">中</th><th scope="col">大</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">普通按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-xsmall" data-copy-kind="组件变量"><ic-button hierarchy="primary" size="xs">保存</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-small" data-copy-kind="组件变量"><ic-button hierarchy="primary" size="s">保存</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button" data-copy-kind="组件变量"><ic-button hierarchy="primary" size="m">保存</ic-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-button-large" data-copy-kind="组件变量"><ic-button hierarchy="primary" size="l">保存</ic-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">图标按钮</th>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-xsmall" data-copy-kind="组件变量"><ic-icon-button icon="save" label="保存" size="xs"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-small" data-copy-kind="组件变量"><ic-icon-button icon="save" label="保存" size="s"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-medium" data-copy-kind="组件变量"><ic-icon-button icon="save" label="保存" size="m"></ic-icon-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-icon-button-large" data-copy-kind="组件变量"><ic-icon-button icon="save" label="保存" size="l"></ic-icon-button></div></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">视频封面播放按钮</th>
+                    <td aria-label="不支持超小尺寸">—</td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-video-play-button-small" data-copy-kind="产品组件"><ic-video-play-button size="s" label="播放缩略视频"></ic-video-play-button></div></td>
+                    <td><div class="target-component-matrix-cell" data-component-name="ic-video-play-button" data-copy-kind="产品组件"><ic-video-play-button label="播放视频"></ic-video-play-button></div></td>
+                    <td aria-label="不支持大尺寸">—</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">按钮组合</th>
+                    <td colspan="4"><div class="target-component-matrix-cell" data-component-name="ic-button-group-horizontal" data-copy-kind="组件变量"><ic-button-group label="画布操作"><ic-button size="s" hierarchy="primary">保存</ic-button><ic-button size="s">导出</ic-button></ic-button-group></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <iframe
+            data-text-entry-matrix
+            title="文本输入组件预览"
+            data-src="/static/design-system/infinite-canvas-ui/text-entry-case.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-design-tokens-explorer
+            title="Reroll UI 设计参数浏览器"
+            data-src="/static/design-system/infinite-canvas-ui/design-tokens.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-foundations-matrix
+            title="Reroll UI Foundations 实时基础矩阵"
+            data-src="/static/design-system/infinite-canvas-ui/foundations.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-scrollbar-matrix
+            title="Reroll UI Scrollbar Foundation 实时预览"
+            data-src="/static/design-system/infinite-canvas-ui/scrollbar.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-pending-motion-reference
+            title="Pending Node 动画实验 A 参数参考"
+            data-src="/static/design-system/infinite-canvas-ui/generation-pending-motion-reference.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-pending-halftone-reference
+            title="Pending Node 动画实验 B 参数参考"
+            data-src="/static/design-system/infinite-canvas-ui/generation-pending-halftone-reference.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-pending-performance-prototype
+            title="Pending Node 三种动画性能对比"
+            data-src="/static/design-system/infinite-canvas-ui/generation-pending-performance-prototype.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-click-spark-reference
+            title="点击与拖动松手反馈动画实验"
+            data-src="/static/design-system/infinite-canvas-ui/click-spark-reference.html?v=2026.09.01.2.1788249901"
+            hidden
+          ></iframe>
+          <iframe
+            data-target-tracer
+            title="Reroll UI 单组件验收预览"
+            data-src="/static/design-system/infinite-canvas-ui/tracer.html?v=2026.09.01.2.1788146221"
+            hidden
+          ></iframe>
+          </div>
+        </main>
+        <aside class="acceptance-review" data-acceptance-review aria-label="当前人工验收任务" hidden>
+          <div class="acceptance-review-heading">
+            <span class="surface-kicker">人工确认</span>
+            <p>这里只显示当前必须完成的判断；完整流程可按需展开。</p>
+          </div>
+          <div class="lifecycle-panel" data-contract-lifecycle aria-label="合同生命周期">
+            <p class="panel-placeholder">正在载入当前验收任务…</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="surface-panel migration-surface" data-surface-panel="migration" hidden>
+      <header class="surface-intro migration-header">
+        <div><span class="surface-kicker">旧实例最终去哪</span><h2>Migration Map</h2></div>
+        <div class="surface-actions" aria-label="Migration Map 文件操作">
+          <button type="button" data-surface-save>保存草稿</button>
+          <button type="button" data-surface-import>导入</button>
+          <button type="button" data-surface-export>导出 JSON</button>
+          <input type="file" accept="application/json,.json" data-surface-import-file hidden>
+        </div>
+      </header>
+      <div class="migration-summary" data-migration-summary role="status" aria-live="polite">正在建立迁移清单…</div>
+      <div class="migration-map-layout">
+        <main class="migration-map-main">
+          <label class="migration-search"><span>搜索旧实例</span><input type="search" data-migration-search placeholder="场景、页面、文件或目标"></label>
+          <div class="migration-list" data-migration-list></div>
+          <nav class="migration-pagination" aria-label="Migration Map 分页">
+            <button type="button" data-migration-previous>上一页</button>
+            <span data-migration-page></span>
+            <button type="button" data-migration-next>下一页</button>
+          </nav>
+        </main>
+        <aside class="migration-reverse" data-migration-reverse aria-label="目标反向覆盖">
+          <p class="panel-placeholder">映射后可从目标结果反查覆盖的旧实例。</p>
+        </aside>
+      </div>
+    </section>
+  </div>
+  <script src="/static/js/ui-component-library/sandbox-protocol.js?v=2026.09.01.2.1787282450"></script>
+  <script src="/static/js/ui-component-library/decision-store.js?v=2026.09.01.2.1787282450"></script>
+  <script src="/static/js/ui-component-library/surface-model.js?v=2026.09.01.2.1787282450"></script>
+  <script src="/static/js/ui-component-library/matrix-presentation.js?v=2026.09.01.2.1787645376" defer></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script src="/static/js/ui-component-library/catalog-app.js?v=2026.09.01.2.1788146221" defer></script>
+  <script src="/static/js/ui-component-library/surface-app.js?v=2026.09.01.2.1788146221" defer></script>
+</body>
+</html>

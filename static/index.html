@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="studio-shell">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+  <script>
+    (() => {
+      try {
+        const theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+        document.documentElement.classList.toggle('studio-theme-dark', theme === 'dark');
+        document.documentElement.classList.toggle('theme-dark', theme === 'dark');
+        const navigation = performance.getEntriesByType?.('navigation')?.[0];
+        const reloading = navigation?.type === 'reload' || performance.navigation?.type === 1;
+        document.documentElement.classList.toggle('studio-entry-motion-skip', reloading);
+        document.documentElement.classList.add('studio-route-booting');
+      } catch (_) {}
+    })();
+  </script>
+  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/account-avatar.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/studio-shell.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/preferences.css?v=2026.09.01.2.1788146221">
+  <title>Reroll</title>
+  <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+</head>
+<body>
+  <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
+    <div class="studio-entry-grid"></div>
+    <div class="studio-entry-lockup">
+      <div class="studio-entry-mark-frame">
+        <video id="studioEntryLogoMotion" class="studio-entry-logo-motion" autoplay muted playsinline preload="auto">
+          <source src="/static/images/reroll-logo-motion-transparent.webm" type="video/webm">
+        </video>
+      </div>
+      <div class="studio-entry-word-frame">
+        <div class="studio-entry-word-reveal">
+          <img class="studio-entry-word" src="/static/images/word.svg" alt="">
+        </div>
+        <span class="studio-entry-word-scan" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <p class="studio-entry-status" data-i18n="common.preparingCreativeSpace">正在准备你的创作空间…</p>
+    </div>
+    <img class="studio-entry-reduced-lockup" src="/static/images/wordmark.svg" alt="">
+  </section>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="studioSidebar" aria-label="主导航" data-i18n-aria-label="common.primaryNavigation">
+      <div class="sidebar-logo-area">
+        <ic-button id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="quiet" aria-label="展开导航栏" data-sidebar-tooltip aria-pressed="false">
+          <img class="sidebar-logo-image sidebar-logo-wordmark" src="/static/images/wordmark.svg" alt="" aria-hidden="true">
+          <img class="sidebar-logo-image sidebar-logo-mark" src="/static/images/logo.svg" alt="" aria-hidden="true">
+          <span class="visually-hidden" data-i18n="common.expandNavigation">展开导航栏</span>
+        </ic-button>
+      </div>
+
+      <nav class="global-navigation" aria-label="页面" data-i18n-aria-label="common.pages">
+        <ic-nav-item data-page="canvas" href="#canvas" icon="infinite-canvas" label="画布" data-i18n-label="nav.canvas" data-collapsed-tooltip-key="nav.canvas"></ic-nav-item>
+
+        <ic-nav-item data-page="online" href="#online" icon="online-generate" label="在线生成" data-i18n-label="nav.online" data-collapsed-tooltip-key="nav.online"></ic-nav-item>
+
+        <ic-divider class="navigation-divider"></ic-divider>
+
+        <ic-nav-disclosure id="local-nav-disclosure" class="local-nav-disclosure" label="本地功能" data-i18n-label="nav.localTools" icon="project-default" open-icon="project" data-collapsed-tooltip-key="nav.localTools">
+          <ic-nav-item data-page="zimage" href="#zimage" label="文生图" data-i18n-label="nav.textToImage"></ic-nav-item>
+          <ic-nav-item data-page="enhance" href="#enhance" label="细节增强" data-i18n-label="nav.enhance"></ic-nav-item>
+          <ic-nav-item data-page="klein" href="#klein" label="图片编辑" data-i18n-label="nav.imageEdit"></ic-nav-item>
+          <ic-nav-item data-page="angle" href="#angle" label="角度控制" data-i18n-label="nav.angle"></ic-nav-item>
+        </ic-nav-disclosure>
+
+      </nav>
+
+      <ic-tooltip id="sidebar-tooltip" content="展开导航栏" placement="inline-end"></ic-tooltip>
+
+      <div class="side-actions">
+        <ic-toolbar class="shell-utilities" label="界面选项" data-i18n-label="common.interfaceOptions" appearance="plain" orientation="vertical">
+          <ic-icon-button id="lang-toggle-btn" type="button" hierarchy="quiet" icon="language" label="切换为 English" data-i18n-label="common.switchToEnglish"></ic-icon-button>
+          <ic-icon-button id="theme-toggle-btn" type="button" hierarchy="quiet" icon="theme" label="切换深色模式" data-i18n-label="common.darkMode"></ic-icon-button>
+        </ic-toolbar>
+
+        <ic-menu id="settings-menu" label="设置" data-i18n-label="common.settingsMenu" trigger="dropdown" selection="command" placement="inline-end" alignment="end" hidden>
+          <ic-icon-button id="settings-fold-toggle" class="settings-trigger" slot="trigger" type="button" hierarchy="quiet" icon="settings" label="设置" data-i18n-label="common.settings" aria-haspopup="menu"></ic-icon-button>
+          <ic-menu-item id="preferences-entry" value="preferences" kind="command" icon="settings" label="数据存储位置" data-i18n-label="common.dataStorageLocation" onclick="openPreferencesModal()"></ic-menu-item>
+          <span class="admin-settings-divider" role="separator" aria-hidden="true"></span>
+          <ic-menu-item id="account-management-entry" class="admin-settings-entry" value="account-management" kind="command" icon="people" label="账号管理" data-i18n-label="common.accountManagement" onclick="switchUI(this, 'account-management')"></ic-menu-item>
+          <ic-menu-item class="admin-settings-entry" value="api-settings" kind="command" icon="link" label="API 设置" data-i18n-label="common.apiSettings" onclick="switchUI(this, 'api-settings')"></ic-menu-item>
+          <ic-menu-item class="admin-settings-entry" value="available-model-management" kind="command" icon="models" label="可用模型管理" data-i18n-label="common.modelManagement" onclick="switchUI(this, 'available-model-management')"></ic-menu-item>
+          <ic-menu-item class="admin-settings-entry" value="comfyui-settings" kind="command" icon="workflow" label="工作流设置" data-i18n-label="common.comfyuiSettings" onclick="switchUI(this, 'comfyui-settings')"></ic-menu-item>
+        </ic-menu>
+
+        <ic-menu id="account-menu" class="account-menu" label="账号" data-i18n-label="common.account" placement="inline-end" alignment="end" size="small" hidden>
+          <ic-button id="account-menu-trigger" class="account-menu-trigger" slot="trigger" type="button" hierarchy="quiet" aria-haspopup="menu">
+            <span id="account-trigger-avatar" class="ic-account-avatar" slot="start" aria-hidden="true"></span>
+            <span class="account-trigger-copy">
+              <span id="account-trigger-name" class="account-trigger-name">—</span>
+              <ic-badge id="account-trigger-role" data-component-name="ic-badge-label-small" kind="label" size="small" tone="neutral">—</ic-badge>
+            </span>
+          </ic-button>
+          <ic-menu-item id="account-logout" value="logout" kind="command" icon="logout" tone="danger" label="退出登录" data-i18n-label="auth.logout"></ic-menu-item>
+        </ic-menu>
+      </div>
+    </aside>
+
+    <main class="stage" aria-label="主内容" data-i18n-aria-label="common.mainContent">
+      <iframe id="frame-zimage" data-src="/static/zimage.html?v=2026.09.01.2.1788251052" title="文生图" data-i18n-title="nav.textToImage" scrolling="yes"></iframe>
+      <iframe id="frame-enhance" data-src="/static/enhance.html?v=2026.09.01.2.1788251052" title="细节增强" data-i18n-title="nav.enhance" scrolling="yes"></iframe>
+      <iframe id="frame-klein" data-src="/static/klein.html?v=2026.09.01.2.1788251052" title="图片编辑" data-i18n-title="nav.imageEdit" scrolling="yes"></iframe>
+      <iframe id="frame-angle" data-src="/static/angle.html?v=2026.09.01.2.1788251052" title="角度控制" data-i18n-title="nav.angle" scrolling="yes"></iframe>
+      <iframe id="frame-online" data-src="/static/online.html?v=2026.09.01.2.1788251052" title="批量生成" data-i18n-title="batch.batch" scrolling="yes"></iframe>
+      <iframe id="frame-account-management" data-src="/static/account-management.html?v=2026.09.01.2.1788251052" title="账号管理" data-i18n-title="common.accountManagement" scrolling="yes"></iframe>
+      <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.09.01.2.1788251052" title="API 设置" data-i18n-title="common.apiSettings" scrolling="yes"></iframe>
+      <iframe id="frame-available-model-management" data-src="/static/available-model-management.html?v=2026.09.01.2.1788251052" title="可用模型管理" data-i18n-title="common.modelManagement" scrolling="yes"></iframe>
+      <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=2026.09.01.2.1788251052" title="工作流设置" data-i18n-title="common.comfyuiSettings" scrolling="yes"></iframe>
+      <iframe id="frame-canvas" data-src="/static/canvas-list.html?v=2026.09.01.2.1788251052" title="画布" data-i18n-title="nav.canvas" scrolling="yes"></iframe>
+    </main>
+  </div>
+
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script src="/static/js/studio-entry-motion.js?v=2026.09.01.2.1788146221" defer></script>
+  <script src="/static/js/studio-shell.js?v=2026.09.01.2.1788146221" defer></script>
+  <script src="/static/js/preferences.js?v=2026.09.01.2.1788146221" defer></script>
+  <script src="/static/js/account-avatar.js?v=2026.09.01.2.1788146221" defer></script>
+  <script src="/static/js/account-ui.js?v=2026.09.01.2.1788146221" defer></script>
+</body>
+</html>

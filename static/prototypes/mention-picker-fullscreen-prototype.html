@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 全屏 Composer Mention Picker</title>
+  <!-- PROTOTYPE: only the Mention Picker placement changes via ?variant=A|B|C. Run: ./.venv/bin/python -m http.server 9800 -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/mention-picker-fullscreen-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+</head>
+<body>
+  <main class="canvas-stage" aria-label="智能画布原型">
+    <div class="canvas-node node-a" aria-hidden="true"></div>
+    <div class="canvas-node node-b" aria-hidden="true"></div>
+    <div class="composer-focus-backdrop"></div>
+
+    <section class="composer focused open" aria-label="提示词编辑器" role="dialog" aria-modal="true">
+      <div class="composer-card">
+        <div class="input-thumbs-row has-items">
+          <span class="input-thumb thumb-a"></span>
+          <span class="input-thumb thumb-b"></span>
+          <button class="input-thumb-add" type="button" aria-label="添加输入">＋</button>
+        </div>
+        <button class="composer-focus-toggle" type="button" aria-label="收起编辑器"><ic-icon name="collapse-editor"></ic-icon></button>
+        <div class="prompt-row">
+          <div id="promptInput" class="prompt-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="描述你想生成的图片、视频或文本，输入 @ 引用素材，或输入 / 使用提示词…"></div>
+        </div>
+        <div class="param-row">
+          <button type="button" class="quiet-control"><ic-icon name="image-generate"></ic-icon><span>图片生成</span><ic-icon name="switch-horizontal"></ic-icon></button>
+          <button type="button" class="quiet-control">GPT Image 2 <span>⌄</span></button>
+          <button type="button" class="quiet-control">1:1 <span>⌄</span></button>
+          <button type="button" class="quiet-control icon-only" aria-label="模板"><ic-icon name="prompt-library"></ic-icon></button>
+        </div>
+        <div class="composer-actions"><button class="run-btn" type="button" aria-label="运行"><ic-icon name="submit"></ic-icon></button></div>
+      </div>
+    </section>
+
+    <aside id="mentionPicker" class="mention-picker" aria-label="Mention Picker"></aside>
+    <nav class="prototype-switcher" aria-label="方案切换">
+      <button type="button" data-previous aria-label="上一个方案">←</button>
+      <span><strong id="variantLabel"></strong><small id="variantNote"></small></span>
+      <button type="button" data-next aria-label="下一个方案">→</button>
+    </nav>
+  </main>
+  <script type="module" src="/static/prototypes/mention-picker-fullscreen-prototype.js"></script>
+</body>
+</html>

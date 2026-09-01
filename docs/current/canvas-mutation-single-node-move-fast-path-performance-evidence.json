@@ -1,0 +1,332 @@
+{
+  "captured_at_utc": "2026-08-20T05:16:00Z",
+  "command": ".venv/bin/python scripts/performance/run_canvas_store_move_fast_path.py --rounds 3 --samples 50",
+  "git_commit": "c1e8e47103f94eddf5baf4e8eae91b2adb17e9a8",
+  "worktree_dirty": true,
+  "status": "passed",
+  "scope": "offline_canvas_store_commit_seam",
+  "queue_position_distribution": "not_applicable; same-Canvas queue behavior is covered by Canvas Sync and requires the separate live multiplayer gate",
+  "aggregate": {
+    "median_fast_p95_ms": 7.125,
+    "median_generic_p95_ms": 12.366,
+    "median_p95_reduction_percent": 42.4,
+    "worst_fast_p95_ms": 7.356
+  },
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "python": "3.12.13",
+    "sqlite": "3.53.4"
+  },
+  "fixture": {
+    "connection_count": 321,
+    "history_count": 200,
+    "node_count": 461,
+    "node_payload_bytes": 3115685,
+    "sample_count_per_path_per_round": 50
+  },
+  "gate": {
+    "hard_gate_passed": true,
+    "p95_hard_gate_ms": 20.0,
+    "p95_target_ms": 12.0,
+    "target_passed": true
+  },
+  "live_multiplayer_gate": {
+    "status": "not_completed",
+    "passed": false,
+    "superseded_by": "follow_up_capture.live_multiplayer_long_scenario",
+    "reason": "The existing smoke runner closed the test WebSocket with 4403 during burst_stream in two consecutive synthetic-workspace attempts, after the steady stream completed. The formal 9-robot/2160-move gate was not run because its smoke prerequisite was not stable.",
+    "suspected_existing_boundary": "CanvasSync metadata submission advances the access epoch when a browser opens during the burst, invalidating the test sessions. This path is outside the Canvas Store mutation fast path.",
+    "safety": {
+      "workspace": "synthetic temporary SQLite authority",
+      "external_provider_called": false,
+      "cleanup_verified": true,
+      "out_of_allowlist_deletion_attempt_count": 0
+    },
+    "attempts": [
+      {
+        "report": "<redacted-local-report-path>/attempt-1",
+        "failure": "ConnectionClosedError: received 4403 during burst_stream",
+        "steady_acknowledged": 20,
+        "steady_p50_ms": 10.931,
+        "steady_p95_ms": 16.269,
+        "steady_p99_ms": 19.322,
+        "partial_burst_acknowledged": 40,
+        "partial_burst_p50_ms": 10.544,
+        "partial_burst_p95_ms": 16.914,
+        "partial_burst_p99_ms": 31.348
+      },
+      {
+        "report": "<redacted-local-report-path>/attempt-2",
+        "failure": "ConnectionClosedError: received 4403 during burst_stream",
+        "steady_acknowledged": 20,
+        "steady_p50_ms": 10.965,
+        "steady_p95_ms": 19.943,
+        "steady_p99_ms": 28.345,
+        "partial_burst_acknowledged": 40,
+        "partial_burst_p50_ms": 10.678,
+        "partial_burst_p95_ms": 15.998,
+        "partial_burst_p99_ms": 30.461
+      }
+    ]
+  },
+  "follow_up_capture": {
+    "captured_at_utc": "2026-08-20T08:39:22Z",
+    "git_commit": "592c9a80f7795a2beee4d3a3c1a749e9a3aa9ef4",
+    "worktree_dirty": true,
+    "safety": {
+      "workspace": "synthetic browser document and temporary SQLite authority",
+      "real_workspace_read_or_modified": false,
+      "external_provider_called": false,
+      "generation_quota_consumed": false
+    },
+    "store_commit_seam": {
+      "command": ".venv/bin/python scripts/performance/run_canvas_store_move_fast_path.py --rounds 3 --samples 50",
+      "status": "passed",
+      "fixture": {
+        "node_count": 461,
+        "connection_count": 321,
+        "history_count": 200,
+        "node_payload_bytes": 3115685,
+        "realtime_payload_bytes": 174956,
+        "sample_count_per_path_per_round": 50
+      },
+      "aggregate": {
+        "median_fast_p95_ms": 7.281,
+        "median_generic_p95_ms": 12.205,
+        "median_p95_reduction_percent": 40.3,
+        "worst_fast_p95_ms": 7.282,
+        "fast_path_hit_rate": 1.0,
+        "fallback_categories": {
+          "unknown_action": 150
+        }
+      },
+      "rounds": [
+        {
+          "fast_p50_ms": 5.144,
+          "fast_p95_ms": 7.282,
+          "fast_p99_ms": 7.348,
+          "generic_p50_ms": 10.241,
+          "generic_p95_ms": 12.319,
+          "generic_p99_ms": 14.28,
+          "final_revision": 300,
+          "projection_and_receipt_consistent": true
+        },
+        {
+          "fast_p50_ms": 5.021,
+          "fast_p95_ms": 7.281,
+          "fast_p99_ms": 14.437,
+          "generic_p50_ms": 10.144,
+          "generic_p95_ms": 12.157,
+          "generic_p99_ms": 12.326,
+          "final_revision": 300,
+          "projection_and_receipt_consistent": true
+        },
+        {
+          "fast_p50_ms": 5.141,
+          "fast_p95_ms": 7.187,
+          "fast_p99_ms": 11.096,
+          "generic_p50_ms": 10.223,
+          "generic_p95_ms": 12.205,
+          "generic_p99_ms": 13.05,
+          "final_revision": 300,
+          "projection_and_receipt_consistent": true
+        }
+      ],
+      "gate": {
+        "p95_hard_gate_ms": 20.0,
+        "p95_target_ms": 12.0,
+        "hard_gate_passed": true,
+        "target_passed": true
+      }
+    },
+    "frontend_canvas_realtime_applier_seam": {
+      "command": "node tests/smart_canvas_realtime_position_fast_path_browser_smoke.cjs",
+      "status": "passed",
+      "fixture": {
+        "node_count": 335,
+        "actor_count": 9,
+        "queued_position_mutation_count": 1080,
+        "sample_count": 5
+      },
+      "flush_samples_ms": [65.1, 66.2, 66.4, 66.2, 65.7],
+      "flush_percentiles_ms": {
+        "p50": 66.2,
+        "p95": 66.4,
+        "p99": 66.4
+      },
+      "longest_long_task_samples_ms": [64, 65, 65, 65, 64],
+      "longest_long_task_percentiles_ms": {
+        "p50": 65,
+        "p95": 65,
+        "p99": 65
+      },
+      "gate": {
+        "hard_gate_ms": 500,
+        "target_ms": 100,
+        "hard_gate_passed": true,
+        "target_passed": true
+      },
+      "public_behavior": {
+        "final_revision_after_virtualization_checks": 1082,
+        "projection_consistent": true,
+        "virtualization_enter_exit_consistent": true,
+        "selected_node_dom_identity_preserved": true,
+        "console_and_page_errors": 0,
+        "composer_unrelated_position_applies_while_focused": true,
+        "same_node_canvas_interaction_still_queues": true,
+        "mixed_mutation_revision_order_preserved": true
+      }
+    },
+    "live_multiplayer_long_scenario": {
+      "command": ".venv/bin/python scripts/performance/run_live_collaboration_acceptance.py --base-url http://127.0.0.1:3017 --admin-username <admin-username> --robot-count 9 --robot-rounds 241 --round-interval-seconds 1 --ack-p95-gate-ms 150 --ack-p99-gate-ms 300 --start-immediately --cleanup-test-canvas --report-root <local-report-root>",
+      "report": "<redacted-local-report-path>/live-multiplayer-long-scenario",
+      "status": "passed",
+      "fixture": {
+        "workspace": "isolated temporary Workspace and SQLite Authority",
+        "robot_count": 9,
+        "round_count": 241,
+        "node_create_count": 9,
+        "position_mutation_count": 2160,
+        "acknowledged_mutation_count": 2169
+      },
+      "latency_ms": {
+        "p50": 106.559,
+        "p95": 122.736,
+        "p99": 134.754
+      },
+      "queue_position_distribution": {
+        "1": {"sample_count": 240, "p50_ms": 106.838, "p95_ms": 123.162, "p99_ms": 135.256},
+        "2": {"sample_count": 240, "p50_ms": 106.716, "p95_ms": 122.708, "p99_ms": 134.725},
+        "3": {"sample_count": 240, "p50_ms": 106.725, "p95_ms": 122.645, "p99_ms": 134.703},
+        "4": {"sample_count": 240, "p50_ms": 106.745, "p95_ms": 122.625, "p99_ms": 134.718},
+        "5": {"sample_count": 240, "p50_ms": 106.619, "p95_ms": 122.63, "p99_ms": 134.738},
+        "6": {"sample_count": 240, "p50_ms": 106.575, "p95_ms": 122.646, "p99_ms": 134.754},
+        "7": {"sample_count": 240, "p50_ms": 106.601, "p95_ms": 122.611, "p99_ms": 134.749},
+        "8": {"sample_count": 240, "p50_ms": 106.606, "p95_ms": 122.608, "p99_ms": 134.803},
+        "9": {"sample_count": 240, "p50_ms": 106.662, "p95_ms": 122.73, "p99_ms": 134.81}
+      },
+      "correctness": {
+        "operation_ids_unique": true,
+        "operation_ids_complete": true,
+        "revision_start": 1,
+        "revision_end": 2169,
+        "revision_sequence_contiguous": true,
+        "final_node_projection_consistent": true,
+        "final_node_projection_mismatch_count": 0,
+        "permanent_failure_count": 0
+      },
+      "gate": {
+        "p95_gate_ms": 150,
+        "p99_gate_ms": 300,
+        "latency_gate_passed": true,
+        "correctness_gate_passed": true
+      },
+      "safety_and_cleanup": {
+        "real_workspace_read_or_modified": false,
+        "external_provider_called": false,
+        "generation_quota_consumed": false,
+        "canvas_purged": true,
+        "temporary_accounts_removed": true,
+        "sessions_removed": true,
+        "out_of_allowlist_deletion_attempt_count": 0
+      }
+    },
+    "ten_client_rate_smoke": {
+      "command": ".venv/bin/python scripts/performance/run_multiplayer_canvas.py --profile baseline --suite smoke --port 3018 --workspace <temporary-workspace> --report-root <local-report-root>",
+      "report": "<redacted-local-report-path>/multiplayer-rate-smoke",
+      "status": "passed",
+      "formal_result": false,
+      "steady": {
+        "client_count": 10,
+        "target_mutations_per_second": 20,
+        "sample_count": 20,
+        "p95_ms": 103.783,
+        "p99_ms": 107.824,
+        "gate_passed": true
+      },
+      "burst": {
+        "target_mutations_per_second": 40,
+        "sample_count": 40,
+        "p95_ms": 102.861,
+        "p99_ms": 118.929,
+        "recovery_ms": 2518.292,
+        "queue_recovered_within_30_seconds": true,
+        "gate_passed": true
+      },
+      "correctness_and_browser": {
+        "permanent_failure_count": 0,
+        "final_revision": 82,
+        "final_projection_client_count": 10,
+        "final_projections_consistent": true,
+        "browser_canvas_open_gate_passed": true,
+        "browser_settings_gate_passed": true,
+        "browser_long_task_max_ms": 0.0,
+        "console_page_and_unhandled_errors": 0
+      },
+      "safety_and_cleanup": {
+        "provider": "local deterministic provider",
+        "external_provider_called": false,
+        "generation_quota_consumed": false,
+        "canvas_purged": true,
+        "generated_media_purged": true,
+        "provider_settings_restored": true,
+        "temporary_accounts_removed": true,
+        "out_of_allowlist_deletion_attempt_count": 0
+      }
+    }
+  },
+  "rounds": [
+    {
+      "duplicate_receipt_consistent": true,
+      "fallback_categories": {
+        "unknown_action": 50
+      },
+      "fast_p50_ms": 5.24,
+      "fast_p95_ms": 7.125,
+      "fast_p99_ms": 7.283,
+      "fast_path_hit_rate": 1.0,
+      "final_projection_consistent": true,
+      "final_revision": 300,
+      "generic_p50_ms": 10.493,
+      "generic_p95_ms": 12.365,
+      "generic_p99_ms": 12.484,
+      "realtime_payload_bytes": 174956,
+      "round": 1
+    },
+    {
+      "duplicate_receipt_consistent": true,
+      "fallback_categories": {
+        "unknown_action": 50
+      },
+      "fast_p50_ms": 5.254,
+      "fast_p95_ms": 7.068,
+      "fast_p99_ms": 7.371,
+      "fast_path_hit_rate": 1.0,
+      "final_projection_consistent": true,
+      "final_revision": 300,
+      "generic_p50_ms": 10.393,
+      "generic_p95_ms": 12.366,
+      "generic_p99_ms": 12.443,
+      "realtime_payload_bytes": 174956,
+      "round": 2
+    },
+    {
+      "duplicate_receipt_consistent": true,
+      "fallback_categories": {
+        "unknown_action": 50
+      },
+      "fast_p50_ms": 5.313,
+      "fast_p95_ms": 7.356,
+      "fast_p99_ms": 7.492,
+      "fast_path_hit_rate": 1.0,
+      "final_projection_consistent": true,
+      "final_revision": 300,
+      "generic_p50_ms": 10.588,
+      "generic_p95_ms": 12.565,
+      "generic_p99_ms": 12.91,
+      "realtime_payload_bytes": 174956,
+      "round": 3
+    }
+  ]
+}

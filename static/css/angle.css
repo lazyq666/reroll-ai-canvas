@@ -1,0 +1,130 @@
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+    margin: 0;
+    background: var(--ui-color-surface-canvas);
+    color: var(--ui-color-text-primary);
+    font: var(--ui-text-body);
+    -webkit-font-smoothing: antialiased;
+}
+
+.angle-page {
+    width: min(100%, 82rem);
+    margin: 0 auto;
+    padding: var(--ui-space-8) var(--ui-space-6) var(--ui-space-24);
+}
+.angle-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--ui-space-4);
+    padding-block-end: var(--ui-space-6);
+}
+.angle-title { min-width: 0; }
+.page-alert { max-width: 44rem; margin-block-end: var(--ui-space-4); }
+
+.angle-workspace {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--ui-space-8) var(--ui-space-5);
+    align-items: stretch;
+}
+.angle-panel { min-width: 0; display: grid; align-content: start; gap: var(--ui-space-3); }
+.angle-panel > ic-heading { min-height: var(--ui-control-height-s); }
+.step-number {
+    display: inline-flex;
+    margin-inline-end: var(--ui-space-2);
+    color: var(--ui-color-text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+.camera-card, .parameter-card, .result-card { height: 100%; }
+#inputPreview { width: min(100%, 28rem); justify-self: center; }
+#inputPreview[data-drag-active] { outline: var(--ui-focus-ring); box-shadow: var(--ui-focus-ring-shadow); }
+
+.camera-card { --ic-card-padding: var(--ui-space-0); --ic-card-content-gap: var(--ui-space-0); }
+.camera-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 17rem);
+    gap: 0;
+    height: 100%;
+}
+.three-viewport {
+    min-width: 0;
+    min-height: 28rem;
+    overflow: hidden;
+    border-radius: var(--ui-radius-l) 0 0 var(--ui-radius-l);
+    background: var(--ui-color-surface);
+}
+.three-viewport canvas { display: block; width: 100%; height: 100%; }
+.camera-controls {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    gap: var(--ui-space-4);
+    padding: var(--ui-space-4);
+    border-inline-start: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+    background: var(--ui-color-surface);
+}
+.control-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--ui-space-2);
+    align-items: end;
+}
+.control-copy { min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: var(--ui-space-2); font: var(--ui-text-label); }
+.control-hint { color: var(--ui-color-text-tertiary); font: var(--ui-text-caption); font-variant-numeric: tabular-nums; }
+.control-row ic-number-input { grid-column: 1 / -1; }
+.control-row ic-slider { grid-column: 1 / -1; width: 100%; }
+
+.parameter-card ic-textarea { min-height: 14rem; }
+.engine-field { display: grid; gap: var(--ui-space-2); }
+.field-label { color: var(--ui-color-text-tertiary); font: var(--ui-text-label); }
+.engine-field ic-segmented-control { width: 100%; }
+.engine-field ic-segmented-control > button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--ui-space-2); }
+.generate-button { width: 100%; }
+
+.result-card { min-height: 24rem; }
+.loading-state, .text-result { display: grid; place-items: center; gap: var(--ui-space-4); min-height: 20rem; text-align: center; }
+.loading-state[hidden], .text-result[hidden], .result-actions[hidden] { display: none; }
+.loading-state ic-progress { width: min(100%, 28rem); }
+.output-media { width: 100%; }
+.output-media img { cursor: zoom-in; }
+.result-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ui-space-2); }
+
+.archive-section { display: grid; gap: var(--ui-space-5); margin-block-start: var(--ui-space-16); }
+.archive-heading { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--ui-space-4); }
+.archive-heading ic-divider { margin: 0; }
+.archive-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ui-space-4); }
+.archive-card { min-width: 0; cursor: zoom-in; }
+.archive-card:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-ring-offset); box-shadow: var(--ui-focus-ring-shadow); }
+.archive-card { --ic-card-padding: var(--ui-space-2); }
+.archive-card[data-selected] { outline: var(--ui-border-width-strong) solid var(--ui-color-border-selected); outline-offset: var(--ui-border-width-thin); }
+.archive-media { pointer-events: none; }
+.archive-caption { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-2); }
+.archive-prompt { min-width: 0; overflow: hidden; color: var(--ui-color-text-tertiary); font: var(--ui-text-caption); text-overflow: ellipsis; white-space: nowrap; }
+.archive-end { margin: 0; color: var(--ui-color-text-tertiary); text-align: center; font: var(--ui-text-label); }
+
+.studio-preview-frame { position: relative; min-width: 0; }
+.studio-preview-frame ic-media-container { max-height: 74vh; }
+.studio-preview-frame img { max-height: 74vh; }
+.lightbox-resolution { position: absolute; inset-block-start: var(--ui-space-3); inset-inline-start: var(--ui-space-3); }
+
+@media (max-width: 68rem) {
+    .camera-layout { grid-template-columns: minmax(0, 1fr); }
+    .three-viewport { min-height: 22rem; border-radius: var(--ui-radius-l) var(--ui-radius-l) 0 0; }
+    .camera-controls { border-inline-start: 0; border-block-start: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .archive-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 42rem) {
+    .angle-page { padding: var(--ui-space-5) var(--ui-space-3) var(--ui-space-16); }
+    .angle-header { align-items: start; }
+    .angle-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--ui-space-6); }
+    .three-viewport { min-height: 20rem; }
+    .camera-controls { padding: var(--ui-space-3); }
+    .engine-field ic-segmented-control { overflow: auto; }
+    .result-actions ic-button { flex: 1; }
+    .archive-section { margin-block-start: var(--ui-space-12); }
+    .archive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-3); }
+}

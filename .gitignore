@@ -1,0 +1,69 @@
+.venv/
+.test-venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+API/.env
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+.netrc
+.npmrc
+.pypirc
+secrets/
+credentials/
+global_config.json
+API/openai-gpt-account-auth.json
+
+# Per-user application data and generated local files
+data/
+history.json
+assets/
+.DS_Store
+local-state/
+*.icapi
+logs/
+*.log
+_self_restart.*
+
+# Local agent/editor state
+.codex/
+.agents/
+.scratch/
+.worktrees/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.history/
+
+# OS-generated metadata
+Thumbs.db
+Desktop.ini
+.AppleDouble
+.LSOverride
+
+# Build and package outputs
+build/
+dist/
+*.egg-info/
+node_modules/
+
+# Downloaded release/runtime artifacts
+python/
+packages/*.whl
+get-pip.py

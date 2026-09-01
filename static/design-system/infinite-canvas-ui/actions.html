@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN" data-action-matrix-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Actions Live Review</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.09.1">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css?v=2026.08.15.14">
+</head>
+<body class="actions-matrix-page">
+  <header class="actions-live-toolbar">
+    <div>
+      <span class="actions-live-kicker">Actions · confirmed</span>
+      <h1>Button、Icon Button、Button Group 实时矩阵</h1>
+      <p>合同、727 个 Legacy 映射及实时视觉与交互均已确认；Actions 组件族现已允许进入迁移。</p>
+    </div>
+    <span data-actions-live-status role="status" aria-live="polite">正在启动 6 个实时情境…</span>
+  </header>
+
+  <main class="actions-live-grid" aria-label="Actions 主题、宽度与内容比较矩阵">
+    <article class="actions-live-card" data-theme="light" data-viewport="desktop" data-locale="zh-CN" data-content="normal" data-density="medium" data-motion="standard">
+      <header><strong>Light · Desktop · 中文</strong><span>Medium / 常规文本</span></header>
+      <iframe title="Light desktop Chinese Actions" data-action-case></iframe>
+    </article>
+    <article class="actions-live-card" data-theme="dark" data-viewport="desktop" data-locale="en" data-content="normal" data-density="medium" data-motion="standard">
+      <header><strong>Dark · Desktop · English</strong><span>Medium / regular copy</span></header>
+      <iframe title="Dark desktop English Actions" data-action-case></iframe>
+    </article>
+    <article class="actions-live-card" data-theme="light" data-viewport="narrow" data-locale="zh-CN" data-content="long" data-density="small" data-motion="standard">
+      <header><strong>Light · Narrow · 中文长文本</strong><span>Small / Toolbar</span></header>
+      <iframe title="Light narrow long Chinese Actions" data-action-case></iframe>
+    </article>
+    <article class="actions-live-card" data-theme="dark" data-viewport="narrow" data-locale="en" data-content="long" data-density="small" data-motion="standard">
+      <header><strong>Dark · Narrow · Long English</strong><span>Small / toolbar</span></header>
+      <iframe title="Dark narrow long English Actions" data-action-case></iframe>
+    </article>
+    <article class="actions-live-card" data-theme="light" data-viewport="desktop" data-locale="en" data-content="long" data-density="medium" data-motion="reduced">
+      <header><strong>Light · Desktop · Long English</strong><span>Reduced motion</span></header>
+      <iframe title="Light desktop reduced motion Actions" data-action-case></iframe>
+    </article>
+    <article class="actions-live-card" data-theme="dark" data-viewport="narrow" data-locale="zh-CN" data-content="long" data-density="small" data-motion="reduced">
+      <header><strong>Dark · Narrow · 中文长文本</strong><span>Reduced motion</span></header>
+      <iframe title="Dark narrow reduced motion Actions" data-action-case></iframe>
+    </article>
+  </main>
+  <script src="/static/js/infinite-canvas-ui/action-matrix.js?v=ic-ui-1a20b8e9d3c4" defer></script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN" data-audit-complete="false" data-audit-failures="0">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UI Component Library · Full Fixture Audit</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 20px; background: #eef1f5; color: #111827; font: 13px system-ui, sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; gap: 16px; align-items: center; justify-content: space-between; margin: -20px -20px 16px; padding: 14px 20px; border-bottom: 1px solid #d5dae2; background: rgba(255, 255, 255, .96); }
+    h1 { margin: 0; font-size: 18px; }
+    #summary { font-variant-numeric: tabular-nums; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 42vw); gap: 16px; }
+    section { overflow: hidden; border: 1px solid #d5dae2; border-radius: 12px; background: white; }
+    h2 { margin: 0; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+    iframe { display: block; width: 100%; height: 420px; border: 0; }
+    pre { min-height: 420px; max-height: 70vh; margin: 0; padding: 12px; overflow: auto; white-space: pre-wrap; word-break: break-word; color: #334155; }
+    .failure { color: #b42318; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>全量 Live Fixture 浏览器核验</h1>
+    <strong id="summary" role="status">正在载入 Runtime Manifest…</strong>
+  </header>
+  <main>
+    <section><h2 id="current">等待候选</h2><iframe id="fixture" sandbox="allow-scripts" src="/static/design-system/live-catalog/sandbox.html"></iframe></section>
+    <section><h2>核验日志</h2><pre id="log"></pre></section>
+  </main>
+  <script src="/static/js/ui-component-library/sandbox-protocol.js"></script>
+  <script>
+    (() => {
+      const protocol = window.UiComponentSandboxProtocol;
+      const fixture = document.getElementById('fixture');
+      const summary = document.getElementById('summary');
+      const current = document.getElementById('current');
+      const log = document.getElementById('log');
+      const result = { total: 0, passed: 0, failed: 0, failures: [], categories: {}, startedAt: new Date().toISOString() };
+      let manifest = null;
+      let auditCandidates = [];
+      let index = -1;
+      let candidate = null;
+      let phase = 'boot';
+      let timeout = null;
+
+      window.__auditResult = result;
+
+      function line(text, failure = false) {
+        const node = document.createElement('div');
+        node.textContent = text;
+        if (failure) node.className = 'failure';
+        log.appendChild(node);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function updateSummary() {
+        summary.textContent = `${Math.min(index + 1, result.total)}/${result.total} · 通过 ${result.passed} · 失败 ${result.failed}`;
+      }
+
+      function armTimeout() {
+        window.clearTimeout(timeout);
+        timeout = window.setTimeout(() => fail(`阶段 ${phase} 超时`), 12000);
+      }
+
+      function post(type, payload = {}) {
+        fixture.contentWindow.postMessage(protocol.message(type, payload), '*');
+      }
+
+      function finish() {
+        window.clearTimeout(timeout);
+        result.finishedAt = new Date().toISOString();
+        result.complete = true;
+        document.documentElement.dataset.auditComplete = 'true';
+        document.documentElement.dataset.auditFailures = String(result.failed);
+        current.textContent = result.failed ? '核验完成（存在失败）' : '核验完成（全部通过）';
+        updateSummary();
+        line(result.failed ? `完成：${result.failed} 个失败` : `完成：${result.passed} 个候选全部通过`, result.failed > 0);
+      }
+
+      function next() {
+        window.clearTimeout(timeout);
+        index += 1;
+        if (index >= result.total) return finish();
+        candidate = auditCandidates[index];
+        phase = 'initialise';
+        current.textContent = `${candidate.id} · ${candidate.label}`;
+        updateSummary();
+        armTimeout();
+        post('initialise', {
+          candidate,
+          context: manifest.contexts[candidate.fixture.contextId] || {},
+        });
+      }
+
+      function pass() {
+        window.clearTimeout(timeout);
+        result.passed += 1;
+        const category = result.categories[candidate.categoryId];
+        category.passed += 1;
+        if ((result.passed + result.failed) % 25 === 0) line(`进度 ${result.passed + result.failed}/${result.total}`);
+        next();
+      }
+
+      function fail(message) {
+        if (!candidate) return;
+        window.clearTimeout(timeout);
+        result.failed += 1;
+        const failure = { id: candidate.id, categoryId: candidate.categoryId, phase, message };
+        result.failures.push(failure);
+        result.categories[candidate.categoryId].failed += 1;
+        line(`${candidate.id} · ${phase} · ${message}`, true);
+        next();
+      }
+
+      function forcedInteraction() {
+        const states = candidate.coverage?.interactionStates || ['default'];
+        return states.find((state) => !['default', 'hover', 'pressed', 'focus-visible'].includes(state))
+          || states.find((state) => state !== 'default')
+          || 'default';
+      }
+
+      window.addEventListener('message', (event) => {
+        if (event.source !== fixture.contentWindow || !protocol.isMessage(event.data)) return;
+        if (event.data.type === 'sandbox-ready' && manifest && index < 0) return next();
+        if (!candidate || event.data.candidateId !== candidate.id) return;
+        if (event.data.type === 'fixture-error') return fail(event.data.message || 'fixture-error');
+        if (event.data.type === 'fixture-ready' && phase === 'initialise') {
+          if (event.data.rendered !== true) return fail(`根节点没有可见尺寸 · ${JSON.stringify(event.data.diagnostics || [])}`);
+          phase = 'set-state';
+          armTimeout();
+          return post('set-state', { state: { theme: 'dark', interaction: forcedInteraction() } });
+        }
+        if (event.data.type === 'state-changed' && phase === 'set-state') {
+          phase = 'reset';
+          armTimeout();
+          return post('reset');
+        }
+        if (event.data.type === 'reset-complete' && phase === 'reset') return pass();
+      });
+
+      fetch('/static/design-system/live-catalog/manifest.json', { cache: 'no-store' })
+        .then((response) => {
+          if (!response.ok) throw new Error(`Manifest HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((value) => {
+          manifest = value;
+          const requestedIds = new Set(new URLSearchParams(location.search).get('ids')?.split(',').filter(Boolean) || []);
+          auditCandidates = requestedIds.size
+            ? manifest.candidates.filter((item) => requestedIds.has(item.id))
+            : manifest.candidates;
+          result.total = auditCandidates.length;
+          for (const category of manifest.categories) {
+            result.categories[category.id] = { total: category.counts.total, passed: 0, failed: 0 };
+          }
+          summary.textContent = `等待 Sandbox · 0/${result.total}`;
+          if (phase === 'sandbox-ready') next();
+        })
+        .catch((error) => {
+          result.failed = 1;
+          result.failures.push({ id: 'manifest', categoryId: '', phase: 'fetch', message: error.message });
+          result.complete = true;
+          document.documentElement.dataset.auditComplete = 'true';
+          document.documentElement.dataset.auditFailures = '1';
+          summary.textContent = `Manifest 失败：${error.message}`;
+        });
+
+      fixture.addEventListener('load', () => {
+        if (index < 0) {
+          phase = 'sandbox-ready';
+          if (manifest) next();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

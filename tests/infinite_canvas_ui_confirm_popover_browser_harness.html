@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN" data-ic-confirm-popover-test-status="loading">
+<head>
+  <meta charset="utf-8">
+  <title>Confirm Popover browser contract</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <button id="trigger" type="button">删除人物摄影</button>
+  <button id="outside" type="button">外部操作</button>
+  <ic-confirm-popover id="confirm" label="删除人物摄影分组？" description="组内 3 个提示词会移至未分类。" confirm-label="删除分组" cancel-label="取消" consequence="destructive"></ic-confirm-popover>
+  <ic-confirm-popover id="invalid" label="Invalid"></ic-confirm-popover>
+  <pre id="results"></pre>
+  <script type="module">
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const report = { checks:{}, observations:{} };
+    const errors = [];
+    document.addEventListener('ic-contract-error', event => errors.push(event.detail));
+    await import('/static/js/infinite-canvas-ui/core.js');
+    await customElements.whenDefined('ic-confirm-popover');
+    const trigger = document.querySelector('#trigger');
+    const outside = document.querySelector('#outside');
+    const confirm = document.querySelector('#confirm');
+    let confirmed = 0;
+    let canceled = 0;
+    confirm.addEventListener('ic-confirm', () => { confirmed += 1; });
+    confirm.addEventListener('ic-cancel', () => { canceled += 1; });
+
+    trigger.focus();
+    confirm.show(trigger);
+    await paint();
+    const surface = confirm.shadowRoot.querySelector('[part="surface"]');
+    report.checks.registered = Boolean(customElements.get('ic-confirm-popover'));
+    report.checks.open = confirm.hasAttribute('open') && surface.matches(':popover-open');
+    report.checks.alertdialog = surface.getAttribute('role') === 'alertdialog';
+    report.checks.initialFocus = document.activeElement === confirm && confirm.shadowRoot.activeElement?.matches('[data-cancel]');
+    const componentCss = confirm.shadowRoot.querySelector('style').textContent;
+    report.checks.neutralSurface = componentCss.includes('border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary)') && !componentCss.includes('var(--ui-color-border-danger)');
+    report.checks.dangerConfirmOnly = confirm.shadowRoot.querySelector('[data-confirm]').tone === 'danger' && confirm.shadowRoot.querySelector('[data-cancel]').tone === 'neutral';
+
+    confirm.shadowRoot.querySelector('[data-confirm]').click();
+    await paint();
+    report.checks.confirmEvent = confirmed === 1 && confirm.hasAttribute('open');
+    confirm.confirmLoading = true;
+    await paint();
+    confirm.shadowRoot.querySelector('[data-confirm]').click();
+    report.checks.loadingBlocksDuplicate = confirmed === 1 && confirm.hasAttribute('open');
+    confirm.confirmLoading = false;
+    await paint();
+    const escapeTarget = confirm.shadowRoot.querySelector('[data-cancel]');
+    escapeTarget.focus();
+    escapeTarget.dispatchEvent(new KeyboardEvent('keydown', { key:'Escape', bubbles:true, composed:true }));
+    await paint();
+    report.checks.escapeCancels = canceled === 1 && !confirm.hasAttribute('open') && document.activeElement === trigger;
+
+    confirm.show(trigger);
+    await paint();
+    outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true }));
+    await paint();
+    report.checks.outsideCancels = canceled === 2 && !confirm.hasAttribute('open') && document.activeElement === trigger;
+    report.checks.invalid = document.querySelector('#invalid').dataset.icContractStatus === 'invalid' && errors.some(error => error.component === 'ic-confirm-popover');
+    report.observations = { confirmed, canceled, errors };
+    document.querySelector('#results').textContent = JSON.stringify(report);
+    document.documentElement.dataset.icConfirmPopoverTestStatus = Object.values(report.checks).every(Boolean) ? 'passed' : 'failed';
+  </script>
+</body>
+</html>

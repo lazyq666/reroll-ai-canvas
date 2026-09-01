@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Prompt Template Library</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.15.1">
+  <style>
+    * { box-sizing:border-box; }
+    html,body { min-height:100%; margin:0; }
+    body { padding:var(--ui-space-6); color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font:var(--ui-text-body); }
+    .demo-page { width:min(76rem,100%); margin:auto; display:grid; gap:var(--ui-space-4); }
+    header { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--ui-space-4); }
+    h1 { margin:0 0 var(--ui-space-2); font:var(--ui-text-title-1); }
+    p { max-width:48rem; margin:0; color:var(--ui-color-text-tertiary); }
+    .controls { display:flex; gap:var(--ui-space-2); }
+    .controls button { min-height:var(--ui-control-height-s); padding-inline:var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-pill); color:var(--ui-color-text-primary); background:var(--ui-color-surface); }
+    .stage { height:42rem; padding:var(--ui-space-4); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-subtle); }
+    ic-prompt-template-library { width:100%; height:100%; display:block; }
+    .event-panel { display:grid; grid-template-columns:auto minmax(0,1fr); gap:var(--ui-space-3); align-items:start; padding:var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); background:var(--ui-color-surface); }
+    .event-panel strong { white-space:nowrap; }
+    [data-event-log] { margin:0; padding:var(--ui-space-3); border-radius:var(--ui-radius-m); color:var(--ui-color-text-secondary); background:var(--ui-color-surface-subtle); white-space:pre-wrap; font:var(--ui-text-code); }
+  </style>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+</head>
+<body>
+  <main class="demo-page">
+    <header>
+      <div><h1>Prompt Template Library</h1><p>组件以 X-Large Modal 承载搜索、库/分类切换、模板卡片和管理状态；此页模拟宿主对公开事件的业务回写。</p></div>
+      <div class="controls"><button type="button" data-theme-toggle>切换深色</button><button type="button" data-open-toggle>关闭面板</button></div>
+    </header>
+    <section class="stage">
+      <ic-prompt-template-library id="promptTemplateLibraryDemo" data-component-name="ic-prompt-template-library" aria-label="提示词模板库交互示例" active-library="system" active-category="all" can-manage open></ic-prompt-template-library>
+    </section>
+    <section class="event-panel"><strong>公开事件</strong><pre data-event-log>等待交互…</pre></section>
+  </main>
+  <script type="module">
+    await customElements.whenDefined('ic-prompt-template-library');
+    const demo = document.querySelector('#promptTemplateLibraryDemo');
+    const log = document.querySelector('[data-event-log]');
+    let libraries = [
+      { id:'system', name:'系统库', readonly:false, categories:[{id:'view',name:'视角'}, {id:'light',name:'光影'}, {id:'product',name:'产品'}] },
+      { id:'team', name:'团队只读库', readonly:true, categories:[{id:'brand',name:'品牌'}] },
+    ];
+    let templates = [
+      { id:'wide', libraryId:'system', category:'view', name:'广角建立镜头', positive:'远景，广角，清晰的空间层次与环境关系。' },
+      { id:'portrait', libraryId:'system', category:'light', name:'柔光人像', positive:'柔和侧光，浅景深，自然肤色与安静背景。' },
+      { id:'product', libraryId:'system', category:'product', name:'极简产品图', positive:'纯净背景，克制反光，精准轮廓，商业产品摄影。' },
+      { id:'brand', libraryId:'team', category:'brand', name:'品牌主视觉', positive:'遵循品牌配色、留白和稳定的视觉层级。' },
+    ];
+    const sync = () => {
+      demo.libraries = libraries;
+      demo.templates = templates;
+    };
+    const record = event => {
+      const detail = JSON.stringify(event.detail, (key, value) => key === 'coverFile' && value ? `[File ${value.name}]` : value, 2);
+      log.textContent = `${event.type}\n${detail}`;
+    };
+    sync();
+
+    demo.addEventListener('ic-library-change', event => { record(event); demo.activeLibrary = event.detail.libraryId; demo.activeCategory = 'all'; demo.selectedTemplate = ''; });
+    demo.addEventListener('ic-category-change', event => { record(event); demo.activeCategory = event.detail.categoryId; demo.selectedTemplate = ''; });
+    demo.addEventListener('ic-template-select', event => { record(event); demo.selectedTemplate = event.detail.templateId; });
+    demo.addEventListener('ic-template-copy', record);
+    demo.addEventListener('ic-template-create', event => {
+      record(event);
+      templates = [...templates, { id:`demo-${Date.now()}`, libraryId:event.detail.libraryId, ...event.detail.draft, cover:'' }];
+      sync(); demo.closeEditor();
+    });
+    demo.addEventListener('ic-template-edit', event => {
+      record(event);
+      templates = templates.map(item => item.id === event.detail.templateId ? {...item, ...event.detail.draft, cover:event.detail.draft.cover || item.cover || ''} : item);
+      sync(); demo.closeEditor();
+    });
+    demo.addEventListener('ic-template-delete', event => { record(event); templates = templates.filter(item => item.id !== event.detail.templateId); sync(); demo.closeEditor(); });
+    demo.addEventListener('ic-template-reorder', event => {
+      record(event);
+      if(event.detail.scope === 'categories') libraries = libraries.map(library => library.id === demo.activeLibrary ? {...library, categories:event.detail.categoryIds.map(id => library.categories.find(item => item.id === id)).filter(Boolean)} : library);
+      sync();
+    });
+    demo.addEventListener('ic-category-create', event => {
+      record(event);
+      libraries = libraries.map(library => library.id === event.detail.libraryId ? {...library, categories:[...library.categories, {id:`group-${Date.now()}`, name:event.detail.name}]} : library);
+      sync(); demo.closeCategoryEditor();
+    });
+    demo.addEventListener('ic-category-edit', event => {
+      record(event);
+      libraries = libraries.map(library => library.id === event.detail.libraryId ? {...library, categories:library.categories.map(item => item.id === event.detail.categoryId ? {...item, name:event.detail.name} : item)} : library);
+      sync(); demo.closeCategoryEditor();
+    });
+    demo.addEventListener('ic-category-delete', event => {
+      record(event);
+      libraries = libraries.map(library => library.id === event.detail.libraryId ? {...library, categories:library.categories.filter(item => item.id !== event.detail.categoryId)} : library);
+      templates = templates.filter(item => item.category !== event.detail.categoryId);
+      sync();
+    });
+    demo.addEventListener('ic-close', event => { record(event); demo.open = false; document.querySelector('[data-open-toggle]').textContent = '打开面板'; });
+
+    document.querySelector('[data-theme-toggle]').addEventListener('click', event => {
+      document.documentElement.classList.toggle('theme-dark');
+      event.currentTarget.textContent = document.documentElement.classList.contains('theme-dark') ? '切换浅色' : '切换深色';
+    });
+    document.querySelector('[data-open-toggle]').addEventListener('click', event => {
+      demo.open = !demo.open;
+      event.currentTarget.textContent = demo.open ? '关闭面板' : '打开面板';
+    });
+  </script>
+</body>
+</html>

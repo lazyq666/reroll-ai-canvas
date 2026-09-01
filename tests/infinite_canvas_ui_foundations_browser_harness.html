@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" data-ui-theme="light" data-ui-density="medium" data-ui-motion="standard" data-ic-foundations-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI foundations browser contract</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    body { color: var(--ui-color-text-primary); background: var(--ui-color-surface-canvas); }
+    .samples { display: flex; align-items: center; gap: var(--ui-density-gap); }
+  </style>
+</head>
+<body>
+  <div class="samples">
+    <ic-button id="foundation-action" type="button">
+      <ic-icon name="save" size="small" aria-hidden="true" slot="start"></ic-icon>
+      Save canvas
+    </ic-button>
+    <ic-input id="foundation-input" label="Project name" value="Draft"></ic-input>
+    <ic-icon id="extra-small-icon" name="add" size="x-small"></ic-icon>
+    <ic-icon id="small-icon" name="search" size="small"></ic-icon>
+    <ic-icon id="labeled-icon" name="settings" size="medium" label="Canvas settings"></ic-icon>
+    <ic-icon id="decorative-icon" name="close" size="large"></ic-icon>
+    <ic-icon id="extra-large-icon" name="image" size="x-large"></ic-icon>
+  </div>
+  <pre id="foundation-results"></pre>
+  <script type="module">
+    import '/static/js/infinite-canvas-ui/core.js';
+
+    const root = document.documentElement;
+    const action = document.querySelector('#foundation-action');
+    const input = document.querySelector('#foundation-input');
+    const extraSmallIcon = document.querySelector('#extra-small-icon');
+    const smallIcon = document.querySelector('#small-icon');
+    const labeledIcon = document.querySelector('#labeled-icon');
+    const decorativeIcon = document.querySelector('#decorative-icon');
+    const extraLargeIcon = document.querySelector('#extra-large-icon');
+    const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const iconStrokeWidth = icon => Number.parseFloat(
+      getComputedStyle(icon.shadowRoot?.querySelector('svg')).strokeWidth,
+    );
+    const channel = value => {
+      const numbers = value.match(/[\d.]+/g)?.slice(0, 3).map(Number) || [];
+      return numbers.length === 3 ? numbers : [0, 0, 0];
+    };
+    const luminance = color => {
+      const linear = channel(color).map(value => {
+        const normalized = value / 255;
+        return normalized <= .04045 ? normalized / 12.92 : ((normalized + .055) / 1.055) ** 2.4;
+      });
+      return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+    };
+    const contrast = (foreground, background) => {
+      const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+      return (values[0] + .05) / (values[1] + .05);
+    };
+    const token = name => getComputedStyle(root).getPropertyValue(name).trim();
+    const resolvedColor = name => {
+      const probe = document.createElement('span');
+      probe.style.color = `var(${name})`;
+      document.body.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
+    };
+    const measure = async (density, theme = 'light', motion = 'standard') => {
+      root.dataset.uiDensity = density;
+      root.dataset.uiTheme = theme;
+      root.dataset.uiMotion = motion;
+      await nextPaint();
+      const bodyStyle = getComputedStyle(document.body);
+      const actionBase = action.shadowRoot?.querySelector('[part~="base"]');
+      const colors = Object.fromEntries([
+        '--ui-color-action-primary',
+        '--ui-color-action-primary-hover',
+        '--ui-color-action-secondary-selected',
+        '--ui-color-border-focus',
+        '--ui-color-action-primary-disabled',
+        '--ui-color-text-on-action-primary-disabled',
+        '--ui-color-border-primary',
+        '--ui-color-surface',
+      ].map(name => [name, resolvedColor(name)]));
+      return {
+        actionHeight: action.getBoundingClientRect().height,
+        inputHeight: input.getBoundingClientRect().height,
+        foreground: bodyStyle.color,
+        background: bodyStyle.backgroundColor,
+        contrast: contrast(bodyStyle.color, bodyStyle.backgroundColor),
+        duration: token('--ui-motion-duration-normal'),
+        densityHeight: token('--ui-density-control-height'),
+        colors,
+        controlBorderContrast: contrast(colors['--ui-color-border-primary'], colors['--ui-color-surface']),
+        disabledContrast: contrast(colors['--ui-color-text-on-action-primary-disabled'], colors['--ui-color-action-primary-disabled']),
+        focusContrast: contrast(colors['--ui-color-border-focus'], colors['--ui-color-surface']),
+        actionStyle: {
+          size: action.getAttribute('size'),
+          hostHeight: getComputedStyle(action).height,
+          waHeight: getComputedStyle(action).getPropertyValue('--wa-form-control-height').trim(),
+          baseHeight: actionBase ? getComputedStyle(actionBase).height : '',
+          baseMinHeight: actionBase ? getComputedStyle(actionBase).minHeight : '',
+        },
+      };
+    };
+
+    try {
+      await Promise.race([
+        Promise.all([
+          customElements.whenDefined('ic-button'),
+          customElements.whenDefined('ic-input'),
+          customElements.whenDefined('ic-icon'),
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Foundations custom elements timed out')), 5000)),
+      ]);
+      await nextPaint();
+      const medium = await measure('medium');
+      const small = await measure('small');
+      const large = await measure('large');
+      const light = await measure('medium', 'light');
+      const dark = await measure('medium', 'dark');
+      const standard = await measure('medium', 'light', 'standard');
+      const reduced = await measure('medium', 'light', 'reduced');
+      delete root.dataset.uiTheme;
+      root.classList.add('theme-dark');
+      await nextPaint();
+      const legacyDarkBackground = getComputedStyle(document.body).backgroundColor;
+      root.dataset.uiTheme = 'light';
+      await nextPaint();
+      const standardLightWinsBackground = getComputedStyle(document.body).backgroundColor;
+      root.classList.remove('theme-dark');
+      action.focus();
+      await nextPaint();
+      const report = {
+        density: { medium, small, large },
+        theme: { light, dark },
+        themeInterface: { legacyDarkBackground, standardLightWinsBackground },
+        motion: { standard: standard.duration, reduced: reduced.duration },
+        focus: {
+          hostFocused: document.activeElement === action,
+          ring: token('--ui-focus-ring'),
+          offset: token('--ui-focus-ring-offset'),
+        },
+        icons: {
+          strokeWidths: {
+            xs: iconStrokeWidth(extraSmallIcon),
+            s: iconStrokeWidth(smallIcon),
+            m: iconStrokeWidth(labeledIcon),
+            l: iconStrokeWidth(decorativeIcon),
+            xl: iconStrokeWidth(extraLargeIcon),
+          },
+          labeled: {
+            width: labeledIcon.getBoundingClientRect().width,
+            height: labeledIcon.getBoundingClientRect().height,
+            role: labeledIcon.getAttribute('role'),
+            label: labeledIcon.getAttribute('aria-label'),
+          },
+          decorative: {
+            width: decorativeIcon.getBoundingClientRect().width,
+            height: decorativeIcon.getBoundingClientRect().height,
+            hidden: decorativeIcon.getAttribute('aria-hidden'),
+          },
+        },
+      };
+      document.querySelector('#foundation-results').textContent = JSON.stringify(report);
+      root.dataset.icFoundationsStatus = 'passed';
+    } catch (error) {
+      document.querySelector('#foundation-results').textContent = JSON.stringify({ error: String(error?.stack || error) });
+      root.dataset.icFoundationsStatus = 'failed';
+    }
+  </script>
+</body>
+</html>

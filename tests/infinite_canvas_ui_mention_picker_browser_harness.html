@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN" data-ic-mention-picker-test-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mention Picker browser contract</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    body { margin: 0; min-height: 900px; background: var(--ui-color-surface-canvas); color: var(--ui-color-text-primary); }
+    #trigger { box-sizing: border-box; width: 320px; height: 96px; margin: 340px 0 0 80px; }
+    #edge-trigger { position: fixed; top: 112px; left: 760px; width: 320px; height: 40px; }
+    #inactive-composer { pointer-events: none; }
+    #fullscreen-mask { position: fixed; inset: 0; z-index: var(--ui-z-backdrop); background: rgba(15, 23, 42, .5); pointer-events: none; }
+    #fullscreen-panel { box-sizing: border-box; position: fixed; z-index: var(--ui-z-modal); left: 520px; top: 32px; width: 420px; height: 400px; display: grid; grid-template-rows: minmax(0, 1fr) 56px; padding: 12px; border: 1px solid var(--ui-color-border-secondary); background: var(--ui-color-surface-floating); }
+    #fullscreen-editor { box-sizing: border-box; min-height: 0; padding: 12px; overflow: auto; background: var(--ui-color-surface); }
+    #fullscreen-actions { margin: 0 -12px -12px; background: var(--ui-color-surface-subtle); }
+  </style>
+</head>
+<body>
+  <button id="trigger" type="button" aria-haspopup="listbox" aria-expanded="false">提示词编辑器</button>
+  <button id="edge-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">靠近顶部的提示词编辑器</button>
+  <div id="fullscreen-mask" aria-hidden="true"></div>
+  <section id="fullscreen-panel" role="dialog" aria-modal="true" aria-label="全屏提示词编辑器">
+    <div id="fullscreen-editor" contenteditable="true">全屏编辑内容</div>
+    <div id="fullscreen-actions" aria-label="底部操作栏"></div>
+  </section>
+  <div id="inactive-composer">
+    <ic-mention-picker id="picker" label="提示词建议" empty-label="没有匹配的提示词"></ic-mention-picker>
+    <ic-mention-picker id="edge-picker" label="靠近顶部的提示词建议" empty-label="没有匹配的提示词"></ic-mention-picker>
+  </div>
+  <pre id="results"></pre>
+  <script type="module">
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const afterShow = picker => picker.dataset.motionState === 'open'
+      ? Promise.resolve()
+      : new Promise(resolve => picker.addEventListener('ic-after-show', resolve, { once: true }));
+    const report = { checks: {}, observations: {} };
+    await import('/static/js/infinite-canvas-ui/core.js');
+    await customElements.whenDefined('ic-mention-picker');
+    const picker = document.querySelector('#picker');
+    const trigger = document.querySelector('#trigger');
+    const edgePicker = document.querySelector('#edge-picker');
+    const edgeTrigger = document.querySelector('#edge-trigger');
+    picker.items = Array.from({ length: 20 }, (_, index) => ({
+      value: `prompt-${index}`,
+      label: index === 0 ? '立体纸艺' : `提示词 ${index + 1}`,
+      category: index === 0 ? '本画布' : '风格模板',
+      icon: 'book-text',
+    }));
+    picker.items = [...picker.items.slice(0, 19), {
+      value: 'reference-image',
+      label: '图片1',
+      badge: '图片1',
+      category: '画布输入',
+      media: { kind: 'image', src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==' },
+    }];
+    window.__icMentionPickerBrowserState = { selected: null, bubbledWheel: 0 };
+    picker.addEventListener('ic-select', event => { window.__icMentionPickerBrowserState.selected = event.detail; });
+    document.body.addEventListener('wheel', () => { window.__icMentionPickerBrowserState.bubbledWheel += 1; });
+    picker.show(trigger);
+    edgePicker.items = Array.from({ length: 20 }, (_, index) => ({
+      value: `edge-prompt-${index}`,
+      label: `边界提示词 ${index + 1}`,
+      category: '边界测试',
+      icon: 'book-text',
+    }));
+    edgePicker.show(edgeTrigger);
+    await Promise.all([afterShow(picker), afterShow(edgePicker)]);
+
+    const surface = picker.shadowRoot.querySelector('[part="surface"]');
+    const listbox = picker.shadowRoot.querySelector('[part="listbox"]');
+    const options = [...picker.shadowRoot.querySelectorAll('[part="option"]')];
+    const firstName = options[0].querySelector('.name');
+    const firstCategory = options[0].querySelector('.category');
+    const firstIcon = options[0].querySelector('.icon ic-icon');
+    const mediaOption = options.at(-1);
+    const surfaceRect = surface.getBoundingClientRect();
+    const triggerRect = trigger.getBoundingClientRect();
+    const firstOptionRect = options[0].getBoundingClientRect();
+    const nameRect = firstName.getBoundingClientRect();
+    const categoryRect = firstCategory.getBoundingClientRect();
+    report.checks.registered = picker.localName === 'ic-mention-picker';
+    report.checks.open = picker.open && surface.matches(':popover-open');
+    report.checks.anchorWidth = Math.abs(surfaceRect.width - triggerRect.width) <= 1;
+    report.checks.anchorGap = Math.abs((triggerRect.top - surfaceRect.bottom) - 4) <= 1;
+    report.checks.maxHeight = Math.abs(surfaceRect.height - 288) <= 1;
+    report.checks.rowHeight = Math.abs(firstOptionRect.height - 24) <= 1;
+    report.checks.iconRendered = firstIcon.dataset.iconStatus === 'ready'
+      && Boolean(firstIcon.shadowRoot?.querySelector('svg'));
+    report.checks.mediaRow = mediaOption.classList.contains('media-option')
+      && Math.abs(mediaOption.getBoundingClientRect().height - 50) <= 1
+      && Boolean(mediaOption.querySelector('.media img'));
+    report.checks.mediaBadge = mediaOption.querySelector('.media-badge')?.textContent.trim() === '图片1'
+      && mediaOption.querySelector('.name')?.textContent.trim() === '图片1';
+    report.checks.copySpacing = Math.abs((categoryRect.left - nameRect.right) - 8) <= 1;
+    report.checks.initialSelection = picker.activeIndex === 0 && options[0].getAttribute('aria-selected') === 'true';
+    const hitTarget = picker.shadowRoot.elementFromPoint(
+      firstOptionRect.left + firstOptionRect.width / 2,
+      firstOptionRect.top + firstOptionRect.height / 2,
+    );
+    report.checks.pointerHitTarget = hitTarget?.closest?.('[part="option"]') === options[0];
+    const edgeSurface = edgePicker.shadowRoot.querySelector('[part="surface"]');
+    const edgeListbox = edgePicker.shadowRoot.querySelector('[part="listbox"]');
+    const edgeFirstOption = edgePicker.shadowRoot.querySelector('[part="option"]');
+    const edgeSurfaceRect = edgeSurface.getBoundingClientRect();
+    const edgeTriggerRect = edgeTrigger.getBoundingClientRect();
+    const edgeFirstOptionRect = edgeFirstOption.getBoundingClientRect();
+    report.checks.edgeInsideViewport = edgeSurfaceRect.top >= 15
+      && edgeFirstOptionRect.top >= edgeSurfaceRect.top
+      && edgeFirstOptionRect.bottom <= edgeSurfaceRect.bottom;
+    report.checks.edgeAnchorGap = Math.abs((edgeTriggerRect.top - edgeSurfaceRect.bottom) - 4) <= 1;
+    report.checks.edgeScrollable = edgeListbox.scrollHeight > edgeListbox.clientHeight;
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowDown', bubbles: true }));
+    await paint();
+    report.checks.arrowDown = picker.activeIndex === 1 && options[1].getAttribute('aria-selected') === 'true';
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp', bubbles: true }));
+    await paint();
+    report.checks.arrowUp = picker.activeIndex === 0 && options[0].getAttribute('aria-selected') === 'true';
+    trigger.style.transform = 'translateY(40px)';
+    await paint();
+    const movedSurfaceRect = surface.getBoundingClientRect();
+    const movedTriggerRect = trigger.getBoundingClientRect();
+    report.checks.followsInvoker = Math.abs((movedTriggerRect.top - movedSurfaceRect.bottom) - 4) <= 1;
+    const fullscreenEditor = document.querySelector('#fullscreen-editor');
+    const fullscreenPanel = document.querySelector('#fullscreen-panel');
+    const editorRectBefore = fullscreenEditor.getBoundingClientRect();
+    const panelRectBefore = fullscreenPanel.getBoundingClientRect();
+    picker.show(fullscreenEditor, { invoker: fullscreenEditor, placement: 'overlay-block-end' });
+    await paint();
+    const fullscreenSurfaceRect = surface.getBoundingClientRect();
+    const editorRectAfter = fullscreenEditor.getBoundingClientRect();
+    const panelRectAfter = fullscreenPanel.getBoundingClientRect();
+    const fullscreenHit = document.elementFromPoint(
+      fullscreenSurfaceRect.left + fullscreenSurfaceRect.width / 2,
+      fullscreenSurfaceRect.top + fullscreenSurfaceRect.height / 2,
+    );
+    report.checks.fullscreenWidth = Math.abs(fullscreenSurfaceRect.width - editorRectAfter.width) <= 1;
+    report.checks.fullscreenBottom = Math.abs(fullscreenSurfaceRect.bottom - editorRectAfter.bottom) <= 1;
+    report.checks.fullscreenCoversEditor = fullscreenSurfaceRect.top < editorRectAfter.bottom
+      && fullscreenSurfaceRect.bottom <= editorRectAfter.bottom + 1;
+    report.checks.fullscreenInsideViewport = fullscreenSurfaceRect.top >= 0
+      && fullscreenSurfaceRect.bottom <= innerHeight;
+    report.checks.fullscreenTopLayer = surface.matches(':popover-open')
+      && (fullscreenHit === surface || fullscreenHit === picker);
+    report.checks.fullscreenDoesNotReflow = editorRectBefore.width === editorRectAfter.width
+      && editorRectBefore.height === editorRectAfter.height
+      && panelRectBefore.width === panelRectAfter.width
+      && panelRectBefore.height === panelRectAfter.height;
+    listbox.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }));
+    report.checks.wheelContained = window.__icMentionPickerBrowserState.bubbledWheel === 0;
+    options[1].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true, cancelable: true }));
+    report.checks.pointerSelection = window.__icMentionPickerBrowserState.selected?.index === 1
+      && window.__icMentionPickerBrowserState.selected?.value === 'prompt-1';
+    report.checks.aria = surface.getAttribute('aria-label') === '提示词建议'
+      && listbox.getAttribute('role') === 'listbox'
+      && options.every(option => option.getAttribute('role') === 'option');
+    const assetTrigger = document.createElement('button');
+    assetTrigger.type = 'button';
+    assetTrigger.textContent = '资产库加载测试';
+    assetTrigger.style.cssText = 'position:fixed;left:1120px;top:420px;width:240px;height:40px';
+    document.body.append(assetTrigger);
+    const assetPicker = document.createElement('ic-mention-picker');
+    assetPicker.setAttribute('label', '引用图片');
+    assetPicker.setAttribute('empty-label', '没有可引用的图片');
+    assetPicker.tabs = [
+      { value: 'canvas', label: '当前画布' },
+      { value: 'assets', label: '资产库' },
+    ];
+    assetPicker.items = [{
+      value: 'canvas-image',
+      label: '画布图片',
+      media: { kind: 'image', src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==' },
+    }];
+    assetPicker.addEventListener('ic-tab-change', event => {
+      assetPicker.activeTab = event.detail.value;
+      assetPicker.items = [];
+      assetPicker.loading = true;
+    });
+    document.body.append(assetPicker);
+    assetPicker.show(assetTrigger);
+    await afterShow(assetPicker);
+    assetPicker.shadowRoot.querySelector('[data-tab="assets"]').click();
+    await paint();
+    const loadingEmpty = assetPicker.shadowRoot.querySelector('[part="empty"]');
+    const loadingStatus = assetPicker.shadowRoot.querySelector('[part="status"]');
+    report.checks.assetLoadingIsExclusive = !loadingEmpty
+      && loadingStatus?.textContent.trim() === '正在加载…';
+    report.observations.assetLoading = {
+      empty: loadingEmpty?.textContent.trim() || '',
+      status: loadingStatus?.textContent.trim() || '',
+    };
+    const masonryTrigger = document.createElement('button');
+    masonryTrigger.type = 'button';
+    masonryTrigger.textContent = '媒体滚动测试';
+    masonryTrigger.style.cssText = 'position:fixed;left:1120px;top:760px;width:320px;height:40px';
+    document.body.append(masonryTrigger);
+    const masonryPicker = document.createElement('ic-mention-picker');
+    masonryPicker.setAttribute('label', '媒体滚动测试');
+    const masonryHeights = [180, 90, 240, 140, 210, 110, 260, 160, 200, 100, 230, 150];
+    masonryPicker.items = masonryHeights.map((height, index) => ({
+      value: `masonry-${index}`,
+      label: index < 2 ? `图片${index + 1}` : `媒体 ${index + 1}`,
+      badge: index < 2 ? `图片${index + 1}` : '',
+      leading: index < 2,
+      media: {
+        kind: 'image',
+        src: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="180" height="${height}" viewBox="0 0 180 ${height}"><rect width="180" height="${height}" fill="hsl(${index * 29} 70% 55%)"/></svg>`)}`,
+      },
+    }));
+    document.body.append(masonryPicker);
+    masonryPicker.show(masonryTrigger);
+    await afterShow(masonryPicker);
+    const masonryListbox = masonryPicker.shadowRoot.querySelector('[part="listbox"]');
+    const masonryImages = [...masonryListbox.querySelectorAll('img')];
+    masonryImages.forEach(image => { image.loading = 'eager'; });
+    await Promise.all(masonryImages.map(image => image.decode?.().catch(() => {}) || Promise.resolve()));
+    await paint();
+    const masonryOptions = [...masonryListbox.querySelectorAll('[part="option"]')];
+    const firstReferencedRect = masonryOptions[0].getBoundingClientRect();
+    const secondReferencedRect = masonryOptions[1].getBoundingClientRect();
+    const referenceStyleProbe = document.createElement('div');
+    referenceStyleProbe.style.borderRadius = 'var(--ui-radius-s)';
+    document.body.append(referenceStyleProbe);
+    const expectedReferenceRadius = getComputedStyle(referenceStyleProbe).borderRadius;
+    referenceStyleProbe.remove();
+    report.checks.referencedMediaUsesRowMajorOrder = Math.abs(firstReferencedRect.top - secondReferencedRect.top) <= 1
+      && secondReferencedRect.left > firstReferencedRect.right;
+    report.checks.referencedMediaUsesCompactWidth = Math.abs(firstReferencedRect.width - 65) <= 1
+      && Math.abs(secondReferencedRect.width - 65) <= 1;
+    report.checks.referencedMediaUsesReferenceThumbnailStyle = masonryOptions.slice(0, 2).every(option => {
+      const optionRect = option.getBoundingClientRect();
+      const badgeRect = option.querySelector('.media-badge').getBoundingClientRect();
+      const optionStyle = getComputedStyle(option);
+      const imageStyle = getComputedStyle(option.querySelector('.media img'));
+      const badgeStyle = getComputedStyle(option.querySelector('.media-badge'));
+      return Math.abs(optionRect.width - optionRect.height) <= 1
+        && Math.abs(badgeRect.left - optionRect.left) <= 1
+        && Math.abs(badgeRect.right - optionRect.right) <= 1
+        && Math.abs(badgeRect.bottom - optionRect.bottom) <= 1
+        && optionStyle.borderRadius === expectedReferenceRadius
+        && optionStyle.boxShadow === 'none'
+        && imageStyle.objectFit === 'cover'
+        && badgeStyle.height === '14px';
+    });
+    report.observations.referencedMediaStyle = masonryOptions.slice(0, 2).map(option => {
+      const optionRect = option.getBoundingClientRect();
+      const badgeRect = option.querySelector('.media-badge').getBoundingClientRect();
+      return {
+        option:{width:optionRect.width,height:optionRect.height,left:optionRect.left,right:optionRect.right,bottom:optionRect.bottom},
+        badge:{width:badgeRect.width,height:badgeRect.height,left:badgeRect.left,right:badgeRect.right,bottom:badgeRect.bottom},
+        borderRadius:getComputedStyle(option).borderRadius,
+        boxShadow:getComputedStyle(option).boxShadow,
+        objectFit:getComputedStyle(option.querySelector('.media img')).objectFit,
+      };
+    });
+    report.checks.referencedMediaUsesLocalizedLabels = masonryOptions.slice(0, 2).every((option, index) => (
+      option.querySelector('.media-badge')?.textContent.trim() === `图片${index + 1}`
+      && option.querySelector('.name')?.textContent.trim() === `图片${index + 1}`
+    ));
+    const masonryInitial = {
+      clientWidth: masonryListbox.clientWidth,
+      scrollWidth: masonryListbox.scrollWidth,
+      clientHeight: masonryListbox.clientHeight,
+      scrollHeight: masonryListbox.scrollHeight,
+    };
+    masonryListbox.scrollTop = masonryListbox.scrollHeight;
+    await paint();
+    const masonryBottomScrollTop = masonryListbox.scrollTop;
+    const masonryScrollHeightAfterDown = masonryListbox.scrollHeight;
+    masonryListbox.scrollTop = 0;
+    await paint();
+    report.checks.masonryUsesVerticalScroll = masonryInitial.scrollHeight > masonryInitial.clientHeight
+      && masonryInitial.scrollWidth <= masonryInitial.clientWidth + 1;
+    report.checks.masonryScrollRemainsReversible = masonryBottomScrollTop > 0
+      && masonryScrollHeightAfterDown === masonryInitial.scrollHeight
+      && masonryListbox.scrollTop === 0;
+    masonryListbox.scrollTop = Math.max(1, masonryListbox.scrollHeight - masonryListbox.clientHeight - 40);
+    await paint();
+    const masonryScrollTopBeforeAppend = masonryListbox.scrollTop;
+    masonryPicker.items = [...masonryPicker.items, {
+      value: 'masonry-appended',
+      label: '追加媒体',
+      media: {
+        kind: 'image',
+        src: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="220" viewBox="0 0 180 220"><rect width="180" height="220" fill="#7c3aed"/></svg>')}`,
+      },
+    }];
+    await paint();
+    const masonryListboxAfterAppend = masonryPicker.shadowRoot.querySelector('[part="listbox"]');
+    const masonryScrollTopAfterAppend = masonryListboxAfterAppend.scrollTop;
+    masonryListboxAfterAppend.scrollTop = 0;
+    await paint();
+    report.checks.masonryAppendPreservesHistory = masonryPicker.items.length === 13
+      && Math.abs(masonryScrollTopAfterAppend - masonryScrollTopBeforeAppend) <= 1
+      && masonryListboxAfterAppend.scrollHeight >= masonryScrollHeightAfterDown
+      && masonryListboxAfterAppend.scrollTop === 0;
+    report.observations.masonryScroll = {
+      initial: masonryInitial,
+      bottomScrollTop: masonryBottomScrollTop,
+      scrollHeightAfterDown: masonryScrollHeightAfterDown,
+      scrollTopBeforeAppend: masonryScrollTopBeforeAppend,
+      scrollTopAfterAppend: masonryScrollTopAfterAppend,
+      itemCountAfterAppend: masonryPicker.items.length,
+      finalScrollTop: masonryListboxAfterAppend.scrollTop,
+    };
+    report.observations.geometry = {
+      surfaceWidth: surfaceRect.width,
+      triggerWidth: triggerRect.width,
+      gap: triggerRect.top - surfaceRect.bottom,
+      height: surfaceRect.height,
+      rowHeight: firstOptionRect.height,
+      nameCategoryGap: categoryRect.left - nameRect.right,
+      fullscreen: {
+        surfaceWidth: fullscreenSurfaceRect.width,
+        editorWidth: editorRectAfter.width,
+        surfaceBottom: fullscreenSurfaceRect.bottom,
+        editorBottom: editorRectAfter.bottom,
+      },
+      edge: {
+        surfaceTop: edgeSurfaceRect.top,
+        surfaceBottom: edgeSurfaceRect.bottom,
+        triggerTop: edgeTriggerRect.top,
+        firstOptionTop: edgeFirstOptionRect.top,
+      },
+    };
+    document.querySelector('#results').textContent = JSON.stringify(report);
+    document.documentElement.dataset.icMentionPickerTestStatus = Object.values(report.checks).every(Boolean)
+      ? 'passed'
+      : 'failed';
+  </script>
+</body>
+</html>

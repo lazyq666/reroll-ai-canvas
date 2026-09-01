@@ -1,0 +1,28 @@
+.ic-account-avatar {
+  --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-1);
+  --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-1);
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--ui-radius-pill);
+  color: var(--ic-account-avatar-text);
+  background: var(--ic-account-avatar-background);
+  font: var(--ui-text-label);
+  font-weight: var(--ui-font-weight-bold);
+  line-height: 1;
+  text-transform: none;
+  user-select: none;
+}
+.ic-account-avatar > ic-icon { color: inherit; }
+.ic-account-avatar[data-avatar-color-slot="2"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-2); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-2); }
+.ic-account-avatar[data-avatar-color-slot="3"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-3); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-3); }
+.ic-account-avatar[data-avatar-color-slot="4"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-4); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-4); }
+.ic-account-avatar[data-avatar-color-slot="5"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-5); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-5); }
+.ic-account-avatar[data-avatar-color-slot="6"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-6); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-6); }
+.ic-account-avatar[data-avatar-color-slot="7"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-7); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-7); }
+.ic-account-avatar[data-avatar-color-slot="8"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-8); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-8); }
+.ic-account-avatar[data-avatar-color-slot="9"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-9); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-9); }
+.ic-account-avatar[data-avatar-color-slot="10"] { --ic-account-avatar-background: var(--ui-color-collaborator-avatar-background-10); --ic-account-avatar-text: var(--ui-color-collaborator-avatar-text-10); }

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light" data-image-edit-controls-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reroll UI · Image editing controls</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/smart-canvas.css">
+  <style>
+    html,body { min-height:100%; height:auto; overflow:visible; }
+    body { margin:0; padding:var(--ui-space-6); background:var(--ui-color-surface-canvas); }
+    .image-edit-library { width:min(88rem,100%); margin-inline:auto; display:grid; gap:var(--ui-space-5); }
+    .image-edit-library-header { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--ui-space-4); flex-wrap:wrap; }
+    .image-edit-library-kicker,.image-edit-library-status { color:var(--ui-color-text-secondary); font:var(--ui-text-caption); }
+    .image-edit-library h1 { margin:var(--ui-space-1) 0 var(--ui-space-2); color:var(--ui-color-text-primary); font:var(--ui-text-title-1); }
+    .image-edit-library-header p { max-width:54rem; margin:0; color:var(--ui-color-text-tertiary); font:var(--ui-text-body); }
+    .image-edit-library-controls { display:flex; align-items:center; gap:var(--ui-space-2); flex-wrap:wrap; }
+    .image-edit-library-controls ic-button::part(base) { min-height:var(--ui-control-height-s); }
+    .image-edit-library-section { display:grid; gap:var(--ui-space-3); }
+    .image-edit-library-section > header { display:flex; align-items:end; justify-content:space-between; gap:var(--ui-space-3); flex-wrap:wrap; }
+    .image-edit-library-section h2 { margin:0; color:var(--ui-color-text-primary); font:var(--ui-text-title-2); }
+    .image-edit-library-section header p { margin:0; color:var(--ui-color-text-tertiary); font:var(--ui-text-body-compact); }
+    .image-edit-primitive-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--ui-space-3); }
+    .image-edit-library-card { min-width:0; padding:var(--ui-space-4); display:grid; align-content:start; gap:var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface); box-shadow:var(--ui-shadow-raised); }
+    .image-edit-library-card h3 { margin:0; color:var(--ui-color-text-primary); font:var(--ui-text-title-3); }
+    .image-edit-library-card > p { margin:0; color:var(--ui-color-text-tertiary); font:var(--ui-text-body-compact); }
+    .image-edit-library-demo { min-height:6rem; padding:var(--ui-space-4); display:flex; align-items:center; justify-content:center; overflow:auto; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); background:var(--ui-color-surface-subtle); }
+    .image-edit-library-demo .image-edit-option-row { width:max-content; max-width:none; }
+    .image-edit-library-demo .image-edit-option-input > ic-slider { width:10rem; }
+    .image-edit-library-demo #imageEditLibraryBrush { width:6rem; }
+    .image-edit-dock-stage { min-height:18rem; padding:var(--ui-space-8) var(--ui-space-2); display:grid; place-items:center; overflow:auto; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background-color:var(--ui-color-surface-subtle); background-image:radial-gradient(var(--ui-color-border-canvas-grid) .5px,transparent .5px); background-size:15px 15px; }
+    .image-edit-dock-stage .image-edit-workbench { position:static; transform:none; }
+    .image-edit-dock-mode-switcher { display:flex; align-items:center; gap:var(--ui-space-1); flex-wrap:wrap; }
+    .image-edit-library-notes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--ui-space-3); }
+    .image-edit-library-notes article { padding:var(--ui-space-4); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); background:var(--ui-color-surface); }
+    .image-edit-library-notes h3 { margin:0 0 var(--ui-space-2); color:var(--ui-color-text-primary); font:var(--ui-text-title-3); }
+    .image-edit-library-notes p { margin:0; color:var(--ui-color-text-tertiary); font:var(--ui-text-body-compact); }
+    @media (max-width:60rem) { .image-edit-primitive-grid,.image-edit-library-notes { grid-template-columns:1fr; } }
+    @media (max-width:40rem) { body { padding:var(--ui-space-3); } .image-edit-dock-stage { place-items:center start; } }
+  </style>
+</head>
+<body>
+  <main class="image-edit-library">
+    <header class="image-edit-library-header">
+      <div>
+        <span class="image-edit-library-kicker">Composite business components · Image Studio</span>
+        <h1>图片编辑组件</h1>
+        <p>Image Studio 底部操作栏的公开组件族。原子组件先承载标签与具体输入控件，再由 Dock 统一编排工具区、操作区、紧凑高度和宽模式。</p>
+      </div>
+      <div class="image-edit-library-controls">
+        <ic-button type="button" size="small" hierarchy="secondary" data-image-edit-theme-toggle>切换深色</ic-button>
+        <span class="image-edit-library-status" role="status" aria-live="polite" data-image-edit-controls-live-status>正在初始化…</span>
+      </div>
+    </header>
+
+    <section class="image-edit-library-section" aria-labelledby="image-edit-primitives-title">
+      <header>
+        <div><h2 id="image-edit-primitives-title">原子组件</h2><p>Selector、Slider、Value 共享一致的标签、间距和 32px 紧凑控制高度。</p></div>
+      </header>
+      <div class="image-edit-primitive-grid">
+        <article class="image-edit-library-card" data-component-group data-component-name="ic-image-edit-selector">
+          <h3>ic-image-edit-selector</h3>
+          <p>承载分段选择、按钮、比例和其他离散选项。</p>
+          <div class="image-edit-library-demo">
+            <ic-image-edit-selector class="image-edit-option-row" label="宫格操作">
+              <span class="image-edit-option-name">宫格操作</span>
+              <div class="image-edit-option-input">
+                <ic-segmented-control label="宫格操作" value="split" data-legal-combination="single-label">
+                  <button type="button" data-value="split">切分</button>
+                  <button type="button" data-value="join">拼接</button>
+                </ic-segmented-control>
+              </div>
+            </ic-image-edit-selector>
+          </div>
+        </article>
+
+        <article class="image-edit-library-card" data-component-group data-component-name="ic-image-edit-slider">
+          <h3>ic-image-edit-slider</h3>
+          <p>组合连续调节器与即时数值反馈。</p>
+          <div class="image-edit-library-demo">
+            <ic-image-edit-slider class="image-edit-option-row" label="笔刷大小">
+              <span class="image-edit-option-name">笔刷</span>
+              <div class="image-edit-option-input">
+                <ic-slider id="imageEditLibraryBrush" name="image-edit-library-brush" label="笔刷大小" min="2" max="80" step="1" value="24" value-text="24px"></ic-slider>
+                <ic-badge kind="label" tone="neutral"><span id="imageEditLibraryBrushValue">24</span></ic-badge>
+              </div>
+            </ic-image-edit-slider>
+          </div>
+        </article>
+
+        <article class="image-edit-library-card" data-component-group data-component-name="ic-image-edit-value">
+          <h3>ic-image-edit-value</h3>
+          <p>展示只读尺寸、倍率、数量与状态值。</p>
+          <div class="image-edit-library-demo">
+            <ic-image-edit-value class="image-edit-option-row" label="输出尺寸">
+              <span class="image-edit-option-name">输出尺寸</span>
+              <div class="image-edit-option-input"><ic-badge kind="label" tone="neutral">2048×2048</ic-badge></div>
+            </ic-image-edit-value>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="image-edit-library-section" data-component-group data-component-name="ic-image-edit-dock" aria-labelledby="image-edit-dock-title">
+      <header>
+        <div><h2 id="image-edit-dock-title">ic-image-edit-dock</h2><p>48px 复杂底栏组件：工具区可滚动，确认操作固定，宫格模式自动切换为宽变体。</p></div>
+        <div class="image-edit-dock-mode-switcher" aria-label="底栏演示模式">
+          <ic-button type="button" size="small" hierarchy="primary" data-image-edit-demo-mode="preview" pressed>预览</ic-button>
+          <ic-button type="button" size="small" hierarchy="quiet" data-image-edit-demo-mode="resize">缩放</ic-button>
+          <ic-button type="button" size="small" hierarchy="quiet" data-image-edit-demo-mode="grid">宫格</ic-button>
+        </div>
+      </header>
+
+      <div class="image-edit-dock-stage">
+        <ic-image-edit-dock id="imageEditLibraryDock" class="image-edit-workbench" label="图片编辑演示工作栏">
+          <div class="image-edit-workbench-tools" slot="tools">
+            <ic-toolbar id="imageEditLibraryPreviewTools" class="image-edit-tools" label="预览工具" appearance="plain" orientation="horizontal">
+              <ic-button type="button" size="small" hierarchy="quiet"><ic-icon name="download" size="small" slot="start" aria-hidden="true"></ic-icon>下载</ic-button>
+              <ic-button type="button" size="small" hierarchy="quiet"><ic-icon name="layout-horizontal" size="small" slot="start" aria-hidden="true"></ic-icon>对比原图</ic-button>
+              <span class="image-preview-control-group image-preview-zoom-controls">
+                <ic-icon-button type="button" size="small" hierarchy="quiet" icon="zoom-out" label="缩小" tooltip-disabled></ic-icon-button>
+                <ic-image-edit-value class="image-edit-zoom-label" label="缩放比例">100%</ic-image-edit-value>
+                <ic-icon-button type="button" size="small" hierarchy="quiet" icon="zoom-in" label="放大" tooltip-disabled></ic-icon-button>
+                <ic-icon-button type="button" size="small" hierarchy="quiet" icon="fit" label="适应" tooltip-disabled></ic-icon-button>
+              </span>
+            </ic-toolbar>
+
+            <ic-toolbar id="imageEditLibraryResizeTools" class="image-edit-tools image-resize-tools" label="缩放工具" appearance="plain" orientation="horizontal" hidden>
+              <ic-image-edit-slider class="image-edit-option-row" label="缩放倍数">
+                <span class="image-edit-option-name">缩放倍数</span>
+                <div class="image-edit-option-input image-resize-option-input">
+                  <ic-slider name="image-edit-library-scale" label="缩放倍数" min="0.05" max="1" step="0.05" value="0.5" value-text="0.5×"></ic-slider>
+                  <span class="image-resize-number"><ic-number-input name="image-edit-library-scale-number" label="缩放倍数" min="0.05" max="1" step="0.05" value="0.5" size="small"></ic-number-input><span>×</span></span>
+                </div>
+              </ic-image-edit-slider>
+              <ic-image-edit-value class="image-edit-option-row" label="输出尺寸"><span class="image-edit-option-name">输出尺寸</span><div class="image-edit-option-input"><ic-badge kind="label" tone="neutral">1024×1024</ic-badge></div></ic-image-edit-value>
+            </ic-toolbar>
+
+            <ic-toolbar id="imageEditLibraryGridTools" class="image-edit-tools" label="宫格工具" appearance="plain" orientation="horizontal" data-dock-width="wide" hidden>
+              <ic-image-edit-selector class="image-edit-option-row" label="宫格操作"><span class="image-edit-option-name">宫格操作</span><div class="image-edit-option-input"><ic-segmented-control label="宫格操作" value="split" data-legal-combination="single-label"><button type="button" data-value="split">切分</button><button type="button" data-value="join">拼接</button></ic-segmented-control></div></ic-image-edit-selector>
+              <ic-image-edit-selector class="image-edit-option-row" label="宫格预设"><span class="image-edit-option-name">预设</span><div class="image-edit-option-input image-edit-preset-actions"><ic-button size="small" hierarchy="quiet">1×2</ic-button><ic-button size="small" hierarchy="quiet">2×1</ic-button><ic-button size="small" hierarchy="quiet">2×2</ic-button><ic-button size="small" hierarchy="quiet">3×3</ic-button></div></ic-image-edit-selector>
+              <ic-image-edit-selector class="image-edit-option-row" label="横向线"><span class="image-edit-option-name">横向线</span><div class="image-edit-option-input"><ic-number-input name="image-edit-library-horizontal-lines" label="横向线" min="0" max="20" step="1" value="2" size="small"></ic-number-input></div></ic-image-edit-selector>
+              <ic-image-edit-slider class="image-edit-option-row" label="间隔"><span class="image-edit-option-name">间隔</span><div class="image-edit-option-input"><ic-slider name="image-edit-library-gap" label="间隔" min="0" max="240" step="1" value="0" value-text="0px"></ic-slider><span class="grid-gap-value">0</span></div></ic-image-edit-slider>
+            </ic-toolbar>
+          </div>
+          <div id="imageEditLibraryCommitActions" class="image-edit-commit-actions" slot="actions" hidden>
+            <ic-button type="button" size="small" hierarchy="quiet">取消</ic-button>
+            <ic-button type="button" size="small" hierarchy="primary"><ic-icon name="check" size="small" slot="start" aria-hidden="true"></ic-icon>确认修改</ic-button>
+          </div>
+        </ic-image-edit-dock>
+      </div>
+    </section>
+
+    <section class="image-edit-library-notes" aria-label="图片编辑组件说明">
+      <article><h3>组件顺序</h3><p>先由 Selector、Slider、Value 表达单个编辑参数，再交给 Dock 组合为业务工具栏。</p></article>
+      <article><h3>边界规则</h3><p>顶部模式栏不属于 Dock；Dock 只管理底部工具、确认操作、滚动与紧凑密度。</p></article>
+      <article><h3>响应式</h3><p>普通模式保持 820px 内的紧凑宽度，宫格模式启用 wide；窄屏仍保留横向滚动。</p></article>
+    </section>
+  </main>
+
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+  <script type="module" src="/static/js/smart-canvas/image-edit-dock.js"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/image-edit-controls-matrix.js"></script>
+</body>
+</html>

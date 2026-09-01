@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Canvas Nodes · UI Prototype</title>
+  <!-- PROTOTYPE: three Smart Canvas Node directions, switchable with ?variant=A|B|C. -->
+  <script>
+    try {
+      if (localStorage.getItem('canvas_theme') === 'dark') document.documentElement.classList.add('theme-dark');
+    } catch (_) {}
+  </script>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/smart-canvas-nodes-prototype.css">
+  <script src="/static/vendor/js/lucide.js"></script>
+</head>
+<body>
+  <header class="prototype-header">
+    <div>
+      <span class="prototype-kicker">THROWAWAY UI PROTOTYPE</span>
+      <h1>智能画布 · Nodes 组件提案</h1>
+      <p id="variantSummary">基于 Figma 默认态，补齐现有画布的交互状态。</p>
+    </div>
+    <div class="prototype-header-actions">
+      <button id="themeToggle" class="prototype-button" type="button"><i data-lucide="moon"></i><span>深色</span></button>
+      <a class="prototype-button" href="/static/smart-canvas.html"><i data-lucide="arrow-up-right"></i><span>现有画布</span></a>
+    </div>
+  </header>
+
+  <main>
+    <section class="prototype-controls" aria-label="原型控制">
+      <div class="control-block">
+        <span class="control-label">预览状态</span>
+        <div id="stateControls" class="segmented" role="group" aria-label="节点状态">
+          <button type="button" data-state="default" aria-pressed="true">默认</button>
+          <button type="button" data-state="hover">悬停</button>
+          <button type="button" data-state="selected">选中</button>
+          <button type="button" data-state="editing">编辑</button>
+          <button type="button" data-state="running">运行</button>
+          <button type="button" data-state="success">完成</button>
+          <button type="button" data-state="error">异常</button>
+          <button type="button" data-state="disabled">禁用</button>
+          <button type="button" data-state="dragging">拖动</button>
+        </div>
+      </div>
+      <div id="stateReadout" class="state-readout" aria-live="polite"></div>
+    </section>
+
+    <section class="prototype-stage-wrap">
+      <div class="stage-caption">
+        <div>
+          <span id="variantEyebrow">方案 A</span>
+          <h2 id="variantTitle">安静画布</h2>
+        </div>
+        <p id="variantRationale"></p>
+      </div>
+      <div id="prototypeStage" class="prototype-stage" data-variant="A" data-state="default"></div>
+    </section>
+
+    <section class="decision-notes">
+      <article><strong>沿用设计稿</strong><span>360×240 内容 Node、12px 圆角、10px padding、1px 边框、轻投影、14px 正文。</span></article>
+      <article><strong>沿用现有交互</strong><span>选中工具条、右下缩放、双击编辑、运行耗时、异常重试、拖动时收起操作。</span></article>
+      <article><strong>此页要回答</strong><span>Node 的身份和运行状态，应该多“安静”或多“显式”？</span></article>
+    </section>
+  </main>
+
+  <nav class="prototype-switcher" aria-label="方案切换">
+    <button id="previousVariant" type="button" aria-label="上一方案"><i data-lucide="arrow-left"></i></button>
+    <span><small>方案</small><strong id="switcherLabel">A · 安静画布</strong></span>
+    <button id="nextVariant" type="button" aria-label="下一方案"><i data-lucide="arrow-right"></i></button>
+  </nav>
+
+  <script src="/static/prototypes/smart-canvas-nodes-prototype.js"></script>
+</body>
+</html>

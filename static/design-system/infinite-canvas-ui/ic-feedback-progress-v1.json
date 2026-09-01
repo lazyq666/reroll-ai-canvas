@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.feedback-progress",
+  "interfaceVersion": 3,
+  "ticket": "7425068E99C5-12",
+  "uuid": "4f454539-4377-4ce2-b3fd-d7221940ff10",
+  "module": {
+    "layer": "primitive-and-pattern",
+    "publicSeam": "ic-* custom elements, native ARIA/platform behavior, and central --ui-* Tokens",
+    "adapter": "Vendor elements, events and --wa-* variables remain replaceable inside the implementation.",
+    "responsibility": "Expose compact status, persistent and transient feedback, busy state, measurable progress, structural placeholders and no-content recovery without making callers coordinate announcement or stacked-motion mechanics."
+  },
+  "dependencyStatus": {
+    "status": "satisfied",
+    "evidence": ["Foundations confirmed", "Selection/Adjustment live confirmed and migration ready"]
+  },
+  "review": {
+    "contract": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "1同意；2保留；3同意；4同意；5同意；6同意；7同意；8同意。",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved all eight Feedback/Progress semantic judgments and the deterministic Legacy mapping."
+    },
+    "implementation": {
+      "status": "implemented",
+      "implementedOn": "2026-08-09",
+      "evidence": ["/static/js/infinite-canvas-ui/feedback-progress.js", "/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js", "/static/design-system/infinite-canvas-ui/feedback-progress.html", "/tests/infinite_canvas_ui_feedback_progress_browser_harness.html"]
+    },
+    "live": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "通过验收",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved the corrected Feedback/Progress live visual and interaction matrix after Alert alignment and Loading spinner speed adjustments."
+    },
+    "migration": {"status": "confirmed"}
+  },
+  "judgments": [
+    "Alert is persistent contextual feedback in the current flow; Toast is transient non-blocking feedback and never a substitute for validation or a required decision.",
+    "Badge is a compact label, count or status attached to an object; it does not announce changing progress and is not decorative color.",
+    "Loading represents indeterminate busy work; Progress represents determinate completion with a measurable value.",
+    "Skeleton is a non-interactive visual placeholder for a known content structure and is hidden from the accessibility tree; a named Loading status communicates the busy operation.",
+    "Empty State explains the absence of expected content and may offer one recovery action; it is not used for loading, errors, search-in-progress or decorative onboarding.",
+    "Tooltip is outside Feedback/Progress and remains owned by the later Overlay/Tooltip family.",
+    "Alert and Toast own their shared interruptible stack motion inside the Feedback/Progress family; consumers position an Alert queue but do not duplicate motion selectors.",
+    "Existing loading motion remains purpose-specific: Loading rotates, Progress interpolates truthful value changes, Skeleton shimmers and Generation Pending uses its bounded Halftone loop. Empty State and static far-view placeholders do not add entrance, breathing or looping decoration. Reduced Motion stops continuous loading loops and removes Progress interpolation while preserving every final state and accessible label."
+  ],
+  "proposedLegacySplit": {
+    "id": "loading-progress-legacy-split",
+    "status": "confirmed",
+    "rule": "Map explicit percentage, numerator/denominator or filled-track evidence to ic-progress; map a repeated known content structure to ic-skeleton; map every other busy treatment to ic-loading. Do not infer determinate progress from animation or a class name.",
+    "counts": {"ic-loading": 14, "ic-progress": 5, "ic-skeleton": 1},
+    "progressEvidenceIds": ["legacy.b4e08b16b2daf399.1", "legacy.59aa10ad35e782cf.1", "legacy.58100153678d2c0a.1", "legacy.821d62e649acd04e.1", "legacy.90137f2381b9d5f1.1"],
+    "skeletonEvidenceIds": ["legacy.ce44b49f42e0ef18.1"],
+    "reason": "Five instances expose a filled track, percentage, or numerator/denominator; one is a repeated loading-cell inside a loading-skeleton; the remaining fourteen expose only indeterminate busy work."
+  },
+  "states": ["default", "dismissed", "busy", "complete"],
+  "tones": ["neutral", "info", "success", "warning", "danger"],
+  "toneColorPolicy": "info is a content and component tone rendered with neutral semantic colors; it does not own a global info color family.",
+  "announcementRules": {
+    "alert": {
+      "roleByTone": {"neutral": "status", "info": "status", "success": "status", "warning": "status", "danger": "alert"},
+      "initialContent": "announce once when inserted or meaningfully changed",
+      "dismissal": "user initiated; move no focus unless dismissal removes the focused control"
+    },
+    "toast": {
+      "queuePolicy": "newest toast in front with up to three visible cards in a compact stack",
+      "politeness": "polite by default; danger may be assertive only for an immediate failure requiring attention",
+      "duration": "4000ms by default; pause while hovered or focused; only actionable content may opt into persistent duration",
+      "focus": "never move focus on appearance"
+    },
+    "loading": {
+      "role": "status",
+      "busyOwner": "set aria-busy on the region whose update is pending",
+      "repeatedUpdates": "do not re-announce an unchanged busy label"
+    },
+    "progress": {
+      "role": "progressbar",
+      "valueUpdates": "announce meaningful changes, never every animation frame",
+      "completion": "announce completion once and clear the owning region's busy state"
+    },
+    "skeleton": {
+      "exposedToAccessibilityTree": false,
+      "rule": "the owning region exposes aria-busy and a named loading status"
+    },
+    "emptyState": {
+      "role": "region only when a caller supplies an accessible name",
+      "rule": "ordinary content; do not create a live region merely because results are empty"
+    }
+  },
+  "components": [
+    {
+      "tag": "ic-alert",
+      "purpose": "Present persistent contextual feedback in the current page, panel or form flow.",
+      "semanticDimensions": {"tone": ["neutral", "info", "success", "warning", "danger"], "dismissal": ["persistent", "dismissible"], "button": ["none", "secondary-small"]},
+      "buttonInterface": {"optionalAttribute": "action-label", "renderedComponent": "ic-button-secondary-small", "event": "ic-action", "eventDetail": {"action": "primary"}},
+      "presentation": {"maxWidth": "30rem", "responsiveWidth": "100% of containing block below maxWidth", "radius": "--ui-radius-s", "outline": "1px solid --ui-color-border-secondary", "internalBorder": "none", "shadow": "--ui-shadow-overlay"},
+      "contentTypography": {"title": {"size": "--ui-font-size-3", "weight": "--ui-font-weight-medium"}, "subtitle": {"font": "--ui-text-subtitle", "size": "--ui-font-size-2", "color": "--ui-color-text-tertiary", "maxLines": 2, "overflow": "hidden"}},
+      "toneIcons": {"neutral": "circle-alert", "info": "info", "success": "circle-check-big", "warning": "triangle-alert", "danger": "circle-alert", "strokeWidth": "2px", "alignment": "vertically centered with title", "buttonBearingAlert": "same icon as tone", "dismiss": "ic-icon-button-tertiary-small, title-line height, vertically centered in the complete alert"},
+      "componentLibraryPreview": {"triggers": ["neutral", "info", "success", "warning", "danger", "danger+button"], "queuePolicy": "prepend every ic-alert, including button-bearing alerts, as the interactive top card; keep older alerts underneath and expose at most three visual layers", "advance": "dismissing the top alert promotes the next queued alert and reveals the next hidden layer", "motion": "Sonner-inspired interruptible transitions owned by ic-alert and the shared queue: enter and stack reflow use 400ms ease; top-card exit uses 200ms ease-out; reduced motion is near-instant"},
+      "productionGenerationFailurePattern": {"identity": "one alert per failed Generation Run; identical reasons do not merge or overwrite", "details": "each alert retains its own log and run target", "dismissal": "viewing details keeps the alert; only explicit close starts exit and queue promotion"},
+      "requiredContent": ["message"],
+      "optionalContent": ["title", "one-secondary-small-button", "dismiss"],
+      "prohibitedUses": ["field-validation-message", "transient-toast", "loading-placeholder", "multiple-actions"]
+    },
+    {
+      "tag": "ic-badge",
+      "purpose": "Attach a compact label, count or meaningful status to an object.",
+      "semanticDimensions": {"kind": ["label", "count", "status"], "tone": ["neutral", "info", "success", "warning", "danger"], "size": ["small", "medium", "large"], "loading": [false, true]},
+      "legalCombinations": ["label+neutral+small|medium|large", "label+info+small|medium|large", "count+neutral+small|medium|large", "status+neutral+small|medium|large", "status+info+small|medium|large", "status+info+loading+small|medium|large", "status+success+small|medium|large", "status+warning+small|medium|large", "status+danger+small|medium|large"],
+      "sizeRules": {"small": "16px high with 10px type", "medium": "default; 20px high with 12px type", "large": "24px high with 14px type", "scope": "all three sizes are valid for label, count, and status"},
+      "labelPresentation": {"fontSize": {"small": "--ui-font-size-1", "medium": "--ui-font-size-2", "large": "--ui-font-size-3"}, "fontWeight": "--ui-font-weight-regular", "background": "--ui-color-surface", "borderColor": "--ui-color-border-secondary"},
+      "statusTypography": {"fontSize": {"small": "--ui-font-size-1", "medium": "--ui-font-size-2", "large": "--ui-font-size-3"}, "fontWeight": "--ui-font-weight-regular"},
+      "displayPolicy": {"defaultOrIdle": "do not render a badge", "processing": "one info status with a spinner; callers may use contextual copy such as syncing, loading, waiting, or generating", "success": "optional when completion remains meaningful; otherwise return to no badge", "attention": "warning for a state that needs attention", "failure": "danger for a failed or interrupted state"},
+      "loadingRule": "The loading spinner is valid only for kind=status, uses a calm 1.2-second default rotation, and communicates an object's indeterminate processing state; use ic-loading for standalone busy feedback rather than nesting ic-loading inside a badge.",
+      "prohibitedUses": ["decorative-color", "progress-value", "interactive-control", "standalone-alert"]
+    },
+    {
+      "tag": "ic-toast",
+      "purpose": "Announce transient non-blocking feedback without moving focus.",
+      "creationInterface": "IcToast.notify(message, {tone, duration, actionLabel, onAction})",
+      "presentation": {"placement": "viewport bottom-center", "width": {"sizing": "auto", "minimum": "17rem", "maximum": "27.2rem", "narrowViewport": "clamp both bounds to the viewport minus two --ui-space-4 insets"}, "visual": "independent floating surface with a symmetric border and overlay shadow; newest toast is frontmost and up to three cards remain visible as a compact stack", "motion": "Enter at the final safe anchor by fading and scaling from .96 to 1 while the existing stack reflows. On dismissal, mark the toast as exiting, disable interaction and accessibility exposure, slide the card downward while fading it out, reflow the remaining stack concurrently, then remove the element after the transition. A stale dismissal cannot remove a re-enqueued item; reduced motion is near-instant.", "defaultDurationMs": 4000, "visibleToasts": 3, "stackStepPx": 14, "closeButton": false, "minimumBottomInsetPx": 24, "pause": ["hover", "focus"]},
+      "semanticDimensions": {"tone": ["neutral", "info", "success", "warning", "danger"], "action": ["none", "one"]},
+      "requiredContent": ["message"],
+      "prohibitedUses": ["form-validation", "required-decision", "long-lived-status", "multiple-actions", "loading-progress"]
+    },
+    {
+      "tag": "ic-loading",
+      "purpose": "Communicate an indeterminate busy operation with a stable accessible label.",
+      "requiredAttributes": ["label"],
+      "semanticDimensions": {"presentation": ["inline", "region"]},
+      "motion": "The spinner uses the existing calm continuous rotation only while busy; Reduced Motion stops rotation and preserves a visibly asymmetric static ring.",
+      "prohibitedUses": ["known-percentage", "decorative-spinner", "skeleton-layout", "empty-content"]
+    },
+    {
+      "tag": "ic-progress",
+      "purpose": "Communicate determinate completion for work with a truthful measurable value.",
+      "requiredAttributes": ["label", "value", "max"],
+      "optionalAttributes": ["value-text"],
+      "invariants": ["value and max are finite", "max is greater than zero", "value is between zero and max", "value-text never hides the numeric platform value"],
+      "motion": "The fill width uses --ui-motion-duration-normal to connect truthful value updates; Reduced Motion removes interpolation and presents the new value immediately.",
+      "prohibitedUses": ["unknown-duration", "decorative-meter", "static-percentage-badge"]
+    },
+    {
+      "tag": "ic-skeleton",
+      "purpose": "Reserve the recognizable structure of content while that content is loading.",
+      "semanticDimensions": {"shape": ["text", "circle", "rectangle"]},
+      "invariants": ["non-interactive", "aria-hidden", "the existing shimmer is retained under Standard Motion", "motion becomes static under reduced-motion"],
+      "prohibitedUses": ["status-announcement", "unknown-layout", "empty-state", "error-state"]
+    },
+    {
+      "tag": "ic-empty-state",
+      "purpose": "Explain why expected content is absent and optionally offer one recovery action.",
+      "requiredContent": ["title"],
+      "optionalContent": ["description", "illustration", "one-action"],
+      "semanticDimensions": {"action": ["none", "one"]},
+      "motion": "Empty State is ordinary stable content and has no family-level entrance, breathing or looping animation; any optional Action retains its own Actions motion.",
+      "prohibitedUses": ["loading", "error-alert", "zero-count-badge", "multiple-actions", "decorative-onboarding"]
+    }
+  ],
+  "liveMatrix": {
+    "fixture": "/static/design-system/infinite-canvas-ui/feedback-progress.html",
+    "caseFixture": "/static/design-system/infinite-canvas-ui/feedback-progress-case.html",
+    "caseCount": 6,
+    "legalCombinationCount": 32,
+    "themes": ["light", "dark"],
+    "viewports": ["desktop", "narrow"],
+    "locales": ["zh-CN", "en"],
+    "content": ["normal", "long"],
+    "motion": ["standard", "reduced"],
+    "states": ["default", "dismissed", "busy", "complete"]
+  },
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "instanceCount": 80,
+    "byLegacyTarget": {"alert.default": 10, "alert.failure": 6, "alert.success": 2, "badge.count-badge": 5, "badge.label-badge": 28, "badge.status-badge": 8, "toast.default": 1, "loading-progress.loading-progress": 20},
+    "byTarget": {"ic-alert": 18, "ic-badge": 41, "ic-toast": 1, "ic-loading": 14, "ic-progress": 5, "ic-skeleton": 1, "ic-empty-state": 0},
+    "zeroEvidenceScope": ["ic-skeleton", "ic-empty-state"],
+    "rule": "Legacy evidence proves coverage and demand; zero evidence does not remove explicit contract scope or create speculative variants."
+  }
+}

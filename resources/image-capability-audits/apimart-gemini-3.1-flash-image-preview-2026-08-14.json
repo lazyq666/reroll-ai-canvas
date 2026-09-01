@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "provider_id": "apimart",
+  "model_id": "gemini-3.1-flash-image-preview",
+  "environment": "apimart-production",
+  "confirmed_at": "2026-08-14",
+  "privacy": "Prompts, image contents, URLs, credentials, and user identifiers are excluded.",
+  "request_accounting": {
+    "historical_external_requests": 0,
+    "new_probe_submissions": 18,
+    "new_probe_results_with_recorded_dimensions": 15,
+    "initial_submissions_without_recoverable_task_id": 2,
+    "repeated_submissions": 0,
+    "completed_tasks_with_cost_field": 13,
+    "extended_probe_tasks_without_cost_field": 3,
+    "recorded_cost_total": 0.27,
+    "recorded_cost_currency": "not specified by task response",
+    "unrecorded_initial_submission_cost_excluded": true
+  },
+  "history_evidence": {
+    "successful_images_evaluated": 339,
+    "confirmed_pairs": [
+      {"aspect_ratio": "1:1", "resolution_tier": "1K", "samples": 36, "actual_sizes": ["1024x1024"]},
+      {"aspect_ratio": "1:1", "resolution_tier": "2K", "samples": 23, "actual_sizes": ["2048x2048"]},
+      {"aspect_ratio": "1:1", "resolution_tier": "4K", "samples": 1, "actual_sizes": ["4096x4096"]},
+      {"aspect_ratio": "2:3", "resolution_tier": "2K", "samples": 1, "actual_sizes": ["1696x2528"]},
+      {"aspect_ratio": "3:2", "resolution_tier": "1K", "samples": 198, "actual_sizes": ["1264x848"]},
+      {"aspect_ratio": "9:16", "resolution_tier": "1K", "samples": 80, "actual_sizes": ["768x1376"]}
+    ]
+  },
+  "live_probe_evidence": [
+    {"aspect_ratio": "3:2", "resolution_tier": "2K", "status": "supported", "actual_size": "2528x1696"},
+    {"aspect_ratio": "3:2", "resolution_tier": "4K", "status": "supported", "actual_size": "5056x3392"},
+    {"aspect_ratio": "3:4", "resolution_tier": "1K", "status": "supported", "actual_size": "896x1200"},
+    {"aspect_ratio": "3:4", "resolution_tier": "2K", "status": "supported", "actual_size": "1792x2400"},
+    {"aspect_ratio": "3:4", "resolution_tier": "4K", "status": "supported", "actual_size": "3584x4800"},
+    {"aspect_ratio": "4:3", "resolution_tier": "1K", "status": "supported", "actual_size": "1200x896"},
+    {"aspect_ratio": "4:3", "resolution_tier": "2K", "status": "supported", "actual_size": "2400x1792"},
+    {"aspect_ratio": "4:3", "resolution_tier": "4K", "status": "supported", "actual_size": "4800x3584"},
+    {"aspect_ratio": "9:16", "resolution_tier": "2K", "status": "supported", "actual_size": "1536x2752"},
+    {"aspect_ratio": "9:16", "resolution_tier": "4K", "status": "supported", "actual_size": "3072x5504"},
+    {"aspect_ratio": "16:9", "resolution_tier": "1K", "status": "supported", "actual_size": "1376x768"},
+    {"aspect_ratio": "16:9", "resolution_tier": "2K", "status": "supported", "actual_size": "2752x1536"},
+    {"aspect_ratio": "16:9", "resolution_tier": "4K", "status": "supported", "actual_size": "5504x3072"},
+    {"aspect_ratio": "21:9", "resolution_tier": "1K", "status": "supported_with_materialization", "actual_size": "1584x672", "relative_aspect_error": 0.010204081632653024, "materialized_size": "1568x672"},
+    {"aspect_ratio": "21:9", "resolution_tier": "2K", "status": "supported_with_materialization", "actual_size": "3168x1344", "relative_aspect_error": 0.010204081632653024, "materialized_size": "3136x1344"},
+    {"aspect_ratio": "9:21", "resolution_tier": "1K", "status": "unsupported", "remote_task_id": "task_01M00BMWJ78WFE6Y2JM2RRAAG5", "provider_status": "FAILED"}
+  ],
+  "documented_evidence": {
+    "url": "https://docs.apimart.ai/en/api-reference/images/gemini-3.1-flash/generation",
+    "supports_product_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+    "supports_resolution_tiers": ["1K", "2K", "4K"],
+    "used_to_close_unrecorded_pairs": [
+      {"aspect_ratio": "2:3", "resolution_tier": "1K"},
+      {"aspect_ratio": "2:3", "resolution_tier": "4K"}
+    ]
+  },
+  "confirmed_capability": {
+    "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
+    "resolution_tiers": ["1K", "2K", "4K"],
+    "default_resolution_tier": "1K"
+  }
+}

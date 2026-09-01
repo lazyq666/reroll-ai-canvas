@@ -1,0 +1,606 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "sha256:6a53c7e6a5888fd72b82f50caee59f1ae1822326e76f05dbde4785b1be4bf448",
+  "fingerprints": {
+    "legacy": "sha256:05aad1b64886fe3a642f0b80f4aba7758a3db28f5ec1320a9a24400e4f695aac",
+    "contract": "sha256:4c379c2202ada81847bb526e661ef277d62f78ba2d3a0d1d78f44a83d8702f67",
+    "foundations": "sha256:fab71f72568e3f63c2d213c74d916b8dc1e6da9c8b4c40f2eea1382999b931c5",
+    "actions": "sha256:0802ed6e59e7d89b654a662eb0e23a9847d921cf67eb4aff1214249db569b842",
+    "selectionAdjustment": "sha256:a303ae111c733d468be9ad0712a73046d79bbc3653425c72caf2bf35670006ca",
+    "feedbackProgress": "sha256:d98dcb2fc206ec5794bbe42fbc95fce39c15b87deeff0a4205947369b4545708",
+    "dialog": "sha256:0e7c760072ee4fe2e9512ae07ad1aea758b536ebd67b3109d9fd242e5243aea4",
+    "menuPopover": "sha256:e407b27022af86ba42cbb0c45303954f28c894352aa499f27fbfd25a478a6ecb",
+    "navigationCommand": "sha256:136dc97796125b9ea0a9672f5dec5e5eba7ecd08fec1e302c02777c2a61bee3e",
+    "containersData": "sha256:7c405fad8b8d71d486d568515625dc9c430ce45d6ff98adb0618cca0c7d2a2dc",
+    "fileMediaInput": "sha256:8e5c038599ab9c5950bbd083d1f866482995ec920e9570831f3a8830fbab5cba",
+    "heading": "sha256:75224bad9439ba7f4957636b0d77d391c7b6d8e2c030c8af193ba3efadedbb50",
+    "imageEditing": "sha256:f55a6d3cafe9a60c82fe5aaa0a88577a33368f679f765c938d8d40896d3bca25",
+    "nodes": "sha256:6f3f21d7918dc84de736e22231841ae76c307ae66e5e7dae5278997d6c323a26",
+    "implementation": "sha256:6a1324161a4bd282f097b9b4d2996b1f53730544892fa8e9ed22636e6fe3e8e2",
+    "semanticBaseline": "sha256:e5d5d465e0fb45304faceb2ad3700d57203f9cd247a22936aa666dd06921ba6a"
+  },
+  "lifecycle": {
+    "states": [
+      "draft",
+      "contract_confirmed",
+      "implemented",
+      "live_confirmed",
+      "migration_ready"
+    ],
+    "humanGates": [
+      "contract_confirmed",
+      "live_confirmed"
+    ],
+    "transitions": [
+      [
+        "draft",
+        "contract_confirmed"
+      ],
+      [
+        "contract_confirmed",
+        "implemented"
+      ],
+      [
+        "implemented",
+        "live_confirmed"
+      ],
+      [
+        "live_confirmed",
+        "migration_ready"
+      ]
+    ]
+  },
+  "surfaces": {
+    "legacy": {
+      "label": "Legacy Inventory",
+      "manifest": "/static/design-system/live-catalog/manifest.json",
+      "sourceRevision": "sha256:bd91c5975e2c367e2aa7dd96f20bb9972b308fb5c8a2572ca9c96ca30c8335a2",
+      "candidateCount": 573,
+      "instanceCount": 1144,
+      "exclusionCount": 278,
+      "responsibility": "Evidence about existing first-party UI; never a Target variant source."
+    },
+    "target": {
+      "label": "Reroll UI / Target",
+      "contract": "/docs/design-system/contract/ic-core-v1.json",
+      "fixture": "/static/design-system/infinite-canvas-ui/tracer.html",
+      "initialLifecycleStatus": "draft",
+      "implementationAvailable": true,
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "viewports": [
+        "desktop",
+        "narrow"
+      ],
+      "contentModes": [
+        "zh",
+        "en",
+        "long"
+      ],
+      "foundations": {
+        "contract": "/docs/design-system/contract/ic-foundations-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/foundations.html",
+        "reviewStatus": "confirmed",
+        "densities": [
+          "medium",
+          "small",
+          "large"
+        ],
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "motion": [
+          "standard",
+          "reduced"
+        ],
+        "components": [
+          "ic-icon",
+          "ic-scrollbar"
+        ]
+      },
+      "scrollbar": {
+        "fixture": "/static/design-system/infinite-canvas-ui/scrollbar.html",
+        "implementation": "/static/js/infinite-canvas-ui/scrollbar.js",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "pending-human-confirmation",
+        "caseCount": 4,
+        "themes": [
+          "light",
+          "dark"
+        ],
+        "contexts": [
+          "light-dom",
+          "open-shadow-dom",
+          "hidden-scrollbar-exception"
+        ],
+        "components": [
+          "ic-scrollbar"
+        ]
+      },
+      "heading": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-heading-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/heading.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/heading-case.html",
+        "contractReviewStatus": "pending-human-confirmation",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "pending-human-confirmation",
+        "legalCombinationCount": 6,
+        "caseCount": 4,
+        "components": [
+          "ic-heading"
+        ]
+      },
+      "actions": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
+        "contractReview": "/static/design-system/infinite-canvas-ui/actions-contract.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 718,
+        "legalCombinationCount": 15,
+        "caseCount": 6,
+        "components": [
+          "ic-button",
+          "ic-icon-button",
+          "ic-video-play-button",
+          "ic-button-group"
+        ]
+      },
+      "selectionAdjustment": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/selection-adjustment-case.html",
+        "contractReview": "/static/design-system/infinite-canvas-ui/selection-adjustment-contract.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 169,
+        "legalCombinationCount": 42,
+        "caseCount": 6,
+        "components": [
+          "ic-checkbox",
+          "ic-radio-group",
+          "ic-radio",
+          "ic-switch",
+          "ic-select",
+          "ic-slider",
+          "ic-number-input",
+          "ic-color-field",
+          "ic-aspect-ratio-picker",
+          "ic-generation-settings-picker"
+        ]
+      },
+      "feedbackProgress": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-feedback-progress-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/feedback-progress.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/feedback-progress-case.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 80,
+        "caseCount": 6,
+        "components": [
+          "ic-alert",
+          "ic-badge",
+          "ic-toast",
+          "ic-loading",
+          "ic-progress",
+          "ic-skeleton"
+        ]
+      },
+      "nodes": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-nodes-v1.json",
+        "fixture": "/static/smart-canvas.html?componentReview=nodes",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "pending-human-confirmation",
+        "migrationEligible": true,
+        "legalCombinationCount": 10,
+        "caseCount": 22,
+        "components": [
+          "ic-canvas-node",
+          "ic-canvas-multi-selection",
+          "ic-prompt-node-focus-surface"
+        ]
+      },
+      "emptyStates": {
+        "fixture": "/static/design-system/infinite-canvas-ui/empty-states.html",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "pending-human-confirmation",
+        "caseCount": 6,
+        "components": [
+          "ic-empty-state",
+          "smart-canvas-far-generation-pending",
+          "smart-canvas-far-prompt-skeleton",
+          "smart-canvas-far-smart-group-media-skeleton",
+          "smart-canvas-far-audio-placeholder",
+          "smart-canvas-far-video-placeholder"
+        ]
+      },
+      "dialog": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-dialog-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/dialog.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/dialog-case.html",
+        "contractReview": "/static/design-system/infinite-canvas-ui/dialog-contract.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 32,
+        "legalCombinationCount": 10,
+        "caseCount": 6,
+        "components": [
+          "ic-dialog",
+          "ic-confirmation-dialog"
+        ]
+      },
+      "menuPopover": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
+        "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 46,
+        "legalCombinationCount": 17,
+        "caseCount": 6,
+        "components": [
+          "ic-menu",
+          "ic-menu-item",
+          "ic-popover",
+          "ic-confirm-popover",
+          "ic-tooltip",
+          "ic-mention-picker",
+          "ic-thumb-hovercard"
+        ]
+      },
+      "navigationCommand": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-navigation-command-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/navigation-command.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/navigation-command-case.html",
+        "contractReview": "/static/design-system/infinite-canvas-ui/navigation-command-contract.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 26,
+        "legalCombinationCount": 19,
+        "caseCount": 6,
+        "components": [
+          "ic-tabs",
+          "ic-segmented-control",
+          "ic-toolbar",
+          "ic-floating-toolbar",
+          "ic-nav-item",
+          "ic-breadcrumb",
+          "ic-pagination",
+          "ic-steps"
+        ]
+      },
+      "containersData": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-containers-data-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/containers-data.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/containers-data-case.html",
+        "contractReview": "/static/design-system/infinite-canvas-ui/containers-data-contract.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 25,
+        "legalCombinationCount": 17,
+        "caseCount": 6,
+        "components": [
+          "ic-card",
+          "ic-divider",
+          "ic-list",
+          "ic-table",
+          "ic-media-container"
+        ]
+      },
+      "fileMediaInput": {
+        "contract": "/static/design-system/infinite-canvas-ui/ic-file-media-input-v1.json",
+        "fixture": "/static/design-system/infinite-canvas-ui/file-media-input.html",
+        "caseFixture": "/static/design-system/infinite-canvas-ui/file-media-input-case.html",
+        "contractReview": "/static/design-system/infinite-canvas-ui/file-media-input-contract.html",
+        "contractReviewStatus": "confirmed",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "confirmed",
+        "migrationEligible": true,
+        "legacyInstanceCount": 0,
+        "legalCombinationCount": 2,
+        "caseCount": 6,
+        "components": [
+          "ic-file-input",
+          "ic-upload-surface",
+          "ic-media-player-controls",
+          "ic-image-frame",
+          "ic-media-slot",
+          "ic-reference-thumbnail"
+        ]
+      },
+      "imageEditing": {
+        "fixture": "/static/design-system/infinite-canvas-ui/image-edit-controls.html",
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "pending-human-confirmation",
+        "caseCount": 4,
+        "components": [
+          "ic-image-edit-selector",
+          "ic-image-edit-slider",
+          "ic-image-edit-value",
+          "ic-image-edit-dock"
+        ]
+      },
+      "blocks": {
+        "caseFixtures": [
+          "/static/design-system/infinite-canvas-ui/image-edit-mode-toolbar.html",
+          "/static/design-system/infinite-canvas-ui/smart-node-toolbar.html",
+          "/static/design-system/infinite-canvas-ui/smart-node-context-menu.html",
+          "/static/design-system/infinite-canvas-ui/smart-canvas-dock.html",
+          "/static/design-system/infinite-canvas-ui/smart-minimap.html"
+        ],
+        "implementationStatus": "implemented",
+        "liveReviewStatus": "pending-human-confirmation",
+        "caseCount": 5,
+        "components": [
+          "ic-image-edit-mode-toolbar",
+          "ic-smart-node-toolbar",
+          "ic-smart-node-context-menu",
+          "ic-smart-canvas-dock",
+          "ic-smart-minimap"
+        ]
+      },
+      "components": [
+        {
+          "tag": "ic-button",
+          "purpose": "Trigger an action or participate as a submit/reset control in a form.",
+          "attributes": [
+            "disabled",
+            "loading",
+            "name",
+            "type",
+            "value"
+          ],
+          "properties": [
+            "disabled",
+            "form",
+            "loading",
+            "name",
+            "type",
+            "value"
+          ],
+          "events": [
+            "blur",
+            "click",
+            "focus",
+            "ic-invalid"
+          ],
+          "legalCombinations": [
+            {
+              "type": "button",
+              "state": "default"
+            },
+            {
+              "type": "submit",
+              "state": "default"
+            },
+            {
+              "type": "button",
+              "state": "disabled"
+            },
+            {
+              "type": "button",
+              "state": "loading"
+            }
+          ],
+          "contentExamples": [
+            "保存画布",
+            "Save canvas",
+            "保存并继续编辑当前画布"
+          ]
+        },
+        {
+          "tag": "ic-input",
+          "purpose": "Collect and validate a single text-like value as part of a form.",
+          "attributes": [
+            "disabled",
+            "hint",
+            "label",
+            "max",
+            "maxlength",
+            "min",
+            "minlength",
+            "name",
+            "pattern",
+            "placeholder",
+            "readonly",
+            "required",
+            "step",
+            "type",
+            "value"
+          ],
+          "properties": [
+            "defaultValue",
+            "disabled",
+            "form",
+            "name",
+            "validationMessage",
+            "validity",
+            "value",
+            "willValidate"
+          ],
+          "events": [
+            "blur",
+            "change",
+            "focus",
+            "ic-clear",
+            "ic-invalid",
+            "input"
+          ],
+          "legalCombinations": [
+            {
+              "type": "text",
+              "state": "filled"
+            },
+            {
+              "type": "text",
+              "state": "required-invalid"
+            },
+            {
+              "type": "text",
+              "state": "readonly"
+            },
+            {
+              "type": "text",
+              "state": "disabled"
+            }
+          ],
+          "contentExamples": [
+            "项目名称",
+            "Project name",
+            "一个很长的项目名称用于验证窄屏内容"
+          ]
+        },
+        {
+          "tag": "ic-dialog",
+          "purpose": "Present a labeled modal task with managed focus entry and return.",
+          "attributes": [
+            "label",
+            "light-dismiss",
+            "open",
+            "without-header"
+          ],
+          "properties": [
+            "label",
+            "lightDismiss",
+            "open",
+            "withoutHeader"
+          ],
+          "events": [
+            "ic-after-hide",
+            "ic-after-show",
+            "ic-hide",
+            "ic-show"
+          ],
+          "legalCombinations": [
+            {
+              "header": "label",
+              "state": "closed"
+            },
+            {
+              "header": "label",
+              "state": "open"
+            }
+          ],
+          "contentExamples": [
+            "删除节点",
+            "Delete node",
+            "删除当前节点以及相关的临时预览内容"
+          ]
+        }
+      ]
+    },
+    "migration": {
+      "label": "Migration Map",
+      "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+      "classificationStatus": "pending-human-confirmation",
+      "classifiedInstanceCount": 1712,
+      "instanceSource": "/static/design-system/live-catalog/manifest.json",
+      "instanceIdentity": "candidate-id plus stable file, source kind and DOM path; display line is diagnostic only",
+      "outcomes": [
+        {
+          "id": "target-component",
+          "label": "目标 ic-* 组件",
+          "referenceRequired": true
+        },
+        {
+          "id": "page-module",
+          "label": "页面模块",
+          "referenceRequired": true
+        },
+        {
+          "id": "business-exception",
+          "label": "业务例外",
+          "referenceRequired": true
+        },
+        {
+          "id": "remove",
+          "label": "删除",
+          "referenceRequired": false
+        }
+      ],
+      "cardinality": "zero-or-one-while-draft; exactly-one-before-migration-ready",
+      "targetComponentIds": [
+        "ic-alert",
+        "ic-aspect-ratio-picker",
+        "ic-badge",
+        "ic-button",
+        "ic-button-group",
+        "ic-card",
+        "ic-checkbox",
+        "ic-confirmation-dialog",
+        "ic-confirm-popover",
+        "ic-dialog",
+        "ic-divider",
+        "ic-empty-state",
+        "ic-file-input",
+        "ic-upload-surface",
+        "ic-media-player-controls",
+        "ic-form-field",
+        "ic-generation-pending",
+        "ic-generation-recovery",
+        "ic-generation-settings-picker",
+        "ic-heading",
+        "ic-icon",
+        "ic-icon-button",
+        "ic-image-frame",
+        "ic-image-edit-mode-toolbar",
+        "ic-input",
+        "ic-loading",
+        "ic-media-card",
+        "ic-media-container",
+        "ic-media-slot",
+        "ic-reference-thumbnail",
+        "ic-thumb-hovercard",
+        "ic-mention-picker",
+        "ic-menu",
+        "ic-menu-item",
+        "ic-nav-disclosure",
+        "ic-nav-item",
+        "ic-node-card",
+        "ic-number-input",
+        "ic-popover",
+        "ic-progress",
+        "ic-prompt-composer",
+        "ic-prompt-template-library",
+        "ic-radio",
+        "ic-radio-group",
+        "ic-segmented-control",
+        "ic-select",
+        "ic-slider",
+        "ic-smart-canvas-dock",
+        "ic-smart-minimap",
+        "ic-smart-node-context-menu",
+        "ic-smart-node-toolbar",
+        "ic-steps",
+        "ic-switch",
+        "ic-table",
+        "ic-tabs",
+        "ic-textarea",
+        "ic-toast",
+        "ic-toolbar",
+        "ic-tooltip",
+        "ic-workflow-card"
+      ]
+    }
+  }
+}

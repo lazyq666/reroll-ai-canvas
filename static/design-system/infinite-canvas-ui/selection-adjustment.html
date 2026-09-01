@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN" data-selection-adjustment-matrix-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reroll UI · Selection and Adjustment Live</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/infinite-canvas-ui-component-surfaces.css">
+</head>
+<body class="foundations-matrix-page">
+  <header class="actions-live-toolbar">
+    <div><span class="actions-live-kicker">Selection/Adjustment · Live review</span><h1>Selection 与 Adjustment 实时矩阵</h1><p>按画幅、模型、Checkbox、Radio、Number Input、Switch 等组件家族分类，并在同一矩阵中比较 S、M、L 三档尺寸。</p></div>
+    <span data-selection-adjustment-status role="status">正在启动 6 个实时情境…</span>
+  </header>
+  <main class="actions-live-grid" aria-label="Selection 与 Adjustment 实时比较矩阵">
+    <article class="actions-live-card" data-selection-adjustment-case data-theme="light" data-viewport="desktop" data-locale="zh-CN" data-content="normal" data-density="medium" data-motion="standard"><header><strong>Light · Desktop · 中文</strong><span>Medium</span></header><iframe title="Selection Light Desktop Chinese"></iframe></article>
+    <article class="actions-live-card" data-selection-adjustment-case data-theme="dark" data-viewport="desktop" data-locale="en" data-content="normal" data-density="medium" data-motion="standard"><header><strong>Dark · Desktop · English</strong><span>Medium</span></header><iframe title="Selection Dark Desktop English"></iframe></article>
+    <article class="actions-live-card" data-selection-adjustment-case data-theme="light" data-viewport="narrow" data-locale="zh-CN" data-content="long" data-density="small" data-motion="standard"><header><strong>Light · Narrow · 中文长文本</strong><span>Small</span></header><iframe title="Selection Light Narrow Chinese"></iframe></article>
+    <article class="actions-live-card" data-selection-adjustment-case data-theme="dark" data-viewport="narrow" data-locale="en" data-content="long" data-density="small" data-motion="standard"><header><strong>Dark · Narrow · Long English</strong><span>Small</span></header><iframe title="Selection Dark Narrow English"></iframe></article>
+    <article class="actions-live-card" data-selection-adjustment-case data-theme="light" data-viewport="desktop" data-locale="en" data-content="long" data-density="large" data-motion="reduced"><header><strong>Light · Desktop · Long English</strong><span>Large · Reduced</span></header><iframe title="Selection Light Large Reduced"></iframe></article>
+    <article class="actions-live-card" data-selection-adjustment-case data-theme="dark" data-viewport="narrow" data-locale="zh-CN" data-content="long" data-density="large" data-motion="reduced"><header><strong>Dark · Narrow · 中文长文本</strong><span>Large · Reduced</span></header><iframe title="Selection Dark Large Reduced"></iframe></article>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/selection-adjustment-matrix.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

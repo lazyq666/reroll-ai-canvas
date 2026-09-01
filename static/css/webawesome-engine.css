@@ -1,0 +1,9 @@
+/*
+ * Reroll consumes Web Awesome as a component engine.
+ * Keep its cascade layers, utilities, and theme variables, but do not import
+ * native.css: that optional stylesheet restyles every page-level button,
+ * input, and select, including light-DOM controls slotted into ic-* elements.
+ */
+@import url('../vendor/webawesome/3.10.0/package/dist-cdn/styles/layers.css');
+@import url('../vendor/webawesome/3.10.0/package/dist-cdn/styles/utilities.css');
+@import url('../vendor/webawesome/3.10.0/package/dist-cdn/styles/themes/default.css');

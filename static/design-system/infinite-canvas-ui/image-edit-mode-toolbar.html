@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reroll UI · 图片编辑模式栏</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    html,body{margin:0;min-height:100%;background:var(--ui-color-surface-canvas);color:var(--ui-color-text-primary);font-family:var(--ui-font-sans)}
+    body{padding:var(--ui-space-6)}
+    main{min-height:18rem;display:grid;place-items:center;border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary);border-radius:var(--ui-radius-l);background:var(--ui-color-surface)}
+  </style>
+</head>
+<body>
+  <main aria-label="图片编辑模式栏 Block">
+    <ic-image-edit-mode-toolbar data-preview-state="static" data-component-name="ic-image-edit-mode-toolbar" label="图片编辑模式栏"></ic-image-edit-mode-toolbar>
+  </main>
+  <script>function togglePanoramaPreview(){const button=document.getElementById('panoramaToggleBtn');button?.toggleAttribute('pressed');}</script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

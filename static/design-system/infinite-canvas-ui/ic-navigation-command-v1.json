@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.navigation-command",
+  "interfaceVersion": 2,
+  "ticket": "7425068E99C5-15",
+  "uuid": "ca5e3cfe-4663-42e7-a806-90f521b74bec",
+  "module": {
+    "layer": "primitive-and-pattern",
+    "publicSeam": "ic-tabs, ic-segmented-control, ic-toolbar, ic-floating-toolbar, ic-nav-item, ic-breadcrumb, ic-pagination and ic-steps custom elements, native platform/ARIA behavior, and central --ui-* Tokens",
+    "adapter": "Vendor elements, private DOM, events and custom properties remain replaceable inside the implementation.",
+    "responsibility": "Own peer-view selection, compact mode choice, command grouping, destination wayfinding and task progress so callers provide labels, destinations, actions and step state rather than rebuilding composite behavior."
+  },
+  "dependencyStatus": {
+    "status": "satisfied",
+    "evidence": [
+      "Foundations confirmed",
+      "Actions contract, implementation, live and migration confirmed",
+      "Menu/Popover/Tooltip contract, implementation, live and migration confirmed"
+    ]
+  },
+  "review": {
+    "contract": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "同意 Navigation/Command 判断 1–10，并确认 27 个 Legacy 映射。",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved all ten Navigation/Command semantic judgments and the deterministic 27-instance Legacy mapping."
+    },
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-09", "evidence": ["/static/js/infinite-canvas-ui/navigation-command.js", "/static/design-system/infinite-canvas-ui/navigation-command.html"]},
+    "live": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "confirmedOn": "2026-08-09",
+      "note": "通过验收。",
+      "evidence": "/docs/design-system/verification/navigation-command-browser.json"
+    },
+    "migration": {
+      "status": "confirmed",
+      "confirmedOn": "2026-08-09",
+      "evidence": "Second human Gate approved Navigation/Command migration eligibility; no business page migration was performed."
+    }
+  },
+  "judgments": [
+    "Tabs switch among peer views inside one labeled region; they do not navigate to unrelated routes and do not perform commands.",
+    "Segmented Control chooses one compact mode or presentation of the same task; it is not a space-saving Tabs skin, Toolbar, Radio Group or multi-select control.",
+    "Toolbar groups related commands and controls; it owns one labeled composite keyboard scope but does not own each command's action semantics.",
+    "Navigation Item represents one route or in-page section destination and exposes current state; actions, Tabs and Menu Items retain their existing contracts.",
+    "Breadcrumb communicates a hierarchical path and makes only ancestors navigable; the final item is the current location and is not an activation target.",
+    "Pagination moves through a bounded ordered result set; unknown or continuously loaded result streams use a separate load-more or infinite-scroll pattern, not fabricated page counts.",
+    "Steps communicates position in a short multi-stage task; it is a read-only progress indicator rather than Tabs, Pagination or a navigation control.",
+    "Selected and current state use the confirmed Selection/Adjustment selected-state palette and remain visible without relying on color alone; narrow containers wrap, scroll or collapse only according to each component's explicit rule.",
+    "Busy or unavailable navigation uses the confirmed Feedback/Progress Loading/Alert semantics and never replaces the selected/current item with a spinner or permits duplicate activation.",
+    "Toolbar overflow uses the confirmed Menu/Popover/Tooltip Menu trigger, dismissal, icon, dynamic leading-column spacing and Medium/Small density rules; Tooltip supplements unfamiliar icon actions but never supplies their accessible name.",
+    "A Dialog Dialog may contain these components only within one bounded modal task; navigation surfaces cannot dismiss, replace or nest the Dialog implicitly.",
+    "Navigation motion is limited to state-explanatory transitions: Tabs, Segmented Control, Expandable Navigation and Steps keep their live nodes mounted while selection, disclosure or progress state changes. Toolbar, Floating Toolbar, Navigation Item, Breadcrumb and Pagination do not add decorative family-level entrance or movement; their child Actions retain the Actions motion contract."
+  ],
+  "density": {
+    "contextAttribute": "data-ui-density",
+    "contexts": ["medium", "small"],
+    "default": "medium",
+    "smallPurpose": "Toolbars, compact Segmented Controls and navigation inside Smart Canvas or other information-dense professional-tool regions.",
+    "componentUse": {
+      "ic-tabs": ["medium", "small"],
+      "ic-segmented-control": ["medium", "small"],
+      "ic-toolbar": ["medium", "small"],
+      "ic-floating-toolbar": ["medium", "small"],
+      "ic-nav-item": ["medium"],
+      "ic-breadcrumb": ["medium"],
+      "ic-pagination": ["medium"],
+      "ic-steps": ["medium", "small"]
+    },
+    "rule": "Density remains an inherited context. Tabs and Segmented Control additionally accept an explicit small, medium, or large size; when size is omitted they continue to inherit the current density for compatibility."
+  },
+  "keyboard": {
+    "horizontalComposite": ["ArrowRight", "ArrowLeft"],
+    "verticalComposite": ["ArrowDown", "ArrowUp"],
+    "composites": ["Home", "End"],
+    "tabs": "Arrow keys move the active tab according to orientation; automatic activation follows focus only when panel changes are immediate, otherwise Enter or Space activates the focused tab.",
+    "segmentedControl": "Arrow keys move and select within the single-selection group; Tab enters and leaves the group once.",
+    "toolbar": "Arrow keys move among enabled owned controls; Tab enters and leaves the Toolbar once; embedded text entry keeps its native editing keys.",
+    "floatingToolbar": "Uses the Toolbar keyboard model while callers and portals retain all positioning and anchoring responsibility.",
+    "navigation": "Navigation Item, Breadcrumb links and Pagination links remain ordinary links in DOM order and do not create an extra roving-focus scope."
+  },
+  "accessibility": {
+    "tabs": "A labeled tablist owns tabs; each tab exposes aria-selected and controls one named tabpanel.",
+    "segmentedControl": "A labeled single-selection group exposes one checked option without pretending to be page navigation.",
+    "toolbar": "A labeled toolbar exposes orientation and coherent roving focus while descendants retain their native roles and names.",
+    "floatingToolbar": "A labeled horizontal toolbar exposes its command scope; the floating surface does not imply a dialog, popover or positioning relationship.",
+    "navigationItem": "The current destination exposes aria-current=page or aria-current=location as appropriate.",
+    "breadcrumb": "A labeled navigation landmark contains an ordered path; the final item exposes aria-current=page.",
+    "pagination": "A labeled navigation landmark exposes aria-current=page on exactly one current page and accessible previous/next labels.",
+    "steps": "A labeled ordered step list exposes aria-current=step on exactly one current stage; number indicators are decorative supplements to the visible labels."
+  },
+  "components": [
+    {
+      "tag": "ic-tabs",
+      "purpose": "Switch among peer views within one labeled content region.",
+      "useWhen": ["Peer views share one context and only one panel is active.", "The current view must remain identifiable to assistive technology."],
+      "prohibitedUses": ["route navigation", "command execution", "multi-select filtering", "wizard progress", "unlabeled tablist"],
+      "requiredAttributes": ["label"],
+      "attributes": ["label", "value", "orientation", "activation", "size"],
+      "semanticDimensions": {"orientation": ["horizontal", "vertical"], "activation": ["automatic", "manual"], "content": ["label", "label-and-icon"], "size": ["small", "medium", "large"]},
+      "legalCombinations": [
+        {"id": "horizontal-automatic-label", "orientation": "horizontal", "activation": "automatic", "content": "label"},
+        {"id": "horizontal-manual-label-icon", "orientation": "horizontal", "activation": "manual", "content": "label-and-icon"},
+        {"id": "vertical-manual-label", "orientation": "vertical", "activation": "manual", "content": "label"}
+      ],
+      "selection": "Exactly one enabled tab is selected; selection and focus may differ under manual activation.",
+      "sizing": "Explicit size selects Small, Medium, or Large control height, type size and inline padding independently of page density; an omitted size inherits the density context. Small tab items use --ui-font-size-2 (12px) even when the calling page inherits another font size. Every tabs variant defaults to the same 0.125rem item gap as ic-tabs-horizontal; the space attribute may override it.",
+      "selectionPresentation": "The horizontal-automatic-label bar uses a 10px radius; every tab item keeps --ui-radius-s (8px). Selection updates the existing tab nodes and transitions background and text color with --ui-motion-duration-fast; Reduced Motion compresses that transition to 1ms.",
+      "narrowViewport": "Horizontal tabs scroll inline without shrinking labels or converting to a Menu; vertical tabs require a caller region wide enough for their labels."
+    },
+    {
+      "tag": "ic-segmented-control",
+      "purpose": "Choose exactly one compact mode or presentation of the same task.",
+      "useWhen": ["There are two to five short, mutually exclusive modes.", "The choice changes the current presentation or operating mode immediately."],
+      "prohibitedUses": ["route navigation", "peer content panels", "commands", "multi-select", "long or wrapping labels", "deferred form choice better served by Radio Group"],
+      "requiredAttributes": ["label", "value"],
+      "attributes": ["label", "value", "disabled", "size"],
+      "semanticDimensions": {"selection": ["single"], "content": ["label", "icon-and-label"], "size": ["small", "medium", "large"]},
+      "legalCombinations": [
+        {"id": "single-label", "selection": "single", "content": "label"},
+        {"id": "single-icon-label", "selection": "single", "content": "icon-and-label"}
+      ],
+      "selection": "Exactly one enabled option is selected and activation updates value immediately.",
+      "sizing": "The outer container uses --ui-control-height-s/m/l. Small uses --ui-font-size-1 with --ui-space-2 inline option padding; Medium uses --ui-font-size-2 with 10px; Large uses --ui-font-size-3 with --ui-space-3. An omitted size inherits the density context.",
+      "selectionPresentation": "The container uses a 10px radius and its items use --ui-radius-s (8px). The container border uses --ui-color-border-segmented-control, which resolves to --ui-palette-gray-100 in both themes; the selected segment outer outline uses --ui-color-border-secondary. The selected outline does not consume the segment's internal size. The single-label and single-icon-label combinations use --ui-color-surface with --ui-color-text-primary; selected segments retain raised elevation and do not change appearance on hover. Selection updates the existing option nodes and transitions background, text, border and elevation with --ui-motion-duration-fast; Reduced Motion compresses those transitions to 1ms.",
+      "narrowViewport": "Segments remain one row; callers choose shorter approved labels or a different pattern rather than truncating meaning."
+    },
+    {
+      "tag": "ic-toolbar",
+      "purpose": "Group related commands and compact controls into one labeled keyboard scope.",
+      "useWhen": ["Several commands operate on the same object, canvas or editor context.", "A coherent arrow-key scope improves repeated command use."],
+      "prohibitedUses": ["page navigation", "tab selection", "arbitrary form layout", "unrelated action dumping ground", "unlabeled icon collection"],
+      "requiredAttributes": ["label"],
+      "attributes": ["label", "orientation", "appearance"],
+      "semanticDimensions": {"orientation": ["horizontal", "vertical"], "overflow": ["none"], "appearance": ["framed", "plain"]},
+      "legalCombinations": [
+        {"id": "horizontal-inline", "orientation": "horizontal", "overflow": "none"},
+        {"id": "horizontal-inline-plain", "orientation": "horizontal", "overflow": "none", "appearance": "plain"},
+        {"id": "vertical-inline-plain", "orientation": "vertical", "overflow": "none", "appearance": "plain"}
+      ],
+      "content": ["ic-button", "ic-icon-button", "ic-button-group", "ic-segmented-control", "approved text/select control", "separator"],
+      "narrowViewport": "Preserve essential commands without shrinking or hiding their only accessible activation path; callers choose a different approved pattern when the complete command set cannot fit."
+    },
+    {
+      "tag": "ic-floating-toolbar",
+      "purpose": "Provide a reusable floating command surface with bounded layout, overflow and Toolbar semantics without owning screen positioning.",
+      "useWhen": ["Commands float above a canvas, media workspace or selected object.", "A portal or business layer already owns anchoring and visibility."],
+      "prohibitedUses": ["portal positioning", "anchor measurement", "modal dismissal", "popover disclosure", "unlabeled command collection", "arbitrary card content"],
+      "requiredAttributes": ["label"],
+      "attributes": ["label", "overflow"],
+      "semanticDimensions": {"layout": ["inline"], "overflow": ["scroll", "clip"], "positioning": ["caller-owned"]},
+      "legalCombinations": [
+        {"id": "inline-scroll", "layout": "inline", "overflow": "scroll"},
+        {"id": "inline-clip", "layout": "inline", "overflow": "clip"}
+      ],
+      "content": ["ic-button", "ic-icon-button", "ic-tabs", "ic-toolbar", "ic-segmented-control", "approved compact controls", "separator"],
+      "narrowViewport": "Inline-scroll surfaces keep every command reachable inside their bounded content area; inline-clip is reserved for short fixed option sets whose complete contents already fit.",
+      "positioning": "The component never sets fixed, absolute, inset, translate or anchor coordinates; callers and portals own placement."
+    },
+    {
+      "tag": "ic-nav-item",
+      "purpose": "Represent one destination in a product navigation list and expose whether it is current.",
+      "useWhen": ["The item changes route or moves to a named section.", "The item belongs to a separately labeled navigation landmark."],
+      "prohibitedUses": ["command", "tab", "menu item", "toggle", "standalone unlabeled icon", "disabled current destination"],
+      "requiredAttributes": ["label", "href"],
+      "attributes": ["label", "secondary-label", "href", "icon", "current"],
+      "semanticDimensions": {"destination": ["route", "section"], "content": ["label", "label-and-secondary-label", "icon-and-label"]},
+      "legalCombinations": [
+        {"id": "route-label", "destination": "route", "content": "label"},
+        {"id": "route-label-secondary", "destination": "route", "content": "label-and-secondary-label"},
+        {"id": "route-icon-label", "destination": "route", "content": "icon-and-label"},
+        {"id": "section-label", "destination": "section", "content": "label"},
+        {"id": "section-label-secondary", "destination": "section", "content": "label-and-secondary-label"}
+      ],
+      "nestedSizing": "Direct Navigation Item children of Expandable Navigation use --ui-control-height-m as their fixed row height; their block padding is included within that height.",
+      "navigationState": "At most one peer item is current for a route or section; current state is announced and visibly persistent.",
+      "secondaryLabel": "Optional concise supporting name, such as a component's English name; it remains part of the accessible link name and does not replace label."
+    },
+    {
+      "tag": "ic-breadcrumb",
+      "purpose": "Show the hierarchical path from a broader location to the current page.",
+      "useWhen": ["Users can arrive deep in a stable hierarchy.", "Navigable ancestors aid orientation and upward movement."],
+      "prohibitedUses": ["history trail", "wizard steps", "tabs", "flat top-level navigation", "commands", "single-item decorative path"],
+      "requiredAttributes": ["label"],
+      "attributes": ["label"],
+      "semanticDimensions": {"current": ["last-item"], "ancestors": ["links"]},
+      "legalCombinations": [{"id": "ancestor-links-current-text", "current": "last-item", "ancestors": "links"}],
+      "content": "Native links followed by one final non-link current item; visual separators are decorative.",
+      "narrowViewport": "Keep the current item and nearest ancestor visible; earlier ancestors may collapse into a labeled Menu/Popover/Tooltip Menu without changing path order."
+    },
+    {
+      "tag": "ic-pagination",
+      "purpose": "Navigate a bounded ordered result set by page or by previous/next movement.",
+      "useWhen": ["The result set has stable page boundaries.", "Users benefit from revisiting an exact page or moving sequentially."],
+      "prohibitedUses": ["carousel", "wizard steps", "unknown total presented as numbered pages", "infinite scroll indicator", "loading progress"],
+      "requiredAttributes": ["label", "page"],
+      "attributes": ["label", "page", "page-count", "mode", "disabled", "busy"],
+      "semanticDimensions": {"mode": ["pages", "previous-next"], "content": ["numbers", "labeled-controls"]},
+      "legalCombinations": [
+        {"id": "known-pages", "mode": "pages", "content": "numbers"},
+        {"id": "sequential", "mode": "previous-next", "content": "labeled-controls"}
+      ],
+      "navigationState": "Exactly one numbered page is current; unavailable previous/next controls remain perceptible and non-activatable.",
+      "narrowViewport": "Known-page mode keeps first, current neighborhood and last page with labeled gaps; it does not horizontally overflow or shrink hit targets."
+    },
+    {
+      "tag": "ic-steps",
+      "purpose": "Show the user's current position in a short ordered workflow.",
+      "useWhen": ["A task has two or more named stages.", "The current stage must remain visible while the stage content changes."],
+      "prohibitedUses": ["peer-view switching", "page navigation", "clickable breadcrumb", "loading percentage", "single-stage decoration"],
+      "requiredAttributes": ["label", "current"],
+      "attributes": ["label", "current"],
+      "content": "Two or more direct children with unique data-step values and visible text labels.",
+      "semanticDimensions": {"orientation": ["horizontal"], "interaction": ["read-only-progress"]},
+      "legalCombinations": [{"id": "horizontal-progress", "orientation": "horizontal", "interaction": "read-only-progress"}],
+      "progressState": "Exactly one stage is current; preceding stages are complete and following stages are upcoming.",
+      "presentation": "The standard number indicator is 28px in both supported density contexts. Current-step updates retain the existing step nodes and transition indicator background, border and text color with --ui-motion-duration-fast; Reduced Motion compresses those transitions to 1ms.",
+      "narrowViewport": "Connector lengths contract before labels; labels may ellipsize while their full accessible text remains available."
+    }
+  ],
+  "runtimeContract": {
+    "status": "implemented",
+    "invalidCombination": {"statusAttribute": "data-ic-contract-status=invalid", "reasonAttribute": "data-ic-contract-reason", "event": "ic-contract-error", "activation": "fail-closed"},
+    "engineBoundary": "Business and acceptance sources consume only ic-* tags, native links/platform/ARIA behavior and central --ui-* Tokens."
+  },
+  "liveMatrix": {
+    "status": "confirmed",
+    "fixture": "/static/design-system/infinite-canvas-ui/navigation-command.html",
+    "caseFixture": "/static/design-system/infinite-canvas-ui/navigation-command-case.html",
+    "caseCount": 6,
+    "legalCombinationCount": 19,
+    "themes": ["light", "dark"],
+    "densities": ["medium", "small-by-approved-use"],
+    "viewports": ["desktop", "narrow"],
+    "locales": ["zh-CN", "en"],
+    "content": ["normal", "long"],
+    "motion": ["standard", "reduced"],
+    "states": ["default", "hover", "focus-visible", "selected", "current", "disabled", "busy", "invalid"],
+    "interaction": ["keyboard", "focus-visible", "selection", "navigation", "aria", "contrast", "reduced-motion"]
+  },
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:1f0a5588a0a90e7f6ab77cda9eeab14509570c2b53904176247fced1a415b507",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "instanceCount": 26,
+    "byLegacyTarget": {"tabs.tabs": 14, "toolbar.toolbar": 12},
+    "byTarget": {"ic-tabs": 14, "ic-toolbar": 12},
+    "bySourceFile": {"static/api-settings.html": 6, "static/canvas.html": 3, "static/comfyui-settings.html": 1, "static/js/canvas.js": 4, "static/js/comfyui-settings.js": 1, "static/js/smart-canvas.js": 4, "static/login.html": 1, "static/online.html": 5, "static/smart-canvas.html": 1},
+    "bySourceKind": {"html": 17, "javascript_markup": 9},
+    "zeroEvidenceScope": ["ic-segmented-control", "ic-floating-toolbar", "ic-nav-item", "ic-breadcrumb", "ic-pagination", "ic-steps"],
+    "rule": "Legacy evidence proves coverage and product demand; it does not define target selection, navigation, keyboard behavior, density or appearance. Zero evidence does not remove explicit contract scope or create speculative variants."
+  }
+}

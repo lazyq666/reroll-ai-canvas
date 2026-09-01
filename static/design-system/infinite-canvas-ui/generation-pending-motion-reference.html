@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light" data-ui-motion="standard" data-pending-motion-reference-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pending 动画实验 A · Reroll UI</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
+    button { font:inherit; }
+    .motion-reference { width:min(100%, 92rem); margin:0 auto; padding:var(--ui-space-5); }
+    .reference-header { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--ui-space-5); margin-block-end:var(--ui-space-5); }
+    .reference-header-copy { display:grid; gap:var(--ui-space-2); max-width:54rem; }
+    .reference-kicker { margin:0; color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); letter-spacing:.08em; text-transform:uppercase; }
+    h1, h2, p { margin:0; }
+    h1 { font-size:clamp(1.5rem, 3vw, 2.25rem); line-height:1.1; }
+    .reference-description { color:var(--ui-color-text-tertiary); line-height:1.6; }
+    .reference-badge { padding:var(--ui-space-2) var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:999px; color:var(--ui-color-text-tertiary); background:var(--ui-color-surface); font:var(--ui-text-caption); white-space:nowrap; }
+    .reference-layout { display:grid; grid-template-columns:minmax(17rem, 21rem) minmax(0, 1fr); gap:var(--ui-space-4); align-items:start; }
+    .parameter-panel, .preview-panel { min-width:0; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-floating); box-shadow:var(--ui-shadow-raised); }
+    .parameter-panel { position:sticky; inset-block-start:var(--ui-space-4); display:grid; gap:var(--ui-space-4); padding:var(--ui-space-4); }
+    .panel-heading { display:grid; gap:var(--ui-space-1); }
+    .panel-heading h2 { font-size:var(--ui-font-size-4); }
+    .panel-heading p { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); line-height:1.5; }
+    .parameter-stack { display:grid; gap:var(--ui-space-4); }
+    .parameter-group { display:grid; gap:var(--ui-space-3); padding-block-start:var(--ui-space-3); border-block-start:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .parameter-group:first-child { padding-block-start:0; border-block-start:0; }
+    .parameter-group > strong { font-size:var(--ui-font-size-2); }
+    .color-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--ui-space-2); }
+    .parameter-actions { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .preview-panel { overflow:hidden; }
+    .preview-toolbar { display:flex; align-items:center; justify-content:space-between; gap:var(--ui-space-3); padding:var(--ui-space-3) var(--ui-space-4); border-block-end:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .preview-summary { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .summary-pill { padding:var(--ui-space-1) var(--ui-space-2); border-radius:999px; color:var(--ui-color-text-tertiary); background:var(--ui-color-surface-subtle); font:var(--ui-text-caption); }
+    .motion-stage { --motion-duration:8s; --motion-blur:28px; --motion-drift:28%; --motion-blob-size:78%; --motion-opacity:.82; --motion-saturation:1; --blob-one-color:#ffbd8e; --blob-two-color:#9f7cff; --blob-three-color:#61d8d0; min-height:36rem; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); align-content:center; gap:var(--ui-space-4); padding:clamp(var(--ui-space-4), 5vw, var(--ui-space-8)); background-color:var(--ui-color-surface-subtle); background-image:radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ui-color-text-tertiary) 20%, transparent) 1px, transparent 0); background-size:22px 22px; }
+    .motion-stage[data-count="dense"] { grid-template-columns:repeat(3, minmax(0, 1fr)); align-content:start; }
+    .pending-motion-node { position:relative; min-width:0; height:clamp(12rem, 24vw, 20rem); overflow:hidden; contain:layout paint style; isolation:isolate; border:var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-color-border-primary) 72%, transparent); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-subtle); box-shadow:var(--ui-shadow-raised); }
+    .motion-stage[data-count="dense"] .pending-motion-node { height:12rem; }
+    .motion-blob { position:absolute; z-index:0; inline-size:var(--motion-blob-size); aspect-ratio:1; border-radius:50%; opacity:var(--motion-opacity); filter:blur(var(--motion-blur)) saturate(var(--motion-saturation)); will-change:transform; }
+    .blob-one { inset:-30% auto auto -25%; background:var(--blob-one-color); animation:reference-float-one var(--motion-duration) ease-in-out infinite alternate; }
+    .blob-two { inset:auto -28% -34% auto; background:var(--blob-two-color); animation:reference-float-two calc(var(--motion-duration) * 1.22) ease-in-out infinite alternate; }
+    .blob-three { inset:12% auto auto 35%; inline-size:calc(var(--motion-blob-size) * .82); background:var(--blob-three-color); animation:reference-float-three calc(var(--motion-duration) * 1.08) ease-in-out infinite alternate; }
+    .pending-sheen { position:absolute; inset:0; z-index:1; background:linear-gradient(to bottom, color-mix(in srgb, white 14%, transparent), transparent 48%, color-mix(in srgb, var(--ui-color-text-primary) 12%, transparent)); pointer-events:none; }
+    .pending-content { position:absolute; inset:0; z-index:2; display:grid; place-items:center; pointer-events:none; }
+    .pending-spinner { display:grid; place-items:center; inline-size:3rem; aspect-ratio:1; border:var(--ui-border-width-thin) solid color-mix(in srgb, white 54%, transparent); border-radius:50%; color:color-mix(in srgb, white 92%, transparent); background:color-mix(in srgb, var(--ui-color-text-primary) 14%, transparent); box-shadow:var(--ui-shadow-raised); backdrop-filter:blur(10px); }
+    .pending-spinner::before { content:""; inline-size:1rem; aspect-ratio:1; border:2px solid currentColor; border-block-start-color:transparent; border-radius:50%; animation:reference-spin 1.4s linear infinite; }
+    .pending-label { position:absolute; z-index:3; inset-inline:var(--ui-space-3); inset-block-end:var(--ui-space-3); overflow:hidden; color:color-mix(in srgb, white 92%, transparent); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); text-align:center; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 12px color-mix(in srgb, var(--ui-color-text-primary) 35%, transparent); }
+    .pending-motion-node[data-motion-state="paused"] .motion-blob,
+    .pending-motion-node[data-motion-state="paused"] .pending-spinner::before { animation-play-state:paused; }
+    .parameter-output { display:grid; gap:var(--ui-space-2); padding:var(--ui-space-3); border-radius:var(--ui-radius-m); color:var(--ui-color-text-tertiary); background:var(--ui-color-surface-subtle); font:var(--ui-text-caption); }
+    .parameter-output code { overflow-wrap:anywhere; color:var(--ui-color-text-primary); font-family:var(--ui-font-mono); line-height:1.55; }
+    @keyframes reference-spin { to { transform:rotate(1turn); } }
+    @keyframes reference-float-one { from { transform:translate3d(calc(var(--motion-drift) * -.18), calc(var(--motion-drift) * -.12), 0) scale(.92); } to { transform:translate3d(var(--motion-drift), calc(var(--motion-drift) * .72), 0) scale(1.13); } }
+    @keyframes reference-float-two { from { transform:translate3d(calc(var(--motion-drift) * .14), calc(var(--motion-drift) * .18), 0) scale(1.08); } to { transform:translate3d(calc(var(--motion-drift) * -.92), calc(var(--motion-drift) * -.75), 0) scale(.94); } }
+    @keyframes reference-float-three { from { transform:translate3d(calc(var(--motion-drift) * -.48), calc(var(--motion-drift) * .58), 0) scale(.88); } to { transform:translate3d(calc(var(--motion-drift) * .42), calc(var(--motion-drift) * -.52), 0) scale(1.14); } }
+    @media (prefers-reduced-motion:reduce) { .motion-blob, .pending-spinner::before { animation:none !important; } }
+    :root[data-ui-motion="reduced"] .motion-blob, :root[data-ui-motion="reduced"] .pending-spinner::before { animation:none !important; }
+    @media (max-width:900px) { .reference-layout { grid-template-columns:minmax(0, 1fr); } .parameter-panel { position:static; } }
+    @media (max-width:640px) { .motion-reference { padding:var(--ui-space-3); } .reference-header { display:grid; } .motion-stage, .motion-stage[data-count="dense"] { grid-template-columns:minmax(0, 1fr); } .color-grid { grid-template-columns:minmax(0, 1fr); } }
+  </style>
+</head>
+<body>
+  <main class="motion-reference">
+    <header class="reference-header">
+      <div class="reference-header-copy">
+        <p class="reference-kicker">Reference · Generation Pending</p>
+        <h1>Pending 动画实验 A</h1>
+        <p class="reference-description">基于方案 B 的三色团合成动画。这里用于调整视觉参数与评估多实例成本，不改变现有 <code>ic-generation-pending</code> 合同。</p>
+      </div>
+      <span class="reference-badge">参考实现 · 非公共组件</span>
+    </header>
+
+    <div class="reference-layout">
+      <form class="parameter-panel" data-parameter-form>
+        <header class="panel-heading">
+          <h2>动画参数</h2>
+          <p>修改后实时应用，并同步到当前页面 URL，方便分享同一组参数。</p>
+        </header>
+        <div class="parameter-stack">
+          <section class="parameter-group">
+            <strong>运行</strong>
+            <ic-switch name="playing" label="播放动画" checked data-setting="playing"></ic-switch>
+            <ic-select name="count" label="预览节点数" value="2" data-setting="count"><option value="1">1 个</option><option value="2" selected>2 个</option><option value="6">6 个</option><option value="12">12 个</option></ic-select>
+          </section>
+          <section class="parameter-group">
+            <strong>运动与质感</strong>
+            <ic-slider name="duration" label="循环时长" min="3" max="20" step="1" value="8" value-text="8s" data-setting="duration"></ic-slider>
+            <ic-slider name="blur" label="模糊半径" min="0" max="64" step="1" value="28" value-text="28px" data-setting="blur"></ic-slider>
+            <ic-slider name="drift" label="漂移幅度" min="8" max="42" step="1" value="28" value-text="28%" data-setting="drift"></ic-slider>
+            <ic-slider name="size" label="色团尺寸" min="55" max="120" step="1" value="78" value-text="78%" data-setting="size"></ic-slider>
+            <ic-slider name="opacity" label="色团透明度" min="30" max="100" step="1" value="82" value-text="82%" data-setting="opacity"></ic-slider>
+            <ic-slider name="saturation" label="饱和度" min="60" max="180" step="5" value="100" value-text="100%" data-setting="saturation"></ic-slider>
+          </section>
+          <section class="parameter-group">
+            <strong>色团颜色</strong>
+            <div class="color-grid">
+              <ic-color-field name="color-one" label="色团一" value="#ffbd8e" data-setting="colorOne"></ic-color-field>
+              <ic-color-field name="color-two" label="色团二" value="#9f7cff" data-setting="colorTwo"></ic-color-field>
+              <ic-color-field name="color-three" label="色团三" value="#61d8d0" data-setting="colorThree"></ic-color-field>
+            </div>
+          </section>
+        </div>
+        <div class="parameter-actions">
+          <ic-button type="button" hierarchy="secondary" data-reset-settings>恢复默认</ic-button>
+          <ic-button type="button" hierarchy="quiet" data-copy-settings>复制参数</ic-button>
+        </div>
+        <output class="parameter-output" data-parameter-output aria-live="polite"><span>当前 CSS 参数</span><code></code></output>
+      </form>
+
+      <section class="preview-panel" aria-label="Pending 动画实时预览">
+        <header class="preview-toolbar">
+          <div class="preview-summary">
+            <span class="summary-pill">方案 B · 三合成层</span>
+            <span class="summary-pill" data-visible-count>2 个实例</span>
+            <span class="summary-pill" data-motion-status>播放中</span>
+          </div>
+          <span class="reference-badge">transform + static blur</span>
+        </header>
+        <div class="motion-stage" data-motion-stage></div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/generation-pending-motion-reference.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

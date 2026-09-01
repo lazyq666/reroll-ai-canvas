@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN" data-ic-overlay-motion-test-status="loading">
+<head>
+  <meta charset="utf-8">
+  <title>Anchored overlay motion browser contract</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+</head>
+<body>
+  <button id="menu-trigger" type="button">菜单</button>
+  <ic-menu id="menu" label="操作" trigger="dropdown" selection="command">
+    <ic-menu-item kind="command" label="复制" value="copy"></ic-menu-item>
+  </ic-menu>
+
+  <button id="popover-trigger" type="button">设置</button>
+  <ic-popover id="popover" label="设置" content="interactive" focus-policy="move-into">
+    <button type="button">应用</button>
+  </ic-popover>
+
+  <button id="confirm-trigger" type="button">删除</button>
+  <ic-confirm-popover id="confirm" label="删除项目？" confirm-label="删除" cancel-label="取消"></ic-confirm-popover>
+
+  <ic-tooltip id="tooltip" content="保存">
+    <button id="tooltip-trigger" slot="trigger" type="button">保存</button>
+  </ic-tooltip>
+
+  <button id="mention-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">输入 @</button>
+  <ic-mention-picker id="mention" label="提示词建议" empty-label="没有匹配项"></ic-mention-picker>
+
+  <ic-generation-settings-picker
+    id="generation-settings"
+    label="尺寸选择"
+    ratio="square"
+    ratio-presets="square,portrait,landscape"
+    resolution="1080p"
+    resolutions="1080p,2k"
+    quality="auto"
+  ></ic-generation-settings-picker>
+  <pre id="results"></pre>
+
+  <script type="module">
+    const report = { checks:{}, observations:{} };
+    const once = (target, type) => new Promise(resolve => target.addEventListener(type, resolve, { once:true }));
+    const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const transitionMilliseconds = surface => getComputedStyle(surface).transitionDuration
+      .split(',')
+      .map(value => Number.parseFloat(value) * (value.includes('ms') ? 1 : 1000));
+
+    await import('/static/js/infinite-canvas-ui/core.js');
+    await Promise.all([
+      'ic-menu',
+      'ic-menu-item',
+      'ic-popover',
+      'ic-confirm-popover',
+      'ic-tooltip',
+      'ic-mention-picker',
+      'ic-generation-settings-picker',
+    ].map(tag => customElements.whenDefined(tag)));
+    await paint();
+
+    const menu = document.querySelector('#menu');
+    const menuTrigger = document.querySelector('#menu-trigger');
+    const menuSurface = menu.shadowRoot.querySelector('[part="surface"]');
+    const menuEvents = [];
+    ['ic-show', 'ic-after-show', 'ic-hide', 'ic-after-hide'].forEach(type => menu.addEventListener(type, () => menuEvents.push(type)));
+
+    report.checks.initialClosed = menu.dataset.motionState === 'closed' && getComputedStyle(menuSurface).display === 'none';
+    const menuShown = once(menu, 'ic-after-show');
+    menu.show(menuTrigger);
+    report.checks.entering = menu.dataset.motionState === 'entering'
+      && menu.hasAttribute('open')
+      && menuSurface.matches(':popover-open')
+      && getComputedStyle(menuSurface).willChange.includes('opacity');
+    await menuShown;
+    report.checks.entered = menu.dataset.motionState === 'open'
+      && getComputedStyle(menuSurface).opacity === '1'
+      && getComputedStyle(menuSurface).transform === 'none'
+      && menuSurface.dataset.motionSide === 'bottom';
+    const standardEntryDurations = transitionMilliseconds(menuSurface);
+
+    let afterHideObserved = false;
+    const menuHidden = once(menu, 'ic-after-hide').then(() => { afterHideObserved = true; });
+    menu.hide('motion-test');
+    const standardExitDurations = transitionMilliseconds(menuSurface);
+    report.checks.exiting = menu.dataset.motionState === 'exiting'
+      && !menu.hasAttribute('open')
+      && menuSurface.matches(':popover-open')
+      && menuSurface.hasAttribute('inert')
+      && menuSurface.getAttribute('aria-hidden') === 'true'
+      && !afterHideObserved;
+    report.checks.durationTokens = standardEntryDurations.every(duration => duration === 200)
+      && standardExitDurations.every(duration => duration === 150);
+    await menuHidden;
+    report.checks.exited = menu.dataset.motionState === 'closed'
+      && !menuSurface.matches(':popover-open')
+      && getComputedStyle(menuSurface).display === 'none'
+      && !menuSurface.hasAttribute('inert');
+    report.checks.lifecycleOrder = menuEvents.join(',') === 'ic-show,ic-after-show,ic-hide,ic-after-hide';
+
+    let interruptedHideCount = 0;
+    menu.addEventListener('ic-after-hide', () => { interruptedHideCount += 1; });
+    menu.show(menuTrigger);
+    await paint();
+    menu.hide('interrupt');
+    const reopened = once(menu, 'ic-after-show');
+    menu.show(menuTrigger);
+    await reopened;
+    await paint();
+    report.checks.interruptible = menu.dataset.motionState === 'open'
+      && menu.hasAttribute('open')
+      && menuSurface.matches(':popover-open')
+      && interruptedHideCount === 0;
+
+    const popover = document.querySelector('#popover');
+    const popoverShown = once(popover, 'ic-after-show');
+    popover.show(document.querySelector('#popover-trigger'));
+    await popoverShown;
+    const popoverSurface = popover.shadowRoot.querySelector('[part="surface"]');
+    const popoverHidden = once(popover, 'ic-after-hide');
+    popover.hide('motion-test');
+    report.checks.popoverFamilyExit = popover.dataset.motionState === 'exiting' && popoverSurface.matches(':popover-open');
+    await popoverHidden;
+    report.checks.popoverFamilyExit &&= popover.dataset.motionState === 'closed' && !popoverSurface.matches(':popover-open');
+
+    const confirm = document.querySelector('#confirm');
+    const confirmShown = once(confirm, 'ic-after-show');
+    confirm.show(document.querySelector('#confirm-trigger'));
+    await confirmShown;
+    const confirmSurface = confirm.shadowRoot.querySelector('[part="surface"]');
+    report.checks.confirmFamilyEntry = confirm.dataset.motionState === 'open'
+      && getComputedStyle(confirmSurface).transitionProperty.includes('opacity');
+    const confirmHidden = once(confirm, 'ic-after-hide');
+    confirm.hide('motion-test');
+    await confirmHidden;
+
+    const tooltip = document.querySelector('#tooltip');
+    const tooltipTrigger = document.querySelector('#tooltip-trigger');
+    const tooltipShown = once(tooltip, 'ic-after-show');
+    tooltip.show(tooltipTrigger);
+    report.checks.tooltipEntry = tooltip.dataset.motionState === 'entering' && tooltip.hasAttribute('open');
+    await tooltipShown;
+    const tooltipSurface = tooltip.shadowRoot.querySelector('[role="tooltip"]');
+    const tooltipHidden = once(tooltip, 'ic-after-hide');
+    tooltip.hide('motion-test');
+    report.checks.tooltipExit = tooltip.dataset.motionState === 'exiting'
+      && tooltipSurface.matches(':popover-open')
+      && !tooltipTrigger.hasAttribute('aria-describedby');
+    await tooltipHidden;
+    report.checks.tooltipExit &&= tooltip.dataset.motionState === 'closed' && !tooltipSurface.matches(':popover-open');
+
+    const mention = document.querySelector('#mention');
+    mention.items = [{ value:'paper-art', label:'立体纸艺', category:'风格模板' }];
+    const mentionEvents = [];
+    ['ic-show', 'ic-after-show', 'ic-hide', 'ic-after-hide'].forEach(type => mention.addEventListener(type, () => mentionEvents.push(type)));
+    const mentionShown = once(mention, 'ic-after-show');
+    mention.show(document.querySelector('#mention-trigger'));
+    const mentionSurface = mention.shadowRoot.querySelector('[part="surface"]');
+    report.checks.mentionEntry = mention.dataset.motionState === 'entering'
+      && mentionSurface.matches(':popover-open')
+      && transitionMilliseconds(mentionSurface).every(duration => duration === 200);
+    await mentionShown;
+    const mentionHidden = once(mention, 'ic-after-hide');
+    mention.hide('motion-test');
+    report.checks.mentionExit = mention.dataset.motionState === 'exiting'
+      && !mention.hasAttribute('open')
+      && mentionSurface.matches(':popover-open')
+      && mentionSurface.hasAttribute('inert')
+      && transitionMilliseconds(mentionSurface).every(duration => duration === 150);
+    await mentionHidden;
+    report.checks.mentionExit &&= mention.dataset.motionState === 'closed'
+      && !mentionSurface.matches(':popover-open')
+      && mentionEvents.join(',') === 'ic-show,ic-after-show,ic-hide,ic-after-hide';
+
+    const generationSettings = document.querySelector('#generation-settings');
+    const generationEvents = [];
+    ['ic-show', 'ic-after-show', 'ic-hide', 'ic-after-hide'].forEach(type => generationSettings.addEventListener(type, () => generationEvents.push(type)));
+    const generationShown = once(generationSettings, 'ic-after-show');
+    generationSettings.show();
+    const generationPanel = generationSettings.shadowRoot.querySelector('[part="panel"]');
+    report.checks.generationSettingsEntry = generationSettings.dataset.motionState === 'entering'
+      && generationPanel.matches(':popover-open')
+      && transitionMilliseconds(generationPanel).every(duration => duration === 200);
+    await generationShown;
+    const generationHidden = once(generationSettings, 'ic-after-hide');
+    generationSettings.hide('motion-test');
+    report.checks.generationSettingsExit = generationSettings.dataset.motionState === 'exiting'
+      && !generationSettings.hasAttribute('open')
+      && generationPanel.matches(':popover-open')
+      && generationPanel.hasAttribute('inert')
+      && transitionMilliseconds(generationPanel).every(duration => duration === 150);
+    await generationHidden;
+    report.checks.generationSettingsExit &&= generationSettings.dataset.motionState === 'closed'
+      && !generationPanel.matches(':popover-open')
+      && generationEvents.join(',') === 'ic-show,ic-after-show,ic-hide,ic-after-hide';
+
+    document.documentElement.dataset.uiMotion = 'reduced';
+    const reducedShown = once(popover, 'ic-after-show');
+    popover.show(document.querySelector('#popover-trigger'));
+    await paint();
+    const reducedDurations = transitionMilliseconds(popoverSurface);
+    await reducedShown;
+    report.checks.reducedMotion = reducedDurations.every(duration => duration <= 1)
+      && getComputedStyle(popoverSurface).transform === 'none';
+    popover.hide('cleanup');
+
+    report.observations = {
+      menuEvents,
+      standardEntryDurations,
+      standardExitDurations,
+      reducedDurations,
+      side: menuSurface.dataset.motionSide,
+      mentionEvents,
+      generationEvents,
+    };
+    document.querySelector('#results').textContent = JSON.stringify(report);
+    document.documentElement.dataset.icOverlayMotionTestStatus = Object.values(report.checks).every(Boolean) ? 'passed' : 'failed';
+  </script>
+</body>
+</html>

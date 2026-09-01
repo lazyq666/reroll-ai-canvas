@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.selection-adjustment",
+  "interfaceVersion": 4,
+  "ticket": "7425068E99C5-11",
+  "uuid": "7d3a59de-7a2e-4697-ab68-c1a2abcd18a7",
+  "dependencyStatus": {
+    "status": "satisfied",
+    "evidence": ["Foundations confirmed", "Text Entry/Form Field live confirmed and migration ready"]
+  },
+  "review": {
+    "contract": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "以下我都同意；Selection/Adjustment 增加 ic-number-input，并由 Selection/Adjustment 建立 Color Field。",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved all five Selection / Adjustment judgments and assigned the 71 number inputs and 2 color inputs to Selection/Adjustment."
+    },
+    "implementation": {
+      "status": "implemented",
+      "implementedOn": "2026-08-09",
+      "evidence": [
+        "/static/js/infinite-canvas-ui/selection-adjustment.js",
+        "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
+        "/tests/infinite_canvas_ui_selection_adjustment_browser_harness.html"
+      ]
+    },
+    "live": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "通过验收",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved the corrected Selection/Adjustment live visual and interaction matrix after selected-state palette, focus treatment, and narrow-container layout fixes."
+    },
+    "migration": {
+      "status": "confirmed"
+    }
+  },
+  "judgments": [
+    "Checkbox represents an independent or multi-select choice whose effect may be committed later.",
+    "Radio is only valid inside a labeled Radio Group and chooses exactly one mutually exclusive option.",
+    "Switch changes an immediately applied setting; it is not a decorative Checkbox skin.",
+    "Select chooses one option from a bounded list; continuous values and command menus use different components.",
+    "Slider adjusts a continuous or stepped range and must expose its value text; it is not used for discrete named options.",
+    "Selection/Adjustment owns ic-number-input for precise numeric entry and ic-color-field for UI color adjustment, as explicitly approved at the first human gate."
+  ],
+  "states": ["default", "hover", "focus-visible", "disabled", "invalid"],
+  "components": [
+    {
+      "tag": "ic-checkbox",
+      "purpose": "Choose one independent boolean or one item in a multi-select set.",
+      "requiredAttributes": ["label"],
+      "optionalAttributes": ["appearance", "icon", "size", "subtitle", "tag"],
+      "semanticDimensions": {"state": ["unchecked", "checked", "indeterminate"], "appearance": ["default", "checkmark-end"], "density": ["small", "medium", "large"]},
+      "checkmarkEndAppearance": "Uses a --ui-palette-gray-50 option surface in light mode and the corresponding gray-800 surface in dark mode, supports optional icon/subtitle/tag content, places a linear checkmark at the inline end, and removes the checkbox box.",
+      "formAssociated": true,
+      "prohibitedUses": ["immediate-setting-toggle", "mutually-exclusive-choice", "unlabeled-control"]
+    },
+    {
+      "tag": "ic-radio-group",
+      "purpose": "Provide one accessible label, value and keyboard scope for mutually exclusive options.",
+      "requiredAttributes": ["label", "name"],
+      "optionalAttributes": ["appearance", "orientation", "size"],
+      "allowedChildren": ["ic-radio"],
+      "semanticDimensions": {"appearance": ["default", "tabs"], "density": ["small", "medium", "large"]},
+      "tabsAppearance": "Horizontal Radio Group variant using the spacing and hover treatment of horizontal-automatic-label Tabs, with a --ui-palette-gray-50 selected surface and corresponding gray-800 dark surface, while retaining radio semantics.",
+      "formAssociated": true,
+      "prohibitedUses": ["multi-select", "independent-boolean"]
+    },
+    {
+      "tag": "ic-radio",
+      "purpose": "Represent one option inside an ic-radio-group.",
+      "requiredAttributes": ["label", "value"],
+      "prohibitedUses": ["standalone-radio", "multi-select", "immediate-setting-toggle"]
+    },
+    {
+      "tag": "ic-switch",
+      "purpose": "Turn an immediately applied setting on or off.",
+      "requiredAttributes": ["label"],
+      "optionalAttributes": ["size"],
+      "semanticDimensions": {"density": ["small", "medium", "large"]},
+      "trackInset": "Horizontal Slider reserves half a Thumb width at both inline edges so the Thumb remains inside the component box at min and max.",
+      "formAssociated": true,
+      "prohibitedUses": ["deferred-submit-choice", "multi-select", "unlabeled-control"]
+    },
+    {
+      "tag": "ic-select",
+      "purpose": "Choose one or more values from a bounded list of named options.",
+      "requiredAttributes": ["name"],
+      "optionalAttributes": ["label", "aria-label", "size", "hierarchy", "multiple", "data-component-variant"],
+      "slots": ["start", "end"],
+      "accessibleName": {"oneOf": ["label", "aria-label"], "visibleLabelPreferredForStandaloneFields": true},
+      "semanticDimensions": {
+        "density": ["small", "medium", "large"],
+        "hierarchy": ["default", "quiet"],
+        "selection": ["single", "multiple"],
+        "variant": ["default", "secondary", "model-picker", "generation-count"]
+      },
+      "secondaryAppearance": "The collapsed control and selected option use --ui-color-action-secondary-selected with no border; selected and unselected text use --ui-color-text-primary.",
+      "quietAppearance": "Pure-text trigger with transparent background, zero border and zero outer padding; the disclosure icon and keyboard focus ring remain visible.",
+      "quietMultipleSummary": "When one or more options are selected, the collapsed trigger displays their visible labels instead of a generic selected-option count.",
+      "quietMenu": "The popup keeps a readable minimum width and renders each option label on one line, truncating labels only when necessary.",
+      "formAssociated": true,
+      "prohibitedUses": ["continuous-adjustment", "command-menu", "free-text-entry"]
+    },
+    {
+      "tag": "ic-slider",
+      "purpose": "Adjust one continuous or stepped numeric value within a bounded range.",
+      "requiredAttributes": ["label", "min", "max", "value"],
+      "optionalAttributes": ["step", "value-text", "disabled", "size"],
+      "semanticDimensions": {"density": ["small", "medium", "large"]},
+      "formAssociated": true,
+      "prohibitedUses": ["discrete-named-options", "unbounded-number", "value-without-accessible-text"]
+    },
+    {
+      "tag": "ic-number-input",
+      "purpose": "Enter or step one precise numeric value, optionally paired with a Slider by a higher-level field pattern.",
+      "requiredAttributes": ["label", "name"],
+      "optionalAttributes": ["min", "max", "step", "value", "disabled", "readonly", "required", "size"],
+      "semanticDimensions": {"density": ["small", "medium", "large"]},
+      "formAssociated": true,
+      "prohibitedUses": ["free-text-entry", "discrete-named-options", "page-local-spinner-contract"]
+    },
+    {
+      "tag": "ic-color-field",
+      "purpose": "Choose and expose one UI color value with a visible swatch and text value.",
+      "requiredAttributes": ["label", "name", "value"],
+      "optionalAttributes": ["disabled", "readonly", "required", "size"],
+      "semanticDimensions": {"density": ["small", "medium", "large"]},
+      "formAssociated": true,
+      "prohibitedUses": ["user-media-palette", "domain-rendering-color", "color-without-text-value"]
+    },
+    {
+      "tag": "ic-aspect-ratio-picker",
+      "purpose": "Choose one or more named project aspect ratios while preserving each ratio's visible shape.",
+      "requiredAttributes": ["name", "label"],
+      "optionalAttributes": ["disabled", "multiple", "presets", "required", "size", "value"],
+      "semanticDimensions": {"selection": ["single", "multiple"], "density": ["small", "medium", "large"]},
+      "multipleEmptySelection": "Multiple mode may contain zero selected ratios and never restores defaults after the user clears the final option. A required owner validates on confirmation and presents the required-choice feedback.",
+      "formAssociated": true,
+      "prohibitedUses": ["pixel-resolution-entry", "unnamed-ratio", "free-text-ratio"]
+    }
+  ],
+  "runtimeContract": {
+    "invalidCombination": {
+      "statusAttribute": "data-ic-contract-status=invalid",
+      "reasonAttribute": "data-ic-contract-reason",
+      "event": "ic-contract-error",
+      "activation": "fail-closed"
+    },
+    "selectOptions": "ic-select accepts native option children plus optional start/end adornments and keeps engine option elements private to its Adapter.",
+    "sizeConvention": "Selection controls expose small, medium and large sizes; medium preserves the previously approved default presentation.",
+    "numericBoundary": "Slider and Number Input accept only finite, ordered and step-aligned min/max/step/value combinations.",
+    "motionOwnership": "The public Selection/Adjustment family owns Checkbox and Radio indicator entry, Switch thumb spring movement, and direct-manipulation press feedback. Selected visuals read live :state(checked) and :state(indeterminate), never static checked or indeterminate attributes that only declare initial defaults. Slider position never transitions so Pointer tracking remains immediate. Disabled and invalid controls do not deform; reduced motion uses central 1ms durations and removes press deformation.",
+    "multipleSelectionBoundary": "An empty multiple Aspect Ratio Picker is a valid user choice unless the owning confirmation flow marks it required; the picker never auto-restores a previous or default selection.",
+    "engineBoundary": "Business and acceptance sources consume only ic-* tags, native option elements and central --ui-* Tokens."
+  },
+  "liveMatrix": {
+    "fixture": "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
+    "caseFixture": "/static/design-system/infinite-canvas-ui/selection-adjustment-case.html",
+    "caseCount": 6,
+    "legalCombinationCount": 42,
+    "themes": ["light", "dark"],
+    "viewports": ["desktop", "narrow"],
+    "locales": ["zh-CN", "en"],
+    "content": ["normal", "long"],
+    "densities": ["small", "medium", "large"],
+    "motion": ["standard", "reduced"],
+    "states": ["default", "hover", "focus-visible", "disabled", "invalid", "checked", "indeterminate"]
+  },
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "directFamilyInstanceCount": 96,
+    "handedOffFromTextEntryCount": 73,
+    "instanceCount": 169,
+    "byLegacyTarget": {
+      "checkbox.checkbox": 6,
+      "radio.radio": 5,
+      "switch.switch": 11,
+      "select.field": 51,
+      "slider.slider": 23,
+      "input.number-field": 71,
+      "input.color-field": 2
+    },
+    "byTarget": {
+      "ic-checkbox": 6,
+      "ic-radio": 5,
+      "ic-switch": 11,
+      "ic-select": 51,
+      "ic-slider": 23,
+      "ic-number-input": 71,
+      "ic-color-field": 2
+    },
+    "rule": "Legacy evidence proves coverage and product demand; it does not define target variants or appearance."
+  }
+}

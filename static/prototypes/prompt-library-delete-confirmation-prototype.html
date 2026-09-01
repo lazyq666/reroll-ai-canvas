@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE — 提示词模板库删除确认</title>
+  <!--
+    PROTOTYPE — throwaway UI, not production code.
+    Four deletion-confirmation variants, switchable with ?variant=A|B|C|D.
+    Run: ./.venv/bin/python -m http.server 9800
+  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/prompt-library-delete-confirmation-prototype.css">
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js"></script>
+</head>
+<body>
+  <main class="prototype-stage">
+    <div class="canvas-context" aria-hidden="true">
+      <span class="brand-mark">IC</span>
+      <strong>Reroll</strong>
+      <span>智能画布 · 角色视觉开发</span>
+    </div>
+
+    <section class="library-modal" role="dialog" aria-modal="true" aria-labelledby="library-title">
+      <header class="library-header">
+        <div>
+          <div class="eyebrow-row">
+            <span class="prototype-badge">交互原型</span>
+            <span id="stateBadge" class="state-badge">当前状态：浏览</span>
+          </div>
+          <h1 id="library-title">提示词模板库</h1>
+          <p id="variantDescription">删除前使用独立确认弹窗，明确对象与影响。</p>
+        </div>
+        <div class="header-actions">
+          <ic-button id="resetButton" type="button" size="s" hierarchy="quiet">恢复演示数据</ic-button>
+          <ic-icon-button class="close-button" type="button" size="s" hierarchy="quiet" icon="close" label="关闭提示词模板库"></ic-icon-button>
+        </div>
+      </header>
+
+      <div class="library-body">
+        <aside class="sidebar" aria-label="提示词分组">
+          <label class="search-field">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            <input type="search" placeholder="搜索提示词">
+          </label>
+          <div class="scope-label"><span>通用提示词</span><small id="totalCount">12</small></div>
+          <button class="group-row selected" type="button"><span class="group-icon">⌘</span><span>全部</span><small>12</small></button>
+          <div id="groupList" class="group-list"></div>
+          <button class="add-group" type="button"><span>＋</span> 新建分组</button>
+          <div class="scope-label canvas-label"><span>当前画布提示词</span><small>2</small></div>
+          <button class="group-row" type="button"><span class="group-icon">◇</span><span>全部</span><small>2</small></button>
+        </aside>
+
+        <section class="content-panel" aria-label="提示词模板">
+          <div class="content-toolbar">
+            <div><strong>全部模板</strong><span>按最近更新排序</span></div>
+            <ic-button type="button" size="s" hierarchy="primary"><ic-icon slot="start" name="add"></ic-icon>新建提示词</ic-button>
+          </div>
+          <div id="templateGrid" class="template-grid"></div>
+        </section>
+      </div>
+
+      <div id="confirmationLayer" class="confirmation-layer" hidden></div>
+      <div id="bottomConfirm" class="bottom-confirm" hidden></div>
+      <div id="undoToast" class="undo-toast" role="status" aria-live="polite" hidden></div>
+    </section>
+  </main>
+
+  <nav class="prototype-switcher" aria-label="删除确认方案切换">
+    <button id="previousVariant" type="button" aria-label="上一个方案">←</button>
+    <div class="switcher-copy">
+      <strong id="variantLabel">A · 独立确认弹窗</strong>
+      <span>点击“人物摄影”右侧的删除图标体验</span>
+    </div>
+    <button id="nextVariant" type="button" aria-label="下一个方案">→</button>
+  </nav>
+
+  <script type="module" src="/static/prototypes/prompt-library-delete-confirmation-prototype.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+(function(){
+    if(!window.StudioI18n) return;
+    window.StudioI18n.register({
+        "workspace.pageTitle": { zh: "项目工作台", en: "Project workspace" },
+        "workspace.projects": { zh: "项目", en: "Projects" },
+        "workspace.newProject": { zh: "新建项目", en: "New project" },
+        "workspace.projectName": { zh: "项目名称", en: "Project name" },
+        "workspace.trash": { zh: "回收站", en: "Trash" },
+        "workspace.defaultProject": { zh: "默认项目", en: "Default" },
+        "workspace.pasteHere": { zh: "粘贴到此项目", en: "Paste into this project" },
+        "workspace.loadMoreCanvases": { zh: "加载更多画布", en: "Load more canvases" },
+        "workspace.loadMore": { zh: "加载更多", en: "Load more" },
+        "workspace.resetView": { zh: "重置视图", en: "Reset view" },
+        "workspace.refresh": { zh: "刷新", en: "Refresh" },
+        "workspace.newCanvas": { zh: "新建画布", en: "New canvas" },
+        "workspace.noCanvases": { zh: "暂无画布", en: "No canvases" },
+        "workspace.createFirst": { zh: "为当前项目创建第一块画布", en: "Create the first canvas in this project" },
+        "workspace.trashRetention": { zh: "回收站中的画布会在 30 天后自动清理。", en: "Canvases in trash are removed automatically after 30 days." },
+        "share.pageTitle": { zh: "画布分享 · Reroll", en: "Shared canvas · Reroll" },
+        "share.canvasShare": { zh: "画布分享", en: "Shared canvas" },
+        "share.readOnly": { zh: "只读", en: "Read-only" },
+        "share.readOnlyCanvas": { zh: "只读画布", en: "Read-only canvas" },
+        "share.loading": { zh: "正在载入画布…", en: "Loading canvas…" },
+        "share.openFailed": { zh: "无法打开此画布", en: "Could not open this canvas" },
+        "share.minimap": { zh: "导航地图", en: "Minimap" },
+        "share.canvas": { zh: "画布", en: "Canvas" },
+        "share.canvasImage": { zh: "画布图片", en: "Canvas image" },
+        "share.canvasVideo": { zh: "画布视频", en: "Canvas video" },
+        "share.canvasAudio": { zh: "画布音频", en: "Canvas audio" },
+        "share.linkExpired": { zh: "分享链接不存在或已失效", en: "This share link does not exist or has expired" },
+        "share.untitled": { zh: "未命名画布", en: "Untitled canvas" }
+    });
+})();

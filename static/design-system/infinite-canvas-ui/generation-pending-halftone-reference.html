@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light" data-ui-motion="standard" data-pending-halftone-reference-status="loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pending 动画实验 B · Reroll UI</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
+    h1, h2, p { margin:0; }
+    .halftone-reference { width:min(100%, 92rem); margin:0 auto; padding:var(--ui-space-5); }
+    .reference-header { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--ui-space-5); margin-block-end:var(--ui-space-5); }
+    .reference-header-copy { display:grid; gap:var(--ui-space-2); max-width:56rem; }
+    .reference-kicker { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); letter-spacing:.08em; text-transform:uppercase; }
+    h1 { font-size:clamp(1.5rem, 3vw, 2.25rem); line-height:1.1; }
+    .reference-description { color:var(--ui-color-text-tertiary); line-height:1.6; }
+    .reference-badge { padding:var(--ui-space-2) var(--ui-space-3); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:999px; color:var(--ui-color-text-tertiary); background:var(--ui-color-surface); font:var(--ui-text-caption); white-space:nowrap; }
+    .reference-layout { display:grid; grid-template-columns:minmax(17rem, 21rem) minmax(0, 1fr); gap:var(--ui-space-4); align-items:start; }
+    .parameter-panel, .preview-panel { min-width:0; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface-floating); box-shadow:var(--ui-shadow-raised); }
+    .parameter-panel { position:sticky; inset-block-start:var(--ui-space-4); display:grid; gap:var(--ui-space-4); padding:var(--ui-space-4); }
+    .panel-heading { display:grid; gap:var(--ui-space-1); }
+    .panel-heading h2 { font-size:var(--ui-font-size-4); }
+    .panel-heading p { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); line-height:1.5; }
+    .parameter-stack { display:grid; gap:var(--ui-space-4); }
+    .parameter-group { display:grid; gap:var(--ui-space-3); padding-block-start:var(--ui-space-3); border-block-start:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .parameter-group:first-child { padding-block-start:0; border-block-start:0; }
+    .parameter-group > strong { font-size:var(--ui-font-size-2); }
+    .token-pair { display:grid; gap:var(--ui-space-1); color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .token-pair code { color:var(--ui-color-text-primary); font-family:var(--ui-font-mono); }
+    .parameter-actions { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .parameter-output { display:grid; gap:var(--ui-space-2); padding:var(--ui-space-3); border-radius:var(--ui-radius-m); color:var(--ui-color-text-tertiary); background:var(--ui-color-surface-subtle); font:var(--ui-text-caption); }
+    .parameter-output code { overflow-wrap:anywhere; color:var(--ui-color-text-primary); font-family:var(--ui-font-mono); line-height:1.55; }
+    .preview-panel { overflow:hidden; }
+    .preview-toolbar { display:flex; align-items:center; justify-content:space-between; gap:var(--ui-space-3); padding:var(--ui-space-3) var(--ui-space-4); border-block-end:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+    .preview-summary { display:flex; flex-wrap:wrap; gap:var(--ui-space-2); }
+    .summary-pill { padding:var(--ui-space-1) var(--ui-space-2); border-radius:999px; color:var(--ui-color-text-tertiary); background:var(--ui-color-surface-subtle); font:var(--ui-text-caption); }
+    .halftone-stage { min-height:36rem; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); align-content:start; gap:var(--ui-space-4); padding:clamp(var(--ui-space-4), 5vw, var(--ui-space-8)); background-color:var(--ui-color-surface-subtle); background-image:radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ui-color-text-tertiary) 20%, transparent) 1px, transparent 0); background-size:22px 22px; }
+    .halftone-stage[data-density="single"] { grid-template-columns:minmax(0, 24rem); justify-content:center; }
+    .halftone-stage[data-density="dense"] { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+    .halftone-stage[data-density="stress"] { grid-template-columns:repeat(6, minmax(0, 1fr)); gap:var(--ui-space-3); }
+    .pending-halftone-node { position:relative; min-width:0; width:100%; height:auto; aspect-ratio:2 / 3; overflow:hidden; contain:strict; isolation:isolate; border:var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-color-border-primary) 72%, transparent); border-radius:var(--ui-radius-l); background:var(--ui-color-surface); box-shadow:var(--ui-shadow-raised); }
+    .halftone-stage[data-density="stress"] .pending-halftone-node { border-radius:var(--ui-radius-m); }
+    .pending-halftone-canvas { position:absolute; inset:0; display:block; inline-size:100%; block-size:100%; color:var(--ui-color-text-disabled); }
+    .pending-sheen { position:absolute; inset:0; z-index:1; background:linear-gradient(to bottom, color-mix(in srgb, white 12%, transparent), transparent 42%, color-mix(in srgb, var(--ui-color-text-primary) 8%, transparent)); pointer-events:none; }
+    @media (max-width:900px) { .reference-layout { grid-template-columns:minmax(0, 1fr); } .parameter-panel { position:static; } }
+    @media (max-width:640px) { .halftone-reference { padding:var(--ui-space-3); } .reference-header { display:grid; } .halftone-stage, .halftone-stage[data-density="single"], .halftone-stage[data-density="dense"], .halftone-stage[data-density="stress"] { grid-template-columns:minmax(0, 1fr); } }
+  </style>
+</head>
+<body>
+  <main class="halftone-reference">
+    <header class="reference-header">
+      <div class="reference-header-copy">
+        <p class="reference-kicker">Reference · Generation Pending</p>
+        <h1>Pending 动画实验 B</h1>
+        <p class="reference-description">基于 Canvas 2D 的 Halftone 有机墨浪。用于调整视觉参数与多实例成本，颜色跟随设计令牌，不改变现有 <code>ic-generation-pending</code> 合同。</p>
+      </div>
+      <span class="reference-badge">参考实现 · 非公共组件</span>
+    </header>
+
+    <div class="reference-layout">
+      <form class="parameter-panel" data-parameter-form>
+        <header class="panel-heading">
+          <h2>Halftone 参数</h2>
+          <p>修改后实时应用并同步到 URL。默认值与正式 Generation Pending 动画一致。</p>
+        </header>
+        <div class="parameter-stack">
+          <section class="parameter-group">
+            <strong>运行</strong>
+            <ic-switch name="playing" label="播放动画" checked data-setting="playing"></ic-switch>
+            <ic-select name="count" label="预览节点数" value="2" data-setting="count"><option value="1">1 个</option><option value="2" selected>2 个</option><option value="6">6 个</option><option value="18">18 个</option></ic-select>
+          </section>
+          <section class="parameter-group">
+            <strong>点阵与运动</strong>
+            <ic-slider name="speed" label="流速" min="0.25" max="4" step="0.05" value="2.3" value-text="2.3×" data-setting="speed"></ic-slider>
+            <ic-slider name="density" label="点阵密度" min="16" max="52" step="1" value="36" value-text="36" data-setting="density"></ic-slider>
+            <ic-slider name="dot" label="圆点大小" min="18" max="56" step="1" value="18" value-text="18%" data-setting="dot"></ic-slider>
+            <ic-slider name="scale" label="场尺度" min="0.5" max="2.5" step="0.05" value="0.5" value-text="0.5×" data-setting="scale"></ic-slider>
+            <ic-slider name="contrast" label="对比度" min="0.5" max="2" step="0.05" value="1.2" value-text="1.2×" data-setting="contrast"></ic-slider>
+          </section>
+          <section class="parameter-group">
+            <strong>主题颜色</strong>
+            <span class="token-pair">背景色 <code>var(--ui-color-surface)</code></span>
+            <span class="token-pair">圆点色 <code>var(--ui-color-text-disabled)</code></span>
+          </section>
+        </div>
+        <div class="parameter-actions">
+          <ic-button type="button" hierarchy="secondary" data-reset-settings>恢复默认</ic-button>
+          <ic-button type="button" hierarchy="quiet" data-copy-settings>复制参数</ic-button>
+        </div>
+        <output class="parameter-output" data-parameter-output aria-live="polite"><span>当前参数</span><code></code></output>
+      </form>
+
+      <section class="preview-panel" aria-label="Pending Halftone 动画实时预览">
+        <header class="preview-toolbar">
+          <div class="preview-summary">
+            <span class="summary-pill">实验 B · Canvas 2D</span>
+            <span class="summary-pill" data-visible-count>2 个实例</span>
+            <span class="summary-pill" data-motion-status>播放中</span>
+          </div>
+          <span class="reference-badge">24 FPS · DPR ≤ 1.5 · 2:3</span>
+        </header>
+        <div class="halftone-stage" data-halftone-stage></div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/generation-pending-halftone-reference.js?v=ic-ui-1a20b8e9d3c4"></script>
+</body>
+</html>

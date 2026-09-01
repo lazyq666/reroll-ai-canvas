@@ -1,0 +1,116 @@
+<!doctype html>
+<!-- Three Canvas 2D halftone Pending Node variants, switchable via ?variant=. THROWAWAY PROTOTYPE. -->
+<html lang="zh-CN" data-ui-theme="light" data-ui-motion="standard">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pending Node Halftone Prototype</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <style>
+    :root { color-scheme:light; }
+    :root[data-ui-theme="dark"] { color-scheme:dark; }
+    * { box-sizing:border-box; }
+    body { min-height:100vh; margin:0; overflow-x:hidden; color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
+    button { font:inherit; }
+    .prototype-shell { min-height:100vh; padding:clamp(1rem, 2.5vw, 2rem); padding-bottom:6rem; }
+    .prototype-header { width:min(100%, 88rem); margin:0 auto var(--ui-space-4); display:flex; align-items:flex-start; justify-content:space-between; gap:var(--ui-space-4); }
+    .prototype-copy { display:grid; gap:var(--ui-space-2); max-width:54rem; }
+    .eyebrow { margin:0; color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); letter-spacing:.08em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(1.45rem, 3vw, 2.4rem); line-height:1.08; }
+    .lede { margin:0; color:var(--ui-color-text-tertiary); line-height:1.6; }
+    .controls { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:var(--ui-space-2); }
+    .control { min-height:2.25rem; padding:.45rem .75rem; border:1px solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); color:var(--ui-color-text-primary); background:var(--ui-color-surface); cursor:pointer; }
+    .control:hover { border-color:var(--ui-color-border-primary); background:var(--ui-color-action-tertiary-hover); }
+    .control:focus-visible, .switcher-button:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); box-shadow:var(--ui-focus-ring-shadow); }
+    .prototype-state { width:min(100%, 88rem); margin:0 auto var(--ui-space-4); display:flex; flex-wrap:wrap; gap:var(--ui-space-2); color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .state-pill { padding:.3rem .55rem; border:1px solid var(--ui-color-border-secondary); border-radius:999px; background:var(--ui-color-surface); }
+    .tuning-panel { width:min(100%, 88rem); margin:0 auto var(--ui-space-4); padding:var(--ui-space-3); border:1px solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface); box-shadow:var(--ui-shadow-raised); }
+    .tuning-header { display:flex; align-items:center; justify-content:space-between; gap:var(--ui-space-3); margin-bottom:var(--ui-space-3); }
+    .tuning-header h2 { margin:0; font:var(--ui-text-label); font-weight:var(--ui-font-weight-bold); }
+    .tuning-reset { padding:.35rem .6rem; border:1px solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); color:var(--ui-color-text-primary); background:var(--ui-color-surface-subtle); cursor:pointer; }
+    .tuning-reset:hover { border-color:var(--ui-color-border-primary); }
+    .tuning-grid { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:var(--ui-space-3); }
+    .tuning-control { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.35rem var(--ui-space-2); color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .tuning-control output { color:var(--ui-color-text-primary); font-weight:var(--ui-font-weight-bold); font-variant-numeric:tabular-nums; }
+    .tuning-control input { grid-column:1 / -1; width:100%; accent-color:var(--ui-color-action-primary); cursor:pointer; }
+    .color-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:var(--ui-space-3); margin-top:var(--ui-space-3); padding-top:var(--ui-space-3); border-top:1px solid var(--ui-color-border-secondary); }
+    .color-control { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:var(--ui-space-2); color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+    .color-control output { color:var(--ui-color-text-primary); font-weight:var(--ui-font-weight-bold); font-family:var(--ui-font-mono); text-transform:uppercase; }
+    .color-control input { grid-column:1 / -1; width:100%; height:2.25rem; padding:2px; border:1px solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); background:var(--ui-color-surface-subtle); cursor:pointer; }
+    .canvas-stage { position:relative; width:min(100%, 88rem); min-height:clamp(34rem, 68vh, 52rem); margin:0 auto; overflow:hidden; border:1px solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background-color:var(--ui-color-surface-subtle); background-image:radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ui-color-text-tertiary) 24%, transparent) 1px, transparent 0); background-size:22px 22px; box-shadow:var(--ui-shadow-raised); }
+    .canvas-stage::after { content:"PROTOTYPE · NOT PRODUCTION"; position:absolute; inset-inline-end:var(--ui-space-3); inset-block-start:var(--ui-space-3); z-index:5; color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); font-weight:var(--ui-font-weight-bold); letter-spacing:.06em; pointer-events:none; }
+    .canvas-content { position:relative; z-index:1; min-height:inherit; padding:clamp(3.5rem, 7vw, 7rem) clamp(1rem, 5vw, 5rem); display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); align-content:center; gap:clamp(.75rem, 2vw, 1.5rem); }
+    .canvas-content[data-count="6"] { grid-template-columns:repeat(3, minmax(0, 1fr)); align-content:start; }
+    .canvas-content[data-count="18"] { grid-template-columns:repeat(6, minmax(0, 1fr)); align-content:start; }
+    .pending-node { position:relative; min-width:0; width:100%; height:auto; aspect-ratio:2 / 3; overflow:hidden; border:1px solid color-mix(in srgb, var(--ui-color-border-primary) 76%, transparent); border-radius:var(--ui-radius-l); background:var(--ui-color-surface); box-shadow:var(--ui-shadow-raised); contain:strict; isolation:isolate; }
+    .canvas-content[data-count="18"] .pending-node { border-radius:var(--ui-radius-m); }
+    .pending-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+    .pending-sheen { position:absolute; inset:0; z-index:1; background:linear-gradient(to bottom, rgba(255,255,255,.12), transparent 42%, rgba(0,0,0,.08)); pointer-events:none; }
+    .prototype-switcher { position:fixed; inset-inline-start:50%; inset-block-end:1.25rem; z-index:20; display:grid; grid-template-columns:2.5rem minmax(12rem, auto) 2.5rem; align-items:center; gap:.35rem; padding:.4rem; border:1px solid rgba(255,255,255,.18); border-radius:999px; color:#fff; background:rgba(20,24,35,.92); box-shadow:0 16px 44px rgba(0,0,0,.28); transform:translateX(-50%); backdrop-filter:blur(14px); }
+    .switcher-button { width:2.5rem; height:2.5rem; border:0; border-radius:50%; color:inherit; background:transparent; cursor:pointer; }
+    .switcher-button:hover { background:rgba(255,255,255,.12); }
+    .switcher-label { min-width:0; padding-inline:.35rem; font-size:.84rem; font-weight:700; text-align:center; white-space:nowrap; }
+    @media (max-width:720px) {
+      .prototype-header { display:grid; }
+      .controls { justify-content:flex-start; }
+      .tuning-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .color-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .canvas-content, .canvas-content[data-count="6"], .canvas-content[data-count="18"] { grid-template-columns:minmax(0, 1fr); }
+      .prototype-switcher { grid-template-columns:2.5rem minmax(9.5rem, auto) 2.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="prototype-shell">
+    <header class="prototype-header">
+      <div class="prototype-copy">
+        <p class="eyebrow">Throwaway prototype · Canvas 2D · Shared scheduler</p>
+        <h1 id="variant-title">A · 有机墨浪</h1>
+        <p class="lede" id="variant-description">黑白点阵由低成本亮度场驱动，强调计算中的流动感；这是当前推荐方向。</p>
+      </div>
+      <div class="controls" aria-label="原型控制">
+        <button class="control" id="theme-toggle" type="button">切换深色</button>
+        <button class="control" id="motion-toggle" type="button">暂停动态</button>
+        <button class="control" id="count-toggle" type="button">节点数：2</button>
+      </div>
+    </header>
+    <div class="prototype-state" aria-live="polite">
+      <span class="state-pill" id="variant-state">Variant A · 推荐</span>
+      <span class="state-pill" id="active-state">可见动画：2</span>
+      <span class="state-pill">共享调度：24 FPS</span>
+      <span class="state-pill">DPR 上限：1.5</span>
+      <span class="state-pill">预览比例：2:3</span>
+      <span class="state-pill" id="render-state">渲染：运行中</span>
+    </div>
+    <section class="tuning-panel" aria-labelledby="tuning-title">
+      <div class="tuning-header">
+        <h2 id="tuning-title">Halftone 参数</h2>
+        <button class="tuning-reset" id="tuning-reset" type="button">恢复默认值</button>
+      </div>
+      <div class="tuning-grid">
+        <label class="tuning-control"><span>流速</span><output id="speed-output" for="speed-input">2×</output><input id="speed-input" data-setting="speed" type="range" min="0.25" max="4" step="0.05" value="2"></label>
+        <label class="tuning-control"><span>点阵密度</span><output id="density-output" for="density-input">24</output><input id="density-input" data-setting="density" type="range" min="16" max="52" step="1" value="24"></label>
+        <label class="tuning-control"><span>圆点大小</span><output id="dot-output" for="dot-input">44%</output><input id="dot-input" data-setting="dot" type="range" min="0.18" max="0.56" step="0.01" value="0.44"></label>
+        <label class="tuning-control"><span>场尺度</span><output id="scale-output" for="scale-input">0.5×</output><input id="scale-input" data-setting="scale" type="range" min="0.5" max="2.5" step="0.05" value="0.5"></label>
+        <label class="tuning-control"><span>对比度</span><output id="contrast-output" for="contrast-input">1.4×</output><input id="contrast-input" data-setting="contrast" type="range" min="0.5" max="2" step="0.05" value="1.4"></label>
+      </div>
+      <div class="color-grid" aria-label="主题配色">
+        <label class="color-control"><span>浅色背景</span><output id="light-bg-output" for="light-bg-input">#F2F0E9</output><input id="light-bg-input" data-color-setting="lightBg" type="color" value="#f2f0e9"></label>
+        <label class="color-control"><span>浅色圆点</span><output id="light-dot-output" for="light-dot-input">#1C1C1B</output><input id="light-dot-input" data-color-setting="lightDot" type="color" value="#1c1c1b"></label>
+        <label class="color-control"><span>深色背景</span><output id="dark-bg-output" for="dark-bg-input">#151515</output><input id="dark-bg-input" data-color-setting="darkBg" type="color" value="#151515"></label>
+        <label class="color-control"><span>深色圆点</span><output id="dark-dot-output" for="dark-dot-input">#EEEEEA</output><input id="dark-dot-input" data-color-setting="darkDot" type="color" value="#eeeeea"></label>
+      </div>
+    </section>
+    <section class="canvas-stage" aria-label="Pending Node 半色调动画原型画布">
+      <div class="canvas-content" id="canvas-content" data-count="2"></div>
+    </section>
+  </main>
+  <nav class="prototype-switcher" aria-label="原型方案切换">
+    <button class="switcher-button" id="previous-variant" type="button" aria-label="上一个方案">←</button>
+    <span class="switcher-label" id="switcher-label">A · 有机墨浪（推荐）</span>
+    <button class="switcher-button" id="next-variant" type="button" aria-label="下一个方案">→</button>
+  </nav>
+  <script type="module" src="/static/js/infinite-canvas-ui/generation-pending-halftone-prototype.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="account" data-studio-scale="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+  <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+  <title data-i18n="auth.accountsPageTitle">账号管理 · Reroll</title>
+  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/account-avatar.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/account-management.css?v=2026.09.01.2.1788146221">
+</head>
+<body>
+  <main class="account-page">
+    <header class="page-header">
+      <div>
+        <h1 data-i18n="auth.accountManagement">账号管理</h1>
+        <p class="subtitle" data-i18n="auth.accountManagementSubtitle">审核新账号、设置项目权限、重置密码或移除账号。</p>
+      </div>
+      <div class="capacity" aria-label="账号容量" data-i18n-aria-label="auth.accountCapacity" aria-live="polite">
+        <strong id="capacity-value">—</strong>
+        <span data-i18n="auth.accountCapacity">账号容量</span>
+      </div>
+    </header>
+
+    <ic-alert id="page-message" tone="neutral" hidden></ic-alert>
+
+    <ic-card class="account-section" label="账号申请" data-i18n-label="auth.applications">
+      <section aria-labelledby="applications-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="applications-title" data-i18n="auth.applications">账号申请</h2>
+            <p data-i18n="auth.applicationHint">批准后将创建一个设计师账号。</p>
+          </div>
+          <ic-badge id="pending-count" kind="count" tone="neutral">0</ic-badge>
+        </div>
+        <div id="account-applications" class="application-list" aria-live="polite"></div>
+      </section>
+    </ic-card>
+
+    <ic-card class="account-section" label="所有账号" data-i18n-label="auth.allAccounts">
+      <section aria-labelledby="users-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="users-title" data-i18n="auth.allAccounts">所有账号</h2>
+            <p data-i18n="auth.passwordHint">随机密码只在重置完成后显示一次。</p>
+          </div>
+          <ic-icon-button id="refresh-accounts" type="button" hierarchy="quiet" icon="refresh" label="刷新" data-i18n-label="auth.refresh"></ic-icon-button>
+        </div>
+        <ic-table label="所有账号" data-i18n-label="auth.allAccounts" row-selection="none">
+          <table>
+            <caption class="visually-hidden" data-i18n="auth.allAccounts">所有账号</caption>
+            <thead><tr><th data-i18n="auth.loginAccount">登录账号</th><th data-i18n="auth.displayName">显示名称</th><th data-i18n="auth.role">角色</th><th data-i18n="auth.projectPermissions">项目权限</th><th data-i18n="auth.status">状态</th><th class="actions-heading" data-i18n="auth.actions">操作</th></tr></thead>
+            <tbody id="account-users"></tbody>
+          </table>
+        </ic-table>
+      </section>
+    </ic-card>
+  </main>
+
+  <ic-dialog id="temporary-password-dialog" label="临时密码已生成" data-i18n-label="auth.temporaryPasswordGenerated" size="small" dismiss-policy="explicit">
+    <div class="dialog-content">
+      <p class="eyebrow" data-i18n="auth.passwordResetEyebrow">密码重置</p>
+      <h2 data-i18n="auth.temporaryPasswordGenerated">临时密码已生成</h2>
+      <p class="dialog-copy"><span data-i18n="auth.copyPasswordHint">请立即复制并发送给</span> <strong id="password-account" data-i18n="auth.thisAccount">该账号</strong><span data-i18n="auth.passwordOneTime">。关闭后将无法再次查看。</span></p>
+      <div class="password-row">
+        <ic-input id="temporary-password" name="temporary_password" readonly label="临时密码" data-i18n-label="auth.temporaryPassword"></ic-input>
+        <ic-button id="copy-password" type="button" hierarchy="secondary" data-i18n="auth.copy">复制</ic-button>
+      </div>
+    </div>
+    <ic-button id="close-password-dialog" slot="footer" type="button" hierarchy="primary" data-i18n="auth.saved">我已保存</ic-button>
+  </ic-dialog>
+
+  <ic-confirmation-dialog
+    id="account-confirmation-dialog"
+    label="确认账号操作"
+    data-i18n-label="auth.confirmAccountAction"
+    description="确认执行此账号操作。"
+    data-i18n-description="auth.confirmAccountActionDescription"
+    cancel-label="取消"
+    data-i18n-cancel-label="common.cancel"
+    confirm-label="确定"
+    data-i18n-confirm-label="common.confirm"
+    consequence="neutral"
+  >
+    <p id="account-confirmation-copy" data-i18n="auth.confirmAccountActionDescription">确认执行此账号操作。</p>
+  </ic-confirmation-dialog>
+
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script src="/static/js/account-avatar.js?v=2026.09.01.2.1788146221" defer></script>
+  <script src="/static/js/account-management.js?v=2026.09.01.2.1788146221" defer></script>
+</body>
+</html>

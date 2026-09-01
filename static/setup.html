@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="auth" data-studio-scale="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/static/js/page-zoom-guard.js?v=2026.09.01.2.1785723322"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+  <script src="/static/js/theme.js?v=2026.09.01.2.1786933744"></script>
+  <title data-i18n="auth.setupPageTitle">首次设置 · Reroll</title>
+  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.2.1788146221">
+  <link rel="stylesheet" href="/static/css/account-login.css?v=2026.09.01.2.1787561133">
+  <link rel="stylesheet" href="/static/css/account-setup.css?v=2026.09.01.2.1787886993">
+</head>
+<body>
+  <main class="login-shell">
+    <ic-card class="login-card setup-card" label="本地工作区设置">
+      <div class="login-card-content">
+        <div class="brand-lockup">
+          <img class="brand-mark" src="/static/images/logo.png" alt="Reroll">
+          <div><strong>Reroll</strong><span data-i18n="auth.firstRun">首次运行</span></div>
+        </div>
+        <p class="eyebrow" data-i18n="auth.localWorkspaceSetup">本地工作区设置</p>
+        <h1 id="setup-title" data-i18n="auth.chooseWorkspace">选择工作区目录</h1>
+        <p id="setup-subtitle" class="subtitle" data-i18n="auth.workspaceSubtitle">工作区只保存画布、素材与生成内容；账号由当前 Reroll 安装统一管理。</p>
+        <ic-alert id="workspace-status" tone="warning" hidden>上次使用的工作区暂时不可用</ic-alert>
+
+        <section id="workspace-selection-step" class="setup-step" aria-labelledby="setup-title">
+          <div class="directory-row">
+            <ic-form-field id="workspace-directory-field" label="工作区目录" hint="检查只会读取目录状态，不会创建、移动或修改任何内容。" required>
+              <ic-input id="workspace-directory" name="workspace_directory" autocomplete="off" placeholder="/Users/you/Documents/Reroll" autofocus></ic-input>
+            </ic-form-field>
+            <ic-button id="choose-workspace-directory" type="button" hierarchy="secondary" data-i18n="auth.choose">选择…</ic-button>
+          </div>
+          <ic-alert id="directory-error" tone="danger" hidden>工作区目录不可用</ic-alert>
+          <ic-alert id="workspace-inspection-result" tone="info" hidden>工作区检查完成</ic-alert>
+          <div id="existing-workspace-actions" class="setup-actions" hidden>
+            <ic-button id="open-existing-workspace" type="button" hierarchy="secondary" data-i18n="auth.openExistingWorkspace">打开已有工作区</ic-button>
+          </div>
+          <ic-button id="inspect-workspace" type="button" hierarchy="primary" data-i18n="auth.continue">继续</ic-button>
+        </section>
+
+        <form id="initial-setup-form" hidden class="auth-form">
+          <ic-alert id="selected-workspace" tone="neutral" hidden>已选择工作区</ic-alert>
+          <ic-form-field id="setup-username-field" label="登录账号" hint="3-32 位英文字母、数字或 _.-" required>
+            <ic-input id="setup-username" name="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9_.-]{2,31}" autocomplete="username" autofocus></ic-input>
+          </ic-form-field>
+          <ic-form-field id="setup-display-name-field" label="显示名称 · 可选">
+            <ic-input id="setup-display-name" name="display_name" maxlength="120" autocomplete="name"></ic-input>
+          </ic-form-field>
+          <ic-form-field id="setup-password-field" label="密码" required>
+            <ic-input id="setup-password" name="password" type="password" minlength="8" autocomplete="new-password"></ic-input>
+          </ic-form-field>
+          <ic-form-field id="setup-password-confirm-field" label="确认密码" required>
+            <ic-input id="setup-password-confirm" name="password_confirm" type="password" minlength="8" autocomplete="new-password"></ic-input>
+          </ic-form-field>
+          <ic-alert id="setup-error" tone="danger" hidden>初始化设置失败</ic-alert>
+          <ic-alert id="setup-complete" tone="success" hidden>初始化设置已保存</ic-alert>
+          <div class="setup-actions">
+            <ic-button id="workspace-back" type="button" hierarchy="secondary" data-i18n="auth.backToWorkspace">返回选择工作区</ic-button>
+            <ic-button id="complete-initial-setup" type="submit" hierarchy="primary" data-i18n="auth.completeSetup">创建管理员并完成设置</ic-button>
+          </div>
+        </form>
+      </div>
+    </ic-card>
+  </main>
+
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script src="/static/js/account-setup.js?v=2026.09.01.2.1788146221" defer></script>
+</body>
+</html>

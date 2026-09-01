@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "id": "infinite-canvas-ui.dialog",
+  "interfaceVersion": 4,
+  "ticket": "7425068E99C5-13",
+  "uuid": "5fe6fff0-b7fa-40c4-ad1c-59bd42cd2261",
+  "module": {
+    "layer": "pattern",
+    "publicSeam": "ic-dialog and ic-confirmation-dialog custom elements, native Dialog/ARIA behavior, the compact and immersive presentation variants, --ic-dialog-compact-inline-size / --ic-dialog-backdrop-color / --ic-dialog-backdrop-filter appearance hooks, and central --ui-* Tokens",
+    "adapter": "Vendor elements, events, focus trapping and --wa-* variables remain replaceable inside the implementation.",
+    "responsibility": "Own modal task structure, constrained sizing, action layout, dismissal, focus entry/containment/return and accessible naming so callers do not coordinate those behaviors."
+  },
+  "dependencyStatus": {
+    "status": "satisfied",
+    "evidence": [
+      "Foundations confirmed",
+      "Actions contract, implementation, live and migration confirmed",
+      "Text Entry / Form Field contract, implementation, live and migration confirmed"
+    ]
+  },
+  "review": {
+    "contract": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "通过",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved the ten Dialog judgments and the deterministic 32-instance Legacy mapping after reviewing the complete rules in conversation."
+    },
+    "implementation": {
+      "status": "implemented",
+      "implementedOn": "2026-08-09",
+      "evidence": [
+        "/static/js/infinite-canvas-ui/dialog.js",
+        "/static/design-system/infinite-canvas-ui/dialog.html",
+        "/tests/infinite_canvas_ui_dialog_browser_harness.html"
+      ]
+    },
+    "live": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "note": "通过",
+      "confirmedOn": "2026-08-09",
+      "evidence": "User explicitly approved the Dialog live visual and interaction matrix after reviewing the live pages and six representative captures."
+    },
+    "migration": {
+      "status": "confirmed"
+    },
+    "sizeMigration": {
+      "status": "confirmed",
+      "reviewer": "User (Codex task)",
+      "confirmedOn": "2026-08-17",
+      "note": "The approved wide trial becomes Large; the former viewport-sized Large becomes X-Large."
+    }
+  },
+  "judgments": [
+    "Dialog is a modal interruption for one bounded task or focused inspection that cannot remain safely in the underlying flow; ordinary disclosure, Tooltip, Popover, Menu and page navigation are not Dialogs.",
+    "Confirmation Dialog is a narrow specialization for one consequential commit; it does not host forms, previews, multi-step work or general information.",
+    "Size describes content capacity rather than importance: small for a short decision, medium for a standard form or focused task, large for a spacious media or split-pane task, and x-large for a viewport-sized, high-density modal workspace.",
+    "Every Dialog has one accessible title, one body region and an optional footer action row; a visually hidden title is allowed only when visible media or domain content already supplies the visual heading.",
+    "Ordinary Dialogs expose zero or one primary action and optional secondary/quiet actions; Confirmation Dialogs expose exactly Cancel and Confirm, with destructive tone only when the consequence is destructive.",
+    "Explicit dismissal is the default and the only policy for forms, unsaved state and all Confirmation Dialogs; light dismissal is reserved for read-only, lossless inspection.",
+    "Focus enters deterministically, remains contained while modal, closes on Escape unless a non-interruptible commit is in progress, and returns to the invoker when possible.",
+    "Nested Dialogs are prohibited; a task that needs another modal step must replace or sequence the current Dialog.",
+    "Immersive editing Dialogs may customize the modal backdrop only through --ic-dialog-backdrop-color and --ic-dialog-backdrop-filter; callers must not consume Vendor backdrop variables directly.",
+    "Immersive presentation is reserved for x-large, explicitly dismissed editing workspaces; its viewport sizing remains owned by ic-dialog and Confirmation Dialogs cannot use it.",
+    "Compact Modal presentation reuses the small Dialog shell at a 32rem preferred width with restrained header, body and footer spacing; it is a reusable task composition, not a fifth Dialog size.",
+    "A subtitle title structure is supplied through slot=label so the Dialog-owned native h2 remains the only heading level-two element; callers never nest another h2 inside the label.",
+    "The medium-explicit-task footer pattern names action density and order rather than Dialog width: a visible secondary text action precedes one visible primary text action, with no decorative arrow.",
+    "Dialog and Confirmation Dialog share one interruptible modal motion lifecycle; callers own task meaning and content, not duplicated surface or Backdrop animation."
+  ],
+  "sizes": {
+    "small": {
+      "purpose": "Short decision, compact message or narrow single-purpose task.",
+      "inlineSizeToken": "--ui-dialog-size-small",
+      "recommendedMaximum": "448px"
+    },
+    "medium": {
+      "purpose": "Default form, settings or focused task.",
+      "inlineSizeToken": "--ui-dialog-size-medium",
+      "recommendedMaximum": "720px"
+    },
+    "large": {
+      "purpose": "Spacious media, split-pane inspection or editing without becoming a viewport-sized workspace.",
+      "inlineSizeToken": "--ui-dialog-size-large",
+      "blockSizeToken": "--ui-dialog-block-size-large",
+      "inlineSize": "min(72rem, calc(100dvw - 2rem))",
+      "blockSize": "min(48rem, calc(100dvh - 6rem))",
+      "recommendedMaximum": "1152px"
+    },
+    "x-large": {
+      "purpose": "High-density libraries, inspection or editing presented as one viewport-sized modal workspace.",
+      "inlineSizeToken": "--ui-dialog-size-x-large",
+      "blockSizeToken": "--ui-dialog-block-size-x-large",
+      "inlineSize": "90vw",
+      "blockSize": "92vh",
+      "recommendedMaximum": null
+    },
+    "narrowViewport": "Small, medium and large fit the viewport with central spacing Tokens. X-Large occupies 90% of the viewport width and 92% of the viewport height; body content scrolls before header or footer actions leave view."
+  },
+  "contentStructure": {
+    "order": ["header", "body", "footer"],
+    "header": ["accessible title", "optional description", "optional close action when dismissal is available"],
+    "body": "Owns task content and the only vertical scroll region.",
+    "footer": "Optional for ic-dialog; required for ic-confirmation-dialog.",
+    "labelStructures": [
+      {"id": "plain-label", "slot": "label attribute or slot=label plain text"},
+      {"id": "h2-with-subtitle", "slot": "slot=label", "titleOwner": "Dialog native h2", "markupRule": "Use non-heading descendants for title and subtitle; nested h2 is prohibited."}
+    ],
+    "footerPatterns": [
+      {"id": "medium-explicit-task", "order": ["secondary", "primary"], "content": "visible text labels", "maximumPrimary": 1, "prohibited": ["arrow icon", "primary before secondary"], "sizeIndependent": true}
+    ],
+    "prohibited": ["nested dialog", "multiple independent tasks", "page navigation shell", "unlabeled modal surface", "nested h2 in slot=label"]
+  },
+  "dismissal": {
+    "explicit": {
+      "default": true,
+      "allowedTriggers": ["close action", "cancel action", "completed primary action", "Escape"],
+      "backdropActivation": "does not close"
+    },
+    "light": {
+      "default": false,
+      "allowedTriggers": ["close action", "Escape", "backdrop activation"],
+      "allowedWhen": ["read-only", "lossless", "no required decision", "no unsaved input"],
+      "prohibitedFor": ["ic-confirmation-dialog", "form", "unsaved state", "destructive consequence"]
+    },
+    "cancelableBeforeEvents": ["ic-show", "ic-hide"],
+    "settledEvents": ["ic-after-show", "ic-after-hide"],
+    "hideEventDetail": {"reason": ["close", "cancel", "confirm", "escape", "backdrop", "programmatic"]}
+  },
+  "motion": {
+    "stateModel": ["closed", "entering", "open", "exiting"],
+    "entry": "Fade and move the standard surface from one --ui-space-2 step below while scaling from .96 to 1, using --ui-motion-duration-release and --ui-motion-ease-fluid. Fade the Backdrop in with --ui-motion-duration-normal and --ui-motion-ease-standard, transitioning its filter from no blur to the default 2px blur.",
+    "exit": "Reverse the surface and Backdrop relationship with --ui-motion-duration-fast and --ui-motion-ease-press. Keep the native Dialog open until the visual exit settles, then close it, return focus and emit ic-after-hide.",
+    "interruption": "Reopening during exit cancels stale close completion and re-enters the same modal task without emitting an obsolete ic-after-hide event.",
+    "immersive": "Immersive Dialogs retain fade and Backdrop continuity but remove surface translation and scale.",
+    "reducedMotion": "prefers-reduced-motion and data-ui-motion=reduced keep the state lifecycle but remove translation and scale and reduce durations to 1ms through central Tokens."
+  },
+  "focusManagement": {
+    "initialFocusOrder": [
+      "explicit initial-focus target",
+      "first invalid field",
+      "first task control",
+      "Dialog surface as a programmatic focus fallback"
+    ],
+    "confirmationInitialFocus": "Cancel receives initial focus by default; an explicit non-destructive Confirm may opt in to initial focus.",
+    "containment": "Tab and Shift+Tab cycle within the topmost open Dialog.",
+    "returnFocus": "return to the invoking element when it remains connected and focusable",
+    "fallbackReturn": "otherwise focus the nearest connected focusable ancestor, then the document's main landmark",
+    "focusVisible": "Keyboard focus uses the confirmed central --ui-* Focus interface; pointer focus does not fabricate a visible ring."
+  },
+  "components": [
+    {
+      "tag": "ic-dialog",
+      "purpose": "Present one labeled modal task or focused inspection with project-owned structure, dismissal and focus management.",
+      "useWhen": ["The underlying flow must be temporarily unavailable.", "The content is one bounded task, form or focused inspection."],
+      "prohibitedUses": ["confirmation-only decision", "tooltip", "popover", "menu", "navigation destination", "non-modal side panel", "nested dialog"],
+      "requiredAttributes": ["label"],
+      "attributes": ["label", "open", "size", "variant", "dismiss-policy", "without-visible-header", "immersive"],
+      "methods": ["show", "hide", "focus"],
+      "events": ["ic-show", "ic-after-show", "ic-hide", "ic-after-hide", "ic-contract-error"],
+      "slots": ["label", "default", "description", "header-actions", "footer"],
+      "semanticDimensions": {
+        "size": ["small", "medium", "large", "x-large"],
+        "dismissPolicy": ["explicit", "light"],
+        "header": ["visible", "visually-hidden"],
+        "actions": ["none", "one-primary", "secondary-and-primary", "secondary-only"],
+        "presentation": ["standard", "compact", "immersive"]
+      },
+      "legalCombinations": [
+        {"id": "small-explicit-task", "size": "small", "dismissPolicy": "explicit", "actions": ["none", "one-primary", "secondary-and-primary", "secondary-only"]},
+        {"id": "small-light-inspection", "size": "small", "dismissPolicy": "light", "actions": ["none", "secondary-only"]},
+        {"id": "small-compact-explicit-task", "size": "small", "variant": "compact", "dismissPolicy": "explicit", "actions": ["one-primary", "secondary-and-primary", "secondary-only"], "footerPattern": "medium-explicit-task"},
+        {"id": "small-compact-light-inspection", "size": "small", "variant": "compact", "dismissPolicy": "light", "actions": ["none", "secondary-only"]},
+        {"id": "medium-explicit-task", "size": "medium", "dismissPolicy": "explicit", "actions": ["none", "one-primary", "secondary-and-primary", "secondary-only"]},
+        {"id": "medium-light-inspection", "size": "medium", "dismissPolicy": "light", "actions": ["none", "secondary-only"]},
+        {"id": "large-explicit-task", "size": "large", "dismissPolicy": "explicit", "actions": ["none", "one-primary", "secondary-and-primary", "secondary-only"]},
+        {"id": "large-light-inspection", "size": "large", "dismissPolicy": "light", "actions": ["none", "secondary-only"]},
+        {"id": "x-large-explicit-task", "size": "x-large", "dismissPolicy": "explicit", "actions": ["none", "one-primary", "secondary-and-primary", "secondary-only"]},
+        {"id": "x-large-light-inspection", "size": "x-large", "dismissPolicy": "light", "actions": ["none", "secondary-only"]}
+      ],
+      "invariants": ["At most one primary action.", "Header and footer remain visible while an overflowing body scrolls.", "without-visible-header preserves the accessible label.", "compact requires size=small and defaults to a 32rem preferred inline size.", "immersive requires size=x-large and dismiss-policy=explicit.", "Invalid combinations fail closed and emit ic-contract-error."]
+    },
+    {
+      "tag": "ic-confirmation-dialog",
+      "purpose": "Require an explicit Cancel or Confirm choice immediately before one consequential action commits.",
+      "useWhen": ["The consequence is costly, difficult to reverse or destructive.", "The user still has a meaningful opportunity to cancel."],
+      "prohibitedUses": ["informational acknowledgement", "form", "multi-step task", "preview", "loading wait", "nested dialog", "light dismissal"],
+      "requiredAttributes": ["label", "confirm-label", "cancel-label", "consequence"],
+      "attributes": ["label", "description", "confirm-label", "cancel-label", "consequence", "open", "confirm-loading"],
+      "methods": ["show", "hide", "focus"],
+      "events": ["ic-show", "ic-after-show", "ic-cancel", "ic-confirm", "ic-hide", "ic-after-hide", "ic-contract-error"],
+      "semanticDimensions": {
+        "consequence": ["neutral", "destructive"],
+        "size": ["small"],
+        "dismissPolicy": ["explicit"]
+      },
+      "legalCombinations": [
+        {"id": "neutral-confirmation", "consequence": "neutral", "confirmTone": "neutral"},
+        {"id": "destructive-confirmation", "consequence": "destructive", "confirmTone": "danger"}
+      ],
+      "actionLayout": {
+        "order": ["cancel", "confirm"],
+        "maximumActions": 2,
+        "narrowViewport": "stack only when translated labels cannot fit without truncation; Confirm remains last in DOM and visual order"
+      },
+      "invariants": ["Cancel and Confirm are always visibly labeled.", "Backdrop activation never closes the Dialog.", "Escape is equivalent to Cancel unless confirm-loading is active.", "confirm-loading prevents duplicate commit and dismissal until the current commit settles."]
+    }
+  ],
+  "runtimeContract": {
+    "invalidCombination": {
+      "statusAttribute": "data-ic-contract-status=invalid",
+      "reasonAttribute": "data-ic-contract-reason",
+      "event": "ic-contract-error",
+      "activation": "fail-closed"
+    },
+    "engineBoundary": "Business and acceptance sources consume only ic-* tags, native platform/ARIA behavior and central --ui-* Tokens.",
+    "tracerCompatibility": "The initial tracer label, open, light-dismiss, without-header, show/hide events and focus entry/return evidence remain technical feasibility only; the Dialog interface supersedes tracer naming where this contract differs."
+  },
+  "liveMatrix": {
+    "fixture": "/static/design-system/infinite-canvas-ui/dialog.html",
+    "caseFixture": "/static/design-system/infinite-canvas-ui/dialog-case.html",
+    "caseCount": 6,
+    "legalCombinationCount": 12,
+    "themes": ["light", "dark"],
+    "viewports": ["desktop", "narrow"],
+    "locales": ["zh-CN", "en"],
+    "content": ["normal", "long"],
+    "motion": ["standard", "reduced"],
+    "states": ["closed", "opening", "open", "closing", "confirm-loading", "invalid"],
+    "interaction": ["keyboard", "focus-visible", "escape", "backdrop", "focus-return", "aria", "contrast"]
+  },
+  "legacyCoverage": {
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "baselineRevision": "sha256:1f0a5588a0a90e7f6ab77cda9eeab14509570c2b53904176247fced1a415b507",
+    "sourceReviewStatus": "pending-human-confirmation",
+    "instanceCount": 32,
+    "byLegacyTarget": {
+      "dialog.modal-surface": 27,
+      "confirmation-dialog.destructive-confirmation": 4,
+      "confirmation-dialog.modal-surface": 1
+    },
+    "byTarget": {
+      "ic-dialog": 27,
+      "ic-confirmation-dialog": 5
+    },
+    "rule": "Legacy evidence proves coverage and product demand; it does not define target sizes, structure, dismissal or appearance."
+  }
+}

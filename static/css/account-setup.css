@@ -1,0 +1,53 @@
+.setup-card {
+  width: min(100%, 38rem);
+}
+
+.setup-step {
+  display: grid;
+  gap: var(--ui-space-3);
+}
+
+.directory-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ui-space-2);
+}
+
+.directory-row > ic-form-field {
+  min-width: 0;
+}
+
+.directory-row > ic-button {
+  min-inline-size: 6rem;
+  white-space: nowrap;
+}
+
+.setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+}
+
+.setup-step > ic-button {
+  width: 100%;
+}
+
+@media (max-width: 35rem) {
+  .directory-row {
+    grid-template-columns: 1fr;
+  }
+
+  .directory-row > ic-button {
+    width: 100%;
+  }
+
+  .setup-actions {
+    flex-direction: column-reverse;
+  }
+
+  .setup-actions > ic-button {
+    width: 100%;
+  }
+}
