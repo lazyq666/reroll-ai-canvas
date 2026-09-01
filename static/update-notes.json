@@ -1,6 +1,6 @@
 {
-  "version": "2026.09.01.4",
-  "updated_at": "2026-09-01T16:51:00+08:00",
+  "version": "2026.09.01.5",
+  "updated_at": "2026-09-01T17:22:00+08:00",
   "items": [
     {
       "type": "feature",
@@ -21,6 +21,10 @@
     {
       "type": "fix",
       "text": "公开历史审计允许 GitHub 平台标准 noreply 提交者，兼容 Dependabot 自动维护分支"
+    },
+    {
+      "type": "feature",
+      "text": "README 重构为产品导览式信息架构，并为后续产品截图预留规范化占位"
     }
   ]
 }
