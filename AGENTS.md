@@ -6,11 +6,11 @@ Unless the user explicitly requests a new worktree and branch, perform developme
 
 ### Issue tracker
 
-Bugs, requirements, and development tasks are tracked as GitHub Issues in `lazyq666/reroll-ai-canvas` and managed through the [Reroll AI Canvas Development](https://github.com/users/lazyq666/projects/1) Project.
+Bugs, requirements, and development tasks are tracked as public GitHub Issues in `lazyq666/reroll-ai-canvas`. Maintainers may mirror them to a private planning board.
 
 Project workflow: `Todo` → `In Progress` → `Review` → `Done`.
 
-Before creating an issue, search existing open and closed issues to avoid duplicates. Add every new tracked issue to the Project with status `Todo`. See `docs/agents/issue-tracker.md`.
+Before creating an issue, search existing open and closed issues to avoid duplicates. Maintainers who use the private planning board add each new tracked issue there with status `Todo`. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 

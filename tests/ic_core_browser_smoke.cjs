@@ -8,6 +8,7 @@ const { spawn } = require('node:child_process');
 const ROOT = path.resolve(__dirname, '..');
 const DEFAULT_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const CHROME = process.env.IC_BROWSER_BIN || DEFAULT_CHROME;
+const NO_SANDBOX = process.env.IC_BROWSER_NO_SANDBOX === '1';
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -334,6 +335,7 @@ async function main() {
     [
       '--headless=new',
       '--disable-gpu',
+      ...(NO_SANDBOX ? ['--no-sandbox'] : []),
       '--no-first-run',
       '--no-default-browser-check',
       '--remote-allow-origins=*',

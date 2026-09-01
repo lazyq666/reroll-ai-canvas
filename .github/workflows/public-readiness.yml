@@ -70,6 +70,8 @@ jobs:
       - name: Run core browser contract
         env:
           IC_RUN_BROWSER_TESTS: "1"
+          # The raw Chromium process on GitHub's hosted Linux runner cannot use its sandbox.
+          IC_BROWSER_NO_SANDBOX: "1"
         run: |
           IC_BROWSER_BIN="$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")"
           export IC_BROWSER_BIN

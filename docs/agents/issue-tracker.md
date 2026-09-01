@@ -2,7 +2,7 @@
 
 GitHub Issues are the source of truth for bugs, requirements, investigations, and development tasks in `lazyq666/reroll-ai-canvas`.
 
-The workflow is visualized in the [Reroll AI Canvas Development](https://github.com/users/lazyq666/projects/1) Project.
+The public Issues list is the contributor-facing source of truth. Maintainers may additionally visualize the workflow in a private planning board; public contributors do not need access to that board.
 
 ## Workflow
 
@@ -19,7 +19,7 @@ GitHub Issue state and Project status are separate. Keep an Issue open in `Todo`
 
 - Search open and closed Issues before creating a new one.
 - Reuse or extend an existing Issue when it covers the same work.
-- Add every new tracked Issue to the Project and set it to `Todo`.
+- Maintainers who use the private planning board add every new tracked Issue there and set it to `Todo`.
 - Move an Issue to `In Progress` when implementation begins.
 - Move it to `Review` when the pull request or implementation is ready for review.
 - Move it to `Done` and close it after merge and verification.

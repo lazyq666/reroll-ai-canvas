@@ -31,8 +31,17 @@ class PublicReadinessAuditTests(unittest.TestCase):
         self.assertIn("runs-on: ubuntu-latest", workflow)
         self.assertIn("fetch-depth: 0", workflow)
         self.assertIn('IC_SKIP_PERFORMANCE_TESTS: "1"', workflow)
+        self.assertIn('IC_BROWSER_NO_SANDBOX: "1"', workflow)
         self.assertIn("Run deterministic Python test suite", workflow)
         self.assertIn("python scripts/audit_public_history.py HEAD", workflow)
+
+    def test_core_browser_launcher_keeps_no_sandbox_opt_in(self):
+        launcher = (ROOT / "tests" / "ic_core_browser_smoke.cjs").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("process.env.IC_BROWSER_NO_SANDBOX === '1'", launcher)
+        self.assertIn("...(NO_SANDBOX ? ['--no-sandbox'] : [])", launcher)
 
     def test_gitlink_parser_rejects_local_worktree_entries(self):
         output = (
