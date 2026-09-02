@@ -19,8 +19,6 @@ h1 { margin-bottom: var(--ui-space-2); font: var(--ui-text-title-1); letter-spac
 .catalog > section { min-width: 0; margin: calc(-1 * var(--ui-space-4)); }
 .catalog-heading { min-height: 4.875rem; display: flex; align-items: center; justify-content: space-between; gap: var(--ui-space-4); padding: var(--ui-space-4); border-bottom: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
 .catalog-heading h2 { margin-bottom: var(--ui-space-1); font: var(--ui-text-title-3); letter-spacing: var(--ui-letter-spacing-tight); }
-.catalog-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--ui-space-3); }
-.icon-style-control { min-width: 8.5rem; }
 .order-hint { display: inline-flex; align-items: center; gap: var(--ui-space-1); color: var(--ui-color-text-tertiary); font: var(--ui-text-caption); font-weight: var(--ui-font-weight-bold); white-space: nowrap; }
 .order-hint ic-icon { transform: rotate(90deg); }
 .model-list { min-width: 0; max-width: 100%; min-height: 7.5rem; padding: var(--ui-space-4); overflow: hidden; }
@@ -63,7 +61,6 @@ html.theme-dark .model-vendor-icon img[data-monochrome="true"] { filter: invert(
   .page-header { align-items: flex-start; }
   .type-tabs > button { gap: var(--ui-space-1); padding-inline: var(--ui-space-2); }
   .catalog-heading { align-items: flex-start; }
-  .catalog-heading-actions { align-items: flex-end; flex-direction: column; }
   .order-hint { display: none; }
   .model-list { padding: var(--ui-space-2); }
 }

@@ -196,6 +196,54 @@ class WorkspaceServiceTests(unittest.TestCase):
             self.assertEqual(before, self._tree_state(root))
             self.assertFalse((root / "device-state").exists())
 
+    def test_inspection_rejects_workspace_inside_git_source_tree(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_tree = root / "reroll-source"
+            source_tree.mkdir()
+            (source_tree / ".git").mkdir()
+            candidate = source_tree / "private-workspace"
+            candidate.mkdir()
+            storage = WorkspaceStorage(
+                source_tree,
+                state_dir=root / "device-state",
+            )
+            service = WorkspaceService(storage)
+
+            inspection = service.inspect(candidate)
+            summary = service.summarize(candidate, intent="move")
+
+            self.assertEqual("unavailable", inspection.status)
+            self.assertEqual("choose_another", inspection.next_step)
+            self.assertEqual(
+                "workspace_source_repository_overlap",
+                inspection.message_code,
+            )
+            self.assertIn("源码仓库之外", inspection.message)
+            self.assertFalse(summary.can_continue)
+            self.assertIn("源码仓库之外", " ".join(summary.warnings))
+            self.assertEqual(
+                "workspace_source_repository_overlap",
+                summary.public()["message_code"],
+            )
+            self.assertFalse((candidate / "data").exists())
+            self.assertFalse((candidate / "assets").exists())
+
+            with self.assertRaisesRegex(ValueError, "源码仓库之外"):
+                service.prepare_initial(candidate)
+
+            (candidate / "data").mkdir()
+            (candidate / "assets").mkdir()
+            with self.assertRaisesRegex(ValueError, "源码仓库之外"):
+                service.open_existing(candidate)
+
+            current = root / "current-workspace"
+            (current / "data").mkdir(parents=True)
+            (current / "assets").mkdir()
+            storage.save_parent(current)
+            with self.assertRaisesRegex(ValueError, "源码仓库之外"):
+                service.plan_move(candidate)
+
     def test_inspection_routes_existing_workspace_to_content_open(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

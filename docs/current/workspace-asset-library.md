@@ -1,8 +1,8 @@
 # 工作区资产库与 Smart Canvas 本地引用
 
 > Status: Current
-> Feature: F10 · GitHub Issues #128, #177, #223
-> Last verified: 2026-08-31
+> Feature: F10 · GitHub Issues #12, #128, #177, #223
+> Last verified: 2026-09-02
 
 ## 目标与范围
 
@@ -41,7 +41,7 @@ Workspace Asset Library（工作区资产库）是成员把已有 Managed Media 
 
 媒体模式使用约 120px 宽的 Masonry Card，并保持自然比例；极端长宽比用 `contain` 完整展示。视频只加载约 0.5 秒位置的 Poster，不创建逐卡 Video Player；音频只在用户点击试听动作后创建一个共享 Player，移出卡片、切换 Tab 或关闭选择器立即停止。方向键按视觉位置选择最近 Card，Enter 插入，Escape 关闭；到达窗口末尾时请求下一页。选择器最多渲染 60 个候选 DOM Node。
 
-两个 Tab 共享搜索词，各自保存活动项和滚动位置。Loading、Empty、Error 与 Retry 都在当前 Tab 内反馈，不以另一个 Tab 的结果替代失败状态。
+两个 Tab 共享搜索词，各自保存活动项和滚动位置；用户切到“资产库”后继续输入搜索词时，活动来源保持为“资产库”，不得因候选刷新跳回“当前画布”。Loading、Empty、Error 与 Retry 都在当前 Tab 内反馈，不以另一个 Tab 的结果替代失败状态。
 
 每个 Tab 当前已加载的候选中，已经属于当前 Composer、Prompt Node 或 Prompt Generation Node 的媒体按其现有引用槽位顺序排在最前，并在置顶区域内以固定尺寸（`4.0625rem × 4.0625rem` / 65px × 65px）按从左到右、再从上到下排列，从而显示更多置顶项并减少高度占用。已引用 Card 复用 `ic-reference-thumbnail` 的方形封面、Border、圆角与底部通栏 Label 视觉，底部 Label 直接显示引用槽位名称（如“图片1”“图片2”），不再显示“已引用”；Hover Mask 使用相同的“媒体类型 + 序号”而不是素材原名。再次选择同一候选不会新增 Reference Input Instance 或 Undo 历史，但通过 `@` Picker 选择时会复用原引用实例，在当前光标位置插入新的 Mention Token。引用状态优先以 `media_id`、兼容以 URL 对齐，未引用候选继续保持各来源原有排序。
 
@@ -74,7 +74,7 @@ TXT 在导入时保存不可变文本快照，依次尝试 UTF-8 BOM、UTF-16 BO
 
 资产库最多保存 5,000 个素材条目，单个添加请求最多 200 项。一次添加要么完整创建全部新条目，要么在容量不足、任一来源失效或保存失败时一个都不创建；已存在的幂等命中不占用新容量。
 
-管理弹窗每页 60 条、可见窗口最多 120 个 Card，Card 目标宽度约 180px，并使用 Lazy Image。整体复用提示词模板库的双栏信息架构：左侧 Small 搜索框下方依次显示“全部”、共享子文件夹和“新建文件夹”，右侧是批量导入 Toolbar 与素材结果；窄屏时 Sidebar 移到结果上方。文件夹显示素材数，支持就地新建、重命名、危险确认删除；素材 Card 可拖入任一文件夹，拖回“全部”则清除分类。删除文件夹后，其中素材继续保留在“全部”，底层 Managed Media 与既有引用均不受影响。
+管理弹窗每页 60 条、可见窗口最多 120 个 Card，Card 目标宽度约 180px，并使用 Lazy Image。整体复用提示词模板库的双栏信息架构：左侧 Small 搜索框下方依次显示“全部”、共享子文件夹和“新建文件夹”，右侧是批量导入 Toolbar 与素材结果；窄屏时 Sidebar 移到结果上方。打开弹窗或刷新数据不得自动把焦点送入搜索框；搜索只在用户点击或以键盘进入后开始。中文等输入法处于组合输入期间不得发起搜索或替换输入控件，组合结束后再按完整文本请求结果。文件夹导航使用与提示词模板库相同的 14px 正文字号；所有数量固定沿 Sidebar 右侧对齐，自定义文件夹 Hover / Focus 时隐藏数量并在同一区域显示编辑、删除按钮，长名称只截断、不与控件重叠。新建或重命名输入支持 Enter 提交、Escape 取消，并在焦点离开输入框时取消未提交编辑。文件夹显示素材数，支持就地新建、重命名、危险确认删除；素材 Card 可拖入任一文件夹，拖回“全部”则清除分类。删除文件夹后，其中素材继续保留在“全部”，底层 Managed Media 与既有引用均不受影响。
 
 “批量导入”按钮打开原生文件选择器，允许从外部文件夹一次多选最多 200 张图片；导入目标是打开选择器时所在的当前资产库文件夹，在“全部”中导入则不设置文件夹。服务端逐文件验证图片内容并导入 Managed Media，再按内容 SHA-256 幂等添加 Asset Library Entry。单文件沿用 Workspace 媒体的 500MB 默认上限；无效图片不会进入目录，同批其他有效图片继续导入，完成后在 Toolbar 汇总新增、已存在和失败数量。导入不要求图片先进入 Smart Canvas，也不创建 Canvas Node。
 
@@ -106,7 +106,8 @@ TXT 在导入时保存不可变文本快照，依次尝试 UTF-8 BOM、UTF-16 BO
 - `tests/test_workspace_asset_library.py`：内容幂等、容量原子性、Unicode 搜索、Cursor 快照、文件夹迁移兼容、分类 CRUD、管理权限和移除不删媒体。
 - `tests/test_workspace_media_integration.py`：媒体复用、部分成功、TXT 编码与大小错误。
 - `tests/test_issue_128_workspace_asset_ui.py`：双 Tab、DOM 上限、单 Audio Player、冻结目标、TXT 顺序、管理弹窗和运行快照合同。
-- `tests/workspace_asset_library_browser_smoke.cjs`：管理弹窗的 Sidebar、文件夹筛选和新建、外部文件多选导入及目标文件夹、名称布局与 Token、Card 插入意图、Hover 动作、行内改名、危险确认、焦点返回及请求去重。
+- `tests/workspace_asset_library_browser_smoke.cjs`：管理弹窗的初始 Focus、中文输入法组合态、文件夹数量右对齐与 Hover 隐藏、新建文件夹的 Escape / 失焦取消、Sidebar 长名称与操作按钮边界、文件夹筛选和新建、外部文件多选导入及目标文件夹、名称布局与 Token、Card 插入意图、Hover 动作、行内改名、危险确认、焦点返回及请求去重。
+- `tests/issue_12_asset_library_interactions_browser_smoke.cjs`：真实 Smart Canvas 中 `@` Picker 切到资产库后继续输入时保持活动来源。
 - `tests/workspace_asset_library_insert_browser_smoke.cjs`：真实 Smart Canvas 中的单击插入、重复激活隔离、素材身份快照、Viewport 落位、Dialog 关闭、选择、Focus 与实时持久化；通用 Mutation 回归另行覆盖 Undo。
 - 真实 Smart Canvas 页面已验证资产库入口组件合同、X-Large Dialog、搜索/错误/重试/Focus，以及 `@` 双 Tab 的可访问结构。
 

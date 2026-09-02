@@ -14,7 +14,7 @@
       { id:'asset-2', name:'夜色城市', url:'/static/images/logo.png', folder_id:'', can_manage:true },
     ];
     let items = initialItems.map(item => ({ ...item }));
-    let folders = [{ id:'folder-scenes', name:'场景', order:0, item_count:1 }];
+    let folders = [{ id:'folder-scenes', name:'角色与场景设计素材', order:0, item_count:1 }];
     globalThis.workspaceAssetRequests = [];
     globalThis.fetch = async (input, init = {}) => {
       const url = new URL(String(input), location.origin);

@@ -5,6 +5,7 @@
 - 修订：2026-07-30，将可再生大文件从 Device State 独立为 Device Cache
 - 修订：2026-08-02，Issue #74 将账号域从 Workspace Data 解耦为稳定 Instance State
 - 修订：2026-08-03，允许同一设备的多个源码目录服务隔离运行并共享 Instance State
+- 修订：2026-09-02，禁止 Workspace 与 Git 源码仓库使用相同目录或互相包含
 - 后续决定：ADR-0006 局部取代“恢复页不提供新空 Workspace”的限制
 - 后续决定：ADR-0007 局部取代 Prompt Template 封面必须进入通用 Managed Media 的限制
 - 来源：Candidate 02，Issue #18 / #19 / #74
@@ -21,6 +22,11 @@
 
 - Smart Canvas、Managed Media、Prompt Library、Workflow、生成结果、历史记录和对话；
 - 团队共享的模型选择、显示别名、用户工作流和非敏感生成默认值。
+
+Workspace 与 Git 源码仓库必须使用互不包含的独立目录。首次创建、打开已有
+Workspace、恢复重连和搬家都在任何业务写入或 Device State 选择更新前解析真实路径；
+目标等于源码仓库、位于源码仓库内部，或反过来包含源码仓库时统一拒绝。该规则不能由
+`.gitignore`、被忽略子目录或符号链接绕过，因为版本控制忽略不是数据所有权边界。
 
 以下内容属于 Instance State：
 
@@ -84,6 +90,7 @@ Contract 阶段已经完成：业务代码只通过当前 Workspace 实例定位
 - 打开或搬动 Workspace 只切换内容；现有账号、会话和全局角色继续有效。
 - Project Access Grant 保存在 Instance State，并按 Workspace 身份隔离；管理员可为设计师多选可访问的 Project。
 - 工作区检查、搬家和导出必须证明 Instance State、Device State 中的秘密以及 Device Cache 中的派生大文件没有进入 Workspace Data。
+- Workspace 与 Git 源码仓库不能使用相同目录或互相包含；已有错误选择在重新加载时进入恢复流程，不继续写入。
 - 本机已有的服务凭据可以在打开另一个工作区后继续使用，但目标工作区的共享非敏感生成设置具有业务权威性。
 - 两个服务不能同时写入同一工作区；未知来源的残留使用状态不会被自动清除，其他服务器的残留记录只允许在操作者明确确认原服务已停止后显式接管。
 - 分享、私有视图和内容审计使用 `workspace_id + canvas_id` 等组合关联，避免不同 Workspace 的同名内容串联。

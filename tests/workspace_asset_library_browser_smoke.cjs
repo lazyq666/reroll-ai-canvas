@@ -69,6 +69,7 @@ async function main() {
       const expected = { gap:probeStyle.gap, paddingInline:probeStyle.paddingLeft, radius:probeStyle.borderTopLeftRadius, fontSize:probeStyle.fontSize, fontWeight:probeStyle.fontWeight, color:probeStyle.color };
       probe.remove();
       return {
+        searchFocused:root.activeElement === root.querySelector('[data-search]'),
         cardCount:root.querySelectorAll('.card').length,
         searchContract:field.dataset.icContractStatus,
         searchComponent:field.dataset.componentName,
@@ -91,6 +92,7 @@ async function main() {
         actionsHidden:actionsStyle.visibility === 'hidden' && actionsStyle.pointerEvents === 'none',
       };
     });
+    assert.equal(initial.searchFocused, false, 'Opening the asset library must not force search focus');
     assert.equal(initial.cardCount, 2);
     assert.equal(initial.searchContract, 'valid');
     assert.equal(initial.searchComponent, 'ic-form-field-search-s');
@@ -106,6 +108,149 @@ async function main() {
     assert.equal(initial.fontWeight, initial.expectedFontWeight);
     assert.equal(initial.color, initial.expectedColor);
     assert.equal(initial.actionsHidden, true);
+
+    await page.locator('ic-workspace-asset-library [data-search]').click();
+    const imeState = await page.evaluate(async () => {
+      const library = document.querySelector('#library');
+      const root = library.shadowRoot;
+      const search = root.querySelector('[data-search]');
+      const requestsBefore = globalThis.workspaceAssetRequests.filter(request => request.method === 'GET').length;
+      search.dispatchEvent(new CompositionEvent('compositionstart', { bubbles:true, composed:true, data:'' }));
+      search.value = 'l';
+      search.dispatchEvent(new InputEvent('input', {
+        bubbles:true,
+        composed:true,
+        data:'l',
+        inputType:'insertCompositionText',
+        isComposing:true,
+      }));
+      await new Promise(resolve => setTimeout(resolve, 280));
+      const inputDuringComposition = root.querySelector('[data-search]');
+      const requestsDuring = globalThis.workspaceAssetRequests.filter(request => request.method === 'GET').length;
+      inputDuringComposition.value = '狼人';
+      inputDuringComposition.dispatchEvent(new CompositionEvent('compositionend', {
+        bubbles:true,
+        composed:true,
+        data:'狼人',
+      }));
+      await new Promise(resolve => setTimeout(resolve, 280));
+      const inputAfterComposition = root.querySelector('[data-search]');
+      const getRequests = globalThis.workspaceAssetRequests.filter(request => request.method === 'GET');
+      return {
+        sameInputDuringComposition:inputDuringComposition === search,
+        noRequestDuringComposition:requestsDuring === requestsBefore,
+        finalQuery:getRequests.at(-1)?.query || '',
+        focusedAfterComposition:inputAfterComposition.matches(':focus-within'),
+      };
+    });
+    assert.deepEqual(imeState, {
+      sameInputDuringComposition:true,
+      noRequestDuringComposition:true,
+      finalQuery:'狼人',
+      focusedAfterComposition:true,
+    });
+    await page.evaluate(async () => {
+      const library = document.querySelector('#library');
+      library.scheduleSearch('');
+      await new Promise(resolve => setTimeout(resolve, 280));
+    });
+    await page.waitForFunction(() => document.querySelector('#library').shadowRoot.querySelectorAll('.card').length === 2);
+
+    await page.evaluate(() => document.querySelector('#library').shadowRoot.querySelector('[data-folder-new]').click());
+    await page.waitForFunction(() => Boolean(document.querySelector('#library').shadowRoot.querySelector('[data-folder-name]')));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#library').shadowRoot.querySelector('[data-folder-name]'));
+    await page.waitForFunction(() => document.querySelector('#library').shadowRoot.activeElement?.matches('[data-folder-new]'));
+    const escapeCancelReturnedFocus = await page.evaluate(() => document.querySelector('#library').shadowRoot.activeElement?.matches('[data-folder-new]'));
+    assert.equal(escapeCancelReturnedFocus, true, 'Escape must cancel the new-folder editor and return focus');
+
+    await page.evaluate(async () => {
+      const dialog = document.createElement('ic-dialog');
+      dialog.id = 'folderCancelDialog';
+      dialog.setAttribute('label', '资产库');
+      dialog.setAttribute('size', 'x-large');
+      dialog.setAttribute('dismiss-policy', 'explicit');
+      const library = document.createElement('ic-workspace-asset-library');
+      library.id = 'folderCancelLibrary';
+      library.style.cssText = 'display:block;width:760px;height:680px';
+      dialog.append(library);
+      document.body.append(dialog);
+      await library.refresh({preserveQuery:false});
+      await dialog.show();
+      library.shadowRoot.querySelector('[data-folder-new]').click();
+    });
+    await page.waitForFunction(() => Boolean(document.querySelector('#folderCancelLibrary').shadowRoot.querySelector('[data-folder-name]')));
+    await page.keyboard.press('Escape');
+    await pause(150);
+    const dialogEscapeState = await page.evaluate(() => {
+      const dialog = document.querySelector('#folderCancelDialog');
+      const library = document.querySelector('#folderCancelLibrary');
+      const state = {
+        dialogOpen:dialog.hasAttribute('open'),
+        editorClosed:!library.shadowRoot.querySelector('[data-folder-name]'),
+      };
+      dialog.remove();
+      return state;
+    });
+    assert.deepEqual(dialogEscapeState, {dialogOpen:true, editorClosed:true}, 'Escape must cancel folder creation before dismissing the dialog');
+
+    await page.evaluate(() => document.querySelector('#library').shadowRoot.querySelector('[data-folder-new]').click());
+    await page.waitForFunction(() => Boolean(document.querySelector('#library').shadowRoot.querySelector('[data-folder-name]')));
+    await page.locator('ic-workspace-asset-library [data-search]').click();
+    await page.waitForFunction(() => !document.querySelector('#library').shadowRoot.querySelector('[data-folder-name]'));
+    const outsideCancelState = await page.evaluate(() => {
+      const root = document.querySelector('#library').shadowRoot;
+      return {
+        editorClosed:!root.querySelector('[data-folder-name]'),
+        createButtonRestored:Boolean(root.querySelector('[data-folder-new]')),
+        outsideFocusPreserved:root.activeElement === root.querySelector('[data-search]'),
+      };
+    });
+    assert.deepEqual(outsideCancelState, {
+      editorClosed:true,
+      createButtonRestored:true,
+      outsideFocusPreserved:true,
+    });
+
+    const folderNavigation = await page.evaluate(() => {
+      const root = document.querySelector('#library').shadowRoot;
+      const row = root.querySelector('[data-folder-id="folder-scenes"]').closest('.folder-row');
+      const allCount = root.querySelector('[data-folder-id=""] .folder-count');
+      const folderCount = row.querySelector('.folder-count');
+      const label = row.querySelector('.folder-label');
+      const actions = row.querySelector('.folder-actions');
+      const countAlignment = Math.abs(folderCount.getBoundingClientRect().right - allCount.getBoundingClientRect().right);
+      const labelRect = label.getBoundingClientRect();
+      const actionsRect = actions.getBoundingClientRect();
+      const fontProbe = document.createElement('span');
+      fontProbe.style.fontSize = 'var(--ui-font-size-3)';
+      document.body.append(fontProbe);
+      const expectedFontSize = getComputedStyle(fontProbe).fontSize;
+      fontProbe.remove();
+      return {
+        fontSize:getComputedStyle(label).fontSize,
+        expectedFontSize,
+        labelClearOfActions:labelRect.right <= actionsRect.left + 0.5,
+        countRightAligned:countAlignment <= 0.5,
+      };
+    });
+    assert.deepEqual(folderNavigation, {
+      fontSize:folderNavigation.expectedFontSize,
+      expectedFontSize:folderNavigation.expectedFontSize,
+      labelClearOfActions:true,
+      countRightAligned:true,
+    });
+
+    await page.locator('ic-workspace-asset-library [data-folder-id="folder-scenes"]').hover();
+    const folderHover = await page.evaluate(() => {
+      const root = document.querySelector('#library').shadowRoot;
+      const row = root.querySelector('[data-folder-id="folder-scenes"]').closest('.folder-row');
+      return {
+        countHidden:getComputedStyle(row.querySelector('.folder-count')).visibility === 'hidden',
+        actionsVisible:getComputedStyle(row.querySelector('.folder-actions')).visibility === 'visible',
+      };
+    });
+    assert.deepEqual(folderHover, {countHidden:true, actionsVisible:true});
 
     const englishCopy = await page.evaluate(() => {
       document.documentElement.lang = 'en';

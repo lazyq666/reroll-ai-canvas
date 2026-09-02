@@ -70,9 +70,17 @@
     function renderSummary() {
         const summary = state.summary;
         if (!summary) return "";
-        const warnings = (summary.warnings || [])
+        const sourceRepositoryOverlap =
+            summary.message_code === "workspace_source_repository_overlap";
+        const summaryWarnings = sourceRepositoryOverlap
+            ? [tr("preferences.workspaceSourceRepositoryOverlap")]
+            : (summary.warnings || []);
+        const warnings = summaryWarnings
             .map((warning) => `<li>${escapeHtml(warning)}</li>`)
             .join("");
+        const typeLabel = sourceRepositoryOverlap
+            ? tr("preferences.unavailableDirectory")
+            : (summary.type_label || tr("preferences.workspaceDirectory"));
         if (summary.operation === "move") {
             return `
                 <ic-card class="preferences-summary" label="${tr("preferences.moveConfirmation")}" tone="subtle" size="small">
@@ -105,7 +113,7 @@
                 <div class="preferences-summary-head">
                     <div>
                         <span class="preferences-eyebrow">${tr("preferences.directorySummary")}</span>
-                        <h3 id="workspaceSummaryTitle">${escapeHtml(summary.type_label || tr("preferences.workspaceDirectory"))}</h3>
+                        <h3 id="workspaceSummaryTitle">${escapeHtml(typeLabel)}</h3>
                     </div>
                     <ic-badge kind="status" tone="${summary.can_continue ? "success" : "danger"}">
                         ${summary.can_continue ? tr("preferences.canContinue") : tr("preferences.chooseAgain")}

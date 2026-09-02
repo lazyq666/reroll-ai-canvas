@@ -22,10 +22,22 @@ from .installation import installation_directory
 
 
 SETTINGS_VERSION = 3
+SOURCE_REPOSITORY_OVERLAP_MESSAGE = (
+    "工作区必须与源码仓库分开保存，请选择源码仓库之外的独立目录"
+)
 
 
 class WorkspaceStorageError(ValueError):
     """Raised when a workspace location is unsafe, missing, or unusable."""
+
+
+def _git_source_tree_root(base_dir: Path) -> Path | None:
+    """Return the enclosing Git source tree without invoking Git."""
+
+    for candidate in (base_dir, *base_dir.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return None
 
 
 def application_state_directory(
@@ -160,12 +172,33 @@ class WorkspaceStorage:
         state_dir: str | os.PathLike[str] | None = None,
     ) -> None:
         self.base_dir = Path(base_dir).expanduser().resolve()
+        self.source_tree_root = _git_source_tree_root(self.base_dir)
         self.state_dir = (
             Path(state_dir).expanduser().resolve()
             if state_dir is not None
             else application_state_directory(self.base_dir)
         )
         self.settings_file = self.state_dir / "workspace-storage.json"
+
+    def overlaps_source_repository(self, parent_dir: object) -> bool:
+        """Return whether a Workspace and the Git source tree would overlap."""
+
+        if self.source_tree_root is None:
+            return False
+        candidate = Path(str(parent_dir)).expanduser().resolve()
+        return (
+            candidate == self.source_tree_root
+            or candidate in self.source_tree_root.parents
+            or self.source_tree_root in candidate.parents
+        )
+
+    def validate_workspace_parent(self, parent_dir: object) -> Path:
+        """Resolve a Workspace root and reject source-repository overlap."""
+
+        parent = Path(str(parent_dir)).expanduser().resolve()
+        if self.overlaps_source_repository(parent):
+            raise WorkspaceStorageError(SOURCE_REPOSITORY_OVERLAP_MESSAGE)
+        return parent
 
     def _configured(self) -> Dict[str, str]:
         try:
@@ -207,7 +240,9 @@ class WorkspaceStorage:
         if not configured_parent:
             raise WorkspaceStorageError("尚未选择工作区目录")
 
-        parent = self._resolve(configured_parent)
+        parent = self.validate_workspace_parent(
+            self._resolve(configured_parent)
+        )
         data_dir = parent / "data"
         assets_dir = parent / "assets"
         self.validate_pair(data_dir, assets_dir, require_existing=True)
@@ -247,6 +282,8 @@ class WorkspaceStorage:
         *,
         require_existing: bool,
     ) -> None:
+        if data_dir.parent == assets_dir.parent:
+            self.validate_workspace_parent(data_dir.parent)
         self._validate_directory(
             data_dir, "工作区目录", require_existing=require_existing
         )
@@ -269,7 +306,7 @@ class WorkspaceStorage:
         text = str(parent_dir or "").strip()
         if not text:
             raise WorkspaceStorageError("请选择工作区目录")
-        parent = self._resolve(text)
+        parent = self.validate_workspace_parent(self._resolve(text))
         self._validate_directory(
             parent,
             "工作区目录",
@@ -314,7 +351,7 @@ class WorkspaceStorage:
         text = str(parent_dir or "").strip()
         if not text:
             raise WorkspaceStorageError("请选择现有工作区目录")
-        parent = self._resolve(text)
+        parent = self.validate_workspace_parent(self._resolve(text))
         self._validate_directory(
             parent,
             "工作区目录",
@@ -343,6 +380,7 @@ class WorkspaceStorage:
         return self.paths()
 
 __all__ = [
+    "SOURCE_REPOSITORY_OVERLAP_MESSAGE",
     "WorkspacePaths",
     "WorkspaceStorage",
     "WorkspaceStorageError",

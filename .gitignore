@@ -38,6 +38,7 @@ local-state/
 logs/
 *.log
 _self_restart.*
+/:memory:.ses
 
 # Local agent/editor state
 .codex/

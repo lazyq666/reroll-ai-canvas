@@ -51,6 +51,7 @@
         "auth.workspaceStorageUnknown": { zh: "无法确认工作区存储位置，请选择本机磁盘、外接磁盘或已同步到本机的云盘目录。", en: "The storage location could not be verified. Choose a local drive, external drive, or locally synced cloud folder." },
         "auth.workspaceNetworkUnsupported": { zh: "暂不支持 NAS 或局域网磁盘，请选择本机磁盘、外接磁盘或已同步到本机的云盘目录。", en: "NAS and network drives are not supported. Choose a local drive, external drive, or locally synced cloud folder." },
         "auth.workspaceStorageUnsupported": { zh: "无法确认此存储位置是否安全，请选择其他工作区目录。", en: "This storage location could not be verified as safe. Choose another workspace folder." },
+        "auth.workspaceSourceRepositoryOverlap": { zh: "工作区必须与源码仓库分开保存，请选择源码仓库之外的独立目录。", en: "Workspaces must be stored separately from the source repository. Choose a folder outside the repository." },
         "auth.workspaceEmptyReady": { zh: "此目录可以创建新的内容工作区。", en: "A new workspace can be created in this folder." },
         "auth.workspaceNonEmpty": { zh: "所选目录已有其他内容，请选择空目录或打开已有工作区。", en: "This folder contains other files. Choose an empty folder or open an existing workspace." },
         "auth.workspaceIncomplete": { zh: "此工作区内容不完整，请重新选择完整的工作区目录。", en: "This workspace is incomplete. Choose the complete workspace folder." },

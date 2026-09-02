@@ -1,10 +1,10 @@
-import { closeTopLayer, isTopLayerOpen, openTopLayer } from './overlay-layer.js?v=ic-ui-1a20b8e9d3c4';
+import { closeTopLayer, isTopLayerOpen, openTopLayer } from './overlay-layer.js?v=ic-ui-ff02b51bdc35';
 import {
   ANCHORED_OVERLAY_MOTION_STYLES,
   nextOverlayPaint,
   setOverlayInteraction,
   waitForOverlayMotion,
-} from './overlay-motion.js?v=ic-ui-1a20b8e9d3c4';
+} from './overlay-motion.js?v=ic-ui-ff02b51bdc35';
 
 const QUALITY_VALUES = Object.freeze(['auto', 'low', 'medium', 'high']);
 const EXCLUSIVE_OVERLAY_REQUEST_EVENT = 'ic-exclusive-overlay-request';

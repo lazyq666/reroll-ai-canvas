@@ -46,6 +46,7 @@
     workspace_storage_unknown: 'auth.workspaceStorageUnknown',
     workspace_storage_network_unsupported: 'auth.workspaceNetworkUnsupported',
     workspace_storage_unsupported: 'auth.workspaceStorageUnsupported',
+    workspace_source_repository_overlap: 'auth.workspaceSourceRepositoryOverlap',
     workspace_directory_empty: 'auth.workspaceEmptyReady',
     workspace_directory_non_empty: 'auth.workspaceNonEmpty',
     workspace_directory_incomplete: 'auth.workspaceIncomplete',

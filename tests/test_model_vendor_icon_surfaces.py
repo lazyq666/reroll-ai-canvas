@@ -25,7 +25,10 @@ class ModelVendorIconSurfaceTests(unittest.TestCase):
         self.assertIn("const outlineIcon = (icon) =>", self.vendor_script)
         self.assertIn("window.ModelVendorIcons = Object.freeze({ icons, styles, normalizeStyle, resolve, markup })", self.vendor_script)
         self.assertIn("window.ModelVendorIcons?.markup(", self.management_script)
-        self.assertIn("state.iconStyle", self.management_script)
+        self.assertIn("model.provider_name,\n      'auto',", self.management_script)
+        self.assertNotIn("model.provider_name,\n      'outline',", self.management_script)
+        self.assertNotIn("state.iconStyle", self.management_script)
+        self.assertNotIn("iconStyleControl", self.management_script)
         self.assertNotIn("fallback.setAttribute('name', 'models')", self.management_script)
 
     def test_batch_generation_shows_model_icons(self):

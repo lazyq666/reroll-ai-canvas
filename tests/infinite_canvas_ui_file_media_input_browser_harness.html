@@ -10,7 +10,7 @@
 <ic-media-slot id="file-error" kind="file" state="error" label="Document error" name="notes.txt" error-message="Upload failed"></ic-media-slot>
 <ic-image-frame id="image" label="Image" state="normal" alt="Abstract" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Crect width='20' height='20' fill='%232563eb'/%3E%3C/svg%3E"></ic-image-frame><ic-image-frame id="upload" label="Upload image" state="upload"></ic-image-frame>
 <script type="module">
-import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4';
+import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35';
 await Promise.all(['ic-file-input','ic-upload-surface','ic-media-player-controls','ic-media-slot','ic-image-frame'].map(tag=>customElements.whenDefined(tag)));
 await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 const picker=document.querySelector('#picker'),surface=document.querySelector('#surface'),disabled=document.querySelector('#disabled'),events={change:0,reject:0,clear:0,last:null};

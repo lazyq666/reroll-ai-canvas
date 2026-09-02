@@ -36,6 +36,7 @@
         "runtime.createAndRestart": { zh: "创建并安全重启", en: "Create and restart safely" },
         "runtime.completeFound": { zh: "已找到完整工作区，可以继续。", en: "A complete workspace was found. You can continue." },
         "runtime.selectedUnavailable": { zh: "所选工作区暂时无法打开，请检查后重试。", en: "The selected workspace cannot be opened yet. Check it and try again." },
+        "runtime.workspaceSourceRepositoryOverlap": { zh: "工作区必须与源码仓库分开保存，请选择源码仓库之外的独立目录。", en: "Workspaces must be stored separately from the source repository. Choose a folder outside the repository." },
         "runtime.recheckingCurrent": { zh: "正在重新检查原工作区目录…", en: "Checking the original workspace directory again…" },
         "runtime.currentUnavailable": { zh: "原工作区目录仍不可用，请检查后重试", en: "The original workspace directory is still unavailable. Check it and try again." },
         "runtime.recoveredRestarting": { zh: "工作区已恢复，正在安全重启…", en: "Workspace restored. Restarting safely…" },

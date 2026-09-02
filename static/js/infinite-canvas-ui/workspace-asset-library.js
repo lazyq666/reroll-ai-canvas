@@ -45,6 +45,7 @@ export class IcWorkspaceAssetLibrary extends HTMLElement {
     this._importing = false;
     this._importNotice = '';
     this._searchTimer = 0;
+    this._searchComposing = false;
     this._handleLanguageChange = () => this.render();
     this.shadowRoot.addEventListener('ic-confirm', event => {
       if (event.target.matches?.('[data-delete-confirmation]') && this._pendingDelete) this.unpublish(this._pendingDelete);
@@ -76,7 +77,6 @@ export class IcWorkspaceAssetLibrary extends HTMLElement {
     this._cursor = '';
     this._error = '';
     await this.load({ reset: true });
-    this.shadowRoot.querySelector('[data-search]')?.focus({ preventScroll:true });
   }
 
   async load({ reset = false } = {}) {
@@ -114,6 +114,7 @@ export class IcWorkspaceAssetLibrary extends HTMLElement {
     this._query = String(value ?? '');
     this.shadowRoot.querySelector('[data-search-clear]')?.toggleAttribute('hidden', !this._query);
     clearTimeout(this._searchTimer);
+    if (this._searchComposing) return;
     this._searchTimer = setTimeout(() => this.load({ reset: true }), 220);
   }
 
@@ -402,12 +403,16 @@ export class IcWorkspaceAssetLibrary extends HTMLElement {
         .folder-heading { display:flex; align-items:center; justify-content:space-between; min-height:var(--ui-control-height-s); padding-inline:var(--ui-space-2); color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
         .folders { display:flex; flex-direction:column; gap:0.125rem; }
         .folder-row { position:relative; min-width:0; }
-        .folder-button,.folder-new { width:100%; min-height:var(--ui-control-height-s); display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:var(--ui-space-2); padding:0 var(--ui-space-2); border:0; border-radius:var(--ui-radius-s); color:var(--ui-color-text-primary); background:transparent; font:inherit; text-align:start; }
+        .folder-button,.folder-new { position:relative; width:100%; min-height:var(--ui-control-height-s); display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:var(--ui-space-2); padding:0 var(--ui-space-2); border:0; border-radius:var(--ui-radius-s); color:var(--ui-color-text-primary); background:transparent; font-family:var(--ui-font-sans); font-size:var(--ui-font-size-3); font-weight:var(--ui-font-weight-regular); line-height:calc(5 * var(--ui-space-1)); text-align:start; }
+        .folder-button { padding-inline-end:calc(2rem + var(--ui-space-2)); }
+        .folder-row-managed .folder-button { padding-inline-end:calc(3rem + var(--ui-space-4)); }
         .folder-button:is(:hover,:focus-visible),.folder-new:is(:hover,:focus-visible),.folder-button[data-drop-target] { background:var(--ui-color-action-tertiary-hover); }
         .folder-button[aria-current="page"] { background:var(--ui-color-action-secondary-selected); }
         .folder-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .folder-count { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
-        .folder-actions { position:absolute; inset-inline-end:var(--ui-space-2); top:50%; display:flex; align-items:center; gap:var(--ui-space-1); border-radius:var(--ui-radius-s); background:inherit; opacity:0; visibility:hidden; pointer-events:none; transform:translateY(-50%); }
+        .folder-count { position:absolute; inset-inline-end:var(--ui-space-2); color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); pointer-events:none; }
+        .folder-row-managed:is(:hover,:focus-within) .folder-count { opacity:0; visibility:hidden; }
+        .folder-actions { position:absolute; inset-inline-end:var(--ui-space-2); top:50%; display:flex; align-items:center; gap:var(--ui-space-1); border-radius:var(--ui-radius-s); background:var(--ui-color-surface); opacity:0; visibility:hidden; pointer-events:none; transform:translateY(-50%); }
+        .folder-button[aria-current="page"] + .folder-actions { background:var(--ui-color-action-secondary-selected); }
         .folder-row:is(:hover,:focus-within) .folder-actions { opacity:1; visibility:visible; pointer-events:auto; }
         .folder-actions ic-icon-button { --ic-icon-button-control-size:1.5rem; --ic-icon-button-icon-size:var(--ui-icon-size-s); }
         .folder-new { display:flex; justify-content:flex-start; }
@@ -447,7 +452,7 @@ export class IcWorkspaceAssetLibrary extends HTMLElement {
               <div class="folder-row"><button type="button" class="folder-button" data-folder-id="" ${this._activeFolderId ? '' : 'aria-current="page"'}><span class="folder-label">${escapeText(copy('smart.assetLibraryAll', '全部', 'All'))}</span><small class="folder-count">${this._allCount}</small></button></div>
               ${this._folders.map(folder => this._folderEditorMode === 'edit' && this._folderEditorId === folder.id
                 ? `<div class="folder-row">${folderEditor}</div>`
-                : `<div class="folder-row"><button type="button" class="folder-button" data-folder-id="${escapeText(folder.id)}" ${this._activeFolderId === folder.id ? 'aria-current="page"' : ''}><span class="folder-label">${escapeText(folder.name)}</span><small class="folder-count">${Number(folder.item_count) || 0}</small></button><span class="folder-actions"><ic-icon-button type="button" size="s" hierarchy="quiet" icon="edit" label="${escapeText(copy('smart.assetLibraryRenameFolder', '重命名文件夹', 'Rename folder'))}" data-folder-edit="${escapeText(folder.id)}"></ic-icon-button><ic-icon-button type="button" size="s" hierarchy="quiet" icon="delete" label="${escapeText(copy('smart.assetLibraryDeleteFolder', '删除文件夹', 'Delete folder'))}" data-folder-delete="${escapeText(folder.id)}"></ic-icon-button></span></div>`).join('')}
+                : `<div class="folder-row folder-row-managed"><button type="button" class="folder-button" data-folder-id="${escapeText(folder.id)}" ${this._activeFolderId === folder.id ? 'aria-current="page"' : ''}><span class="folder-label">${escapeText(folder.name)}</span><small class="folder-count">${Number(folder.item_count) || 0}</small></button><span class="folder-actions"><ic-icon-button type="button" size="s" hierarchy="quiet" icon="edit" label="${escapeText(copy('smart.assetLibraryRenameFolder', '重命名文件夹', 'Rename folder'))}" data-folder-edit="${escapeText(folder.id)}"></ic-icon-button><ic-icon-button type="button" size="s" hierarchy="quiet" icon="delete" label="${escapeText(copy('smart.assetLibraryDeleteFolder', '删除文件夹', 'Delete folder'))}" data-folder-delete="${escapeText(folder.id)}"></ic-icon-button></span></div>`).join('')}
               ${this._folderEditorMode === 'create' ? folderEditor : ''}${this._folderEditorMode ? '' : `<button class="folder-new" type="button" data-folder-new><ic-icon name="add"></ic-icon><span>${escapeText(copy('smart.assetLibraryNewFolder', '新建文件夹', 'New folder'))}</span></button>`}
             </nav>
           </aside>
@@ -473,6 +478,14 @@ export class IcWorkspaceAssetLibrary extends HTMLElement {
 
     const search = this.shadowRoot.querySelector('[data-search]');
     search.addEventListener('input', event => this.scheduleSearch(event.currentTarget.value));
+    search.addEventListener('compositionstart', () => {
+      this._searchComposing = true;
+      clearTimeout(this._searchTimer);
+    });
+    search.addEventListener('compositionend', event => {
+      this._searchComposing = false;
+      this.scheduleSearch(event.currentTarget.value);
+    });
     this.shadowRoot.querySelector('[data-search-clear]')?.addEventListener('click', async () => { clearTimeout(this._searchTimer); this._query = ''; await this.load({ reset:true }); this.shadowRoot.querySelector('[data-search]')?.focus({ preventScroll:true }); });
     this.shadowRoot.querySelectorAll('[data-folder-id]').forEach(button => {
       button.addEventListener('click', () => this.selectFolder(button.dataset.folderId));
@@ -486,6 +499,11 @@ export class IcWorkspaceAssetLibrary extends HTMLElement {
     const folderName = this.shadowRoot.querySelector('[data-folder-name]');
     folderName?.addEventListener('input', () => { this._folderEditorName = folderName.value; this._folderEditorError = ''; });
     folderName?.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); this.saveFolder(); } if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); this.cancelFolderEditor(); } });
+    folderName?.addEventListener('focusout', () => setTimeout(() => {
+      if (this._folderEditorMode && !this.shadowRoot.querySelector('[data-folder-name]')?.matches(':focus-within')) {
+        this.cancelFolderEditor({ restoreFocus:false });
+      }
+    }, 0));
     const importInput = this.shadowRoot.querySelector('[data-import-input]');
     this.shadowRoot.querySelector('[data-import-trigger]')?.addEventListener('click', () => importInput?.click());
     importInput?.addEventListener('change', () => this.importFiles(importInput.files));

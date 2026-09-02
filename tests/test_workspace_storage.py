@@ -11,6 +11,70 @@ from infinite_canvas.workspace_storage import (
 
 
 class WorkspaceStorageTests(unittest.TestCase):
+    def test_git_source_tree_and_its_children_cannot_be_workspaces(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_tree = root / "reroll-source"
+            source_tree.mkdir()
+            (source_tree / ".git").mkdir()
+            nested = source_tree / "private-workspace"
+            nested.mkdir()
+            sibling = root / "private-workspace"
+            sibling.mkdir()
+            storage = WorkspaceStorage(
+                source_tree,
+                state_dir=root / "device-state",
+            )
+
+            for unsafe in (root, source_tree, nested):
+                with self.subTest(unsafe=unsafe):
+                    with self.assertRaisesRegex(
+                        WorkspaceStorageError,
+                        "源码仓库之外",
+                    ):
+                        storage.save_parent(unsafe)
+                    self.assertFalse((unsafe / "data").exists())
+                    self.assertFalse((unsafe / "assets").exists())
+
+            (nested / "data").mkdir()
+            (nested / "assets").mkdir()
+            for operation in (
+                lambda: storage.reconnect_parent(nested),
+                lambda: storage.validate_pair(
+                    nested / "data",
+                    nested / "assets",
+                    require_existing=True,
+                ),
+            ):
+                with self.assertRaisesRegex(
+                    WorkspaceStorageError,
+                    "源码仓库之外",
+                ):
+                    operation()
+
+            storage.remember_parent(nested)
+
+            storage.state_dir.mkdir(exist_ok=True)
+            storage.settings_file.write_text(
+                json.dumps(
+                    {
+                        "version": SETTINGS_VERSION,
+                        "parent_dir": str(nested),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                WorkspaceStorageError,
+                "源码仓库之外",
+            ):
+                storage.paths()
+
+            paths = storage.save_parent(sibling)
+
+            self.assertEqual((sibling / "data").resolve(), paths.data_dir)
+            self.assertEqual((sibling / "assets").resolve(), paths.assets_dir)
+
     def test_unconfigured_source_tree_has_no_implicit_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

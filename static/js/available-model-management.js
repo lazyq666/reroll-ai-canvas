@@ -13,13 +13,11 @@
     revision: 0,
     queued: false,
     inFlight: null,
-    iconStyle: 'filled',
   };
   const list = document.getElementById('model-list');
   const title = document.getElementById('catalog-title');
   const catalog = document.getElementById('model-catalog');
   const modelTypes = document.getElementById('model-types');
-  const iconStyleControl = document.getElementById('icon-style');
   const message = document.getElementById('page-message');
 
   const setMessage = (text, isError = false) => {
@@ -45,7 +43,7 @@
       model.model,
       model.provider_id,
       model.provider_name,
-      state.iconStyle,
+      'auto',
     ) || '').trim();
     return template.content.firstElementChild || element('span', 'model-vendor-icon model-vendor-icon--fallback');
   };
@@ -303,12 +301,6 @@
     render();
     commitChanges();
   });
-  iconStyleControl.addEventListener('change', () => {
-    syncVisibleModelNames();
-    state.iconStyle = window.ModelVendorIcons?.normalizeStyle(iconStyleControl.value) || 'filled';
-    render();
-  });
-
   request('/api/admin/available-models')
     .then((payload) => { state.models = payload.models || state.models; render(); })
     .catch((reason) => setMessage(reason.message || tr('models.loadFailed'), true));

@@ -63,6 +63,8 @@ class Issue128WorkspaceAssetUiTests(unittest.TestCase):
             SCRIPT,
         )
         self.assertNotIn("mentionPicker.setActiveIndex(0, {ensureVisible:true})", SCRIPT)
+        self.assertIn("if(!sameSession){", SCRIPT)
+        self.assertIn("mentionSourceTab = 'canvas';", SCRIPT)
 
     def test_picker_uses_poster_images_and_one_manual_audio_player(self):
         self.assertNotIn("document.createElement('video')", PICKER)
@@ -127,6 +129,14 @@ class Issue128WorkspaceAssetUiTests(unittest.TestCase):
         self.assertIn("application/x-workspace-asset", LIBRARY)
         self.assertIn("/api/workspace-assets/folders", LIBRARY)
         self.assertNotIn("insertWorkspaceAssetsIntoCanvas", SCRIPT)
+        self.assertIn("this._searchComposing = true", LIBRARY)
+        self.assertIn("if (this._searchComposing) return", LIBRARY)
+        refresh = LIBRARY[LIBRARY.index("async refresh("):LIBRARY.index("async load(")]
+        self.assertNotIn(".focus(", refresh)
+        self.assertIn("font-size:var(--ui-font-size-3)", LIBRARY)
+        self.assertIn("folder-row-managed", LIBRARY)
+        self.assertIn(".folder-row-managed:is(:hover,:focus-within) .folder-count", LIBRARY)
+        self.assertIn("folderName?.addEventListener('focusout'", LIBRARY)
 
     def test_asset_actions_use_product_language(self):
         self.assertIn("smart.addToAssetLibrary", SCRIPT)

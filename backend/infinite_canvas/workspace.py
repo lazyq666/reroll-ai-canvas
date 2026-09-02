@@ -29,6 +29,7 @@ except ImportError:  # pragma: no cover - POSIX adapter
     msvcrt = None
 
 from .workspace_storage import (
+    SOURCE_REPOSITORY_OVERLAP_MESSAGE,
     WorkspacePaths,
     WorkspaceStorage,
     WorkspaceStorageError,
@@ -501,9 +502,10 @@ class WorkspaceDirectorySummary:
     unavailable_external_reference_count: int
     warnings: tuple[str, ...]
     can_continue: bool
+    message_code: str = ""
 
     def public(self) -> dict[str, object]:
-        return {
+        result = {
             "workspace_directory": str(self.directory),
             "type": self.kind,
             "type_label": self.kind_label,
@@ -518,6 +520,9 @@ class WorkspaceDirectorySummary:
             "warnings": list(self.warnings),
             "can_continue": self.can_continue,
         }
+        if self.message_code:
+            result["message_code"] = self.message_code
+        return result
 
 
 @dataclass(frozen=True)
@@ -996,6 +1001,7 @@ class WorkspaceService:
             if str(directory or "").strip()
             else self.current().directory
         )
+        self._storage.validate_workspace_parent(root)
         planned_identity = ""
         if str(expected_identity or "").strip():
             try:
@@ -1116,6 +1122,14 @@ class WorkspaceService:
             )
         try:
             candidate = Path(raw).expanduser().resolve()
+            if self._storage.overlaps_source_repository(candidate):
+                return self._inspection(
+                    candidate,
+                    "unavailable",
+                    "choose_another",
+                    SOURCE_REPOSITORY_OVERLAP_MESSAGE,
+                    "workspace_source_repository_overlap",
+                )
             if (
                 not candidate.is_dir()
                 or not os.access(candidate, os.R_OK | os.X_OK)
@@ -1432,6 +1446,8 @@ class WorkspaceService:
             warnings.append(
                 "这里已经有一个工作区，请改用“打开已有工作区”"
             )
+        elif inspection.status == "unavailable":
+            warnings.append(inspection.message)
         else:
             warnings.append(
                 "搬家位置必须是空目录，请选择或新建一个空目录"
@@ -1475,6 +1491,7 @@ class WorkspaceService:
             ),
             warnings=tuple(dict.fromkeys(warnings)),
             can_continue=can_continue,
+            message_code=inspection.message_code,
         )
 
     def plan_move(

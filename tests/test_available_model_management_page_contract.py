@@ -9,6 +9,7 @@ PAGE = ROOT / "static" / "available-model-management.html"
 STYLE = ROOT / "static" / "css" / "available-model-management.css"
 SCRIPT = ROOT / "static" / "js" / "available-model-management.js"
 STATE_SCRIPT = ROOT / "static" / "js" / "available-model-management-state.js"
+I18N = ROOT / "static" / "js" / "i18n" / "model-management.js"
 VENDOR_ICONS = ROOT / "static" / "js" / "model-vendor-icons.js"
 BACKEND = ROOT / "backend" / "main.py"
 AUTH = ROOT / "backend" / "infinite_canvas" / "auth_system.py"
@@ -21,6 +22,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         cls.style = STYLE.read_text(encoding="utf-8")
         cls.script = SCRIPT.read_text(encoding="utf-8")
         cls.state_script = STATE_SCRIPT.read_text(encoding="utf-8")
+        cls.i18n = I18N.read_text(encoding="utf-8")
         cls.vendor_icons = VENDOR_ICONS.read_text(encoding="utf-8")
         cls.backend = BACKEND.read_text(encoding="utf-8")
         cls.auth = AUTH.read_text(encoding="utf-8")
@@ -31,8 +33,6 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
             "ic-badge",
             "ic-card",
             "ic-icon",
-            "ic-radio",
-            "ic-radio-group",
             "ic-tabs",
         ):
             self.assertIn(f"<{tag}", self.page)
@@ -46,9 +46,13 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertEqual(len(re.findall(r'<button data-value="(?:image|video|text)"', self.page)), 3)
         self.assertNotIn('id="save-order"', self.page)
         self.assertNotIn('models.saveOrder', self.page)
-        self.assertIn('id="icon-style"', self.page)
-        self.assertIn('value="outline"', self.page)
-        self.assertIn('value="filled"', self.page)
+        self.assertNotIn('id="icon-style"', self.page)
+        self.assertNotIn("models.iconStyle", self.page)
+        self.assertNotIn("models.iconOutline", self.page)
+        self.assertNotIn("models.iconFilled", self.page)
+        self.assertNotIn("models.iconStyle", self.i18n)
+        self.assertNotIn("models.iconOutline", self.i18n)
+        self.assertNotIn("models.iconFilled", self.i18n)
 
     def test_dynamic_rows_use_public_controls_and_feedback(self):
         self.assertIn("element('ic-icon-button'", self.script)
@@ -97,8 +101,10 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn("new BroadcastChannel('studio-api')", self.script)
         self.assertNotIn("saveButton", self.script)
         self.assertIn("isError ? 'danger' : 'success'", self.script)
-        self.assertIn("iconStyleControl.addEventListener('change'", self.script)
-        self.assertIn("window.ModelVendorIcons?.normalizeStyle(iconStyleControl.value)", self.script)
+        self.assertIn("model.provider_name,\n      'auto',", self.script)
+        self.assertNotIn("iconStyleControl", self.script)
+        self.assertNotIn("state.iconStyle", self.script)
+        self.assertNotIn("'outline'", self.script)
 
     def test_sequential_visibility_edits_keep_live_row_objects_connected(self):
         self.assertIn("const applySavedModelsInPlace =", self.script)

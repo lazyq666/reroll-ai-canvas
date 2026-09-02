@@ -217,7 +217,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
     const runtimeDetailFallback = document.getElementById('runtime-detail')?.textContent || '';
@@ -329,7 +329,7 @@ def _recovery_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35"></script>
   <script>
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const input = document.getElementById('workspace-directory');
@@ -339,6 +339,13 @@ def _recovery_page() -> str:
     const confirm = document.getElementById('confirm-recovery');
     let selectedIntent = 'reconnect';
     let checkedDirectory = '';
+    function recoveryWarning(result, fallbackKey) {
+      if (result?.message_code === 'workspace_source_repository_overlap') {
+        return tr('runtime.workspaceSourceRepositoryOverlap');
+      }
+      const warnings = Array.isArray(result?.warnings) ? result.warnings : [];
+      return warnings[0] || tr(fallbackKey);
+    }
     function showAlert(target, text, tone = 'warning') {
       if (text) {
         target.textContent = text;
@@ -347,10 +354,9 @@ def _recovery_page() -> str:
       target.hidden = !text;
     }
     function describe(result) {
-      const warnings = Array.isArray(result.warnings) ? result.warnings : [];
       showAlert(summary, result.can_continue
-        ? (warnings[0] || tr('runtime.completeFound'))
-        : (warnings[0] || tr('runtime.selectedUnavailable')), result.can_continue ? 'success' : 'warning');
+        ? recoveryWarning(result, 'runtime.completeFound')
+        : recoveryWarning(result, 'runtime.selectedUnavailable'), result.can_continue ? 'success' : 'warning');
       confirm.hidden = !result.can_continue;
       checkedDirectory = result.can_continue ? input.value.trim() : '';
     }
@@ -372,7 +378,7 @@ def _recovery_page() -> str:
       const inspected = await fetch('/api/runtime/recovery/inspect-current', {method:'POST'});
       const result = await inspected.json();
       if (!inspected.ok || !result.can_continue) {
-        showAlert(message, result.detail || (result.warnings || [])[0] || tr('runtime.currentUnavailable'), 'danger');
+        showAlert(message, result.detail || recoveryWarning(result, 'runtime.currentUnavailable'), 'danger');
         return;
       }
       const response = await fetch('/api/runtime/recovery/retry', {method:'POST'});
@@ -484,7 +490,7 @@ def _workspace_move_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1a20b8e9d3c4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35"></script>
   <script src="/static/js/workspace-move.js?v=2026.08.28.issue-181.1" defer></script>
 </body>
 </html>"""

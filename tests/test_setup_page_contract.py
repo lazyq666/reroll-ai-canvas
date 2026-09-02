@@ -62,6 +62,10 @@ class SetupPageContractTests(unittest.TestCase):
         self.assertIn("containsHan(message)", self.script)
         self.assertIn("window.StudioI18n?.lang?.() === 'en'", self.script)
         self.assertNotIn("status.workspace_error !== '尚未选择工作区目录'", self.script)
+        self.assertIn(
+            "workspace_source_repository_overlap: 'auth.workspaceSourceRepositoryOverlap'",
+            self.script,
+        )
 
 
 

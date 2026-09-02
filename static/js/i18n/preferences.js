@@ -18,6 +18,8 @@
         "preferences.reviewBeforeMove": { zh: "确认范围后再开始搬家。", en: "Review the scope before starting the move." },
         "preferences.directorySummary": { zh: "目录摘要", en: "Folder summary" },
         "preferences.workspaceDirectory": { zh: "工作区目录", en: "Workspace folder" },
+        "preferences.unavailableDirectory": { zh: "不可用的目录", en: "Unavailable folder" },
+        "preferences.workspaceSourceRepositoryOverlap": { zh: "工作区必须与源码仓库分开保存，请选择源码仓库之外的独立目录。", en: "Workspaces must be stored separately from the source repository. Choose a folder outside the repository." },
         "preferences.chooseAgain": { zh: "请重新选择", en: "Choose again" },
         "preferences.media": { zh: "媒体", en: "Media" },
         "preferences.size": { zh: "容量", en: "Size" },

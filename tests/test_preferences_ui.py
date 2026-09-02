@@ -82,6 +82,18 @@ class PreferencesUiTests(unittest.TestCase):
         self.assertIn("moving.progress_url", self.script)
         self.assertNotIn('method: "PUT"', self.script)
 
+    def test_source_repository_overlap_message_is_localized(self):
+        self.assertIn("workspace_source_repository_overlap", self.script)
+        self.assertIn(
+            'tr("preferences.workspaceSourceRepositoryOverlap")',
+            self.script,
+        )
+        self.assertIn(
+            '"preferences.workspaceSourceRepositoryOverlap": '
+            '{ zh: "工作区必须与源码仓库分开保存',
+            self.i18n,
+        )
+
     def test_asset_manager_page_is_removed_from_shell(self):
         self.assertNotIn("frame-asset-manager", self.shell)
         self.assertNotIn("'asset-manager'", self.shell)

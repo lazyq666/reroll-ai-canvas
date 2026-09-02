@@ -442,6 +442,7 @@ class ExistingWorkspaceRecovery:
             "warnings": [warning],
             "recommended_intent": recommended_intent,
             "can_continue": False,
+            "message_code": inspection.message_code,
         }
 
     def _summary(

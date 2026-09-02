@@ -102,7 +102,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1a20b8e9d3c4')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-ff02b51bdc35')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -14464,13 +14464,15 @@ function showMentionPicker(editor=promptInput, node=null){
         && promptQuickEditor() === editor;
     setPromptQuickTarget(editor, node);
     mentionInsertMode = 'token';
-    mentionSourceTab = 'canvas';
-    mentionCanvasOffset = 0;
-    const target = node || promptQuickTargetNode();
-    mentionFrozenTargetPoint = target ? {
-        x:Number(target.x || 0) + Number(target.width || 320) / 2,
-        y:Number(target.y || 0) + Number(target.height || 240) / 2
-    } : null;
+    if(!sameSession){
+        mentionSourceTab = 'canvas';
+        mentionCanvasOffset = 0;
+        const target = node || promptQuickTargetNode();
+        mentionFrozenTargetPoint = target ? {
+            x:Number(target.x || 0) + Number(target.width || 320) / 2,
+            y:Number(target.y || 0) + Number(target.height || 240) / 2
+        } : null;
+    }
     renderMentionPicker();
 }
 function renderPromptTemplateQuickPicker(){
