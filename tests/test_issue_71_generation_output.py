@@ -26,6 +26,18 @@ class Issue71GenerationOutputTests(unittest.TestCase):
                     canvasMutation:{{
                         create:()=>null,
                         connect:()=>true,
+                        createBatch:({{drafts=[],connections=[]}}={{}})=>{{
+                            sandbox.nodes.push(...drafts);
+                            connections.forEach(connection=>{{
+                                sandbox.canvas.connections.push({{
+                                    ...connection,
+                                    from:connection.fromId,
+                                    to:connection.toId,
+                                    kind:connection.kind || 'flow',
+                                }});
+                            }});
+                            return drafts;
+                        }},
                     }},
                 }}}},
                 canvas:{{connections:[]}}, nodes:[],
@@ -127,7 +139,7 @@ class Issue71GenerationOutputTests(unittest.TestCase):
         self.assertEqual(payload["outputCount"], 3)
         self.assertTrue(payload["hasNewOutput"])
 
-    def test_partial_task_results_ignore_replayed_outputs_and_keep_active_selection(self):
+    def test_partial_task_results_ignore_replays_and_split_into_single_output_nodes(self):
         payload = self.run_node(
             """
             const node = {
@@ -148,18 +160,21 @@ class Issue71GenerationOutputTests(unittest.TestCase):
             output.apply({
                 node, outputs:[], kind:'image', strategy:'task', taskId:'two',
             });
+            const owners = [node,...sandbox.nodes.filter(item =>
+                item.generationBatchSourceNodeId === node.id
+            )];
             process.stdout.write(JSON.stringify({
-                urls:node.images.map(item => item.url),
-                ids:node.images.map(item => item.outputId),
-                activeOutputId:node.activeOutputId,
-                hasNewOutput:node.hasNewGenerationOutput,
+                urls:owners.flatMap(owner => owner.images.map(item => item.url)),
+                ids:owners.flatMap(owner => owner.images.map(item => item.outputId)),
+                retainedUrl:node.images[0]?.url || '',
+                allSingle:owners.every(owner => owner.images.length === 1),
             }));
             """
         )
         self.assertEqual(payload["urls"], ["old.png", "same.png"])
         self.assertEqual(len(set(payload["ids"])), 2)
-        self.assertEqual(payload["activeOutputId"], "out-old")
-        self.assertTrue(payload["hasNewOutput"])
+        self.assertEqual(payload["retainedUrl"], "old.png")
+        self.assertTrue(payload["allSingle"])
 
     def test_duplicate_uses_selected_output_and_connected_generation_references(self):
         payload = self.run_node(
@@ -215,7 +230,7 @@ class Issue71GenerationOutputTests(unittest.TestCase):
         self.assertEqual(payload["runPromptUrls"], ["same.png", "same.png"])
         self.assertEqual(payload["repeatedRecipeUrls"], ["same.png", "same.png"])
 
-    def test_deferred_batch_selects_first_new_output_only_if_selection_is_unchanged(self):
+    def test_deferred_batch_retains_auto_or_user_selected_output_when_splitting(self):
         payload = self.run_node(
             """
             const unchanged = {
@@ -250,19 +265,23 @@ class Issue71GenerationOutputTests(unittest.TestCase):
                 outputs:[{url:'c.png',kind:'image'}],
             });
             process.stdout.write(JSON.stringify({
-                unchangedActive:unchanged.images.find(
-                    item => item.outputId === unchanged.activeOutputId
-                )?.url,
-                changedActive:changed.activeOutputId,
-                changedHasNew:changed.hasNewGenerationOutput,
+                unchangedRetained:unchanged.images[0]?.url || '',
+                unchangedSplit:sandbox.nodes.filter(item =>
+                    item.generationBatchSourceNodeId === unchanged.id
+                ).map(item => item.images[0]?.url),
+                changedRetained:changed.images[0]?.url || '',
+                changedSplit:sandbox.nodes.filter(item =>
+                    item.generationBatchSourceNodeId === changed.id
+                ).map(item => item.images[0]?.url),
             }));
             """
         )
-        self.assertEqual(payload["unchangedActive"], "new.png")
-        self.assertEqual(payload["changedActive"], "out-b")
-        self.assertTrue(payload["changedHasNew"])
+        self.assertEqual(payload["unchangedRetained"], "new.png")
+        self.assertEqual(payload["unchangedSplit"], ["old.png"])
+        self.assertEqual(payload["changedRetained"], "b.png")
+        self.assertEqual(payload["changedSplit"], ["a.png", "c.png"])
 
-    def test_queued_completion_appends_and_honors_submission_selection_snapshot(self):
+    def test_queued_completion_splits_and_honors_submission_selection_snapshot(self):
         payload = self.run_node(
             """
             const unchanged = {
@@ -297,21 +316,21 @@ class Issue71GenerationOutputTests(unittest.TestCase):
                 submissionSnapshot:changed.jimengPending.submissionSnapshot,
             });
             process.stdout.write(JSON.stringify({
-                unchangedUrls:unchanged.images.map(item => item.url),
-                unchangedActive:unchanged.images.find(
-                    item => item.outputId === unchanged.activeOutputId
-                )?.url,
-                changedUrls:changed.images.map(item => item.url),
-                changedActive:changed.activeOutputId,
-                changedHasNew:changed.hasNewGenerationOutput,
+                unchangedRetained:unchanged.images[0]?.url || '',
+                unchangedSplit:sandbox.nodes.filter(item =>
+                    item.generationBatchSourceNodeId === unchanged.id
+                ).map(item => item.images[0]?.url),
+                changedRetained:changed.images[0]?.url || '',
+                changedSplit:sandbox.nodes.filter(item =>
+                    item.generationBatchSourceNodeId === changed.id
+                ).map(item => item.images[0]?.url),
             }));
             """
         )
-        self.assertEqual(payload["unchangedUrls"], ["old.png", "new.png"])
-        self.assertEqual(payload["unchangedActive"], "new.png")
-        self.assertEqual(payload["changedUrls"], ["a.png", "b.png", "c.png"])
-        self.assertEqual(payload["changedActive"], "out-b")
-        self.assertTrue(payload["changedHasNew"])
+        self.assertEqual(payload["unchangedRetained"], "new.png")
+        self.assertEqual(payload["unchangedSplit"], ["old.png"])
+        self.assertEqual(payload["changedRetained"], "b.png")
+        self.assertEqual(payload["changedSplit"], ["a.png", "c.png"])
 
     def test_recovery_success_assigns_applied_additions_before_counting(self):
         recovery = (ROOT / "static/js/smart-canvas/generation-recovery.js").read_text(

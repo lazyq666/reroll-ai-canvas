@@ -455,13 +455,30 @@ class LauncherSupervisionTests(unittest.TestCase):
                     "INFINITE_CANVAS_STATE_DIR": str(state),
                 }
             )
+            backend_path = str(PROJECT_DIR / "backend")
+            environment["PYTHONPATH"] = os.pathsep.join(
+                filter(
+                    None,
+                    (backend_path, environment.get("PYTHONPATH", "")),
+                )
+            )
+            supervision_script = "\n".join(
+                (
+                    "import sys",
+                    "from pathlib import Path",
+                    "import launcher",
+                    "runtime = launcher.Runtime(",
+                    "    Path(sys.executable),",
+                    "    tuple(sys.version_info[:3]),",
+                    "    'test runtime',",
+                    ")",
+                    "raise SystemExit(",
+                    "    launcher.start_application(runtime, open_browser=False)",
+                    ")",
+                )
+            )
             process = subprocess.Popen(
-                [
-                    sys.executable,
-                    str(PROJECT_DIR / "backend" / "launcher.py"),
-                    "start",
-                    "--no-browser",
-                ],
+                [sys.executable, "-c", supervision_script],
                 cwd=PROJECT_DIR,
                 env=environment,
                 stdout=subprocess.PIPE,

@@ -188,6 +188,59 @@ async function main() {
       return;
     }
 
+    if (process.env.IC_BROWSER_FOCUS_FAILED_IMAGE_BACKGROUND === '1') {
+      await frame.evaluate(() => {
+        nodes.push({
+          id:'regression-image-failed',
+          type:'smart-image',
+          title:'Image · Failed',
+          x:40,
+          y:40,
+          w:300,
+          h:220,
+          images:[],
+          generationRunFeedback:{
+            successfulCount:0,
+            failedCount:1,
+            reasonCategories:['unsupported_size'],
+          },
+        });
+        render();
+      });
+      await frame.locator('ic-canvas-node[data-id="regression-image-failed"]').waitFor({state:'attached'});
+      const failedBackgrounds = await frame.evaluate(() => {
+        const measure = id => {
+          const node=document.querySelector(`ic-canvas-node[data-id="${id}"]`);
+          return {
+            kind:node?.getAttribute('kind') || '',
+            state:node?.getAttribute('state') || '',
+            background:node ? getComputedStyle(node).backgroundColor : '',
+          };
+        };
+        const measureTheme = theme => {
+          applyTheme(theme);
+          return {
+            image:measure('regression-image-failed'),
+            video:measure('review-generation-failed'),
+            text:measure('review-prompt-generation-failed'),
+          };
+        };
+        return {light:measureTheme('light'),dark:measureTheme('dark')};
+      });
+      for (const theme of ['light','dark']) {
+        const backgrounds=failedBackgrounds[theme];
+        assert.equal(backgrounds.image.kind, 'image', JSON.stringify(failedBackgrounds));
+        assert.match(backgrounds.image.state, /failed/, JSON.stringify(failedBackgrounds));
+        assert.notEqual(backgrounds.image.background, 'rgba(0, 0, 0, 0)', JSON.stringify(failedBackgrounds));
+        assert.equal(backgrounds.image.background, backgrounds.video.background, JSON.stringify(failedBackgrounds));
+        assert.equal(backgrounds.image.background, backgrounds.text.background, JSON.stringify(failedBackgrounds));
+      }
+      assert.deepEqual(reviewApiWrites, []);
+      assert.deepEqual(errors, []);
+      console.log(JSON.stringify({status:'ready',failedBackgrounds}));
+      return;
+    }
+
     if (process.env.IC_BROWSER_FOCUS_PROMPT_ALIGNMENT === '1') {
       const alignment = await frame.evaluate(() => {
         const node = document.querySelector('ic-canvas-node[data-id="review-prompt-generation-upstream-image"]');

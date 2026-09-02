@@ -4,7 +4,7 @@ import {
   CANVAS_NODE_STATES,
   canvasNodeClasses,
   isCanvasNodeKind,
-} from './shared.js?v=ic-ui-c087c3d218de';
+} from './shared.js?v=ic-ui-b0dd1bc6845c';
 
 const MANAGED_CLASSES = new Set(CANVAS_NODE_KINDS.flatMap(kind => [
   ...canvasNodeClasses(kind, { detail:true }).split(' '),
@@ -89,7 +89,7 @@ export class IcCanvasNode extends HTMLElement {
           user-select:none;
           cursor:move;
         }
-        :host([kind="image"]:not([state~="empty"])) {
+        :host([kind="image"]:not([state~="empty"]):not([state~="failed"])) {
           --ic-canvas-node-radius:var(--ui-radius-s);
           padding:2px;
           border:1px solid var(--ui-color-border-nodes);

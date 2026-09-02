@@ -90,12 +90,13 @@ async function finalGateResult(page, nodeId) {
                 {id:'upload-image',type:'smart-image',x:20,y:60,images:[]},
                 {id:'upload-video',type:'smart-image',x:640,y:60,images:[],uploadMediaKind:'video',runSettings:{engine:'api',apiKind:'image'}},
                 {id:'upload-audio',type:'smart-image',x:1240,y:60,images:[]},
-                {id:'ready-image',type:'smart-image',x:20,y:390,images:[{url:image,name:'ready.svg',kind:'image'}],uploadedAttachment:true,promptDraftHtml:'ready draft',promptDraftText:'ready draft',runSettings:{engine:'api',apiKind:'image'}},
+                normalizeLegacySmartNode({id:'ready-image',type:'smart-image',x:20,y:390,images:[{url:image,name:'ready.svg',kind:'image'}],uploadedAttachment:true,promptDraftHtml:'ready draft',promptDraftText:'ready draft',runSettings:{engine:'api',apiKind:'image'}}),
                 {id:'smart-group',type:'smart-group',x:600,y:390,w:280,h:210,items:[],promptDraftHtml:'group draft',promptDraftText:'group draft'},
                 {id:'generation-pending',type:'smart-image',x:900,y:390,images:[],pending:1,referenceGenerationKind:'image',runSettings:{engine:'api',apiKind:'image'}},
                 {id:'generation-running',type:'smart-image',x:1240,y:390,images:[],running:true,pending:1,referenceGenerationKind:'image',promptDraftHtml:'next run draft',promptDraftText:'next run draft',generationInputSnapshot:{prompt:'frozen run prompt',refs:[],settings:{engine:'api',apiKind:'image'}},runSettings:{engine:'api',apiKind:'image'}},
                 {id:'generation-failed',type:'smart-image',x:20,y:720,images:[],referenceGenerationKind:'image',generationRunFeedback:{successfulCount:0,failedCount:1,reasons:['Mock failure']},runSettings:{engine:'api',apiKind:'image'}},
                 {id:'generation-completed',type:'smart-image',x:640,y:720,images:[{url:image,name:'result.svg',kind:'image',generatedResult:true}],referenceGenerationKind:'image',generationOutputNode:true,runAt:Date.now(),runSettings:{engine:'api',apiKind:'image'}},
+                normalizeLegacySmartNode({id:'legacy-generation-output',type:'smart-image',x:940,y:720,images:[{url:image,name:'legacy-result.svg',kind:'image',generatedResult:true}],generationOutputNode:true,outputKind:'image',runAt:Date.now(),runSettings:{engine:'api',apiKind:'image'}}),
                 {id:'unsupported-frame',type:'smart-frame',x:1180,y:720,w:260,h:180,items:[]},
             );
             canvas.connections = [];
@@ -151,7 +152,7 @@ async function finalGateResult(page, nodeId) {
         const roleStates = {};
         for (const nodeId of [
             'smart-group','generation-pending','generation-running',
-            'generation-failed','generation-completed',
+            'generation-failed','generation-completed','legacy-generation-output',
         ]) {
             const state = await selectedNodeState(page, nodeId);
             assert.equal(state.eligibility.runnable, true, nodeId);
@@ -159,6 +160,10 @@ async function finalGateResult(page, nodeId) {
             assert.equal(state.runDisabled, false, nodeId);
             roleStates[nodeId] = state;
         }
+        assert.equal(
+            await page.evaluate(() => nodes.find(node => node.id === 'legacy-generation-output')?.referenceGenerationKind || ''),
+            'image',
+        );
         const readyImage = await selectedNodeState(page, 'ready-image');
         assert.equal(readyImage.composerOpen, false);
         assert.equal(readyImage.eligibility.runnable, false);

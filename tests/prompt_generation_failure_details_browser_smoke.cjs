@@ -170,6 +170,8 @@ function startServer(){
       selectedImage = {nodeId:'',index:-1};
       smartCanvasLogsHydrated = false;
       render();
+      document.documentElement.classList.remove('smart-canvas-booting');
+      document.documentElement.dataset.canvasOpeningPhase = 'ready';
     }, {canvasId:CANVAS_ID, promptText:PROMPT_TEXT});
 
     await page.evaluate(() => runPromptLLMNode('prompt-source-node'));
@@ -214,10 +216,32 @@ function startServer(){
     });
     assert.equal(realtimeApplied, true);
 
-    await page.locator('[data-generation-failure-queue] ic-alert[data-ic-stack-index="0"]').evaluate(control => {
-      control.shadowRoot.querySelector('.action').click();
+    await page.waitForFunction(() => document.querySelector(
+      '[data-generation-failure-queue] ic-alert[data-ic-stack-index="0"][data-ic-stack-state="active"]',
+    ));
+    await page.waitForFunction(() => {
+      const control = document.querySelector(
+        '[data-generation-failure-queue] ic-alert[data-ic-stack-index="0"]',
+      );
+      const rect = control?.shadowRoot?.querySelector('.action')?.getBoundingClientRect();
+      return Boolean(rect?.width && rect?.height && rect.top >= 0);
+    }, null, {timeout:3000});
+    const actionRect = await page.locator(
+      '[data-generation-failure-queue] ic-alert[data-ic-stack-index="0"]',
+    ).evaluate(control => {
+      const rect = control.shadowRoot.querySelector('.action')?.getBoundingClientRect();
+      return rect ? {x:rect.x, y:rect.y, width:rect.width, height:rect.height} : null;
     });
-    await page.waitForFunction(() => document.querySelector('#smartLogModal')?.hasAttribute('open'));
+    assert.ok(actionRect?.width > 0 && actionRect?.height > 0);
+    await page.mouse.click(
+      actionRect.x + actionRect.width / 2,
+      actionRect.y + actionRect.height / 2,
+    );
+    await page.waitForFunction(
+      () => document.querySelector('#smartLogModal')?.hasAttribute('open'),
+      null,
+      {timeout:1500},
+    );
     const immediateLogState = await page.locator('#smartLogList').evaluate(list => ({
       count:list.querySelectorAll('.generation-log-index-item').length,
       empty:list.querySelector('.generation-log-empty')?.textContent || '',

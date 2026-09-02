@@ -291,7 +291,9 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertIn("canvasRealtimeApplier.apply", prompt_failure_smoke)
         self.assertIn("generationLogReads === 1", prompt_failure_smoke)
         self.assertIn("immediateLogState.count", prompt_failure_smoke)
-        self.assertIn("querySelector('.action').click()", prompt_failure_smoke)
+        self.assertNotIn("querySelector('.action').click()", prompt_failure_smoke)
+        self.assertIn("await page.mouse.click(", prompt_failure_smoke)
+        self.assertIn("const actionRect =", prompt_failure_smoke)
         self.assertIn("[data-generation-log-selected-detail]", prompt_failure_smoke)
         self.assertIn("is-focused-target", prompt_failure_smoke)
 

@@ -102,7 +102,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-c087c3d218de')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-b0dd1bc6845c')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -1154,8 +1154,10 @@ function normalizeLegacySmartNode(node){
         );
         if(looksLikeGenerationOutput){
             node.generationOutputNode = true;
+            const generationOutput = window.SmartCanvasModules?.generationOutput;
+            generationOutput?.repairReferenceKind?.({node});
             if((node.images || []).length > 1 || node.activeOutputId){
-                window.SmartCanvasModules?.generationOutput?.ensureNodeState?.({node});
+                generationOutput?.ensureNodeState?.({node});
             }
         }
     }

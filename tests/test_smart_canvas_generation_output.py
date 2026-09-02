@@ -76,6 +76,15 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
                 x:0,
                 y:0,
                 images:[{{url:'source.png',kind:'image'}}],
+                referenceGenerationKind:'image',
+            }};
+            const videoSource = {{
+                id:'video-source',
+                type:'smart-image',
+                x:0,
+                y:400,
+                images:[{{url:'source.mp4',kind:'video'}}],
+                referenceGenerationKind:'video',
             }};
             const target = {{
                 id:'target',
@@ -131,9 +140,25 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
                             }}
                             return true;
                         }},
+                        createBatch({{drafts=[],connections=[]}}){{
+                            for(const draft of drafts){{
+                                if(!sandbox.nodes.some(node => node.id === draft.id)){{
+                                    sandbox.nodes.push(draft);
+                                }}
+                            }}
+                            for(const connection of connections){{
+                                this.connect({{
+                                    fromId:connection.fromId,
+                                    toId:connection.toId,
+                                    kind:connection.kind,
+                                    input:connection.input,
+                                }});
+                            }}
+                            return drafts;
+                        }},
                     }},
                 }}}},
-                nodes:[source, target, taskNode],
+                nodes:[source, videoSource, target, taskNode],
                 canvas:{{connections:[]}},
                 selectedId:'',
                 selectedImage:{{nodeId:'',index:-1}},
@@ -204,6 +229,19 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
                 sourceNode:source,
                 expectedCount:2,
                 connectSource:false,
+                outputKind:'image',
+            }});
+            const videoPending = output.createPending({{
+                sourceNode:videoSource,
+                expectedCount:1,
+                connectSource:false,
+                outputKind:'video',
+            }});
+            const batchPending = output.createPendingBatch({{
+                sourceNode:source,
+                expectedCount:2,
+                connectSource:false,
+                outputKind:'image',
             }});
             const replaced = output.apply({{
                 node:target,
@@ -232,6 +270,29 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
                 kind:'image',
                 strategy:'task',
             }});
+            const legacyVideoOutput = {{
+                id:'legacy-video-output',
+                type:'smart-image',
+                generationOutputNode:true,
+                outputKind:'video',
+                images:[{{url:'legacy.mp4',kind:'video',generatedResult:true}}],
+                runSettings:{{engine:'api',apiKind:'video'}},
+            }};
+            const ambiguousUpload = {{
+                id:'ambiguous-upload',
+                type:'smart-image',
+                generationOutputNode:true,
+                images:[{{url:'upload.png',kind:'image'}}],
+                uploadedAttachment:true,
+                runSettings:{{engine:'api',apiKind:'image'}},
+            }};
+            sandbox.nodes.push(legacyVideoOutput, ambiguousUpload);
+            const repairedLegacyKind = output.repairReferenceKind({{
+                node:legacyVideoOutput,
+            }});
+            const repairedAmbiguousKind = output.repairReferenceKind({{
+                node:ambiguousUpload,
+            }});
             const history = sandbox.nodes.find(node => node.isHistoryGroup);
             process.stdout.write(JSON.stringify({{
                 methods:['createPending','normalize','apply']
@@ -239,12 +300,21 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
                 pending:{{
                     id:pending.id,
                     count:pending.pending,
+                    referenceKind:pending.referenceGenerationKind || '',
                     connected:sandbox.canvas.connections.some(connection =>
                         connection.from === source.id
                         && connection.to === pending.id
                         && connection.kind === 'flow'
                     ),
                 }},
+                videoPending:{{
+                    outputKind:videoPending.outputKind,
+                    referenceKind:videoPending.referenceGenerationKind || '',
+                }},
+                batchPending:batchPending.map(node => ({{
+                    outputKind:node.outputKind,
+                    referenceKind:node.referenceGenerationKind || '',
+                }})),
                 replaced:replaced.map(item => item.url),
                 appended:appended.map(item => item.url),
                 target:target.images.map(item => item.url),
@@ -259,6 +329,12 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
                     pending:taskNode.pending,
                     taskCount:(taskNode.pendingTasks || []).length,
                     finishedAt:taskNode.runFinishedAt,
+                }},
+                repair:{{
+                    legacyResult:repairedLegacyKind,
+                    ambiguousResult:repairedAmbiguousKind,
+                    legacyKind:legacyVideoOutput.referenceGenerationKind || '',
+                    ambiguousKind:ambiguousUpload.referenceGenerationKind || '',
                 }},
             }}));
             """
@@ -276,7 +352,19 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
             ["createPending", "normalize", "apply"],
         )
         self.assertEqual(payload["pending"]["count"], 2)
+        self.assertEqual(payload["pending"]["referenceKind"], "image")
         self.assertTrue(payload["pending"]["connected"])
+        self.assertEqual(
+            payload["videoPending"],
+            {"outputKind": "video", "referenceKind": "video"},
+        )
+        self.assertEqual(
+            payload["batchPending"],
+            [
+                {"outputKind": "image", "referenceKind": "image"},
+                {"outputKind": "image", "referenceKind": "image"},
+            ],
+        )
         self.assertEqual(payload["replaced"], ["new.png"])
         self.assertEqual(payload["appended"], ["third.png"])
         self.assertEqual(
@@ -293,6 +381,15 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
         self.assertEqual(payload["task"]["pending"], 0)
         self.assertEqual(payload["task"]["taskCount"], 0)
         self.assertEqual(payload["task"]["finishedAt"], 200)
+        self.assertEqual(
+            payload["repair"],
+            {
+                "legacyResult": "video",
+                "ambiguousResult": "",
+                "legacyKind": "video",
+                "ambiguousKind": "",
+            },
+        )
 
 
 if __name__ == "__main__":

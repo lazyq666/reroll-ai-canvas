@@ -26,7 +26,8 @@ const GENERATION_OUTPUT_INFO_KEYS = Object.freeze([
     'runFinishedAt',
     'runElapsedMs',
     'runTimerHidden',
-    'outputKind'
+    'outputKind',
+    'referenceGenerationKind'
 ]);
 const GENERATION_OUTPUT_GALLERY_STATE_KEYS = Object.freeze([
     'activeOutputId',
@@ -146,9 +147,41 @@ function generationOutputAddExactConnection(connection){
     }
     return true;
 }
+function generationOutputReferenceKind(node, preferredKind=''){
+    return [
+        preferredKind,
+        node?.referenceGenerationKind,
+        node?.outputKind,
+        node?.generationInputSnapshot?.settings?.apiKind,
+        node?.runSettings?.apiKind,
+        ...(node?.images || []).map(item => item?.kind)
+    ].map(kind => String(kind || '')).find(kind =>
+        ['image','video'].includes(kind)
+    ) || '';
+}
+function generationOutputHasReliableReferenceEvidence(node){
+    if(!node || node.generationOutputNode !== true) return false;
+    return Boolean(
+        ['image','video'].includes(String(node.referenceGenerationKind || ''))
+        || ['image','video'].includes(String(node.outputKind || ''))
+        || node.generationBatchId
+        || node.generationOperationId
+        || (node.images || []).some(item => item?.generatedResult === true)
+    );
+}
+function generationOutputEnsureReferenceKind(node, preferredKind=''){
+    if(!node || node.generationOutputNode !== true) return '';
+    const kind = generationOutputReferenceKind(node, preferredKind);
+    if(kind) node.referenceGenerationKind = kind;
+    return kind;
+}
+function generationOutputRepairReferenceKind(node){
+    return generationOutputHasReliableReferenceEvidence(node)
+        ? generationOutputEnsureReferenceKind(node)
+        : '';
+}
 function generationOutputParallelReferenceKind(sourceNode, outputKind='image'){
-    const kind = sourceNode?.referenceGenerationKind || outputKind;
-    return ['image','video'].includes(kind) ? kind : '';
+    return generationOutputReferenceKind(sourceNode, outputKind);
 }
 function generationOutputBatchAnchor(
     sourceNode,
@@ -199,9 +232,10 @@ function generationOutputCreatePendingBatch(sourceNode, expectedCount, meta, opt
     const createdAt = Date.now();
     const inheritSourceConnections = options.inheritSourceConnections === true;
     const createParallelOutputs = reuseSource || inheritSourceConnections;
-    const parallelReferenceKind = createParallelOutputs
-        ? generationOutputParallelReferenceKind(sourceNode, options.outputKind)
-        : '';
+    const parallelReferenceKind = generationOutputParallelReferenceKind(
+        sourceNode,
+        options.outputKind
+    );
     const incomingConnections = createParallelOutputs
         ? generationOutputIncomingConnections(sourceNode)
         : [];
@@ -323,9 +357,10 @@ function generationOutputCreatePending(sourceNode, expectedCount, meta, options=
     const incomingConnections = inheritSourceConnections
         ? generationOutputIncomingConnections(sourceNode)
         : [];
-    const parallelReferenceKind = incomingConnections.length
-        ? generationOutputParallelReferenceKind(sourceNode, options.outputKind)
-        : '';
+    const parallelReferenceKind = generationOutputParallelReferenceKind(
+        sourceNode,
+        options.outputKind
+    );
     if(parallelReferenceKind) output.referenceGenerationKind = parallelReferenceKind;
     output._selectAfterRunId = options.selectOutput ? output.id : sourceNode.id;
     const placement = {
@@ -633,6 +668,7 @@ function generationOutputSplitCompletedImages(source, options={}){
     if(!source || !isSmartImageNode(source) || source.generationOutputNode !== true){
         return [source].filter(Boolean);
     }
+    generationOutputEnsureReferenceKind(source, 'image');
     generationOutputEnsureNodeState(source);
     const images = (source.images || []).filter(image => image?.url);
     if(images.length <= 1 || String(source.outputKind || images[0]?.kind || 'image') !== 'image'){
@@ -701,6 +737,7 @@ function generationOutputSplitCompletedImages(source, options={}){
         generationSlotCount:images.length,
         outputKind:'image'
     });
+    generationOutputEnsureReferenceKind(source, 'image');
     generationOutputMutationModule.createBatch({
         drafts,
         intent:{
@@ -899,6 +936,7 @@ function generationOutputReplace(node, outputs, kind='image', meta=null, options
     delete node.hasNewGenerationOutput;
     markSmartNodeComplete(node, meta);
     node.outputKind = kind;
+    generationOutputEnsureReferenceKind(node, kind);
     node.title = generationOutputTitle(kind, node.images.length);
     node.scale = node.images.length > 1
         ? MEDIA_GROUP_DEFAULT_SCALE
@@ -944,6 +982,7 @@ function generationOutputAppend(node, outputs, kind='image', options={}){
     }
     markSmartNodeComplete(node);
     node.outputKind = kind;
+    generationOutputEnsureReferenceKind(node, kind);
     node.title = generationOutputTitle(kind, node.images.length);
     delete node.w;
     delete node.h;
@@ -966,6 +1005,7 @@ function generationOutputCompletePending(node, outputs, kind='image', meta=null)
     if(normalized.length) node.generationOutputNode = true;
     markSmartNodeComplete(node, meta);
     node.outputKind = kind;
+    generationOutputEnsureReferenceKind(node, kind);
     node.title = generationOutputTitle(kind, normalized.length);
     node.scale = mediaNodeDefaultScale(node);
     delete node.w;
@@ -1051,6 +1091,7 @@ function generationOutputCompleteTask(node, taskId, outputs, kind='image'){
     });
     generationOutputEnsureNodeState(node);
     if(additions.length) node.generationOutputNode = true;
+    if(additions.length) generationOutputEnsureReferenceKind(node, kind);
     if(existingCount && additions.length){
         const submittedActive = submissionSnapshot?.activeOutputId ?? null;
         const submittedCount = Number(submissionSnapshot?.outputCount ?? -1);
@@ -1163,6 +1204,9 @@ window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.generationOutput = Object.freeze({
     ensureNodeState({node=null}={}){
         return generationOutputEnsureNodeState(node);
+    },
+    repairReferenceKind({node=null}={}){
+        return generationOutputRepairReferenceKind(node);
     },
     active({node=null}={}){
         const active = generationOutputActive(node);

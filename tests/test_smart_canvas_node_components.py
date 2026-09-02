@@ -135,10 +135,13 @@ class SmartCanvasNodeComponentTests(unittest.TestCase):
 
     def test_ready_image_node_owns_a_transparent_media_container_shell(self):
         image_rule = self.node_component.split(
-            ':host([kind="image"]:not([state~="empty"])) {', 1
+            ':host([kind="image"]:not([state~="empty"]):not([state~="failed"])) {', 1
         )[1].split("}", 1)[0]
         self.assertIn('border:var(--ui-border-width-thin) solid var(--ui-color-border-nodes);', self.node_component)
-        self.assertIn(':host([kind="image"]:not([state~="empty"]))', self.node_component)
+        self.assertIn(
+            ':host([kind="image"]:not([state~="empty"]):not([state~="failed"]))',
+            self.node_component,
+        )
         self.assertIn('padding:2px;', image_rule)
         self.assertIn('border:1px solid var(--ui-color-border-nodes);', image_rule)
         self.assertIn('border-radius:var(--ui-radius-s);', image_rule)
