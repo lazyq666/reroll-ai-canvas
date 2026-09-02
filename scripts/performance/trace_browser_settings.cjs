@@ -214,7 +214,7 @@ async function main() {
     }
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `
-        try { sessionStorage.setItem('studio_brand_entry_seen', '1'); } catch (_error) {}
+        try { localStorage.setItem('studio_brand_entry_seen', '1'); } catch (_error) {}
         window.__icLongTasks = [];
         window.__icUnhandledRejections = [];
         window.addEventListener('unhandledrejection', event => {

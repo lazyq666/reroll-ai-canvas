@@ -556,13 +556,28 @@ class SmartCanvasGenerationRecoveryTests(unittest.TestCase):
             let nextId = 0;
             const restored = [];
             const taskResults = {{
-                success:{{status:'succeeded',result:{{images:[{{url:'new.png',kind:'image'}}]}}}},
+                success:{{status:'succeeded',result:{{images:[
+                    {{url:'new-a.png',kind:'image'}},
+                    {{url:'new-b.png',kind:'image'}},
+                ]}}}},
                 failure:{{status:'failed',error:'simulated failure'}},
                 failure2:{{status:'failed',error:'second simulated failure'}},
             }};
             const sandbox = {{
                 window:{{SmartCanvasModules:{{canvasMutation:{{
                     create:()=>null, connect:()=>true,
+                    createBatch:({{drafts=[],connections=[]}}={{}})=>{{
+                        sandbox.nodes.push(...drafts);
+                        connections.forEach(connection=>{{
+                            sandbox.canvas.connections.push({{
+                                ...connection,
+                                from:connection.fromId,
+                                to:connection.toId,
+                                kind:connection.kind || 'flow',
+                            }});
+                        }});
+                        return drafts;
+                    }},
                 }}}}}},
                 nodes:[], canvas:{{connections:[]}},
                 selectedId:'', selectedImage:{{nodeId:'',index:-1}},
@@ -625,7 +640,7 @@ class SmartCanvasGenerationRecoveryTests(unittest.TestCase):
             }};
             sandbox.nodes.push(partial, failed, replaced);
             (async()=>{{
-                await recovery.settle({{
+                const partialResult = await recovery.settle({{
                     node:partial,
                     submission:{{state:'pending',kind:'image',tasks:[
                         {{taskId:'success',kind:'image'}},
@@ -646,8 +661,17 @@ class SmartCanvasGenerationRecoveryTests(unittest.TestCase):
                         {{taskId:'replaced',kind:'image'}},
                     ]}},
                 }});
+                const partialBatch = sandbox.nodes.filter(node =>
+                    node.id === partial.id
+                    || (
+                        node.generationBatchId
+                        && node.generationBatchId === partial.generationBatchId
+                    )
+                );
                 process.stdout.write(JSON.stringify({{
-                    partialUrls:partial.images.map(item=>item.url),
+                    partialUrls:partialBatch.flatMap(node=>node.images.map(item=>item.url)).sort(),
+                    partialImageCounts:partialBatch.map(node=>node.images.length),
+                    partialResultUrls:partialResult.urls.map(item=>item.url).sort(),
                     partialFeedback:partial.generationRunFeedback,
                     failedUrls:failed.images.map(item=>item.url),
                     failedFeedback:failed.generationRunFeedback,
@@ -662,8 +686,12 @@ class SmartCanvasGenerationRecoveryTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["partialUrls"], ["old.png", "new.png"])
-        self.assertEqual(payload["partialFeedback"]["successfulCount"], 1)
+        self.assertEqual(
+            payload["partialUrls"], ["new-a.png", "new-b.png", "old.png"]
+        )
+        self.assertEqual(payload["partialImageCounts"], [1, 1, 1])
+        self.assertEqual(payload["partialResultUrls"], ["new-a.png", "new-b.png"])
+        self.assertEqual(payload["partialFeedback"]["successfulCount"], 2)
         self.assertEqual(payload["partialFeedback"]["failedCount"], 1)
         self.assertEqual(payload["failedUrls"], ["kept.png"])
         self.assertEqual(payload["failedFeedback"]["successfulCount"], 0)

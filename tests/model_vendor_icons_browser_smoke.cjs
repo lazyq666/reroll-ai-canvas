@@ -59,9 +59,9 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
     })));
 
     const expectedImages = new Map([
-        ['GPT Image 2', '/static/images/chatgpt.svg'],
-        ['Nano Banana Pro', '/static/images/gemini.svg'],
-        ['Midjourney V7', '/static/images/midjourney.svg'],
+        ['GPT Image 2', '/static/images/providers/chatgpt.svg'],
+        ['Nano Banana Pro', '/static/images/providers/gemini.svg'],
+        ['Midjourney V7', '/static/images/providers/midjourney.svg'],
     ]);
     for (const [name, source] of expectedImages) {
         const card = cards.find(item => item.text.includes(name));

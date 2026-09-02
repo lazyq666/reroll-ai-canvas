@@ -1,4 +1,4 @@
 export { IcButton } from './button.js';
 export { IcIconButton } from './icon-button.js';
 export { IcButtonGroup } from './button-group.js';
-export { IcVideoPlayButton } from './video-play-button.js?v=ic-ui-ff02b51bdc35';
+export { IcVideoPlayButton } from './video-play-button.js?v=ic-ui-c087c3d218de';

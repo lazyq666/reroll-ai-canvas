@@ -10,6 +10,7 @@ const media = {
     a:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="480"%3E%3Cpath fill="%234c8bf5" d="M0 0h640v480H0z"/%3E%3C/svg%3E',
     b:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="480" height="640"%3E%3Cpath fill="%23e45858" d="M0 0h480v640H0z"/%3E%3C/svg%3E',
     c:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="512" height="512"%3E%3Cpath fill="%2346a758" d="M0 0h512v512H0z"/%3E%3C/svg%3E',
+    d:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="768" height="512"%3E%3Cpath fill="%238a5cf5" d="M0 0h768v512H0z"/%3E%3C/svg%3E',
 };
 
 function overlaps(a, b) {
@@ -72,30 +73,106 @@ function overlaps(a, b) {
                 id:'smart-group',type:'smart-group',x:1050,y:650,w:320,h:210,
                 items:[],images:[{url:mediaUrls.a},{url:mediaUrls.c}],
             };
+            const input = {
+                id:'input',type:'smart-prompt',x:-200,y:180,w:220,h:160,
+                text:'upstream prompt',
+            };
+            const consumer = {
+                id:'consumer',type:'smart-image',x:1200,y:180,w:220,h:160,
+                images:[],
+            };
             canvas = {nodes:[],connections:[],settings:{}};
-            nodes.splice(0,nodes.length,source,ordinary,group);
+            nodes.splice(0,nodes.length,input,source,ordinary,group,consumer);
             canvas.nodes = nodes;
             canvas.connections = [
+                {from:'input',to:'legacy-gallery',kind:'input'},
                 {from:'legacy-gallery',to:'consumer',kind:'input',sourceOutputId:'out-a'},
             ];
             delete canvas.migrationVersions;
             selectedId = 'ordinary-multi';
             selectedIds = [];
             selectedImage = {nodeId:'ordinary-multi',index:1};
-            const connectionBefore = JSON.stringify(canvas.connections);
             const first = window.SmartCanvasModules.generationOutput.migrateLegacyGalleries();
             const countAfterFirst = nodes.length;
             const second = window.SmartCanvasModules.generationOutput.migrateLegacyGalleries();
+            const countAfterSecond = nodes.length;
             render();
             const infoKeys = [
                 'runSettings','runModelPrompt','runPrompt','runInputRefs','runPromptRefs',
                 'generationInputSnapshot','runAt','outputKind',
             ];
             const split = nodes.filter(node => ![
-                'legacy-gallery','ordinary-multi','smart-group',
+                'input','legacy-gallery','ordinary-multi','smart-group','consumer',
             ].includes(node.id));
+            const legacyOwners = Object.fromEntries(
+                [source,...split].map(node => [node.images[0]?.outputId,node.id])
+            );
+            const legacyBatch = [source,...split];
+
+            const runtime = {
+                id:'runtime-gallery',type:'smart-image',x:180,y:1100,w:240,h:320,
+                generationOutputNode:true,images:[],pending:1,running:true,
+                pendingTasks:[{taskId:'midjourney-task',kind:'image'}],
+                runStartedAt:1000,
+                ...generationInfo,
+            };
+            nodes.push(runtime);
+            canvas.connections.push({from:'input',to:runtime.id,kind:'input'});
+            const runtimeOutputs = window.SmartCanvasModules.generationOutput.apply({
+                node:runtime,
+                taskId:'midjourney-task',
+                outputs:[
+                    {url:mediaUrls.a,outputId:'runtime-a'},
+                    {url:mediaUrls.b,outputId:'runtime-b'},
+                    {url:mediaUrls.c,outputId:'runtime-c'},
+                    {url:mediaUrls.d,outputId:'runtime-d'},
+                ],
+                kind:'image',
+                strategy:'task',
+            });
+            const runtimeBatch = nodes.filter(node =>
+                node.id === runtime.id
+                || (
+                    node.generationBatchId
+                    && node.generationBatchId === runtime.generationBatchId
+                )
+            );
+
+            const corruptRunInfo = {
+                ...generationInfo,
+                runAt:654321,
+                runModelPrompt:'legacy repaired model prompt',
+                generationInputSnapshot:{prompt:'legacy repaired model prompt'},
+            };
+            const corrupt = [mediaUrls.a,mediaUrls.b,mediaUrls.c,mediaUrls.d].map(
+                (url,index) => ({
+                    id:`corrupt-${index}`,
+                    type:'smart-image',
+                    x:180 + (index ? 500 : 0),
+                    y:1700 + index * 360,
+                    created_at:3000 + index,
+                    generationOutputNode:true,
+                    outputKind:'image',
+                    images:[{url,outputId:`corrupt-output-${index}`}],
+                    ...corruptRunInfo,
+                })
+            );
+            nodes.push(...corrupt);
+            canvas.connections.push(
+                {from:'input',to:corrupt[0].id,kind:'input'},
+                {
+                    from:corrupt[0].id,to:'consumer',kind:'input',
+                    sourceOutputId:'corrupt-output-2',
+                },
+            );
+            canvas.migrationVersions.generationOutputGallerySplit = 1;
+            const repairFirst = window.SmartCanvasModules.generationOutput.migrateLegacyGalleries();
+            const repairSecond = window.SmartCanvasModules.generationOutput.migrateLegacyGalleries();
+            const corruptOwner = corrupt.find(node =>
+                node.images[0]?.outputId === 'corrupt-output-2'
+            );
             return {
-                first,second,countAfterFirst,countAfterSecond:nodes.length,
+                first,second,countAfterFirst,countAfterSecond,
                 version:canvas.migrationVersions?.generationOutputGallerySplit,
                 source:{
                     id:source.id,x:source.x,y:source.y,url:source.images[0]?.url,
@@ -110,12 +187,54 @@ function overlaps(a, b) {
                 sourceRect:{x:source.x,y:source.y,w:source.w,h:source.h},
                 ordinaryCount:ordinary.images.length,
                 groupCount:group.images.length,
-                connectionsUnchanged:connectionBefore === JSON.stringify(canvas.connections),
+                legacyTopology:{
+                    batchIds:[...new Set(legacyBatch.map(node => node.generationBatchId))],
+                    slots:legacyBatch.map(node => node.generationSlotIndex).sort(),
+                    connected:legacyBatch.filter(node => canvas.connections.some(connection =>
+                        connection.from === input.id
+                        && connection.to === node.id
+                        && connection.kind === 'input'
+                    )).length,
+                    outgoingOwner:canvas.connections.find(connection =>
+                        connection.to === consumer.id
+                        && connection.sourceOutputId === 'out-a'
+                    )?.from || '',
+                    expectedOutgoingOwner:legacyOwners['out-a'],
+                },
+                runtime:{
+                    returned:runtimeOutputs.map(item => item.url),
+                    count:runtimeBatch.length,
+                    imageCounts:runtimeBatch.map(node => node.images.length),
+                    batchIds:[...new Set(runtimeBatch.map(node => node.generationBatchId))],
+                    slots:runtimeBatch.map(node => node.generationSlotIndex).sort(),
+                    connected:runtimeBatch.filter(node => canvas.connections.some(connection =>
+                        connection.from === input.id
+                        && connection.to === node.id
+                        && connection.kind === 'input'
+                    )).length,
+                },
+                repaired:{
+                    first:repairFirst,
+                    second:repairSecond,
+                    version:canvas.migrationVersions.generationOutputGallerySplit,
+                    batchIds:[...new Set(corrupt.map(node => node.generationBatchId))],
+                    slots:corrupt.map(node => node.generationSlotIndex).sort(),
+                    connected:corrupt.filter(node => canvas.connections.some(connection =>
+                        connection.from === input.id
+                        && connection.to === node.id
+                        && connection.kind === 'input'
+                    )).length,
+                    outgoingOwner:canvas.connections.find(connection =>
+                        connection.to === consumer.id
+                        && connection.sourceOutputId === 'corrupt-output-2'
+                    )?.from || '',
+                    expectedOutgoingOwner:corruptOwner?.id || '',
+                },
                 selection:{selectedId,selectedIds,selectedImage},
             };
         }, media);
 
-        await page.waitForFunction(() => document.querySelectorAll('.image-node').length === 5);
+        await page.waitForFunction(() => document.querySelectorAll('.image-node').length >= 6);
         const dom = await page.evaluate(() => ({
             legacyGallery:Boolean(document.querySelector('.generation-output-view')),
             sourceMedia:document.querySelector('.image-node[data-id="legacy-gallery"] img')?.src || '',
@@ -123,7 +242,7 @@ function overlaps(a, b) {
 
         assert.equal(result.first, true);
         assert.equal(result.second, false);
-        assert.equal(result.version, 1);
+        assert.equal(result.version, 2);
         assert.equal(result.countAfterFirst, result.countAfterSecond);
         assert.deepEqual(
             [result.source.id,result.source.x,result.source.y,result.source.url,result.source.active,result.source.scale],
@@ -134,7 +253,33 @@ function overlaps(a, b) {
         assert.equal(overlaps(result.split[0], result.split[1]), false);
         assert.ok(result.split.every(node => JSON.stringify(node.info) === JSON.stringify(result.expectedInfo)));
         assert.deepEqual([result.ordinaryCount,result.groupCount], [2,2]);
-        assert.equal(result.connectionsUnchanged, true);
+        assert.deepEqual(result.legacyTopology, {
+            batchIds:['legacy-batch'],
+            slots:[0,1,2],
+            connected:3,
+            outgoingOwner:result.legacyTopology.expectedOutgoingOwner,
+            expectedOutgoingOwner:result.legacyTopology.expectedOutgoingOwner,
+        });
+        assert.deepEqual(result.runtime, {
+            returned:[media.a,media.b,media.c,media.d],
+            count:4,
+            imageCounts:[1,1,1,1],
+            batchIds:[result.runtime.batchIds[0]],
+            slots:[0,1,2,3],
+            connected:4,
+        });
+        assert.ok(result.runtime.batchIds[0]);
+        assert.deepEqual(result.repaired, {
+            first:true,
+            second:false,
+            version:2,
+            batchIds:[result.repaired.batchIds[0]],
+            slots:[0,1,2,3],
+            connected:4,
+            outgoingOwner:result.repaired.expectedOutgoingOwner,
+            expectedOutgoingOwner:result.repaired.expectedOutgoingOwner,
+        });
+        assert.ok(result.repaired.batchIds[0]);
         assert.deepEqual(result.selection, {
             selectedId:'ordinary-multi',selectedIds:[],
             selectedImage:{nodeId:'ordinary-multi',index:1},
@@ -142,7 +287,11 @@ function overlaps(a, b) {
         assert.equal(dom.legacyGallery, false);
         assert.equal(dom.sourceMedia, media.b);
         assert.deepEqual(pageErrors, []);
-        process.stdout.write(`${JSON.stringify({version:result.version,split:result.split.length})}\n`);
+        process.stdout.write(`${JSON.stringify({
+            version:result.version,
+            split:result.split.length,
+            repaired:result.repaired.connected,
+        })}\n`);
     } finally {
         await browser.close();
     }

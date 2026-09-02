@@ -115,7 +115,7 @@ function renderReferences() {
   thumbsRow.classList.toggle('has-items', referencesVisible);
   thumbsRow.innerHTML = referencesVisible ? `
     <div class="input-thumb-list" aria-label="参考素材">
-      <ic-reference-thumbnail data-component-name="ic-reference-thumbnail-image" kind="image" label="参考图" src="/static/images/logo.png" preview-src="/static/images/logo.png" original-src="/static/images/logo.png" alt="Reroll 标志参考图" removable remove-label="移除参考图"></ic-reference-thumbnail>
+      <ic-reference-thumbnail data-component-name="ic-reference-thumbnail-image" kind="image" label="参考图" src="/static/images/brand/logo.png" preview-src="/static/images/brand/logo.png" original-src="/static/images/brand/logo.png" alt="Reroll 标志参考图" removable remove-label="移除参考图"></ic-reference-thumbnail>
       <ic-reference-thumbnail class="input-text-reference" data-component-name="ic-reference-thumbnail-text" kind="text" label="输入文本" preview-text="纸艺鲸鱼的材质与光线参考" aria-label="输入文本：纸艺鲸鱼的材质与光线参考" removable remove-label="移除文本引用"></ic-reference-thumbnail>
     </div>` : '';
   referenceToggle?.setAttribute('aria-pressed', String(referencesVisible));

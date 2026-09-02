@@ -783,7 +783,12 @@ async function generationRecoveryResumeNodeOnce(
     if(failures.length && !(node.images || []).length){
         throw failures[0];
     }
-    return {deferred, observer:false, logged:Boolean(reportedFailures.length)};
+    return {
+        deferred,
+        observer:false,
+        logged:Boolean(reportedFailures.length),
+        outputs:successfulOutputs
+    };
 }
 function generationRecoveryResumeKey(node, tasks){
     return JSON.stringify([
@@ -892,7 +897,10 @@ async function generationRecoverySettle(node, submission, options={}){
             logged:Boolean(recoveryState?.logged)
         };
     }
-    const urls = (node.images || []).filter(item =>
+    const recoveredOutputs = Array.isArray(recoveryState?.outputs)
+        ? recoveryState.outputs
+        : node.images || [];
+    const urls = recoveredOutputs.filter(item =>
         item?.url && !before.has(`${item.kind || ''}|${item.url}`)
     );
     if(recoveryState?.deferred && !urls.length){

@@ -209,6 +209,6 @@ body[data-variant="c"] .prototype-shell.is-docked .status-copy { opacity: 0; tra
 
 @media (prefers-reduced-motion: reduce) {
   .logo-motion { display: none; }
-  .mark-frame { background: url('/static/images/logo.svg') center/contain no-repeat; }
+  .mark-frame { background: url('/static/images/brand/logo.svg') center/contain no-repeat; }
   body[data-variant="b"] .mark-frame { filter: invert(1); }
 }

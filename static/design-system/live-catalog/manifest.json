@@ -57,20 +57,20 @@
       "static/css/theme.css",
       "static/css/zimage.css",
       "static/enhance.html",
-      "static/images/RunningHub-B.png",
-      "static/images/RunningHub-W.png",
-      "static/images/chatgpt.svg",
-      "static/images/doubao.svg",
-      "static/images/flux.svg",
-      "static/images/gemini.svg",
-      "static/images/grok.svg",
-      "static/images/jimeng.svg",
-      "static/images/logo.png",
-      "static/images/midjourney.svg",
-      "static/images/modelscope-1.gif",
-      "static/images/modelscope.gif",
-      "static/images/volcengine-theme-dark.svg",
-      "static/images/volcengine-theme-light.svg",
+      "static/images/providers/RunningHub-B.png",
+      "static/images/providers/RunningHub-W.png",
+      "static/images/providers/chatgpt.svg",
+      "static/images/providers/doubao.svg",
+      "static/images/providers/flux.svg",
+      "static/images/providers/gemini.svg",
+      "static/images/providers/grok.svg",
+      "static/images/providers/jimeng.svg",
+      "static/images/brand/logo.png",
+      "static/images/providers/midjourney.svg",
+      "static/images/providers/modelscope-1.gif",
+      "static/images/providers/modelscope.gif",
+      "static/images/providers/volcengine-theme-dark.svg",
+      "static/images/providers/volcengine-theme-light.svg",
       "static/index.html",
       "static/js/account-login.js",
       "static/js/account-management.js",
@@ -40219,10 +40219,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/RunningHub-B.png",
+      "assetPath": "/static/images/providers/RunningHub-B.png",
       "sources": [
         {
-          "file": "static/images/RunningHub-B.png",
+          "file": "static/images/providers/RunningHub-B.png",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40252,9 +40252,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/RunningHub-B.png\" alt=\"RunningHub-B.png\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/RunningHub-B.png\" alt=\"RunningHub-B.png\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/RunningHub-B.png",
+        "assetPath": "/static/images/providers/RunningHub-B.png",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40270,10 +40270,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/RunningHub-W.png",
+      "assetPath": "/static/images/providers/RunningHub-W.png",
       "sources": [
         {
-          "file": "static/images/RunningHub-W.png",
+          "file": "static/images/providers/RunningHub-W.png",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40303,9 +40303,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/RunningHub-W.png\" alt=\"RunningHub-W.png\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/RunningHub-W.png\" alt=\"RunningHub-W.png\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/RunningHub-W.png",
+        "assetPath": "/static/images/providers/RunningHub-W.png",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40321,10 +40321,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/chatgpt.svg",
+      "assetPath": "/static/images/providers/chatgpt.svg",
       "sources": [
         {
-          "file": "static/images/chatgpt.svg",
+          "file": "static/images/providers/chatgpt.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40354,9 +40354,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/chatgpt.svg\" alt=\"chatgpt.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/chatgpt.svg\" alt=\"chatgpt.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/chatgpt.svg",
+        "assetPath": "/static/images/providers/chatgpt.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40372,10 +40372,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/doubao.svg",
+      "assetPath": "/static/images/providers/doubao.svg",
       "sources": [
         {
-          "file": "static/images/doubao.svg",
+          "file": "static/images/providers/doubao.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40405,9 +40405,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/doubao.svg\" alt=\"doubao.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/doubao.svg\" alt=\"doubao.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/doubao.svg",
+        "assetPath": "/static/images/providers/doubao.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40423,10 +40423,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/flux.svg",
+      "assetPath": "/static/images/providers/flux.svg",
       "sources": [
         {
-          "file": "static/images/flux.svg",
+          "file": "static/images/providers/flux.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40456,9 +40456,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/flux.svg\" alt=\"flux.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/flux.svg\" alt=\"flux.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/flux.svg",
+        "assetPath": "/static/images/providers/flux.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40474,10 +40474,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/gemini.svg",
+      "assetPath": "/static/images/providers/gemini.svg",
       "sources": [
         {
-          "file": "static/images/gemini.svg",
+          "file": "static/images/providers/gemini.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40507,9 +40507,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/gemini.svg\" alt=\"gemini.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/gemini.svg\" alt=\"gemini.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/gemini.svg",
+        "assetPath": "/static/images/providers/gemini.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40525,10 +40525,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/grok.svg",
+      "assetPath": "/static/images/providers/grok.svg",
       "sources": [
         {
-          "file": "static/images/grok.svg",
+          "file": "static/images/providers/grok.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40558,9 +40558,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/grok.svg\" alt=\"grok.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/grok.svg\" alt=\"grok.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/grok.svg",
+        "assetPath": "/static/images/providers/grok.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40576,10 +40576,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/jimeng.svg",
+      "assetPath": "/static/images/providers/jimeng.svg",
       "sources": [
         {
-          "file": "static/images/jimeng.svg",
+          "file": "static/images/providers/jimeng.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40609,9 +40609,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/jimeng.svg\" alt=\"jimeng.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/jimeng.svg\" alt=\"jimeng.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/jimeng.svg",
+        "assetPath": "/static/images/providers/jimeng.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40627,10 +40627,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/logo.png",
+      "assetPath": "/static/images/brand/logo.png",
       "sources": [
         {
-          "file": "static/images/logo.png",
+          "file": "static/images/brand/logo.png",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40660,9 +40660,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/logo.png\" alt=\"logo.png\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/brand/logo.png\" alt=\"logo.png\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/logo.png",
+        "assetPath": "/static/images/brand/logo.png",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40678,10 +40678,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/midjourney.svg",
+      "assetPath": "/static/images/providers/midjourney.svg",
       "sources": [
         {
-          "file": "static/images/midjourney.svg",
+          "file": "static/images/providers/midjourney.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40711,9 +40711,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/midjourney.svg\" alt=\"midjourney.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/midjourney.svg\" alt=\"midjourney.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/midjourney.svg",
+        "assetPath": "/static/images/providers/midjourney.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40729,10 +40729,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/modelscope-1.gif",
+      "assetPath": "/static/images/providers/modelscope-1.gif",
       "sources": [
         {
-          "file": "static/images/modelscope-1.gif",
+          "file": "static/images/providers/modelscope-1.gif",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40762,9 +40762,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/modelscope-1.gif\" alt=\"modelscope-1.gif\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/modelscope-1.gif\" alt=\"modelscope-1.gif\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/modelscope-1.gif",
+        "assetPath": "/static/images/providers/modelscope-1.gif",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40780,10 +40780,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/modelscope.gif",
+      "assetPath": "/static/images/providers/modelscope.gif",
       "sources": [
         {
-          "file": "static/images/modelscope.gif",
+          "file": "static/images/providers/modelscope.gif",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40813,9 +40813,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/modelscope.gif\" alt=\"modelscope.gif\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/modelscope.gif\" alt=\"modelscope.gif\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/modelscope.gif",
+        "assetPath": "/static/images/providers/modelscope.gif",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40831,10 +40831,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/volcengine-theme-dark.svg",
+      "assetPath": "/static/images/providers/volcengine-theme-dark.svg",
       "sources": [
         {
-          "file": "static/images/volcengine-theme-dark.svg",
+          "file": "static/images/providers/volcengine-theme-dark.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40864,9 +40864,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/volcengine-theme-dark.svg\" alt=\"volcengine-theme-dark.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/volcengine-theme-dark.svg\" alt=\"volcengine-theme-dark.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/volcengine-theme-dark.svg",
+        "assetPath": "/static/images/providers/volcengine-theme-dark.svg",
         "naturalInteractions": [
           "theme",
           "reset",
@@ -40882,10 +40882,10 @@
       "componentType": "Graphic Asset",
       "trust": "verified-live",
       "inventoryKind": "graphic-asset",
-      "assetPath": "/static/images/volcengine-theme-light.svg",
+      "assetPath": "/static/images/providers/volcengine-theme-light.svg",
       "sources": [
         {
-          "file": "static/images/volcengine-theme-light.svg",
+          "file": "static/images/providers/volcengine-theme-light.svg",
           "line": 1,
           "domPath": "static asset"
         }
@@ -40915,9 +40915,9 @@
       "fixture": {
         "adapter": "graphic-resource",
         "contextId": "context.graphics",
-        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/volcengine-theme-light.svg\" alt=\"volcengine-theme-light.svg\"></div>",
+        "markup": "<div class=\"live-graphic-preview\" data-live-fixture-root><img src=\"/static/images/providers/volcengine-theme-light.svg\" alt=\"volcengine-theme-light.svg\"></div>",
         "rootSelector": "[data-live-fixture-root]",
-        "assetPath": "/static/images/volcengine-theme-light.svg",
+        "assetPath": "/static/images/providers/volcengine-theme-light.svg",
         "naturalInteractions": [
           "theme",
           "reset",

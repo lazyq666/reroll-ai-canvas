@@ -10,7 +10,7 @@ if(!generationOutputPendingModule) throw new Error('Pending Node Module failed t
 const generationOutputMutationModule = window.SmartCanvasModules?.canvasMutation;
 if(!generationOutputMutationModule) throw new Error('Canvas Mutation Module failed to load');
 const GENERATION_OUTPUT_BATCH_GAP = 48;
-const GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION = 1;
+const GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION = 2;
 const GENERATION_OUTPUT_INFO_KEYS = Object.freeze([
     'runSettings',
     'runModelPrompt',
@@ -18,7 +18,14 @@ const GENERATION_OUTPUT_INFO_KEYS = Object.freeze([
     'runInputRefs',
     'runPromptRefs',
     'generationInputSnapshot',
+    'promptDraftHtml',
+    'promptDraftText',
+    'sourceNodeId',
     'runAt',
+    'runStartedAt',
+    'runFinishedAt',
+    'runElapsedMs',
+    'runTimerHidden',
     'outputKind'
 ]);
 const GENERATION_OUTPUT_GALLERY_STATE_KEYS = Object.freeze([
@@ -37,10 +44,6 @@ const GENERATION_OUTPUT_GALLERY_STATE_KEYS = Object.freeze([
     'jimengPending',
     'generationOperationId',
     'generationRunFeedback',
-    'runStartedAt',
-    'runFinishedAt',
-    'runElapsedMs',
-    'runTimerHidden',
     'generationPreviousPresentation',
     '_runMetaTargetId',
     '_selectAfterRunId'
@@ -115,6 +118,33 @@ function generationOutputCloneIncomingConnections(incomingConnections=[], output
         toId:output.id,
         exact:true
     })));
+}
+function generationOutputAddExactConnection(connection){
+    const from = String(connection?.fromId || connection?.from || '');
+    const to = String(connection?.toId || connection?.to || '');
+    const kind = String(connection?.kind || 'flow');
+    if(!from || !to || from === to) return false;
+    canvas.connections = canvas.connections || [];
+    if(canvas.connections.some(item =>
+        item.from === from
+        && item.to === to
+        && (item.kind || 'flow') === kind
+    )) return false;
+    const exact = {...connection,from,to,kind};
+    delete exact.fromId;
+    delete exact.toId;
+    delete exact.input;
+    delete exact.exact;
+    canvas.connections.push(exact);
+    if(kind === 'input'){
+        const target = nodes.find(node => node.id === to);
+        if(target){
+            target.inputNodeIds = Array.from(new Set([
+                ...(target.inputNodeIds || []),from
+            ]));
+        }
+    }
+    return true;
 }
 function generationOutputParallelReferenceKind(sourceNode, outputKind='image'){
     const kind = sourceNode?.referenceGenerationKind || outputKind;
@@ -585,74 +615,231 @@ function generationOutputMigrateLegacyGroups(){
     canvas.nodes = nodes;
     return true;
 }
+function generationOutputSplitReferenceOwners(source, ownerByOutputId){
+    nodes.forEach(node => {
+        for(const key of ['runInputRefs','runPromptRefs','manualInputRefs','recipeSourceRefs']){
+            if(!Array.isArray(node?.[key])) continue;
+            node[key] = node[key].map(ref => {
+                const outputId = String(ref?.outputId || '');
+                const owner = outputId ? ownerByOutputId.get(outputId) : null;
+                if(!owner || owner.id === source.id) return ref;
+                if(ref?.nodeId && String(ref.nodeId) !== String(source.id)) return ref;
+                return {...ref,nodeId:owner.id,imageIndex:0};
+            });
+        }
+    });
+}
+function generationOutputSplitCompletedImages(source, options={}){
+    if(!source || !isSmartImageNode(source) || source.generationOutputNode !== true){
+        return [source].filter(Boolean);
+    }
+    generationOutputEnsureNodeState(source);
+    const images = (source.images || []).filter(image => image?.url);
+    if(images.length <= 1 || String(source.outputKind || images[0]?.kind || 'image') !== 'image'){
+        return [source];
+    }
+    const incomingConnections = generationOutputIncomingConnections(source);
+    const retainedOutputId = String(
+        options.retainedOutputId || source.activeOutputId || images[0]?.outputId || ''
+    );
+    const retainedIndex = Math.max(0,images.findIndex(image =>
+        String(image?.outputId || '') === retainedOutputId
+    ));
+    const retained = images[retainedIndex] || images[0];
+    const splitImages = images
+        .map((image,index) => ({image,index}))
+        .filter(item => item.index !== retainedIndex);
+    const batchId = String(source.generationBatchId || uid('generation-batch'));
+    const batchLayout = options.batchLayout === 'vertical'
+        ? 'vertical'
+        : options.batchLayout === 'horizontal'
+            ? 'horizontal'
+            : source.generationBatchLayout === 'vertical'
+                ? 'vertical'
+                : source.generationBatchLayout === 'horizontal'
+                    ? 'horizontal'
+                    : typeof smartGenerationBatchLayout !== 'undefined'
+                        && smartGenerationBatchLayout === 'vertical'
+                        ? 'vertical'
+                        : 'horizontal';
+    const anchor = generationOutputIncomingAnchor(source, incomingConnections);
+    const batchSourceNodeId = String(
+        source.generationBatchSourceNodeId
+        || source.sourceNodeId
+        || anchor.sourceNodeId
+        || source.id
+    );
+    const createdAt = Number(source.created_at || Date.now());
+    const drafts = splitImages.map(({image,index}) => generationOutputCopyInfo(
+        source,
+        {
+            id:uid('smart'),
+            type:'smart-image',
+            x:0,
+            y:0,
+            title:generationOutputTitle('image',1),
+            images:[{...image}],
+            generationOutputNode:true,
+            generationBatchId:batchId,
+            generationBatchLayout:batchLayout,
+            generationBatchSourceNodeId:batchSourceNodeId,
+            generationSlotIndex:index,
+            generationSlotCount:images.length,
+            outputKind:'image',
+            scale:MEDIA_NODE_DEFAULT_SCALE,
+            created_at:createdAt + index + 1
+        }
+    ));
+    source.images = [{...retained}];
+    source.title = generationOutputTitle('image',1);
+    generationOutputClearGalleryState(source);
+    Object.assign(source, {
+        generationBatchId:batchId,
+        generationBatchLayout:batchLayout,
+        generationBatchSourceNodeId:batchSourceNodeId,
+        generationSlotIndex:retainedIndex,
+        generationSlotCount:images.length,
+        outputKind:'image'
+    });
+    generationOutputMutationModule.createBatch({
+        drafts,
+        intent:{
+            anchor:{kind:'source',sourceNodeId:source.id},
+            relation:'downstream',
+            arrangement:`${batchLayout}-batch`
+        },
+        connections:generationOutputCloneIncomingConnections(
+            incomingConnections,
+            drafts
+        ),
+        options:{
+            skipUndo:true,
+            select:false,
+            render:false,
+            save:false
+        }
+    });
+    const owners = [source,...drafts];
+    const ownerByOutputId = new Map(owners.map(node => [
+        String(node.images[0]?.outputId || ''),node
+    ]).filter(([outputId]) => outputId));
+    canvas.connections = (canvas.connections || []).map(connection => {
+        if(connection.from !== source.id || !connection.sourceOutputId) return connection;
+        const owner = ownerByOutputId.get(String(connection.sourceOutputId));
+        return owner && owner.id !== source.id
+            ? {...connection,from:owner.id}
+            : connection;
+    });
+    generationOutputSplitReferenceOwners(source, ownerByOutputId);
+    if(selectedImage?.nodeId === source.id){
+        const selectedOutput = images[Number(selectedImage.index) || 0];
+        const owner = ownerByOutputId.get(String(selectedOutput?.outputId || ''));
+        if(owner) selectedImage = {nodeId:owner.id,index:0};
+    }
+    return owners;
+}
+function generationOutputLegacySplitFingerprint(node){
+    const runAt = Number(node?.runAt || 0);
+    if(!runAt) return '';
+    return JSON.stringify([
+        runAt,
+        String(node.runModelPrompt || ''),
+        String(node.runPrompt || ''),
+        node.runSettings || null,
+        node.generationInputSnapshot || null
+    ]);
+}
+function generationOutputRepairLegacySplitBatches(){
+    const candidates = nodes.filter(node =>
+        isSmartImageNode(node)
+        && node.generationOutputNode === true
+        && !node.generationBatchId
+        && (node.images || []).filter(image => image?.url).length === 1
+        && generationOutputLegacySplitFingerprint(node)
+    );
+    const groups = new Map();
+    candidates.forEach(node => {
+        const fingerprint = generationOutputLegacySplitFingerprint(node);
+        if(!groups.has(fingerprint)) groups.set(fingerprint,[]);
+        groups.get(fingerprint).push(node);
+    });
+    let changed = false;
+    groups.forEach(group => {
+        if(group.length < 2 || group.length > 8) return;
+        const ordered = group.slice().sort((left,right) =>
+            Number(left.created_at || 0) - Number(right.created_at || 0)
+            || String(left.id).localeCompare(String(right.id))
+        );
+        const created = ordered.map(node => Number(node.created_at || 0));
+        if(!created.every(value => value > 0)
+            || Math.max(...created) - Math.min(...created) > 8){
+            return;
+        }
+        const connected = ordered.filter(node =>
+            generationOutputIncomingConnections(node).length > 0
+        );
+        if(connected.length !== 1) return;
+        const source = connected[0];
+        const incomingConnections = generationOutputIncomingConnections(source);
+        const batchId = uid('generation-batch');
+        const anchor = generationOutputIncomingAnchor(source,incomingConnections);
+        const batchSourceNodeId = String(
+            source.sourceNodeId || anchor.sourceNodeId || source.id
+        );
+        ordered.forEach((node,index) => Object.assign(node, {
+            generationBatchId:batchId,
+            generationBatchLayout:'vertical',
+            generationBatchSourceNodeId:batchSourceNodeId,
+            generationSlotIndex:index,
+            generationSlotCount:ordered.length
+        }));
+        generationOutputCloneIncomingConnections(
+            incomingConnections,
+            ordered.filter(node => node.id !== source.id)
+        ).forEach(generationOutputAddExactConnection);
+        const ownerByOutputId = new Map(ordered.map(node => [
+            String(node.images[0]?.outputId || ''),node
+        ]).filter(([outputId]) => outputId));
+        canvas.connections = (canvas.connections || []).map(connection => {
+            if(connection.from !== source.id || !connection.sourceOutputId) return connection;
+            const owner = ownerByOutputId.get(String(connection.sourceOutputId));
+            return owner && owner.id !== source.id
+                ? {...connection,from:owner.id}
+                : connection;
+        });
+        generationOutputSplitReferenceOwners(source,ownerByOutputId);
+        changed = true;
+    });
+    return changed;
+}
 function generationOutputMigrateLegacyGalleries(){
     if(!Array.isArray(nodes) || !canvas) return false;
-    if(Number(canvas.migrationVersions?.generationOutputGallerySplit || 0)
-        >= GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION){
+    const currentVersion = Number(
+        canvas.migrationVersions?.generationOutputGallerySplit || 0
+    );
+    if(currentVersion >= GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION){
         return false;
     }
+    let changed = generationOutputRepairLegacySplitBatches();
     const candidates = nodes.filter(node =>
         isSmartImageNode(node)
         && node.generationOutputNode === true
         && Array.isArray(node.images)
         && node.images.filter(image => image?.url).length > 1
     );
-    if(!candidates.length) return false;
     candidates.forEach(source => {
-        generationOutputEnsureNodeState(source);
-        const images = (source.images || []).filter(image => image?.url);
-        if(images.length <= 1) return;
-        const selectedOutputId = String(source.activeOutputId || '');
-        const selectedIndex = Math.max(0,images.findIndex(image =>
-            String(image?.outputId || '') === selectedOutputId
-        ));
-        const retained = images[selectedIndex] || images[0];
-        const splitImages = images.filter((image,index) => index !== selectedIndex);
-        source.images = [{...retained}];
-        source.title = generationOutputTitle(
-            source.outputKind || retained.kind || 'image',
-            1
-        );
-        generationOutputClearGalleryState(source);
-        const drafts = splitImages.map((image,index) => generationOutputCopyInfo(
-            source,
-            {
-                id:uid('smart'),
-                type:'smart-image',
-                x:0,
-                y:0,
-                title:generationOutputTitle(
-                    source.outputKind || image.kind || 'image',
-                    1
-                ),
-                images:[{...image}],
-                generationOutputNode:true,
-                scale:MEDIA_NODE_DEFAULT_SCALE,
-                created_at:Number(source.created_at || Date.now()) + index + 1
-            }
-        ));
-        generationOutputMutationModule.createBatch({
-            drafts,
-            intent:{
-                anchor:{kind:'source',sourceNodeId:source.id},
-                relation:'downstream',
-                arrangement:'vertical-batch'
-            },
-            connections:[],
-            options:{
-                skipUndo:true,
-                select:false,
-                render:false,
-                save:false
-            }
+        generationOutputSplitCompletedImages(source, {
+            retainedOutputId:String(source.activeOutputId || ''),
+            batchLayout:source.generationBatchLayout || 'vertical'
         });
+        changed = true;
     });
     canvas.nodes = nodes;
     canvas.migrationVersions = {
         ...(canvas.migrationVersions || {}),
         generationOutputGallerySplit:GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION
     };
-    return true;
+    return changed || currentVersion < GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION;
 }
 function generationOutputNormalize(outputs=[], kind='image', options={}){
     const generatedResult = options.generatedResult !== false;
@@ -770,6 +957,7 @@ function generationOutputAppendLoop(node, outputs, kind='image', context=null){
 function generationOutputCompletePending(node, outputs, kind='image', meta=null){
     if(!node) return [];
     node = liveSmartNode(node);
+    const afterRunSelection = node._selectAfterRunId || node.id;
     const mediaDisplaySize = (node.images || []).length
         ? generationOutputCaptureMediaDisplaySize(node)
         : null;
@@ -790,10 +978,10 @@ function generationOutputCompletePending(node, outputs, kind='image', meta=null)
     node.images = (node.images || []).map(item =>
         stripImageGenerationMeta(item)
     );
+    generationOutputSplitCompletedImages(node);
     clearSourceBusyStateIfDownstreamDone(
         nodes.find(candidate => candidate.id === meta?.sourceNodeId)
     );
-    const afterRunSelection = node._selectAfterRunId || node.id;
     if(!selectedId || selectedId === node.id){
         selectedId = afterRunSelection;
     }
@@ -828,6 +1016,7 @@ function generationOutputCompleteQueued(node, outputs, kind='image', submissionS
         type:'queue-succeeded',
         now:nowMs()
     });
+    generationOutputSplitCompletedImages(node);
     return additions;
 }
 function generationOutputCompleteTask(node, taskId, outputs, kind='image'){
@@ -895,6 +1084,7 @@ function generationOutputCompleteTask(node, taskId, outputs, kind='image'){
         }
         delete node.w;
         delete node.h;
+        generationOutputSplitCompletedImages(node);
     }
     generationOutputPreserveMediaDisplaySize(node,mediaDisplaySize);
     return additions;

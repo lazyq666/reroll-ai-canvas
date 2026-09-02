@@ -86,7 +86,7 @@
 
                 {id:'review-label-group',type:'smart-text',title:'Smart Group Node label',text:'编组 / Smart Group\nEmpty · Media',textSize:'small',x:-240,y:2505,w:220,h:76},
                 {id:'review-group-empty',type:'smart-group',title:'Smart Group · Empty',x:340,y:2400,w:300,h:220,images:[],items:[]},
-                {id:'review-group-media',type:'smart-group',title:'Smart Group · Media',x:720,y:2400,w:300,h:220,images:[{url:'/static/images/logo.png',name:'group-image.png',kind:'image',natural_w:512,natural_h:330}],items:[]},
+                {id:'review-group-media',type:'smart-group',title:'Smart Group · Media',x:720,y:2400,w:300,h:220,images:[{url:'/static/images/brand/logo.png',name:'group-image.png',kind:'image',natural_w:512,natural_h:330}],items:[]},
 
                 {id:'review-label-frame',type:'smart-text',title:'Frame label',text:'分区 / Frame\nViolet · Blue',textSize:'small',x:-240,y:2835,w:220,h:76},
                 {id:'review-frame-violet',type:'smart-frame',title:'Frame · Violet',x:340,y:2730,w:300,h:220,items:[],frameColor:'violet'},

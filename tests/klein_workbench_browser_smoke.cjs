@@ -38,11 +38,11 @@ function startServer(state) {
     if (url.pathname === '/api/history' && request.method === 'GET') {
       return json(response, 200, [
         {
-          prompt: '玻璃材质的未来产品，柔和侧光', images: ['/static/images/logo.png'], timestamp: 101,
+          prompt: '玻璃材质的未来产品，柔和侧光', images: ['/static/images/brand/logo.png'], timestamp: 101,
           type: 'klein', model: 'black-forest-labs/FLUX.2-klein-9B',
           params: { '278': { image: 'history-main.png' }, '270': { image: '' }, '292': { image: '' } },
         },
-        { prompt: '极简建筑与蓝色天空', images: ['/static/images/logo.png'], timestamp: 102, type: 'klein' },
+        { prompt: '极简建筑与蓝色天空', images: ['/static/images/brand/logo.png'], timestamp: 102, type: 'klein' },
       ]);
     }
     if (url.pathname === '/api/upload' && request.method === 'POST') {
@@ -56,7 +56,7 @@ function startServer(state) {
       state.local.push(payload);
       return json(response, 200, {
         prompt: payload.prompt,
-        images: ['/static/images/logo.png'],
+        images: ['/static/images/brand/logo.png'],
         timestamp: 201,
         type: 'klein',
         params: payload.params,
@@ -65,7 +65,7 @@ function startServer(state) {
     if (url.pathname === '/api/ms/generate' && request.method === 'POST') {
       const payload = await readJson(request);
       state.cloud.push(payload);
-      return json(response, 200, { url: '/static/images/logo.png' });
+      return json(response, 200, { url: '/static/images/brand/logo.png' });
     }
     if (url.pathname === '/api/history/delete' && request.method === 'POST') {
       const payload = await readJson(request);
@@ -73,7 +73,7 @@ function startServer(state) {
       return json(response, 200, { success: true });
     }
     if (url.pathname === '/api/view') {
-      const file = ROOT + '/static/images/logo.png';
+      const file = ROOT + '/static/images/brand/logo.png';
       return fs.readFile(file, (error, body) => {
         if (error) return response.writeHead(404).end();
         response.writeHead(200, { 'Content-Type': 'image/png' });

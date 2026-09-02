@@ -55,7 +55,7 @@ async function waitForServer(child) {
           id:'asset-insert-probe',
           media_id:'a'.repeat(64),
           name:'晨雾森林',
-          url:'/static/images/logo.png',
+          url:'/static/images/brand/logo.png',
           kind:'image',
           publisher:'Designer',
           published_at:'2026-08-27T00:00:00Z',
@@ -143,7 +143,7 @@ async function waitForServer(child) {
     assert.equal(inserted.type, 'smart-image');
     assert.equal(inserted.selectedId.length > 0, true);
     assert.deepEqual(inserted.selectedIds, []);
-    assert.equal(inserted.image.url, '/static/images/logo.png');
+    assert.equal(inserted.image.url, '/static/images/brand/logo.png');
     assert.equal(inserted.image.name, '晨雾森林');
     assert.equal(inserted.image.kind, 'image');
     assert.equal(inserted.image.media_id, 'a'.repeat(64));

@@ -1,1 +1,1 @@
-export { IcImageEditModeToolbar, IcSmartCanvasDock, IcSmartNodeContextMenu, IcSmartNodeToolbar } from './blocks/index.js?v=ic-ui-ff02b51bdc35';
+export { IcImageEditModeToolbar, IcSmartCanvasDock, IcSmartNodeContextMenu, IcSmartNodeToolbar } from './blocks/index.js?v=ic-ui-c087c3d218de';

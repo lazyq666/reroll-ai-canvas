@@ -68,6 +68,9 @@ class GenerationPendingHalftoneReferenceTests(unittest.TestCase):
         self.assertIn("export class IcGenerationPending extends HTMLElement", self.public_pending)
         self.assertIn('class="generation-pending-halftone"', self.public_pending)
         self.assertIn("new Set(['image', 'video', 'text'])", self.public_pending)
+        self.assertIn("const FIXED_RENDER_SCALE = 2", self.public_pending)
+        self.assertIn("this._halftoneSurface.clientWidth", self.public_pending)
+        self.assertIn("this._halftoneSurface.clientHeight", self.public_pending)
         self.assertNotIn("generation-pending-loader.webp", self.public_pending)
 
     def test_browser_smoke_covers_parameters_theme_ratio_and_reduced_motion(self):
@@ -82,6 +85,7 @@ class GenerationPendingHalftoneReferenceTests(unittest.TestCase):
         self.assertIn("feedback-progress-case.html?theme=light", smoke)
         self.assertIn("canvas.generation-pending-halftone", smoke)
         self.assertIn("productionLight", smoke)
+        self.assertIn("fixedResolutionProbe", smoke)
         self.assertIn("productionDark", smoke)
 
 

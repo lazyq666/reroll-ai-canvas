@@ -2,14 +2,20 @@ import importlib.util
 import atexit
 import json
 import os
+import signal
+import socket
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
+import urllib.request
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
+
+from infinite_canvas.workspace_storage import WorkspaceStorage
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -320,17 +326,17 @@ class LauncherPortTests(unittest.TestCase):
     def test_application_response_requires_project_markers(self):
         page = """
         <html><head><title>AI Studio</title></head>
-        <body><img src="/static/images/wordmark.svg"></body></html>
+        <body><img src="/static/images/brand/wordmark.svg"></body></html>
         """
         self.assertTrue(launcher.application_response_matches(page))
         login_page = """
         <html><head><title>登录 · Reroll</title></head>
-        <body><img src="/static/images/logo.png"></body></html>
+        <body><img src="/static/images/brand/logo.png"></body></html>
         """
         self.assertTrue(launcher.application_response_matches(login_page))
         legacy_login_page = """
         <html><head><title>登录 · Infinite Canvas</title></head>
-        <body><img src="/static/images/logo.png"></body></html>
+        <body><img src="/static/images/brand/logo.png"></body></html>
         """
         self.assertTrue(launcher.application_response_matches(legacy_login_page))
         self.assertFalse(
@@ -380,6 +386,150 @@ class LauncherPortTests(unittest.TestCase):
 
 
 class LauncherSupervisionTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "POSIX launcher lifecycle test")
+    def test_terminating_launcher_stops_backend_and_releases_workspace(self):
+        self._assert_launcher_signal_stops_backend(signal.SIGTERM)
+
+    @unittest.skipIf(os.name == "nt", "POSIX launcher lifecycle test")
+    def test_closing_launcher_terminal_stops_backend_and_releases_workspace(
+        self,
+    ):
+        self._assert_launcher_signal_stops_backend(signal.SIGHUP)
+
+    def _assert_launcher_signal_stops_backend(self, stop_signal):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            state = root / "state"
+            workspace = root / "workspace"
+            cache = root / "cache"
+            static_html_snapshots = {
+                path: path.read_bytes()
+                for path in (PROJECT_DIR / "static").glob("*.html")
+            }
+            workspace.mkdir()
+            cache.mkdir()
+            WorkspaceStorage(PROJECT_DIR, state_dir=state).save_parent(
+                workspace
+            )
+
+            with socket.socket() as probe:
+                probe.bind(("127.0.0.1", 0))
+                port = probe.getsockname()[1]
+
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "INFINITE_CANVAS_CACHE_DIR": str(cache),
+                    "INFINITE_CANVAS_HOST": "127.0.0.1",
+                    "INFINITE_CANVAS_PORT": str(port),
+                    "INFINITE_CANVAS_STATE_DIR": str(state),
+                }
+            )
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(PROJECT_DIR / "backend" / "launcher.py"),
+                    "start",
+                    "--no-browser",
+                ],
+                cwd=PROJECT_DIR,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            child_pid = 0
+            try:
+                status_url = f"http://127.0.0.1:{port}/api/runtime/status"
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline:
+                    try:
+                        with urllib.request.urlopen(
+                            status_url,
+                            timeout=0.25,
+                        ):
+                            break
+                    except OSError:
+                        if process.poll() is not None:
+                            output = process.communicate(timeout=1)[0]
+                            self.fail(
+                                "launcher exited before runtime became ready:\n"
+                                + output
+                            )
+                        time.sleep(0.1)
+                else:
+                    self.fail("runtime did not become ready within 30 seconds")
+
+                deadline = time.monotonic() + 5
+                instance_files = []
+                while time.monotonic() < deadline:
+                    instance_files = list(state.glob("instance-*.json"))
+                    if instance_files:
+                        break
+                    time.sleep(0.05)
+                self.assertEqual(1, len(instance_files))
+                child_pid = int(
+                    json.loads(
+                        instance_files[0].read_text(encoding="utf-8")
+                    )["pid"]
+                )
+                occupation = (
+                    workspace
+                    / ".infinite-canvas-service"
+                    / "occupation.json"
+                )
+                self.assertTrue(occupation.is_file())
+
+                process.send_signal(stop_signal)
+                process.wait(timeout=10)
+
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    try:
+                        os.kill(child_pid, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(0.1)
+                else:
+                    self.fail(
+                        "backend remained alive after its launcher terminated"
+                    )
+
+                with socket.socket() as closed_port_probe:
+                    closed_port_probe.settimeout(0.25)
+                    self.assertNotEqual(
+                        0,
+                        closed_port_probe.connect_ex(("127.0.0.1", port)),
+                    )
+                self.assertFalse(occupation.exists())
+                import fcntl
+
+                writer_lock = occupation.with_name("writer.lock")
+                with writer_lock.open("a+b") as guard:
+                    fcntl.flock(
+                        guard.fileno(),
+                        fcntl.LOCK_EX | fcntl.LOCK_NB,
+                    )
+                    fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=5)
+                if child_pid:
+                    try:
+                        os.killpg(child_pid, signal.SIGINT)
+                    except ProcessLookupError:
+                        pass
+                if process.stdout is not None:
+                    process.stdout.close()
+                for path, content in static_html_snapshots.items():
+                    if path.read_bytes() != content:
+                        path.write_bytes(content)
+
     def test_takeover_flag_is_forwarded_only_to_the_spawned_application(self):
         child = mock.Mock()
         child.pid = 2468
@@ -653,6 +803,10 @@ class LauncherSupervisionTests(unittest.TestCase):
         self.assertEqual(
             popen.call_args.kwargs["env"]["INFINITE_CANVAS_PROJECT_DIR"],
             str(launcher.PROJECT_DIR),
+        )
+        self.assertEqual(
+            popen.call_args.kwargs["env"][launcher.SUPERVISOR_PID_ENV],
+            str(os.getpid()),
         )
         self.assertEqual(
             popen.call_args.kwargs["env"][

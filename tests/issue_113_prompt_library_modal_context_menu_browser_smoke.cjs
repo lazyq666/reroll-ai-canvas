@@ -173,7 +173,7 @@ function apiPayload(url) {
 
     const dropState = await page.locator('#promptTemplatePanel').evaluate(library => {
       const transfer = new DataTransfer();
-      transfer.setData('application/x-smart-asset', JSON.stringify({url:'/static/images/favicon.png'}));
+      transfer.setData('application/x-smart-asset', JSON.stringify({url:'/static/images/brand/favicon.png'}));
       const event = new DragEvent('drop', {bubbles:true, cancelable:true, composed:true, dataTransfer:transfer});
       library.shadowRoot.querySelector('[data-search]').dispatchEvent(event);
       return {defaultPrevented:event.defaultPrevented};

@@ -1,7 +1,7 @@
 const PENDING_KINDS = new Set(['image', 'video', 'text']);
 const PENDING_STATES = new Set(['queued', 'generating']);
 const TARGET_FRAME_MS = 1000 / 24;
-const DPR_LIMIT = 1.5;
+const FIXED_RENDER_SCALE = 2;
 const MIN_DOT_RADIUS = 2;
 const HALFTONE = Object.freeze({
   speed: 2.3,
@@ -198,19 +198,24 @@ export class IcGenerationPending extends HTMLElement {
 
   resizeHalftone() {
     if (!this._halftoneCanvas || !this._halftoneContext || !this._halftoneSurface) return;
-    const bounds = this._halftoneSurface.getBoundingClientRect();
-    const width = Math.max(1, bounds.width);
-    const height = Math.max(1, bounds.height);
-    const dpr = Math.min(DPR_LIMIT, window.devicePixelRatio || 1);
-    const pixelWidth = Math.max(1, Math.round(width * dpr));
-    const pixelHeight = Math.max(1, Math.round(height * dpr));
+    const width = Math.max(1, this._halftoneSurface.clientWidth);
+    const height = Math.max(1, this._halftoneSurface.clientHeight);
+    const pixelWidth = Math.max(1, Math.round(width * FIXED_RENDER_SCALE));
+    const pixelHeight = Math.max(1, Math.round(height * FIXED_RENDER_SCALE));
     if (this._halftoneCanvas.width !== pixelWidth || this._halftoneCanvas.height !== pixelHeight) {
       this._halftoneCanvas.width = pixelWidth;
       this._halftoneCanvas.height = pixelHeight;
     }
     this._halftoneWidth = width;
     this._halftoneHeight = height;
-    this._halftoneContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this._halftoneContext.setTransform(
+      FIXED_RENDER_SCALE,
+      0,
+      0,
+      FIXED_RENDER_SCALE,
+      0,
+      0,
+    );
     this.drawHalftone(halftoneAnimationTime);
   }
 

@@ -14,8 +14,8 @@ const FALLBACK_LIBRARY = {
 };
 
 const modelIcons = {
-  'gemini-2.5-pro':{src:'/static/images/gemini.svg',monochrome:true},
-  'gpt-5.5':{src:'/static/images/chatgpt.svg',monochrome:true},
+  'gemini-2.5-pro':{src:'/static/images/providers/gemini.svg',monochrome:true},
+  'gpt-5.5':{src:'/static/images/providers/chatgpt.svg',monochrome:true},
   'qwen3-vl-plus':{icon:'sparkles'},
 };
 

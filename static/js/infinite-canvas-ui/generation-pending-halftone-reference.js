@@ -1,4 +1,4 @@
-import './core.js?v=ic-ui-ff02b51bdc35';
+import './core.js?v=ic-ui-c087c3d218de';
 
 const TARGET_FRAME_MS = 1000 / 24;
 const DPR_LIMIT = 1.5;

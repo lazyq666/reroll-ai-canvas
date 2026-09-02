@@ -78,6 +78,76 @@ async function waitFor(cdp, sessionId, expression, label, timeout = 20000) {
   throw new Error(`Timed out waiting for ${label}`);
 }
 
+async function measureFixedResolutionProbe(cdp, sessionId) {
+  await evaluate(cdp, sessionId, `(() => {
+    const specs=[
+      {kind:'image',width:320,height:240},
+      {kind:'video',width:320,height:180},
+      {kind:'text',width:330,height:220},
+    ];
+    const stage=document.createElement('div');
+    stage.id='generation-pending-fixed-resolution-probe';
+    stage.style.cssText='position:absolute;inset:0 auto auto 0';
+    for(const spec of specs){
+      const viewport=document.createElement('div');
+      viewport.dataset.probeKind=spec.kind;
+      viewport.style.cssText='position:absolute;inset:0 auto auto 0;transform:scale(.125);transform-origin:0 0';
+      const pending=document.createElement('ic-generation-pending');
+      pending.setAttribute('kind',spec.kind);
+      pending.setAttribute('state','generating');
+      pending.setAttribute('count','1');
+      pending.setAttribute('label',spec.kind+' resolution probe');
+      pending.style.cssText='display:block;width:'+spec.width+'px;height:'+spec.height+'px';
+      viewport.append(pending);
+      stage.append(viewport);
+    }
+    document.body.append(stage);
+  })()`);
+  await waitFor(cdp, sessionId, `[...document.querySelectorAll('#generation-pending-fixed-resolution-probe ic-generation-pending')].every(element => element.shadowRoot?.querySelector('canvas')?.width > 0)`, 'fixed pending resolution probes');
+  await delay(250);
+  return evaluate(cdp, sessionId, `(async () => {
+    const stage=document.querySelector('#generation-pending-fixed-resolution-probe');
+    const snapshot=()=>[...stage.querySelectorAll('[data-probe-kind]')].map(viewport=>{
+      const pending=viewport.querySelector('ic-generation-pending');
+      const canvas=pending.shadowRoot.querySelector('canvas.generation-pending-halftone');
+      return {
+        kind:viewport.dataset.probeKind,
+        backingWidth:canvas.width,
+        backingHeight:canvas.height,
+        layoutWidth:canvas.offsetWidth,
+        layoutHeight:canvas.offsetHeight,
+        visualWidth:canvas.getBoundingClientRect().width,
+        visualHeight:canvas.getBoundingClientRect().height,
+      };
+    });
+    const far=snapshot();
+    stage.querySelectorAll('[data-probe-kind]').forEach(viewport=>{ viewport.style.transform='scale(2)'; });
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    await new Promise(resolve=>setTimeout(resolve,250));
+    const near=snapshot();
+    const image=stage.querySelector('[data-probe-kind="image"] ic-generation-pending');
+    image.style.width='400px';
+    image.style.height='300px';
+    await new Promise(resolve=>setTimeout(resolve,250));
+    return {far,near,resized:snapshot()};
+  })()`);
+}
+
+function assertFixedResolutionProbe(report) {
+  if (report.far.length !== 3 || report.near.length !== 3) throw new Error(JSON.stringify(report));
+  for (let index = 0; index < report.far.length; index += 1) {
+    const far = report.far[index];
+    const near = report.near[index];
+    if (far.kind !== near.kind
+      || far.backingWidth !== near.backingWidth
+      || far.backingHeight !== near.backingHeight
+      || far.backingWidth !== far.layoutWidth * 2
+      || far.backingHeight !== far.layoutHeight * 2) throw new Error(JSON.stringify(report));
+  }
+  const resizedImage = report.resized.find(item => item.kind === 'image');
+  if (resizedImage?.backingWidth !== 800 || resizedImage?.backingHeight !== 600) throw new Error(JSON.stringify(report));
+}
+
 async function main() {
   if (!fs.existsSync(CHROME)) throw new Error(`Chrome executable not found: ${CHROME}`);
   const server = await startServer();
@@ -93,6 +163,14 @@ async function main() {
     await cdp.send('Page.enable', {}, sessionId);
     await cdp.send('Runtime.enable', {}, sessionId);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width:1440, height:1000, deviceScaleFactor:1, mobile:false }, sessionId);
+    if (process.env.IC_BROWSER_FOCUS_FIXED_RESOLUTION === '1') {
+      await cdp.send('Page.navigate', { url:`http://127.0.0.1:${server.address().port}/static/design-system/infinite-canvas-ui/feedback-progress-case.html?theme=light&motion=standard&locale=zh-CN&viewport=desktop` }, sessionId);
+      await waitFor(cdp, sessionId, `document.documentElement.dataset.feedbackProgressCaseStatus === 'ready'`, 'production pending component');
+      const fixedResolutionProbe = await measureFixedResolutionProbe(cdp, sessionId);
+      assertFixedResolutionProbe(fixedResolutionProbe);
+      console.log(JSON.stringify({fixedResolutionProbe}));
+      return;
+    }
     await cdp.send('Page.navigate', { url:`http://127.0.0.1:${server.address().port}/static/ui-component-library.html` }, sessionId);
     await waitFor(cdp, sessionId, "customElements.get('ic-slider') && document.querySelector('[data-pending-halftone-reference]')", 'component library');
     await evaluate(cdp, sessionId, `document.querySelector('ic-nav-item[data-target-review="pending-halftone-reference"]').click()`);
@@ -179,6 +257,7 @@ async function main() {
         legacyLayers:elements.reduce((count,element)=>count+element.shadowRoot.querySelectorAll('img,video,.generation-pending-loader-visual').length,0),
       };
     })()`);
+    const fixedResolutionProbe = await measureFixedResolutionProbe(cdp, sessionId);
     await evaluate(cdp, sessionId, `(() => {
       document.documentElement.dataset.uiTheme='dark';
       document.documentElement.dataset.uiMotion='reduced';
@@ -201,8 +280,9 @@ async function main() {
     }))()`);
     if (productionLight.kinds.join(',') !== 'image,video,text' || !productionLight.ready || productionLight.canvases !== 3 || !productionLight.painted || !productionLight.continuous || productionLight.legacyLayers !== 0) throw new Error(JSON.stringify(productionLight));
     if (!productionLight.colors.every((colors,index)=>colors[0]===productionLight.expectedColors[index][0]&&colors[1]===productionLight.expectedColors[index][1]) || !productionLight.motion.every(state=>['running','paused'].includes(state))) throw new Error(JSON.stringify(productionLight));
+    assertFixedResolutionProbe(fixedResolutionProbe);
     if (!productionDark.every(value=>value.background===value.expectedBackground&&value.dot===value.expectedDot&&value.motion==='static')) throw new Error(JSON.stringify(productionDark));
-    console.log(JSON.stringify({...report,productionLight,productionDark}));
+    console.log(JSON.stringify({...report,productionLight,fixedResolutionProbe,productionDark}));
   } finally {
     browser.kill('SIGTERM');
     await new Promise(resolve => server.close(resolve));

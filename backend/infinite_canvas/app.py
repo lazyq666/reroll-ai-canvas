@@ -197,7 +197,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title data-i18n="{title_key}">{safe_title}</title>
-  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.10.1">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=2026.08.10.1">
   <script src="/static/js/i18n.js?v=2026.08.30.i18n-audit.12"></script>
@@ -205,7 +205,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
 <body class="runtime-page">
   <main class="runtime-shell">
     <div class="runtime-brand" aria-label="Reroll">
-      <img src="/static/images/logo.png" alt="">
+      <img src="/static/images/brand/logo.png" alt="">
       <strong>Reroll</strong>
     </div>
     <ic-card class="runtime-card" label="{safe_title}" data-i18n-label="{title_key}">
@@ -217,7 +217,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-c087c3d218de"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
     const runtimeDetailFallback = document.getElementById('runtime-detail')?.textContent || '';
@@ -266,7 +266,7 @@ def _recovery_page() -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title data-i18n="runtime.recoveryPageTitle">恢复工作区 · Reroll</title>
-  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.10.1">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=2026.08.10.1">
   <script src="/static/js/i18n.js?v=2026.08.30.i18n-audit.12"></script>
@@ -274,7 +274,7 @@ def _recovery_page() -> str:
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
     <div class="runtime-brand" aria-label="Reroll">
-      <img src="/static/images/logo.png" alt="">
+      <img src="/static/images/brand/logo.png" alt="">
       <strong>Reroll</strong>
     </div>
     <ic-card class="runtime-card recovery-card" label="恢复工作区">
@@ -329,7 +329,7 @@ def _recovery_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-c087c3d218de"></script>
   <script>
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const input = document.getElementById('workspace-directory');
@@ -456,7 +456,7 @@ def _workspace_move_page() -> str:
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
   <script src="/static/js/i18n.js?v=2026.08.30.i18n-audit.12"></script>
   <script src="/static/js/theme.js?v=2026.08.28.issue-181.1"></script>
-  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.28.issue-181.1">
   <link rel="stylesheet" href="/static/css/account-login.css?v=2026.08.28.issue-181.1">
   <link rel="stylesheet" href="/static/css/workspace-move.css?v=2026.08.28.issue-181.1">
@@ -466,7 +466,7 @@ def _workspace_move_page() -> str:
     <ic-card class="workspace-move-card" label="工作区搬家进度">
       <div class="workspace-move-card-content">
         <div class="brand-lockup">
-          <img class="brand-mark" src="/static/images/logo.png" alt="Reroll">
+          <img class="brand-mark" src="/static/images/brand/logo.png" alt="Reroll">
           <div><strong>Reroll</strong><span data-i18n="runtime.moveInProgressTitle">工作区正在搬家</span></div>
         </div>
         <div class="workspace-move-heading">
@@ -490,7 +490,7 @@ def _workspace_move_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-c087c3d218de"></script>
   <script src="/static/js/workspace-move.js?v=2026.08.28.issue-181.1" defer></script>
 </body>
 </html>"""

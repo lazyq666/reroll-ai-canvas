@@ -55,8 +55,8 @@ aiProcessorDialog.groups = [{ id:'image-reverse', name:locale === 'en' ? 'Revers
   { id:'photo', name:'摄影复刻', subtitle:'镜头、机位、光线与后期', prompt:'请还原摄影提示词' },
 ]}];
 aiProcessorDialog.models = [
-  { id:'gemini-2.5-pro', name:'Gemini 2.5 Pro', iconSrc:'/static/images/gemini.svg', iconMonochrome:true },
-  { id:'gpt-5.5', name:'GPT-5.5', iconSrc:'/static/images/chatgpt.svg', iconMonochrome:true },
+  { id:'gemini-2.5-pro', name:'Gemini 2.5 Pro', iconSrc:'/static/images/providers/gemini.svg', iconMonochrome:true },
+  { id:'gpt-5.5', name:'GPT-5.5', iconSrc:'/static/images/providers/chatgpt.svg', iconMonochrome:true },
   { id:'qwen3-vl-plus', name:'Qwen3 VL Plus', icon:'sparkles' },
 ];
 if (locale === 'en') aiProcessorDialog.sourceAlt = 'Modern glass cabin in a sunset valley';

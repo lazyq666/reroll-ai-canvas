@@ -1,6 +1,6 @@
 export { NAVIGATION_COMMAND_TAGS, contractState as navigationCommandContractState } from './shared.js';
-export { IcTabs } from './tabs.js?v=ic-ui-ff02b51bdc35';
-export { IcSegmentedControl } from './segmented-control.js?v=ic-ui-ff02b51bdc35';
+export { IcTabs } from './tabs.js?v=ic-ui-c087c3d218de';
+export { IcSegmentedControl } from './segmented-control.js?v=ic-ui-c087c3d218de';
 export { IcToolbar } from './toolbar.js';
 export { IcFloatingToolbar } from './floating-toolbar.js';
 export { IcNavItem } from './nav-item.js';

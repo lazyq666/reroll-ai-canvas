@@ -1,24 +1,34 @@
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright');
+const { chromium, firefox, webkit } = require('playwright');
 
 const baseUrl = process.env.T30_PREVIEW_URL || 'http://127.0.0.1:8798';
+const browserName = process.env.ISSUE_211_BROWSER || 'chromium';
+const browserType = { chromium, firefox, webkit }[browserName];
 const browserExecutable = process.env.SMART_CANVAS_BROWSER
   || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const screenshots = {
+  wordmark: `/tmp/issue-211-brand-entry-${browserName}-wordmark.png`,
+  terminal: `/tmp/issue-211-brand-entry-${browserName}-terminal.png`,
+  finished: `/tmp/issue-211-brand-entry-${browserName}-finished.png`,
+};
+
+if (!browserType) throw new Error(`Unsupported ISSUE_211_BROWSER: ${browserName}`);
 
 async function openFirstEntry(browser, options = {}) {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
     reducedMotion: options.reducedMotion || 'no-preference',
     colorScheme: options.colorScheme || 'light',
+    storageState: options.storageState,
   });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
   await page.addInitScript(settings => {
-    if (!sessionStorage.getItem('__issue211_initialized')) {
+    if (!localStorage.getItem('__issue211_initialized')) {
       localStorage.clear();
       sessionStorage.clear();
-      sessionStorage.setItem('__issue211_initialized', '1');
+      localStorage.setItem('__issue211_initialized', '1');
       localStorage.setItem('studio_theme', settings.theme);
       localStorage.setItem('studio_lang', settings.language);
       localStorage.setItem('studio_sidebar_pinned', '0');
@@ -44,7 +54,9 @@ async function openFirstEntry(browser, options = {}) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ headless: true, executablePath: browserExecutable });
+  const launchOptions = { headless: true };
+  if (browserName === 'chromium') launchOptions.executablePath = browserExecutable;
+  const browser = await browserType.launch(launchOptions);
   try {
     const standard = await openFirstEntry(browser, { language: 'en' });
     const initial = await standard.page.evaluate(() => ({
@@ -58,14 +70,14 @@ async function openFirstEntry(browser, options = {}) {
     }));
     assert.equal(initial.state, 'mark');
     assert.equal(initial.pointerEvents, 'none');
-    assert.equal(initial.videoSource, '/static/images/reroll-logo-motion-transparent.webm');
-    assert.equal(initial.wordSource, '/static/images/word.svg');
+    assert.equal(initial.videoSource, '/static/images/brand/reroll-logo-motion-transparent.webm');
+    assert.equal(initial.wordSource, '/static/images/brand/word.svg');
     assert.equal(initial.statusText, 'Preparing your creative space…');
     assert.equal(initial.statusFits, true);
 
     await standard.page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'wordmark', null, { timeout: 8000 });
     await standard.page.waitForTimeout(1700);
-    await standard.page.screenshot({ path: '/tmp/issue-211-brand-entry-wordmark.png' });
+    await standard.page.screenshot({ path: screenshots.wordmark });
     await standard.page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'docked', null, { timeout: 4000 });
     await standard.page.waitForTimeout(850);
     const terminal = await standard.page.evaluate(() => {
@@ -89,12 +101,12 @@ async function openFirstEntry(browser, options = {}) {
     assert.ok(Math.abs(terminal.lockup.width - terminal.target.width) <= 0.25);
     assert.ok(Math.abs(terminal.lockup.height - terminal.target.height) <= 0.25);
     assert.ok(Math.abs(terminal.word.height - terminal.target.height) <= 0.25);
-    await standard.page.screenshot({ path: '/tmp/issue-211-brand-entry-terminal.png' });
+    await standard.page.screenshot({ path: screenshots.terminal });
 
     await standard.page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 5000 });
-    await standard.page.screenshot({ path: '/tmp/issue-211-brand-entry-finished.png' });
+    await standard.page.screenshot({ path: screenshots.finished });
     const completion = await standard.page.evaluate(() => ({
-      seen: sessionStorage.getItem('studio_brand_entry_seen'),
+      seen: localStorage.getItem('studio_brand_entry_seen'),
       pinnedPreference: localStorage.getItem('studio_sidebar_pinned'),
       states: window.__entryStates,
       topLevelVideoCount: document.querySelectorAll('body > video, body > section video').length,
@@ -104,6 +116,16 @@ async function openFirstEntry(browser, options = {}) {
     assert.equal(completion.topLevelVideoCount, 0);
     assert.deepEqual([...new Set(completion.states)], ['mark', 'wordmark', 'docked', 'finished']);
 
+    const newTab = await standard.context.newPage();
+    await newTab.goto(`${baseUrl}/studio`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await newTab.waitForFunction(() => !document.documentElement.classList.contains('studio-route-booting'));
+    const newTabResult = await newTab.evaluate(() => ({
+      overlay: Boolean(document.getElementById('studioEntryMotion')),
+      seen: localStorage.getItem('studio_brand_entry_seen'),
+    }));
+    assert.deepEqual(newTabResult, { overlay: false, seen: '1' });
+    await newTab.close();
+
     await standard.page.reload({ waitUntil: 'domcontentloaded' });
     await standard.page.waitForFunction(() => !document.documentElement.classList.contains('studio-route-booting'));
     const reload = await standard.page.evaluate(() => ({
@@ -112,7 +134,17 @@ async function openFirstEntry(browser, options = {}) {
     }));
     assert.deepEqual(reload, { overlay: false, pinned: false });
     assert.deepEqual(standard.errors, []);
+    const persistedStorage = await standard.context.storageState();
     await standard.context.close();
+
+    const restarted = await openFirstEntry(browser, { storageState: persistedStorage });
+    const restartedResult = await restarted.page.evaluate(() => ({
+      overlay: Boolean(document.getElementById('studioEntryMotion')),
+      seen: localStorage.getItem('studio_brand_entry_seen'),
+    }));
+    assert.deepEqual(restartedResult, { overlay: false, seen: '1' });
+    assert.deepEqual(restarted.errors, []);
+    await restarted.context.close();
 
     const interruptedReload = await openFirstEntry(browser);
     assert.equal(await interruptedReload.page.locator('#studioEntryMotion').count(), 1);
@@ -122,7 +154,7 @@ async function openFirstEntry(browser, options = {}) {
       overlay: Boolean(document.getElementById('studioEntryMotion')),
       earlySkip: document.documentElement.classList.contains('studio-entry-motion-skip'),
       navigationType: performance.getEntriesByType('navigation')[0]?.type,
-      seen: sessionStorage.getItem('studio_brand_entry_seen'),
+      seen: localStorage.getItem('studio_brand_entry_seen'),
     }));
     assert.deepEqual(interruptedReloadResult, {
       overlay: false,
@@ -149,7 +181,7 @@ async function openFirstEntry(browser, options = {}) {
     assert.deepEqual(reduced.errors, []);
     await reduced.context.close();
 
-    process.stdout.write(`${JSON.stringify({ ok: true, initial, terminal, completion, reload, interruptedReload: interruptedReloadResult, failedMedia: true, reducedMotion: true, screenshots: ['/tmp/issue-211-brand-entry-wordmark.png', '/tmp/issue-211-brand-entry-terminal.png', '/tmp/issue-211-brand-entry-finished.png'] }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, browser: browserName, initial, terminal, completion, newTab: newTabResult, reload, restarted: restartedResult, interruptedReload: interruptedReloadResult, failedMedia: true, reducedMotion: true, screenshots: Object.values(screenshots) }, null, 2)}\n`);
   } finally {
     await browser.close();
   }

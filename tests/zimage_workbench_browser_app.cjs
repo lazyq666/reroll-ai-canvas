@@ -10,7 +10,7 @@ const state = {
   history: Array.from({ length: 17 }, (_, index) => ({
     timestamp: 1700000000000 + index,
     prompt: `电影感测试画面 ${index + 1}`,
-    images: ['/static/images/logo.png'],
+    images: ['/static/images/brand/logo.png'],
     type: index === 0 ? 'cloud' : 'zimage',
   })),
   localRequests: [],
@@ -44,14 +44,14 @@ const server = http.createServer(async (request, response) => {
   if (url.pathname === '/api/generate' && request.method === 'POST') {
     const payload = await readJson(request).catch(() => ({}));
     state.localRequests.push(payload);
-    const item = { timestamp: Date.now(), prompt: payload.prompt, images: ['/static/images/logo.png'], type: 'zimage' };
+    const item = { timestamp: Date.now(), prompt: payload.prompt, images: ['/static/images/brand/logo.png'], type: 'zimage' };
     state.history.unshift(item);
     return json(response, 200, item);
   }
   if (url.pathname === '/generate' && request.method === 'POST') {
     const payload = await readJson(request).catch(() => ({}));
     state.cloudRequests.push(payload);
-    return json(response, 200, { url: '/static/images/logo.png' });
+    return json(response, 200, { url: '/static/images/brand/logo.png' });
   }
   if (url.pathname === '/api/history/delete' && request.method === 'POST') {
     const payload = await readJson(request).catch(() => ({}));

@@ -47,7 +47,7 @@ class ApplicationHttpTests(unittest.TestCase):
 
             self.assertEqual(page.status_code, 200)
             self.assertIn("Reroll 正在启动", page.text)
-            self.assertIn('src="/static/images/logo.png"', page.text)
+            self.assertIn('src="/static/images/brand/logo.png"', page.text)
             self.assertIn('/static/css/design-tokens.css', page.text)
             self.assertIn('/static/css/runtime-recovery.css', page.text)
             self.assertIn('<ic-card class="runtime-card"', page.text)

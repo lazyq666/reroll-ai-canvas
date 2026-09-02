@@ -619,7 +619,7 @@ const CHROME = process.env.IC_BROWSER_BIN || '/Applications/Google Chrome.app/Co
     assert.equal(await page.evaluate(() => window.events.filter(item => item.type === 'ic-template-select').length), selectCount + 1);
     assert.equal(await library.getAttribute('selected-template'), 'wide');
     await library.evaluate(element => {
-      element.templates = [...element.templates, {id:'canvas-card', libraryId:'canvas', category:'', name:'当前画布模板', positive:'当前画布提示词', cover:'/static/images/favicon.png'}];
+      element.templates = [...element.templates, {id:'canvas-card', libraryId:'canvas', category:'', name:'当前画布模板', positive:'当前画布提示词', cover:'/static/images/brand/favicon.png'}];
     });
     await library.locator('[data-library-switch] > [data-value="canvas"]').click();
     assert.equal(await cards.count(), 1);

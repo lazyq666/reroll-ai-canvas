@@ -24,9 +24,9 @@ class StudioBrandEntryMotionTests(unittest.TestCase):
 
     def test_production_shell_uses_brand_motion_assets(self):
         self.assertIn('id="studioEntryMotion"', self.page)
-        self.assertIn('/static/images/reroll-logo-motion-transparent.webm', self.page)
-        self.assertIn('/static/images/word.svg', self.page)
-        self.assertIn('/static/images/wordmark.svg', self.page)
+        self.assertIn('/static/images/brand/reroll-logo-motion-transparent.webm', self.page)
+        self.assertIn('/static/images/brand/word.svg', self.page)
+        self.assertIn('/static/images/brand/wordmark.svg', self.page)
         self.assertIn('/static/css/studio-entry-motion.css', self.page)
         self.assertIn('/static/js/studio-entry-motion.js', self.page)
 
@@ -60,10 +60,10 @@ class StudioBrandEntryMotionTests(unittest.TestCase):
         self.assertIn('aria-hidden="true"', self.page)
 
     def test_normal_playback_has_no_static_logo_under_the_video(self):
-        self.assertNotIn('poster="/static/images/logo.svg"', self.page)
+        self.assertNotIn('poster="/static/images/brand/logo.svg"', self.page)
         self.assertIn("background: none", self.style)
         self.assertIn(".studio-entry-motion.has-media-error .studio-entry-mark-frame", self.style)
-        self.assertIn("background: url('/static/images/logo.svg')", self.style)
+        self.assertIn("background: url('/static/images/brand/logo.svg')", self.style)
 
     def test_video_surface_is_removed_before_the_mark_moves_or_fades(self):
         self.assertIn("async function resolveVideoToStaticMark()", self.script)
@@ -86,16 +86,22 @@ class StudioBrandEntryMotionTests(unittest.TestCase):
         ):
             self.assertIn(selector, self.style)
 
-    def test_first_entry_is_session_scoped_and_reduced_motion_is_static(self):
-        self.assertIn("const SESSION_KEY = 'studio_brand_entry_seen'", self.script)
-        self.assertIn("sessionStorage.getItem(SESSION_KEY)", self.script)
-        self.assertIn("sessionStorage.setItem(SESSION_KEY, '1')", self.script)
+    def test_first_entry_is_persisted_locally_and_reduced_motion_is_static(self):
+        self.assertIn("const STORAGE_KEY = 'studio_brand_entry_seen'", self.script)
+        self.assertIn("localStorage.getItem(STORAGE_KEY)", self.script)
+        self.assertIn("localStorage.setItem(STORAGE_KEY, '1')", self.script)
+        self.assertNotIn("sessionStorage", self.script)
         self.assertIn("(prefers-reduced-motion: reduce)", self.script)
         self.assertIn('data-entry-state="reduced"', self.style)
         self.assertIn("Reduced Motion", self.spec)
 
-    def test_reload_is_suppressed_before_the_overlay_can_paint(self):
+    def test_reload_and_persisted_completion_are_suppressed_before_the_overlay_can_paint(self):
         self.assertIn("navigation?.type === 'reload'", self.page)
+        self.assertIn(
+            "localStorage.getItem('studio_brand_entry_seen') === '1'",
+            self.page,
+        )
+        self.assertIn("reloading || entrySeen", self.page)
         self.assertIn("studio-entry-motion-skip", self.page)
         self.assertIn("html.studio-entry-motion-skip .studio-entry-motion", self.style)
         self.assertIn("function isReloadNavigation()", self.script)

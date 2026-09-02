@@ -124,8 +124,8 @@ class StudioShellUiRegressionTests(unittest.TestCase):
     def test_sidebar_expands_only_from_logo_toggle(self):
         self.assertIn('<ic-button id="sidebarLogoToggle"', self.page)
         self.assertIn('class="sidebar-logo-area"', self.page)
-        self.assertIn('class="sidebar-logo-image sidebar-logo-wordmark" src="/static/images/wordmark.svg"', self.page)
-        self.assertIn('class="sidebar-logo-image sidebar-logo-mark" src="/static/images/logo.svg"', self.page)
+        self.assertIn('class="sidebar-logo-image sidebar-logo-wordmark" src="/static/images/brand/wordmark.svg"', self.page)
+        self.assertIn('class="sidebar-logo-image sidebar-logo-mark" src="/static/images/brand/logo.svg"', self.page)
         self.assertNotIn('class="sidebar-logo-core"', self.page)
         self.assertNotIn('class="sidebar-logo-dot"', self.page)
         self.assertNotIn('id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="secondary" icon="app"', self.page)
@@ -157,9 +157,9 @@ class StudioShellUiRegressionTests(unittest.TestCase):
         self.assertNotIn(".sidebar-logo-toggle:active", self.styles)
 
     def test_browser_favicon_is_a_square_png_separate_from_brand_artwork(self):
-        favicon = (ROOT / "static/images/favicon.png").read_bytes()
+        favicon = (ROOT / "static/images/brand/favicon.png").read_bytes()
 
-        self.assertIn('href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png"', self.page)
+        self.assertIn('href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png"', self.page)
         self.assertEqual(favicon[:8], b"\x89PNG\r\n\x1a\n")
         self.assertEqual(struct.unpack(">II", favicon[16:24]), (128, 128))
 

@@ -237,11 +237,11 @@ html.studio-entry-motion-skip .studio-entry-motion {
 }
 
 .studio-entry-motion.has-media-error .studio-entry-mark-frame {
-  background: url('/static/images/logo.svg') center / contain no-repeat;
+  background: url('/static/images/brand/logo.svg') center / contain no-repeat;
 }
 
 .studio-entry-motion.has-resolved-mark .studio-entry-mark-frame {
-  background: url('/static/images/logo.svg') center / contain no-repeat;
+  background: url('/static/images/brand/logo.svg') center / contain no-repeat;
 }
 
 html.studio-theme-dark .studio-entry-logo-motion,

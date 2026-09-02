@@ -74,7 +74,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn("window.ModelVendorIcons?.markup(", self.script)
         self.assertIn("iconCell.appendChild(modelVendorIcon(model))", self.script)
         self.assertIn("identity.appendChild(modelNameInput(model))", self.script)
-        self.assertIn("midjourney: { label: 'Midjourney', src: '/static/images/midjourney.svg'", self.vendor_icons)
+        self.assertIn("midjourney: { label: 'Midjourney', src: '/static/images/providers/midjourney.svg'", self.vendor_icons)
         self.assertIn("if (/mid[-_ ]?journey/.test(value)) return 'midjourney';", self.vendor_icons)
         self.assertIn(".model-vendor-icon { width: 18px;", self.style)
         self.assertIn('img[data-monochrome="true"]', self.style)

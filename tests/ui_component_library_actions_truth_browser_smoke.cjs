@@ -110,17 +110,22 @@ async function main() {
       const section = document.querySelector('[data-component-name="ic-video-play-button"]');
       const host = section?.querySelector('ic-video-play-button');
       const rect = host?.getBoundingClientRect();
+      const asset = host?.shadowRoot?.querySelector('[part="asset"]');
       return {
         sectionPresent: Boolean(section),
         upgraded: Boolean(host?.shadowRoot?.querySelector('button')),
         visible: Boolean(rect && rect.width > 0 && rect.height > 0),
         width: rect?.width || 0,
         height: rect?.height || 0,
+        assetSource: asset?.getAttribute('src') || '',
+        assetLoaded: Boolean(asset?.complete && asset?.naturalWidth > 0),
       };
     })()`);
     if (
       !videoPlayButton.sectionPresent || !videoPlayButton.upgraded || !videoPlayButton.visible
       || videoPlayButton.width !== 64 || videoPlayButton.height !== 64
+      || !videoPlayButton.assetSource.endsWith('/static/images/ui/video-play-button.svg')
+      || !videoPlayButton.assetLoaded
     ) {
       throw new Error(`Video play button is missing from the visible Actions page: ${JSON.stringify(videoPlayButton)}`);
     }

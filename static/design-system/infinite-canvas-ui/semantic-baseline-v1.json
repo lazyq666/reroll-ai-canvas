@@ -751,7 +751,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/volcengine-theme-dark.svg",
+        "file": "static/images/providers/volcengine-theme-dark.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -769,7 +769,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/doubao.svg",
+        "file": "static/images/providers/doubao.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -787,7 +787,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/RunningHub-B.png",
+        "file": "static/images/providers/RunningHub-B.png",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -805,7 +805,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/chatgpt.svg",
+        "file": "static/images/providers/chatgpt.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -823,7 +823,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/logo.svg",
+        "file": "static/images/brand/logo.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -841,7 +841,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/grok.svg",
+        "file": "static/images/providers/grok.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -859,7 +859,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/RunningHub-W.png",
+        "file": "static/images/providers/RunningHub-W.png",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -895,7 +895,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/gemini.svg",
+        "file": "static/images/providers/gemini.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -913,7 +913,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/midjourney.svg",
+        "file": "static/images/providers/midjourney.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -931,7 +931,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/volcengine-theme-light.svg",
+        "file": "static/images/providers/volcengine-theme-light.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -949,7 +949,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/modelscope-1.gif",
+        "file": "static/images/providers/modelscope-1.gif",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -967,7 +967,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/flux.svg",
+        "file": "static/images/providers/flux.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -985,7 +985,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/logo.png",
+        "file": "static/images/brand/logo.png",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -1021,7 +1021,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/modelscope.gif",
+        "file": "static/images/providers/modelscope.gif",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -1039,7 +1039,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/favicon.png",
+        "file": "static/images/brand/favicon.png",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -1057,7 +1057,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/wordmark.svg",
+        "file": "static/images/brand/wordmark.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",
@@ -1075,7 +1075,7 @@
       "componentType": "Graphic Asset",
       "categoryId": "graphics",
       "evidence": {
-        "file": "static/images/jimeng.svg",
+        "file": "static/images/providers/jimeng.svg",
         "line": 1,
         "source": "unknown",
         "surface": "",

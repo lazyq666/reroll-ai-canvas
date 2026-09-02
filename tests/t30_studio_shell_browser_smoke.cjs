@@ -249,8 +249,8 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
           horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           effectiveTheme: window.StudioTheme.get(),
           logoRestored: logo.localName === 'ic-button'
-            && logoImage.getAttribute('src') === '/static/images/wordmark.svg'
-            && logoImages.some(image => image.getAttribute('src') === '/static/images/logo.svg'),
+            && logoImage.getAttribute('src') === '/static/images/brand/wordmark.svg'
+            && logoImages.some(image => image.getAttribute('src') === '/static/images/brand/logo.svg'),
           logoVisible: logoImageRect.width > 0 && logoImageRect.height > 0,
           logoCenterX: logoRect.left + logoRect.width / 2,
           logoCentered: Math.abs((logoRect.left + logoRect.width / 2) - (sidebar.left + sidebar.width / 2)) < 1,
@@ -324,7 +324,7 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
       || item.collapsedShell.nativeTooltipCount !== 0
       || item.collapsedShell.logoPaddingBlock.some(value => value !== '0px')
       || (!item.name.startsWith('narrow-') && !item.collapsedShell.logoAreaFillsWidth)
-      || item.collapsedShell.logoAsset !== '/static/images/logo.svg'
+      || item.collapsedShell.logoAsset !== '/static/images/brand/logo.svg'
       || (!item.name.startsWith('narrow-') && !item.collapsedShell.logoCentered)
       || !item.collapsedShell.logoAnimationFree
       || (item.themeToggled && item.logoHover.baseBackground !== 'rgba(0, 0, 0, 0)')

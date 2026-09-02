@@ -30,7 +30,7 @@ The corresponding OFL texts are bundled under `static/vendor/licenses/`.
 ## Icons, provider marks, and service names
 
 - Lobe Icons assets retain the MIT notice in
-  `static/images/LICENSE.lobe-icons.txt`.
+  `static/images/providers/LICENSE.lobe-icons.txt`.
 - Names and logos for providers and services—including ChatGPT, Gemini,
   Midjourney, ModelScope, RunningHub, Volcengine, Jimeng, Doubao, Flux, Grok,
   and their respective marks—belong to their owners. They are included only

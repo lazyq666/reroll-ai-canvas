@@ -10,8 +10,8 @@
   <ic-workspace-asset-library id="library" aria-label="资产库" style="display:block;width:760px;height:680px"></ic-workspace-asset-library>
   <script type="module">
     const initialItems = [
-      { id:'asset-1', name:'晨雾森林', url:'/static/images/logo.png', folder_id:'folder-scenes', can_manage:true },
-      { id:'asset-2', name:'夜色城市', url:'/static/images/logo.png', folder_id:'', can_manage:true },
+      { id:'asset-1', name:'晨雾森林', url:'/static/images/brand/logo.png', folder_id:'folder-scenes', can_manage:true },
+      { id:'asset-2', name:'夜色城市', url:'/static/images/brand/logo.png', folder_id:'', can_manage:true },
     ];
     let items = initialItems.map(item => ({ ...item }));
     let folders = [{ id:'folder-scenes', name:'角色与场景设计素材', order:0, item_count:1 }];
@@ -40,7 +40,7 @@
         const created = files.map((file, index) => ({
           id:`imported-${items.length + index + 1}`,
           name:file.name,
-          url:'/static/images/logo.png',
+          url:'/static/images/brand/logo.png',
           folder_id:formFolderId,
           can_manage:true,
         }));

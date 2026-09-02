@@ -17,7 +17,7 @@
 <ic-list id="invalid-list" label="Bad" kind="ordered"><ul><li>Wrong</li></ul></ic-list>
 <ic-table id="invalid-table-size" label="Bad table" size="extra-large"><table><thead><tr><th scope="col">Name</th></tr></thead><tbody><tr><td>One</td></tr></tbody></table></ic-table>
 <ic-media-container id="invalid-media" label="Audio" kind="audio" fit="cover"></ic-media-container>
-<script type="module">import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35';await Promise.all(['ic-card','ic-divider','ic-list','ic-table','ic-media-container'].map(tag=>customElements.whenDefined(tag)));await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));const checks={};
+<script type="module">import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-c087c3d218de';await Promise.all(['ic-card','ic-divider','ic-list','ic-table','ic-media-container'].map(tag=>customElements.whenDefined(tag)));await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));const checks={};
 checks.card=document.querySelector('#card').getAttribute('role')==='region'&&document.querySelector('#card').getAttribute('aria-label')==='Settings';
 const cardSizeHeights=['small','medium','large'].map(size=>document.querySelector(`#card-${size}`).getBoundingClientRect().height);checks.cardSizes=cardSizeHeights[0]<cardSizeHeights[1]&&cardSizeHeights[1]<cardSizeHeights[2]&&['small','medium','large'].every(size=>document.querySelector(`#card-${size}`).dataset.icContractStatus==='ready');
 checks.cardRadius=['card','card-small','card-medium','card-large'].every(id=>getComputedStyle(document.querySelector(`#${id}`).shadowRoot.querySelector('.card')).borderRadius==='16px');

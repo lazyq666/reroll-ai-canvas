@@ -76,6 +76,8 @@ flowchart TD
 
 当前图片 Generation Run 的每个输出槽位对应一个独立 Pending Node，并在完成后成为一个独立 Generation Output Node；例如一次生成 4 张图片会得到 4 个 Node，每个 Node 承载 1 张结果。当前流程不会把这 4 张图片聚合为一个 Node 内的结果画廊；旧数据中的多结果画廊只作为迁移输入兼容，并在 Canvas 加载时拆分为独立 Node。
 
+如果 Provider 实际返回的图片数多于提交时冻结的输出槽位数，前端也会在结果收尾时立即拆成独立 Generation Output Node，并为它们补上同一 Generation Batch 的身份与布局。每个拆分结果继承原节点的入向 Connection；已通过 `sourceOutputId` 指定某张结果的出向 Connection，则随对应结果迁移。旧结果画廊在加载迁移时遵循同一连接规则，避免刷新后只有保留在原节点的图片仍与上游相连。已经被旧迁移保存为独立节点、但只有一个节点保留上游连接的批次，会按同一运行快照和连续创建时间做一次受限修复；不满足唯一匹配条件时不猜测节点关系。
+
 多个独立输出构成一个 Generation Batch。Canvas Settings 保存该 Canvas 的批次方向，默认横向；它不属于跨 Canvas 的个人“最近一次 Generation Settings”。创建 Pending Node 时，每个批次同时冻结 `generationBatchLayout` 与 `generationBatchSourceNodeId`：横向批次同批成行、同来源后续批次在下方起新行；纵向批次同批成列、后续批次在右侧起新列。两种方向的批次内部相邻间距均为 48 世界单位。恢复、Undo/Redo 和 stale Revision 并发重试从批次已持久化的方向与来源读取，不按当前 Canvas Settings 重推；没有该字段的旧批次按历史纵向语义兼容，旧 Canvas 坐标不迁移。完整空间合同见[节点自动避让](smart-canvas-node-auto-placement.md#47-generation-batch)。
 
 Smart Canvas 用 Node 角色判断 Prompt Authoring 与 Generation Run 的基础资格。单选 Smart Group 或具有明确生成身份的 Generation Node 时 Composer 自动打开；普通 Image Node 不具备该资格，无论它是尚未上传的空媒体槽、图片、视频还是音频，也无论媒体来自上传、粘贴、拖入、导入或普通 Generation Output。上传进行中和上传完成后的重绘可以保持当前 Selection，但不得因此打开 Composer 或启用 Generation Run。Frame、Text Annotation 等其他不支持角色、多选普通 Node 或清空 Selection 时 Composer 同样关闭。

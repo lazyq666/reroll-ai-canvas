@@ -71,6 +71,8 @@ PORT_SCAN_LIMIT = 100
 LOCAL_URL = f"http://127.0.0.1:{PORT}/"
 RUNTIME_STATUS_URL = f"http://127.0.0.1:{PORT}/api/runtime/status"
 RESTART_EXIT_CODE = 75
+SUPERVISOR_FD_ENV = "INFINITE_CANVAS_SUPERVISOR_FD"
+SUPERVISOR_PID_ENV = "INFINITE_CANVAS_SUPERVISOR_PID"
 MIN_PYTHON = (3, 12)
 MAX_PYTHON = (3, 13)
 
@@ -262,10 +264,10 @@ def application_response_matches(body: str) -> bool:
     has_project_mark = any(
         asset in normalized
         for asset in (
-            "/static/images/wordmark.svg",
-            "/static/images/logo.svg",
-            "/static/images/logo.png",
-            "/static/images/favicon.png",
+            "/static/images/brand/wordmark.svg",
+            "/static/images/brand/logo.svg",
+            "/static/images/brand/logo.png",
+            "/static/images/brand/favicon.png",
         )
     )
     return has_project_title and has_project_mark
@@ -809,6 +811,8 @@ def _spawn_application(
     environment.setdefault("INFINITE_CANVAS_HOST", server_bind_host())
     environment["INFINITE_CANVAS_PORT"] = str(port)
     environment["INFINITE_CANVAS_PROJECT_DIR"] = str(PROJECT_DIR)
+    environment.pop(SUPERVISOR_FD_ENV, None)
+    environment[SUPERVISOR_PID_ENV] = str(os.getpid())
     environment.setdefault(
         "INFINITE_CANVAS_INSTANCE_STATE_DIR",
         str(application_state_directory() / "instance-state"),
@@ -820,18 +824,48 @@ def _spawn_application(
         }
     else:
         process_group_options = {"start_new_session": True}
-    child = subprocess.Popen(
-        [str(runtime.executable), "-m", "infinite_canvas"],
-        cwd=str(BACKEND_DIR),
-        env=environment,
-        **process_group_options,
-    )
+    supervisor_read_fd: Optional[int] = None
+    supervisor_guard_fd: Optional[int] = None
+    if os.name != "nt":
+        supervisor_read_fd, supervisor_guard_fd = os.pipe()
+        environment[SUPERVISOR_FD_ENV] = str(supervisor_read_fd)
+        process_group_options["pass_fds"] = (supervisor_read_fd,)
+    try:
+        child = subprocess.Popen(
+            [str(runtime.executable), "-m", "infinite_canvas"],
+            cwd=str(BACKEND_DIR),
+            env=environment,
+            **process_group_options,
+        )
+    except Exception:
+        if supervisor_guard_fd is not None:
+            os.close(supervisor_guard_fd)
+        raise
+    finally:
+        if supervisor_read_fd is not None:
+            os.close(supervisor_read_fd)
+    child._infinite_canvas_supervisor_guard_fd = supervisor_guard_fd
     threading.Thread(
         target=_record_instance_when_ready,
         args=(child, port),
         daemon=True,
     ).start()
     return child
+
+
+def _close_supervisor_guard(child: subprocess.Popen) -> None:
+    guard_fd = getattr(
+        child,
+        "_infinite_canvas_supervisor_guard_fd",
+        None,
+    )
+    child._infinite_canvas_supervisor_guard_fd = None
+    if not isinstance(guard_fd, int):
+        return
+    try:
+        os.close(guard_fd)
+    except OSError:
+        pass
 
 
 def _interrupt_child(child: subprocess.Popen) -> None:
@@ -867,12 +901,15 @@ def wait_for_child(
     grace_period_seconds: float = 10.0,
 ) -> int:
     try:
-        return int(child.wait())
-    except KeyboardInterrupt:
-        return _stop_child_after_interrupt(
-            child,
-            grace_period_seconds=grace_period_seconds,
-        )
+        try:
+            return int(child.wait())
+        except KeyboardInterrupt:
+            return _stop_child_after_interrupt(
+                child,
+                grace_period_seconds=grace_period_seconds,
+            )
+    finally:
+        _close_supervisor_guard(child)
 
 
 def supervise_application(

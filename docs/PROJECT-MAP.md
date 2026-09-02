@@ -32,7 +32,7 @@ Reroll AI Canvas 是面向可信小团队的本地优先 AI 视觉创作工作�
 
 ## 核心用户旅程
 
-1. 启动器准备 Python 环境并启动本地服务。
+1. 启动器准备 Python 环境、启动并持续监督本地服务；监督关系断开时后端安全退出。
 2. 首次使用者选择 Workspace 并创建 Administrator。
 3. Administrator 配置 Provider、Model、Project 和账号权限。
 4. Designer 从 Canvas List 进入 Classic Canvas 或 Smart Canvas。

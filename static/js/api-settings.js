@@ -2154,12 +2154,12 @@ function providerDragAttrs(item){
     return ` draggable="true" data-provider-id="${id}" ondragstart="handleProviderDragStart(event,'${id}')" ondragover="handleProviderDragOver(event,'${id}')" ondrop="handleProviderDrop(event,'${id}')" ondragend="handleProviderDragEnd()"`;
 }
 const PROVIDER_ICON_ASSETS = Object.freeze({
-    chatgpt:'/static/images/chatgpt.svg',
-    doubao:'/static/images/doubao.svg',
-    flux:'/static/images/flux.svg',
-    gemini:'/static/images/gemini.svg',
-    grok:'/static/images/grok.svg',
-    jimeng:'/static/images/jimeng.svg'
+    chatgpt:'/static/images/providers/chatgpt.svg',
+    doubao:'/static/images/providers/doubao.svg',
+    flux:'/static/images/providers/flux.svg',
+    gemini:'/static/images/providers/gemini.svg',
+    grok:'/static/images/providers/grok.svg',
+    jimeng:'/static/images/providers/jimeng.svg'
 });
 const PROVIDER_ICON_ALIASES = Object.freeze({
     chatgpt:new Set(['chatgpt', 'openai', 'codex']),
@@ -2195,8 +2195,8 @@ function renderProviderList(){
                 <span class="provider-nav-item provider-nav-banner ${stateClass}" data-value="${tabValue}">
                     <span class="provider-nav-banner-inner">
                         <span class="provider-logo-wrap">
-                            <img src="/static/images/modelscope.gif" alt="ModelScope" class="ms-icon-light">
-                            <img src="/static/images/modelscope-1.gif" alt="ModelScope" class="ms-icon-dark">
+                            <img src="/static/images/providers/modelscope.gif" alt="ModelScope" class="ms-icon-light">
+                            <img src="/static/images/providers/modelscope-1.gif" alt="ModelScope" class="ms-icon-dark">
                             <span class="provider-logo-fallback">ModelScope</span>
                         </span>
                         <!-- Brand-only navigation item; no status badge. -->
@@ -2209,8 +2209,8 @@ function renderProviderList(){
                 <span class="provider-nav-item provider-nav-banner ${stateClass}" data-value="${tabValue}">
                     <span class="provider-nav-banner-inner">
                         <span class="provider-logo-wrap">
-                            <img src="/static/images/RunningHub-B.png" alt="RunningHub" class="runninghub-icon ms-icon-light">
-                            <img src="/static/images/RunningHub-W.png" alt="RunningHub" class="runninghub-icon ms-icon-dark">
+                            <img src="/static/images/providers/RunningHub-B.png" alt="RunningHub" class="runninghub-icon ms-icon-light">
+                            <img src="/static/images/providers/RunningHub-W.png" alt="RunningHub" class="runninghub-icon ms-icon-dark">
                             <span class="provider-logo-fallback">RunningHub</span>
                         </span>
                         <!-- Brand-only navigation item; no status badge. -->
@@ -2223,8 +2223,8 @@ function renderProviderList(){
                 <span class="provider-nav-item provider-nav-banner ${stateClass}" data-value="${tabValue}">
                     <span class="provider-nav-banner-inner">
                         <span class="provider-logo-wrap">
-                            <img src="/static/images/volcengine-theme-light.svg" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-light">
-                            <img src="/static/images/volcengine-theme-dark.svg" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-dark">
+                            <img src="/static/images/providers/volcengine-theme-light.svg" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-light">
+                            <img src="/static/images/providers/volcengine-theme-dark.svg" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-dark">
                             <span class="provider-logo-fallback">${escapeHtml(tr('api.volcengine'))}</span>
                         </span>
                         <!-- Brand-only navigation item; no status badge. -->

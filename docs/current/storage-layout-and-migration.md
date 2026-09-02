@@ -129,6 +129,10 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 延迟同步这次删除；确认原设备服务已经停止后，操作者可以使用启动器的
 `--takeover-workspace` 参数替换其他设备残留的记录。该参数不绕过本机活动文件锁，也不
 用于两个仍在运行的服务之间共享写入权；没有显式参数时继续拒绝其他设备的记录。
+统一启动器通过仅由监督进程持有的生命线管理后端；启动窗口、终端标签页或外层启动任务
+结束时，后端必须检测到监督关系断开并走正常关闭流程，释放端口、文件锁和匹配的
+`occupation.json`。受控重启仍由同一个存活的启动器接续，直接运行后端不属于可重启的
+正式运行入口。
 
 `workspace_asset_library.json` 是 Workspace Asset Library 的发布目录，只保存素材条目、Publisher 和私有来源快照；图片字节继续位于 `assets/` 的 Managed Media 区域。相同媒体以内容摘要幂等复用，取消共享只移除条目，不删除画布图片或媒体文件。列表 API 不公开来源 Project、Canvas 或 Node。完整合同见[工作区资产库与本地引用](workspace-asset-library.md)，架构取舍见 [ADR-0004](../adr/0004-workspace-asset-library-publication-boundary.md)。Prompt Template 封面是这一通用媒体规则的窄例外，由 [ADR-0007](../adr/0007-prompt-library-directory-owns-cover-media.md) 定义的 Prompt Library 专属目录拥有。
 

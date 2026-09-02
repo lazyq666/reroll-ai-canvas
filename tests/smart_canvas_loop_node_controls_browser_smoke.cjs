@@ -39,7 +39,7 @@ const headless = process.env.SMART_CANVAS_HEADLESS !== '0';
                     id:'loop-source', type:'smart-image', title:'Reference images',
                     x:40, y:160, w:240, h:180,
                     images:[
-                        {url:'/static/images/logo.png',name:'reference-a.png',kind:'image'},
+                        {url:'/static/images/brand/logo.png',name:'reference-a.png',kind:'image'},
                         {url:'/static/images/test/fixture.svg',name:'reference-b.svg',kind:'image'}
                     ]
                 };

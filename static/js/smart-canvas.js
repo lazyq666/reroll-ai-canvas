@@ -102,7 +102,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-ff02b51bdc35')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-c087c3d218de')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -11287,6 +11287,14 @@ function smartRunInfoOutputKind(node){
     const output = (node?.images || []).find(item => item?.url);
     return output ? mediaKindForItem(output) : '';
 }
+function smartRunInfoPrompt(node){
+    return String(
+        node?.generationInputSnapshot?.prompt
+        || node?.runModelPrompt
+        || node?.runPrompt
+        || ''
+    ).trim();
+}
 function smartRunInfoText(node){
     const runSettings = node?.runSettings || {};
     const elapsedMs = smartRunInfoElapsedMs(node);
@@ -11295,7 +11303,7 @@ function smartRunInfoText(node){
         trf('smart.runElapsed', {value: elapsedMs == null ? tr('smart.unknown') : formatRunDuration(elapsedMs)}),
         trf('smart.engineInfo', {value: runSettings.engine || tr('smart.unknown')}),
         trf('smart.modelInfo', {value: runSettings.model || runSettings.videoModel || runSettings.msCustomModel || runSettings.comfyWorkflow || runSettings.rhConfigKey || tr('smart.unknown')}),
-        trf('smart.promptInfo', {value: node?.runPrompt || node?.runModelPrompt || tr('smart.none')})
+        trf('smart.promptInfo', {value: smartRunInfoPrompt(node) || tr('smart.none')})
     ];
     const size = runSettings.customSize || runSettings.videoResolution || runSettings.resolution || runSettings.ratio || '';
     if(size) lines.push(trf('smart.sizeInfo', {value: size}));

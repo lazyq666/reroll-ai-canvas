@@ -6,26 +6,31 @@
   <script src="/static/js/page-zoom-guard.js?v=2026.09.01.5.1788254439"></script>
   <script>
     (() => {
+      let theme = 'light';
       try {
-        const theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
-        document.documentElement.classList.toggle('studio-theme-dark', theme === 'dark');
-        document.documentElement.classList.toggle('theme-dark', theme === 'dark');
-        const navigation = performance.getEntriesByType?.('navigation')?.[0];
-        const reloading = navigation?.type === 'reload' || performance.navigation?.type === 1;
-        document.documentElement.classList.toggle('studio-entry-motion-skip', reloading);
-        document.documentElement.classList.add('studio-route-booting');
+        theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
       } catch (_) {}
+      document.documentElement.classList.toggle('studio-theme-dark', theme === 'dark');
+      document.documentElement.classList.toggle('theme-dark', theme === 'dark');
+      const navigation = performance.getEntriesByType?.('navigation')?.[0];
+      const reloading = navigation?.type === 'reload' || performance.navigation?.type === 1;
+      let entrySeen = false;
+      try {
+        entrySeen = localStorage.getItem('studio_brand_entry_seen') === '1';
+      } catch (_) {}
+      document.documentElement.classList.toggle('studio-entry-motion-skip', reloading || entrySeen);
+      document.documentElement.classList.add('studio-route-booting');
     })();
   </script>
-  <link rel="icon" href="/static/images/favicon.png?v=2026.08.29.reroll.1" type="image/png">
+  <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.5.1788254438">
   <link rel="stylesheet" href="/static/css/account-avatar.css?v=2026.09.01.5.1788254438">
   <link rel="stylesheet" href="/static/css/studio-shell.css?v=2026.09.01.5.1788254438">
-  <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=2026.09.01.5.1788254438">
+  <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=2026.09.01.5.1788326666">
   <link rel="stylesheet" href="/static/css/preferences.css?v=2026.09.01.5.1788254438">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=2026.09.01.5.1788254439"></script>
-  <script src="/static/js/i18n.js?v=i18n-loader-7be099bf53a6"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-19555d9f77fa"></script>
 </head>
 <body>
   <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
@@ -33,26 +38,26 @@
     <div class="studio-entry-lockup">
       <div class="studio-entry-mark-frame">
         <video id="studioEntryLogoMotion" class="studio-entry-logo-motion" autoplay muted playsinline preload="auto">
-          <source src="/static/images/reroll-logo-motion-transparent.webm" type="video/webm">
+          <source src="/static/images/brand/reroll-logo-motion-transparent.webm" type="video/webm">
         </video>
       </div>
       <div class="studio-entry-word-frame">
         <div class="studio-entry-word-reveal">
-          <img class="studio-entry-word" src="/static/images/word.svg" alt="">
+          <img class="studio-entry-word" src="/static/images/brand/word.svg" alt="">
         </div>
         <span class="studio-entry-word-scan" aria-hidden="true"><i></i><i></i><i></i></span>
       </div>
       <p class="studio-entry-status" data-i18n="common.preparingCreativeSpace">正在准备你的创作空间…</p>
     </div>
-    <img class="studio-entry-reduced-lockup" src="/static/images/wordmark.svg" alt="">
+    <img class="studio-entry-reduced-lockup" src="/static/images/brand/wordmark.svg" alt="">
   </section>
 
   <div class="app-shell">
     <aside class="sidebar" id="studioSidebar" aria-label="主导航" data-i18n-aria-label="common.primaryNavigation">
       <div class="sidebar-logo-area">
         <ic-button id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="quiet" aria-label="展开导航栏" data-sidebar-tooltip aria-pressed="false">
-          <img class="sidebar-logo-image sidebar-logo-wordmark" src="/static/images/wordmark.svg" alt="" aria-hidden="true">
-          <img class="sidebar-logo-image sidebar-logo-mark" src="/static/images/logo.svg" alt="" aria-hidden="true">
+          <img class="sidebar-logo-image sidebar-logo-wordmark" src="/static/images/brand/wordmark.svg" alt="" aria-hidden="true">
+          <img class="sidebar-logo-image sidebar-logo-mark" src="/static/images/brand/logo.svg" alt="" aria-hidden="true">
           <span class="visually-hidden" data-i18n="common.expandNavigation">展开导航栏</span>
         </ic-button>
       </div>
@@ -105,21 +110,21 @@
     </aside>
 
     <main class="stage" aria-label="主内容" data-i18n-aria-label="common.mainContent">
-      <iframe id="frame-zimage" data-src="/static/zimage.html?v=2026.09.01.5.1788320346" title="文生图" data-i18n-title="nav.textToImage" scrolling="yes"></iframe>
-      <iframe id="frame-enhance" data-src="/static/enhance.html?v=2026.09.01.5.1788320346" title="细节增强" data-i18n-title="nav.enhance" scrolling="yes"></iframe>
-      <iframe id="frame-klein" data-src="/static/klein.html?v=2026.09.01.5.1788320346" title="图片编辑" data-i18n-title="nav.imageEdit" scrolling="yes"></iframe>
-      <iframe id="frame-angle" data-src="/static/angle.html?v=2026.09.01.5.1788320346" title="角度控制" data-i18n-title="nav.angle" scrolling="yes"></iframe>
-      <iframe id="frame-online" data-src="/static/online.html?v=2026.09.01.5.1788320346" title="批量生成" data-i18n-title="batch.batch" scrolling="yes"></iframe>
-      <iframe id="frame-account-management" data-src="/static/account-management.html?v=2026.09.01.5.1788320346" title="账号管理" data-i18n-title="common.accountManagement" scrolling="yes"></iframe>
-      <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.09.01.5.1788320346" title="API 设置" data-i18n-title="common.apiSettings" scrolling="yes"></iframe>
-      <iframe id="frame-available-model-management" data-src="/static/available-model-management.html?v=2026.09.01.5.1788320346" title="可用模型管理" data-i18n-title="common.modelManagement" scrolling="yes"></iframe>
-      <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=2026.09.01.5.1788320346" title="工作流设置" data-i18n-title="common.comfyuiSettings" scrolling="yes"></iframe>
-      <iframe id="frame-canvas" data-src="/static/canvas-list.html?v=2026.09.01.5.1788320346" title="画布" data-i18n-title="nav.canvas" scrolling="yes"></iframe>
+      <iframe id="frame-zimage" data-src="/static/zimage.html?v=2026.09.01.5.1788327185" title="文生图" data-i18n-title="nav.textToImage" scrolling="yes"></iframe>
+      <iframe id="frame-enhance" data-src="/static/enhance.html?v=2026.09.01.5.1788327185" title="细节增强" data-i18n-title="nav.enhance" scrolling="yes"></iframe>
+      <iframe id="frame-klein" data-src="/static/klein.html?v=2026.09.01.5.1788327185" title="图片编辑" data-i18n-title="nav.imageEdit" scrolling="yes"></iframe>
+      <iframe id="frame-angle" data-src="/static/angle.html?v=2026.09.01.5.1788327185" title="角度控制" data-i18n-title="nav.angle" scrolling="yes"></iframe>
+      <iframe id="frame-online" data-src="/static/online.html?v=2026.09.01.5.1788327185" title="批量生成" data-i18n-title="batch.batch" scrolling="yes"></iframe>
+      <iframe id="frame-account-management" data-src="/static/account-management.html?v=2026.09.01.5.1788327185" title="账号管理" data-i18n-title="common.accountManagement" scrolling="yes"></iframe>
+      <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.09.01.5.1788327185" title="API 设置" data-i18n-title="common.apiSettings" scrolling="yes"></iframe>
+      <iframe id="frame-available-model-management" data-src="/static/available-model-management.html?v=2026.09.01.5.1788327185" title="可用模型管理" data-i18n-title="common.modelManagement" scrolling="yes"></iframe>
+      <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=2026.09.01.5.1788327185" title="工作流设置" data-i18n-title="common.comfyuiSettings" scrolling="yes"></iframe>
+      <iframe id="frame-canvas" data-src="/static/canvas-list.html?v=2026.09.01.5.1788327185" title="画布" data-i18n-title="nav.canvas" scrolling="yes"></iframe>
     </main>
   </div>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ff02b51bdc35"></script>
-  <script src="/static/js/studio-entry-motion.js?v=2026.09.01.5.1788254439" defer></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-c087c3d218de"></script>
+  <script src="/static/js/studio-entry-motion.js?v=2026.09.01.5.1788325082" defer></script>
   <script src="/static/js/studio-shell.js?v=2026.09.01.5.1788254439" defer></script>
   <script src="/static/js/preferences.js?v=2026.09.01.5.1788319629" defer></script>
   <script src="/static/js/account-avatar.js?v=2026.09.01.5.1788254438" defer></script>

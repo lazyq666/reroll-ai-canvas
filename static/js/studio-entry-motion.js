@@ -1,5 +1,5 @@
 (() => {
-  const SESSION_KEY = 'studio_brand_entry_seen';
+  const STORAGE_KEY = 'studio_brand_entry_seen';
   const REVEAL_TO_DOCK_MS = 2400;
   const DOCK_TO_FINISH_MS = 1040;
   const MEDIA_WATCHDOG_MS = 6500;
@@ -23,7 +23,7 @@
   };
 
   function alreadySeen() {
-    try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch (_) { return false; }
+    try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch (_) { return false; }
   }
 
   function isReloadNavigation() {
@@ -32,7 +32,7 @@
   }
 
   function rememberSeen() {
-    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (_) {}
+    try { localStorage.setItem(STORAGE_KEY, '1'); } catch (_) {}
   }
 
   function routeIsReady() {

@@ -28,7 +28,7 @@ function canvasPayload() {
       settings:{},
       logs:[],
       nodes:[
-        {id:'node-image',type:'smart-image',title:'Image',x:180,y:120,w:220,h:160,images:[{url:'/static/images/logo.png',name:'image.png',kind:'image'}]},
+        {id:'node-image',type:'smart-image',title:'Image',x:180,y:120,w:220,h:160,images:[{url:'/static/images/brand/logo.png',name:'image.png',kind:'image'}]},
         {id:'node-generation',type:'smart-image',title:'Generation',referenceGenerationKind:'image',generationOutputNode:true,x:180,y:920,w:300,h:220,images:[]},
         {id:'node-prompt',type:'smart-prompt',title:'Prompt',text:'电影感侧逆光',x:460,y:120,w:260,h:180,images:[]},
         {id:'node-prompt-generation',type:'smart-prompt',title:'Prompt Generation',llmEnabled:true,text:'生成结构化提示词',x:780,y:120,w:280,h:220,images:[]},
