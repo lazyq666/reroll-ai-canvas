@@ -159,6 +159,19 @@ async function pickerState(page){
         });
         assert.equal(referenceAspectRatio, '405:240');
 
+        const reportedImage = {
+            url:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="4800" height="7089"/%3E',
+            name:'reported-4800x7089.svg',
+            kind:'image',
+            natural_w:4800,
+            natural_h:7089,
+        };
+        await installScenario(page, {id:'reported-4800x7089', references:[reportedImage]});
+        const reported = await pickerState(page);
+        assert.equal(reported.ratio, 'source');
+        assert.equal(reported.sourceRatio, '2:3');
+        assert.match(reported.text, /^原图\(2:3\)/);
+
         const unsupportedImage = {
             url:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1080" height="1000"/%3E',
             name:'outside-seven-percent.svg',
