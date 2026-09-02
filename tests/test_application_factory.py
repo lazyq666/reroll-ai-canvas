@@ -13,7 +13,7 @@ from unittest import mock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from infinite_canvas.__main__ import _server_port
+from infinite_canvas.__main__ import _server_host, _server_port
 from infinite_canvas.app import create_app
 from infinite_canvas.bootstrap import LegacyInitializer
 from infinite_canvas.content import WorkspaceContent
@@ -30,6 +30,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ApplicationFactoryTests(unittest.TestCase):
+    def test_runtime_server_host_uses_the_launcher_environment_contract(self):
+        with mock.patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(_server_host(), "0.0.0.0")
+        with mock.patch.dict(
+            "os.environ",
+            {"INFINITE_CANVAS_HOST": "127.0.0.1"},
+            clear=True,
+        ):
+            self.assertEqual(_server_host(), "127.0.0.1")
+
     def test_runtime_server_port_uses_the_launcher_environment_contract(self):
         with mock.patch.dict(
             "os.environ",

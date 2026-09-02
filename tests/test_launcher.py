@@ -284,15 +284,15 @@ class LauncherPortTests(unittest.TestCase):
                     "127.0.0.1",
                 )
 
-    def test_server_is_loopback_only_unless_lan_access_is_explicit(self):
+    def test_server_allows_lan_access_unless_loopback_is_explicit(self):
         with mock.patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(launcher.server_bind_host(), "127.0.0.1")
+            self.assertEqual(launcher.server_bind_host(), "0.0.0.0")
         with mock.patch.dict(
             os.environ,
-            {"INFINITE_CANVAS_HOST": "0.0.0.0"},
+            {"INFINITE_CANVAS_HOST": "127.0.0.1"},
             clear=True,
         ):
-            self.assertEqual(launcher.server_bind_host(), "0.0.0.0")
+            self.assertEqual(launcher.server_bind_host(), "127.0.0.1")
 
     def test_preferred_server_port_defaults_to_3000_and_can_be_overridden(self):
         with mock.patch.dict(os.environ, {}, clear=True):
@@ -367,6 +367,36 @@ class LauncherPortTests(unittest.TestCase):
         result = launcher.start_application(runtime, open_browser=False)
         self.assertEqual(result, 0)
         supervise.assert_called_once_with(runtime, port=3001)
+
+    @mock.patch.object(launcher, "existing_instance_url", return_value=None)
+    @mock.patch.object(launcher, "_acquire_launch_claim")
+    @mock.patch.object(launcher, "supervise_application", return_value=0)
+    @mock.patch.object(launcher, "_port_is_open", return_value=False)
+    @mock.patch.object(launcher, "_lan_ip", return_value="192.0.2.10")
+    def test_default_startup_prints_the_lan_url(
+        self,
+        _lan_ip,
+        _port_open,
+        _supervise,
+        acquire_claim,
+        _existing_instance,
+    ):
+        acquire_claim.return_value = mock.Mock()
+        runtime = launcher.Runtime(Path("/python"), (3, 12, 0), "test")
+        output = StringIO()
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with redirect_stdout(output):
+                result = launcher.start_application(
+                    runtime,
+                    open_browser=False,
+                )
+
+        self.assertEqual(result, 0)
+        self.assertIn(
+            "局域网访问：http://192.0.2.10:3000/",
+            output.getvalue(),
+        )
+        self.assertNotIn("网络模式：仅本机", output.getvalue())
 
     @mock.patch.object(launcher.webbrowser, "open")
     @mock.patch.object(launcher, "supervise_application")

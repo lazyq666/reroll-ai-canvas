@@ -15,6 +15,10 @@ SUPERVISOR_FD_ENV = "INFINITE_CANVAS_SUPERVISOR_FD"
 SUPERVISOR_PID_ENV = "INFINITE_CANVAS_SUPERVISOR_PID"
 
 
+def _server_host() -> str:
+    return str(os.getenv("INFINITE_CANVAS_HOST") or "0.0.0.0").strip()
+
+
 def _server_port() -> int:
     raw_port = str(os.getenv("INFINITE_CANVAS_PORT") or "3000").strip()
     try:
@@ -99,12 +103,9 @@ async def _wait_for_supervisor_process(pid: int) -> None:
 
 async def serve() -> int:
     application, _runtime, restart_signal = create_default_application()
-    host = str(
-        os.getenv("INFINITE_CANVAS_HOST") or "127.0.0.1"
-    ).strip()
     config = uvicorn.Config(
         application,
-        host=host,
+        host=_server_host(),
         port=_server_port(),
         ws_ping_interval=None,
         ws_ping_timeout=None,

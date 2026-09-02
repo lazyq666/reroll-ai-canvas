@@ -1,7 +1,7 @@
 # Reroll AI Canvas 项目地图
 
 > Status: Baseline  
-> Last verified: 2026-08-29
+> Last verified: 2026-09-02
 > Audience: 产品、UI、交互、前端、后端、测试与发布
 
 本页是项目的单一总地图：产品边界、技术栈、系统结构、代码责任和功能覆盖都从这里进入。具体行为由 `current/` 中的 Current 规格定义；正在开发的行为位于 `active/`。
@@ -202,7 +202,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 
 | ID | 功能域 | 覆盖 | 当前入口或首要缺口 |
 | --- | --- | --- | --- |
-| F01 | 启动、初始化与 Application Runtime | `partial` | `backend/launcher.py`、Runtime/Bootstrap 测试；缺端到端 Current 规格 |
+| F01 | 启动、初始化与 Application Runtime | `partial` | [ADR-0008](adr/0008-lan-access-by-default.md)与[本机与局域网访问](current/local-network-access.md)定义默认监听、仅本机覆盖与重启/失败恢复；Runtime/Bootstrap 仍缺完整端到端 Current 规格 |
 | F02 | Account、Role、Project 权限与 Share | `partial` | [Canvas 分享只读内容完整性](current/canvas-share-read-only-content-parity.md)已有 Current；`auth_system.py`、`canvas_permissions.py` 仍缺完整 Current 权限矩阵 |
 | F03 | Workspace 与四类数据边界 | `current` | [ADR-0001](adr/0001-workspace-data-boundary.md)、[ADR-0006](adr/0006-explicit-workspace-creation-during-recovery.md)、[存储与迁移](current/storage-layout-and-migration.md)；恢复阶段可显式创建新 Workspace，#179 Phase 1/2 与历史停服迁移已交付，其余升级恢复 Gate 仍见 Active Spec |
 | F04 | Project、Canvas List、Trash 与内容管理 | `gap` | `canvas_list_index.py`、`canvas_store.py`；缺完整状态与权限规格 |

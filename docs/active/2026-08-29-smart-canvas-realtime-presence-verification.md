@@ -42,7 +42,7 @@
 
 ### 环境
 
-1. 在同一局域网的服务机 `.env` 设置 `INFINITE_CANVAS_HOST=0.0.0.0`，保留 `INFINITE_CANVAS_PRESENCE_UPDATE_INTERVAL_MS=100` 并重启。
+1. 在同一局域网的服务机确认没有用 `.env` 将 `INFINITE_CANVAS_HOST` 覆盖为 `127.0.0.1`，保留 `INFINITE_CANVAS_PRESENCE_UPDATE_INTERVAL_MS=100` 并重启。
 2. 准备至少两个不同的 Admin/Designer 账号和一个 Guest 账号；用服务机显示的 LAN URL 进入同一个 Smart Canvas。
 3. 设备 A、B 分别开启浏览器录屏；开发者工具保留 WebSocket Frames。另开同账号第二个标签页验证账号级聚合。
 4. 每个场景记录服务版本/commit、设备、浏览器版本、主题、窗口尺寸、账号角色、起止时间和证据路径。

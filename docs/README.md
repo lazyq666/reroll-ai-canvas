@@ -34,12 +34,14 @@
 ## 当前参考
 
 - [公开项目身份与兼容边界](current/public-project-identity.md)
+- [本机与局域网访问](current/local-network-access.md)
 - [ModelScope 镜像发布维护](current/ModelScope镜像发布维护.md)
 - [Workspace 数据边界 ADR](adr/0001-workspace-data-boundary.md)
 - [UI 家族模块实现所有权 ADR](adr/0002-ui-family-module-ownership.md)
 - [工作区资产库发布边界 ADR](adr/0004-workspace-asset-library-publication-boundary.md)
 - [全局生成发布权威 ADR](adr/0005-global-generation-publication-authority.md)
 - [恢复阶段显式创建 Workspace ADR](adr/0006-explicit-workspace-creation-during-recovery.md)
+- [默认允许局域网访问 ADR](adr/0008-lan-access-by-default.md)
 - [存储路径与旧数据迁移](current/storage-layout-and-migration.md)
 - [工作区资产库与 Smart Canvas 本地引用](current/workspace-asset-library.md)
 - [Generation Run 生成链路](current/generation-pipeline.md)

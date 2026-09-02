@@ -274,7 +274,7 @@ def application_response_matches(body: str) -> bool:
 
 
 def server_bind_host() -> str:
-    return str(os.getenv("INFINITE_CANVAS_HOST") or "127.0.0.1").strip()
+    return str(os.getenv("INFINITE_CANVAS_HOST") or "0.0.0.0").strip()
 
 
 def preferred_server_port() -> int:
@@ -1037,18 +1037,15 @@ def start_application(
         print("============================================")
         print(f"本机访问：{selected_url}")
         host = server_bind_host()
-        lan_ip = (
-            _lan_ip()
-            if host not in {"127.0.0.1", "::1", "localhost"}
-            else None
-        )
-        if lan_ip:
-            print(f"局域网访问：http://{lan_ip}:{selected_port}/")
-        else:
+        if host in {"127.0.0.1", "::1", "localhost"}:
             print(
                 "网络模式：仅本机（如需局域网访问，请显式设置 "
                 "INFINITE_CANVAS_HOST=0.0.0.0）"
             )
+        else:
+            lan_ip = _lan_ip()
+            if lan_ip:
+                print(f"局域网访问：http://{lan_ip}:{selected_port}/")
         print("按 Ctrl+C 停止服务。")
         if takeover_workspace:
             print(

@@ -199,8 +199,9 @@ flowchart LR
 
 ## 数据、安全与部署边界
 
-- 服务默认只监听 `127.0.0.1`，不会自动开放到局域网或公网。
-- 如需局域网访问，可在项目 `.env` 中设置 `INFINITE_CANVAS_HOST=0.0.0.0`。
+- 服务默认监听 `0.0.0.0`，同一局域网内的设备可以通过启动器显示的局域网地址访问；修改监听配置后需要重启服务。
+- 如需仅允许本机访问，可在项目 `.env` 中设置 `INFINITE_CANVAS_HOST=127.0.0.1`。
+- 局域网访问不等于公网部署；只应在可信网络中开放，并继续使用 Reroll 的账号与权限控制。完整的监听、重启、防火墙和失败恢复规则见[本机与局域网访问](docs/current/local-network-access.md)。
 - 公网部署需要自行配置 HTTPS 反向代理、安全 Cookie、可信访问边界和备份策略。
 - 当前协作服务按单个 Uvicorn Worker 设计，不支持多 Worker、多实例或跨服务器同步。
 - API Key、账号数据、分享令牌和用户素材有不同存储边界，详见[存储路径与旧数据迁移](docs/current/storage-layout-and-migration.md)。
