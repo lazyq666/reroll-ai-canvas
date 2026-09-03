@@ -346,6 +346,10 @@ Image Node、Generation Node 与 Prompt Generation Node 均提供稳定失败态
 
 Upload Node 的上传 Surface、标题和说明等非按钮区域必须继承 Node 的拖动光标；上传按钮继续显示按钮自己的点击光标，并保持为不会触发 Node 拖动的独立操作目标。Generation Node 的图片生成、视频生成和失败状态也必须让目标 Surface、图标、标题与说明继承 Node 光标；“查看日志”等操作按钮保留自己的点击光标与事件隔离。Generation Result 已切换为 Image Node 角色，其媒体和文件名继续遵循 Image Node 的查看、选择与重命名交互合同。
 
+Smart Canvas 的媒体文件名 Badge 在文件名前显示媒体身份：图标按实际内容区分图片、视频或音频，文字只表达来源。上传媒体统一显示“已导入 / Imported”，Generation Output 统一显示“AI 生成 / AI generated”；已完成结果不得因 Composer 后续模式变化而改写身份。单媒体、多媒体与 Smart Group 中的媒体使用同一规则，优先保留媒体自身的生成身份；历史记录只在有明确生成输出证据时使用生成名称，其余沿用上传素材分类。普通画布右键“上传媒体”命令直接打开文件选择器，因此不新增空上传 Node 的身份 Badge。身份与原文件名并列显示并在空间不足时省略，Hover Title 保留全文，双击仍编辑原文件名。
+
+媒体文件名 Badge 使用次级文字色 `--ui-color-text-secondary`，配对媒体图标继承同一颜色。浅色、深色和 Hover 共用这一语义颜色，不使用禁用态颜色表达媒体身份。
+
 Image / Video Generation 在空态、生成中和无结果失败态使用 Generation 外壳；一旦交付可展示的图片或视频结果，视觉角色切换为 Image Node，统一使用 2px Surface Padding、1px Border、Image Radius 与 Raised Shadow，同时保留 Generation Run 元数据和后续操作能力。
 
 Quick Add 在默认、普通 Hover 与 Dark 主题下与 Node 外壳共用 `--ui-color-border-nodes`；Focus 与菜单展开状态仍使用各自的语义 Border。

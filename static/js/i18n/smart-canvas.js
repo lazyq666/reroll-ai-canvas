@@ -365,6 +365,8 @@
         "smart.createPromptSub": { zh: "手写或用 LLM 生成文本", en: "Write text or generate it with LLM" },
         "smart.createLoopSub": { zh: "按顺序替换变量并运行下游流程", en: "Replace variables in order and run the downstream flow" },
         "smart.kindAudio": { zh: "音频", en: "Audio" },
+        "smart.mediaImported": { zh: "已导入", en: "Imported" },
+        "smart.mediaAiGenerated": { zh: "AI 生成", en: "AI generated" },
         "smart.kindText": { zh: "文本", en: "Text" },
         "smart.exportNodeReady": { zh: "选择文件夹后一键导出", en: "Choose a folder to export" },
         "smart.exportNodeEmpty": { zh: "连接节点后收集图片、视频、音频和文本", en: "Connect nodes to collect images, video, audio, and text" },
