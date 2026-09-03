@@ -18,7 +18,6 @@
         "smart.frameExport.render": { zh: "无法生成图片，请降低倍率或重试", en: "Could not create the image. Choose a lower scale or try again." },
         "smart.frameExport.timeout": { zh: "导出超时，请重试", en: "Export timed out. Please try again." },
         "smart.frameExport.deleted": { zh: "分区已被删除，请重新选择", en: "This frame was deleted. Select another frame." },
-        "smart.frameExport.changed": { zh: "分区内容已变化，请检查尺寸后再次下载", en: "The frame contents have changed. Check the dimensions and download again." },
         "smart.frameExport.forbidden": { zh: "当前无法访问此画布，请重新打开", en: "This canvas is no longer accessible. Please reopen it." },
         "smart.frameExport.cancel": { zh: "取消", en: "Cancel" },
         "smart.frameExport.retry": { zh: "重试", en: "Retry" },

@@ -236,7 +236,7 @@ Issue #20 扩展上述[实时在场状态规格](active/2026-08-29-smart-canvas-
 
 Issue #211 的[工作台品牌入场动画](active/2026-08-29-issue-211-studio-brand-entry-motion.md)为 F01 / F13 增加每个标签页首次已登录进入时的品牌呈现：透明流体 Logo 与 `word.svg` 收束到真实 App Shell 侧栏 wordmark；媒体失败、Reduced Motion 和窄屏均不阻断身份与路由初始化。该行为仍等待跨平台透明 VP9 Alpha 人工确认，Windows 由 Issue #213 跟踪，因此保持 Active。
 
-Issue #23 的[分区大图下载](active/2026-09-03-smart-canvas-frame-image-export-spec.md)为 Implemented：单选分区可按原布局下载 1× / 2× PNG，包含图片、文字标注、画笔与分区背景，排除提示词卡片、连线和视频封面。`frame-image-export.js` 拥有只读快照的测量、原图绘制与取消/清理，`frame-image-export-host.js` 适配生产布局和工具栏；macOS 实际 PNG 回归通过，Windows 及复杂原图容量人工 Gate 仍待验证，因此保持 Active。
+Issue #23 的[分区大图下载](active/2026-09-03-smart-canvas-frame-image-export-spec.md)为 Implemented：单选分区可按原布局下载 1× / 2× PNG，包含图片、文字标注、画笔与分区背景，排除提示词卡片、连线和视频封面。`frame-image-export.js` 拥有只读快照的测量、原图绘制及资源清理，`frame-image-export-host.js` 集中负责生产布局快照、Dialog、任务生命周期与下载，对工具栏只公开打开入口；macOS 实际 PNG 回归通过，Windows 及复杂原图容量人工 Gate 仍待验证，因此保持 Active。
 
 ## 测试与验收入口
 

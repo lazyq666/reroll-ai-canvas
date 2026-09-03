@@ -130,6 +130,34 @@ async function main(){
         await page.evaluate(()=>{const frame=nodes.find(n=>n.id==='export-frame');frame.w=700;frame.items=[];render();syncSmartNodeFloatingPortal();});
         await open();assert.match(await page.locator('#smartFrameExportStatus').textContent(),/仅导出背景/);
         const empty=await download('background.png');assert.equal((await sharp(empty).metadata()).width,700);
+        // A collaborator edit immediately before clicking exports the latest content in one click.
+        await open();
+        const latestDownload=page.waitForEvent('download').catch(()=>null);
+        const latestState=await page.evaluate(()=>{
+            const frame=nodes.find(n=>n.id==='export-frame');frame.w=720;frame.items=['red'];
+            document.getElementById('smartFrameExportDownload').click();
+            return document.getElementById('smartFrameExportDialog').dataset.exportState;
+        });
+        assert.equal(latestState,'preparing','content changes do not require a second confirmation');
+        const latestFile=await latestDownload;
+        assert.ok(latestFile,'latest snapshot downloads');
+        const latest=await sharp(await latestFile.path()).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+        assert.equal(latest.info.width,720,'dimensions come from the click-time snapshot');
+        const latestOffset=(160*latest.info.width+120)*4;
+        assert.deepEqual([...latest.data.subarray(latestOffset,latestOffset+4)],[238,34,0,255],'new membership is included');
+        await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').dataset.motionState==='closed');
+        // Removing reconfirmation must still reject dimensions changed beyond the limit before a click.
+        await open();
+        const countBeforeResize=downloadCount;
+        await page.evaluate(()=>{
+            nodes.find(n=>n.id==='export-frame').w=9000;
+            document.getElementById('smartFrameExportDownload').click();
+        });
+        await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').dataset.exportState==='failure');
+        assert.match(await page.locator('#smartFrameExportStatus').textContent(),/尺寸过大/);
+        assert.equal(downloadCount,countBeforeResize,'oversized click-time snapshot cannot download');
+        await page.locator('#smartFrameExportCancel').click();
+        await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').dataset.motionState==='closed');
         // Containers retain original slots and never draw excluded media or descendants twice.
         await page.evaluate(()=>{
             const image={url:'/export-media/red.svg',kind:'image',natural_w:400,natural_h:300};
@@ -199,7 +227,7 @@ async function main(){
         assert.equal(capacityInfo.width,8192);assert.equal(capacityInfo.height,3906);
         const capacityMs=Date.now()-capacityStart;
         assert.deepEqual(errors,[],'no page exceptions');
-        console.log(JSON.stringify({result:'passed',checks:['PNG content','clipping','text/brush','excluded content','1x/2x','viewport/LOD','read-only','themes/i18n','failure/retry','cancel','limits','empty','nested/group/mixed slots','snapshot consistency','root deletion','capacity PNG'],capacityMs,outputDir}));
+        console.log(JSON.stringify({result:'passed',checks:['PNG content','clipping','text/brush','excluded content','1x/2x','viewport/LOD','read-only','themes/i18n','failure/retry','cancel','limits','empty','latest content in one click','nested/group/mixed slots','snapshot consistency','root deletion','capacity PNG'],capacityMs,outputDir}));
     } finally {await browser.close();server.close();}
 }
 main().catch(error=>{console.error(error);server.close();process.exitCode=1;});

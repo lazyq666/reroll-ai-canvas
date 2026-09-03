@@ -1,4 +1,4 @@
-/* Page adapter: capture existing layout without writing the Canvas. */
+/* Frame download dialog and page snapshot. No Canvas writes. */
 (function(){
     'use strict';
     const engine=window.SmartCanvasModules.frameImageExportEngine;
@@ -7,20 +7,13 @@
         const frame=nodes.find(node=>node.id===target?.id && smartContainer.isFrame(node));
         if(!frame || !canvas) return null;
         const children=engine.members(nodes,frame.id);
-        // Excluded card text/settings never enter the export signature or snapshot.
-        const geometry=children.map(node=>({id:node.id,type:node.type,x:node.x,y:node.y,w:node.w,h:node.h,
-            items:node.items,frameColor:node.frameColor,
-            text:node.type==='smart-text'?node.text:undefined,textSize:node.textSize,
-            color:node.color,brushSize:node.brushSize,points:node.type==='smart-brush'?node.points:undefined,
-            images:(!node.type || ['smart-image','smart-group'].includes(node.type))?node.images:undefined}));
         const contentCount=children.filter(node=>node.type==='smart-brush' && node.points?.length || node.type==='smart-text' && node.text?.trim()
             || (!node.type || ['smart-image','smart-group'].includes(node.type)) && node.images?.some(item=>item.url && mediaKindForItem(item)==='image')).length;
-        return {context:String(canvas.id || canvasId),title:frame.title || tr('smart.frameDefault'),rect:nodeRect(frame),contentCount,
-            signature:JSON.stringify([frame.title,geometry])};
+        return {context:String(canvas.id || canvasId),title:frame.title || tr('smart.frameDefault'),rect:nodeRect(frame),contentCount};
     }
     function capture(target){
         const info=describe(target);
-        if(!info) throw Object.assign(new Error('deleted'),{code:'deleted'});
+        if(!info) throw fail('deleted');
         const children=engine.members(nodes,target.id);
         const absorbed=new Set();
         children.filter(node=>smartContainer.isGroup(node)).forEach(group=>smartContainer.imageRefs(group).forEach(ref=>{
@@ -47,18 +40,121 @@
         return {...info,entries,background:getComputedStyle(shell).backgroundColor,
             filename:`${safeExportFileName(info.title,'frame').replace(/\.png$/i,'')}.png`};
     }
-    window.SmartCanvasModules.frameImageExport=engine.create({describe,capture,
-        accessible:()=>Boolean(canvas && canvasPersistence.editable()),translate:tr,format:trf,
-        notify:toast,
-        download(blob,filename){
-            const url=URL.createObjectURL(blob);
-            const link=document.createElement('a'); link.href=url;link.download=filename;
-            document.body.append(link);link.click();link.remove();
-            setTimeout(()=>URL.revokeObjectURL(url),60000);
-        },
-        restoreFocus(target){
-            const button=target && smartNodeFloatingPortal.querySelector(`[data-smart-frame-action="download"][data-node-id="${CSS.escape(target.id)}"]`);
-            (button || shell).focus();
+    const {dimensions,LIMITS}=engine;
+    const fail=code=>Object.assign(new Error(code),{code});
+    const accessible=()=>Boolean(canvas && canvasPersistence.editable());
+    function download(blob,filename){
+        const url=URL.createObjectURL(blob);
+        const link=document.createElement('a'); link.href=url;link.download=filename;
+        document.body.append(link);link.click();link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }
+    function restoreFocus(target){
+        const button=target && smartNodeFloatingPortal.querySelector(`[data-smart-frame-action="download"][data-node-id="${CSS.escape(target.id)}"]`);
+        (button || shell).focus();
+    }
+    const dialog=document.getElementById('smartFrameExportDialog');
+    const scaleControl=document.getElementById('smartFrameExportScale');
+    const name=document.getElementById('smartFrameExportName');
+    const size=document.getElementById('smartFrameExportSize');
+    const status=document.getElementById('smartFrameExportStatus');
+    const primary=document.getElementById('smartFrameExportDownload');
+    let target=null, phase='ready', error='', attempt=null, timer=null, opening=null;
+    const t=key => tr(`smart.frameExport.${key}`);
+    const busy=()=>Boolean(attempt);
+    const scale=()=>Number(scaleControl.getAttribute('value'))||1;
+    function showCopy(info){
+        name.textContent=info?.title || '';
+        const dims=dimensions(info?.rect,scale());
+        size.textContent=info ? trf('smart.frameExport.dimensions',dims) : '';
+        for(const button of scaleControl.querySelectorAll('[data-value]')){
+            button.disabled=busy() || !dimensions(info?.rect,Number(button.dataset.value)).ok;
+            button.toggleAttribute('data-disabled',button.disabled);
+        }
+        scaleControl.setAttribute('aria-busy',String(busy()));
+        primary.disabled=busy() || !info || !dims.ok || ['deleted','forbidden'].includes(error);
+        primary.textContent=error && !['oversized','deleted','forbidden'].includes(error) ? t('retry') : tr('smart.contextDownload');
+        const key=busy() ? phase : error || (!dims.ok?'oversized':info?.contentCount ? '' : 'backgroundOnly');
+        status.textContent=key ? t(key) : '';
+        status.dataset.tone=error || !dims.ok ? 'danger':'neutral';
+        dialog.dataset.exportState=busy()?phase:error?'failure':!dims.ok?'oversized':info?.contentCount?'ready':'background-only';
+    }
+    function cancel(){
+        const current=attempt; attempt=null;
+        current?.abort(fail('cancelled'));
+        clearInterval(timer); timer=null;
+    }
+    async function close(reason){
+        cancel();
+        // Let the entrance animation finish before requesting its reverse animation.
+        // This also handles Escape while all scale options are disabled.
+        if(opening) await opening;
+        if(dialog.open) await dialog.hide(reason);
+    }
+    function sync(){
+        if(!target) return;
+        const info=describe(target);
+        if(!info || info.context!==target.context || !accessible()){
+            const reason=!accessible() || (info && info.context!==target.context)?'forbidden':'deleted';
+            cancel(); error=reason; showCopy(info); return;
+        }
+        showCopy(info);
+    }
+    async function start(){
+        if(busy() || !target || primary.disabled) return;
+        const info=describe(target);
+        if(!info || info.context!==target.context || !accessible()){sync();return;}
+        error=''; phase='preparing';
+        const current=new AbortController(); attempt=current;
+        const deadline=setTimeout(()=>current.abort(fail('timeout')),LIMITS.taskMs);
+        try {
+            const snapshot=capture(target);
+            showCopy(info);
+            const blob=await engine.render(snapshot,scale(),{signal:current.signal,onPhase:value=>{phase=value;showCopy(info);}});
+            if(current.signal.aborted) throw current.signal.reason;
+            if(attempt!==current) return;
+            const live=describe(target);
+            if(!live || live.context!==target.context || !accessible()) throw fail('deleted');
+            download(blob,snapshot.filename);
+            toast(t('started'));
+            attempt=null;
+            await close('download');
+        } catch(caught){
+            if(attempt!==current) return;
+            error=['oversized','timeout','image','font','forbidden','deleted'].includes(caught?.code)?caught.code:'render';
+            attempt=null;
+            showCopy(describe(target));
+        } finally {clearTimeout(deadline);}
+    }
+    primary.addEventListener('click',start);
+    document.getElementById('smartFrameExportCancel').addEventListener('click',()=>close('cancel'));
+    scaleControl.addEventListener('ic-change',()=>{if(!busy()){error='';sync();}});
+    dialog.addEventListener('ic-hide',event=>{
+        cancel();
+        if(opening && dialog.dataset.motionState==='entering'){
+            event.preventDefault();
+            close(event.detail?.reason || 'close');
+        }
+    });
+    dialog.addEventListener('ic-after-hide',()=>{const previous=target;target=null;restoreFocus(previous);});
+    window.addEventListener('keydown',event=>{
+        if(event.key!=='Escape' || !dialog.open) return;
+        event.preventDefault();event.stopImmediatePropagation();
+        close('escape');
+    },true);
+    window.addEventListener('studio-lang-change',sync);
+    window.addEventListener('pagehide',cancel);
+    window.SmartCanvasModules.frameImageExport=Object.freeze({
+        async open(frameId){
+            if(dialog.open){primary.focus();return;}
+            const info=describe({id:frameId});
+            if(!info || !accessible()) return;
+            target={id:frameId,context:info.context}; error='';phase='ready';
+            scaleControl.setAttribute('value','1'); showCopy(info);
+            timer=setInterval(sync,250);
+            opening=dialog.show();
+            await opening; opening=null;
+            (scaleControl.querySelector('[data-value]:not(:disabled)') || document.getElementById('smartFrameExportCancel')).focus();
         }
     });
 })();

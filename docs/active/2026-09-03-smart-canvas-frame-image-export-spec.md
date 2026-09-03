@@ -113,7 +113,6 @@
 | 生成失败 | 无法生成图片，请降低倍率或重试 | Could not create the image. Choose a lower scale or try again. |
 | 超时 | 导出超时，请重试 | Export timed out. Please try again. |
 | 删除 | 分区已被删除，请重新选择 | This frame was deleted. Select another frame. |
-| 内容变化 | 分区内容已变化，请检查尺寸后再次下载 | The frame contents have changed. Check the dimensions and download again. |
 | 权限 | 当前无法访问此画布，请重新打开 | This canvas is no longer accessible. Please reopen it. |
 | 操作 | 取消 / 重试 | Cancel / Retry |
 
@@ -165,7 +164,7 @@
 
 导出是本地瞬时任务，不增加 Node、Generation Run 或持久 Operation ID。本地尝试标识用于隔离取消、重试和迟到回调。
 
-- Dialog 准备阶段更新目标变化引起的尺寸和空状态；确认时重新校验。若显示与实际内容不一致，刷新摘要，提示再次下载。
+- Dialog 准备阶段更新目标变化引起的尺寸和空状态；点击下载时重新校验尺寸、目标身份与权限，并直接使用当时的最新内容，不因普通内容变化要求再次确认。
 - 最终确认复制一份只读快照：Workspace / Canvas / Frame 身份、支持节点与几何、资源引用、主题样式、倍率、文件名。全过程只读取该快照。
 - 快照后的普通成员移动、编辑、删除、生成完成或主题切换不混入本次结果；源资源已不可读时按素材失败处理。下一次下载读取最新内容。
 - 根分区被本机/协作者删除（包括 Undo）、Canvas / Workspace 切换、页面退出、登出或已知权限失效，均取消任务并清理。
@@ -230,7 +229,7 @@
 - 用完整数据与独立绘制表面生成图片，不截取当前 `world` DOM，不改变真实画布缩放或挂载所有节点。
 - 文字细节可以通过不影响生产视图的离屏测量取得，等待所需字体就绪；不能用字符数估算作为最终换行依据。
 - 图片、文字、笔迹、背景按内容类型隔离绘制；不引入外部截图服务或改变现有容器职责。
-- `frame-image-export.js` 拥有任务与绘制；`frame-image-export-host.js` 只适配页面状态、生产节点呈现和下载。离屏节点只用于读取支持内容的几何与样式，逐个测量，图片来源在挂载前清除；原图随后通过受控加载按张绘制。
+- `frame-image-export.js` 负责测量和 PNG 绘制，接受只读快照与取消信号；`frame-image-export-host.js` 集中负责页面快照、Dialog、任务生命周期和下载，只向工具栏公开 `open(frameId)`。不设置可替换页面宿主的配置工厂，也不定时序列化内容用于变化确认。离屏节点只用于读取支持内容的几何与样式，逐个测量，图片来源在挂载前清除；原图随后通过受控加载按张绘制。
 - 文字使用浏览器 Range 测量字素位置，冻结字体后按测得坐标绘制；图片沿用生产媒体槽位的 object-fit 和内部裁切；图层顺序使用正常状态的 CSS 层级与原顺序。
 
 ## 15. Acceptance and testing
@@ -253,7 +252,7 @@
 | A08 限制 | 边长/总像素临界及无效尺寸 | 分别触发限制，超限不分配，不静默降级，可用倍率正常 |
 | A09 失败与重试 | 网络/字体/解码/编码故障、超时、空 Blob | 无半成品，错误可理解，修复后新快照重试成功 |
 | A10 取消与重复 | 延迟任务和连续点击 | 仅一个任务，取消后迟到结果不下载，后续新任务正常 |
-| A11 并发与生命周期 | 编辑/删除成员、删除根分区、切换上下文 | 普通变化不混入快照；根分区删除或上下文失效取消 |
+| A11 并发与生命周期 | 点击前修改尺寸/成员、导出中编辑/删除成员、删除根分区、切换上下文 | 点击前变化一次下载最新内容，超限仍拒绝；普通变化不混入已冻结快照；根分区删除或上下文失效取消 |
 | A12 只读副作用 | 前后状态与网络 | Selection、Viewport、Undo、内容及更新时间不变，无新增 Mutation、生成或上传 |
 | A13 可访问性/i18n | 键盘、动态语言、窄桌面、主题 | 操作和焦点闭环，状态可读，全部文案同步切换 |
 | A14 容量与释放 | 近上限和重复成功/失败/取消 | 可完成或明确失败，后续操作可用，任务资源不持续积累 |
@@ -291,6 +290,7 @@
 | Regression entry | [PNG 下载 browser smoke](../../tests/smart_canvas_frame_image_export_browser_smoke.cjs)、[尺寸与成员测试](../../tests/smart_canvas_frame_image_export.test.cjs)、[原有分区工具栏 smoke](../../tests/smart_canvas_frame_toolbar_browser_smoke.cjs) |
 | Automated validation | 2026-09-03：`.venv/bin/python -m unittest tests.test_documentation_knowledge_map tests.test_smart_canvas_node_components tests.test_core_creation_i18n tests.test_i18n_cache_versions`，23 项通过；`node tests/smart_canvas_frame_image_export.test.cjs`、两个 browser smoke 均通过；`node static/js/i18n/validate-i18n.js` 校验 3071 个键通过；UI 资源版本 `--check`、Spec 相对链接、19 个模板章节及 `git diff --check` 通过。系统 `python3` 为 3.9，不兼容现有测试类型注解，因此使用项目虚拟环境执行 |
 | Browser/manual evidence | macOS Chrome 自动化已覆盖 PNG 内容/裁切、1×/2×、详细/远景、主题/语言、重试/取消、空分区、编组与嵌套、快照/根分区删除及 8192 × 3906 背景图编码；导出 PNG 与 Dark Dialog 已视觉检查。Windows、真实复杂原图容量及完整人工验收仍待执行，不据此毕业 Current |
+| Ablation validation | 2026-09-03：实验 A 移除配置工厂与未使用接口，实验 B 再移除内容指纹和重复确认；各轮实际 PNG smoke 通过，8 张 PNG 均与基线逐字节一致。新增“点击前改变尺寸和成员，一次下载最新内容”测试在旧逻辑失败，在简化实现通过；点击前超限仍被拒绝。尺寸/成员 Node 测试、文档/i18n 缓存/核心文案 14 项 Python 测试、3070 个 i18n 键、UI 版本及 diff 检查通过 |
 | Issue / Project | [Issue #23](https://github.com/lazyq666/reroll-ai-canvas/issues/23)，开发看板跟踪，保持开放 |
 
 浏览器测试入口为 `node tests/smart_canvas_frame_image_export_browser_smoke.cjs` 和 `node tests/smart_canvas_frame_toolbar_browser_smoke.cjs`，运行环境需提供 Playwright、Sharp 与 Chrome。首个脚本自带临时服务，后者使用 `tests/smart_canvas_manual_server.py`。本机最近一次导出测试的近阈值背景 PNG 为 8192 × 3906，含弹窗与下载约 876 ms；此记录仅作为 macOS Chrome 的背景图基线，不代表复杂原图或其他设备表现。
@@ -305,3 +305,4 @@
 | --- | --- | --- | --- |
 | 2026-09-03 | Draft | 分区 PNG 下载的白名单、交互、布局、容量与验收初稿 | 用户确认图片、文字标注、画笔、背景及排除提示词卡片、连线、视频封面；其余默认规则由本稿提出 |
 | 2026-09-03 | Implemented | 用户授权实施；新增导出模块、Dialog、中英文和实际 PNG 验收 | Issue #23；素材按张读取，在首张失败时整体终止，因此失败文案不统计全部失败数量 |
+| 2026-09-03 | Implemented | 按消融实验移除单一宿主配置工厂、未使用公开接口及内容指纹/重复确认 | 实验 A 的 8 张 PNG 与基线逐字节一致；实验 B 的一次点击下载场景先在旧逻辑失败，再验证简化实现；详细证据见 Issue #23 |
