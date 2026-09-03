@@ -448,14 +448,12 @@ body.smart-node-resize .smart-node-floating-portal { opacity:0 !important; point
 .upload-node-title { color:var(--ui-color-text-primary); font-size:var(--ui-font-size-3); font-weight:var(--ui-font-weight-regular); line-height:var(--ui-line-height-body); }
 .upload-node-sub { color:var(--ui-color-text-tertiary); font-size:var(--ui-font-size-2); font-weight:var(--ui-font-weight-regular); line-height:var(--ui-line-height-compact); }
 .image-wrap { position:relative; width:100%; border-radius:var(--ui-radius-l); overflow:visible; }
-.image-name-badge { position:absolute; left:6px; top:5px; z-index:7; max-width:calc(100% - 12px); height:14px; display:inline-flex; align-items:center; color:var(--ui-color-text-on-action-primary-disabled); font:var(--ui-text-caption); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:text; user-select:none; pointer-events:auto; }
+.image-name-badge { position:absolute; left:6px; top:5px; z-index:7; max-width:calc(100% - 12px); height:14px; display:inline-flex; align-items:center; gap:var(--ui-space-1); color:var(--ui-color-text-secondary); font:var(--ui-text-caption); white-space:nowrap; overflow:hidden; cursor:text; user-select:none; pointer-events:auto; }
+.image-name-badge > ic-icon { flex:0 0 auto; }
+.image-name-badge-copy { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .thumb-item > .image-name-badge { position:static; width:100%; max-width:100%; height:16px; min-width:0; }
 .thumb-item.has-outside-image-name { overflow:visible; }
-.image-name-badge.image-name-badge-outside { left:0; top:-20px; max-width:100%; color:var(--ui-color-text-on-action-primary-disabled); }
-.image-name-badge:hover { color:var(--ui-color-text-on-action-primary-disabled); }
-.theme-dark .image-name-badge { color:var(--ui-color-text-on-action-primary-disabled); }
-.theme-dark .image-name-badge.image-name-badge-outside { color:var(--ui-color-text-on-action-primary-disabled); }
-.theme-dark .image-name-badge:hover { color:var(--ui-color-text-on-action-primary-disabled); }
+.image-name-badge.image-name-badge-outside { left:0; top:-20px; max-width:100%; }
 .image-node.dragging .image-name-badge { opacity:0 !important; pointer-events:none !important; }
 .node-img { display:block; width:var(--node-img-w, 260px); height:var(--node-img-h, 180px); object-fit:cover; border-radius:var(--ui-radius-s); background:transparent; }
 video.node-img { object-fit:cover; background:var(--ui-color-surface); }

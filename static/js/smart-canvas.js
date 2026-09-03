@@ -5000,11 +5000,17 @@ async function closePromptTemplatePanel(event=null){
     render();
     requestAnimationFrame(() => (target === 'composer' ? composerTemplateBtn : promptTemplateDockToggle)?.focus?.({preventScroll:true}));
 }
+let workspaceAssetOpening = false;
 async function openWorkspaceAssetLibrary(){
-    if(!workspaceAssetDialog || !workspaceAssetPanel) return;
-    workspaceAssetDockToggle?.setAttribute('aria-expanded', 'true');
-    await workspaceAssetDialog.show();
-    await workspaceAssetPanel.refresh({preserveQuery:true});
+    if(!workspaceAssetDialog || !workspaceAssetPanel || workspaceAssetOpening) return;
+    workspaceAssetOpening = true;
+    try {
+        await workspaceAssetPanel.refresh({preserveQuery:true});
+        workspaceAssetDockToggle?.setAttribute('aria-expanded', 'true');
+        await workspaceAssetDialog.show();
+    } finally {
+        workspaceAssetOpening = false;
+    }
 }
 async function closeWorkspaceAssetLibrary(event=null){
     if(event?.type !== 'ic-hide'){
@@ -6111,9 +6117,18 @@ function imageNameLabel(img, fallback='image'){
 }
 function imageNameBadgeHtml(img, options={}){
     if(!img?.url) return '';
-    const label = imageNameLabel(img);
+    const name = imageNameLabel(img);
     const outsideClass = options.outside ? ' image-name-badge-outside' : '';
-    return `<span class="image-name-badge${outsideClass}" data-image-name="1" title="${escapeAttr(label)}">${escapeHtml(label)}</span>`;
+    const icon = {image:'image',video:'video',audio:'audio-lines'}[mediaKindForItem(img)];
+    if(!icon) return `<span class="image-name-badge${outsideClass}" data-image-name="1" title="${escapeAttr(name)}">${escapeHtml(name)}</span>`;
+    const node = options.node;
+    const generated = img.generatedResult === true || (
+        img.generatedResult !== false
+        && node?.uploadedAttachment !== true
+        && (node?.generationOutputNode === true || node?.generationOperationId || node?.generationBatchId)
+    );
+    const label = `${tr(generated ? 'smart.mediaAiGenerated' : 'smart.mediaImported')} · ${name}`;
+    return `<span class="image-name-badge${outsideClass}" data-image-name="1" title="${escapeAttr(label)}"><ic-icon name="${icon}" size="x-small" aria-hidden="true"></ic-icon><span class="image-name-badge-copy">${escapeHtml(label)}</span></span>`;
 }
 function thumbDisplaySize(img, maxSize){
     const limit = Math.max(28, Math.round(Number(maxSize) || 96));
@@ -7651,7 +7666,7 @@ function smartGroupBodyHtml(node){
             const innerH = Math.max(24, Number(groupThumbLayout.innerH || groupThumbLayout.height || SMART_GROUP_DEFAULT_HEIGHT));
             return `<div class="smart-group-card has-thumbs">
                 <div class="smart-group-summary"><i data-lucide="group"></i><span>${escapeHtml(summary)}</span></div>
-                <div class="image-wrap smart-group-single-thumb ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" tabindex="0" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--node-img-w:${innerW}px;--node-img-h:${innerH}px">${singleMediaHtml(ref.item, innerW, innerH)}${imageNameBadgeHtml(ref.item)}${imageResolutionBadgeHtml(ref.item)}</div>
+                <div class="image-wrap smart-group-single-thumb ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" tabindex="0" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--node-img-w:${innerW}px;--node-img-h:${innerH}px">${singleMediaHtml(ref.item, innerW, innerH)}${imageNameBadgeHtml(ref.item, {node:nodes.find(candidate => candidate.id === ref.nodeId) || null})}${imageResolutionBadgeHtml(ref.item)}</div>
             </div>`;
         }
         const groupMaxVisibleRows = (groupThumbLayout.compactMembers || []).length ? Number(groupThumbLayout.rows || 1) : SMART_GROUP_MAX_VISIBLE_ROWS;
@@ -7667,7 +7682,7 @@ function smartGroupBodyHtml(node){
         return `<div class="smart-group-card has-thumbs">
             <div class="smart-group-summary"><i data-lucide="group"></i><span>${escapeHtml(summary)}</span></div>
             <div class="thumb-grid smart-group-thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${groupThumbLayout.cols}; --thumb-size:${groupThumbLayout.thumb}px; --thumb-max-height:${maxHeight}px">${refThumbs.map(ref => {
-                return `<div class="thumb-item ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" tabindex="0" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(ref.item)}"><div class="thumb-media-frame">${thumbMediaHtml(ref.item)}${imageResolutionBadgeHtml(ref.item)}</div>${imageNameBadgeHtml(ref.item)}</div>`;
+                return `<div class="thumb-item ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" tabindex="0" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(ref.item)}"><div class="thumb-media-frame">${thumbMediaHtml(ref.item)}${imageResolutionBadgeHtml(ref.item)}</div>${imageNameBadgeHtml(ref.item, {node:nodes.find(candidate => candidate.id === ref.nodeId) || null})}</div>`;
             }).join('')}</div>
         </div>`;
     }
@@ -7778,9 +7793,9 @@ function nodeBodyHtml(node, layout){
     if(imgs.length > 1){
         const visibleRows = Math.max(1, Math.min(MEDIA_GROUP_MAX_VISIBLE_ROWS, Number(layout.visibleRows || layout.rows || 1)));
         const maxHeight = Number(layout.gridHeight || (visibleRows * Number(layout.thumb || 96) + Math.max(0, visibleRows - 1) * 8));
-        return `<div class="thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${layout.cols}; --thumb-size:${layout.thumb}px; --thumb-max-height:${maxHeight}px">${imgs.map((img, i) => `<div class="thumb-item ${selectedImage.nodeId === node.id && selectedImage.index === i ? 'image-selected' : ''}" tabindex="0" data-image-index="${i}" data-media-signature="${escapeAttr(`${mediaKindForItem(img)}:${img?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(img)}"><div class="thumb-media-frame">${thumbMediaHtml(img)}${imageResolutionBadgeHtml(img)}</div>${imageNameBadgeHtml(img)}</div>`).join('')}</div>`;
+        return `<div class="thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${layout.cols}; --thumb-size:${layout.thumb}px; --thumb-max-height:${maxHeight}px">${imgs.map((img, i) => `<div class="thumb-item ${selectedImage.nodeId === node.id && selectedImage.index === i ? 'image-selected' : ''}" tabindex="0" data-image-index="${i}" data-media-signature="${escapeAttr(`${mediaKindForItem(img)}:${img?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(img)}"><div class="thumb-media-frame">${thumbMediaHtml(img)}${imageResolutionBadgeHtml(img)}</div>${imageNameBadgeHtml(img, {node})}</div>`).join('')}</div>`;
     }
-    if(imgs[0]) return `<div class="image-wrap has-outside-image-name ${selectedImage.nodeId === node.id && selectedImage.index === 0 ? 'image-selected' : ''}" tabindex="0" data-image-index="0" data-media-signature="${escapeAttr(`${mediaKindForItem(imgs[0])}:${imgs[0]?.url || ''}`)}" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${singleMediaHtml(imgs[0], layout.width, layout.height)}${imageNameBadgeHtml(imgs[0], {outside:true})}${imageResolutionBadgeHtml(imgs[0])}</div>`;
+    if(imgs[0]) return `<div class="image-wrap has-outside-image-name ${selectedImage.nodeId === node.id && selectedImage.index === 0 ? 'image-selected' : ''}" tabindex="0" data-image-index="0" data-media-signature="${escapeAttr(`${mediaKindForItem(imgs[0])}:${imgs[0]?.url || ''}`)}" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${singleMediaHtml(imgs[0], layout.width, layout.height)}${imageNameBadgeHtml(imgs[0], {outside:true,node})}${imageResolutionBadgeHtml(imgs[0])}</div>`;
     const generationTarget = referenceGenerationTargetHtml(node);
     if(generationTarget) return generationTarget;
     const uploadAccept = node.uploadMediaKind === 'video'
