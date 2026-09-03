@@ -65,6 +65,7 @@ function smartViewportSelectionRefreshMultiOverlay(){
     overlay.classList.toggle('open',Boolean(bounds));
     overlay.toggleAttribute('open',Boolean(bounds));
     overlay.setAttribute('aria-hidden',bounds ? 'false' : 'true');
+    if(typeof smartMultiInputSync === 'function') smartMultiInputSync();
     if(!bounds) return;
     overlay.style.left = `${viewport.x + bounds.x * viewport.scale}px`;
     overlay.style.top = `${viewport.y + bounds.y * viewport.scale}px`;

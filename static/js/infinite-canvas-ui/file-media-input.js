@@ -1,6 +1,6 @@
-import { IcMediaPlayerControls } from './file-media-input/media-player-controls.js?v=ic-ui-b0dd1bc6845c';
-import { IcReferenceThumbnail } from './file-media-input/reference-thumbnail.js?v=ic-ui-b0dd1bc6845c';
-import { IcThumbHovercard } from './file-media-input/thumb-hovercard.js?v=ic-ui-b0dd1bc6845c';
+import { IcMediaPlayerControls } from './file-media-input/media-player-controls.js?v=ic-ui-ef410096e2b4';
+import { IcReferenceThumbnail } from './file-media-input/reference-thumbnail.js?v=ic-ui-ef410096e2b4';
+import { IcThumbHovercard } from './file-media-input/thumb-hovercard.js?v=ic-ui-ef410096e2b4';
 
 const SURFACE_SHAPES=new Set(['node','compact']);
 const MEDIA_KINDS=new Set(['image','video','audio','file']);

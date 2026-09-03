@@ -504,6 +504,16 @@ function canvasPersistenceDiff(before={},after={}){
 }
 function canvasPersistenceApplyChanges(documentValue,changes={}){
     const documentCopy = canvasPersistenceCompactDocument(documentValue);
+    // A vanished endpoint invalidates the entire local operation, not just one wire.
+    // This keeps optimistic rebase from leaving a newly created, partly wired target.
+    const endpointIds = new Set(documentCopy.nodes.map(node => String(node.id || '')));
+    (changes.node_creates || []).forEach(raw => endpointIds.add(String((raw?.node || raw)?.id || '')));
+    (changes.node_deletes || []).forEach(raw => endpointIds.delete(String(raw?.id || raw || '')));
+    if((changes.connection_adds || []).some(connection =>
+        !endpointIds.has(String(connection.from || ''))
+        || !endpointIds.has(String(connection.to || ''))
+        || connection.from === connection.to
+    )) return documentCopy;
     const nodeMap = new Map(
         documentCopy.nodes.map(node => [String(node.id || ''),node])
     );
@@ -632,6 +642,12 @@ function canvasPersistenceReplanCreatedNodes(changes,confirmedDocument){
             kind:'source',
             sourceNodeId:fromCreated ? external.to : external.from
         };
+        if(!fromCreated && drafts.length === 1){
+            const sourceIds = [...new Set((changes.connection_adds || [])
+                .filter(connection=>String(connection.to)===String(drafts[0].id) && !createdIds.has(String(connection.from)))
+                .map(connection=>String(connection.from)))];
+            if(sourceIds.length > 1) anchor.sourceNodeIds = sourceIds;
+        }
         relation = fromCreated ? 'upstream' : 'downstream';
     } else {
         const session = geometry.createSession({nodes:drafts,connections:[]});
@@ -1577,8 +1593,17 @@ function canvasPersistenceHandleRejected(message){
         canvasPersistenceInFlight
         && canvasPersistenceInFlight.operation.operation_id === operationId
     ) ? canvasPersistenceInFlight : null;
+    const followingChanges = rejectedInFlight?.optimistic && canvasPersistenceConfirmedDocument
+        ? canvasPersistencePendingAfterInFlight(canvasPersistenceSharedDocument())
+        : null;
     if(rejectedInFlight){
         canvasPersistenceInFlight = null;
+        if(followingChanges && message.code !== 'placement_conflict'){
+            const restored = canvasPersistenceApplyChanges(canvasPersistenceConfirmedDocument,followingChanges);
+            canvasPersistencePendingSave = !canvasPersistenceChangesEmpty(followingChanges);
+            canvasPersistenceWriteLocal(followingChanges);
+            canvasPersistenceAssignDocument(restored);
+        }
     }
     const revertsOperationId = String(
         rejectedInFlight?.operation?.reverts_operation_id || ''

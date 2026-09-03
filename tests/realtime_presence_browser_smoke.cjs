@@ -269,7 +269,22 @@ async function collaboratorContrastRatios(page) {
     const back = await page.locator('.smart-back').boundingBox();
     await page.mouse.move(back.x + back.width / 2, back.y + back.height / 2);
     await page.waitForTimeout(25);
-    assert.equal((await sentPresence(page)).filter(message => message.type === 'presence_update').at(-1).cursor, null);
+    const memberGroup = await page.locator('#presenceMembers').boundingBox();
+    await page.mouse.move(memberGroup.x + memberGroup.width / 2, memberGroup.y + memberGroup.height / 2);
+    const beforePause = (await sentPresence(page)).filter(message => message.type === 'presence_update');
+    assert.equal(beforePause.length, 2);
+    assert.notEqual(beforePause.at(-1).cursor, null);
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('blur'));
+      document.getElementById('shell').dispatchEvent(new PointerEvent('pointerleave'));
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    assert.deepEqual((await sentPresence(page)).filter(message => message.type === 'presence_update'), beforePause);
+    await page.evaluate(() => {
+      delete document.visibilityState;
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
 
     await page.evaluate(() => window.__presenceSockets[0].serverSend({
       type: 'presence_join', protocol_version: 1, membership_version: 9,

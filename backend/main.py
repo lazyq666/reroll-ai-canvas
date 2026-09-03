@@ -8360,6 +8360,31 @@ async def canvases(project: str = "", cursor: str = "", limit: int = 0):
         "index_read_ms": round((time.perf_counter() - started) * 1000, 2),
     }
 
+
+class CanvasPresenceSummaryRequest(BaseModel):
+    canvas_ids: List[str] = Field(default_factory=list, max_length=200)
+
+
+@app.post("/api/canvases/presence")
+async def canvas_presence_summary(payload: CanvasPresenceSummaryRequest):
+    actor = require_current_user("admin", "designer")
+    requested = set(payload.canvas_ids)
+    # Use current authorized list projections, not full canvas documents or
+    # client-supplied project/visibility claims. This never opens editing sockets.
+    page = await asyncio.to_thread(list_canvas_page)
+    visible_ids = [
+        record["id"] for record in page.records
+        if record.get("id") in requested
+        and record.get("kind") == "smart"
+    ]
+    return JSONResponse(
+        {"canvases": PRESENCE_MANAGER.member_summaries(
+            visible_ids, viewer_id=str(actor["id"])
+        )},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/projects")
 async def get_projects():
     projects, rebuilding, index_error = list_projects(with_status=True)

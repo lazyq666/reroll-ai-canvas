@@ -93,7 +93,18 @@ ic-button.ws-trash-entry[size="m"]::part(base) { width:100%; min-height:var(--ui
 .ws-card-access ic-icon,.ws-card-privacy ic-icon,.ws-card-menu { --ic-icon-context-stroke-width:var(--ui-icon-stroke-width-m); }
 .ws-card-menu { margin-left:auto; flex:0 0 auto; --ic-icon-button-control-size:1.5rem; inline-size:1.5rem; block-size:1.5rem; }
 ic-icon-button.ws-card-menu::part(base) { min-inline-size:1.5rem; min-block-size:1.5rem; inline-size:1.5rem; block-size:1.5rem; }
-.ws-card-content { min-height:0; flex:1 1 auto; padding:var(--ui-space-3) var(--ui-space-4) var(--ui-space-3); display:flex; flex-direction:column; gap:var(--ui-space-2); }
+.ws-card-content { min-height:0; flex:1 1 auto; padding:var(--ui-space-3) var(--ui-space-4) var(--ui-space-3); display:flex; align-items:center; gap:var(--ui-space-2); }
+.ws-card-description { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:var(--ui-space-2); }
+.ws-card-presence { flex:0 0 auto; display:flex; align-items:center; gap:var(--ui-space-1); cursor:default; }
+.ws-presence-strip { display:flex; align-items:center; padding-inline-start:4px; }
+.ws-presence-strip > ic-tooltip { display:inline-flex; margin-inline-start:-4px; }
+.ws-presence-avatar,.ws-presence-overflow,.ws-presence-status { width:24px; height:24px; min-width:24px; padding:0; display:inline-grid; place-items:center; border:0; border-radius:var(--ui-radius-pill); font:var(--ui-text-caption); color:var(--ui-color-text-secondary); background:var(--ui-color-surface-subtle); cursor:pointer; }
+.ws-presence-avatar .ic-account-avatar { width:24px; height:24px; font:var(--ui-text-caption); box-shadow:0 0 0 1px var(--ui-color-border-secondary); }
+.ws-presence-avatar:focus-visible,.ws-presence-overflow:focus-visible,.ws-presence-status:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
+.ws-presence-status { color:var(--ui-color-text-tertiary); background:transparent; }
+.ws-presence-member-list { display:grid; gap:var(--ui-space-2); width:min(260px, calc(100vw - 64px)); max-height:280px; overflow:auto; }
+.ws-presence-member { display:flex; align-items:center; gap:var(--ui-space-2); min-width:0; font:var(--ui-text-body-compact); }
+.ws-presence-member > span:last-child { min-width:0; overflow-wrap:anywhere; }
 .ws-card-title { font-size:var(--ui-font-size-3); line-height:var(--ui-line-height-compact); font-weight:var(--ui-font-weight-bold); letter-spacing:var(--ui-letter-spacing-normal); color:var(--ui-color-text-primary); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-word; }
 .ws-card-title-input { width:100%; }
 .ws-card-meta { display:flex; align-items:center; gap:var(--ui-space-1); align-self:stretch; min-width:0; padding:var(--ui-space-0); border:var(--ui-border-width-none); background:transparent; }
@@ -156,7 +167,7 @@ ic-icon-button.ws-card-menu::part(base) { min-inline-size:1.5rem; min-block-size
     .ws-card-top { gap:var(--ui-space-1); min-height:26px; }
     .ws-card-kind { max-width:calc(100% - 32px); }
     .ws-card-title { font-size:var(--ui-font-size-3); }
-    .ws-card-meta { padding:var(--ui-space-2); gap:var(--ui-space-1); }
+    .ws-card-meta { padding:var(--ui-space-0); gap:var(--ui-space-1); }
     .ws-trash-list { grid-template-columns:1fr; padding:var(--ui-space-3); }
     .ws-trash-note { margin:var(--ui-space-3) var(--ui-space-3) var(--ui-space-0); }
 }

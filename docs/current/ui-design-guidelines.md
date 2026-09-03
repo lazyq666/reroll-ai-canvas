@@ -242,6 +242,14 @@ Text Entry 的默认 `appearance="outlined"` 使用 Surface 与 Border；低强�
 
 `ic-badge` 按用途只分为 Label、Count 与 Status。Small、Medium、Large 是独立的视觉尺寸，三种用途均可使用；高度与字号依次为 16px / `--ui-font-size-1`、20px / `--ui-font-size-2`、24px / `--ui-font-size-3`，Medium 为默认值。Label 使用 `--ui-font-weight-regular` 字重、`--ui-color-surface` 背景和 `--ui-color-border-secondary` 边框；Status 的三档字号沿用同一组字号 Token，字重同样使用 `--ui-font-weight-regular`，状态背景和边框配色保持各 Tone 语义。正常或空闲对象不显示 Status Badge；同步中、加载中、等待中和生成中统一属于 Processing 语义，使用 Info 与 Spinner，具体文案由业务场景替换；Spinner 默认每 1.2 秒旋转一圈，避免持续处理状态显得急促。Processing Badge 使用适配小尺寸徽标的独立细圆环，`ic-loading` 保留独立的 Busy Spinner；两者不互相嵌套。完成状态仅在结果仍值得识别时使用 Success，否则恢复为无 Badge；需要注意与失败分别使用 Warning 和 Danger。Badge 只展示附着对象的信息，不作为交互控件，也不替代 Loading、Progress 或 Alert。
 
+Smart Canvas 图片左上角的信息分成两个相邻的非交互 Badge：`[1080×1080] [1:1]`。分辨率在前，宽高比在后，间距为 `--ui-space-1`；各自沿用 16px 高、常规字重、半透明黑底白字和背景模糊。宽高比文字前固定显示 Lucide `Proportions` 画幅对比图标，使用公共 `ic-icon name="aspect-ratio" size="x-small"`（12px），图文间距为 `--ui-space-1`；近似比例的图标位于 `≈` 前。图标仅为装饰，不随横竖方向切换，也不增加独立读屏内容。空间不足时两个 Badge 自动换行，不把宽高比截成省略号。单图、多图与 Smart Group 中的图片使用相同规则；Hover、图片选中或图片内键盘 Focus 时显示，拖动与远景 LOD 时隐藏，Reduced Motion 不播放位移动画。它们不改变 Node 的几何尺寸，也不拦截图片操作。视频继续只显示分辨率。
+
+宽高比始终按宽在前、高在后计算。精确匹配固定常见比例时保留熟悉名称（如 `21:9`，不强制改写为 `7:3`）；否则，精确约分后的两个整数都不超过 20 时直接显示（如 `6:5`、`7:4`）。再否则，以 `1 − min(实际比例 / 候选比例, 候选比例 / 实际比例)` 选择误差最小的常见比例，误差不超过 1% 时加 `≈`。这个误差表示裁成候选比例所需丢弃的最小面积比例，只用于标签识别，不触发裁切。超出容差时，短边归一为 1，长边最多保留两位小数并加 `≈`，去掉无意义的尾零；例如 `1024×600 → ≈ 1.71:1`，`2560×1080 → ≈ 2.37:1`。固定常见集合为 `1:1`、`2:3`、`3:4`、`9:16`、`9:21`、`4:5`、`1:2`、`1:3`、`1:4`、`1:8` 及其横向倒数，不随 Model 切换。1% 包含边界，横竖互换或像素等比例放大不改变判定。
+
+两个 Badge 读取同一对有效原图像素尺寸，按 `natural_w/natural_h`、`width/height`、`w/h` 的优先级选择完整正整数对，不跨来源拼接，不读 Node 大小或 `layout_w/layout_h` 缩略图尺寸。尺寸缺失或无效时隐藏，原图加载成功后同时补齐；部分自然尺寸不能阻断完整尺寸恢复。加载期间重绘或切换语言后，更新当前挂载的图片与编组引用，已被替换的旧媒体回调不得覆盖新图。图片替换后重算。近似符号与中英文可访问说明同步更新；这个展示结果不进入持久数据、生成参数或生成日志的分辨率比较。
+
+Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 的验收入口：[比例与尺寸来源回归](../../tests/smart_canvas_image_metadata.test.cjs)，运行 `node --test tests/smart_canvas_image_metadata.test.cjs`；[真实页面验收服务](../../tests/issue_21_image_metadata_browser_app.cjs)，运行 `node tests/issue_21_image_metadata_browser_app.cjs` 后打开 `http://127.0.0.1:8821/fixture.html?componentReview=nodes`。该页面加载生产 Smart Canvas 的临时会话，[验收脚本](../../tests/issue_21_image_metadata_browser_harness.js)检查双 Badge、窄图换行、异步补全、媒体替换、视频仅保留分辨率、中英文可访问说明，以及生成日志中的相同与不同像素尺寸；同时验证局部尺寸刷新后图标自动渲染，以及语言切换和媒体恢复后各图片保留装饰性画幅图标。页面提供主题与可见状态的人工验收控件，不写入 Workspace。
+
 组件只拥有可复用的视觉、语义、键盘和事件合同；页面仍拥有业务文案、权限、数据请求、空间定位和领域状态。第三方 `wa-*` 标签、`--wa-*` 变量和 Vendor 路径只允许出现在 Reroll UI adapter 内，不能进入业务页面。
 
 ## 6. 交互合同
@@ -290,6 +298,7 @@ Text Entry 的默认 `appearance="outlined"` 使用 Surface 与 Border；低强�
 - Canvas Settings 使用宽 `21.5rem` 的单列分组表面，按“画布 / 生成 / 操作”依次展开，并以组间 Divider、标题和留白建立扫描顺序；设置主体不保留底部 Padding，“画布”组合标题把原底部间距移到顶部。左侧显示设置名称，右侧显示选项。明暗主题是“画布”标题右侧的 Quiet Small 图标动作，Light 显示 Moon、Dark 显示 Sun，并继续复用全局 `StudioTheme` 偏好。工具栏位置、生成引擎、图片性能优化、缩放与滑动速度均不显示辅助文案；生成引擎使用标记为 `ic-select-small` 的 Small `ic-select`。Dock 默认位于左侧，工具栏位置与 Generation Batch 的横向/纵向方向使用标记为 `ic-tabs-small` 的 `ic-tabs size="small"`，Small 字号为 `--ui-font-size-2`（12px）；批次方向默认横向。图片性能优化使用默认尺寸 `ic-switch`；缩放与滑动速度使用 `ic-slider size="s"`，由设置菜单布局提供 `8rem` 宽度。远景简化模式始终开启，不向用户开放启停或精简化比例。使用外部 `aria-labelledby` 的图片性能 `ic-switch` 不生成内部 Owned Label，Label Part 不占布局空间，Control Part 右缘应与 Host 右缘对齐。除 Generation Batch 方向外，这些 UI 偏好不创建 Canvas Mutation，也不写入 Canvas 或 Workspace Data；批次方向是共享 Canvas 字段，随 Canvas 保存，但不得进入跨 Canvas 的个人“最近一次 Generation Settings”。
 - 选择、拖动、框选、连线和快速添加是竞争命中关系；实现必须遵循相应 Current Spec，不靠局部 `z-index` 偶然决定。
 - 浮动工具栏、Menu 与 Processor Dialog 依附于当前选择；取消选择、删除目标或权限变化时必须安全关闭或降级。
+- 单选分区的浮动工具栏按“重命名分区、切换颜色、下载、取消分区”排列。下载使用小型显式关闭任务 Dialog，提供倍率、像素尺寸与进度/失败反馈；取消和 Escape 不改变画布，尺寸超限时将焦点保留在可用操作上。图片合成范围、裁切、只读快照及发布 Gate 见[分区大图下载规格](../active/2026-09-03-smart-canvas-frame-image-export-spec.md)。
 - Prompt Template Library 的 Canvas 范围统一命名为“当前画布”。搜索使用组件库组合 `ic-form-field-search-s`，界面仅显示带搜索图标的小号输入与末端清除动作，不显示 Label 或 Hint；输入仍提供无障碍名称。在嵌套 Shadow DOM 内仍复用公共语义 Border、Surface、Radius、字号与控件高度。范围计数始终反映已加载的通用与当前画布完整数据，不随当前筛选归零。模板网格顶部使用横跨整行的紧凑“创建新提示词模板”入口，不占用模板卡片坑位、不显示辅助说明；任一范围没有模板时只保留该创建入口，不渲染专用 Empty State；搜索无匹配仍保留就地反馈。
 - Prompt Template Library 的通用与当前画布范围各自使用一个 `category-tabs` 容器，标题和入口都放入对应容器；两个 Tabs 使用公共 `space="0.125rem"` 参数，范围标题高度为 `2rem` 且不参与 Tab 选择，不使用额外 `library-group` 容器。`library-switch` 以 `0.75rem` 间距排列两个容器。
 - UI 组件库以通用语义命名复用模式：生产 Prompt Template Library Sidebar 以“检索导航侧栏”登记为组合模块 Block，其中的 `library-switch` 以“分区导航”登记为“导航与命令”下的一类 Component。目录、复制标识与搜索索引不使用业务名称；两个条目都以真实 `ic-prompt-template-library` 的公开 Part 呈现，不维护脱离生产实现的样式副本。
@@ -340,6 +349,8 @@ Upload Node 的上传 Surface、标题和说明等非按钮区域必须继承 No
 Image / Video Generation 在空态、生成中和无结果失败态使用 Generation 外壳；一旦交付可展示的图片或视频结果，视觉角色切换为 Image Node，统一使用 2px Surface Padding、1px Border、Image Radius 与 Raised Shadow，同时保留 Generation Run 元数据和后续操作能力。
 
 Quick Add 在默认、普通 Hover 与 Dark 主题下与 Node 外壳共用 `--ui-color-border-nodes`；Focus 与菜单展开状态仍使用各自的语义 Border。
+
+`ic-canvas-multi-selection` 的公共选区输出能力由 Node 家族持有：`quick-add-visible` 控制是否呈现，`quick-add-label` 提供可访问名称，`quick-add-reason` 非空时使按钮不可用并解释原因；页面通过 `quickAddTrigger` 和 `isQuickAddEvent(event)` 对接点击、拖动与焦点，不读取组件私有结构。按钮使用 `ic-icon-button`，位于选框右侧垂直中点，以屏幕尺寸保持可操作；资格、数量、视口投影和批量连接由页面职责模块决定。多选生成菜单仅含图片 / 视频，不改变单节点菜单的文本 / 图片 / 视频能力。对应业务仍按 [Issue #22 Active Spec](../active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md) 验收，未通过的协作 Gate 不作为 Current 功能结论。
 
 ## Lighting Reference Dialog（2026-08-28）
 

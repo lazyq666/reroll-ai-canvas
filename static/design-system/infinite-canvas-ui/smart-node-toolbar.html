@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Reroll UI · 节点浮动操作栏</title>
   <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <script src="/static/js/i18n.js?v=i18n-loader-9d472b04d848"></script>
   <style>
     html,body{margin:0;min-height:100%;background:var(--ui-color-surface-canvas);color:var(--ui-color-text-primary);font-family:var(--ui-font-sans)}
     body{padding:var(--ui-space-6)}
@@ -39,10 +40,11 @@
     <article data-smart-node-toolbar-variant="frame"><ic-smart-node-toolbar data-preview-state="visible" label="分区操作">
       <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="edit" size="x-small"></ic-icon>重命名分区</ic-button>
       <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="color" size="x-small"></ic-icon>切换颜色</ic-button>
+      <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="download" size="x-small"></ic-icon><span data-i18n="smart.contextDownload">下载</span></ic-button>
       <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="ungroup-frame" size="x-small"></ic-icon>取消分区</ic-button>
     </ic-smart-node-toolbar></article>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-b0dd1bc6845c"></script>
-  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-b0dd1bc6845c"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ef410096e2b4"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-ef410096e2b4"></script>
 </body>
 </html>

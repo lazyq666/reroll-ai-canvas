@@ -144,7 +144,11 @@ static/
 │   └── nodes/                  Canvas Node 公共外壳、角色与展示状态接口
 ├── js/ui-component-library/    组件样板间、设计参数草稿与即时预览
 ├── js/workspace-move.js         Workspace 搬家维护页的进度同步、等待任务与完成入口
+├── js/canvas-list-presence.js   画布卡片在线成员的批量查询、生命周期、头像与只读成员弹层
 ├── js/smart-canvas/            Smart Canvas 交互、生成、媒体与确定性 Lighting Intent / Reference 模块
+│   ├── image-metadata.js       原图尺寸成对校验、精确与有界近似的宽高比展示计算
+│   ├── multi-input.js          多来源资格、Group 归一化、稳定视觉顺序和目标连接规划
+│   ├── multi-input-controller.js 选择快照、公共 Quick Add 与一次性 Mutation 的页面协调
 │   └── connection-layer.js     Connection 索引、SVG 增量物化与事件委托
 ├── css/design-tokens.css       中央视觉 Token
 └── vendor/                     固定版本的第三方浏览器资源
@@ -218,13 +222,21 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 | F14 | 更新、回退、配置迁移与发布维护 | `partial` | `launcher.py`、更新路由和维护脚本；缺发布维护总规格 |
 | F15 | 产品知识地图与功能规格体系 | `current` | 本页、[知识库入口](README.md)和[规格模板](FEATURE-SPEC-TEMPLATE.md) |
 
+Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 / F13 的图片分辨率与宽高比双 Badge。布局、固定画幅对比图标、比例识别容差、尺寸恢复及可访问说明统一由 [UI 设计与交互指南](current/ui-design-guidelines.md)定义；`image-metadata.js` 只负责尺寸与比例计算，页面负责显示，公共 `ic-icon` 负责图标。回归入口为 [比例与尺寸来源测试](../tests/smart_canvas_image_metadata.test.cjs)和[真实页面、双语及日志验收](../tests/issue_21_image_metadata_browser_app.cjs)。
+
 F05 的[灯光参考编辑器](current/smart-canvas-lighting-reference.md)已经毕业为 Current：它从 Image Node 浮动工具栏进入，以 Lighting Intent 确定性生成中英文 Prompt，通过一次 Canvas Mutation 创建下游图片 Generation Node、填充 Composer，并把参数保存在来源与新 Node 上供后续微调；不导出媒体或 JSON，也不创建 Generation Run。
+
+Issue #22 的[多选快速连线与提示词生成快捷入口](active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md)正在实施：公共选区 Quick Add、多选与提示词工具栏、按视觉顺序接入一个新建或已有生成节点及整体撤销已落地并通过隔离生产页面检查。状态为 `drift`：D22-01 的服务端语义前置条件尚待协议扩展决定，完整双端协作及人工验收 Gate 未完成；不能据此宣称 Issue 完成或将 Active 毕业为 Current。
 
 Issue #195 的[渐进式打开与节点骨架](active/2026-08-28-smart-canvas-progressive-opening.md)为 F05 / F06 增加授权 NDJSON Opening Stream：同一次 Canvas Sync 快照依次投影 Node 几何轮廓与完整文档；前端 Opening 模块拥有瞬时骨架和页面状态机，Canvas Persistence 仍是完整文档进入权威客户端状态的唯一边界。Windows 首帧、输入和回退发布验收由 Issue #214 跟踪，因此暂不毕业为 Current Authority。
 
 Issue #196 的[实时在场状态、指针与账号头像](active/2026-08-29-smart-canvas-realtime-presence.md)正在为 F02 / F06 / F13 增加 Instance State `avatar_color_slot`、现有 Canvas WebSocket 上独立的内存 Presence 协议、成员组与 Pointer Overlay。该流不进入 Canvas Store、Revision、Operation Lock 或可靠 Mutation 队列；当前自动化、浏览器 smoke 以及 Issue #215 的无 Pointer baseline 与 30 分钟正式机器负载均已通过，双机 LAN 人工验收仍由 Issue #216 跟踪，详情见[验证与毕业记录](active/2026-08-29-smart-canvas-realtime-presence-verification.md)，因此尚未成为 Current Authority。
 
+Issue #20 扩展上述[实时在场状态规格](active/2026-08-29-smart-canvas-realtime-presence.md)：连接有效时保留最后有效指针；新增只读 `POST /api/canvases/presence`，通过既有授权列表投影与内存成员状态，向画布卡片内容区右侧提供在线摘要。列表查询不加入编辑房间，不返回坐标，不写 Canvas 内容或更新时间。回归入口为 `tests/test_canvas_presence_http.py` 与 `tests/canvas_presence_browser_smoke.cjs`。
+
 Issue #211 的[工作台品牌入场动画](active/2026-08-29-issue-211-studio-brand-entry-motion.md)为 F01 / F13 增加每个标签页首次已登录进入时的品牌呈现：透明流体 Logo 与 `word.svg` 收束到真实 App Shell 侧栏 wordmark；媒体失败、Reduced Motion 和窄屏均不阻断身份与路由初始化。该行为仍等待跨平台透明 VP9 Alpha 人工确认，Windows 由 Issue #213 跟踪，因此保持 Active。
+
+Issue #23 的[分区大图下载](active/2026-09-03-smart-canvas-frame-image-export-spec.md)为 Implemented：单选分区可按原布局下载 1× / 2× PNG，包含图片、文字标注、画笔与分区背景，排除提示词卡片、连线和视频封面。`frame-image-export.js` 拥有只读快照的测量、原图绘制与取消/清理，`frame-image-export-host.js` 适配生产布局和工具栏；macOS 实际 PNG 回归通过，Windows 及复杂原图容量人工 Gate 仍待验证，因此保持 Active。
 
 ## 测试与验收入口
 

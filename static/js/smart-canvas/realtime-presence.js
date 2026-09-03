@@ -10,6 +10,7 @@
     const fixedUiSelector = [
         '.smart-back',
         '.smart-log-toggle',
+        '#presenceMembers',
         '#smartCanvasDock',
         '#composer',
         '#minimap',
@@ -92,13 +93,13 @@
     }
 
     function deactivatePointer() {
-        clearPendingTimer();
+        // Publish the last queued canvas position before pausing capture.
+        // Membership and the public pointer live until the account goes offline.
+        flushPendingCursor();
         pendingCursor = null;
         accumulatedDistance = 0;
         lastObservedScreen = null;
-        if (!pointerActive || !enabled) return;
         pointerActive = false;
-        sendCursor(null);
     }
 
     function eventInsideCaptureArea(event) {
@@ -380,6 +381,7 @@
 
     function disconnect() {
         clearPendingTimer();
+        pendingCursor = null;
         pointerActive = false;
         lastObservedScreen = null;
         accumulatedDistance = 0;

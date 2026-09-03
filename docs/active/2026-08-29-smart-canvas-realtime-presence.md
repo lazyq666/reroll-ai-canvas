@@ -3,8 +3,8 @@
 - **Status**：Approved
 - **Feature ID**：F02 / F06 / F13
 - **Owners**：产品 / UI / 交互 / 前端 / 后端 / 测试
-- **Last verified**：2026-08-29
-- **Applies to**：GitHub Issue #196 首个版本
+- **Last verified**：2026-09-03
+- **Applies to**：GitHub Issue #196 首个版本，以及 Issue #20 的指针保留与画布列表在线成员更新
 - **Supersedes**：无
 - **Superseded by**：无
 - **Related ADRs**：无
@@ -12,7 +12,7 @@
 
 ## 1. 一页摘要
 
-当多名获授权用户同时编辑一个 Smart Canvas 时，页面右上角显示在线成员头像，画布中显示其他成员的鼠标指针和姓名，使协作者知道“谁在线、正在看哪里”。首版只服务管理员和设计师，不包括访客、匿名分享、Classic Canvas、远程选区、跟随、聊天或工具状态。
+当多名获授权用户同时编辑一个 Smart Canvas 时，页面右上角显示在线成员头像，画布中显示其他成员的鼠标指针和姓名，使协作者知道“谁在线、最后指向哪里”。连接有效时保留最后有效坐标；画布列表卡片的内容区右侧显示该 Canvas 的在线成员。只服务管理员和设计师，不包括访客、匿名分享、Classic Canvas、远程选区、跟随、聊天或工具状态。
 
 Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复用现有 Canvas WebSocket，但不进入 Canvas SQLite、Canvas Revision、Canvas Mutation、历史或 Undo，也不占用持久操作的可靠队列。鼠标停止时不继续发送数据；服务端和客户端只保留最新坐标，使慢接收端丢弃过时指针而不拖慢文档操作。
 
@@ -37,7 +37,7 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 
 ### Non-goals
 
-- 不显示连接、重连、网络质量或同步状态 UI。
+- 画布编辑页不显示连接、重连、网络质量或同步状态 UI；列表在线摘要加载中或不可用时提供局部提示。
 - 不共享远程 Canvas Selection、Canvas Viewport、输入状态、当前工具、拖拽状态、点击波纹或操作轨迹。
 - 不提供指针隐藏开关、跟随、聊天、搜索、成员操作或头像上传。
 - 不支持 Guest Account、Anonymous Share Visitor、Classic Canvas、触摸或触控笔。
@@ -77,7 +77,7 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 1. 用户进入 Smart Canvas，右上角出现包括自己的在线成员头像组。
 2. 鼠标进入 Canvas 内容交互区域时，客户端立即发送首个世界坐标。
 3. 其他用户看到平滑移动的彩色箭头和姓名标签；标签在停止移动后淡出，箭头保留。
-4. 鼠标离开 Canvas 区域、窗口失焦或标签页隐藏时，公开指针消失，但只要任一连接仍在线，头像继续存在。
+4. 鼠标离开 Canvas 区域、窗口失焦或标签页隐藏时，停止捕获位置，但只要同账号任一连接仍在线，头像和最后有效指针位置继续存在。尚无有效坐标时只显示头像。
 5. 最后一条连接离开后，成员从头像组和成员弹层中消失。
 
 ### Observable states
@@ -86,7 +86,7 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 | --- | --- | --- | --- | --- |
 | capability pending | Canvas 已打开、尚未收到 Presence Snapshot | 不显示成员组和指针 | 正常编辑 Canvas | 收到 Snapshot，或保持为旧服务端兼容模式 |
 | online | 收到有效 Snapshot | 自己和在线成员头像；有效的他人指针 | 正常编辑、查看工具提示和成员弹层 | 成员或连接状态变化 |
-| own pointer inactive | 鼠标在非 Canvas UI、失焦或标签页隐藏 | 自己头像保留；别人看不到自己的指针 | 正常使用页面 | 鼠标重新进入 Canvas 并移动 |
+| own pointer paused | 鼠标在非 Canvas UI、失焦或标签页隐藏 | 自己头像保留；别人仍看到最后有效指针位置 | 正常使用页面 | 鼠标重新进入 Canvas 并移动，或账号最后连接离线 |
 | partial/slow receiver | 指针下行跟不上 | 过期坐标被跳过，只趋向最新位置 | Canvas 编辑保持可用 | 接收恢复或连接断开 |
 | presence disconnected | Canvas Socket 断开 | 远端头像和指针立即清空；自己的头像保留 | 本地 Canvas 能力按既有规则处理 | 新 Snapshot 重建状态 |
 | forbidden | 没有编辑权限或权限被撤销 | 不显示 Presence | 无 Presence 动作 | 重新获得合法入口和连接 |
@@ -113,18 +113,29 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 - 动态姓名和 `+N` 不翻译；“你”等固定文字必须进入现有 i18n。
 - 姓名标签最大宽度 `160px`，超出使用省略号；工具提示和成员弹层提供完整姓名。
 
+### Canvas list membership (Issue #20)
+
+- 在线指账号仍有有效编辑连接参与该 Smart Canvas；仅登录或浏览列表不计入任何 Canvas 的成员。
+- 头像组位于卡片 `ws-card-content` 右侧，与左侧标题和元信息并排、垂直居中，不覆盖封面图片。标题空间不足时省略；节点数与更新时间保留原语义。
+- 最多直接显示 3 个固定 `24px` 头像，相邻重叠 `4px`，其后显示 `+N`。自己通过其他标签页在线时优先包含在直接展示的 3 人中，并在姓名中标记“你”。无人在线时隐藏。
+- 头像可聚焦或悬停查看完整姓名；`+N` 支持点击、Enter 和 Space 打开完整只读成员列表，Escape 或点击外部关闭。头像区域不触发卡片打开、拖动或画布平移快捷操作。
+- 只查询当前已渲染的智能画布卡片；每次请求最多 200 个 ID，超过时分批。列表前台完成查询后每 5 秒刷新，回到前台立即刷新；后台暂停并丢弃缓存状态。
+- 首次获取或回到前台时显示“正在获取在线成员”；请求超时（每批 4.5 秒）、失败或缺少该卡片的授权结果时，清掉旧头像，显示“在线状态暂不可用”。这些状态不等同于无人在线，后续成功结果替换它们。
+- 切项目、刷新列表或离开页面时取消旧请求，旧结果不得覆盖新卡片；成员不变时不重建头像和已打开的弹层。成员更新不改变卡片位置、画布更新时间、排序或编辑状态。
+- 使用既有 Account Avatar、Tooltip 和 Popover；中文/英文、Light/Dark 和有限宽度下均需可用。不显示账号 ID、连接数、指针坐标或活动时间。
+
 ## 7. Functional rules
 
 1. Presence 默认启用，只有收到 `presence_snapshot` 的客户端才开始展示和发送；旧服务端不发 Snapshot 时，客户端静默保持无 Presence 状态。
 2. 在线成员的产品身份是 Account，而不是 Realtime Client Connection。同一账号的多条连接共享一个成员条目、一个临时颜色槽和一个公开指针。
-3. 最近产生合格鼠标移动的连接控制该账号公开指针。控制连接离开 Canvas、失焦、隐藏或断开时，指针置空；其他旧连接不得恢复旧坐标，直到它再次移动。
+3. 最近产生合格鼠标移动的连接更新该账号公开指针。控制连接离开捕获区、失焦、隐藏或断开时，只要该账号还有有效连接，就保留最后有效坐标；不回退到其他连接的旧坐标，新的有效移动才覆盖位置。最后一条连接离线时删除成员与指针。
 4. 自己的 Account Avatar 包含在成员组并固定最右；客户端不渲染自己的协作指针。
 5. Pointer 颜色由服务端按账号进入 Canvas 的顺序分配：从 1–10 中取第一个空闲槽，最后一条连接离开时释放，重进可以变化；超过 10 人后循环复用。
 6. Account Avatar 颜色与 Pointer 颜色独立。头像颜色随机分配并持久化；右上成员组的重叠头像使用 `1px` `--ui-color-border-secondary` 外环，成员弹层内的头像使用当前 Canvas 的 Pointer 颜色作为身份环。
 7. Realtime Pointer 是约 `18px × 22px` 的常见斜向箭头，使用中等明度、高饱和度语义色、`1px` 白色轮廓和轻微主题阴影。姓名标签位于右下，背景沿用 Pointer 色并使用可读的对比文字。
 8. 最近更新的 Pointer 位于其他 Pointer 之上；允许指针和标签相互重叠，不做碰撞避让、轨迹、预测或点击动画。
 9. 客户端发送 Canvas 世界坐标。接收端按自己的 Canvas Viewport 投影；屏幕外指针隐藏，不显示边缘指示器。平移或缩放时立即重新投影，静止指针可重新进入视野，但姓名标签不因平移重新出现。
-10. Canvas 背景、Node、Connection、Frame、Group 和 Canvas 内部控件属于 Pointer 捕获区。固定工具栏、Dock、顶栏、菜单、Dialog、设置和浏览器外部不属于捕获区，进入这些区域时发送 `cursor: null`。
+10. Canvas 背景、Node、Connection、Frame、Group 和 Canvas 内部控件属于 Pointer 捕获区。固定工具栏、Dock、顶栏、在线成员组、菜单、Dialog、设置和浏览器外部不属于捕获区；进入这些区域时先发出尚未发送的最后有效位置，再暂停捕获，不发送清空坐标。
 11. 鼠标首次进入捕获区立即发送。之后累计本机屏幕位移不足 `5px` 不发送；达到阈值后按配置间隔节流，每个间隔只发送最后坐标。
 12. 收到连续位置时使用不超过 `min(有效更新间隔, 120ms)` 的短插值。更新间隔超过 `1s`，或新目标与当前投影相距超过接收端 `400px` 时直接跳转。
 13. 姓名标签在最后一次移动后 `1.5s` 淡出，静止 Pointer 保留且不产生服务器流量。
@@ -152,7 +163,7 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 
 - 数据库只保存头像整数槽位，不保存 CSS Token 名称。槽位 `0` 仅用于迁移前哨，完成迁移后合法账号为 1–10。
 - 账号数据库不随 Workspace 搬迁，因此 Account Avatar 属于 Instance State。
-- 不保存轨迹、最后位置、Presence 审计或活动时间。旧分支可忽略新增账号列；首版不提供反向迁移或默认头像回滚。
+- 不持久化轨迹、最后位置、Presence 审计或活动时间；最后有效位置只保留在账号当前 Canvas 在线会话的内存中。旧分支可忽略新增账号列；首版不提供反向迁移或默认头像回滚。
 
 ## 10. API / WebSocket / Provider contracts
 
@@ -166,6 +177,10 @@ Presence 复用现有 `/ws/canvases/{canvas_id}` JSON WebSocket。初始 Canvas 
 | `presence_batch` | Server | 携带变化参与者的最新 Cursor Version 和坐标 | 批次可发送给包括发送者在内的所有连接；客户端忽略自己 |
 | `presence_resync` | Client | 请求仅 Presence Snapshot | 不触发 Canvas Snapshot 或 Revision 变化 |
 
+Issue #20 增加只读 `POST /api/canvases/presence`，请求为 `{canvas_ids: string[]}`，最多 200 项。服务端通过既有授权列表投影筛选 Smart Canvas，排除无权访问、普通、已删除和不存在的 Canvas；返回 `{canvases: {canvas_id: members[]}}` 并设置 `Cache-Control: no-store`。已授权但无人在线返回空数组；未返回的 ID 不表示确定无人在线。成员只包含 `participant_id`、`display_name`、`username`、`avatar_color_slot` 和相对于请求者的 `is_self`。该查询不创建编辑连接、不广播成员加入、不保存在线状态。
+
+新客户端暂停捕获时不再发送 `cursor: null`。服务端仍接收旧客户端的 null 消息，将其解释为暂停控制，保留账号最后有效坐标，以兼容尚未刷新的标签页。
+
 - 客户端入站 Presence JSON 最大 `1KiB`，只接受规定字段；`seq` 必须为安全整数且对该连接严格递增，`x/y` 必须为有限数。
 - 客户端不得提交账号、显示名、角色、颜色或 Canvas ID；这些全部来自已认证 Session 和服务端房间状态。
 - 每个账号的服务端 Cursor Version 与房间 Membership Version 分开演进。
@@ -176,7 +191,7 @@ Presence 复用现有 `/ws/canvases/{canvas_id}` JSON WebSocket。初始 Canvas 
 
 - WebSocket 建立和每条消息继续使用既有认证、账号状态、访问 Epoch 与 Canvas 编辑权限检查。
 - 服务端从 Session Actor 生成公开身份；不信任客户端自报资料，不向前端暴露不必要的账号 ID、连接数、角色、活动时间或设备信息。
-- Presence 只在同一获授权 Smart Canvas 房间广播；Guest Account 和 Anonymous Share Visitor 不加入房间。
+- Pointer 与房间协议只在同一获授权 Smart Canvas 房间广播。列表仅向有权访问对应 Smart Canvas 的账号提供精简在线摘要；Guest Account 和 Anonymous Share Visitor 不加入房间，也不能查询摘要。
 - 坐标只描述 Canvas 世界位置，并按消息大小、类型、有限数和速率进行约束；不落盘、不进入日志正文或诊断导出。
 
 ## 12. Performance and reliability constraints
@@ -222,7 +237,9 @@ Presence 复用现有 `/ws/canvases/{canvas_id}` JSON WebSocket。初始 Canvas 
 | Scenario | Seam | Expected external behavior |
 | --- | --- | --- |
 | 两个合法账号进入和离开 | WebSocket 集成测试 | 首连接产生 Join，最后连接产生 Leave；多 Tab 仍只有一个成员 |
-| 多 Tab 控制权切换 | WebSocket + 浏览器 | 最近移动连接控制；隐藏后清空，旧坐标不复活 |
+| 多 Tab 控制权切换 | WebSocket + 浏览器 | 最近移动连接更新；失焦或关闭其中一条连接后保留最后位置，不回退其他连接的旧坐标 |
+| 列表在线摘要 | HTTP + WebSocket | 按账号去重；权限过滤；无坐标/连接明细；查询不加入房间、不修改 Canvas |
+| 卡片在线成员 | 真实页面浏览器 | 内容区右侧 0/1/3/+N、固定头像尺寸、长标题省略、鼠标/键盘、语言/主题、失败恢复及后台暂停 |
 | 世界坐标投影 | 真实页面浏览器 | 不同 Zoom/Pan 下各自投影正确，固定 UI 不捕获，离屏隐藏 |
 | 5px 阈值、节流和静止 | 浏览器 + 协议观测 | 小抖动不发送，区间只发最后值，静止无流量且标签 1.5s 淡出 |
 | 成员版本缺口 | WebSocket 集成测试 | 只请求和替换 Presence Snapshot，不触发 Canvas Resync |
@@ -261,14 +278,22 @@ Presence 复用现有 `/ws/canvases/{canvas_id}` JSON WebSocket。初始 Canvas 
 | Kind | Reference |
 | --- | --- |
 | Product map | [F02 / F06 / F13](../PROJECT-MAP.md#功能规格注册表) |
-| Tracked work | GitHub Issue #196 |
+| Tracked work | GitHub Issue #196；[Issue #20](https://github.com/lazyq666/reroll-ai-canvas/issues/20) |
 | Research | [Issue #196 Presence / Awareness 调研](../archive/2026-08-29-issue-196-presence-awareness-research.md) |
-| UI surfaces | Smart Canvas Shell；账号入口；账号管理；Design Token 工作台 |
-| Implementation seams | Canvas WebSocket / Connection Manager；账号数据库；Smart Canvas Pointer Overlay 与成员组 |
+| UI surfaces | Smart Canvas Shell；画布列表卡片内容区；账号入口；账号管理；Design Token 工作台 |
+| Implementation seams | Canvas WebSocket / Connection Manager；账号数据库；Smart Canvas Pointer Overlay 与成员组；只读在线摘要接口与 `canvas-list-presence.js` |
 | Automated tests | `tests/test_account_avatar.py`；`tests/test_realtime_presence.py`；`tests/test_connection_manager.py`；`tests/test_canvas_realtime_websocket.py`；`tests/test_realtime_presence_frontend.py`；`tests/test_realtime_presence_load_cli.py` |
 | Browser/manual evidence | `tests/realtime_presence_browser_smoke.cjs`；[Issue #196 Presence 验证与毕业记录](2026-08-29-smart-canvas-realtime-presence-verification.md) |
 | ADRs | 无 |
 | Replaced historical docs | 无 |
+
+### Issue #20 验证记录（2026-09-03）
+
+- `tests/test_realtime_presence.py` 覆盖关闭控制标签页后保留坐标、旧客户端 null 暂停、多连接去重与超时成员摘要。
+- `tests/test_canvas_presence_http.py` 使用真实认证、HTTP 与 WebSocket，覆盖私有/其他项目/已删除/普通画布过滤、授权撤销、访客/未登录拒绝、200 项请求上限、本人标记、正常离线以及 Canvas 内容和更新时间不变。
+- `tests/realtime_presence_browser_smoke.cjs` 已通过，覆盖工具栏、失焦、标签页隐藏不再发送清空坐标，以及原有投影、阈值和静止标签行为。
+- `tests/canvas_presence_browser_smoke.cjs` 已通过，覆盖 0/1/3/+N 头像、内容区右侧几何、固定尺寸与长标题、键盘/鼠标、周期刷新不重建卡片、中文/英文、Light/Dark、窄屏、失败恢复和后台暂停。`tests/canvas_presence_browser_app.cjs` 为可重复运行的虚构成员页面夹具。
+- Codex 内置浏览器已检查真实列表页的卡片布局和完整成员弹层。该本机验证不替代首版由 Issue #216 跟踪的双机 LAN 人工验收，整体规格继续保持 Active。
 
 ## 18. Open questions
 
@@ -280,3 +305,4 @@ Presence 复用现有 `/ws/canvases/{canvas_id}` JSON WebSocket。初始 Canvas 
 | --- | --- | --- | --- |
 | 2026-08-29 | Approved | 根据 Issue #196 仓库调研和逐项产品访谈建立首版完整合同 | 用户确认全部已讨论决定，并授权补完其余实现规格 |
 | 2026-08-29 | Implementation in progress | 记录自动化接缝与待执行 LAN/30 分钟负载 Gate；规格仍未毕业 | 自动化与真实页面浏览器 smoke 已通过；人工和正式负载证据仍 Pending |
+| 2026-09-03 | Issue #20 implemented | 保留在线账号的最后有效指针；卡片内容区右侧显示在线头像与完整成员弹层 | 相关 HTTP/WebSocket、页面回归及本机视觉检查通过；首版双机 LAN 验收仍独立跟踪 |

@@ -33,13 +33,13 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/theme.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-19555d9f77fa"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-9d472b04d848"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788326666"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=2026.09.01.5.1788340084">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-6bb6f98263d6">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788254438">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.5.1788254438">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788254438">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-b0dd1bc6845c" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ef410096e2b4" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=2026.09.01.5.1788254439"></script>
 </head>
 <body>
@@ -98,6 +98,10 @@
             <ic-menu-item kind="command" value="text" icon="text" label="文本" data-i18n-label="smart.kindText"></ic-menu-item>
             <ic-menu-item kind="command" value="image" icon="image" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
             <ic-menu-item kind="command" value="video" icon="video" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
+        </ic-menu>
+        <ic-menu id="multiReferenceGenerateMenu" class="reference-generate-menu" label="引用所选节点生成" data-i18n-label="smart.multiInput.menu" trigger="context" selection="command" size="small" variant="reference-generate" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
+            <ic-menu-item kind="command" value="image" icon="image" label="图片生成" data-i18n-label="smart.referenceImageNode"></ic-menu-item>
+            <ic-menu-item kind="command" value="video" icon="video" label="视频生成" data-i18n-label="smart.referenceVideoNode"></ic-menu-item>
         </ic-menu>
         <ic-menu id="upstreamInputMenu" class="reference-generate-menu upstream-input-menu" label="添加上游输入" data-i18n-label="smart.addUpstreamInput" trigger="context" selection="command" size="small" variant="reference-generate" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
             <span class="reference-generate-label" role="presentation" aria-hidden="true" data-i18n="smart.addUpstreamInput">添加上游输入</span>
@@ -594,25 +598,45 @@
     <ic-dialog id="workspaceAssetDialog" class="workspace-asset-dialog" label="资产库" data-i18n-label="smart.workspaceAssetLibrary" size="x-large" dismiss-policy="explicit">
         <ic-workspace-asset-library id="workspaceAssetPanel" aria-label="资产库" data-i18n-aria-label="smart.workspaceAssetLibrary"></ic-workspace-asset-library>
     </ic-dialog>
+    <ic-dialog id="smartFrameExportDialog" label="下载分区" data-i18n-label="smart.frameExport.title" size="small" variant="compact" dismiss-policy="explicit">
+        <div class="smart-frame-export-content">
+            <strong id="smartFrameExportName" class="smart-frame-export-name"></strong>
+            <div class="smart-frame-export-field">
+                <span data-i18n="smart.frameExport.scale">导出倍率</span>
+                <ic-segmented-control id="smartFrameExportScale" size="small" label="导出倍率" data-i18n-label="smart.frameExport.scale" value="1" data-legal-combination="single-label">
+                    <button type="button" data-value="1">1×</button><button type="button" data-value="2">2×</button>
+                </ic-segmented-control>
+            </div>
+            <div class="smart-frame-export-field"><span data-i18n="smart.frameExport.size">图片尺寸</span><output id="smartFrameExportSize" aria-live="polite"></output></div>
+            <p class="smart-frame-export-hint"><span data-i18n="smart.frameExport.includes">包含图片、文字标注、画笔和分区背景</span><br><span data-i18n="smart.frameExport.excludes">不包含提示词卡片、连线或视频封面</span></p>
+            <p id="smartFrameExportStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+        </div>
+        <ic-button slot="footer" id="smartFrameExportCancel" hierarchy="secondary" data-i18n="smart.frameExport.cancel">取消</ic-button>
+        <ic-button slot="footer" id="smartFrameExportDownload" hierarchy="primary" aria-describedby="smartFrameExportStatus" data-i18n="smart.contextDownload">下载</ic-button>
+    </ic-dialog>
+    <script src="/static/js/smart-canvas/frame-image-export.js?v=asset-178d2c4aa027"></script>
     <script src="/static/js/smart-image-resolution.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/account-avatar.js?v=2026.09.01.5.1788254438"></script>
     <script src="/static/js/smart-canvas/clipboard-ownership.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/node-review-fixture.js?v=2026.09.01.5.1788326666"></script>
     <script src="/static/js/smart-canvas/node-kinds.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/node-geometry.js?v=2026.09.01.5.1788254439"></script>
+    <script src="/static/js/smart-canvas/image-metadata.js?v=asset-2550538363ea"></script>
     <script src="/static/js/smart-canvas/canvas-level-of-detail.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/canvas-far-presentation.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/smart-canvas/node-placement.js?v=2026.09.01.5.1788254439"></script>
+    <script src="/static/js/smart-canvas/node-placement.js?v=asset-d08b70bebfc4"></script>
     <script src="/static/js/smart-canvas/selection-arrangement.js?v=2026.09.01.5.1788254439"></script>
+    <script src="/static/js/smart-canvas/multi-input.js?v=asset-9c826fcf0066"></script>
+    <script src="/static/js/smart-canvas/multi-input-controller.js?v=asset-6f1640fa96bd"></script>
     <script src="/static/js/smart-canvas/canvas-virtualization.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/image-studio-geometry.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-b0dd1bc6845c"></script>
+    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-ef410096e2b4"></script>
     <script src="/static/js/smart-canvas/canvas-opening.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/smart-canvas/canvas-persistence.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/smart-canvas/viewport-selection.js?v=2026.09.01.5.1788254439"></script>
+    <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-0ccd34637445"></script>
+    <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-85c5597e79c9"></script>
     <script src="/static/js/smart-canvas/realtime-presence.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/smart-canvas/canvas-mutation.js?v=2026.09.01.5.1788254439"></script>
+    <script src="/static/js/smart-canvas/canvas-mutation.js?v=asset-074b4b49f5af"></script>
     <script src="/static/js/smart-canvas/smart-container.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/image-studio.js?v=2026.09.01.5.1788254439"></script>
@@ -626,7 +650,7 @@
     <script src="/static/js/smart-canvas/generation-log-modal.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/task-modals.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/generation-pending.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/smart-canvas/generation-output.js?v=2026.09.01.5.1788327816"></script>
+    <script src="/static/js/smart-canvas/generation-output.js?v=2026.09.01.5.1788341569"></script>
     <script src="/static/js/smart-canvas/smart-matting.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/generation-run.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/generation-recovery.js?v=2026.09.01.5.1788327492"></script>
@@ -634,6 +658,7 @@
     <script src="/static/js/smart-canvas/generation-cascade.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=2026.09.01.5.1788254439"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=2026.09.01.5.1788254439"></script>
-    <script src="/static/js/smart-canvas.js?v=2026.09.01.5.1788339002" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-07ba923c2dec" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-b0ece317755a"></script>
 </body>
 </html>

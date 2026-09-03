@@ -815,7 +815,7 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(
             payload["methods"],
-            ["arrange", "connect", "create", "createBatch", "disconnect", "duplicate", "history", "remove", "update"],
+            ["arrange", "connect", "connectSources", "create", "createBatch", "disconnect", "duplicate", "history", "remove", "update"],
         )
         self.assertTrue(payload["connected"])
         self.assertEqual(payload["targetInputs"], ["source"])

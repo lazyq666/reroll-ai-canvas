@@ -309,7 +309,7 @@ function onBoardPanStart(e){
     const middle = e.button === 1;
     const temporaryHandLeft = e.button === 0 && boardSpacePan;
     if(!middle && !temporaryHandLeft) return;
-    if(e.target.closest('.ws-board-empty-actions,.ws-topbar-right')) return;
+    if(e.target.closest('.ws-board-empty-actions,.ws-topbar-right,.ws-card-presence')) return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation?.();
@@ -793,6 +793,7 @@ function renderCanvasBatch(items, offset = 0, token = renderBatchToken){
     });
     refreshIcons();
     if(end < items.length) requestAnimationFrame(() => renderCanvasBatch(items, end, token));
+    else window.CanvasListPresence?.refresh();
 }
 
 function buildCard(c){
@@ -832,14 +833,22 @@ function buildCard(c){
                 </div>
             </ic-media-container>
             <div class="ws-card-content">
+              <div class="ws-card-description">
                 <div class="ws-card-title">${escapeHtml(c.title)}</div>
                 <div class="ws-card-meta">
                     <span class="ws-card-nodes">${(c.node_count != null ? c.node_count : 0)} ${L('节点','nodes')}</span>
                     <span class="ws-card-meta-dot"></span>
                     <span class="ws-card-time">${formatCanvasTime(c.updated_at || c.created_at)}</span>
                 </div>
+              </div>
+              ${isSmart ? '<div class="ws-card-presence" role="group"></div>' : ''}
             </div>
         </ic-card>`;
+    const presenceHost = card.querySelector('.ws-card-presence');
+    if(presenceHost){
+        presenceHost.dataset.canvasId = c.id;
+        window.CanvasListPresence?.mount(presenceHost);
+    }
     attachCardDrag(card, c);
     const menuBtn = card.querySelector('.ws-card-menu');
     menuBtn.onmousedown = e => e.stopPropagation();
@@ -870,7 +879,7 @@ function attachCardDrag(card, c){
     card.addEventListener('mousedown', e => {
         if(e.button !== 0) return;
         if(boardSpacePan || panState) return;
-        if(e.target.closest('.ws-card-menu')) return;
+        if(e.target.closest('.ws-card-menu,.ws-card-presence')) return;
         if(card.querySelector('.ws-card-title-input')) return; // editing title
         e.stopPropagation();
         closeCardMenu();

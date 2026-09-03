@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 from infinite_canvas.realtime_presence import (
     DEFAULT_PRESENCE_UPDATE_INTERVAL_MS,
@@ -153,13 +154,42 @@ class RealtimePresenceManagerTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.04)
         self.assertEqual(
             self.transport.batches[-1][1]["updates"][0]["cursor"],
-            None,
+            {"x": 30.0, "y": 40.0},
         )
+        await self.manager.resync(first)
+        self.assertEqual(self.transport.personal[-1][1]["members"][0]["cursor"], {"x": 30.0, "y": 40.0})
         self.assertFalse(any(item[1]["type"] == "presence_leave" for item in self.transport.membership))
 
         await self.manager.leave(first)
         self.assertEqual(self.transport.membership[-1][1]["type"], "presence_leave")
         self.assertEqual(self.transport.cleared[-1], ("canvas-a", participant))
+
+    async def test_pause_from_older_client_preserves_position_until_next_move(self):
+        socket = FakeWebSocket()
+        await self.manager.join(socket, "canvas-a", self.admin)
+        await self.manager.receive_update(socket, {"type": "presence_update", "seq": 1, "cursor": {"x": 5, "y": 8}})
+        await self.manager.receive_update(socket, {"type": "presence_update", "seq": 2, "cursor": None})
+        await self.manager.resync(socket)
+        self.assertEqual(self.transport.personal[-1][1]["members"][0]["cursor"], {"x": 5.0, "y": 8.0})
+        await self.manager.receive_update(socket, {"type": "presence_update", "seq": 3, "cursor": {"x": 7, "y": 9}})
+        await self.manager.resync(socket)
+        self.assertEqual(self.transport.personal[-1][1]["members"][0]["cursor"], {"x": 7.0, "y": 9.0})
+
+    async def test_summary_is_account_aggregated_private_and_does_not_join(self):
+        first, second = FakeWebSocket(), FakeWebSocket()
+        participant = await self.manager.join(first, "canvas-a", self.admin)
+        await self.manager.join(second, "canvas-a", self.admin)
+        await self.manager.receive_update(first, {"type": "presence_update", "seq": 1, "cursor": {"x": 1, "y": 2}})
+        before = len(self.transport.membership)
+        summary = self.manager.member_summaries(["canvas-a", "empty"], viewer_id=self.admin["id"])
+        self.assertEqual(summary, {"canvas-a": [{
+            "participant_id": participant, "display_name": "Admin", "username": "admin",
+            "avatar_color_slot": 7, "is_self": True,
+        }], "empty": []})
+        self.assertFalse(self.manager.member_summaries(["canvas-a"], viewer_id="other")["canvas-a"][0]["is_self"])
+        self.assertEqual(len(self.transport.membership), before)
+        with patch("infinite_canvas.realtime_presence.time.monotonic", return_value=10**20):
+            self.assertEqual(self.manager.member_summaries(["canvas-a"], viewer_id="other"), {"canvas-a": []})
 
     async def test_invalid_spoofed_or_stale_updates_are_silent(self):
         websocket = FakeWebSocket()

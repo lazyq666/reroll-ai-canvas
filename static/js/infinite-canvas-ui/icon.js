@@ -9,6 +9,7 @@ export const IC_ICON_NAMES = Object.freeze({
   archive: 'Archive',
   zip: 'FileArchive',
   arrange: 'LayoutGrid',
+  'aspect-ratio': 'Proportions',
   audio: 'FileAudio',
   'audio-lines': 'AudioLines',
   back: 'ArrowLeft',

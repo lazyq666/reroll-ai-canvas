@@ -12,11 +12,12 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         const context = await browser.newContext({viewport:{width:1440, height:900}});
         const page = await context.newPage();
         page.setDefaultTimeout(15000);
-        await page.goto(`${baseUrl}/static/smart-canvas.html?id=frame-toolbar-regression`, {
-            waitUntil:'networkidle',
+        await page.goto(`${baseUrl}/static/smart-canvas.html?componentReview=nodes`, {
+            waitUntil:'domcontentloaded',
         });
         await page.waitForFunction(() => Boolean(
-            window.SmartCanvasModules?.viewportSelection?.selection
+            document.documentElement.dataset.nodesStatus === 'ready'
+            && window.SmartCanvasModules?.viewportSelection?.selection
             && window.SmartCanvasModules?.smartContainer
             && document.getElementById('smartNodeFloatingPortal')?.dataset.menuHtml !== undefined
         ));
@@ -35,12 +36,16 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
                 viewport.x = 0;
                 viewport.y = 0;
                 viewport.scale = 1;
+                window.SmartCanvasModules.viewportSelection.viewport.apply();
                 render();
                 syncSmartNodeFloatingPortal();
             })();`;
             document.body.appendChild(script);
             script.remove();
         }, {imageUrl:tinyPng});
+
+        await page.waitForFunction(() => smartCanvasDetailRecoveryReady === null);
+        await page.evaluate(() => render());
 
         await page.waitForFunction(() => (
             document.querySelector('#smartNodeFloatingPortal ic-smart-node-toolbar[data-smart-frame-menu]')?.dataset.icContractStatus === 'ready'
@@ -66,9 +71,9 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             contract:'ready',
             label:'分区操作',
             nativeButtonCount:0,
-            actions:['rename', 'color', 'ungroup'],
-            labels:['重命名分区', '切换颜色', '取消分区'],
-            icons:['edit', 'color', 'ungroup-frame'],
+            actions:['rename', 'color', 'download', 'ungroup'],
+            labels:['重命名分区', '切换颜色', '下载', '取消分区'],
+            icons:['edit', 'color', 'download', 'ungroup-frame'],
         });
 
         const themeStyles = {};
@@ -265,9 +270,9 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         });
         assert.deepEqual(libraryState, {
             contract:'ready',
-            buttonCount:3,
-            icons:['edit', 'color', 'ungroup-frame'],
-            labels:['重命名分区', '切换颜色', '取消分区'],
+            buttonCount:4,
+            icons:['edit', 'color', 'download', 'ungroup-frame'],
+            labels:['重命名分区', '切换颜色', '下载', '取消分区'],
         });
         await libraryPage.locator('[data-smart-node-toolbar-variant="frame"]').screenshot({
             path:'/tmp/infinite-canvas-frame-toolbar-library.png',

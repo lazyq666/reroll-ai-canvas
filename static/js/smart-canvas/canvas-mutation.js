@@ -855,6 +855,46 @@ function canvasMutationConnect(options={}){
     }
     return true;
 }
+function canvasMutationConnectSources({sourceIds=[],targetId='',draft=null,point=null}={}){
+    if(!canvas || !sourceIds.length) return null;
+    const sources = [...new Set(sourceIds)].map(id => nodes.find(node => node.id === id));
+    const target = draft || nodes.find(node => node.id === targetId);
+    if(!target || sources.some(node => !node || node.id === target.id)) return null;
+    if(draft && nodes.some(node => node.id === draft.id)) return null;
+    const existing = new Set((canvas.connections || []).filter(connection => connection.to === target.id && connection.kind === 'input').map(connection => connection.from));
+    const missing = sources.filter(node => !existing.has(node.id));
+    if(!missing.length) return {target,changed:false};
+    const connections = missing.map(source => {
+        const sourceOutputId = isSmartImageNode(source) && source.generationOutputNode
+            ? String(source.activeOutputId || source.images?.[0]?.outputId || '') : '';
+        return {from:source.id,to:target.id,kind:'input',...(sourceOutputId ? {sourceOutputId} : {})};
+    });
+    // Plan everything before changing live nodes; failed placement leaves no partial graph.
+    if(draft){
+        if(point){
+            const rect = nodeRect(draft);
+            draft.x = point.x;
+            draft.y = point.y - rect.height / 2;
+        } else {
+            canvasMutationPlanDrafts([draft],{
+                anchor:{kind:'source',sourceNodeIds:sourceIds},relation:'downstream',arrangement:'single'
+            });
+        }
+    }
+    canvasMutationHistory('capture');
+    if(draft){
+        nodes.push(draft);
+        if(point) canvasMutationExactNodeIds.add(String(draft.id));
+    }
+    target.inputNodeIds = [...new Set([...(target.inputNodeIds || []),...missing.map(node => node.id)])];
+    canvas.connections = [...(canvas.connections || []),...connections];
+    canvasMutationApplySelection(target);
+    canvasMutationHistory('commit');
+    render();
+    if(draft && !point) canvasMutationReveal([draft],{reveal:true});
+    canvasMutationPersistenceModule.save?.();
+    return {target,changed:true};
+}
 function canvasMutationDisconnect(options={}){
     if(!canvas || !Array.isArray(canvas.connections)) return false;
     let indexes = [];
@@ -938,6 +978,9 @@ const canvasMutationApi = {
     },
     connect(options={}){
         return canvasMutationConnect(options);
+    },
+    connectSources(options={}){
+        return canvasMutationConnectSources(options);
     },
     disconnect(options={}){
         return canvasMutationDisconnect(options);

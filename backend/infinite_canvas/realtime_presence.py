@@ -295,7 +295,6 @@ class RealtimePresenceManager:
             return
         leave_message: Dict[str, Any] | None = None
         fallback_snapshots: Dict[Any, Dict[str, Any]] = {}
-        schedule_cursor = False
         participant_id = connection.participant_id
         async with room.lock:
             member = next(
@@ -311,10 +310,6 @@ class RealtimePresenceManager:
             member.connections.discard(websocket)
             if member.controlling_websocket is websocket:
                 member.controlling_websocket = None
-                if member.cursor is not None:
-                    member.cursor = None
-                    member.cursor_version += 1
-                    schedule_cursor = bool(member.connections)
             if not member.connections:
                 room.members.pop(member.actor_id, None)
                 room.pending_participants.discard(participant_id)
@@ -333,9 +328,6 @@ class RealtimePresenceManager:
                     for connection_member in room.members.values()
                     for connection_websocket in connection_member.connections
                 }
-            elif schedule_cursor:
-                room.pending_participants.add(participant_id)
-                self._schedule_flush(room)
         if leave_message is not None:
             self._transport.clear_presence_participant(
                 connection.canvas_id,
@@ -356,6 +348,38 @@ class RealtimePresenceManager:
         connection = self._connections.get(websocket)
         if connection is not None:
             connection.last_seen = time.monotonic()
+
+    def member_summaries(
+        self, canvas_ids: list[str], *, viewer_id: str
+    ) -> Dict[str, list[Dict[str, Any]]]:
+        """Project membership for already-authorized canvases, without joining.
+
+        Called on the realtime event loop. No coordinates, connection details or
+        account IDs cross this read boundary, and expired connections never
+        appear online while the sweeper is waiting to run.
+        """
+        now = time.monotonic()
+        summaries: Dict[str, list[Dict[str, Any]]] = {}
+        for canvas_id in canvas_ids:
+            room = self._rooms.get(canvas_id)
+            summaries[canvas_id] = [
+                {
+                    "participant_id": member.participant_id,
+                    "display_name": member.display_name,
+                    "username": member.username,
+                    "avatar_color_slot": member.avatar_color_slot,
+                    "is_self": member.actor_id == viewer_id,
+                }
+                for member in (room.members.values() if room else ())
+                if any(
+                    connection is not None
+                    and now - connection.last_seen < self.ttl_seconds
+                    for connection in (
+                        self._connections.get(socket) for socket in member.connections
+                    )
+                )
+            ]
+        return summaries
 
     @staticmethod
     def _valid_seq(value: Any) -> bool:
@@ -444,8 +468,10 @@ class RealtimePresenceManager:
             if cursor is None:
                 if member.controlling_websocket is not websocket:
                     return
+                # Older clients send null on blur/leave. Pause control without
+                # erasing the account's last position while it remains online.
                 member.controlling_websocket = None
-                member.cursor = None
+                return
             else:
                 member.controlling_websocket = websocket
                 member.cursor = {

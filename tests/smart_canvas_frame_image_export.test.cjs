@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');
+const {dimensions,members}=require('../static/js/smart-canvas/frame-image-export.js');
+assert.deepEqual(dimensions({width:1200,height:800},2),{width:2400,height:1600,ok:true});
+assert.equal(dimensions({width:8192,height:3906},1).ok,true);
+for(const rect of [{width:8193,height:1},{width:8192,height:3907},{width:Infinity,height:1},{width:0,height:1},{width:-1,height:1}]) assert.equal(dimensions(rect,1).ok,false);
+assert.equal(dimensions({width:100,height:100},3).ok,false);
+const nodes=[{id:'f',type:'smart-frame',items:['g','sub']},{id:'outside',type:'smart-image'},{id:'g',type:'smart-group',items:['a']},{id:'a',type:'smart-image'},{id:'sub',type:'smart-frame',items:['a','f']}];
+assert.deepEqual(members(nodes,'f').map(n=>n.id),['f','g','a','sub']);
+assert.deepEqual(members(nodes,'missing'),[]);
+assert.deepEqual(members(nodes,'a'),[]);
+console.log('Frame export dimensions, limits, membership, cycles: passed');

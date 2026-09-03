@@ -1,6 +1,6 @@
 export class IcCanvasMultiSelection extends HTMLElement {
   static get observedAttributes() {
-    return ['label'];
+    return ['label', 'quick-add-label', 'quick-add-reason', 'quick-add-visible'];
   }
 
   constructor() {
@@ -39,13 +39,20 @@ export class IcCanvasMultiSelection extends HTMLElement {
         [part~="corner-se"] { right:0; bottom:0; transform:translate(50%, 50%) scale(var(--smart-selection-handle-scale)); }
         [part~="corner-sw"] { left:0; bottom:0; transform:translate(-50%, 50%) scale(var(--smart-selection-handle-scale)); }
         [part~="resize-handle"] { cursor:nwse-resize; pointer-events:auto; }
+        [part="quick-add"] {
+          position:absolute; left:100%; top:50%; margin-left:12px;
+          transform:translateY(-50%); cursor:pointer; pointer-events:auto;
+        }
+        :host(:not([quick-add-visible])) [part="quick-add"] { display:none; }
       </style>
       <span part="handle corner corner-nw" aria-hidden="true"></span>
       <span part="handle corner corner-ne" aria-hidden="true"></span>
       <span part="handle corner corner-se resize-handle"></span>
       <span part="handle corner corner-sw" aria-hidden="true"></span>
+      <span part="quick-add"><ic-icon-button size="xs" hierarchy="secondary" type="button" icon="add"></ic-icon-button></span>
     `;
     this.resizeHandle = this.shadowRoot.querySelector('[part~="resize-handle"]');
+    this.quickAddTrigger = this.shadowRoot.querySelector('[part="quick-add"] ic-icon-button');
   }
 
   connectedCallback() {
@@ -57,6 +64,13 @@ export class IcCanvasMultiSelection extends HTMLElement {
   }
 
   syncContract() {
+    const quickLabel = this.getAttribute('quick-add-label') || '';
+    const reason = this.getAttribute('quick-add-reason') || '';
+    this.quickAddTrigger.setAttribute('aria-label', reason || quickLabel);
+    this.quickAddTrigger.setAttribute('label', reason || quickLabel);
+    this.quickAddTrigger.setAttribute('title', reason || quickLabel);
+    this.quickAddTrigger.toggleAttribute('disabled', Boolean(reason));
+    this.quickAddTrigger.setAttribute('aria-disabled', reason ? 'true' : 'false');
     const label = (this.getAttribute('label') || '').trim();
     this.dataset.icContractStatus = label ? 'ready' : 'invalid';
     if (label) {
@@ -73,5 +87,9 @@ export class IcCanvasMultiSelection extends HTMLElement {
 
   isResizeEvent(event) {
     return Boolean(event?.composedPath?.().includes(this.resizeHandle));
+  }
+
+  isQuickAddEvent(event) {
+    return Boolean(event?.composedPath?.().includes(this.quickAddTrigger));
   }
 }

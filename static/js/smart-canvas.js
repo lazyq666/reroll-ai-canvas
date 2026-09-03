@@ -36,6 +36,7 @@ const smartNodeFloatingPortal = document.getElementById('smartNodeFloatingPortal
 const smartMultiSelectionBox = document.getElementById('smartMultiSelectionBox');
 const createMenu = document.getElementById('createMenu');
 const referenceGenerateMenu = document.getElementById('referenceGenerateMenu');
+const multiReferenceGenerateMenu = document.getElementById('multiReferenceGenerateMenu');
 const upstreamInputMenu = document.getElementById('upstreamInputMenu');
 const promptInput = document.getElementById('promptInput');
 const mentionPicker = document.getElementById('mentionPicker');
@@ -102,7 +103,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-b0dd1bc6845c')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-ef410096e2b4')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -778,7 +779,7 @@ function closeSmartCanvasSettings(){
     refreshSmartCanvasSettings();
 }
 function smartCanvasTaskDialogOpen(){
-    return Boolean(smartShortcutDialog?.hasAttribute('open') || smartNodePackageImportDialog?.hasAttribute('open'));
+    return Boolean(smartShortcutDialog?.hasAttribute('open') || smartNodePackageImportDialog?.hasAttribute('open') || document.getElementById('smartFrameExportDialog')?.hasAttribute('open'));
 }
 function setSmartImagePerformanceOptimization(value){
     const enabled = Boolean(value);
@@ -2326,6 +2327,7 @@ function focusSmartCanvasAfterToolShortcut(){
 }
 function setSmartBaseTool(tool='pointer', options={}){
     const next = ['pointer','hand','brush','text','frame'].includes(tool) ? tool : 'pointer';
+    if(next !== smartBaseTool) smartMultiInputCancel();
     if(smartAnnotationStroke && next !== smartBaseTool) cancelSmartAnnotationStroke();
     smartBaseTool = next;
     smartAnnotationTool = next === 'brush' || next === 'text' ? next : '';
@@ -2340,6 +2342,7 @@ function setSmartAnnotationTool(tool=''){
     if(smartBaseTool === next){
         smartAnnotationOptionsOpen = !smartAnnotationOptionsOpen;
     } else {
+        smartMultiInputCancel();
         smartBaseTool = next || 'pointer';
         smartAnnotationTool = next;
         smartFrameToolActive = false;
@@ -6092,8 +6095,15 @@ function imageResolutionLabel(img){
     return w > 0 && h > 0 ? `${Math.round(w)} x ${Math.round(h)}` : '';
 }
 function imageResolutionBadgeHtml(img){
-    const label = imageResolutionLabel(img);
-    return label ? `<span class="image-resolution-badge">${escapeHtml(label)}</span>` : '';
+    const metadata = window.SmartCanvasModules.imageMetadata;
+    const size = metadata.dimensions(img);
+    if(!size) return '';
+    const resolution = trf('smart.imageResolutionBadge', size);
+    const resolutionDescription = trf('smart.imageResolutionDescription', size);
+    const ratio = mediaKindForItem(img) === 'image' ? metadata.aspectRatio(size.width, size.height) : null;
+    const ratioLabel = ratio ? trf(ratio.approximate ? 'smart.imageApproximateRatioBadge' : 'smart.imageRatioBadge', ratio) : '';
+    const ratioDescription = ratio ? trf(ratio.approximate ? 'smart.imageApproximateRatioDescription' : 'smart.imageRatioDescription', ratio) : '';
+    return `<span class="image-metadata-badges"><span class="image-resolution-badge" role="img" aria-label="${escapeAttr(resolutionDescription)}">${escapeHtml(resolution)}</span>${ratio ? `<span class="image-aspect-ratio-badge" role="img" aria-label="${escapeAttr(ratioDescription)}"><ic-icon name="aspect-ratio" size="x-small" aria-hidden="true"></ic-icon>${escapeHtml(ratioLabel)}</span>` : ''}</span>`;
 }
 function imageNameLabel(img, fallback='image'){
     const raw = String(img?.name || fileNameFromUrl(img?.url || '') || fallback || 'image').trim();
@@ -6138,18 +6148,18 @@ function applyThumbDisplaySizeToElement(itemEl, img, maxSize=0){
 }
 function updateImageResolutionBadgeElement(itemEl, img){
     if(!itemEl) return;
-    const label = imageResolutionLabel(img);
-    let badge = itemEl.querySelector('.image-resolution-badge');
-    if(!label){
-        badge?.remove();
-        return;
-    }
-    if(!badge){
-        badge = document.createElement('span');
-        badge.className = 'image-resolution-badge';
-        itemEl.appendChild(badge);
-    }
-    badge.textContent = label;
+    const html = imageResolutionBadgeHtml(img);
+    const badges = itemEl.querySelector('.image-metadata-badges');
+    if(badges) badges.outerHTML = html;
+    else if(html) (itemEl.querySelector('.thumb-media-frame') || itemEl).insertAdjacentHTML('beforeend', html);
+}
+function refreshImageResolutionBadgesForMedia(nodeId, imageIndex, img){
+    const id = CSS.escape(String(nodeId));
+    const index = CSS.escape(String(imageIndex));
+    // A language switch or redraw may have replaced the element that started loading.
+    // Update the currently mounted image and any Smart Group references to it.
+    world.querySelectorAll(`.image-node[data-id="${id}"] [data-image-index="${index}"]:not([data-ref-node-id]), .image-node [data-ref-node-id="${id}"][data-ref-image-index="${index}"]`)
+        .forEach(itemEl => updateImageResolutionBadgeElement(itemEl, img));
 }
 function singleMediaHtml(img, w, h){
     if(isFileMediaItem(img) || isTextMediaItem(img)) return `<div class="node-img media-card media-file-card" style="width:${w}px;height:${h}px"><div class="media-card-icon"><i data-lucide="${isTextMediaItem(img) ? 'file-text' : 'file'}"></i></div><div class="media-card-title">${escapeHtml(img.name || (isTextMediaItem(img) ? 'Text' : 'File'))}</div><div class="media-card-sub">${isTextMediaItem(img) ? 'TEXT' : 'FILE'}</div></div>`;
@@ -7641,7 +7651,7 @@ function smartGroupBodyHtml(node){
             const innerH = Math.max(24, Number(groupThumbLayout.innerH || groupThumbLayout.height || SMART_GROUP_DEFAULT_HEIGHT));
             return `<div class="smart-group-card has-thumbs">
                 <div class="smart-group-summary"><i data-lucide="group"></i><span>${escapeHtml(summary)}</span></div>
-                <div class="image-wrap smart-group-single-thumb ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--node-img-w:${innerW}px;--node-img-h:${innerH}px">${singleMediaHtml(ref.item, innerW, innerH)}${imageNameBadgeHtml(ref.item)}${imageResolutionBadgeHtml(ref.item)}</div>
+                <div class="image-wrap smart-group-single-thumb ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" tabindex="0" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--node-img-w:${innerW}px;--node-img-h:${innerH}px">${singleMediaHtml(ref.item, innerW, innerH)}${imageNameBadgeHtml(ref.item)}${imageResolutionBadgeHtml(ref.item)}</div>
             </div>`;
         }
         const groupMaxVisibleRows = (groupThumbLayout.compactMembers || []).length ? Number(groupThumbLayout.rows || 1) : SMART_GROUP_MAX_VISIBLE_ROWS;
@@ -7657,7 +7667,7 @@ function smartGroupBodyHtml(node){
         return `<div class="smart-group-card has-thumbs">
             <div class="smart-group-summary"><i data-lucide="group"></i><span>${escapeHtml(summary)}</span></div>
             <div class="thumb-grid smart-group-thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${groupThumbLayout.cols}; --thumb-size:${groupThumbLayout.thumb}px; --thumb-max-height:${maxHeight}px">${refThumbs.map(ref => {
-                return `<div class="thumb-item ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(ref.item)}"><div class="thumb-media-frame">${thumbMediaHtml(ref.item)}${imageResolutionBadgeHtml(ref.item)}</div>${imageNameBadgeHtml(ref.item)}</div>`;
+                return `<div class="thumb-item ${selectedImage.nodeId === ref.nodeId && Number(selectedImage.index) === Number(ref.index) ? 'image-selected' : ''}" data-ref-node-id="${escapeAttr(ref.nodeId)}" data-ref-image-index="${ref.index}" tabindex="0" data-image-index="${ref.index}" data-media-signature="${escapeAttr(`${mediaKindForItem(ref.item)}:${ref.item?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(ref.item)}"><div class="thumb-media-frame">${thumbMediaHtml(ref.item)}${imageResolutionBadgeHtml(ref.item)}</div>${imageNameBadgeHtml(ref.item)}</div>`;
             }).join('')}</div>
         </div>`;
     }
@@ -7768,9 +7778,9 @@ function nodeBodyHtml(node, layout){
     if(imgs.length > 1){
         const visibleRows = Math.max(1, Math.min(MEDIA_GROUP_MAX_VISIBLE_ROWS, Number(layout.visibleRows || layout.rows || 1)));
         const maxHeight = Number(layout.gridHeight || (visibleRows * Number(layout.thumb || 96) + Math.max(0, visibleRows - 1) * 8));
-        return `<div class="thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${layout.cols}; --thumb-size:${layout.thumb}px; --thumb-max-height:${maxHeight}px">${imgs.map((img, i) => `<div class="thumb-item ${selectedImage.nodeId === node.id && selectedImage.index === i ? 'image-selected' : ''}" data-image-index="${i}" data-media-signature="${escapeAttr(`${mediaKindForItem(img)}:${img?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(img)}"><div class="thumb-media-frame">${thumbMediaHtml(img)}${imageResolutionBadgeHtml(img)}</div>${imageNameBadgeHtml(img)}</div>`).join('')}</div>`;
+        return `<div class="thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${layout.cols}; --thumb-size:${layout.thumb}px; --thumb-max-height:${maxHeight}px">${imgs.map((img, i) => `<div class="thumb-item ${selectedImage.nodeId === node.id && selectedImage.index === i ? 'image-selected' : ''}" tabindex="0" data-image-index="${i}" data-media-signature="${escapeAttr(`${mediaKindForItem(img)}:${img?.url || ''}`)}" style="--thumb-media-aspect:${mediaAspectRatio(img)}"><div class="thumb-media-frame">${thumbMediaHtml(img)}${imageResolutionBadgeHtml(img)}</div>${imageNameBadgeHtml(img)}</div>`).join('')}</div>`;
     }
-    if(imgs[0]) return `<div class="image-wrap has-outside-image-name ${selectedImage.nodeId === node.id && selectedImage.index === 0 ? 'image-selected' : ''}" data-image-index="0" data-media-signature="${escapeAttr(`${mediaKindForItem(imgs[0])}:${imgs[0]?.url || ''}`)}" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${singleMediaHtml(imgs[0], layout.width, layout.height)}${imageNameBadgeHtml(imgs[0], {outside:true})}${imageResolutionBadgeHtml(imgs[0])}</div>`;
+    if(imgs[0]) return `<div class="image-wrap has-outside-image-name ${selectedImage.nodeId === node.id && selectedImage.index === 0 ? 'image-selected' : ''}" tabindex="0" data-image-index="0" data-media-signature="${escapeAttr(`${mediaKindForItem(imgs[0])}:${imgs[0]?.url || ''}`)}" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${singleMediaHtml(imgs[0], layout.width, layout.height)}${imageNameBadgeHtml(imgs[0], {outside:true})}${imageResolutionBadgeHtml(imgs[0])}</div>`;
     const generationTarget = referenceGenerationTargetHtml(node);
     if(generationTarget) return generationTarget;
     const uploadAccept = node.uploadMediaKind === 'video'
@@ -7936,6 +7946,10 @@ function cycleSmartFrameColor(nodeId){
 function runSmartFrameToolbarAction(nodeId, action){
     const node = nodes.find(item => item.id === nodeId && smartContainer.isFrame(item));
     if(!node) return;
+    if(action === 'download'){
+        window.SmartCanvasModules.frameImageExport.open(node.id);
+        return;
+    }
     if(action === 'rename'){
         beginSmartFrameTitleEdit(node.id);
         return;
@@ -7995,7 +8009,8 @@ function smartNodeToolbarActionHtml(node, action){
     const mediaIndex = Number.isInteger(action.imageIndex)
         ? ` data-media-index="${action.imageIndex}"`
         : '';
-    return `<ic-button type="button" size="xs" hierarchy="${hierarchy}" data-smart-node-action="${escapeAttr(action.key)}" data-node-id="${escapeAttr(node.id)}"${mediaIndex}${toggleAttrs} ${action.enabled ? '' : 'disabled'}>
+    const reason = action.reason ? ` title="${escapeAttr(action.reason)}" aria-label="${escapeAttr(`${action.label}: ${action.reason}`)}"` : '';
+    return `<ic-button type="button" size="xs" hierarchy="${hierarchy}" data-smart-node-action="${escapeAttr(action.key)}" data-node-id="${escapeAttr(node.id)}"${mediaIndex}${toggleAttrs}${reason} ${action.enabled ? '' : 'disabled'}>
         <ic-icon slot="start" name="${escapeAttr(action.icon)}" size="x-small"></ic-icon><span${toggle ? ' data-smart-playback-label' : ''}>${escapeHtml(action.label)}</span>
     </ic-button>`;
 }
@@ -8012,6 +8027,7 @@ function smartNodeToolbarActionsHtml(node, actions=[]){
 function smartNodeToolbarHtml(node){
     if(smartNodeInFlight(node) && isSmartRunnableNode(node)){
         return smartNodeToolbarActionsHtml(node, [
+            ...(nodeKinds.isPromptFamily(node) ? [{key:'generate-image',icon:'online-generate',label:tr('smart.action.generateMedia'),enabled:false,reason:smartMultiInputReason('running')}] : []),
             {key:'duplicate', icon:'create-copy', label:tr('smart.contextDuplicate'), enabled:true},
             {key:'regenerate', icon:'refresh', label:tr('smart.contextRegenerate'), enabled:smartNodeHasRegenerationSnapshot(node)}
         ]);
@@ -8019,8 +8035,10 @@ function smartNodeToolbarHtml(node){
     const isTextNode = nodeKinds.isPromptFamily(node) || nodeKinds.isTextAnnotation(node);
     if(isTextNode){
         const text = smartNodeToolbarText(node);
+        const generate = nodeKinds.isPromptFamily(node) ? smartMultiInputAvailability([node.id]) : null;
         const actions = nodeKinds.isPromptFamily(node)
             ? [
+                {key:'generate-image', icon:'online-generate', label:tr('smart.action.generateMedia'), enabled:generate.ok, reason:generate.ok ? '' : smartMultiInputReason(generate.reason)},
                 {key:'focus-editor', icon:'focus-editor', label:tr('smart.focusEdit'), enabled:true},
                 {key:'copy-text', icon:'copy', label:tr('smart.copyPrompt'), enabled:Boolean(text.trim())}
             ]
@@ -8140,6 +8158,10 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null){
         setPromptNodeFocused(node.id, true);
         return;
     }
+    if(action === 'generate-image' && nodeKinds.isPromptFamily(node)){
+        smartMultiInputFromToolbar([node.id]);
+        return;
+    }
     const index = Number.isInteger(Number(requestedImageIndex)) && requestedImageIndex !== null
         ? Math.max(0, Number(requestedImageIndex))
         : smartNodeToolbarImageIndex(node);
@@ -8222,6 +8244,7 @@ function smartFrameToolbarHtml(node){
     const actions = [
         {key:'rename', icon:'edit', label:tr('smart.contextRenameFrame')},
         {key:'color', icon:'color', label:tr('smart.contextFrameColor')},
+        {key:'download', icon:'download', label:tr('smart.contextDownload')},
         {key:'ungroup', icon:'ungroup-frame', label:trf('smart.contextUngroupFrame', {n:smartContainer.frameMembers(node).length})}
     ];
     return `<ic-smart-node-toolbar label="${escapeAttr(tr('smart.frameActions'))}" data-smart-frame-menu="1">${actions.map(action => `
@@ -8231,10 +8254,16 @@ function smartFrameToolbarHtml(node){
 }
 function smartMultiSelectionToolbarHtml(ids=[]){
     if((ids || []).length < 2) return '';
+    const generate = smartMultiInputAvailability(ids);
+    const generateReason = generate.ok ? tr('smart.action.generateMedia') : smartMultiInputReason(generate.reason);
     const mediaCount = smartMultiSelectionMediaItems(ids).length;
     const imageCount = (ids || []).map(id => nodes.find(node => node.id === id)).filter(Boolean)
         .flatMap(workspacePublishableImageRefs).length;
     return `<ic-smart-node-toolbar label="${escapeAttr(tr('smart.multiSelectionActions'))}" data-smart-multi-menu="1">
+        <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-action="generate" title="${escapeAttr(generateReason)}" aria-label="${escapeAttr(generateReason)}" ${generate.ok ? '' : 'disabled'}>
+            <ic-icon slot="start" name="online-generate" size="x-small"></ic-icon>${escapeHtml(tr('smart.action.generateMedia'))}
+        </ic-button>
+        <ic-divider orientation="vertical"></ic-divider>
         <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-layout="grid" title="${escapeAttr(tr('smart.layoutGrid'))}">
             <ic-icon slot="start" name="layout-grid" size="x-small"></ic-icon>${escapeHtml(tr('smart.layoutGrid'))}
         </ic-button>
@@ -8375,6 +8404,8 @@ function bindSmartNodeFloatingPortal(){
         else if(frameAction) runSmartFrameToolbarAction(button.dataset.nodeId || '', button.dataset.smartFrameAction);
         else if(multiLayout){
             arrangeSelectedSmartNodes(multiLayout.dataset.smartMultiLayout || 'grid');
+        } else if(multiAction?.dataset.smartMultiAction === 'generate'){
+            smartMultiInputFromToolbar(window.SmartCanvasModules.viewportSelection.selection.ids());
         } else if(multiAction?.dataset.smartMultiAction === 'download'){
             downloadSmartMultiSelection();
         } else if(multiAction?.dataset.smartMultiAction === 'publish-workspace-assets'){
@@ -8453,6 +8484,10 @@ function downloadSmartMultiSelection(){
     return zipDownloadImageItems('selected-nodes',items);
 }
 smartMultiSelectionBox?.addEventListener('mousedown',event => {
+    if(smartMultiSelectionBox.isQuickAddEvent?.(event)){
+        smartMultiInputBegin(event);
+        return;
+    }
     if(smartMultiSelectionBox.isResizeEvent?.(event)){
         canvasInteraction.begin({
             kind:'resize-selection',
@@ -9093,20 +9128,24 @@ function measureSmartNodeImages(){
         const node = nodes.find(n => n.id === targetNodeId);
         const image = node?.images?.[index];
         if(imgEl.tagName?.toLowerCase() === 'img' && image?.url) bindImageProxyFallback(imgEl, image);
-        if(!node || !image || image.natural_w || image.natural_h) return;
+        if(!node || !image) return;
+        const hasNaturalSize = () => Boolean(window.SmartCanvasModules.imageMetadata.dimensions({natural_w:image.natural_w,natural_h:image.natural_h}));
+        if(hasNaturalSize()) return;
+        const sourceUrl = image.url;
+        const isCurrentImage = () => nodes.find(candidate => candidate.id === targetNodeId)?.images?.[index] === image && image.url === sourceUrl;
         const isPreview = isSmartPreviewImage(imgEl);
         const originalSrc = imgEl.dataset?.originalSrc || image.url || '';
         if(isPreview && imgEl.dataset?.previewKind !== 'video' && originalSrc && !image._naturalSizeLoading){
             image._naturalSizeLoading = true;
             loadSmartOriginalImageDimensions(originalSrc).then(size => {
                 image._naturalSizeLoading = false;
-                if(!size || image.natural_w || image.natural_h) return;
+                if(!size || !isCurrentImage() || hasNaturalSize()) return;
                 image.natural_w = size.w;
                 image.natural_h = size.h;
                 delete image.layout_w;
                 delete image.layout_h;
                 applyThumbDisplaySizeToElement(itemEl, image, Math.max(itemEl?.clientWidth || 0, itemEl?.clientHeight || 0));
-                updateImageResolutionBadgeElement(itemEl, image);
+                refreshImageResolutionBadgesForMedia(targetNodeId, index, image);
                 if(!smartContainer.isGroup(node) && (node.images || []).length === 1 && !node.w && !node.h){
                     const layout = singleImageLayout(image, node, mediaNodeDefaultScale(node));
                     node.w = layout.width;
@@ -9122,7 +9161,7 @@ function measureSmartNodeImages(){
         const apply = () => {
             const w = imgEl.naturalWidth || imgEl.videoWidth || 0;
             const h = imgEl.naturalHeight || imgEl.videoHeight || 0;
-            if(w <= 0 || h <= 0 || image.natural_w || image.natural_h) return;
+            if(w <= 0 || h <= 0 || !isCurrentImage() || hasNaturalSize()) return;
             const prevW = Number(image.layout_w || 0);
             const prevH = Number(image.layout_h || 0);
             if(isPreview){
@@ -9136,7 +9175,7 @@ function measureSmartNodeImages(){
                 delete image.layout_h;
             }
             applyThumbDisplaySizeToElement(itemEl, image, Math.max(itemEl?.clientWidth || 0, itemEl?.clientHeight || 0));
-            updateImageResolutionBadgeElement(itemEl, image);
+            refreshImageResolutionBadgesForMedia(targetNodeId, index, image);
             if(!smartContainer.isGroup(node) && (node.images || []).length === 1 && !node.w && !node.h){
                 const layout = singleImageLayout(image, node, mediaNodeDefaultScale(node));
                 node.w = layout.width;
@@ -9732,7 +9771,7 @@ function closeReferenceGenerateMenu(options={}){
     if(options.restoreFocus) state?.trigger?.focus?.({preventScroll:true});
 }
 function openReferenceGenerateMenu(drag, event, options={}){
-    const menu = drag.fromPort === 'in' ? upstreamInputMenu : referenceGenerateMenu;
+    const menu = drag.multiInput ? multiReferenceGenerateMenu : drag.fromPort === 'in' ? upstreamInputMenu : referenceGenerateMenu;
     if(!menu) return false;
     const clientX = Number.isFinite(Number(options.clientX))
         ? Number(options.clientX)
@@ -9741,8 +9780,8 @@ function openReferenceGenerateMenu(drag, event, options={}){
         ? Number(options.clientY)
         : event.clientY;
     referenceGenerateMenuState = {
-        drag:{fromId:drag.fromId, fromPort:drag.fromPort},
-        point:options.point
+        drag:{fromId:drag.fromId, fromPort:drag.fromPort,...(drag.multiInput ? {multiInput:drag.multiInput} : {})},
+        point:drag.multiInput ? options.point : options.point
             || window.SmartCanvasModules.viewportSelection.viewport.screenToWorld(event),
         clientX,
         clientY,
@@ -9886,6 +9925,13 @@ function createReferencedNode({sourceNode, fromPort='out', kind='image', point, 
 }
 function createReferencedNodeFromMenu(kind){
     const state = referenceGenerateMenuState;
+    if(state?.drag?.multiInput){
+        const snapshot = state.drag.multiInput;
+        const point = state.point;
+        closeReferenceGenerateMenu();
+        void smartMultiInputCommit(snapshot,{kind,point});
+        return null;
+    }
     const sourceNode = state ? nodes.find(node => node.id === state.drag.fromId) : null;
     if(!state || !sourceNode || !['text','image','video'].includes(kind)){
         closeReferenceGenerateMenu();
@@ -9912,6 +9958,7 @@ function createReferencedNodeFromToolbar(node, kind='image'){
     });
 }
 function handlePortDrop(drag, e){
+    if(drag.multiInput) return smartMultiInputDrop(drag,e);
     const {targetId, targetPort, hit, blocked} = smartPortDropTarget(
         e,
         drag.fromId,
@@ -15488,7 +15535,9 @@ window.onmousemove = e => {
         const p = window.SmartCanvasModules.viewportSelection.viewport.screenToWorld(e);
         portDragState.currentWorld = p;
         portDragState.moved = true;
-        let {targetId, targetPort} = smartPortDropTarget(
+        let {targetId, targetPort} = portDragState.multiInput
+            ? smartMultiInputDropTarget(e,portDragState.multiInput)
+            : smartPortDropTarget(
             e,
             portDragState.fromId,
             portDragState.fromPort
@@ -15893,6 +15942,7 @@ window.addEventListener('keydown', e => {
         return;
     }
     if(e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey && !isEditableTarget(e.target)){
+        if(smartMultiInputOwnsSpace(e)) return;
         if(e.repeat) return;
         if(smartPlaybackToggleSelectedVideo()){
             e.preventDefault();
@@ -16336,6 +16386,12 @@ if(composerTemplateBtn) composerTemplateBtn.onclick = event => {
 referenceGenerateMenu?.addEventListener('ic-select', event => {
     event.stopPropagation();
     createReferencedNodeFromMenu(event.detail?.value || 'image');
+});
+multiReferenceGenerateMenu?.addEventListener('ic-select', event => {
+    createReferencedNodeFromMenu(event.detail?.value);
+});
+multiReferenceGenerateMenu?.addEventListener('ic-hide', () => {
+    if(referenceGenerateMenuState?.drag?.multiInput) closeReferenceGenerateMenu({restoreFocus:true});
 });
 upstreamInputMenu?.addEventListener('ic-select', event => {
     event.stopPropagation();
@@ -16839,6 +16895,7 @@ function prepareSmartCanvasNodeReviewSurface(){
         'selectionBox',
         'smartNodeContextMenu',
         'referenceGenerateMenu',
+        'multiReferenceGenerateMenu',
         'upstreamInputMenu',
         'mentionPicker',
         'inputTextPreviewTooltip',

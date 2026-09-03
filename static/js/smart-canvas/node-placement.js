@@ -156,9 +156,10 @@
     function containingFrame(measuredSnapshot, intent) {
         const requestedId = String(intent?.frameId || '');
         const sourceId = String(intent?.anchor?.sourceNodeId || '');
+        const sourceIds = intent?.anchor?.sourceNodeIds || [sourceId];
         const frames = measuredSnapshot.filter(({measurement}) => measurement.spatialContainer);
         return frames.find(({node}) => String(node.id) === requestedId)
-            || frames.find(({node}) => Array.isArray(node.items) && node.items.includes(sourceId))
+            || frames.find(({node}) => Array.isArray(node.items) && sourceIds.length && sourceIds.every(id => node.items.includes(id)))
             || null;
     }
 
@@ -213,11 +214,13 @@
         const anchor = intent?.anchor || {};
         const kind = String(anchor.kind || 'viewport');
         if (kind === 'source') {
-            const source = measuredSnapshot.find(({node}) =>
-                String(node?.id || '') === String(anchor.sourceNodeId || '')
-            );
-            if (!source?.measurement?.supported) return null;
-            const sourceRect = rect(source.measurement.footprint);
+            const sourceIds = anchor.sourceNodeIds || [String(anchor.sourceNodeId || '')];
+            const sources = sourceIds.map(id => measuredSnapshot.find(({node}) => String(node?.id || '') === String(id)));
+            if (!sources.length || sources.some(source => !source?.measurement?.supported)) return null;
+            const rectangles = sources.map(source => rect(source.measurement.footprint));
+            const left = Math.min(...rectangles.map(value => value.x));
+            const top = Math.min(...rectangles.map(value => value.y));
+            const sourceRect = {x:left,y:top,width:Math.max(...rectangles.map(right))-left,height:Math.max(...rectangles.map(bottom))-top};
             const relation = intent?.relation === 'upstream' ? 'upstream' : 'downstream';
             return {
                 x:relation === 'upstream'

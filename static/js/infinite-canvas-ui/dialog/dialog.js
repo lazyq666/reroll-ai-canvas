@@ -1,6 +1,6 @@
 import WaDialog from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/dialog/dialog.js';
 import { i as css } from '../../../vendor/webawesome/3.10.0/package/dist-cdn/chunks/chunk.TLFIX76K.js';
-import { activateOverlayScope } from '../overlay-layer.js?v=ic-ui-b0dd1bc6845c';
+import { activateOverlayScope } from '../overlay-layer.js?v=ic-ui-ef410096e2b4';
 import { DIALOG_SIZES, DISMISS_POLICIES, withProjectEvents } from './shared.js';
 
 
