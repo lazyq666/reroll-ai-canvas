@@ -67,7 +67,7 @@
         const roots = rawIds.filter(id=>!covered.has(id));
         const rectangles = roots.map(id=>({id,...measure(byId.get(id))}));
         if(rectangles.some(rect=>!['x','y','width','height'].every(key=>Number.isFinite(rect[key])) || rect.width<=0 || rect.height<=0)) return fail('changed');
-        return {ok:true,ids:visualOrder(rectangles),rawIds,excludedIds:Object.keys(signatures),signatures};
+        return {ok:true,ids:visualOrder(rectangles),rawIds,signatures};
     }
 
     function validate(snapshot,options){
@@ -82,7 +82,8 @@
     function target({snapshot,nodes=[],connections=[],targetId,isGeneration,running}={}){
         const node = nodes.find(item=>item.id===targetId);
         if(!snapshot?.ok || !node) return fail('changed');
-        if(!isGeneration(node) || snapshot.excludedIds.includes(targetId)) return fail('target');
+        const sourceIds = Object.keys(snapshot.signatures);
+        if(!isGeneration(node) || sourceIds.includes(targetId)) return fail('target');
         if(running(node)) return fail('running');
         const outgoing = new Map();
         for(const connection of connections){
@@ -98,9 +99,9 @@
             reached.add(id);
             queue.push(...(outgoing.get(id) || []));
         }
-        if(snapshot.excludedIds.some(id=>reached.has(id))) return fail('cycle');
+        if(sourceIds.some(id=>reached.has(id))) return fail('cycle');
         const existing = new Set(connections.filter(connection=>connection.to===targetId && connection.kind==='input').map(connection=>connection.from));
-        return {ok:true,ids:snapshot.ids.filter(id=>!existing.has(id)),targetId};
+        return {ok:true,ids:snapshot.ids.filter(id=>!existing.has(id))};
     }
-    return Object.freeze({capture,validate,target,visualOrder});
+    return Object.freeze({capture,validate,target});
 });

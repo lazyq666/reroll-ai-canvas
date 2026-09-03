@@ -8,10 +8,10 @@ test('visual rows ignore click order, small offsets, holes and language',()=>{
     const nodes = [image('D',300,246),image('B',300,8),image('A',0,0),image('C',0,240)];
     assert.deepEqual(planner.capture(options(nodes)).ids,['A','B','C','D']);
     assert.deepEqual(planner.capture(options(nodes.slice().reverse())).ids,['A','B','C','D']);
-    assert.deepEqual(planner.visualOrder([image('b'),image('a')]),['a','b']);
+    assert.deepEqual(planner.capture(options([image('b'),image('a')])).ids,['a','b']);
 });
 test('row tolerance cannot chain two separate rows together',()=>{
-    assert.deepEqual(planner.visualOrder([image('c',0,80),image('b',200,40),image('a',100,0)]),['a','b','c']);
+    assert.deepEqual(planner.capture(options([image('c',0,80),image('b',200,40),image('a',100,0)])).ids,['a','b','c']);
 });
 test('mixed prompts work and unsupported, empty or running sources reject the whole selection',()=>{
     const nodes = [image('a'),{...image('p'),type:'smart-prompt',images:[],text:'Prompt'}];
@@ -31,7 +31,9 @@ test('nested groups validate each distinct source once and exclude all members f
     const reads=[];
     const snapshot=planner.capture({...options(nodes),mediaFor:node=>{reads.push(node.id);return node.images;}});
     assert.deepEqual(snapshot.ids,['outer']);
-    assert.deepEqual(snapshot.excludedIds.slice().sort(),['a','inner','outer']);
+    for(const targetId of ['a','inner','outer']){
+        assert.equal(planner.target({snapshot,nodes,targetId,isGeneration:()=>true,running:()=>false}).reason,'target');
+    }
     assert.equal(new Set(reads).size,reads.length);
     nodes[1].items.push('outer');
     assert.equal(planner.capture(options(nodes)).reason,'unsupported');

@@ -9781,8 +9781,9 @@ function openReferenceGenerateMenu(drag, event, options={}){
         : event.clientY;
     referenceGenerateMenuState = {
         drag:{fromId:drag.fromId, fromPort:drag.fromPort,...(drag.multiInput ? {multiInput:drag.multiInput} : {})},
-        point:drag.multiInput ? options.point : options.point
-            || window.SmartCanvasModules.viewportSelection.viewport.screenToWorld(event),
+        point:drag.multiInput
+            ? options.point
+            : options.point || window.SmartCanvasModules.viewportSelection.viewport.screenToWorld(event),
         clientX,
         clientY,
         trigger:options.trigger || null,
