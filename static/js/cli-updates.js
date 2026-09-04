@@ -125,11 +125,18 @@
 
     const bottom = document.createElement('div');
     bottom.className = 'cli-update-item-bottom';
+    const dates = [];
+    if (item.local_build_time) {
+      const buildTime = String(item.local_build_time).replace('T', ' ').replace(/Z$/, ' UTC');
+      dates.push(trf('cliUpdates.localBuildDate', {date: buildTime}));
+    }
     if (item.release_date) {
-      const date = document.createElement('time');
+      dates.push(trf('cliUpdates.releaseDate', {date: item.release_date}));
+    }
+    if (dates.length) {
+      const date = document.createElement('span');
       date.className = 'cli-update-item-date';
-      date.dateTime = item.release_date;
-      date.textContent = trf('cliUpdates.releaseDate', {date: item.release_date});
+      date.textContent = dates.join(' · ');
       bottom.append(date);
     }
     if (item.source_url) {

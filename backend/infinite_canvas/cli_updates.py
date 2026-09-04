@@ -286,6 +286,7 @@ class DreaminaAdapter(CliAdapter):
                 break
         parsed = parse_version(raw)
         build_identity = ""
+        build_time = ""
         if not parsed:
             try:
                 payload = json.loads(raw)
@@ -293,6 +294,9 @@ class DreaminaAdapter(CliAdapter):
                     build_identity = str(
                         payload.get("version") or payload.get("commit") or ""
                     ).strip()
+                    build_time = str(
+                        payload.get("build_time") or payload.get("buildTime") or ""
+                    ).strip()[:64]
             except (TypeError, ValueError):
                 pass
         return {
@@ -304,6 +308,7 @@ class DreaminaAdapter(CliAdapter):
                 if parsed
                 else build_identity
             ),
+            "local_build_time": build_time,
             "raw_version": raw,
         }
 

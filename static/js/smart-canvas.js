@@ -1503,8 +1503,6 @@ const SMART_FRAME_MIN_HEIGHT = 160;
 const SMART_FRAME_COLORS = ['blue', 'violet', 'amber', 'green', 'slate'];
 const SMART_FRAME_DEFAULT_COLOR = 'slate';
 let smartCanvasNodeGeometrySession = null;
-// 组内成员（提示词/循环）的最大缩放。已移除“放大不超过原始”的限制：向外拉分组时成员随之放大。
-const SMART_GROUP_MAX_MEMBER_ZOOM = 4;
 function mediaGroupThumbWidthPx(){
     const rootSize = typeof window !== 'undefined'
         && typeof window.getComputedStyle === 'function'
