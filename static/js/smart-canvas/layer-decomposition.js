@@ -15,6 +15,7 @@
         ));
         const notify = options.toast || (() => {});
         const save = options.save || (() => {});
+        const checkpoint = options.checkpoint || (async () => {});
         const redraw = options.render || (() => {});
         const now = options.now || (() => Date.now());
         const sleep = options.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms)));
@@ -163,6 +164,7 @@
             pending.layerDecompositionSourceImageIndex = Number(imageIndex) || 0;
             setJob(pending, {status:'submitting',taskId:'',submittedAt:now()});
             try {
+                await checkpoint();
                 const response = await fetch('/api/canvas-layer-decomposition-tasks', {
                     method:'POST',
                     headers:{'Content-Type':'application/json'},

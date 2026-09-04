@@ -90,13 +90,48 @@ function apiPayload(url) {
     await page.addInitScript(() => {
       localStorage.clear();
       sessionStorage.clear();
+      window.__issue31PersistedNodeIds = [];
       class PreviewWebSocket {
         static CONNECTING = 0; static OPEN = 1; static CLOSING = 2; static CLOSED = 3;
         constructor() {
+          this.revision = 1;
           this.readyState = PreviewWebSocket.CONNECTING;
-          setTimeout(() => { this.readyState = PreviewWebSocket.OPEN; this.onopen?.({}); }, 0);
+          setTimeout(() => {
+            this.readyState = PreviewWebSocket.OPEN;
+            this.onopen?.({});
+            this.onmessage?.({data:JSON.stringify({
+              type:'canvas_snapshot',
+              canvas_id:'issue-31-layer-decomposition-browser',
+              revision:this.revision,
+              canvas:{
+                id:'issue-31-layer-decomposition-browser',
+                title:'Issue #31 browser smoke', project:'default', revision:this.revision,
+                nodes:[], connections:[], settings:{}, logs:[],
+              },
+            })});
+          }, 0);
         }
-        send() {}
+        send(raw) {
+          const message = JSON.parse(raw);
+          if (message.type === 'ping') {
+            setTimeout(() => this.onmessage?.({data:JSON.stringify({
+              type:'pong', revision:this.revision,
+            })}), 0);
+            return;
+          }
+          if (message.type !== 'canvas_mutation') return;
+          const operation = message.operation || {};
+          (operation.changes?.node_creates || []).forEach(node => {
+            window.__issue31PersistedNodeIds.push(String((node?.node || node)?.id || ''));
+          });
+          this.revision += 1;
+          setTimeout(() => this.onmessage?.({data:JSON.stringify({
+            type:'canvas_mutation', canvas_id:message.canvas_id,
+            operation_id:operation.operation_id || '', revision:this.revision,
+            changes:operation.changes || {}, duplicate:false,
+            reverts_operation_id:'', undoable:true,
+          })}), 0);
+        }
         close(code=1000) { this.readyState = PreviewWebSocket.CLOSED; this.onclose?.({code}); }
       }
       window.WebSocket = PreviewWebSocket;
@@ -211,9 +246,11 @@ function apiPayload(url) {
         layerGeometry:layers.map(layer => [layer.x,layer.y,layer.w,layer.h]),
         order:layers.map(layer => layer.layerDecomposition.z_index),
         pendingCount:nodes.filter(node => node.layerDecompositionJob).length,
+        persistedNodeIds:[...window.__issue31PersistedNodeIds],
       };
     });
     assert.equal(submissions.length, 1);
+    assert.ok(state.persistedNodeIds.includes(submissions[0].node_id));
     assert.deepEqual({
       provider_id:submissions[0].provider_id,
       model:submissions[0].model,

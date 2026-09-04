@@ -141,6 +141,63 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_controller_persists_pending_node_before_submission(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const assert = require('node:assert/strict');
+            const source = fs.readFileSync({json.dumps(str(MODULE))}, 'utf8');
+            const nodes = [{{
+                id:'source', type:'smart-image', images:[{{
+                    url:'/api/outputs/source.png', media_id:'media-source',
+                    natural_w:1600, natural_h:900, kind:'image'
+                }}]
+            }}];
+            let pendingPersisted = false;
+            let submittedBeforePersistence = false;
+            const sandbox = {{
+                window:{{SmartCanvasModules:{{}}}},
+                fetch:async (url, options={{}}) => {{
+                    if(options.method === 'POST'){{
+                        submittedBeforePersistence = !pendingPersisted;
+                        return {{ok:true,json:async()=>({{task_id:'run-1',status:'queued'}})}};
+                    }}
+                    return {{ok:true,json:async()=>({{id:'run-1',status:'failed'}})}};
+                }},
+                console,
+            }};
+            vm.createContext(sandbox);
+            vm.runInContext(source, sandbox);
+            const controller = sandbox.window.SmartCanvasModules.layerDecomposition.create({{
+                nodes:() => nodes,
+                canvasId:() => 'canvas-1',
+                capability:{{
+                    load:async()=>({{support_state:'supported',catalog_revision:'rev-1'}}),
+                    validate:()=>({{valid:true,errors:[]}}),
+                }},
+                createPending:sourceNode => {{
+                    const pending = {{id:'pending',type:'smart-image',images:[],sourceNodeId:sourceNode.id}};
+                    nodes.push(pending);
+                    return pending;
+                }},
+                checkpoint:async()=>{{ pendingPersisted = true; }},
+                save:()=>{{}}, render:()=>{{}}, toast:()=>{{}},
+                text:key => key, now:()=>100, sleep:async()=>{{}},
+            }});
+            (async()=>{{
+                await controller.run({{node:nodes[0],imageIndex:0,resolutionTier:'2K',prompt:''}});
+                assert.equal(pendingPersisted, true);
+                assert.equal(submittedBeforePersistence, false);
+                console.log('ok');
+            }})().catch(error => {{ console.error(error); process.exitCode=1; }});
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_invalid_completed_result_becomes_recoverable_without_requery_loop(self):
         script = textwrap.dedent(
             f"""

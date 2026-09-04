@@ -99,6 +99,7 @@ const smartLayerDecomposition = smartLayerDecompositionFactory.create({
     createPending:createLayerDecompositionPendingNode,
     applyResult:applyLayerDecompositionResult,
     save:() => canvasPersistence.schedule(),
+    checkpoint:() => canvasPersistence.checkpoint({timeout:5000}),
     render:() => render(),
     toast,
     text:key => tr(key),
