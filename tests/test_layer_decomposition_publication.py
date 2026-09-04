@@ -7,6 +7,7 @@ from PIL import Image
 
 from infinite_canvas.generation_runs import (
     GenerationEffectPorts,
+    GenerationOutputPorts,
     GenerationRunConflict,
     ImageRun,
     WorkspaceGenerationEffects,
@@ -141,6 +142,43 @@ class LayerDecompositionPublicationTests(unittest.IsolatedAsyncioTestCase):
             manifest, prepared.canvas["layer_decomposition_manifest"]
         )
         self.assertEqual(2, len(self.saved))
+
+    async def test_sqlite_output_ports_can_validate_materialized_files(self):
+        self.make_image("base.png", (1000, 800), (255, 255, 255, 255))
+        self.make_image("title.png", (200, 100), (255, 0, 0, 128))
+        effects = WorkspaceGenerationEffects(
+            GenerationOutputPorts(
+                save_image=self.save_image,
+                image_meta=lambda url, _source: {"url": url},
+                extract_images=lambda _raw: [],
+                output_file_from_url=self.output_file,
+                now=lambda: 1_788_474_600.0,
+            ),
+            publication=object(),
+        )
+
+        prepared = await effects.prepare(
+            "run-layer-sqlite",
+            self.request(),
+            self.output(
+                [
+                    {
+                        "url": "https://provider.test/title.png",
+                        "width": 200,
+                        "height": 100,
+                        "output_format": "png",
+                        "name": "Title",
+                        "description": "Title layer",
+                        "z_index": 1,
+                        "absolute_bbox": [100, 50, 300, 150],
+                        "normalized_bbox": [100, 62, 300, 187],
+                        "source_index": 1,
+                    }
+                ]
+            ),
+        )
+
+        self.assertEqual("image_layer_decomposition", prepared.result["kind"])
 
     async def test_partial_layer_failure_keeps_successful_materials_but_never_succeeds(self):
         self.make_image("base.png", (1000, 800), (255, 255, 255, 255))

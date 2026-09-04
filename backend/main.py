@@ -11079,6 +11079,7 @@ _GENERATION_OUTPUT_PORTS = GenerationOutputPorts(
     extract_images=_provider_implementation.extract_images,
     now=time.time,
     now_ms=now_ms,
+    output_file_from_url=output_file_from_url,
     save_video=_provider_implementation.save_remote_video_to_output,
     save_asset=_provider_implementation.save_remote_asset_to_output,
     save_text=_provider_implementation.save_comfy_text_output,

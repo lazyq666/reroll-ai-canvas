@@ -3194,6 +3194,7 @@ class GenerationOutputPorts:
     extract_images: Callable[[Any], list[Any]]
     now: Callable[[], float] = time.time
     now_ms: Callable[[], int] = lambda: int(time.time() * 1000)
+    output_file_from_url: Callable[[str], str | None] | None = None
     save_video: Callable[..., Awaitable[str]] | None = None
     save_asset: Callable[..., Awaitable[str]] | None = None
     save_text: Callable[..., str] | None = None
