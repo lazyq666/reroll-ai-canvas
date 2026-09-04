@@ -1,7 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from fastapi import HTTPException
 
@@ -404,6 +404,104 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
                 await main.model_capability_workbench_snapshot()
 
         self.assertEqual(403, raised.exception.status_code)
+
+    async def test_manual_refresh_runs_the_source_manager_after_admin_check(self):
+        actor = {"id": "admin-1", "role": "admin"}
+        refresh = AsyncMock(
+            return_value={
+                "ok": True,
+                "enabled": True,
+                "drafts_created": 1,
+                "evidence_created": 1,
+            }
+        )
+        manager = Mock()
+        manager.refresh = refresh
+        with (
+            patch.object(main, "require_current_user", return_value=actor),
+            patch.object(main, "MODEL_CAPABILITY_REFRESH", manager),
+        ):
+            result = await main.refresh_model_capability_catalog()
+
+        refresh.assert_awaited_once_with(force=True)
+        self.assertEqual(1, result["refresh"]["drafts_created"])
+
+    async def test_admin_matrix_lists_models_without_requiring_a_draft(self):
+        actor = {"id": "admin-1", "role": "admin"}
+        matrix = Mock()
+        matrix.snapshot.return_value = {
+            "models": [{"model_id": "shared-model", "providers": [{"name": "A"}, {"name": "B"}]}],
+            "summary": {"models": 1},
+            "catalog_revision": "catalog-1",
+        }
+        with (
+            patch.object(main, "require_current_user", return_value=actor),
+            patch.object(main, "MODEL_CAPABILITY_MATRIX", matrix),
+        ):
+            result = await main.model_capability_matrix_snapshot()
+
+        self.assertEqual(1, result["summary"]["models"])
+        self.assertEqual("shared-model", result["models"][0]["model_id"])
+
+    async def test_admin_matrix_applies_product_choices_through_one_interface(self):
+        actor = {"id": "admin-1", "role": "admin"}
+        matrix = Mock()
+        matrix.apply.return_value = {"published": 2}
+        matrix.snapshot.return_value = {"models": [], "summary": {"models": 0}}
+        payload = main.ModelCapabilityMatrixUpdatePayload(
+            model_id="shared-model",
+            name="Shared Model",
+            operations=[
+                main.ModelCapabilityMatrixOperationPayload(
+                    operation="image.generate",
+                    confirmed=True,
+                    inputs={"text": 1, "image": 2},
+                    resolutions=["2K"],
+                    aspect_ratios=["1:1"],
+                    output_count_maximum=2,
+                    options=["transparent_png"],
+                )
+            ],
+        )
+        with (
+            patch.object(main, "require_current_user", return_value=actor),
+            patch.object(main, "MODEL_CAPABILITY_MATRIX", matrix),
+        ):
+            result = await main.update_model_capability_matrix(payload)
+
+        self.assertEqual(2, result["result"]["published"])
+        matrix.apply.assert_called_once()
+        called = matrix.apply.call_args.kwargs
+        self.assertEqual("shared-model", called["model_id"])
+        self.assertEqual("admin-1", called["actor_id"])
+        self.assertEqual(["2K"], called["operations"][0]["resolutions"])
+
+    async def test_admin_can_preview_an_external_capability_import(self):
+        actor = {"id": "admin-1", "role": "admin"}
+        matrix = Mock()
+        matrix.import_bundle.return_value = {
+            "applied": False,
+            "preview": {
+                "models": 1,
+                "operations": 1,
+                "platform_variants": 2,
+            },
+        }
+        package = {"schema_version": 1, "models": []}
+        with (
+            patch.object(main, "require_current_user", return_value=actor),
+            patch.object(main, "MODEL_CAPABILITY_MATRIX", matrix),
+        ):
+            result = await main.import_model_capability_matrix(
+                main.ModelCapabilityImportRequest(apply=False, bundle=package)
+            )
+
+        self.assertFalse(result["applied"])
+        matrix.import_bundle.assert_called_once_with(
+            bundle=package,
+            actor_id="admin-1",
+            apply=False,
+        )
 
 
 if __name__ == "__main__":
