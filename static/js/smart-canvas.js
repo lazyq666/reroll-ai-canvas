@@ -12500,7 +12500,7 @@ function deleteImage(id, imageIndex){
     const mediaDisplaySize = typeof generationOutputMediaDisplaySize === 'function'
         ? generationOutputMediaDisplaySize(node)
         : null;
-    if(smartContainer.isGroup(node)){
+    if(typeof smartContainer !== 'undefined' && smartContainer.isGroup?.(node) && smartContainer.takeMedia){
         smartContainer.takeMedia(node,imageIndex);
         smartContainer.arrange(node,{skipUndo:true,syncDom:true});
     } else {
