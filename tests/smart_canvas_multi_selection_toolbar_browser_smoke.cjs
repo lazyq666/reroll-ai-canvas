@@ -13,7 +13,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
         const page = await context.newPage();
         page.setDefaultTimeout(15000);
         await page.goto(`${baseUrl}/static/smart-canvas.html?id=multi-selection-toolbar-regression`, {
-            waitUntil:'networkidle',
+            waitUntil:'domcontentloaded',
         });
         await page.waitForFunction(() => Boolean(
             window.SmartCanvasModules?.viewportSelection?.selection
@@ -71,13 +71,49 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
             contract:'ready',
             label:'多选节点操作',
             nativeButtonCount:0,
-            buttonCount:5,
-            layouts:['grid', 'horizontal', 'vertical', 'tree'],
-            actions:['download'],
-            labels:['宫格', '水平', '垂直', '树状', '下载'],
-            icons:['layout-grid', 'layout-horizontal', 'layout-vertical', 'layout-tree', 'download'],
-            disabled:[false, false, false, false, false],
+            buttonCount:7,
+            layouts:['grid', 'horizontal', 'vertical', 'tree-vertical', 'tree-horizontal'],
+            actions:['generate', 'download', 'publish-workspace-assets'],
+            labels:['生成图片/视频', '宫格', '水平', '垂直', '树状', '下载', '添加到资产库'],
+            icons:['online-generate', 'layout-grid', 'layout-horizontal', 'layout-vertical', 'layout-tree', 'expand', 'download', 'collection'],
+            disabled:[true, false, false, false, false, false, false],
         });
+
+        const treeTrigger = page.locator('#smartNodeFloatingPortal [data-smart-tree-layout-trigger]');
+        await treeTrigger.focus();
+        await treeTrigger.press('Enter');
+        await page.waitForFunction(() => document.querySelector('[data-smart-tree-layout-menu]')?.hasAttribute('open'));
+        const treeMenu = await page.locator('[data-smart-tree-layout-menu]').evaluate(menu => ({
+            label:menu.getAttribute('label'),
+            values:[...menu.querySelectorAll('ic-menu-item')].map(item => item.getAttribute('value')),
+            labels:[...menu.querySelectorAll('ic-menu-item')].map(item => item.getAttribute('label')),
+            focused:document.activeElement?.getAttribute('value'),
+        }));
+        assert.deepEqual(treeMenu, {
+            label:'树状整理',
+            values:['tree-vertical', 'tree-horizontal'],
+            labels:['分支纵排', '分支横排'],
+            focused:'tree-vertical',
+        });
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('[data-smart-tree-layout-menu]')?.hasAttribute('open'));
+        assert.deepEqual(await page.evaluate(() => selectedIds.slice()), ['multi-a', 'multi-b']);
+        await page.evaluate(() => window.StudioI18n.set('en'));
+        await page.waitForFunction(() => (
+            document.querySelector('[data-smart-tree-layout-trigger]')?.textContent.trim() === 'tree'
+        ));
+        assert.deepEqual(await page.locator('[data-smart-tree-layout-menu]').evaluate(menu => ({
+            label:menu.getAttribute('label'),
+            labels:[...menu.querySelectorAll('ic-menu-item')].map(item => item.getAttribute('label')),
+        })), {
+            label:'Tree arrangement',
+            labels:['Vertical branches', 'Horizontal branches'],
+        });
+        await page.evaluate(() => window.StudioI18n.set('zh'));
+        await page.waitForFunction(() => (
+            document.querySelector('[data-smart-tree-layout-trigger]')?.textContent.trim() === '树状'
+        ));
+        await page.waitForTimeout(250);
 
         const selectionOverlay = await page.locator('#smartMultiSelectionBox').evaluate(overlay => {
             const style=getComputedStyle(overlay);
@@ -147,7 +183,6 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
             node.w > previous[index].w && node.h > previous[index].h
         )), beforeResize);
         const resizeInteraction = await page.evaluate(previous => ({
-            selectedIds:selectedIds.slice(),
             nodes:nodes.map((node, index) => ({
                 id:node.id,
                 grew:node.w > previous[index].w && node.h > previous[index].h,
@@ -155,12 +190,18 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
             activeInteraction:window.SmartCanvasModules.canvasInteraction.active(),
         }), beforeResize);
         assert.deepEqual(resizeInteraction, {
-            selectedIds:['multi-a', 'multi-b'],
             nodes:[
                 {id:'multi-a', grew:true},
                 {id:'multi-b', grew:true},
             ],
             activeInteraction:null,
+        });
+
+        await page.evaluate(() => {
+            selectedId = '';
+            selectedIds = nodes.map(node => node.id);
+            syncSmartNodeFloatingPortal();
+            window.SmartCanvasModules.viewportSelection.selection.refresh();
         });
 
         const themeStyles = {};
@@ -228,7 +269,6 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
                 iconStrokeWidth:'1.5px',
             },
         });
-
         await page.locator('#smartNodeFloatingPortal [data-smart-multi-layout="horizontal"]').click();
         await page.waitForFunction(() => nodes.length === 2 && nodes[0].y === nodes[1].y);
         const horizontalLayout = await page.evaluate(() => ({

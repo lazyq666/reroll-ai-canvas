@@ -52,10 +52,11 @@
             const candidate = w / h;
             const error = 1 - Math.min(actual / candidate, candidate / actual);
             if(error < nearestError){
-                nearest = {width:w,height:h,approximate:true};
+                nearest = {width:w,height:h,approximate:false};
                 nearestError = error;
             }
         }
+        // Within tolerance, present the familiar preset without an approximation marker.
         // The small epsilon only absorbs floating-point noise at the inclusive 1% boundary.
         if(nearestError <= MAX_CROP_LOSS + Number.EPSILON * 8) return nearest;
         const longPart = Number((Math.max(width,height) / Math.min(width,height)).toFixed(2));

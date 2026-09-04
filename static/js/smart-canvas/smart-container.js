@@ -59,13 +59,10 @@ function smartContainerLayout(node){
     if(smartContainerIsGroup(node)) return smartContainerGroupLayout(node);
     return null;
 }
-function smartContainerLegacyMediaId(group, index){
-    return `legacy:${String(group?.id || 'group')}:${index}`;
-}
 function smartContainerMediaId(group, image, index){
     return String(
         image?.groupMemberId
-        || smartContainerLegacyMediaId(group,index)
+        || `legacy:${String(group?.id || 'group')}:${index}`
     );
 }
 function smartContainerOrderedEntries(group){
@@ -118,8 +115,7 @@ function smartContainerOrderedEntries(group){
     return ordered;
 }
 function smartContainerNormalizeOrder(group){
-    if(!smartContainerIsGroup(group)) return false;
-    let changed = false;
+    if(!smartContainerIsGroup(group)) return;
     group.images = Array.isArray(group.images) ? group.images : [];
     group.items = [...new Set(
         (Array.isArray(group.items) ? group.items : [])
@@ -129,11 +125,7 @@ function smartContainerNormalizeOrder(group){
     group.images.forEach(image => {
         if(image?.groupMemberId) return;
         image.groupMemberId = uid('group-media');
-        changed = true;
     });
-    const previous = Array.isArray(group.memberOrder)
-        ? JSON.stringify(group.memberOrder)
-        : '';
     const entries = smartContainerOrderedEntries(group);
     group.memberOrderVersion = SMART_GROUP_MEMBER_ORDER_VERSION;
     group.memberOrder = entries.map(entry => ({
@@ -145,8 +137,6 @@ function smartContainerNormalizeOrder(group){
     group.items = group.memberOrder
         .filter(entry => entry.kind === 'node')
         .map(entry => entry.id);
-    if(previous !== JSON.stringify(group.memberOrder)) changed = true;
-    return changed;
 }
 function smartContainerGroupMembers(node){
     return smartContainerOrderedEntries(node)
@@ -1012,7 +1002,6 @@ window.SmartCanvasModules.smartContainer = Object.freeze({
     layout:smartContainerLayout,
     groupMembers:smartContainerGroupMembers,
     frameMembers:smartContainerFrameMembers,
-    descendantIds:smartContainerDescendantIds,
     expand:smartContainerExpand,
     groupFor:smartContainerGroupFor,
     frameFor:smartContainerFrameFor,

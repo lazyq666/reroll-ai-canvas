@@ -90,7 +90,7 @@ class SmartCanvasFrameUiTests(unittest.TestCase):
 
     def test_frame_membership_move_and_delete_semantics_are_wired(self):
         self.assertIn("function smartContainerReconcileFrames", self.script)
-        self.assertIn("smartContainer.descendantIds(node)", self.script)
+        self.assertIn("smartContainer.expand([node.id])", self.script)
         self.assertIn(
             "dragIds = canvasInteractionContainerModule.expand(dragIds)",
             self.script,
@@ -100,7 +100,10 @@ class SmartCanvasFrameUiTests(unittest.TestCase):
             self.script,
         )
         self.assertIn("preserveFrameContents:Boolean(e.ctrlKey || e.metaKey)", self.script)
-        self.assertIn("if(!options.preserveFrameContents)", self.script)
+        self.assertIn(
+            "smartContainerIsFrame(node) && !options.preserveFrameContents",
+            self.script,
+        )
 
     def test_frame_members_are_preserved_across_copy_and_import(self):
         self.assertGreaterEqual(

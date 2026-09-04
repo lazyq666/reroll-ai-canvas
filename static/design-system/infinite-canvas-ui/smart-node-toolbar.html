@@ -27,7 +27,11 @@
       <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="layout-grid" size="x-small"></ic-icon>宫格</ic-button>
       <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="layout-horizontal" size="x-small"></ic-icon>水平</ic-button>
       <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="layout-vertical" size="x-small"></ic-icon>垂直</ic-button>
-      <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="layout-tree" size="x-small"></ic-icon>树状</ic-button>
+      <ic-menu size="small" trigger="dropdown" selection="command" placement="block-end" alignment="end" label="树状整理">
+        <ic-button slot="trigger" type="button" size="xs" hierarchy="quiet" aria-haspopup="menu" aria-expanded="false"><ic-icon slot="start" name="layout-tree" size="x-small"></ic-icon>树状<ic-icon slot="end" name="expand" size="x-small"></ic-icon></ic-button>
+        <ic-menu-item kind="command" value="tree-vertical" icon="layout-vertical" label="分支纵排"></ic-menu-item>
+        <ic-menu-item kind="command" value="tree-horizontal" icon="layout-horizontal" label="分支横排"></ic-menu-item>
+      </ic-menu>
       <ic-button type="button" size="xs" hierarchy="quiet"><ic-icon slot="start" name="download" size="x-small"></ic-icon>下载</ic-button>
     </ic-smart-node-toolbar></article>
     <article data-smart-node-toolbar-variant="smart-group"><ic-smart-node-toolbar data-preview-state="visible" label="编组操作">

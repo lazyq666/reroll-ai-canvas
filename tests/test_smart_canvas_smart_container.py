@@ -584,7 +584,6 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 "addMedia",
                 "arrange",
                 "compactMembers",
-                "descendantIds",
                 "dragTarget",
                 "expand",
                 "frameFor",

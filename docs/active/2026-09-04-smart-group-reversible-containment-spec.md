@@ -4,7 +4,7 @@
 - **Feature ID**：F05；关联 F06 / F09 / F13
 - **Owners**：产品 / UI / 交互 / 前端 / 后端 / 测试
 - **Last verified**：2026-09-04；Smart Container、Canvas Interaction、Mutation / Persistence、Realtime 校验、Viewport / Minimap、只读分享和 i18n 自动化通过；真实双端及人工 Gate 待验证
-- **Applies to**：[Issue #28](https://github.com/lazyq666/reroll-ai-canvas/issues/28)；目标发布版本待实施时确定
+- **Applies to**：[Issue #28](https://github.com/lazyq666/reroll-ai-canvas/issues/28)；目标发布版本 `2026.09.04.2`
 - **Supersedes**：无；通过验收前不覆盖[Smart Canvas 编组与分区命名](../current/smart-canvas-container-terminology.md)或其他 Current 行为
 - **Superseded by**：无
 - **Related ADRs**：[UI 家族模块所有权](../adr/0002-ui-family-module-ownership.md)、[Smart Group 成员权威与有序投影](../adr/0010-smart-group-member-authority.md)
@@ -248,6 +248,7 @@ direct media in Smart Group → Image Node
 - Group Presentation 属于 Smart Group Node 家族的内容呈现；页面宿主提供成员投影和动作，公共组件不直接写 Canvas Store 或自行迁移成员。
 - “解散编组”和“删除编组”在标签、辅助名称和结果上可区分；删除沿用危险动作层级，解散使用保留内容的普通动作层级。
 - 拖出预览需要让用户看见将恢复的尺寸和落点，但不新增页面级阴影、品牌色、圆角或动效常量。
+- 选中 Smart Group 内的图片时，仅图片呈现一层完整且不被裁切的选中反馈；Smart Group 可以继续承载工具栏与键盘路由所需的逻辑选择，但不得同时绘制容器选框。
 - 自动截图覆盖 Light / Dark、Desktop / Narrow、Reduced Motion 和极端宽高比；人工验收确认缩略展示不会让用户误以为内容被永久改变。
 
 ## 14. Implementation decisions
@@ -277,6 +278,7 @@ direct media in Smart Group → Image Node
 | Pointer 拖出 Node Member | 浏览器 Pointer | 保持 ID 和还原尺寸，落点及抓取锚点稳定；取消不变化 |
 | 拖出 Media Member | 浏览器 Pointer | 创建一个新 ID 的标准尺寸 Image Node，并从原编组移除该媒体 |
 | 混合成员重排 | 纯模块 + 保存重载 | Node / Media 共用稳定总顺序，预览、下载与生成解析一致 |
+| 组内图片选中 | 真实页面 Pointer + 计算样式 | 单图和网格图仅保留图片自身的一层选中反馈；Smart Group 外框不重复高亮，选框顶部不被裁切 |
 | Smart Group A 转移到 B | 双端 Canvas Sync | 任一 Revision 只存在一个所有者；一次 Undo 恢复 A，不能出现双重归属 |
 | 成员自有 Connection | 浏览器 + Connection Layer | 编组时视觉投影，解散后仍绑定原 Node ID |
 | 编组级 Connection | Canvas Mutation + 浏览器 | 解散时同一操作删除并反馈数量；Undo 完整恢复 |
@@ -347,5 +349,6 @@ direct media in Smart Group → Image Node
 
 | Date | Status | Change | Evidence/decision |
 | --- | --- | --- | --- |
+| 2026-09-04 | Fixed / Review pending | 组内图片选中时关闭 Smart Group 宿主选框和网格缩略图外扩选框，仅保留图片自身的完整选中反馈 | 单图与网格图真实浏览器 Pointer / 计算样式回归通过 |
 | 2026-09-04 | Implemented / Review pending | Node 成员保留身份与原几何；直接媒体获得稳定成员 ID；新增跨类型顺序、派生展示、拖出/解组、唯一所有权、复制重映射、空间投影、分享投影与 Realtime 校验 | 228 项相关 Python 测试、16 项 Node 测试、Smart Group 与 Share 浏览器 smoke、3128-key i18n 校验通过；人工与真实双端 Gate 待完成 |
 | 2026-09-04 | Approved | 从“解散后恢复图片尺寸”扩展为可逆编组、成员分类、几何分层、唯一所有权、Connection、协作、迁移和验收合同 | 用户确认；Issue #28；当前代码与测试路径遍历 |

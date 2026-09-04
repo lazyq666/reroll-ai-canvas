@@ -39,29 +39,29 @@
         try {
             await nextFrame();
             check(document.documentElement.dataset.nodesStatus === 'ready','Real Smart Canvas review page ready');
-            for(const [id,label] of [['exact','1:1'],['simple','7:4'],['near','≈ 16:9'],['decimal','≈ 1.71:1'],['ultrawide','≈ 2.37:1']]){
+            for(const [id,label] of [['exact','1:1'],['simple','7:4'],['near','16:9'],['decimal','≈ 1.71:1'],['ultrawide','≈ 2.37:1']]){
                 check(texts(id)[0] === label, `${id}: ${label}`);
                 check(element(id).querySelectorAll('.image-metadata-badges > span').length === 2,`${id}: separate badges`);
             }
-            check(texts('multi').join(',') === '≈ 2.37:1,≈ 3:2,≈ 9:16','All images in a multi-image Node have individual ratios');
-            check(texts('group').join(',') === '7:4,≈ 16:9','Smart Group media use the same badge rules');
+            check(texts('multi').join(',') === '≈ 2.37:1,3:2,9:16','All images in a multi-image Node have individual ratios');
+            check(texts('group').join(',') === '7:4,16:9','Smart Group media use the same badge rules');
             check(!element('partial').querySelector('.image-metadata-badges'),'Incomplete natural size stays hidden before load');
             const originalSize = element('near').getBoundingClientRect();
             window.StudioI18n.set('en');
             await nextFrame();
-            check(element('near').querySelector('.image-aspect-ratio-badge').getAttribute('aria-label') === 'Aspect ratio: approximately 16:9','English dynamic description');
+            check(element('near').querySelector('.image-aspect-ratio-badge').getAttribute('aria-label') === 'Aspect ratio: 16:9','English dynamic description');
             check(element('near').querySelector('.image-resolution-badge').getAttribute('aria-label') === 'Resolution: 1920 by 1088 pixels','English resolution description');
-            check(texts('near')[0] === '≈ 16:9','English ratio keeps the approximation marker');
+            check(texts('near')[0] === '16:9','English ratio omits the approximation marker within tolerance');
             check(imageResolutionLabel(image(1920,1088)) === '1920 x 1088','Generation log dimensions remain resolution-only');
             check(smartLogSizeSummary({request:{size:'1920x1088'}},[image(1920,1088)]) === trf('smart.actual',{actual:'1920 x 1088'}),'English log recognizes matching pixel sizes');
             check(smartLogSizeSummary({request:{size:'1920x1080'}},[image(1920,1088)]) === trf('smart.requestActual',{requested:'1920 x 1080',actual:'1920 x 1088'}),'English log preserves distinct requested and actual pixel sizes');
             window.StudioI18n.set('zh');
             await nextFrame();
-            check(element('near').querySelector('.image-aspect-ratio-badge').getAttribute('aria-label') === '宽高比约为 16:9','Chinese dynamic description');
+            check(element('near').querySelector('.image-aspect-ratio-badge').getAttribute('aria-label') === '宽高比：16:9','Chinese dynamic description');
             check(Math.abs(element('near').getBoundingClientRect().width - originalSize.width) < 0.1,'Badges do not resize the Node');
             const deadline = Date.now()+5000;
             while(!element('partial').querySelector('.image-aspect-ratio-badge') && Date.now()<deadline) await nextFrame();
-            check(texts('partial')[0] === '≈ 3:2','Incomplete dimensions recover from the original image load');
+            check(texts('partial')[0] === '3:2','Incomplete dimensions recover from the original image load');
             check(element('partial').querySelector('.image-resolution-badge').textContent === '1000×667','Resolution and ratio refresh together');
             // Exercise the same update used by the original-image load path on a thumbnail.
             const thumb = element('multi').querySelector('.thumb-item');

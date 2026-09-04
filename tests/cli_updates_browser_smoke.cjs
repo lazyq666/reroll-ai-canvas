@@ -78,7 +78,8 @@ async function main() {
     assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-state').textContent(),'无法判断');
     assert.deepEqual(await page.locator('.cli-update-item[data-cli-id="codex"] .cli-update-version-value').allTextContents(),['1.0.0','2.0.0']);
     assert.deepEqual(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-version-caption').allTextContents(),['本机构建','官方发行']);
-    assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-date').textContent(),'本机构建 2026-07-13 15:39:22 UTC · 官方发布 2026-08-18');
+    assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-date').textContent(),'本机构建 2026-07-13 · 官方发布 2026-08-18');
+    assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-date').getAttribute('title'),'2026-07-13T15:39:22Z');
     assert.equal(await page.locator('.cli-update-item .cli-update-icon img').count(),2,'known CLI icons are visible');
     const tones = await page.evaluate(() => ({
       update: getComputedStyle(document.querySelector('.cli-update-state.is-update')).color,
@@ -110,7 +111,7 @@ async function main() {
     assert.equal(await page.locator('.cli-update-item[data-cli-id="codex"] .cli-update-state').textContent(),'Update available');
     assert.match(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-detail').textContent(),/build identity/);
     assert.match(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-detail').textContent(),/no reliable mapping/);
-    assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-date').textContent(),'Local build 2026-07-13 15:39:22 UTC · Official release 2026-08-18');
+    assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-date').textContent(),'Local build 2026-07-13 · Official release 2026-08-18');
     assert.equal(await page.locator('.cli-update-item[data-cli-id="codex"] .cli-update-item-bottom a').getAttribute('aria-label'),'View the official release page for Codex CLI');
 
     await page.locator('#cliUpdateDialog').getByRole('button',{name:'Close'}).click();

@@ -30,7 +30,9 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
                     const images = Array.from({length:imageCount}, (_, index) => ({
                         url:${JSON.stringify(imageUrl)},
                         name:'group-' + (index + 1) + '.png',
-                        kind:'image'
+                        kind:'image',
+                        natural_w:1024,
+                        natural_h:1536
                     }));
                     const members = mode === 'full'
                         ? [
@@ -84,8 +86,51 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         const singleDisabled = await readDisabled();
         assert.deepEqual(singleDisabled, [false, false, true, false, false]);
 
+        await page.locator('.smart-group-node .smart-group-single-thumb').click();
+        await page.waitForFunction(() => (
+            selectedId === 'smart-group-a'
+            && selectedImage.nodeId === 'smart-group-a'
+            && Number(selectedImage.index) === 0
+        ));
+        const singleMediaSelection = await page.evaluate(() => {
+            const group = document.querySelector('.smart-group-node[data-id="smart-group-a"]');
+            const media = group?.querySelector('.smart-group-single-thumb');
+            return {
+                groupSelected:group?.classList.contains('selected'),
+                mediaSelected:media?.classList.contains('image-selected'),
+                groupSelectionOverlay:getComputedStyle(group, '::before').content,
+            };
+        });
+
         await page.evaluate(() => window.__installSmartGroupToolbarFixture('full'));
         await waitForToolbar();
+        await page.locator('.smart-group-node .thumb-item').first().click();
+        await page.waitForFunction(() => (
+            selectedId === 'smart-group-a'
+            && selectedImage.nodeId === 'smart-group-a'
+            && Number(selectedImage.index) === 0
+        ));
+        const gridMediaSelection = await page.evaluate(() => {
+            const group = document.querySelector('.smart-group-node[data-id="smart-group-a"]');
+            const media = group?.querySelector('.thumb-item.image-selected');
+            return {
+                groupSelected:group?.classList.contains('selected'),
+                mediaSelected:Boolean(media),
+                groupSelectionOverlay:getComputedStyle(group, '::before').content,
+                mediaSelectionOverlay:getComputedStyle(media, '::after').content,
+            };
+        });
+        assert.deepEqual(gridMediaSelection, {
+            groupSelected:true,
+            mediaSelected:true,
+            groupSelectionOverlay:'none',
+            mediaSelectionOverlay:'none',
+        });
+        assert.deepEqual(singleMediaSelection, {
+            groupSelected:true,
+            mediaSelected:true,
+            groupSelectionOverlay:'none',
+        });
         const state = await page.locator('#smartNodeFloatingPortal').evaluate(portal => ({
             open:portal.classList.contains('open'),
             above:!portal.classList.contains('place-below'),
@@ -300,6 +345,8 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             passed:true,
             emptyDisabled,
             singleDisabled,
+            singleMediaSelection,
+            gridMediaSelection,
             state,
             themeStyles,
             previewState,
