@@ -153,19 +153,32 @@ class LayerDecompositionResponseTests(unittest.TestCase):
         inconsistent_normalized["result"]["images"][0]["layers"][1][
             "bounding_box"
         ]["normalized"] = [400, 400, 500, 500]
-        inconsistent_size = apimart_result()
-        inconsistent_size["result"]["images"][0]["sizes"][1] = "70x80"
-        inconsistent_size["result"]["images"][0]["layers"][1]["size"] = "70x80"
 
         for payload, code in (
             (invalid_base, "base_metadata"),
             (inconsistent_normalized, "bbox_inconsistent"),
-            (inconsistent_size, "layer_bbox_dimensions"),
         ):
             with self.subTest(code=code):
                 with self.assertRaises(LayerDecompositionError) as raised:
                     parse_apimart_layer_decomposition(payload)
                 self.assertEqual(code, raised.exception.code)
+
+    def test_accepts_layer_pixel_size_independent_from_placement_bbox(self):
+        payload = apimart_result(width=1600, height=900)
+        image = payload["result"]["images"][0]
+        image["sizes"][1] = "400x300"
+        image["layers"][1]["size"] = "400x300"
+        image["layers"][1]["bounding_box"] = {
+            "absolute": [100, 100, 500, 350],
+            "normalized": [63, 111, 313, 389],
+        }
+
+        result = parse_apimart_layer_decomposition(payload)
+
+        self.assertEqual(
+            (400, 300), (result.layers[0].width, result.layers[0].height)
+        )
+        self.assertEqual((100, 100, 500, 350), result.layers[0].absolute_bbox)
 
     def test_provider_metadata_is_redacted_and_bounded(self):
         payload = {

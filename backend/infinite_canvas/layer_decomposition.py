@@ -257,13 +257,6 @@ def parse_apimart_layer_decomposition(
             coordinate_space="normalized",
             maximum=(1000, 1000),
         )
-        bbox_width = absolute[2] - absolute[0]
-        bbox_height = absolute[3] - absolute[1]
-        if abs(bbox_width - width) > 1 or abs(bbox_height - height) > 1:
-            raise LayerDecompositionError(
-                "layer_bbox_dimensions",
-                "Layer dimensions do not match its absolute bounding box",
-            )
         expected_normalized = (
             absolute[0] / canvas_width * 1000,
             absolute[1] / canvas_height * 1000,
