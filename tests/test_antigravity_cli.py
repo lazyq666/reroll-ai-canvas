@@ -285,6 +285,7 @@ class AntigravityCliTests(unittest.TestCase):
                         provider="gemini-cli",
                         images=[image],
                         videos=[video],
+                        catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
                     )
                 )
             )

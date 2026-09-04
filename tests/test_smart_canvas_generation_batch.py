@@ -842,7 +842,7 @@ class SmartCanvasGenerationBatchTests(unittest.TestCase):
             ["smart-image-new.png"],
         )
 
-    def test_provider_routes_each_request_to_its_precreated_slot(self):
+    def test_provider_submits_one_run_for_all_precreated_slots(self):
         payload = self.run_node(
             f"""
             const fs=require('fs');const vm=require('vm');
@@ -861,19 +861,19 @@ class SmartCanvasGenerationBatchTests(unittest.TestCase):
         )
         self.assertEqual(
             [body["node_id"] for body in payload["bodies"]],
-            ["slot-0", "slot-1", "slot-2", "slot-3"],
+            ["slot-0"],
         )
         self.assertEqual(
             [body["generation_request_index"] for body in payload["bodies"]],
-            [0, 1, 2, 3],
+            [0],
         )
         self.assertEqual(
             [task["generationSlotIndex"] for task in payload["tasks"]],
-            [0, 1, 2, 3],
+            [0],
         )
         self.assertEqual(
             [task["nodeId"] for task in payload["tasks"]],
-            ["slot-0", "slot-1", "slot-2", "slot-3"],
+            ["slot-0"],
         )
 
 

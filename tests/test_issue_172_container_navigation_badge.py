@@ -20,7 +20,7 @@ class Issue172ContainerNavigationBadgeTests(unittest.TestCase):
         self.assertIn('class="smart-container-navigation-badge"', helper)
 
         render_start = self.host.index("const canvasFarMode = canvasLevelOfDetail.diagnostics().mode === 'far'")
-        render_end = self.host.index("\n        return {node, html};", render_start)
+        render_end = self.host.index("\n        return {node,position,html};", render_start)
         render = self.host[render_start:render_end]
         self.assertIn("runtimeStatus:canvasFarMode", render)
         self.assertIn("? smartContainerNavigationBadgeHtml(node, navigationTitle)", render)

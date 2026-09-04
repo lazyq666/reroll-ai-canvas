@@ -52,7 +52,7 @@
 - Manifest 固定记录来源媒体、Provider、Model、Resolution Tier、Generation Run、上游任务、创建时间、底图 Managed Media、画布尺寸，以及 `1–16` 个透明 PNG 图层。每层固定记录 Managed Media、名称、描述、`z_index`、`left/top/right/bottom` 顺序的绝对像素坐标和 `0–1000` 归一化坐标、像素宽高与输出格式。
 - 可选 `provider_raw_metadata` 只能保存有大小上限且已经脱敏的诊断快照；不得保存 API Key、签名 URL 中的秘密或无界上游响应。
 
-该合同是 Issue #31 Provider 接入、Manifest 持久化和 Smart Canvas 重建的前置权威；只有合同落地不代表拆层请求、下载或画布交付已经实施。
+该合同已由 Issue #31 的 Provider 接入、Manifest 持久化和 Smart Canvas 重建消费。运行链路、恢复边界与图层交付以[当前生成链路](../current/generation-pipeline.md#44-智能分层的专用交付)为准；能力目录仍只负责声明和校验边界，不承担请求、下载或画布交付。
 
 ## 5. 用户可观察行为
 

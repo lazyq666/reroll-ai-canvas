@@ -188,7 +188,7 @@ class SmartCanvasNodeComponentTests(unittest.TestCase):
         self.assertIn("smartCanvasNodeComponentFamily().render({", render_source)
         self.assertIn("controls:{", render_source)
         self.assertNotIn("resizeControl:", render_source)
-        active_node_render = render_source[: render_source.index("return {node, html};")]
+        active_node_render = render_source[: render_source.index("return {node,position,html};")]
         self.assertNotIn('<ic-icon-button class="smart-node-quick-add"', active_node_render)
         self.assertNotIn('const html = `<div class="image-node', render_source)
         self.assertIn('/static/js/infinite-canvas-ui/core.js?v=', self.smart_canvas_page)

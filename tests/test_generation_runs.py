@@ -155,6 +155,58 @@ class GenerationRunsTests(unittest.IsolatedAsyncioTestCase):
             target_guard=guard,
         )
 
+    async def test_layer_decomposition_restart_queries_original_task_without_resubmit(self):
+        class PendingAdapter:
+            def __init__(self):
+                self.calls = []
+
+            async def execute(self, request):
+                self.calls.append(request)
+                return Pending("paid-task-layer-1", status="running")
+
+        class RecoveryAdapter:
+            def __init__(self):
+                self.calls = []
+
+            async def execute(self, request):
+                self.calls.append(request)
+                self.assertion = isinstance(request, RecoveryRun)
+                return Completed(
+                    ProviderOutput(
+                        legacy={
+                            "kind": "image_layer_decomposition",
+                            "images": ["base.png", "layer.png"],
+                        }
+                    )
+                )
+
+        first_adapter = PendingAdapter()
+        first = self.runs(first_adapter)
+        pending = await first.start(
+            ImageRun(
+                prompt="",
+                settings={
+                    "provider_id": "apimart",
+                    "operation": "image.layer_decomposition",
+                },
+                publication="layer-decomposition",
+            ),
+            key="layer-operation-1",
+            owner="designer-1",
+        )
+
+        restarted_adapter = RecoveryAdapter()
+        restarted = self.runs(restarted_adapter)
+        completed = await restarted.resume(pending.id, owner="designer-1")
+
+        self.assertEqual("succeeded", completed.status)
+        self.assertEqual(1, len(first_adapter.calls))
+        self.assertEqual(1, len(restarted_adapter.calls))
+        recovery = restarted_adapter.calls[0]
+        self.assertIsInstance(recovery, RecoveryRun)
+        self.assertEqual("paid-task-layer-1", recovery.remote_ref)
+        self.assertEqual("image_layer_decomposition", recovery.media_kind)
+
     async def test_batch_recovery_materializes_string_image_urls(self):
         saved = []
 
@@ -2267,6 +2319,35 @@ class GenerationRunsTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ProviderGenerationExecutorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_layer_decomposition_operation_reaches_provider_runtime(self):
+        class Runtime:
+            def __init__(self):
+                self.kwargs = None
+
+            async def execute_image(self, *args, **kwargs):
+                self.kwargs = kwargs
+                return Completed(ProviderOutput(legacy={"kind": "image_layer_decomposition"}))
+
+        runtime = Runtime()
+        result = await ProviderGenerationExecutor(runtime).execute(
+            ImageRun(
+                prompt="",
+                settings={
+                    "provider_id": "apimart",
+                    "model": "seedream-5-0-pro",
+                    "size": "2K",
+                    "resolution_tier": "2K",
+                    "operation": "image.layer_decomposition",
+                },
+                references=({"url": "source.png", "role": "source"},),
+                publication="layer-decomposition",
+            )
+        )
+
+        self.assertIsInstance(result, Completed)
+        self.assertEqual("image.layer_decomposition", runtime.kwargs["operation"])
+        self.assertEqual("2K", runtime.kwargs["resolution_tier"])
+
     async def test_video_and_workflow_requests_use_typed_provider_seams(self):
         class Runtime:
             def __init__(self):
