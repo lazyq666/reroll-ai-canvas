@@ -901,8 +901,18 @@ async def generate_runninghub_video(payload, provider, on_remote=None):
     if runninghub_schema_field(params, "watermark"):
         body["watermark"] = bool(payload.watermark)
     async with httpx.AsyncClient(timeout=_ports.VIDEO_POLL_TIMEOUT) as client:
+        if len(payload.images or []) > 10:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "input_maximum",
+                    "field": "image",
+                    "maximum": 10,
+                    "actual": len(payload.images or []),
+                },
+            )
         image_refs = []
-        for ref in (payload.images or [])[:10]:
+        for ref in payload.images or []:
             ref_url = getattr(ref, "url", "") or ""
             if ref_url:
                 up = await runninghub_upload_reference(client, provider, {"url": ref_url})

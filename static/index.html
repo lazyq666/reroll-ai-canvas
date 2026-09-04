@@ -28,9 +28,10 @@
   <link rel="stylesheet" href="/static/css/studio-shell.css?v=2026.09.01.5.1788439320">
   <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=2026.09.01.5.1788439320">
   <link rel="stylesheet" href="/static/css/preferences.css?v=2026.09.01.5.1788439320">
+  <link rel="stylesheet" href="/static/css/cli-updates.css?v=2026.09.04.3">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
-  <script src="/static/js/i18n.js?v=i18n-loader-7b33bb553c30"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-0fd45a4c86a4"></script>
 </head>
 <body>
   <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
@@ -123,11 +124,17 @@
     </main>
   </div>
 
+  <ic-dialog id="cliUpdateDialog" class="cli-update-dialog" label="CLI 版本提醒" data-i18n-label="cliUpdates.title" size="medium" dismiss-policy="explicit">
+    <p id="cliUpdateStatus" class="visually-hidden" role="status" aria-live="polite"></p>
+    <div id="cliUpdateList" class="cli-update-list"></div>
+  </ic-dialog>
+
   <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ef410096e2b4"></script>
   <script src="/static/js/studio-entry-motion.js?v=2026.09.01.5.1788439320" defer></script>
   <script src="/static/js/studio-shell.js?v=2026.09.01.5.1788439320" defer></script>
   <script src="/static/js/preferences.js?v=2026.09.01.5.1788439320" defer></script>
   <script src="/static/js/account-avatar.js?v=2026.09.01.5.1788439320" defer></script>
   <script src="/static/js/account-ui.js?v=2026.09.01.5.1788439320" defer></script>
+  <script src="/static/js/cli-updates.js?v=2026.09.04.3" defer></script>
 </body>
 </html>

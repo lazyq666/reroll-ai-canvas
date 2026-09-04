@@ -174,6 +174,22 @@ _Avoid_: Edge, Wire, Share Link
 显式拥有一组有序 Node 或媒体成员的 Node。
 _Avoid_: 智能分组（中文界面名称）, Frame, Folder, Multi-image Node
 
+**Smart Group Node Member（编组节点成员）**:
+进入 Smart Group 前已经具有独立 Node 身份、并在离开时保持该身份与创作状态的成员。
+_Avoid_: Smart Group Media Member, Thumbnail, Copied Media
+
+**Smart Group Media Member（编组媒体成员）**:
+直接加入 Smart Group、此前没有独立 Node 身份，并在离开时成为新 Image Node 的媒体成员。
+_Avoid_: Smart Group Node Member, Image Node, Reference Input Instance
+
+**Node Rest Geometry（节点还原几何）**:
+Smart Group Node Member 离开 Smart Group 后应恢复的普通画布尺寸、比例与位置关系；Smart Group 的整体移动可以平移该关系，Group Presentation 的整理或缩放不能改写它。
+_Avoid_: Group Presentation, Thumbnail Size, Current DOM Rect
+
+**Group Presentation（编组展示）**:
+Smart Group 内部用于紧凑排列和呈现成员的视觉状态，不改变 Smart Group Node Member 的身份、创作状态或 Node Rest Geometry。
+_Avoid_: Node Rest Geometry, Canvas Viewport, Media Mutation
+
 **Frame（分区，中文界面名称）**:
 按空间包含关系组织 Node、但不拥有其内容的有标题区域。
 _Avoid_: 画布、画布框、框架（中文界面名称）, Smart Group, Section, Artboard
@@ -209,11 +225,47 @@ Provider 提供的一个具名生成能力版本。
 _Avoid_: Provider, Workflow, Preset
 
 **Model Capability（模型能力）**:
-一个确切 Model 支持的输入、输出和参数边界。
+一个确切 Model 在一种 Model Operation 下支持的输入、输出和参数边界。
 _Avoid_: Provider Default, UI Guess
 
+**Model Operation（模型操作）**:
+Model 执行的一种明确生成意图，例如文字生成、图片生成、图片编辑或视频生成；同一 Model 的不同 Model Operation 可以具有不同能力。
+_Avoid_: Generation Run, Provider Endpoint, UI Mode
+
+**Layer Decomposition（图层拆分）**:
+把一个源图像转换为一个底图 Generation Output 和一组透明图层 Generation Output，并保留重建原构图所需空间关系的 Model Operation。
+_Avoid_: Smart Matting, Image Edit, PSD Export
+
+**Layer Decomposition Manifest（图层拆分清单）**:
+把 Layer Decomposition 的源媒体、Generation Run、底图、各图层及其层级与空间关系关联起来的版本化结构。
+_Avoid_: Provider Response, Temporary Result, PSD File
+
+**Model Capability State（模型能力状态）**:
+目录对某项 Model Capability 的确认程度，仅分为已确认支持或未确认；它不表达实时可用性、功能成熟度或账号资格。
+_Avoid_: UI Status, Runtime Availability, Account Eligibility
+
+**Model Capability Evidence（模型能力证据）**:
+能够支持一项 Model Capability 判断的可追溯资料，包含资料来源、取得时间、适用版本和具体内容位置；没有 Evidence 的空白不能由推测补全。
+_Avoid_: AI Guess, Model Capability Draft, Provider Availability
+
+**Model Capability Draft（模型能力草稿）**:
+根据 Model Capability Evidence 由自动提取或人工录入形成、尚未进入 Model Capability Catalog 的候选能力；它可以编辑和退回，但不能约束 Generation Run。
+_Avoid_: Model Capability, Published Capability, Runtime Contract
+
+**Model Capability Review（模型能力审核）**:
+Administrator 对 Model Capability Draft 及其 Evidence 进行核对、修改并决定是否发布的过程；审核完成不必然意味着能力已确认支持。
+_Avoid_: Model Capability State, Automatic Publication, Provider Health Check
+
+**Model Capability Review State（模型能力审核状态）**:
+Model Capability Draft 在内部维护流程中的进度，分为草稿、待审核、已发布或已退回；它不属于 Model Capability State，也不面向生成用户。
+_Avoid_: Model Capability State, UI Status, Runtime Availability
+
+**Model Capability Catalog（模型能力目录）**:
+按 Provider、Model 和 Model Operation 识别并带版本身份的一组 Model Capability，是 Generation Settings 展示与 Generation Run 前置校验的共同依据。
+_Avoid_: Model List, Provider Config, Pricing Catalog
+
 **Image Model Capability（图像模型能力）**:
-图像 Model 支持的 Output Aspect Ratio、Resolution Tier 和参考输入边界。
+图像 Model 在一种图像 Model Operation 下支持的输入、输出结构、Output Aspect Ratio、Resolution Tier 与数量边界。
 _Avoid_: Video Model Capability, Shared Image Default
 
 **Video Model Capability（视频模型能力）**:

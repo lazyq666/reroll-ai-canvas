@@ -66,6 +66,19 @@ class _Effects:
 class ProviderRemoteCheckpointTransportTests(
     unittest.IsolatedAsyncioTestCase
 ):
+    async def test_jimeng_image_rejects_reference_overflow_instead_of_truncating(self):
+        references = [{"url": f"https://example.test/{index}.png"} for index in range(11)]
+
+        with self.assertRaises(HTTPException) as raised:
+            await cli_impl.generate_jimeng_provider_image(
+                "draw", "1024x1024", "5.0", references, {}
+            )
+
+        self.assertEqual(422, raised.exception.status_code)
+        self.assertEqual("input_maximum", raised.exception.detail["code"])
+        self.assertEqual(10, raised.exception.detail["maximum"])
+        self.assertEqual(11, raised.exception.detail["actual"])
+
     async def test_jimeng_pro_image_model_uses_upstream_1_5k_minimum(self):
         self.assertEqual(
             "5.0Pro",

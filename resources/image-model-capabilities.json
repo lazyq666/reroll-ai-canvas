@@ -4,6 +4,9 @@
     {
       "provider_id": "apimart",
       "model_id": "gemini-3.1-flash-image-preview",
+      "operations": ["image.generate", "image.edit"],
+      "image_input_maximum": 20,
+      "output_count_maximum": 4,
       "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
       "resolution_tiers": ["1K", "2K", "4K"],
       "default_resolution_tier": "1K",
@@ -12,6 +15,9 @@
     {
       "provider_id": "apimart",
       "model_id": "gpt-image-2",
+      "operations": ["image.generate", "image.edit"],
+      "image_input_maximum": 20,
+      "output_count_maximum": 4,
       "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
       "resolution_tiers": ["1K", "2K", "4K"],
       "default_resolution_tier": "1K",
@@ -20,6 +26,9 @@
     {
       "provider_id": "apimart",
       "model_id": "gpt-image-2-official",
+      "operations": ["image.generate", "image.edit"],
+      "image_input_maximum": 20,
+      "output_count_maximum": 4,
       "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
       "resolution_tiers": ["1K", "2K", "4K"],
       "default_resolution_tier": "1K",
@@ -27,8 +36,164 @@
       "confirmed_at": "2026-08-22"
     },
     {
+      "provider_id": "apimart",
+      "model_id": "seedream-5-0-pro",
+      "operations": ["image.layer_decomposition"],
+      "image_input_maximum": 1,
+      "output_count_maximum": 1,
+      "aspect_ratios": [],
+      "resolution_tiers": [],
+      "default_resolution_tier": null,
+      "operation_contracts": {
+        "image.layer_decomposition": {
+          "inputs": {
+            "text": {
+              "minimum": 0,
+              "maximum": 1,
+              "required": false
+            },
+            "image": {
+              "minimum": 1,
+              "maximum": 1,
+              "required": true,
+              "roles": ["source"],
+              "sources": ["managed_media", "local_upload", "remote_url"]
+            },
+            "video": {"minimum": 0, "maximum": 0},
+            "audio": {"minimum": 0, "maximum": 0},
+            "file": {"minimum": 0, "maximum": 0}
+          },
+          "parameters": {
+            "resolution_tier": {
+              "type": "enum",
+              "required": true,
+              "visible": true,
+              "editable": true,
+              "values": ["auto", "1K", "1.5K", "2K"],
+              "default": "2K",
+              "invalidation_behavior": "clear"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1,
+              "default": 1,
+              "required": true,
+              "visible": false,
+              "editable": false
+            }
+          },
+          "output": {
+            "kind": "image_layer_decomposition",
+            "count": {"minimum": 1, "maximum": 1, "default": 1},
+            "base_output": {
+              "kind": "image",
+              "count": {"minimum": 1, "maximum": 1},
+              "formats": ["png"]
+            },
+            "manifest": {
+              "manifest_version": 1,
+              "required_fields": [
+                "manifest_version",
+                "source_media_id",
+                "provider_id",
+                "model",
+                "resolution_tier",
+                "generation_run_id",
+                "upstream_task_id",
+                "created_at",
+                "base_output_media_id",
+                "canvas_width",
+                "canvas_height",
+                "layers"
+              ],
+              "fields": {
+                "manifest_version": {
+                  "type": "integer",
+                  "constant": 1
+                },
+                "source_media_id": {"type": "string"},
+                "provider_id": {"type": "string"},
+                "model": {"type": "string"},
+                "resolution_tier": {
+                  "type": "enum",
+                  "values": ["auto", "1K", "1.5K", "2K"]
+                },
+                "generation_run_id": {"type": "string"},
+                "upstream_task_id": {"type": "string"},
+                "created_at": {"type": "datetime"},
+                "base_output_media_id": {"type": "string"},
+                "canvas_width": {"type": "integer", "minimum": 1},
+                "canvas_height": {"type": "integer", "minimum": 1},
+                "layers": {
+                  "type": "array",
+                  "minimum": 1,
+                  "maximum": 16,
+                  "media": {
+                    "kind": "image",
+                    "formats": ["png"],
+                    "alpha_channel": "required"
+                  },
+                  "items": {
+                    "type": "object",
+                    "required_fields": [
+                      "output_media_id",
+                      "name",
+                      "description",
+                      "z_index",
+                      "absolute_bbox",
+                      "normalized_bbox",
+                      "pixel_width",
+                      "pixel_height",
+                      "output_format"
+                    ],
+                    "fields": {
+                      "output_media_id": {"type": "string"},
+                      "name": {"type": "string"},
+                      "description": {"type": "string"},
+                      "z_index": {"type": "integer"},
+                      "absolute_bbox": {
+                        "type": "array",
+                        "length": 4,
+                        "order": ["left", "top", "right", "bottom"],
+                        "coordinate_space": "output_pixels"
+                      },
+                      "normalized_bbox": {
+                        "type": "array",
+                        "length": 4,
+                        "order": ["left", "top", "right", "bottom"],
+                        "coordinate_space": "normalized_0_1000",
+                        "item_minimum": 0,
+                        "item_maximum": 1000
+                      },
+                      "pixel_width": {"type": "integer", "minimum": 1},
+                      "pixel_height": {"type": "integer", "minimum": 1},
+                      "output_format": {
+                        "type": "enum",
+                        "values": ["png"]
+                      }
+                    }
+                  }
+                },
+                "provider_raw_metadata": {
+                  "type": "object",
+                  "required": false,
+                  "redacted": true,
+                  "max_serialized_bytes": 65536
+                }
+              }
+            }
+          }
+        }
+      },
+      "confirmed_at": "2026-09-04"
+    },
+    {
       "provider_id": "jimeng",
       "model_id": "5.0",
+      "operations": ["image.generate", "image.edit"],
+      "image_input_maximum": 10,
+      "output_count_maximum": 4,
       "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
       "resolution_tiers": ["2K", "4K"],
       "default_resolution_tier": "2K",
@@ -37,6 +202,9 @@
     {
       "provider_id": "gemini-cli",
       "model_id": "auto",
+      "operations": ["image.generate", "image.edit"],
+      "image_input_maximum": 20,
+      "output_count_maximum": 4,
       "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
       "resolution_tiers": ["1K", "2K", "4K"],
       "default_resolution_tier": "1K",
@@ -45,6 +213,9 @@
     {
       "provider_id": "codex",
       "model_id": "gpt-image-2",
+      "operations": ["image.generate", "image.edit"],
+      "image_input_maximum": 20,
+      "output_count_maximum": 4,
       "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9", "9:21"],
       "resolution_tiers": ["1K", "2K", "4K"],
       "default_resolution_tier": "1K",
@@ -54,6 +225,9 @@
     {
       "provider_id": "jimeng",
       "model_id": "5.0Pro",
+      "operations": ["image.generate", "image.edit"],
+      "image_input_maximum": 10,
+      "output_count_maximum": 4,
       "aspect_ratios": ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"],
       "resolution_tiers": ["2K", "4K"],
       "default_resolution_tier": "2K",

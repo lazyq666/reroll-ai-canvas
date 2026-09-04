@@ -20,12 +20,13 @@
     </script>
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.5.1788439320">
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-7b33bb553c30"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-0fd45a4c86a4"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
     <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/api-settings.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/api-settings-t18.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/api-settings-t19.css?v=2026.09.01.5.1788439320">
+    <link rel="stylesheet" href="/static/css/cli-updates.css?v=2026.09.04.3">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
 </head>
 <body>
@@ -45,6 +46,7 @@
                             <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('jimeng')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/providers/jimeng.svg" alt=""><span data-i18n="api.jimengCli">即梦 CLI</span></ic-button>
                             <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('codex')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/providers/chatgpt.svg" alt=""><span>GPT CLI</span></ic-button>
                             <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('gemini-cli')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/providers/gemini.svg" alt=""><span>Antigravity CLI</span></ic-button>
+                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="checkCliUpdates()"><ic-icon slot="start" name="refresh"></ic-icon><span data-i18n="cliUpdates.checkNow">检查 CLI 更新</span></ic-button>
                             <!-- CLI 依赖提示已按视觉复核移除。 -->
                         </div>
                     </div>

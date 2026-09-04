@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from threading import RLock
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
@@ -44,15 +45,29 @@ class VideoCapabilityRegistry:
         self._maintained_path = (
             Path(maintained_path) if maintained_path is not None else None
         )
+        self._lock = RLock()
+        self._maintained_payload: Mapping[str, Any] | None = None
+
+    @property
+    def source_path(self) -> Path | None:
+        return self._maintained_path
+
+    def replace_payload(self, payload: Mapping[str, Any]) -> None:
+        """Publish a validated catalog snapshot for subsequent resolutions."""
+        with self._lock:
+            self._maintained_payload = copy.deepcopy(dict(payload))
 
     def _payload(self) -> dict[str, Any]:
         path = self._maintained_path
-        if path is None or not path.exists():
-            return {}
-        try:
-            value = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, TypeError, ValueError):
-            return {}
+        with self._lock:
+            value = copy.deepcopy(self._maintained_payload)
+        if value is None:
+            if path is None or not path.exists():
+                return {}
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, TypeError, ValueError):
+                return {}
         return value if isinstance(value, dict) else {}
 
     @staticmethod

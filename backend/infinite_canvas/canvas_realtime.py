@@ -1428,6 +1428,7 @@ def _find_connection(
 def _validate_groups(canvas: Dict[str, Any], revision: int) -> None:
     nodes = _node_map(canvas)
     group_children: Dict[str, List[str]] = {}
+    member_owner: Dict[str, str] = {}
     for node_id, node in nodes.items():
         if node.get("type") != "smart-group":
             continue
@@ -1457,6 +1458,93 @@ def _validate_groups(canvas: Dict[str, Any], revision: int) -> None:
                 raise CanvasRealtimeError(
                     "invalid_group",
                     "Smart Group 包含无效成员。",
+                    revision=revision,
+                )
+            existing_owner = member_owner.get(member_id)
+            if existing_owner and existing_owner != node_id:
+                raise CanvasRealtimeError(
+                    "invalid_group_owner",
+                    "Smart Group 成员只能属于一个编组。",
+                    revision=revision,
+                )
+            member_owner[member_id] = node_id
+        member_order = node.get("memberOrder")
+        images = node.get("images") or []
+        versioned_media = isinstance(images, list) and any(
+            isinstance(image, dict) and image.get("groupMemberId")
+            for image in images
+        )
+        if (
+            member_order is None
+            and (node.get("memberOrderVersion") is not None or versioned_media)
+        ):
+            raise CanvasRealtimeError(
+                "invalid_group_order",
+                "Smart Group 成员顺序不能被旧版本客户端移除。",
+                revision=revision,
+            )
+        if member_order is not None:
+            if (
+                node.get("memberOrderVersion") != 1
+                or not isinstance(member_order, list)
+            ):
+                raise CanvasRealtimeError(
+                    "invalid_group_order",
+                    "Smart Group 成员顺序版本无效。",
+                    revision=revision,
+                )
+            if not isinstance(images, list):
+                raise CanvasRealtimeError(
+                    "invalid_group_order",
+                    "Smart Group 媒体成员必须是数组。",
+                    revision=revision,
+                )
+            media_ids = []
+            for image in images:
+                media_id = (
+                    str(image.get("groupMemberId") or "")
+                    if isinstance(image, dict)
+                    else ""
+                )
+                if not media_id:
+                    raise CanvasRealtimeError(
+                        "invalid_group_order",
+                        "Smart Group 媒体成员缺少稳定标识。",
+                        revision=revision,
+                    )
+                media_ids.append(media_id)
+            ordered_nodes = []
+            ordered_media = []
+            seen_order_entries = set()
+            for entry in member_order:
+                if not isinstance(entry, dict):
+                    raise CanvasRealtimeError(
+                        "invalid_group_order",
+                        "Smart Group 成员顺序无效。",
+                        revision=revision,
+                    )
+                kind = str(entry.get("kind") or "")
+                entry_id = str(entry.get("id") or "")
+                key = (kind, entry_id)
+                if (
+                    kind not in {"node", "media"}
+                    or not entry_id
+                    or key in seen_order_entries
+                ):
+                    raise CanvasRealtimeError(
+                        "invalid_group_order",
+                        "Smart Group 成员顺序无效。",
+                        revision=revision,
+                    )
+                seen_order_entries.add(key)
+                if kind == "node":
+                    ordered_nodes.append(entry_id)
+                else:
+                    ordered_media.append(entry_id)
+            if ordered_nodes != normalized or ordered_media != media_ids:
+                raise CanvasRealtimeError(
+                    "invalid_group_order",
+                    "Smart Group 成员顺序与成员数据不一致。",
                     revision=revision,
                 )
         group_children[node_id] = [

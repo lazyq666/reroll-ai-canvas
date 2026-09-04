@@ -82,6 +82,7 @@ class CanvasGenerationIdempotencyTests(unittest.TestCase):
                         "node_id": node["id"],
                         "generation_operation_id": operation_id,
                         "generation_request_index": 0,
+                        "catalog_revision": main.MODEL_CAPABILITY_CATALOG.revision,
                     }
 
                     def capture_task(coroutine):

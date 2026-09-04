@@ -25,10 +25,10 @@ button { border:var(--ui-border-width-none); cursor:pointer; }
 .shell input[type="file"][hidden] { display:none !important; }
 .shell { position:relative; width:100vw; height:100vh; overflow:hidden; background-color:var(--ui-color-surface-canvas); cursor:default; }
 .shell:focus { outline:var(--ui-border-width-none); }
+#smartFrameExportDialog::part(close-button) { display:none; }
 .smart-frame-export-content { display:grid; gap:var(--ui-space-4); }
-.smart-frame-export-name { overflow-wrap:anywhere; }
 .smart-frame-export-field { display:flex; align-items:center; justify-content:space-between; gap:var(--ui-space-3); }
-.smart-frame-export-hint { color:var(--ui-color-text-secondary); font-size:var(--ui-font-size-2); margin:0; }
+.smart-frame-export-hint { color:var(--ui-color-text-tertiary); font-size:var(--ui-font-size-2); margin:0; }
 #smartFrameExportStatus { margin:0; font-size:var(--ui-font-size-2); }
 #smartFrameExportStatus:empty { display:none; }
 #smartFrameExportStatus[data-tone="danger"] { color:var(--ui-color-text-danger); }

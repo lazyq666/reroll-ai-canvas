@@ -15,6 +15,12 @@
     const reselect = document.createElement('button');
     reselect.textContent='Reselect sources';
     panel.querySelector('#qa-images').after(reselect);
+    for(const state of ['empty','output','running']){
+        const button=document.createElement('button');
+        button.textContent=`Prompt generation: ${state}`;
+        button.onclick=()=>reset(`prompt-${state}`);
+        panel.querySelector('#qa-prompt').after(button);
+    }
     const inspect = () => {
         panel.querySelector('pre').textContent=JSON.stringify({
             count:nodes.length,selected:selectedId,selectedIds,connections:canvas.connections,
@@ -24,8 +30,17 @@
     };
     function reset(mode){
         nodes=fixture().canvas.nodes;
+        const singlePrompt=mode==='prompt' || mode.startsWith('prompt-');
         if(mode==='images') nodes=nodes.filter(node=>node.id!=='P');
-        if(mode==='prompt') nodes=nodes.filter(node=>['P','T'].includes(node.id));
+        if(singlePrompt){
+            nodes=nodes.filter(node=>['P','T'].includes(node.id));
+            nodes.find(node=>node.id==='P').y=300;
+            if(mode!=='prompt') Object.assign(nodes.find(node=>node.id==='P'),{
+                llmEnabled:true,llmInstruction:'Write a sunrise prompt',
+                text:mode==='prompt-empty'?'':'A mountain at sunrise',
+                textGenerationPending:mode==='prompt-running',running:mode==='prompt-running'
+            });
+        }
         if(mode==='mixed'){
             nodes=nodes.filter(node=>['P','B','T'].includes(node.id));
             nodes.find(node=>node.id==='P').y=160;
@@ -35,8 +50,8 @@
             nodes.find(node=>node.id==='B').images=[];
         }
         canvas.nodes=nodes; canvas.connections=[];
-        selectedId=mode==='prompt' ? 'P' : '';
-        selectedIds=mode==='prompt' ? [] : nodes.filter(node=>node.id!=='T').map(node=>node.id).reverse();
+        selectedId=singlePrompt ? 'P' : '';
+        selectedIds=singlePrompt ? [] : nodes.filter(node=>node.id!=='T').map(node=>node.id).reverse();
         selectedImage={nodeId:'',index:-1}; viewport={x:0,y:0,scale:0.7};
         render(); window.SmartCanvasModules.viewportSelection.viewport.apply(); inspect();
     }

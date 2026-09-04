@@ -667,8 +667,21 @@ function canvasPersistenceReplanCreatedNodes(changes,confirmedDocument){
         : batchIds.size === 1 && batchLayouts.size === 1
             ? `${[...batchLayouts][0]}-batch`
             : 'rigid';
+    const snapshotNodes = [
+        ...(confirmedDocument?.nodes || []),
+        ...exactDrafts
+    ];
+    const ownedNodeIds = new Set();
+    snapshotNodes.forEach(node => {
+        if(node?.type !== 'smart-group') return;
+        (node.items || []).forEach(id => ownedNodeIds.add(String(id)));
+    });
     const plan = placement.plan({
-        snapshot:{nodes:[...(confirmedDocument?.nodes || []),...exactDrafts]},
+        snapshot:{
+            nodes:snapshotNodes.filter(node =>
+                !ownedNodeIds.has(String(node?.id || ''))
+            )
+        },
         drafts,
         intent:{anchor,relation,arrangement}
     });
@@ -1626,7 +1639,16 @@ function canvasPersistenceHandleRejected(message){
     if(!retryingRestore){
         canvasPersistenceMutation()?.history?.({action:'rejected'});
     }
-    toast(message.message || canvasPersistenceText('smart.collaborationSubmitFailed'));
+    const localizedGroupError = {
+        invalid_group_owner:'smart.groupOwnerConflict',
+        invalid_group_order:'smart.groupOrderInvalid'
+    }[message.code];
+    toast(
+        localizedGroupError
+            ? canvasPersistenceText(localizedGroupError)
+            : message.message
+                || canvasPersistenceText('smart.collaborationSubmitFailed')
+    );
     canvasPersistenceRequestResync(message.code || 'mutation-rejected');
     return false;
 }
@@ -1778,34 +1800,6 @@ function canvasPersistenceReconnectNow(){
     }
     return true;
 }
-function canvasPersistenceMigrateSmartGroupImageMembers(){
-    const containerModule = window.SmartCanvasModules?.smartContainer;
-    if(!containerModule) return false;
-    let changed = false;
-    nodes.filter(containerModule.isGroup).forEach(group => {
-        const memberIds = (
-            Array.isArray(group.items) ? group.items : []
-        ).map(id => nodes.find(node => node.id === id))
-            .filter(member =>
-                member
-                && isSmartImageNode(member)
-                && (member.images || []).some(image => image?.url)
-            )
-            .map(member => member.id);
-        memberIds.forEach(id => {
-            if(containerModule.add(group.id,[id],{
-                skipUndo:true,
-                arrange:false,
-                select:false,
-                render:false,
-                save:false
-            })){
-                changed = true;
-            }
-        });
-    });
-    return changed;
-}
 async function canvasPersistenceLoad(){
     if(!canvasId) return null;
     const opening = window.SmartCanvasModules?.canvasOpening || null;
@@ -1879,7 +1873,6 @@ async function canvasPersistenceLoad(){
         const migratedGenerationOutputGalleries = Boolean(
             window.SmartCanvasModules?.generationOutput?.migrateLegacyGalleries?.()
         );
-        const migratedGroups = canvasPersistenceMigrateSmartGroupImageMembers();
         const migratedPromptSplits =
             typeof migrateLegacyPromptSplitNodes === 'function'
             && migrateLegacyPromptSplitNodes();
@@ -1944,8 +1937,7 @@ async function canvasPersistenceLoad(){
                 inverseLocalChanges
             );
         if(
-            migratedGroups
-            || migratedGenerationOutputs
+            migratedGenerationOutputs
             || migratedGenerationOutputGalleries
             || migratedPromptSplits
             || cleanedDetachedInputs

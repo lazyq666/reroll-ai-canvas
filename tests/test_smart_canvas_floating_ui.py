@@ -69,6 +69,50 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
             self.style,
         )
 
+    def test_only_manual_prompt_toolbar_offers_media_generation(self):
+        toolbar_start = self.script.index("function smartNodeToolbarText(")
+        toolbar_end = self.script.index("function duplicateSmartNodeMediaToCanvas(", toolbar_start)
+        action_start = self.script.index("function runSmartNodeToolbarAction(")
+        action_end = self.script.index("function smartGroupToolbarHtml(", action_start)
+        script = f"""
+            const assert = require('node:assert/strict');
+            global.window = {{}};
+            require('./static/js/smart-canvas/node-kinds.js');
+            const nodeKinds = window.SmartCanvasModules.nodeKinds;
+            const tr = key => key;
+            const escapeAttr = text => text;
+            const escapeHtml = text => text;
+            const smartNodeInFlight = node => Boolean(node.running);
+            const isSmartRunnableNode = node => nodeKinds.isGeneration(node);
+            const smartNodeHasRegenerationSnapshot = () => false;
+            const smartMultiInputReason = reason => reason;
+            const checked = [];
+            const smartMultiInputAvailability = ids => {{ checked.push(ids); return {{ok:true}}; }};
+            const generated = [];
+            const smartMultiInputFromToolbar = ids => generated.push(ids);
+            {self.script[toolbar_start:toolbar_end]}
+            {self.script[action_start:action_end]}
+            const nodes = [
+                {{id:'manual', type:'smart-prompt', text:'Sunrise'}},
+                {{id:'empty', type:'smart-prompt', llmEnabled:true, text:'', llmInstruction:'Write a prompt'}},
+                {{id:'output', type:'smart-prompt', llmEnabled:true, text:'Sunrise', llmInstruction:'Write a prompt'}},
+                {{id:'running', type:'smart-prompt', llmEnabled:true, running:true, text:'Sunrise'}}
+            ];
+            const manual = smartNodeToolbarHtml(nodes[0]);
+            assert.match(manual, /data-smart-node-action="generate-image"/);
+            for (const node of nodes.slice(1)) {{
+                const html = smartNodeToolbarHtml(node);
+                assert.doesNotMatch(html, /data-smart-node-action="generate-image"/);
+                assert.match(html, /data-smart-node-action="focus-editor"/);
+                assert.match(html, /data-smart-node-action="copy-text"/);
+            }}
+            assert.deepEqual(checked, [['manual']]);
+            for (const node of nodes) runSmartNodeToolbarAction(node.id, 'generate-image');
+            assert.deepEqual(generated, [['manual']]);
+        """
+        result = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_composer_uses_compact_headerless_layout(self):
         composer_start = self.page.index('id="composer"')
         composer_end = self.page.index('id="inputTextPreviewTooltip"', composer_start)

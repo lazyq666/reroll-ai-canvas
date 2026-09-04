@@ -448,7 +448,7 @@ function smartCanvasInteractionRelease(state){
         canvasInteractionPersistenceModule.release({
             scope:'resize-selection'
         });
-    } else if(state.kind === 'detach-media'){
+    } else if(state.kind === 'detach-media' || state.kind === 'detach-member'){
         canvasInteractionPersistenceModule.release({scope:'thumb-drag'});
     } else if(state.kind === 'move-nodes'){
         canvasInteractionPersistenceModule.release({scope:'move-nodes'});
@@ -779,40 +779,6 @@ function smartCanvasInteractionBeginResize(event,nodeId){
                 : rect.width / Math.max(1,rect.height);
         }
     }
-    if(canvasInteractionContainerModule.isGroup(node)){
-        state.startZoom = canvasInteractionContainerModule.zoom(node);
-        const groupX = Number(node.x) || 0;
-        const groupY = Number(node.y) || 0;
-        let maxRight = groupX;
-        let maxBottom = groupY;
-        let hasMember = false;
-        state.members =
-            canvasInteractionContainerModule.groupMembers(node)
-                .map(member => {
-                    const memberRect = nodeRect(member);
-                    const memberX = Number(member.x) || 0;
-                    const memberY = Number(member.y) || 0;
-                    const memberW = Number(memberRect.width) || 0;
-                    const memberH = Number(memberRect.height) || 0;
-                    hasMember = true;
-                    maxRight = Math.max(maxRight,memberX + memberW);
-                    maxBottom = Math.max(maxBottom,memberY + memberH);
-                    return {
-                        id:member.id,
-                        sx:memberX,
-                        sy:memberY,
-                        sw:memberW,
-                        sh:memberH,
-                        isImage:isSmartImageNode(member)
-                    };
-                });
-        state.contentFitW = hasMember
-            ? Math.max(1,maxRight - groupX + 16)
-            : rect.width || 1;
-        state.contentFitH = hasMember
-            ? Math.max(1,maxBottom - groupY + 16)
-            : rect.height || 1;
-    }
     smartCanvasInteractionState = state;
     document.body.classList.add('smart-node-resize');
     canvasInteractionPersistenceModule.hold({scope:'resize-node'});
@@ -846,9 +812,11 @@ function smartCanvasInteractionBeginSelectionResize(event){
     ){
         return false;
     }
-    const ids =
+    const ids = [...new Set(
         canvasInteractionViewportModule.selection.ids()
-            .filter(id => nodes.some(node => node.id === id));
+            .map(id => canvasInteractionContainerModule.groupFor?.(id)?.id || id)
+            .filter(id => nodes.some(node => node.id === id))
+    )];
     const bounds =
         canvasInteractionViewportModule.selection.bounds?.(ids);
     if(ids.length < 2 || !bounds) return false;
@@ -913,6 +881,14 @@ function smartCanvasInteractionBeginMove(event,nodeId){
     }
     let node = nodes.find(candidate => candidate.id === nodeId);
     if(!node) return false;
+    const ownerGroup = canvasInteractionContainerModule.groupFor?.(node.id);
+    if(ownerGroup && !event.altKey){
+        return smartCanvasInteractionBeginMemberDetach(
+            event,
+            ownerGroup.id,
+            node.id
+        );
+    }
     if(
         canvasInteractionContainerModule.isFrame(node)
         && !canvasInteractionViewportModule.selection.has(node.id)
@@ -1023,6 +999,48 @@ function smartCanvasInteractionBeginDetach(event,nodeId,mediaIndex){
     canvasInteractionMutationModule.history({action:'capture'});
     return true;
 }
+function smartCanvasInteractionBeginMemberDetach(event,groupId,nodeId){
+    if(
+        !canvas
+        || smartCanvasInteractionState
+        || !event
+        || event.button !== 0
+        || event.detail >= 2
+        || event.target.closest('video,audio')
+    ) return false;
+    const group = nodes.find(candidate => candidate.id === groupId);
+    const node = nodes.find(candidate => candidate.id === nodeId);
+    if(
+        !canvasInteractionContainerModule.isGroup(group)
+        || !node
+        || canvasInteractionContainerModule.groupFor(node.id)?.id !== group.id
+    ) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    const sourceElement = event.target.closest(
+        '.thumb-item,.smart-group-single-thumb,.image-node'
+    );
+    const sourceRect = sourceElement?.getBoundingClientRect?.();
+    const width = Math.max(1,Number(sourceRect?.width) || 1);
+    const height = Math.max(1,Number(sourceRect?.height) || 1);
+    selectedId = node.id;
+    selectedIds = [];
+    selectedImage = {nodeId:node.id,index:0};
+    canvasInteractionViewportModule.selection.refresh?.();
+    smartCanvasInteractionState = {
+        kind:'detach-member',
+        nodeId:node.id,
+        groupId:group.id,
+        startX:event.clientX,
+        startY:event.clientY,
+        grabX:Math.max(0,Math.min(1,(event.clientX - (sourceRect?.left || 0)) / width)),
+        grabY:Math.max(0,Math.min(1,(event.clientY - (sourceRect?.top || 0)) / height)),
+        snapshot:smartCanvasInteractionSnapshot()
+    };
+    canvasInteractionPersistenceModule.hold({scope:'thumb-drag'});
+    canvasInteractionMutationModule.history({action:'capture'});
+    return true;
+}
 
 function smartCanvasInteractionMoveFrame(event,state){
     const node = nodes.find(candidate => candidate.id === state.id);
@@ -1088,11 +1106,7 @@ function smartCanvasInteractionMoveResize(event,state){
                 : node.type === 'smart-frame'
                     ? SMART_FRAME_MIN_HEIGHT
                     : 48;
-    if(
-        node.type === 'smart-group'
-        && canvasInteractionContainerModule.imageRefs(node)
-            .some(reference => reference.item?.url)
-    ){
+    if(node.type === 'smart-group'){
         node.w = Math.max(
             minWidth,
             Math.round(state.startW + deltaX)
@@ -1101,82 +1115,10 @@ function smartCanvasInteractionMoveResize(event,state){
             minHeight,
             Math.round(state.startH + deltaY)
         );
-        if(canvasInteractionContainerModule.compactMembers(node).length){
-            canvasInteractionContainerModule.arrange(node,{
-                skipUndo:true,
-                syncDom:true
-            });
-        }
-        syncNodeElementLayout(node);
-        return true;
-    }
-    if(node.type === 'smart-group'){
-        const startZoom = state.startZoom || 1;
-        const targetWidth = state.startW + deltaX;
-        const fitBase = state.contentFitW || state.startW || 1;
-        const desiredZoom = startZoom * (targetWidth / fitBase);
-        const effectiveZoom = Math.max(
-            0.2,
-            Math.min(SMART_GROUP_MAX_MEMBER_ZOOM,desiredZoom)
-        );
-        const memberRatio = effectiveZoom / startZoom;
-        const capped = desiredZoom > SMART_GROUP_MAX_MEMBER_ZOOM;
-        node._memberZoom = effectiveZoom;
-        const groupX = Number(node.x) || 0;
-        const groupY = Number(node.y) || 0;
-        let maxRight = groupX;
-        let maxBottom = groupY;
-        let hasMember = false;
-        (state.members || []).forEach(snapshot => {
-            const member = nodes.find(
-                candidate => candidate.id === snapshot.id
-            );
-            if(!member) return;
-            hasMember = true;
-            member.x =
-                groupX + (snapshot.sx - groupX) * memberRatio;
-            member.y =
-                groupY + (snapshot.sy - groupY) * memberRatio;
-            member.w = Math.max(
-                40,
-                Math.round(snapshot.sw * memberRatio)
-            );
-            member.h = Math.max(
-                40,
-                Math.round(snapshot.sh * memberRatio)
-            );
-            if(snapshot.isImage) member.scale = 1;
-            maxRight = Math.max(maxRight,member.x + member.w);
-            maxBottom = Math.max(maxBottom,member.y + member.h);
-            const element = world.querySelector(
-                `.image-node[data-id="${CSS.escape(member.id)}"]`
-            );
-            if(element){
-                element.style.left = `${member.x}px`;
-                element.style.top = `${member.y}px`;
-            }
-            syncNodeElementLayout(member);
+        canvasInteractionContainerModule.arrange(node,{
+            skipUndo:true,
+            syncDom:true
         });
-        if(capped || !hasMember){
-            node.w = Math.max(
-                minWidth,
-                Math.round(state.startW + deltaX)
-            );
-            node.h = Math.max(
-                minHeight,
-                Math.round(state.startH + deltaY)
-            );
-        } else {
-            node.w = Math.max(
-                minWidth,
-                Math.round(maxRight - groupX + 16)
-            );
-            node.h = Math.max(
-                minHeight,
-                Math.round(maxBottom - groupY + 16)
-            );
-        }
-        node.scale = 1;
         syncNodeElementLayout(node);
         return true;
     }
@@ -1288,7 +1230,15 @@ function smartCanvasInteractionMoveDetach(event,state){
     document.body.classList.remove('smart-media-reorder-drag');
     state.reorderIndex = -1;
     applyNodeMetaToImage(image,source);
-    source.images.splice(state.mediaIndex,1);
+    if(canvasInteractionContainerModule.isGroup(source)){
+        canvasInteractionContainerModule.takeMedia(
+            source,
+            state.mediaIndex
+        );
+        delete image.groupMemberId;
+    } else {
+        source.images.splice(state.mediaIndex,1);
+    }
     if(canvasInteractionContainerModule.isGroup(source)){
         canvasInteractionContainerModule.arrange(source,{
             skipUndo:true,
@@ -1338,6 +1288,54 @@ function smartCanvasInteractionMoveDetach(event,state){
         event,
         smartCanvasInteractionState
     );
+}
+function smartCanvasInteractionMoveMemberDetach(event,state){
+    const deltaX = event.clientX - state.startX;
+    const deltaY = event.clientY - state.startY;
+    if(Math.abs(deltaX) + Math.abs(deltaY) <= 6) return true;
+    const node = nodes.find(candidate => candidate.id === state.nodeId);
+    if(!node) return true;
+    if(!canvasInteractionContainerModule.release(
+        [node.id],
+        state.groupId,
+        {
+            skipUndo:true,
+            select:false,
+            render:false,
+            save:false,
+            message:false
+        }
+    )) return true;
+    const point = canvasInteractionViewportModule.viewport.screenToWorld(event);
+    const rect = nodeRect(node);
+    node.x = point.x - rect.width * state.grabX;
+    node.y = point.y - rect.height * state.grabY;
+    selectedId = node.id;
+    selectedIds = [];
+    selectedImage = {
+        nodeId:node.id,
+        index:isSmartImageNode(node) ? 0 : -1
+    };
+    canvasInteractionPersistenceModule.release({scope:'thumb-drag'});
+    canvasInteractionPersistenceModule.hold({scope:'move-nodes'});
+    smartCanvasInteractionState = {
+        kind:'move-nodes',
+        id:node.id,
+        startX:event.clientX,
+        startY:event.clientY,
+        ox:node.x,
+        oy:node.y,
+        group:[{id:node.id,ox:node.x,oy:node.y}],
+        groupIds:[node.id],
+        ctrlGroup:Boolean(event.ctrlKey),
+        snapshot:state.snapshot,
+        sourceGroupId:state.groupId,
+        thumbDetached:true,
+        fromThumb:true
+    };
+    document.body.classList.add('smart-node-drag');
+    render();
+    return smartCanvasInteractionMoveNodes(event,smartCanvasInteractionState);
 }
 function smartCanvasInteractionMoveNodes(event,state){
     const node = nodes.find(candidate => candidate.id === state.id);
@@ -1406,6 +1404,9 @@ function smartCanvasInteractionMove(event){
     }
     if(state.kind === 'detach-media'){
         return smartCanvasInteractionMoveDetach(event,state);
+    }
+    if(state.kind === 'detach-member'){
+        return smartCanvasInteractionMoveMemberDetach(event,state);
     }
     if(state.kind === 'move-nodes'){
         return smartCanvasInteractionMoveNodes(event,state);
@@ -1491,8 +1492,16 @@ function smartCanvasInteractionEndDetach(state){
         && fromIndex !== toIndex
     );
     if(changed){
-        const [image] = source.images.splice(fromIndex,1);
-        source.images.splice(toIndex,0,image);
+        if(canvasInteractionContainerModule.isGroup(source)){
+            canvasInteractionContainerModule.reorderMedia(
+                source,
+                fromIndex,
+                toIndex
+            );
+        } else {
+            const [image] = source.images.splice(fromIndex,1);
+            source.images.splice(toIndex,0,image);
+        }
         if(selectedImage.nodeId === source.id){
             const selectedIndex = Number(selectedImage.index);
             if(selectedIndex === fromIndex){
@@ -1584,6 +1593,21 @@ function smartCanvasInteractionEndMove(event,state){
             state.groupIds || []
         )
         : null;
+    if(
+        state.sourceGroupId
+        && smartGroupTarget?.id === state.sourceGroupId
+        && draggedNode
+    ){
+        const original = (state.snapshot?.nodes || []).find(
+            candidate => candidate.id === draggedNode.id
+        );
+        if(original){
+            ['x','y','w','h','scale'].forEach(key => {
+                if(original[key] === undefined) delete draggedNode[key];
+                else draggedNode[key] = original[key];
+            });
+        }
+    }
     if(
         insertHit
         && smartCanvasInteractionInsertLoop(draggedNode,insertHit)
@@ -1721,6 +1745,13 @@ function smartCanvasInteractionEnd(event){
     if(state.kind === 'detach-media'){
         return smartCanvasInteractionEndDetach(state);
     }
+    if(state.kind === 'detach-member'){
+        canvasInteractionMutationModule.history({action:'discard'});
+        smartCanvasInteractionState = null;
+        smartCanvasInteractionRelease(state);
+        smartCanvasInteractionResetVisuals();
+        return true;
+    }
     if(state.kind === 'move-nodes'){
         return smartCanvasInteractionEndMove(event || {},state);
     }
@@ -1756,7 +1787,8 @@ function smartCanvasInteractionBegin({
     kind='',
     event=null,
     nodeId='',
-    mediaIndex=-1
+    mediaIndex=-1,
+    groupId=''
 }={}){
     if(
         typeof canvasInteractionPersistenceModule.editable === 'function'
@@ -1780,6 +1812,12 @@ function smartCanvasInteractionBegin({
             event,
             nodeId,
             mediaIndex
+        );
+    } else if(normalizedKind === 'detach-member'){
+        started = smartCanvasInteractionBeginMemberDetach(
+            event,
+            groupId,
+            nodeId
         );
     }
     if(started){

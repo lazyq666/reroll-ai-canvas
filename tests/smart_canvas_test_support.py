@@ -15,6 +15,7 @@ SMART_CANVAS_SCRIPT_PATHS = (
     Path("static/js/smart-canvas/smart-container.js"),
     Path("static/js/smart-canvas/canvas-interaction.js"),
     Path("static/js/smart-canvas/image-studio.js"),
+    Path("static/js/smart-canvas/model-capabilities.js"),
     Path("static/js/smart-canvas/image-capabilities.js"),
     Path("static/js/smart-canvas/generation-settings.js"),
     Path("static/js/smart-canvas/prompt-authoring.js"),

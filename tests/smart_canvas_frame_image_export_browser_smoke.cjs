@@ -58,6 +58,23 @@ async function main(){
         await page.waitForFunction(()=>smartCanvasDetailRecoveryReady===null);
         await page.evaluate(()=>render());
         const open=async()=>{await page.locator(button).click();await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').open);};
+        const checkDialogInfo=async()=>{
+            await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').dataset.motionState==='open');
+            const info=await page.locator('#smartFrameExportDialog').evaluate(dialog=>{
+                const hint=dialog.querySelector('.smart-frame-export-hint');
+                const range=document.createRange();range.selectNodeContents(hint);
+                const probe=document.createElement('span');probe.style.color='var(--ui-color-text-tertiary)';hint.append(probe);
+                const muted=getComputedStyle(probe).color;probe.remove();
+                return {closeDisplay:getComputedStyle(dialog.shadowRoot.querySelector('[part="close-button"]')).display,
+                    name:dialog.querySelector('#smartFrameExportName')!==null,lines:range.getClientRects().length,
+                    color:getComputedStyle(hint).color,muted,overflow:hint.scrollWidth>hint.clientWidth};
+            });
+            assert.equal(info.name,false,'frame name is omitted');
+            assert.equal(info.closeDisplay,'none','cancel is the only visible dismissal button');
+            assert.equal(info.lines,1,'content summary stays on one line');
+            assert.equal(info.color,info.muted,'content summary uses tertiary text');
+            assert.equal(info.overflow,false,'content summary fits the dialog');
+        };
         const download=async(name)=>{
             const event=page.waitForEvent('download');
             await page.locator('#smartFrameExportDownload').click();
@@ -69,6 +86,9 @@ async function main(){
         };
         const before=await page.evaluate(()=>JSON.stringify({nodes,connections:canvas.connections,selectedId,selectedIds,viewport}));
         await open();
+        await checkDialogInfo();
+        assert.equal(await page.locator('#smartFrameExportDialog').getAttribute('label'),'下载分区图片');
+        await page.screenshot({path:path.join(outputDir,'dialog-light.png')});
         assert.equal(await page.locator('#smartFrameExportSize').textContent(),'700 × 500 px');
         await page.locator('#smartFrameExportScale [data-value="2"]').click();
         await page.waitForFunction(()=>document.getElementById('smartFrameExportSize').textContent==='1400 × 1000 px');
@@ -95,8 +115,9 @@ async function main(){
 
         await page.evaluate(()=>applyTheme('dark'));await open();
         await page.evaluate(()=>StudioI18n.set('en'));
-        await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').label==='Download frame');
+        await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').label==='Download frame image');
         assert.equal(await page.locator('#smartFrameExportDownload').textContent(),'Download');
+        await checkDialogInfo();
         await page.screenshot({path:path.join(outputDir,'dialog-dark.png')});
         const dark=await download('dark.png');assert.notDeepEqual(dark,png);
         await page.evaluate(()=>{StudioI18n.set('zh');applyTheme('light');});

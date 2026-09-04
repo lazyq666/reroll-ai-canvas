@@ -2,7 +2,7 @@
 
 > 状态：Current
 >
-> 最近核对：2026-08-28
+> 最近核对：2026-09-04
 >
 > 范围：Smart Canvas 的图片、视频、文字、ComfyUI/RunningHub 工作流、批量生成与任务恢复
 
@@ -14,7 +14,7 @@
 
 当前链路的核心原则是：
 
-1. 一次用户提交对应一个可追踪的 **Generation Run（生成运行）**。
+1. 一次用户提交对应一个可追踪的 **Generation Run（生成运行）**；一次多图提交也只有一个 Run。
 2. 供应商差异收敛到 **Provider Adapter（供应商适配器）**，即把不同平台的“方言”翻译成统一结果。
 3. 供应商返回的远程媒体必须先变成 Workspace 内的本地文件，画布才引用它。
 4. 结果写回前必须再次检查用户权限、目标节点和本次 operation ID，迟到结果不能覆盖新运行。
@@ -69,12 +69,12 @@ flowchart TD
 
 1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。Prompt 顺序固定为 Smart Group、上游 Prompt Node、本地 TXT、Composer 正文，各段以两个换行连接。
 2. 对需要 Prompt 的运行做前置校验：空提示词时“运行”仍可点击，点击后提示“请输入提示词”；TXT 解码失败、单文件超过 1MB、合计超过 2MB，或引用媒体类型不被最终 Model Capability 支持时同样明确列出原因。校验失败不创建 Pending Node，也不提交 Provider 请求。
-3. 通过 Generation Settings 生成不可变的运行快照。
-4. 根据模型能力检查画幅、Resolution Tier、参考图数量和输出数量。
-5. 创建一个或多个 Pending Node；批量生图最多拆成 8 个输出槽位。
+3. 通过 Generation Settings 生成不可变的运行快照，并冻结本次使用的 Model Operation、能力 Schema 版本和目录 Revision。
+4. 根据同一 Model Capability Catalog 检查输入类型与数量、画幅、Resolution Tier、视频时长和输出数量；前端预检后，服务端在 Provider Adapter 前再次校验。
+5. 按当前精确模型声明的输出上限创建一个或多个 Pending Node，并把本次总输出数量放进同一个 Generation Run；不使用跨模型固定数量，也不把超限输入或输出静默截断。
 6. 如果浏览器离线或画布同步失败，把生成意图放回本地队列，不直接向供应商提交。
 
-当前图片 Generation Run 的每个输出槽位对应一个独立 Pending Node，并在完成后成为一个独立 Generation Output Node；例如一次生成 4 张图片会得到 4 个 Node，每个 Node 承载 1 张结果。当前流程不会把这 4 张图片聚合为一个 Node 内的结果画廊；旧数据中的多结果画廊只作为迁移输入兼容，并在 Canvas 加载时拆分为独立 Node。
+当前图片 Generation Run 的每个输出槽位对应一个独立 Pending Node，并在完成后成为一个独立 Generation Output Node；例如一次生成 4 张图片会向后端提交一个 `n=4` 的 Run，最终得到 4 个 Node，每个 Node 承载 1 张结果。Provider 若不支持一次返回多图，Generation Runs 可以在这个 Run 内拆成子请求并统一恢复，前端不会创建 4 个独立用户 Run。当前流程不会把这 4 张图片聚合为一个 Node 内的结果画廊；旧数据中的多结果画廊只作为迁移输入兼容，并在 Canvas 加载时拆分为独立 Node。
 
 如果 Provider 实际返回的图片数多于提交时冻结的输出槽位数，前端也会在结果收尾时立即拆成独立 Generation Output Node，并为它们补上同一 Generation Batch 的身份与布局。每个拆分结果继承原节点的入向 Connection；已通过 `sourceOutputId` 指定某张结果的出向 Connection，则随对应结果迁移。旧结果画廊在加载迁移时遵循同一连接规则，避免刷新后只有保留在原节点的图片仍与上游相连。已经被旧迁移保存为独立节点、但只有一个节点保留上游连接的批次，会按同一运行快照和连续创建时间做一次受限修复；不满足唯一匹配条件时不猜测节点关系。
 
@@ -142,14 +142,14 @@ Provider 业务错误和其他 HTTP 错误不会触发回退，避免重复提�
 ## 5. 后端：Generation Run 生命周期
 
 Canvas 任务 API 会把请求转换为 `ImageRun`、`VideoRun`、`TextRun`、`WorkflowRun`
-或 `RecoveryRun`，然后交给 `GenerationRuns.start()`。
+或 `RecoveryRun`，然后交给 `GenerationRuns.start()`。`ImageRun.count` 保存一次用户意图的总输出数；执行层可按 Provider 能力拆成多个子尝试，但这些尝试共享同一 Run 生命周期。
 
 创建运行时会保存：
 
 - `run_id`；
 - 当前用户 `owner`；
 - 请求内容的 SHA-256 指纹 `request_hash`；
-- Canvas、Node、operation ID 和批量槽位序号；
+- Canvas、Node、operation ID、输出总数和前端批次身份；
 - Provider ID、公开诊断元数据和远端任务编号；
 - 当前阶段、状态、结果或错误。
 

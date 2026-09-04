@@ -63,7 +63,7 @@
 
 - 单选 Frame 的浮动工具栏顺序为“重命名分区 → 切换颜色 → 下载 → 取消分区”。使用 download 图标与现有动作层级。
 - 不修改单图片、编组、多选下载或右键菜单的含义。
-- 点击“下载”打开小型任务 Dialog：标题“下载分区”、只读分区名称、1× / 2×、实际像素宽高、简短内容范围说明、“取消”“下载”。
+- 点击“下载”打开任务 Dialog：标题“下载分区图片”、1× / 2×、实际像素宽高、简短内容范围说明、“取消”“下载”。不显示分区名称及右上角关闭按钮；内容范围合并为一行，使用 tertiary 辅助文字色。
 - 默认 1×，不跨会话保存；倍率变化即时刷新尺寸和下载可用性。最终确认时才冻结内容。
 - 成功交给浏览器下载后关闭 Dialog；产品只提示“已开始下载”，不声称文件已写入磁盘。
 - 关闭或取消返回画布；目标仍存在且选中时焦点回到下载按钮，否则回到画布可聚焦入口。
@@ -72,7 +72,7 @@
 
 | State | Trigger | User sees | Allowed actions | Exit condition |
 | --- | --- | --- | --- | --- |
-| ready | 名称、内容、尺寸有效 | 名称、倍率、像素尺寸、范围说明 | 改倍率、下载、取消 | 开始准备或关闭 |
+| ready | 目标、内容、尺寸有效 | 倍率、像素尺寸、单行范围说明 | 改倍率、下载、取消 | 开始准备或关闭 |
 | background-only | 空分区或只有排除内容 | “此分区仅导出背景” | 下载背景、改倍率、取消 | 同 ready |
 | oversized | 倍率超出尺寸限制 | 超限提示，下载禁用 | 降倍率、取消 | 尺寸有效或关闭 |
 | preparing | 最终确认下载 | “正在准备图片…” | 取消 | 就绪、失败或取消 |
@@ -86,13 +86,13 @@
 ### Input, pointer and keyboard
 
 - Tab 顺序与视觉顺序一致；Enter / Space 激活动作，倍率遵循共享控件键盘行为。
-- Escape、关闭按钮和取消走同一取消路径；点击遮罩不关闭任务 Dialog。
+- Escape 和底部“取消”走同一取消路径；点击遮罩不关闭任务 Dialog。
 - 使用可访问状态消息播报进度，错误与控件关联，不仅依赖 Toast 或颜色。
 - 连续点击或 Enter 不重复提交；取消后的迟到结果不得下载或关闭新任务的 Dialog。
 
 ### Responsive and themes
 
-支持桌面和较窄桌面窗口；长名称截断或换行，Dialog 不超出窗口，按钮可达。不增加移动端承诺。Light / Dark 都需验证；导出颜色按确认时主题冻结。
+支持桌面和较窄桌面窗口；采用 small / compact Dialog 的默认 32rem 宽度，范围说明保持单行，Dialog 不超出窗口，按钮可达。不增加移动端承诺。Light / Dark 都需验证；导出颜色按确认时主题冻结。
 
 ### Copy and internationalization
 
@@ -100,10 +100,9 @@
 
 | 场景 | 中文 | English |
 | --- | --- | --- |
-| 动作 / 标题及入口无障碍名称 | 下载 / 下载分区 | Download / Download frame |
+| 动作 / 标题及入口无障碍名称 | 下载 / 下载分区图片 | Download / Download frame image |
 | 字段 | 导出倍率 / 图片尺寸 | Scale / Image dimensions |
-| 包含说明 | 包含图片、文字标注、画笔和分区背景 | Includes images, text annotations, brush strokes, and the frame background. |
-| 排除说明 | 不包含提示词卡片、连线或视频封面 | Prompt cards, connections, and video thumbnails are excluded. |
+| 内容范围（单行） | 包含图片、文字标注、画笔和分区背景；不包含提示词卡片、连线或视频封面 | Images, text, brush and background; no prompts, links or video covers. |
 | 空内容 | 此分区仅导出背景 | Only the frame background will be exported. |
 | 进度 | 正在准备图片… / 正在生成图片… | Preparing images… / Creating image… |
 | 下载触发 | 已开始下载 | Download started |
@@ -306,3 +305,4 @@
 | 2026-09-03 | Draft | 分区 PNG 下载的白名单、交互、布局、容量与验收初稿 | 用户确认图片、文字标注、画笔、背景及排除提示词卡片、连线、视频封面；其余默认规则由本稿提出 |
 | 2026-09-03 | Implemented | 用户授权实施；新增导出模块、Dialog、中英文和实际 PNG 验收 | Issue #23；素材按张读取，在首张失败时整体终止，因此失败文案不统计全部失败数量 |
 | 2026-09-03 | Implemented | 按消融实验移除单一宿主配置工厂、未使用公开接口及内容指纹/重复确认 | 实验 A 的 8 张 PNG 与基线逐字节一致；实验 B 的一次点击下载场景先在旧逻辑失败，再验证简化实现；详细证据见 Issue #23 |
+| 2026-09-03 | Implemented | 按用户要求移除 Dialog 分区名称，范围说明合并单行并使用 tertiary 文字色 | 中英文单行、无名称、文字色和实际 PNG browser smoke 通过；文档/i18n 14 项测试与 3069 个文案键校验通过 |

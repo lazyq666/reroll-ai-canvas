@@ -501,7 +501,9 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
         const task = tasks.find(candidate =>
             String(candidate.nodeId || '') === slot.id
             || Number(candidate.generationSlotIndex) === index
-        ) || tasks[index];
+        ) || (tasks.length === 1 && Number(tasks[0].generationSlotCount) > 1
+            ? tasks[0]
+            : tasks[index]);
         if(!task){
             slot.pending = 0;
             slot.running = false;

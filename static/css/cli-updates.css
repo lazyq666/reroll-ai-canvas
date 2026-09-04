@@ -1,0 +1,192 @@
+.cli-update-dialog {
+  --width: 47.5rem;
+}
+
+.cli-update-dialog::part(header) {
+  align-items: center;
+  padding: var(--ui-space-5) var(--ui-space-6) var(--ui-space-4);
+  border-block-end: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+}
+
+.cli-update-dialog::part(title) {
+  color: var(--ui-color-text-primary);
+  font: var(--ui-text-title-2);
+  letter-spacing: var(--ui-letter-spacing-tight);
+}
+
+.cli-update-dialog::part(header-actions) {
+  padding-inline-start: var(--ui-space-4);
+}
+
+.cli-update-dialog::part(body) {
+  padding: 0 var(--ui-space-6) var(--ui-space-2);
+}
+
+.cli-update-item {
+  display: grid;
+  grid-template-columns: var(--ui-icon-size-l) minmax(0, 1fr) auto;
+  gap: 0 var(--ui-space-4);
+  padding: var(--ui-space-5) 0;
+}
+
+.cli-update-item + .cli-update-item {
+  border-block-start: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+}
+
+.cli-update-icon {
+  grid-row: 1 / span 3;
+}
+
+.cli-update-icon img {
+  display: block;
+  inline-size: var(--ui-icon-size-l);
+  block-size: var(--ui-icon-size-l);
+  object-fit: contain;
+}
+
+.cli-update-item.is-secondary .cli-update-icon {
+  opacity: .76;
+}
+
+.cli-update-item.is-secondary .cli-update-icon img {
+  filter: grayscale(1);
+}
+
+.cli-update-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  min-inline-size: 0;
+}
+
+.cli-update-item-title {
+  margin: 0;
+  color: var(--ui-color-text-primary);
+  font: var(--ui-text-title-3);
+  font-weight: var(--ui-font-weight-bold);
+}
+
+.cli-update-state {
+  font: var(--ui-text-caption);
+  font-weight: var(--ui-font-weight-bold);
+  white-space: nowrap;
+}
+
+.cli-update-state.is-update {
+  color: var(--ui-color-text-success);
+}
+
+.cli-update-state.is-secondary {
+  color: var(--ui-color-text-tertiary);
+}
+
+.cli-update-version-pair {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-2);
+  padding-inline-start: var(--ui-space-4);
+  text-align: end;
+}
+
+.cli-update-version-side {
+  min-inline-size: 5.25rem;
+}
+
+.cli-update-version-caption {
+  display: block;
+  margin-block-end: var(--ui-space-1);
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-caption);
+  font-size: .625rem;
+  font-weight: var(--ui-font-weight-bold);
+  letter-spacing: var(--ui-letter-spacing-wide);
+}
+
+.cli-update-version-value {
+  display: block;
+  color: var(--ui-color-text-primary);
+  font: var(--ui-text-title-2);
+  letter-spacing: var(--ui-letter-spacing-tight);
+  white-space: nowrap;
+}
+
+.cli-update-version-separator {
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-body-compact);
+}
+
+.cli-update-item.is-secondary .cli-update-version-value {
+  color: var(--ui-color-text-secondary);
+}
+
+.cli-update-item-detail {
+  grid-column: 2;
+  max-block-size: 8rem;
+  overflow: auto;
+  margin: var(--ui-space-2) 0 0;
+  white-space: pre-wrap;
+  color: var(--ui-color-text-secondary);
+  font: var(--ui-text-body-compact);
+}
+
+.cli-update-item.is-secondary .cli-update-item-detail {
+  color: var(--ui-color-text-tertiary);
+}
+
+.cli-update-item-bottom {
+  grid-column: 2 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  margin-block-start: var(--ui-space-3);
+}
+
+.cli-update-item-date {
+  color: var(--ui-color-text-tertiary);
+  font: var(--ui-text-caption);
+}
+
+.cli-update-item-bottom a {
+  color: var(--ui-color-text-link);
+  font: var(--ui-text-caption);
+  font-weight: var(--ui-font-weight-bold);
+  text-decoration: none;
+}
+
+.cli-update-item-bottom a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 40rem) {
+  .cli-update-dialog::part(header),
+  .cli-update-dialog::part(body) {
+    padding-inline: var(--ui-space-4);
+  }
+
+  .cli-update-item {
+    grid-template-columns: var(--ui-icon-size-l) minmax(0, 1fr);
+  }
+
+  .cli-update-version-pair {
+    grid-column: 2;
+    grid-row: auto;
+    justify-content: flex-start;
+    margin-block-start: var(--ui-space-3);
+    padding-inline-start: 0;
+    text-align: start;
+  }
+
+  .cli-update-item-detail {
+    margin-block-start: var(--ui-space-3);
+  }
+
+  .cli-update-item-bottom {
+    grid-column: 2;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--ui-space-2);
+  }
+}

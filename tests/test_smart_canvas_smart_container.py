@@ -119,6 +119,7 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 inheritNodeMetaFromImage:() => {{}},
                 clearDetachedRunInputRefs:() => {{}},
                 render:() => events.push('render'),
+                tr:key => key,
                 toast:message => events.push(`toast:${{message}}`),
             }};
             const mutation = {{
@@ -210,7 +211,118 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 groupRemoved:!sandbox.nodes.some(node => node.id === group.id),
                 memberPreserved:sandbox.nodes.some(node => node.id === 'prompt'),
                 restoredImageUrl:restoredImage?.images?.[0]?.url || '',
+                restoredImageId:restoredImage?.id || '',
+                restoredImageGeometry:[
+                    restoredImage?.x,
+                    restoredImage?.y,
+                    restoredImage?.w,
+                    restoredImage?.h,
+                ],
+                connection:sandbox.canvas.connections[0],
                 selectedIds:sandbox.selectedIds.slice().sort(),
+            }};
+
+            const directGroup = {{
+                id:'direct-group',
+                type:'smart-group',
+                x:20,
+                y:30,
+                w:340,
+                h:220,
+                items:[],
+                images:[{{
+                    url:'direct.png',
+                    groupMemberId:'direct-media',
+                }}],
+                memberOrderVersion:1,
+                memberOrder:[{{kind:'media',id:'direct-media'}}],
+            }};
+            sandbox.nodes = [directGroup];
+            container.ungroup(directGroup.id);
+            const detachedDirect = sandbox.nodes[0];
+            const directRelease = {{
+                idChanged:detachedDirect.id !== 'direct-media',
+                geometry:[
+                    detachedDirect.x,
+                    detachedDirect.y,
+                    detachedDirect.w,
+                    detachedDirect.h,
+                ],
+                memberId:detachedDirect.images[0].groupMemberId || '',
+            }};
+
+            const mixedImage = {{
+                id:'mixed-image',
+                type:'smart-image',
+                x:500,
+                y:40,
+                w:140,
+                h:100,
+                images:[{{url:'node-image.png'}}],
+            }};
+            const mixedPrompt = {{
+                id:'mixed-prompt',
+                type:'smart-prompt',
+                x:660,
+                y:40,
+                w:120,
+                h:80,
+            }};
+            const mixedGroup = {{
+                id:'mixed-group',
+                type:'smart-group',
+                x:0,
+                y:0,
+                w:340,
+                h:286,
+                items:['mixed-image','mixed-prompt'],
+                images:[
+                    {{url:'direct-a.png',groupMemberId:'media-a'}},
+                    {{url:'direct-b.png',groupMemberId:'media-b'}},
+                ],
+                memberOrderVersion:1,
+                memberOrder:[
+                    {{kind:'node',id:'mixed-image'}},
+                    {{kind:'media',id:'media-a'}},
+                    {{kind:'node',id:'mixed-prompt'}},
+                    {{kind:'media',id:'media-b'}},
+                ],
+            }};
+            sandbox.nodes = [mixedGroup,mixedImage,mixedPrompt];
+            const mixedRefs = container.imageRefs(mixedGroup)
+                .map(ref => [ref.item.url,ref.slotIndex]);
+            container.ungroup(mixedGroup.id);
+            const mixedReleaseOrder = sandbox.selectedIds.map(id => {{
+                const node = sandbox.nodes.find(candidate => candidate.id === id);
+                return node?.images?.[0]?.url || node?.id || '';
+            }});
+
+            const copySource = {{
+                id:'copy-source',
+                type:'smart-group',
+                items:['copy-member'],
+                images:[{{url:'copy-direct.png',groupMemberId:'copy-media'}}],
+                memberOrderVersion:1,
+                memberOrder:[
+                    {{kind:'node',id:'copy-member'}},
+                    {{kind:'media',id:'copy-media'}},
+                ],
+            }};
+            const copyTarget = JSON.parse(JSON.stringify(copySource));
+            copyTarget.id = 'copy-target';
+            container.remapCopy(
+                copyTarget,
+                copySource,
+                new Map([['copy-member','copy-member-clone']])
+            );
+            const remappedCopy = {{
+                items:copyTarget.items.slice(),
+                order:copyTarget.memberOrder.map(entry => [entry.kind,entry.id]),
+                mediaIdChanged:
+                    copyTarget.images[0].groupMemberId !== 'copy-media',
+                mediaProjectionMatches:
+                    copyTarget.memberOrder[1].id
+                    === copyTarget.images[0].groupMemberId,
             }};
 
             const addGroup = {{
@@ -250,9 +362,24 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 {{skipUndo:true}}
             );
             const ownerAfterAdd = container.groupFor('add-prompt')?.id || '';
+            const secondGroup = {{
+                id:'second-group',
+                type:'smart-group',
+                x:300,
+                y:0,
+                items:[],
+                images:[],
+            }};
+            sandbox.nodes.push(secondGroup);
+            const transferredAdd = container.add(
+                'second-group',
+                ['add-prompt'],
+                {{skipUndo:true}}
+            );
+            const ownerAfterTransfer = container.groupFor('add-prompt')?.id || '';
             const releasedAdd = container.release(
                 ['add-prompt'],
-                'add-group',
+                'second-group',
                 {{
                     skipUndo:true,
                     select:false,
@@ -331,6 +458,8 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 portraitGroup,
                 {{skipUndo:true}}
             );
+            const portraitPromptPresentation =
+                container.presentation(portraitPrompt);
             const imageOnlyLayouts = [6,7].map(count => {{
                 const group = {{
                     id:`image-only-${{count}}`,
@@ -392,9 +521,15 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 methods:Object.keys(container).sort(),
                 grouped,
                 released,
+                directRelease,
+                mixedRefs,
+                mixedReleaseOrder,
+                remappedCopy,
                 rejectedMixedAdd,
                 acceptedAdd,
                 ownerAfterAdd,
+                transferredAdd,
+                ownerAfterTransfer,
                 releasedAdd,
                 addGroupItems:addGroup.items.slice(),
                 reconciled,
@@ -416,6 +551,7 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                     promptY:portraitPrompt.y,
                     promptW:portraitPrompt.w,
                     promptH:portraitPrompt.h,
+                    promptPresentation:portraitPromptPresentation,
                 }},
                 imageOnlyLayouts,
                 annotations:{{
@@ -425,6 +561,8 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                     brushCompact:container.isCompactMember(brushMember),
                     textSize:[textMember.w,textMember.h],
                     brushSize:[brushMember.w,brushMember.h],
+                    textPresentation:container.presentation(textMember),
+                    brushPresentation:container.presentation(brushMember),
                 }},
                 renders:events.filter(event => event === 'render').length,
                 saves:events.filter(event => event === 'save').length,
@@ -443,6 +581,7 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
             payload["methods"],
             [
                 "add",
+                "addMedia",
                 "arrange",
                 "compactMembers",
                 "descendantIds",
@@ -457,35 +596,68 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 "isCompactMember",
                 "isFrame",
                 "isGroup",
+                "isImageMember",
                 "layout",
                 "members",
+                "normalizeOrder",
+                "orderedEntries",
+                "presentation",
                 "prune",
                 "reconcileFrames",
                 "release",
+                "remapCopy",
                 "remove",
+                "reorderMedia",
                 "scope",
+                "takeMedia",
                 "thumbLayout",
                 "ungroup",
                 "zoom",
             ],
         )
         self.assertEqual(payload["grouped"]["type"], "smart-group")
-        self.assertEqual(payload["grouped"]["memberIds"], ["prompt"])
+        self.assertEqual(payload["grouped"]["memberIds"], ["prompt", "image"])
         self.assertEqual(payload["grouped"]["imageUrls"], ["source.png"])
-        self.assertTrue(payload["grouped"]["sourceRemoved"])
+        self.assertFalse(payload["grouped"]["sourceRemoved"])
         self.assertEqual(
             payload["grouped"]["connection"],
-            {"from": payload["grouped"]["selectedId"], "to": "prompt", "kind": "input"},
+            {"from": "image", "to": "prompt", "kind": "input"},
         )
-        self.assertEqual(payload["grouped"]["promptInputs"], [payload["grouped"]["selectedId"]])
+        self.assertEqual(payload["grouped"]["promptInputs"], ["image"])
         self.assertTrue(payload["released"]["ungrouped"])
         self.assertTrue(payload["released"]["groupRemoved"])
         self.assertTrue(payload["released"]["memberPreserved"])
         self.assertEqual(payload["released"]["restoredImageUrl"], "source.png")
+        self.assertEqual(payload["released"]["restoredImageId"], "image")
+        self.assertEqual(
+            payload["released"]["restoredImageGeometry"],
+            [220, 60, 100, 80],
+        )
+        self.assertEqual(
+            payload["released"]["connection"],
+            {"from": "image", "to": "prompt", "kind": "input"},
+        )
         self.assertIn("prompt", payload["released"]["selectedIds"])
+        self.assertTrue(payload["directRelease"]["idChanged"])
+        self.assertEqual(payload["directRelease"]["geometry"], [20, 332, 96, 96])
+        self.assertEqual(payload["directRelease"]["memberId"], "")
+        self.assertEqual(
+            payload["mixedRefs"],
+            [["node-image.png", 0], ["direct-a.png", 1], ["direct-b.png", 3]],
+        )
+        self.assertEqual(
+            payload["mixedReleaseOrder"],
+            ["node-image.png", "direct-a.png", "mixed-prompt", "direct-b.png"],
+        )
+        self.assertEqual(payload["remappedCopy"]["items"], ["copy-member-clone"])
+        self.assertEqual(payload["remappedCopy"]["order"][0], ["node", "copy-member-clone"])
+        self.assertTrue(payload["remappedCopy"]["mediaIdChanged"])
+        self.assertTrue(payload["remappedCopy"]["mediaProjectionMatches"])
         self.assertFalse(payload["rejectedMixedAdd"])
         self.assertTrue(payload["acceptedAdd"])
         self.assertEqual(payload["ownerAfterAdd"], "add-group")
+        self.assertTrue(payload["transferredAdd"])
+        self.assertEqual(payload["ownerAfterTransfer"], "second-group")
         self.assertTrue(payload["releasedAdd"])
         self.assertEqual(payload["addGroupItems"], [])
         self.assertTrue(payload["reconciled"])
@@ -508,13 +680,16 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
             payload["portrait"]["height"],
             payload["portrait"]["gridHeight"] + 60,
         )
-        self.assertEqual(
+        self.assertEqual(payload["portrait"]["promptY"], 0)
+        self.assertEqual(payload["portrait"]["promptW"], 120)
+        self.assertEqual(payload["portrait"]["promptH"], 80)
+        self.assertGreater(
+            payload["portrait"]["promptPresentation"]["y"],
             payload["portrait"]["promptY"],
-            44 + payload["portrait"]["rowOffsets"][2],
         )
         self.assertEqual(
-            payload["portrait"]["promptW"],
-            payload["portrait"]["promptH"],
+            payload["portrait"]["promptPresentation"]["width"],
+            payload["portrait"]["promptPresentation"]["height"],
         )
         self.assertEqual(
             [layout["rows"] for layout in payload["imageOnlyLayouts"]],
@@ -533,9 +708,11 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
         )
         self.assertTrue(payload["annotations"]["textCompact"])
         self.assertTrue(payload["annotations"]["brushCompact"])
+        self.assertEqual(payload["annotations"]["textSize"], [180, 90])
+        self.assertEqual(payload["annotations"]["brushSize"], [180, 90])
         self.assertEqual(
-            payload["annotations"]["textSize"],
-            payload["annotations"]["brushSize"],
+            payload["annotations"]["textPresentation"]["width"],
+            payload["annotations"]["brushPresentation"]["width"],
         )
         self.assertGreaterEqual(payload["renders"], 2)
         self.assertGreaterEqual(payload["saves"], 2)

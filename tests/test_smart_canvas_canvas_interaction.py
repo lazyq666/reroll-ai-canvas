@@ -467,6 +467,7 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 create:() => null,
                 remove:() => false
             }};
+            let activeGroupTarget = true;
             const smartContainer = {{
                 isGroup:node => node?.type === 'smart-group',
                 isFrame:node => node?.type === 'smart-frame',
@@ -476,24 +477,32 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 imageRefs:node => (node?.images || []).map(item => ({{item}})),
                 compactMembers:() => [],
                 arrange:group => {{
-                    const member = sandbox.nodes.find(
-                        node => node.id === 'prompt-1'
-                    );
-                    if(member) Object.assign(member,{{x:140,y:160}});
                     events.push(`arrange:${{group.id}}`);
                     return true;
                 }},
-                dragTarget:node => node?.id === 'prompt-1'
+                dragTarget:node => activeGroupTarget && node?.id === 'prompt-1'
                     ? sandbox.nodes.find(
                         candidate => candidate.id === 'group-1'
                     )
                     : null,
-                groupFor:id => id === 'prompt-1'
-                    ? sandbox.nodes.find(
-                        candidate => candidate.id === 'group-1'
-                    )
-                    : null,
-                add:() => false,
+                groupFor:id => sandbox.nodes.find(node =>
+                    node.type === 'smart-group'
+                    && (node.items || []).includes(id)
+                ) || null,
+                add:(groupId,ids) => {{
+                    const group = sandbox.nodes.find(node => node.id === groupId);
+                    if(!group) return false;
+                    group.items = [...new Set([...(group.items || []),...ids])];
+                    return true;
+                }},
+                release:(ids,groupId) => {{
+                    const group = sandbox.nodes.find(node => node.id === groupId);
+                    if(!group) return false;
+                    group.items = (group.items || []).filter(
+                        id => !ids.includes(id)
+                    );
+                    return true;
+                }},
                 prune:() => false,
                 reconcileFrames:() => false
             }};
@@ -622,6 +631,18 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 y:sandbox.nodes[0].y
             }};
 
+            interaction.begin({{
+                kind:'move-nodes',
+                event:pointer(10,10),
+                nodeId:'node-1'
+            }});
+            interaction.move(pointer(30,50));
+            interaction.end(pointer(30,50));
+            const committedMove = {{
+                x:sandbox.nodes[0].x,
+                y:sandbox.nodes[0].y
+            }};
+
             const savesBeforeTinyMove = events.filter(
                 item => item === 'save'
             ).length;
@@ -700,11 +721,31 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 x:sandbox.nodes.find(node => node.id === 'prompt-1').x,
                 y:sandbox.nodes.find(node => node.id === 'prompt-1').y
             }};
+            activeGroupTarget = false;
+            interaction.begin({{
+                kind:'move-nodes',
+                event:pointer(0,0),
+                nodeId:'prompt-1'
+            }});
+            interaction.move(pointer(80,60));
+            interaction.end(pointer(80,60));
+            const extractedMember = sandbox.nodes.find(
+                node => node.id === 'prompt-1'
+            );
+            const extractedMemberState = {{
+                id:extractedMember?.id,
+                x:extractedMember?.x,
+                y:extractedMember?.y,
+                ownerItems:sandbox.nodes.find(
+                    node => node.id === 'group-1'
+                )?.items?.slice()
+            }};
 
             process.stdout.write(JSON.stringify({{
                 resized,
                 moved,
                 restored,
+                committedMove,
                 tinyMovePreview,
                 tinyMoveResult,
                 tinyMoveSaved:savesAfterTinyMove > savesBeforeTinyMove,
@@ -712,6 +753,7 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 detachedKind,
                 freeMemberPosition,
                 snappedMemberPosition,
+                extractedMemberState,
                 nodeCount:sandbox.nodes.length,
                 sourceImages:sandbox.nodes[0].images.length,
                 active:interaction.active(),
@@ -730,24 +772,25 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
         self.assertEqual(data["resized"], {"w": 120, "h": 90})
         self.assertEqual(data["moved"], {"x": 20, "y": 40})
         self.assertEqual(data["restored"], {"x": 10, "y": 20})
-        self.assertEqual(data["tinyMovePreview"], {"x": 11, "y": 20.5})
-        self.assertEqual(data["tinyMoveResult"], {"x": 10, "y": 20})
+        self.assertEqual(data["committedMove"], {"x": 20, "y": 40})
+        self.assertEqual(data["tinyMovePreview"], {"x": 21, "y": 40.5})
+        self.assertEqual(data["tinyMoveResult"], {"x": 20, "y": 40})
         self.assertFalse(data["tinyMoveSaved"])
         self.assertEqual(data["belowThresholdKind"], "detach-media")
         self.assertEqual(data["detachedKind"], "move-nodes")
-        self.assertNotEqual(
-            data["freeMemberPosition"],
-            data["snappedMemberPosition"],
-        )
         self.assertEqual(
             data["snappedMemberPosition"],
-            {"x": 140, "y": 160},
+            {"x": 25, "y": 20},
+        )
+        self.assertEqual(
+            data["extractedMemberState"],
+            {"id": "prompt-1", "x": 40, "y": 30, "ownerItems": []},
         )
         self.assertEqual(data["nodeCount"], 4)
         self.assertEqual(data["sourceImages"], 1)
         self.assertIsNone(data["active"])
-        self.assertEqual(data["events"].count("history:capture"), 6)
-        self.assertEqual(data["events"].count("history:commit"), 3)
+        self.assertEqual(data["events"].count("history:capture"), 8)
+        self.assertEqual(data["events"].count("history:commit"), 5)
         self.assertEqual(data["events"].count("history:discard"), 3)
         self.assertIn("hold:resize-node", data["events"])
         self.assertIn("release:resize-node", data["events"])
@@ -755,7 +798,6 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
         self.assertIn("release:move-nodes", data["events"])
         self.assertIn("hold:thumb-drag", data["events"])
         self.assertIn("release:thumb-drag", data["events"])
-        self.assertIn("arrange:group-1", data["events"])
 
     def test_frame_movement_requires_an_existing_selection(self):
         script = textwrap.dedent(

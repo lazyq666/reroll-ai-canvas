@@ -215,8 +215,16 @@ function canvasMutationApplySelection(node, options={}){
     selectedImage = {nodeId:'', index:-1};
 }
 function canvasMutationPlacementPlan(drafts=[], intent={}, snapshotNodes=nodes){
+    const ownedNodeIds = new Set();
+    (snapshotNodes || []).forEach(node => {
+        if(node?.type !== 'smart-group') return;
+        (node.items || []).forEach(id => ownedNodeIds.add(String(id)));
+    });
+    const placementNodes = (snapshotNodes || []).filter(node =>
+        !ownedNodeIds.has(String(node?.id || ''))
+    );
     const plan = canvasMutationPlacement().plan({
-        snapshot:{nodes:snapshotNodes},
+        snapshot:{nodes:placementNodes},
         drafts,
         intent
     });
@@ -375,6 +383,9 @@ function canvasMutationCreate(kind='image', data={}, options={}){
             h:SMART_GROUP_DEFAULT_HEIGHT,
             title:canvasMutationText('smart.smartGroup'),
             items:[],
+            images:[],
+            memberOrderVersion:1,
+            memberOrder:[],
             created_at:Date.now()
         };
     } else if(kind === 'frame'){
@@ -608,7 +619,17 @@ function canvasMutationDuplicate(options={}){
         return internal || externalInput;
     });
     copies.forEach((copy,index) => {
-        if(Array.isArray(copy.items)){
+        const source = sourceNodes[index];
+        if(
+            copy.type === 'smart-group'
+            && window.SmartCanvasModules?.smartContainer?.remapCopy
+        ){
+            window.SmartCanvasModules.smartContainer.remapCopy(
+                copy,
+                source,
+                idMap
+            );
+        } else if(Array.isArray(copy.items)){
             copy.items = copy.items.map(id => idMap.get(id)).filter(Boolean);
         }
         if(Array.isArray(copy.inputNodeIds)){
@@ -729,6 +750,11 @@ function canvasMutationRemove(nodeIds=[], options={}){
         if(Array.isArray(node.items)){
             node.items = node.items.filter(
                 itemId => !deleteIds.has(itemId)
+            );
+        }
+        if(Array.isArray(node.memberOrder)){
+            node.memberOrder = node.memberOrder.filter(entry =>
+                entry?.kind !== 'node' || !deleteIds.has(entry.id)
             );
         }
     });

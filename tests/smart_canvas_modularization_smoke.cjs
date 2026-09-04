@@ -12,7 +12,7 @@ const overlayOnly = process.env.SMART_CANVAS_OVERLAY_ONLY === '1';
 const uploadOnly = process.env.SMART_CANVAS_UPLOAD_ONLY === '1';
 const focusedInteractionSmoke = overlayOnly || uploadOnly;
 const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nXQAAAAASUVORK5CYII=';
-const uploadFixture = fs.readFileSync(path.join(__dirname, '..', 'static', 'images', 'logo.png'));
+const uploadFixture = fs.readFileSync(path.join(__dirname, '..', 'static', 'images', 'brand', 'logo.png'));
 
 (async () => {
     const browser = await chromium.launch({ headless: true, executablePath: browserExecutable });
@@ -464,7 +464,7 @@ const uploadFixture = fs.readFileSync(path.join(__dirname, '..', 'static', 'imag
             imageCount: containerGroup
                 ? containerModule.imageRefs(containerGroup).length
                 : 0,
-            imageAbsorbed: !nodes.some(node => node.id === 'container-smoke-image'),
+            imagePreserved: nodes.some(node => node.id === 'container-smoke-image'),
         };
         const containerUngrouped = containerGroup
             ? containerModule.ungroup(containerGroup.id)
@@ -475,7 +475,7 @@ const uploadFixture = fs.readFileSync(path.join(__dirname, '..', 'static', 'imag
             promptPreserved: nodes.some(node => node.id === 'container-smoke-prompt'),
             imageRestored: nodes.some(node =>
                 node.type === 'smart-image'
-                && node.id !== 'smoke-image'
+                && node.id === 'container-smoke-image'
                 && (node.images || []).some(item => item?.name === 'container.png')
             ),
         };
@@ -542,9 +542,9 @@ const uploadFixture = fs.readFileSync(path.join(__dirname, '..', 'static', 'imag
         || generationModules.recoveryQueued
         || generationModules.loopRunning
         || JSON.stringify(generationModules.groupedContainer.memberIds)
-            !== JSON.stringify(['container-smoke-prompt'])
+            !== JSON.stringify(['container-smoke-prompt', 'container-smoke-image'])
         || generationModules.groupedContainer.imageCount !== 1
-        || !generationModules.groupedContainer.imageAbsorbed
+        || !generationModules.groupedContainer.imagePreserved
         || !generationModules.ungroupedContainer.ok
         || !generationModules.ungroupedContainer.groupRemoved
         || !generationModules.ungroupedContainer.promptPreserved

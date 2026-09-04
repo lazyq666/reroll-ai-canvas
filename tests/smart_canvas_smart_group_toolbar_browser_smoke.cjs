@@ -13,7 +13,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         const page = await context.newPage();
         page.setDefaultTimeout(15000);
         await page.goto(`${baseUrl}/static/smart-canvas.html?id=smart-group-toolbar-regression`, {
-            waitUntil:'networkidle',
+            waitUntil:'domcontentloaded',
         });
         await page.waitForFunction(() => Boolean(
             window.SmartCanvasModules?.viewportSelection?.selection
@@ -152,7 +152,11 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         });
 
         await page.locator('#smartNodeFloatingPortal [data-smart-group-action="preview"]').click();
-        await page.waitForFunction(() => document.querySelector('#imageEditModal')?.classList.contains('open'));
+        await page.waitForFunction(() => (
+            document.querySelector('#imageEditModal')?.open
+            && document.querySelector('#imageEditModal')?.dataset.motionState === 'open'
+            && document.querySelector('#imageEditModal')?.classList.contains('open')
+        ));
         const previewState = await page.locator('#imageEditModal').evaluate(modal => ({
             activeMode:modal.querySelector('#imageEditModeTabs')?.getAttribute('value'),
             metaHintExists:Boolean(modal.querySelector('#previewMetaHint')),
@@ -170,10 +174,13 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         await page.locator('#previewGroupNextBtn').click();
         await page.waitForFunction(() => document.querySelector('#previewGroupNavCount')?.textContent.trim() === '1 / 2');
         await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.waitForFunction(() => !document.querySelector('#imageEditModal')?.hasAttribute('open'));
 
         await page.locator('#smartNodeFloatingPortal [data-smart-group-action="grid"]').click();
         await page.waitForFunction(() => (
-            document.querySelector('#imageEditModal')?.classList.contains('open')
+            document.querySelector('#imageEditModal')?.open
+            && document.querySelector('#imageEditModal')?.dataset.motionState === 'open'
+            && document.querySelector('#imageEditModal')?.classList.contains('open')
             && document.querySelector('#imageEditModeTabs')?.getAttribute('value') === 'grid'
             && document.getElementById('gridOperationControl')?.getAttribute('value') === 'join'
         ));
@@ -184,27 +191,31 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         }));
         assert.deepEqual(gridState, {activeMode:'grid', joinActive:true, joinDisabled:false});
         await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.waitForFunction(() => !document.querySelector('#imageEditModal')?.hasAttribute('open'));
 
         const beforeArrange = await page.evaluate(() => (
-            nodes.filter(node => node.id.startsWith('group-member-')).map(node => [node.id, node.x, node.y])
+            nodes.filter(node => node.id.startsWith('group-member-'))
+                .map(node => [node.id, node.x, node.y, node.w, node.h])
         ));
         await page.locator('#smartNodeFloatingPortal [data-smart-group-action="arrange"]').click();
-        await page.waitForFunction(previous => {
-            const current = nodes.filter(node => node.id.startsWith('group-member-')).map(node => [node.id, node.x, node.y]);
-            return JSON.stringify(current) !== JSON.stringify(previous);
-        }, beforeArrange);
+        await page.waitForTimeout(100);
         const arranged = await page.evaluate(() => {
             const group = nodes.find(node => node.id === 'smart-group-a');
             return {
                 items:group?.items?.slice(),
                 imageCount:group?.images?.length,
                 members:nodes.filter(node => node.id.startsWith('group-member-')).map(node => node.id),
+                memberGeometry:nodes.filter(node => node.id.startsWith('group-member-'))
+                    .map(node => [node.id, node.x, node.y, node.w, node.h]),
+                memberOrder:group?.memberOrder?.map(entry => entry.kind),
             };
         });
         assert.deepEqual(arranged, {
             items:['group-member-a', 'group-member-b'],
             imageCount:2,
             members:['group-member-a', 'group-member-b'],
+            memberGeometry:beforeArrange,
+            memberOrder:['media', 'media', 'node', 'node'],
         });
 
         await page.locator('#smartNodeFloatingPortal [data-smart-group-action="ungroup"]').click();
@@ -217,14 +228,41 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
         const ungroup = await page.evaluate(() => ({
             groupExists:nodes.some(node => node.id === 'smart-group-a'),
             originalMembers:nodes.filter(node => node.id.startsWith('group-member-')).map(node => node.id),
+            originalMemberGeometry:nodes.filter(node => node.id.startsWith('group-member-'))
+                .map(node => [node.id, node.x, node.y, node.w, node.h]),
             imageNodeCount:nodes.filter(node => node.type === 'smart-image').length,
             selectedCount:selectedIds.length,
         }));
         assert.deepEqual(ungroup, {
             groupExists:false,
             originalMembers:['group-member-a', 'group-member-b'],
+            originalMemberGeometry:beforeArrange,
             imageNodeCount:2,
             selectedCount:4,
+        });
+
+        const imageAfterUngroup = await page.evaluate(() => {
+            const node = nodes.find(candidate => candidate.type === 'smart-image');
+            return {id:node.id,x:node.x,y:node.y};
+        });
+        const imageElement = page.locator(
+            `.image-node[data-id="${imageAfterUngroup.id}"]`
+        );
+        const imageBox = await imageElement.boundingBox();
+        assert.ok(imageBox);
+        await page.mouse.move(imageBox.x + 12,imageBox.y + 12);
+        await page.mouse.down();
+        await page.mouse.move(imageBox.x + 92,imageBox.y + 72,{steps:4});
+        await page.mouse.up();
+        await page.waitForTimeout(350);
+        const imageAfterDrag = await page.evaluate(id => {
+            const node = nodes.find(candidate => candidate.id === id);
+            return {id:node.id,x:node.x,y:node.y};
+        },imageAfterUngroup.id);
+        assert.deepEqual(imageAfterDrag,{
+            id:imageAfterUngroup.id,
+            x:imageAfterUngroup.x + 80,
+            y:imageAfterUngroup.y + 60,
         });
 
         const libraryPage = await context.newPage();
@@ -268,6 +306,8 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             gridState,
             arranged,
             ungroup,
+            imageAfterUngroup,
+            imageAfterDrag,
             libraryState,
         }, null, 2));
     } finally {

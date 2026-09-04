@@ -56,11 +56,23 @@ async function smartImageCapabilityLoad(providerId='', modelId=''){
     const key = smartImageCapabilityKey(providerId, modelId);
     const existing = smartImageCapabilityCache.get(key);
     if(existing) return existing;
+    const unifiedModule = window.SmartCanvasModules.modelCapabilities;
+    const unified = unifiedModule
+        ? await unifiedModule.load(providerId, modelId, 'image.generate')
+        : null;
     const query = new URLSearchParams({provider_id:String(providerId || ''), model:String(modelId || '')});
-    const value = await fetch(`/api/image-model-capabilities?${query}`).then(async response => {
-        if(!response.ok) throw new Error(await response.text());
-        return response.json();
-    }).catch(() => smartImageCapabilityFallback(providerId, modelId));
+    const value = unified
+        ? {
+            ...(unified.media_contract || {}),
+            capability_schema_version:unified.capability_schema_version,
+            catalog_revision:unified.catalog_revision,
+            operation:unified.operation,
+            model_capability:unified
+        }
+        : await fetch(`/api/image-model-capabilities?${query}`).then(async response => {
+            if(!response.ok) throw new Error(await response.text());
+            return response.json();
+        }).catch(() => smartImageCapabilityFallback(providerId, modelId));
     const capability = smartImageCapabilityClean(value, providerId, modelId);
     smartImageCapabilityCache.set(key, capability);
     return capability;

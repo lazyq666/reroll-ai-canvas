@@ -2542,13 +2542,23 @@ async def generate_http_provider_image(
             )
 
         if image_request_mode == "openai-video-proxy":
+            if len(image_refs) > 6:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "input_maximum",
+                        "field": "image",
+                        "maximum": 6,
+                        "actual": len(image_refs),
+                    },
+                )
             body = {
                 "model": model,
                 "prompt": prompt,
                 "aspect_ratio": runninghub_aspect_from_size(size, "1:1"),
             }
             video_url = f"{base_url}/videos" if base_url.endswith("/v1") else f"{base_url}/v1/videos"
-            refs_for_proxy = image_refs[:6]
+            refs_for_proxy = image_refs
             local_image_paths = [openai_video_proxy_local_image_path(ref) for ref in refs_for_proxy]
             has_local_images = any(local_image_paths)
             if has_local_images:

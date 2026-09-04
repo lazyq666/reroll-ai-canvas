@@ -31,7 +31,6 @@ class CanvasSyncContractTests(unittest.TestCase):
         os.environ["INFINITE_CANVAS_STATE_DIR"] = str(self.state)
         unload_main()
         self.main = importlib.import_module("main")
-        self.main.sync_static_html_versions = lambda: None
         self.actor = self.main.AUTH_SYSTEM.create_user(
             username="admin",
             password="admin-password",

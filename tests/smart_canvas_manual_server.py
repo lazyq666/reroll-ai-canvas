@@ -297,6 +297,49 @@ class ManualHandler(SimpleHTTPRequestHandler):
                 "comfy_instances": [],
             })
             return
+        if parsed.path == "/api/model-capabilities":
+            operation = (query.get("operation") or ["image.generate"])[0]
+            is_text = operation == "text.generate"
+            self.send_json({
+                "provider_id": (query.get("provider_id") or ["manual-mock"])[0],
+                "model_id": (query.get("model") or ["mock-image-1"])[0],
+                "operation": operation,
+                "capability_schema_version": 1,
+                "catalog_revision": "manual-catalog-revision-1",
+                "support_state": "supported",
+                "source": "manual-test",
+                "inputs": ({
+                    "text": {"minimum": 1, "maximum": 1},
+                    "image": {"minimum": 0, "maximum": 8},
+                    "video": {"minimum": 0, "maximum": 3},
+                } if is_text else {
+                    "text": {"minimum": 1, "maximum": 1},
+                    "image": {
+                        "minimum": 1 if operation == "image.edit" else 0,
+                        "maximum": 20 if operation == "image.edit" else 0,
+                    },
+                }),
+                "output": ({"kind": "text"} if is_text else {
+                    "kind": "image", "count": {"minimum": 1, "maximum": 4}
+                }),
+                "parameters": ({
+                    "history": {"type": "array", "minimum": 0, "maximum": 30},
+                    "system_prompt": {"type": "string", "minimum": 0, "maximum": 20000},
+                } if is_text else {
+                    "aspect_ratio": {"type": "enum", "values": ["1:1", "16:9"]},
+                    "resolution_tier": {"type": "enum", "values": ["1K", "2K", "4K"]},
+                    "quality": {"type": "enum", "values": ["auto", "low", "medium", "high"]},
+                    "count": {"type": "integer", "minimum": 1, "maximum": 4},
+                }),
+                "media_contract": ({} if is_text else {
+                    "aspect_ratios": ["1:1", "16:9"],
+                    "resolution_tiers": ["1K", "2K", "4K"],
+                    "default_resolution_tier": "1K",
+                    "known": True,
+                    "supports_transparent_png": False,
+                }),
+            })
+            return
         if parsed.path == "/api/workflows":
             self.send_json({"workflows": []})
             return
@@ -373,16 +416,20 @@ class ManualHandler(SimpleHTTPRequestHandler):
             payload = self.read_json()
             type(self).image_task_sequence += 1
             task_id = f"manual-image-{type(self).image_task_sequence}"
+            output_count = max(1, int(payload.get("n") or 1))
             type(self).image_tasks[task_id] = {
                 "task_id": task_id,
                 "status": "succeeded",
                 "provider_id": payload.get("provider_id", "manual-mock"),
                 "result": {
-                    "images": [{
-                        "url": MOCK_GENERATED_IMAGE,
-                        "name": f"{task_id}.svg",
-                        "kind": "image",
-                    }]
+                    "images": [
+                        {
+                            "url": f"{MOCK_GENERATED_IMAGE}#output-{index + 1}",
+                            "name": f"{task_id}-{index + 1}.svg",
+                            "kind": "image",
+                        }
+                        for index in range(output_count)
+                    ]
                 },
             }
             self.send_json({"task_id": task_id, "actor_id": "manual-test"})

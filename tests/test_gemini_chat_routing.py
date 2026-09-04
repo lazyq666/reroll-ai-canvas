@@ -162,6 +162,7 @@ class GeminiChatRoutingTests(unittest.TestCase):
             provider_id=provider["id"],
             model="gemini-test-image",
             size="301x101",
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
         )
 
         with patch.object(main, "get_api_provider", return_value=provider):
@@ -177,6 +178,7 @@ class GeminiChatRoutingTests(unittest.TestCase):
             provider_id=provider["id"],
             model="openai-test-image",
             size="301x101",
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
         )
 
         with patch.object(main, "get_api_provider", return_value=provider):
@@ -202,6 +204,7 @@ class GeminiChatRoutingTests(unittest.TestCase):
                     natural_h=240,
                 )
             ],
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
         )
 
         with patch.object(main, "get_api_provider", return_value=provider):
@@ -229,6 +232,7 @@ class GeminiChatRoutingTests(unittest.TestCase):
                     natural_h=240,
                 )
             ],
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
         )
 
         with (
@@ -256,6 +260,7 @@ class GeminiChatRoutingTests(unittest.TestCase):
                         message="hello",
                         model="gemini-test-model",
                         provider="test-provider",
+                        catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
                     )
                 )
             )

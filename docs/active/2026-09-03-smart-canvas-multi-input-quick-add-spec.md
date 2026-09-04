@@ -3,7 +3,7 @@
 - **Status**：Implementing / drift（用户已要求开始实现；主要本地交互已实现，D22-01 协作校验边界及下列验收 Gate 尚未关闭）
 - **Feature ID**：F05；关联 F06 / F07 / F13
 - **Owners**：产品 / UI / 交互 / 前端 / 测试；协作提交与权限由后端参与验收
-- **Last verified**：2026-09-03；消融后 15 项 Node 测试、218 项 Python 回归及真实生产页面隔离场景通过；不是全量 A01–A18 验收结论
+- **Last verified**：2026-09-03；消融后 15 项 Node 测试、218 项 Python 回归通过；随后移除提示词生成节点工具栏入口，15 项 Node、55 项相关 Python 回归及真实生产页面隔离场景通过；不是全量 A01–A18 验收结论
 - **Applies to**：[Issue #22](https://github.com/lazyq666/reroll-ai-canvas/issues/22)；目标发布版本待实施时确定
 - **Supersedes**：无；新增行为在通过验收前不覆盖 Current
 - **Superseded by**：无
@@ -12,7 +12,7 @@
 
 ## 1. 一页摘要
 
-创作者选中多张图片、多个提示词，或二者混选后，可以一次把这些输入接入同一个图片或视频生成节点，不再逐条拖线。单选提示词时也提供与图片一致的“生成图片/视频”快捷入口。
+创作者选中多张图片、多个提示词，或二者混选后，可以一次把这些输入接入同一个图片或视频生成节点，不再逐条拖线。单选普通提示词节点时也提供与图片一致的“生成图片/视频”快捷入口；提示词生成节点不显示该工具栏入口。
 
 多选框右侧提供一个公共 Quick Add（快速添加）按钮：点击可创建下游节点；拖到空白处可在指定位置创建；拖到已有生成节点则只添加连接。多选浮动工具栏提供直接创建入口。
 
@@ -31,7 +31,7 @@
 
 - 图片、提示词和受支持的混合选区一次接入一个新生成节点。
 - 多选通过同一个公共输出入口接入已有图片或视频生成节点。
-- 单选 Prompt Node 和具有有效输出的 Prompt Generation Node 提供“生成图片/视频”。
+- 单选 Prompt Node 提供“生成图片/视频”；Prompt Generation Node 在空输出、已有输出和运行中均不显示该工具栏入口。
 - 输入顺序可预测，刷新、协作同步与 Undo/Redo 后保持一致。
 - 不支持的输入、失效目标或权限变化不会产生部分连接或空壳新节点。
 
@@ -69,7 +69,7 @@
 | Entry | Action | Result |
 | --- | --- | --- |
 | 多选浮动工具栏“生成图片/视频” | 点击 / Enter / Space | 创建一个默认图片模式的生成节点，连接全部来源；之后可切换视频模式 |
-| Prompt Node / 有效 Prompt Generation Node 浮动工具栏“生成图片/视频” | 点击 / Enter / Space | 同上，来源为该提示词节点 |
+| Prompt Node 浮动工具栏“生成图片/视频” | 点击 / Enter / Space | 同上，来源为该普通提示词节点 |
 | 多选框右侧公共 Quick Add | 点击 / Enter / Space | 打开“图片生成 / 视频生成”菜单；选择后新建并连接 |
 | 公共 Quick Add → 空白处 | 拖动并松手 | 在松手位置打开同一类型菜单；选择后按精确落点新建并连接 |
 | 公共 Quick Add → 已有合法生成节点 | 拖动并松手 | 不打开创建菜单；只将缺少的输入连接追加到目标 |
@@ -77,6 +77,7 @@
 - 工具栏文案统一使用现有“生成图片/视频”，Issue 原文中的“生成图片/节点”不作为产品名称。
 - 多选工具栏将生成入口放在排列操作前，以 Divider 分隔；保留现有排列、下载和资产库操作。
 - Prompt 工具栏保留聚焦编辑与复制功能；生成入口不受“必须包含图片”的条件限制。
+- Prompt Generation Node 不显示“生成图片/视频”工具栏入口，也不接受该工具栏动作；其编辑、复制、单节点端口 Quick Add 和作为多选来源的资格保持不变。
 - 有两个及以上选中 Node 时，在整个选区外框右侧垂直中点显示一个公共输出按钮；选中成员的单独 Quick Add 继续隐藏。不增加左侧公共按钮。
 - 公共按钮表示整个选区的操作资格，不能把多选悄悄收缩成一个活动 Node。缩减到单选后恢复现有单选行为。
 - 成功后选择新建或已有目标，清除来源多选，显示该目标现有的生成编辑区域；不自动聚焦文字输入、不自动执行生成。
@@ -259,7 +260,7 @@
 | ID | Scenario / seam | Expected external behavior |
 | --- | --- | --- |
 | A01 | 三张图片多选 → 工具栏，浏览器 | 一个图片模式生成节点、三条输入连接、来源不移动、没有 Provider 请求 |
-| A02 | 单个 / 多个 Prompt；Prompt Generation，浏览器与输入解析 | 有效入口；引用人工 Prompt 或已生成输出，不引用生成指令，不自动执行上游 |
+| A02 | 单个 / 多个 Prompt；Prompt Generation，浏览器与输入解析 | 普通 Prompt 单选有生成入口；Prompt Generation 单选在空输出、已有输出和运行中均无该入口。多选时符合资格的 Prompt Generation 仍引用已生成输出，不引用生成指令，不自动执行上游 |
 | A03 | 图文混选，浏览器与模拟 Provider 提交捕获 | 文字、媒体各自保持来源相对顺序；预览、参考编号和最终输入解析一致 |
 | A04 | 两行错位、不同尺寸、行内空洞、重叠和散点，纯规划 + 浏览器 | 稳定行顺序；选择顺序、UI 语言、Pan/Zoom 不改变结果；不触发布局整理 |
 | A05 | Group 与成员重复选择、嵌套 Group、相同 URL 的不同来源 | Group 不重复接线；内部顺序保留；独立 Reference Input Instance 不按 URL 合并 |
@@ -325,6 +326,15 @@
 
 D22-01 继续作为独立协作缺口跟踪。本轮没有批准或实施协议扩展，也没有通过删除验收要求将其伪装成已解决。
 
+### 提示词生成节点入口收窄 — 2026-09-03
+
+按用户最新决定，Prompt Generation Node 不显示单节点工具栏的“生成图片/视频”，无论空输出、已有输出还是运行中；普通 Prompt 和多选入口保留，不改变连线及来源资格。
+
+- 新增 `test_only_manual_prompt_toolbar_offers_media_generation`：执行真实工具栏渲染与动作处理函数，验证普通 Prompt 有入口、Prompt Generation 无入口且旧动作不触发创建，编辑与复制仍保留。测试在修改前源码上失败、修改后通过。
+- `node --test tests/smart_canvas_multi_input.test.cjs tests/smart_canvas_multi_input_transactions.test.cjs`：15 项通过。
+- `.venv/bin/python -m unittest tests.test_smart_canvas_floating_ui tests.test_smart_canvas_node_ports tests.test_smart_canvas_selection_arrangement tests.test_documentation_knowledge_map tests.test_i18n_cache_versions`：55 项通过；i18n 与 UI 资产版本检查通过。
+- Browser 在实际生产页面的隔离场景验证三种 Prompt Generation 状态均无该按钮，中英文与 Light/Dark 切换正常；普通 Prompt 用 Enter 创建一个带文字引用的目标，多选点击仍按 A→B→C→D 连接同一目标。未访问真实 Workspace、未调用 Provider，原有协作及完整验收 Gate 保持未完成。
+
 ## 16. Rollout, migration and rollback
 
 - 先完成实现与风险相称的自动化、真实浏览器、人工及双端协作 Gate；本实现状态不表示上述场景已全部通过。
@@ -361,3 +371,4 @@ D22-01 继续作为独立协作缺口跟踪。本轮没有批准或实施协议�
 | 2026-09-03 | Draft | 将 Issue #22 评审落为范围、交互、排序、原子性与验收合同 | 用户请求形成 Spec；仅完成文档，不表示功能已实现 |
 | 2026-09-03 | Implementing / drift | 落地工具栏、公共 Quick Add、视觉排序、整体 Mutation 与回退；补充真实页面验证及 D22-01 协作协议缺口 | 用户要求开始实现；已通过的测试与未完成 Gate 分别记录，Issue 保持 In Progress |
 | 2026-09-03 | Implementing / drift | 消融冗余历史、重复调度 / 遍历 / 状态及固定参数，保留有失败证据的必要校验 | 15 项 Node、218 项 Python 及主要浏览器路径通过；D22-01 和完整验收 Gate 不变 |
+| 2026-09-03 | Implementing / drift | 根据用户决定，移除 Prompt Generation Node 的单节点工具栏生成入口，保留普通 Prompt 和多选入口 | 新增防回归测试；15 项 Node、55 项 Python 及真实页面检查通过；原有 Gate 不变 |

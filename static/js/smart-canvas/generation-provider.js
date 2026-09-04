@@ -218,16 +218,22 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
     }
     const capabilityModule = window.SmartCanvasModules.imageCapabilities;
     const capability = capabilityModule?.current?.(runSettings.provider_id, runSettings.model);
+    const imageReferences = imageRefsOnly(refs, null);
+    const operation = imageReferences.length ? 'image.edit' : 'image.generate';
+    const modelCapabilityModule = window.SmartCanvasModules.modelCapabilities;
+    const modelCapability = modelCapabilityModule
+        ? await modelCapabilityModule.load(runSettings.provider_id, runSettings.model, operation)
+        : capability?.model_capability;
     const resolvedOutput = capabilityModule?.resolveForSubmission?.(
         runSettings,
-        imageRefsOnly(refs),
+        imageReferences,
         capability
     );
     const sizeValidation = resolvedOutput ||
         window.SmartCanvasModules.generationSettings?.validateImageSize?.(
             runSettings,
             {
-                references:imageRefsOnly(refs),
+                references:imageReferences,
                 capability,
                 allowAuto:
                     typeof isGptImageAutoSizeModel === 'function'
@@ -237,16 +243,33 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
     if(sizeValidation && !sizeValidation.valid){
         throw new Error(tr('smart.errInvalidSize'));
     }
-    const count = Math.max(1, Math.min(8, Number(runSettings.count || 1)));
+    const count = Math.max(1, Math.round(Number(runSettings.count || 1)));
     const referenceAspectRatio = resolvedOutput?.automatic
-        ? capabilityModule?.referenceAspectRatio?.(imageRefsOnly(refs)) || ''
+        ? capabilityModule?.referenceAspectRatio?.(imageReferences) || ''
         : '';
     const [referenceWidth,referenceHeight] = referenceAspectRatio.split(':').map(Number);
-    const referenceImages = imageRefsOnly(refs).slice(0, SMART_REFERENCE_IMAGE_MAX).map((reference,index) => (
+    const referenceImages = imageReferences.map((reference,index) => (
         index === 0 && referenceAspectRatio
             ? {...reference,natural_w:referenceWidth,natural_h:referenceHeight}
             : reference
     ));
+    const capabilityParameters = {
+        count,
+        quality:runSettings.quality || 'auto'
+    };
+    if(resolvedOutput?.target_aspect_ratio) capabilityParameters.aspect_ratio = resolvedOutput.target_aspect_ratio;
+    if(runSettings.resolution) capabilityParameters.resolution_tier = String(runSettings.resolution).toUpperCase();
+    if(capability?.supports_transparent_png === true && runSettings.transparentPng === true){
+        capabilityParameters.transparent_png = true;
+    }
+    const catalogValidation = modelCapabilityModule?.validate?.(modelCapability, {
+        inputs:{text:1,image:referenceImages.length},
+        parameters:capabilityParameters,
+        catalogRevision:modelCapability?.catalog_revision || ''
+    });
+    if(catalogValidation && !catalogValidation.valid){
+        throw new Error(modelCapabilityModule.validationMessage(catalogValidation, tr('smart.errRunFailed')));
+    }
     const payload = {
         prompt,
         provider_id:runSettings.provider_id,
@@ -257,36 +280,35 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         resolution_tier:String(runSettings.resolution || '').toUpperCase(),
         quality:runSettings.quality || 'auto',
         transparent_png:capability?.supports_transparent_png === true && runSettings.transparentPng === true,
-        n:1,
-        reference_images:referenceImages
+        n:count,
+        reference_images:referenceImages,
+        catalog_revision:modelCapability?.catalog_revision || capability?.catalog_revision || ''
     };
-    const submitted = await Promise.all(Array.from({length:count}, (_,index) => fetch('/api/canvas-image-tasks', {
+    const submitted = await fetch('/api/canvas-image-tasks', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
             ...payload,
-            ...generationProviderRunIdentity(context,index)
+            ...generationProviderRunIdentity(context)
         })
     }).then(async response => {
         if(!response.ok) throw new Error(await response.text());
         return response.json();
-    })));
-    const tasks = submitted.map((item,index) => ({
-        taskId:item.task_id,
-        actorId:item.actor_id || '',
+    });
+    const tasks = [{
+        taskId:submitted.task_id,
+        actorId:submitted.actor_id || '',
         kind:'image',
         providerId:payload.provider_id,
         model:payload.model,
         nodeId:Array.isArray(context.nodeIds)
-            ? String(context.nodeIds[index] || '')
+            ? String(context.nodeIds[0] || '')
             : String(context.nodeId || ''),
         generationBatchId:String(context.generationBatchId || ''),
-        generationSlotIndex:index,
-        generationSlotCount:Array.isArray(context.nodeIds)
-            ? context.nodeIds.length
-            : 1,
-        generationRequestIndex:index
-    })).filter(task => task.taskId);
+        generationSlotIndex:0,
+        generationSlotCount:count,
+        generationRequestIndex:0
+    }].filter(task => task.taskId);
     if(!tasks.length) throw new Error(tr('smart.errRunFailed'));
     return generationProviderPending(tasks, 'image');
 }
@@ -398,6 +420,39 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
                 maximum:referenceValidation.maximum ?? '—'
             }));
         }
+        const modelCapabilityModule = window.SmartCanvasModules.modelCapabilities;
+        const modelCapability = videoCapability?.model_capability;
+        const capabilityParameters = {
+            duration_seconds:Number(effectiveSettings.videoDuration) || 5
+        };
+        if(effectiveSettings.videoAspect && effectiveSettings.videoAspect !== 'adaptive') capabilityParameters.aspect_ratio = effectiveSettings.videoAspect;
+        if(effectiveSettings.videoResolution) capabilityParameters.resolution = effectiveSettings.videoResolution;
+        if(effectiveSettings.videoEnhancePrompt) capabilityParameters.enhance_prompt = true;
+        if(effectiveSettings.videoEnableUpsample) capabilityParameters.enable_upsample = true;
+        if(effectiveSettings.videoWatermark) capabilityParameters.watermark = true;
+        if(effectiveSettings.videoCameraFixed) capabilityParameters.camera_fixed = true;
+        if(effectiveSettings.videoGenerateAudio) capabilityParameters.generate_audio = true;
+        const catalogValidation = modelCapabilityModule?.validate?.(modelCapability, {
+            inputs:{
+                text:1,
+                image:Number(referenceState.counts?.image || 0),
+                video:Number(referenceState.counts?.video || 0),
+                audio:Number(referenceState.counts?.audio || 0)
+            },
+            inputRoles:{
+                image:imageRefsOnly([...uploadedRefs,...manualLinks], null).map((ref, index) => {
+                    if(!effectiveSettings.videoUseFrameRoles) return String(ref?.role || '');
+                    if(index === 0) return 'first_frame';
+                    if(index === 1) return 'last_frame';
+                    return '';
+                })
+            },
+            parameters:capabilityParameters,
+            catalogRevision:modelCapability?.catalog_revision || ''
+        });
+        if(catalogValidation && !catalogValidation.valid){
+            throw new Error(modelCapabilityModule.validationMessage(catalogValidation, tr('smart.errRunFailed')));
+        }
         const trustedSource = runSettings.videoTrustedAsset
             ? (['library','cloud','manual'].includes(runSettings.videoTrustedSource) ? runSettings.videoTrustedSource : 'library')
             : 'none';
@@ -449,6 +504,7 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
                 ? jimengResolved.state.command === 'multimodal2video'
                 : Boolean(runSettings.videoMultimodal),
             trusted_asset:useAssetUris,
+            catalog_revision:modelCapability?.catalog_revision || videoCapability?.catalog_revision || '',
             ...generationProviderRunIdentity(context)
         });
         if(result?.task_id){

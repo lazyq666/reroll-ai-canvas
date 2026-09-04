@@ -15,6 +15,71 @@ PROVIDER_MODULE = ROOT / "static/js/smart-canvas/generation-provider.js"
 
 
 class SmartCanvasGenerationRecoveryTests(unittest.TestCase):
+    def test_one_generation_run_projects_each_output_to_its_pending_slot(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const pendingSource = fs.readFileSync({json.dumps(str(PENDING_MODULE))}, 'utf8');
+            const recoverySource = fs.readFileSync({json.dumps(str(RECOVERY_MODULE))}, 'utf8');
+            const node = {{id:'slot-2',images:[],pending:1,generationOperationId:'operation-1'}};
+            let appliedOutputs = [];
+            const sandbox = {{
+                window:{{__IC_USER:{{id:'actor'}},SmartCanvasModules:{{}}}},
+                nodes:[node],
+                nowMs:()=>2000,
+                render:()=>null,
+                toast:()=>null,
+                tr:key=>key,
+                trf:key=>key,
+                smartRecoverableImageTask:()=>null,
+                addSmartGenerationLog:()=>null,
+                restoreGenerationPresentationSnapshot:()=>null,
+                setTimeout:callback=>{{callback();return 0;}},
+                fetch:async()=>({{
+                    ok:true,
+                    json:async()=>({{
+                        status:'succeeded',created_at:1,updated_at:2,
+                        result:{{image_items:[
+                            {{url:'one.png',kind:'image'}},
+                            {{url:'two.png',kind:'image'}},
+                            {{url:'three.png',kind:'image'}},
+                        ]}},
+                    }}),
+                }}),
+            }};
+            vm.createContext(sandbox);
+            vm.runInContext(pendingSource,sandbox);
+            sandbox.window.SmartCanvasModules.generationSettings={{snapshot:()=>({{}})}};
+            sandbox.window.SmartCanvasModules.generationOutput={{
+                apply:options=>{{
+                    appliedOutputs = options.outputs;
+                    node.images = options.outputs;
+                    node.pending = 0;
+                    delete node.pendingTasks;
+                    return options.outputs;
+                }},
+            }};
+            sandbox.window.SmartCanvasModules.canvasPersistence={{
+                schedule:()=>null,save:async()=>true,
+            }};
+            vm.runInContext(recoverySource,sandbox);
+            sandbox.window.SmartCanvasModules.generationRecovery.settle({{
+                node,
+                submission:{{state:'pending',kind:'image',tasks:[{{
+                    taskId:'one-generation-run',actorId:'actor',kind:'image',
+                    generationSlotIndex:1,generationSlotCount:3,
+                }}]}},
+                batchManaged:true,
+            }}).then(()=>process.stdout.write(JSON.stringify(appliedOutputs)));
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), [{"url": "two.png", "kind": "image"}])
+
     def test_text_tasks_use_the_recoverable_generation_run_path(self):
         host = HOST.read_text(encoding="utf-8")
         recovery = RECOVERY_MODULE.read_text(encoding="utf-8")

@@ -312,6 +312,9 @@ function broadcastStudioApiChange(type='providers-changed'){
     try { window.parent?.postMessage(message, '*'); } catch(e) {}
     try { window.top?.postMessage(message, '*'); } catch(e) {}
 }
+function checkCliUpdates(){
+    window.parent?.postMessage({type:'cli-update-check'}, window.location.origin);
+}
 function rhEditorSideScrollEl(){
     return rhWorkflowEditorNodeList?.closest?.('.rh-workflow-editor-side') || rhWorkflowEditorNodeList;
 }

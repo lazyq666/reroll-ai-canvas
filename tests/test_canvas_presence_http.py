@@ -21,7 +21,6 @@ class CanvasPresenceHttpTests(unittest.TestCase):
             unload_main()
             try:
                 main = importlib.import_module("main")
-                main.sync_static_html_versions = lambda: None
                 users = {
                     role: main.AUTH_SYSTEM.create_user(username=f"presence-{role}", password="test-password", role=role)
                     for role in ("admin", "designer", "guest")
