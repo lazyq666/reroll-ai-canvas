@@ -1,7 +1,7 @@
 /*
  * Smart Canvas Selection Arrangement
  *
- * Pure planning for explicit grid, horizontal, vertical and tree arrangement.
+ * Pure planning for explicit grid, horizontal, vertical and directional tree arrangement.
  * The host owns selection, Mutation history, rendering and persistence.
  */
 (function installSelectionArrangement(root, factory){
@@ -12,7 +12,9 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function createSelectionArrangement(){
     'use strict';
 
-    const MODES = new Set(['grid','horizontal','vertical','tree']);
+    const MODES = new Set([
+        'grid','horizontal','vertical','tree-vertical','tree-horizontal'
+    ]);
     const MIN_GAP_WORLD = 32;
 
     function number(value, fallback=0){
@@ -408,8 +410,186 @@
         };
     }
 
+    function horizontalBranchSlots(items, slots){
+        const byId = new Map(items.map(item => [item.id,item]));
+        const sourceIdOf = item => String(
+            item.generationBatchSourceNodeId || item.sourceNodeId || ''
+        );
+        const explicitParentIdsOf = item => [...new Set([
+            ...(slots.incoming.get(item.id) || []),
+            ...(item.inputNodeIds || []).map(id => String(id || ''))
+        ])].filter(id => byId.has(id) && id !== item.id);
+        const parentIdsByNode = new Map(items.map(item => {
+            const explicit = explicitParentIdsOf(item);
+            if(explicit.length) return [item.id,explicit];
+            const sourceId = sourceIdOf(item);
+            if(
+                sourceId
+                && sourceId !== item.id
+                && byId.has(sourceId)
+            ){
+                return [item.id,[sourceId]];
+            }
+            return [item.id,[]];
+        }));
+        const parentIds = new Set([...parentIdsByNode.values()].flat());
+        const batchParentById = new Map();
+        items.filter(item => parentIds.has(item.id) && item.generationBatchId)
+            .sort(compareOriginal)
+            .forEach(item => {
+                const batchId = String(item.generationBatchId);
+                if(!batchParentById.has(batchId)){
+                    batchParentById.set(batchId,item.id);
+                }
+            });
+
+        const rowsByKey = new Map();
+        const rowByParentId = new Map();
+        const ensureRow = (key, parent=null) => {
+            if(!rowsByKey.has(key)){
+                const row = {key,parents:parent ? [parent] : [],children:[]};
+                rowsByKey.set(key,row);
+                if(parent) rowByParentId.set(parent.id,row);
+            }
+            return rowsByKey.get(key);
+        };
+        [...parentIds].map(id => byId.get(id)).sort(compareOriginal)
+            .forEach(parent => ensureRow(`parent:${parent.id}`,parent));
+
+        items.filter(item => !parentIds.has(item.id)).sort(compareOriginal)
+            .forEach(item => {
+                const batchId = String(item.generationBatchId || '');
+                const batchParentId = batchParentById.get(batchId) || '';
+                const incomingParents = (parentIdsByNode.get(item.id) || [])
+                    .filter(id => parentIds.has(id))
+                    .map(id => byId.get(id))
+                    .sort(compareOriginal);
+                let key = '';
+                if(incomingParents.length){
+                    key = `parent:${incomingParents[0].id}`;
+                } else if(batchParentId){
+                    key = `parent:${batchParentId}`;
+                } else if(batchId){
+                    key = `batch:${batchId}`;
+                } else {
+                    key = `node:${item.id}`;
+                }
+                ensureRow(key).children.push(item);
+            });
+
+        rowsByKey.forEach(row => row.children.sort(compareHorizontal));
+        [...parentIds].map(id => byId.get(id))
+            .sort((left,right) =>
+                number(slots.columnById.get(left.id)) - number(slots.columnById.get(right.id))
+                || compareOriginal(left,right)
+            )
+            .forEach(parent => {
+                const row = rowByParentId.get(parent.id);
+                const incomingParents = (parentIdsByNode.get(parent.id) || [])
+                    .filter(id => parentIds.has(id))
+                    .map(id => byId.get(id))
+                    .filter(candidate => {
+                        const candidateRow = rowByParentId.get(candidate.id);
+                        return candidateRow
+                            && candidateRow !== row
+                            && candidateRow.children.length === 0
+                            && candidateRow.parents.at(-1)?.id === candidate.id;
+                    })
+                    .sort((left,right) => {
+                        const center = item => number(item.y) + item.height / 2;
+                        return Math.abs(center(left) - center(parent))
+                            - Math.abs(center(right) - center(parent))
+                            || compareOriginal(left,right);
+                    });
+                if(!incomingParents.length) return;
+                const upstreamRow = rowByParentId.get(incomingParents[0].id);
+                upstreamRow.parents.push(...row.parents);
+                upstreamRow.children = row.children;
+                row.parents.forEach(item => rowByParentId.set(item.id,upstreamRow));
+                rowsByKey.delete(row.key);
+            });
+
+        const compactedColumns = new Map(items.map(item => [
+            item.id,number(slots.columnById.get(item.id))
+        ]));
+        if(!slots.cycleFallback){
+            items.slice().sort((left,right) =>
+                compactedColumns.get(right.id) - compactedColumns.get(left.id)
+                || compareOriginal(left,right)
+            ).forEach(item => {
+                const childColumns = (slots.outgoing.get(item.id) || [])
+                    .filter(id => compactedColumns.has(id))
+                    .map(id => compactedColumns.get(id));
+                if(!childColumns.length) return;
+                compactedColumns.set(item.id,Math.max(
+                    compactedColumns.get(item.id),
+                    Math.min(...childColumns) - 1
+                ));
+            });
+        }
+
+        const rowOrigin = row => {
+            const rowItems = [...row.parents,...row.children];
+            return {
+                id:rowItems[0]?.id || '',
+                x:Math.min(...rowItems.map(item => number(item.x))),
+                y:Math.min(...rowItems.map(item => number(item.y)))
+            };
+        };
+        const orderedRows = [...rowsByKey.values()].sort(
+            (left,right) => compareOriginal(rowOrigin(left),rowOrigin(right))
+        );
+        const columnById = new Map();
+        const rowById = new Map();
+        orderedRows.forEach((row,rowIndex) => {
+            const rowItems = [...row.parents,...row.children];
+            let column = row.parents.length
+                ? compactedColumns.get(row.parents[0].id)
+                : 0;
+            rowItems.forEach(item => {
+                column = Math.max(column,compactedColumns.get(item.id) || 0);
+                columnById.set(item.id,column);
+                rowById.set(item.id,rowIndex);
+                column += 1;
+            });
+        });
+        return {columnById,rowById};
+    }
+
+    function horizontalBranchPlacements(items, slots, originalBounds){
+        const branchSlots = horizontalBranchSlots(items,slots);
+        const {columnWidths,rowHeights} = axes(
+            items,branchSlots.columnById,branchSlots.rowById
+        );
+        const gap = equalGap(originalBounds,columnWidths,rowHeights);
+        const columnOffsets = offsets(columnWidths,gap);
+        const rowOffsets = offsets(rowHeights,gap);
+        const startY = originalBounds.y + originalBounds.height / 2 - rowOffsets.total / 2;
+        return {
+            placements:items.map(item => {
+                const column = branchSlots.columnById.get(item.id);
+                const row = branchSlots.rowById.get(item.id);
+                return {
+                    id:item.id,
+                    x:Math.round(originalBounds.x + columnOffsets.values[column]
+                        + (columnWidths[column] - item.width) / 2),
+                    y:Math.round(startY + rowOffsets.values[row]
+                        + (rowHeights[row] - item.height) / 2)
+                };
+            }),
+            bounds:{
+                x:originalBounds.x,
+                y:startY,
+                width:columnOffsets.total,
+                height:rowOffsets.total
+            },
+            gap
+        };
+    }
+
     function plan(request={}){
         const mode = MODES.has(request.mode) ? request.mode : 'grid';
+        const treeMode = ['tree-vertical','tree-horizontal'].includes(mode);
         const allNodes = Array.isArray(request.nodes) ? request.nodes.filter(Boolean) : [];
         const selectedIds = new Set((request.selectedIds || []).map(value => String(value)));
         const items = allNodes.filter(node => selectedIds.has(String(node.id)))
@@ -431,15 +611,27 @@
             return Object.freeze({ok:false,placements:[],bounds:null,gap:0,diagnostics:[{code:'insufficient-selection'}]});
         }
         const originalBounds = boundsOf(items);
-        const slots = mode === 'tree'
+        const slots = treeMode
             ? treeSlots(items,allNodes,request.connections || [])
             : gridSlots(items,mode);
-        const {columnWidths,rowHeights} = axes(items,slots.columnById,slots.rowById);
+        if(mode === 'tree-horizontal'){
+            const tree = horizontalBranchPlacements(items,slots,originalBounds);
+            return Object.freeze({
+                ok:true,
+                placements:tree.placements,
+                bounds:tree.bounds,
+                gap:tree.gap,
+                diagnostics:slots.cycleFallback ? [{code:'cycle-fallback'}] : []
+            });
+        }
+        const {columnWidths,rowHeights} = axes(
+            items,slots.columnById,slots.rowById
+        );
         const gap = equalGap(originalBounds,columnWidths,rowHeights);
         const columnOffsets = offsets(columnWidths,gap);
         const rowOffsets = offsets(rowHeights,gap);
         const startX = originalBounds.x;
-        if(mode === 'tree' && !slots.cycleFallback){
+        if(treeMode && !slots.cycleFallback){
             const tree = treePlacements(
                 items,slots,columnWidths,columnOffsets,gap,originalBounds
             );
@@ -451,7 +643,7 @@
                 diagnostics:[]
             });
         }
-        const startY = mode === 'tree'
+        const startY = treeMode
             ? originalBounds.y + originalBounds.height / 2 - rowOffsets.total / 2
             : originalBounds.y;
         const placements = items.map(item => {
@@ -463,10 +655,13 @@
                 y:Math.round(startY + rowOffsets.values[row] + (rowHeights[row] - item.height) / 2)
             };
         });
+        const bounds = {
+            x:startX,y:startY,width:columnOffsets.total,height:rowOffsets.total
+        };
         return Object.freeze({
             ok:true,
             placements,
-            bounds:{x:startX,y:startY,width:columnOffsets.total,height:rowOffsets.total},
+            bounds,
             gap,
             diagnostics:slots.cycleFallback ? [{code:'cycle-fallback'}] : []
         });

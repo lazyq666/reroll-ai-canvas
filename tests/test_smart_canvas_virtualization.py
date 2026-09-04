@@ -164,6 +164,45 @@ class SmartCanvasVirtualizationTests(unittest.TestCase):
         self.assertEqual(result["unpinnedIds"], ["near"])
         self.assertTrue(result["forcedConnection"])
 
+    def test_removed_group_member_zoom_does_not_invalidate_geometry(self):
+        result = run_virtualization(
+            """
+            const node = {
+                id:'group',
+                type:'smart-group',
+                x:100,
+                y:100,
+                w:340,
+                h:286,
+                items:[],
+                images:[],
+                _memberZoom:1
+            };
+            let measurements = 0;
+            virtualization.reset();
+            virtualization.configure({
+                getNodes:() => [node],
+                measureNode:item => {
+                    measurements += 1;
+                    return {
+                        x:item.x,
+                        y:item.y,
+                        width:item.w,
+                        height:item.h
+                    };
+                },
+                getViewport:() => ({x:0,y:0,scale:1}),
+                getShellSize:() => ({width:1000,height:800})
+            });
+            virtualization.reconcile({fullSync:true});
+            node._memberZoom = 4;
+            virtualization.reconcile({nodeIds:['group']});
+            process.stdout.write(JSON.stringify({measurements}));
+            """
+        )
+
+        self.assertEqual(result["measurements"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

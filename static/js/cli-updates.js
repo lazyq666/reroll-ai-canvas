@@ -127,7 +127,7 @@
     bottom.className = 'cli-update-item-bottom';
     const dates = [];
     if (item.local_build_time) {
-      const buildTime = String(item.local_build_time).replace('T', ' ').replace(/Z$/, ' UTC');
+      const buildTime = String(item.local_build_time).split('T')[0];
       dates.push(trf('cliUpdates.localBuildDate', {date: buildTime}));
     }
     if (item.release_date) {
@@ -137,6 +137,7 @@
       const date = document.createElement('span');
       date.className = 'cli-update-item-date';
       date.textContent = dates.join(' · ');
+      if (item.local_build_time) date.title = String(item.local_build_time);
       bottom.append(date);
     }
     if (item.source_url) {
