@@ -3729,6 +3729,22 @@ class OnlineImageRequest(BaseModel):
     generation_operation_id: str = ""
     generation_request_index: int = 0
 
+
+class LayerDecompositionRequest(BaseModel):
+    """One paid layer-decomposition intent for one source Image Node."""
+
+    provider_id: str = "apimart"
+    model: str = "seedream-5-0-pro"
+    resolution_tier: str = "2K"
+    prompt: str = Field(default="", max_length=ONLINE_IMAGE_PROMPT_MAX_LENGTH)
+    image: AIReference
+    source_media_id: str = Field(default="", max_length=240)
+    catalog_revision: str = ""
+    canvas_id: str = ""
+    node_id: str = ""
+    generation_operation_id: str = ""
+    generation_request_index: int = 0
+
 class ImageTaskQueryRequest(BaseModel):
     provider_id: str = "comfly"
     task_id: str = Field(min_length=1, max_length=240)
@@ -7221,6 +7237,87 @@ def _online_image_run(payload, *, publication="online-image"):
     )
 
 
+def _layer_decomposition_run(payload: LayerDecompositionRequest) -> ImageRun:
+    provider = get_api_provider(payload.provider_id)
+    provider_id = str(provider.get("id") or payload.provider_id).strip().lower()
+    model = str(payload.model or "").strip()
+    operation = "image.layer_decomposition"
+    if provider_id != "apimart" or model != "seedream-5-0-pro":
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "capability_unknown",
+                "field": "operation",
+                "actual": operation,
+            },
+        )
+    image = payload.image.model_dump()
+    if not image.get("url") or not is_image_reference(image):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "input_invalid", "field": "image"},
+        )
+    image["role"] = "source"
+    capability = resolved_model_capability(provider_id, model, operation)
+    if capability.get("support_state") != "supported":
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "capability_unknown",
+                "field": "operation",
+                "actual": operation,
+            },
+        )
+    resolution_tier = str(payload.resolution_tier or "2K").strip()
+    if resolution_tier.lower() == "auto":
+        resolution_tier = "auto"
+    else:
+        resolution_tier = resolution_tier.upper()
+    validation = MODEL_CAPABILITY_CATALOG.validate(
+        capability,
+        input_counts={
+            "text": 1 if payload.prompt else 0,
+            "image": 1,
+            "video": 0,
+            "audio": 0,
+            "file": 0,
+        },
+        input_roles={"image": ["source"]},
+        parameters={"resolution_tier": resolution_tier, "count": 1},
+        catalog_revision=str(payload.catalog_revision or ""),
+    )
+    raise_model_capability_validation(validation)
+    payload.catalog_revision = str(capability["catalog_revision"])
+    payload.resolution_tier = resolution_tier
+    return ImageRun(
+        prompt=str(payload.prompt or ""),
+        settings={
+            "provider_id": "apimart",
+            "provider_name": str(provider.get("name") or "APIMART"),
+            "model": "seedream-5-0-pro",
+            "size": resolution_tier,
+            "requested_size": resolution_tier,
+            "resolution_tier": resolution_tier,
+            "operation": operation,
+            "catalog_revision": capability["catalog_revision"],
+            "capability_schema_version": capability[
+                "capability_schema_version"
+            ],
+            "source_media_id": str(payload.source_media_id or ""),
+        },
+        references=(image,),
+        count=1,
+        publication="layer-decomposition",
+        effect_context={
+            "provider_id": "apimart",
+            "model": "seedream-5-0-pro",
+            "resolution_tier": resolution_tier,
+            "source_media_id": str(payload.source_media_id or ""),
+            "source_url": str(image.get("url") or ""),
+        },
+    )
+
+
 async def build_online_image_result(payload: OnlineImageRequest):
     owner, key, target = _generation_target(payload)
     try:
@@ -7766,6 +7863,72 @@ async def get_canvas_image_task(task_id: str):
             raise HTTPException(
                 status_code=404,
                 detail="画布任务不存在，可能服务已重启或任务已过期",
+            ) from exc
+        raise
+    return _public_canvas_run(run)
+
+
+@app.post("/api/canvas-layer-decomposition-tasks")
+async def create_canvas_layer_decomposition_task(
+    payload: LayerDecompositionRequest,
+):
+    # Unlike legacy image endpoints, this paid operation never permits an
+    # unauthenticated request even when a caller omits a Canvas target.
+    require_current_user("admin", "designer")
+    owner, key, target = _generation_target(payload)
+    request = _layer_decomposition_run(payload)
+    try:
+        run = await _GENERATION_RUNS.start(
+            request,
+            key=key,
+            owner=owner,
+            delivery=Background(),
+            target=target,
+            public_metadata={
+                "type": "layer-decomposition",
+                "provider_id": "apimart",
+                "model": "seedream-5-0-pro",
+                "operation": "image.layer_decomposition",
+                "catalog_revision": request.settings["catalog_revision"],
+                "capability_schema_version": request.settings[
+                    "capability_schema_version"
+                ],
+            },
+        )
+    except Exception as exc:
+        _raise_generation_http(exc)
+    return {
+        "task_id": run.id,
+        "status": run.status or "queued",
+        "deduplicated": run.deduplicated,
+        "actor_id": run.owner,
+    }
+
+
+@app.get("/api/canvas-layer-decomposition-tasks/{task_id}")
+async def get_canvas_layer_decomposition_task(task_id: str):
+    actor = require_current_user("admin", "designer")
+    try:
+        run = _GENERATION_RUNS.get(
+            task_id,
+            owner=str(actor.get("id") or ""),
+        )
+        if run.status not in {
+            "succeeded",
+            "failed",
+            "cancelled",
+            "discarded",
+        }:
+            run = await _GENERATION_RUNS.resume(
+                task_id,
+                owner=str(actor.get("id") or ""),
+                delivery=Background(),
+            )
+    except Exception as exc:
+        if isinstance(exc, GenerationRunError):
+            raise HTTPException(
+                status_code=404,
+                detail="图层拆分任务不存在，或不属于当前账号",
             ) from exc
         raise
     return _public_canvas_run(run)
@@ -11037,6 +11200,7 @@ _GENERATION_OUTPUT_PORTS = GenerationOutputPorts(
     extract_images=_provider_implementation.extract_images,
     now=time.time,
     now_ms=now_ms,
+    output_file_from_url=output_file_from_url,
     save_video=_provider_implementation.save_remote_video_to_output,
     save_asset=_provider_implementation.save_remote_asset_to_output,
     save_text=_provider_implementation.save_comfy_text_output,

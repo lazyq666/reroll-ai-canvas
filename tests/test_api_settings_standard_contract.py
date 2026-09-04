@@ -201,7 +201,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
     def test_requested_text_actions_use_expected_button_sizes(self):
         self.assertEqual(
             len(re.findall(r'<ic-button class="sidebar-cli-action" size="medium"', self.page)),
-            3,
+            4,
         )
         for button_id in ("deleteBtn",):
             self.assertRegex(
@@ -238,7 +238,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertIn("max-height: none !important;", self.style)
         self.assertIn("overflow: visible !important;", self.style)
         self.assertNotRegex(self.page, r'<ic-button class="cli-quick-btn')
-        self.assertEqual(self.page.count('class="sidebar-cli-action"'), 3)
+        self.assertEqual(self.page.count('class="sidebar-cli-action"'), 4)
         self.assertRegex(
             self.page,
             r'<ic-heading[^>]+data-i18n="api.settingsMigration"[^>]*>API 设置迁移</ic-heading>',

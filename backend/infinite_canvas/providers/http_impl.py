@@ -64,6 +64,7 @@ except Exception:
 
 from .ports import DynamicPorts, HttpPorts
 from .core import Pending
+from ..layer_decomposition import parse_apimart_layer_decomposition
 from .implementation import (
     codex_cli_executable,
     codex_decode_output,
@@ -2506,6 +2507,8 @@ async def generate_http_provider_image(
     n=1,
     on_remote=None,
     transparent_png=False,
+    operation="image.generate",
+    resolution_tier="",
 ):
     provider = _ports.get_api_provider(provider_id)
     requested_count = max(1, min(8, int(n or 1)))
@@ -2648,6 +2651,56 @@ async def generate_http_provider_image(
                 body["image_urls"] = [_ports.reference_to_data_url(ref, max_size=1536) for ref in image_refs[:_ports.ONLINE_IMAGE_REFERENCE_MAX]]
             midjourney_url = _ports.provider_endpoint_url(provider, "image_generation_endpoint", "/v1/midjourney/generations")
             response = await client.post(midjourney_url, headers=api_headers(provider=provider), json=body)
+        elif operation == "image.layer_decomposition":
+            if not is_apimart or str(model or "").strip() != "seedream-5-0-pro":
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "capability_unknown",
+                        "field": "operation",
+                        "actual": operation,
+                    },
+                )
+            if len(image_refs) != 1 or mask_refs:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "input_count",
+                        "field": "image",
+                        "expected": 1,
+                        "actual": len(image_refs),
+                    },
+                )
+            upstream_url = await upload_image_for_apimart(
+                client, provider, str(image_refs[0].get("url") or "")
+            )
+            if not valid_apimart_video_image_input(upstream_url):
+                reason = (
+                    upstream_url[4:]
+                    if isinstance(upstream_url, str) and upstream_url.startswith("ERR:")
+                    else "图片无法安全上传到 APIMART"
+                )
+                raise HTTPException(status_code=422, detail=reason)
+            tier = str(resolution_tier or size or "2K").strip()
+            if tier.lower() == "auto":
+                tier = "auto"
+            else:
+                tier = tier.upper()
+            body = {
+                "model": "seedream-5-0-pro",
+                "image_urls": [upstream_url],
+                "layer_decomposition": True,
+                "size": tier,
+                "n": 1,
+                "output_format": "png",
+            }
+            if str(prompt or ""):
+                body["prompt"] = str(prompt)
+            response = await client.post(
+                gen_url,
+                headers=api_headers(provider=provider),
+                json=body,
+            )
         elif is_apimart:
             apimart_size, resolution = apimart_size_resolution(size)
             if is_apimart_gemini_image_model(model):
@@ -2769,6 +2822,20 @@ async def generate_http_provider_image(
                 status_code=502,
                 detail=f"{provider_name} 图片接口返回非 JSON 响应（状态 {response.status_code}）：{resp_text}"
             ) from exc
+        if operation == "image.layer_decomposition":
+            task_id = extract_task_id(raw)
+            if task_id:
+                if on_remote is not None:
+                    on_remote(Pending(str(task_id), raw=raw, status="running"))
+                try:
+                    task_result = await (wait_for_task or wait_for_image_task)(
+                        client, task_id, provider
+                    )
+                except HTTPException as exc:
+                    setattr(exc, "upstream_task_id", task_id)
+                    raise
+                return parse_apimart_layer_decomposition(task_result)
+            return parse_apimart_layer_decomposition(raw)
         try:
             if requested_count > 1:
                 return extract_images(raw), raw
@@ -5096,7 +5163,7 @@ async def execute_http_text_stream(provider, payload, messages):
     return {"model": model, "events": events()}
 
 
-async def recover_http_image_task(provider, task_id):
+async def recover_http_image_task(provider, task_id, kind="image"):
     """Recover an asynchronous HTTP image task as the legacy route payload."""
     timeout = httpx.Timeout(
         connect=20.0, read=300.0, write=60.0, pool=20.0
@@ -5128,6 +5195,14 @@ async def recover_http_image_task(provider, task_id):
         ) from exc
 
     status = image_task_status(raw)
+    if (
+        kind == "image_layer_decomposition"
+        and status in _ports.IMAGE_TASK_SUCCESS_STATUSES
+    ):
+        return {
+            "status": "succeeded",
+            **parse_apimart_layer_decomposition(raw),
+        }
     try:
         image_items = extract_images(raw)
     except HTTPException:

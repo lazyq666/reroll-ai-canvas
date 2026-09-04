@@ -134,6 +134,11 @@ class MainSqliteAuthorityIntegrationTests(unittest.TestCase):
             unload_main()
             main = importlib.import_module("main")
 
+            self.assertIs(
+                main._GENERATION_OUTPUT_PORTS.output_file_from_url,
+                main.output_file_from_url,
+            )
+
             with TestClient(main.app) as client:
                 login = client.post(
                     "/api/auth/login",

@@ -14,6 +14,7 @@ class SmartCanvasFrameUiTests(unittest.TestCase):
         cls.page = (ROOT / "static/smart-canvas.html").read_text(encoding="utf-8")
         cls.style = (ROOT / "static/css/smart-canvas.css").read_text(encoding="utf-8")
         cls.script = read_smart_canvas_scripts(ROOT)
+        cls.container_script = (ROOT / "static/js/smart-canvas/smart-container.js").read_text(encoding="utf-8")
 
     def test_frame_entry_points_and_shortcut_are_present(self):
         self.assertIn('id="smartFrameTool"', self.page)
@@ -100,10 +101,8 @@ class SmartCanvasFrameUiTests(unittest.TestCase):
             self.script,
         )
         self.assertIn("preserveFrameContents:Boolean(e.ctrlKey || e.metaKey)", self.script)
-        self.assertIn(
-            "smartContainerIsFrame(node) && !options.preserveFrameContents",
-            self.script,
-        )
+        self.assertIn("if(smartContainerIsFrame(node)){", self.container_script)
+        self.assertIn("if(!options.preserveFrameContents){", self.container_script)
 
     def test_frame_members_are_preserved_across_copy_and_import(self):
         self.assertGreaterEqual(
