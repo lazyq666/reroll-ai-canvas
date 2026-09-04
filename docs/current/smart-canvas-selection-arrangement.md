@@ -1,7 +1,8 @@
 # Smart Canvas 选区整理规格
 
 - 状态：Current
-- 范围：Smart Canvas 中对 Canvas Selection 主动执行宫格、水平、垂直和树状整理
+- 范围：Smart Canvas 中对 Canvas Selection 主动执行宫格、水平、垂直和带方向变体的树状整理
+- 关联任务：[Issue #34](https://github.com/lazyq666/reroll-ai-canvas/issues/34)
 
 ## 1. 职责边界
 
@@ -11,10 +12,10 @@ Selection Arrangement 是 Designer 对既有 Node 的显式多选操作。它与
 
 ## 2. 共同事务合同
 
-- 四种模式均提交一次 Canvas Mutation，产生一次 Undo，并以一个协作操作原子提交所有 Node 坐标和必要的 Frame 尺寸变化。
+- 宫格、水平、垂直、分支纵排和分支横排均提交一次 Canvas Mutation，产生一次 Undo，并以一个协作操作原子提交所有 Node 坐标和必要的 Frame 尺寸变化。
 - 整理前先冻结选区、Node 几何、Connection 和 Frame 关系；计算期间不逐个保存中间位置。
 - Undo/Redo 恢复该次整理前后已确定的精确坐标，不重新计算布局。
-- 水平整理按整理前的横向位置从左到右排列，以纵向位置和 Node ID 打破平局；垂直整理按整理前的纵向位置从上到下排列，以横向位置和 Node ID 打破平局。宫格在可识别原有视觉宫格时保持 Node 的原行、原列和槽位顺序；无法可靠识别时才按先纵向、再横向的稳定顺序生成紧凑宫格。树状同层顺序只由原始坐标和 Node ID 决定。
+- 水平整理按整理前的横向位置从左到右排列，以纵向位置和 Node ID 打破平局；垂直整理按整理前的纵向位置从上到下排列，以横向位置和 Node ID 打破平局。宫格在可识别原有视觉宫格时保持 Node 的原行、原列和槽位顺序；无法可靠识别时才按先纵向、再横向的稳定顺序生成紧凑宫格。分支纵排按原始纵坐标决定同层顺序；分支横排按原始纵坐标决定父分支行顺序、按原始横坐标决定每行子 Node 顺序，最后均以另一坐标和 Node ID 稳定打破平局。
 
 ## 3. 等间距规则
 
@@ -23,7 +24,8 @@ Selection Arrangement 是 Designer 对既有 Node 的显式多选操作。它与
 - 水平：一行 `n` 列，只使用 `n - 1` 个实际列间隙。
 - 垂直：一列 `n` 行，只使用 `n - 1` 个实际行间隙。
 - 宫格：优先使用可信原宫格的实际行列数；无法识别时列数为 `ceil(sqrt(Node 数))`。间距使用 `实际列数 - 1` 与 `实际行数 - 1`。
-- 树状：每个层级共享一列；每个断开流程按其最宽层所需行数占用紧凑行带，多个流程的行带构成同一片 forest。使用实际层级列间隙与这些 forest 行带中的实际行间隙。
+- 分支纵排：每个层级共享一列；每个断开流程按其最宽层所需行数占用紧凑行带，多个流程的行带构成同一片 forest。使用实际层级列间隙与这些 forest 行带中的实际行间隙。
+- 分支横排：树仍从左向右生长；Node 按拓扑层级占据共享纵列，每条水平分支泳道从自身所在层级开始，而不是统一退回最左列。使用泳道内 Node 之间和泳道之间的实际间隙。
 - 计算结果小于 32 世界单位（包括 0 或负数）时统一提升为 32；主动整理不会因为原选区空间不足而压缩或重叠 Node，允许整理后的整体外接矩形扩大。
 
 旧的“允许 0 或负数间距”和“负间距回退 24”合同均由本次修订废止；权威下限是 `2rem` / 32 世界单位。
@@ -39,19 +41,28 @@ Selection Arrangement 是 Designer 对既有 Node 的显式多选操作。它与
 
 ## 5. 树状 forest
 
+工具栏以“树状”作为共同入口，并提供两个按视觉方向命名的选项：
+
+- **分支纵排**：树从左向右展开，同层分支上下排列。
+- **分支横排**：树同样从左向右展开，但使用按拓扑层级缩进的水平分支泳道。单链 `a → b → c` 保持在同一行并持续向右；`a → [a1, a2, a3]`、`b → [b1, b2, b3]` 等结果组形成上下相邻的水平泳道，而不是把所有父 Node 拉回同一左列，也不修改 Connection。
+
 ### 5.1 拓扑输入
 
 - 只读取整理前 Canvas Selection 内部的全部有向 Connection；任何一端投影后不在选区的 Connection 都完全忽略。
 - Smart Group 是一个整体 Node。成员到选区内外部 Node 的 Connection 端点投影到 Group；投影后的重复有向 Connection 去重，自环丢弃。
 - Frame 只提供空间包含关系，不作为树的父 Node 或子 Node。
-- Connection 决定层级：根位于第一列；子 Node 的层级不得早于任一父 Node 的下一列；多父汇聚 Node 只出现一次。
-- 原始坐标决定同层从上到下顺序；Connection 不重排同层顺序。
+- 分支纵排由 Connection 决定层级：根位于左侧第一层，子 Node 不得早于任一父 Node 的下一层，多父汇聚 Node 只出现一次。分支横排使用同一拓扑层级确定泳道缩进，再用来源关系划分可连续的水平泳道。
+- 原始坐标决定稳定顺序：分支纵排的同层 Node 从上到下；分支横排的泳道从上到下、每条泳道内 Node 从左到右。
+- 分支横排先以选区内 Connection 和 `inputNodeIds` 确认实际上游父 Node；缺少这些直接关系时，再使用批次来源 `generationBatchSourceNodeId` 或运行来源 `sourceNodeId` 补足“从哪个 Node 生成”关系。
+- `generationBatchId` 标记的同一生成批次是不可拆分的横向单元。批次首个保留 Node 可能同时被记录为 `generationBatchSourceNodeId`，这只表示批次锚点，不代表它取代实际上游成为父 Node；当整个批次共享同一个实际上游时，父 Node 与全部批次结果必须保持在同一行。
 
 ### 5.2 forest、锚点与循环
 
-- 单个流程按局部父子关系紧凑展开，不把每个层级各自铺成互不相关的全局行矩阵。分叉时父 Node 垂直居中于子 Node 组，汇聚时子 Node 垂直居中于父 Node 组；后续单链沿该中心继续展开。
-- 多个断开流程属于同一片 forest，共享层级列和同一个等间距；各流程按整理前的纵向顺序紧凑堆叠。例如 `a → b` 与 `x → y` 使用相同的两列并形成两个相邻流程，而不是横向串接，也不与其他流程的层级行交错。
-- 新树左边界保持整理前选区左边界；新树整体垂直中心对齐整理前选区垂直中心。
+- 分支纵排按局部父子关系紧凑展开，不把每个层级各自铺成互不相关的全局矩阵。分叉时父 Node 垂直居中于子 Node 组，汇聚时子 Node 垂直居中于父 Node 组；后续单链沿该中心继续展开。
+- 分支横排把连续单链合并到同一条水平泳道；父 Node 已有直接终端结果时，继续分叉的子 Node 另起一条缩进到自身拓扑层级的泳道。Node 不重复出现，每行内不同高度的 Node 以垂直中心对齐。
+- 多父汇聚 Node 只加入一条上游泳道：优先延续整理前纵向中心最接近的上游；其他上游保持独立泳道。没有更早父级约束的辅助输入可以向右紧凑到汇聚 Node 的前一层，避免产生没有信息价值的长 Connection。
+- 多个分支行或断开流程属于同一片 forest 并共享同一个等间距，按整理前整组父子 Node 的最上方位置确定纵向顺序，而不是只读取父 Node 的孤立位置；它们紧凑堆叠，不会横向拼成一条长行。
+- 两个方向都保持整理前选区左边界，并使新树整体垂直中心对齐整理前选区垂直中心。
 - 循环 Connection 的优化不属于本次范围；检测到无法拓扑排序的部分时保留既有确定性回退，不承诺新的循环可视化语义。
 
 ## 6. Frame 与容器
@@ -71,11 +82,19 @@ Selection Arrangement 是 Designer 对既有 Node 的显式多选操作。它与
 7. `a → c ← b` 且 `c → d` 时，`c` 只出现一次、位于两父之后的层级并垂直居中于两父之间；`d` 沿 `c` 的中心继续向右。
 8. 选区外 Node 的 Connection 不改变树状层级；Group 成员到外部选中 Node 的 Connection 投影到 Group 且去重。
 9. 选中 Frame 内成员后整理可扩大 Frame；一次 Undo 同时恢复成员坐标和 Frame 尺寸。
+10. `a` 同时连接四个结果 Node 时，分支纵排使四个结果共享一列并上下排列；分支横排使 `a` 保持在左侧、四个结果在其右侧共享一行并左右排列。两种操作都不修改 Connection。
+11. 同时存在 `a → [a1, a2, a3]` 与 `b → [b1, b2, b3]` 时，分支横排必须让 `a`、`b` 位于各自泳道起点并纵向排列，两组结果各自在对应父 Node 右侧横排；泳道按照拓扑层级缩进，不能把后续父 Node 重新拉回最左列，也不能把两个分支合并成一条长横行。
+12. 当 `a` 既是父 Node、又是生成批次中保留的首个 Node 时，同批次的 `a1`、`a2` 必须与 `a` 保持同一行，结果为 `a → [a1, a2]`，不能拆成上下两行。
+13. 节点仅通过运行来源 `sourceNodeId` 记录生成关系时仍须恢复父子行。若 `c1`、`c2` 原本位于第三行而父 Node `c` 暂时落在底部，整理结果应把 `c` 合入 `c1`、`c2` 所在的第三行，不能把整个 `c` 分支继续排在 `d` 分支之后。
+14. 当两图批次以首个结果 `a1` 作为批次锚点，但 `a1`、`a2` 的 Connection / `inputNodeIds` 均指向实际上游 `a` 时，分支横排必须得到 `a → [a1, a2]`；不能误把 `a1` 当作父 Node 而把 `a` 单独留在上一行。
+15. 当 `a1` 来自较早批次，续生成的 `a2` 将 `a1` 记为 `generationBatchSourceNodeId`，但 `a1`、`a2` 的 Connection / `inputNodeIds` 都明确指向 `a` 时，正式父子关系优先于跨批次生成溯源；结果仍为 `a → [a1, a2]`，不能变成 `a1` 独占上一行、`a → [a2]` 位于下一行。
+16. 单链 `a → b → c` 使用分支横排后必须保持为同一条从左向右递进的泳道，不能变成 `a` 独占一行、`b → c` 位于下一行。
+17. 当一个分支包含编组、辅助输入、多父汇聚和后续分叉时，所有泳道必须从各自拓扑层级开始；汇聚主链可以形成 `输入 → 汇聚 Node → 终端结果`，后续分叉父 Node 与其结果形成另一条更深的泳道，不能把所有具有下游的 Node 堆进最左列。
 
 ## 8. 代表性验证
 
 - 纯模块：Selection Arrangement 的间距、forest 层级、Group 投影、锚点和循环回退。
 - Mutation/协作：所有坐标与 Frame 尺寸以一个操作提交，一次 Undo/Redo 恢复。
-- 真实页面：四种入口的 Pointer 与 Keyboard 操作、Light/Dark、Frame 内整理和 Smart Group 拓扑。
+- 真实页面：宫格、水平、垂直与树状方向菜单的 Pointer / Keyboard 操作、Light/Dark、Frame 内整理和 Smart Group 拓扑。
 
-`tests/test_smart_canvas_selection_arrangement.py` 覆盖纯规划，包括原有四列两行、非严格视觉宫格、散点回退、线性间距、forest、Group 投影、锚点和循环；`tests/test_smart_canvas_canvas_mutation.py` 覆盖一次 Mutation/Undo 与 Frame/Group 原子移动，`tests/issue_148_layout_browser_smoke.cjs` 在真实 Smart Canvas 页面覆盖四种入口、Pointer/Keyboard、宫格、水平与树状执行及 Light/Dark。循环仍按非目标保留确定性回退。
+`tests/test_smart_canvas_selection_arrangement.py` 覆盖纯规划，包括原有四列两行、非严格视觉宫格、散点回退、线性间距、两个树状方向、forest、Group 投影、锚点和循环；`tests/test_smart_canvas_canvas_mutation.py` 覆盖一次 Mutation/Undo 与 Frame/Group 原子移动，`tests/issue_148_layout_browser_smoke.cjs` 在真实 Smart Canvas 页面覆盖工具栏树状方向菜单、Pointer/Keyboard、宫格、水平、分支纵排、分支横排及 Light/Dark。循环仍按非目标保留确定性回退。

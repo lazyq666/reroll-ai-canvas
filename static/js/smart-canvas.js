@@ -2348,13 +2348,14 @@ function arrangeSelectedSmartNodes(mode='grid'){
         });
     }
     if(!canvasMutation.arrange({placements:plan.placements,frameUpdates})) return;
-    const label = mode === 'horizontal'
-        ? tr('smart.layoutHorizontal')
-        : mode === 'vertical'
-            ? tr('smart.layoutVertical')
-            : mode === 'tree'
-                ? tr('smart.layoutTree')
-                : tr('smart.layoutGrid');
+    const labelKey = ({
+        horizontal:'smart.layoutHorizontal',
+        vertical:'smart.layoutVertical',
+        tree:'smart.layoutTreeVertical',
+        'tree-vertical':'smart.layoutTreeVertical',
+        'tree-horizontal':'smart.layoutTreeHorizontal'
+    })[mode] || 'smart.layoutGrid';
+    const label = tr(labelKey);
     toast(trf('smart.layoutDone', {layout: label}));
 }
 function isSmartAnnotationNode(node){
@@ -5779,7 +5780,9 @@ function createFrameFromSelection(ids=window.SmartCanvasModules.viewportSelectio
     [...out].forEach(id => {
         const node = nodes.find(item => item.id === id);
         if(!smartContainer.isFrame(node)) return;
-        smartContainer.descendantIds(node).forEach(memberId => out.delete(memberId));
+        smartContainer.expand([node.id]).forEach(memberId => {
+            if(memberId !== node.id) out.delete(memberId);
+        });
     });
     const atomicIds = [...out];
     const selectedNodes = atomicIds.map(id => nodes.find(node => node.id === id)).filter(Boolean);
@@ -8494,9 +8497,13 @@ function smartMultiSelectionToolbarHtml(ids=[]){
         <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-layout="vertical" title="${escapeAttr(tr('smart.layoutVertical'))}">
             <ic-icon slot="start" name="layout-vertical" size="x-small"></ic-icon>${escapeHtml(tr('smart.layoutVertical'))}
         </ic-button>
-        <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-layout="tree" title="${escapeAttr(tr('smart.layoutTree'))}">
-            <ic-icon slot="start" name="layout-tree" size="x-small"></ic-icon>${escapeHtml(tr('smart.layoutTree'))}
-        </ic-button>
+        <ic-menu data-smart-tree-layout-menu="1" size="small" trigger="dropdown" selection="command" placement="block-end" alignment="end" label="${escapeAttr(tr('smart.layoutTreeMenu'))}">
+            <ic-button slot="trigger" type="button" size="xs" hierarchy="quiet" data-smart-tree-layout-trigger="1" title="${escapeAttr(tr('smart.layoutTreeMenu'))}" aria-haspopup="menu" aria-expanded="false">
+                <ic-icon slot="start" name="layout-tree" size="x-small"></ic-icon>${escapeHtml(tr('smart.layoutTree'))}<ic-icon slot="end" name="expand" size="x-small"></ic-icon>
+            </ic-button>
+            <ic-menu-item kind="command" value="tree-vertical" data-smart-multi-layout="tree-vertical" icon="layout-vertical" label="${escapeAttr(tr('smart.layoutTreeVertical'))}"></ic-menu-item>
+            <ic-menu-item kind="command" value="tree-horizontal" data-smart-multi-layout="tree-horizontal" icon="layout-horizontal" label="${escapeAttr(tr('smart.layoutTreeHorizontal'))}"></ic-menu-item>
+        </ic-menu>
         <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-action="download" title="${escapeAttr(tr('smart.downloadSelection'))}" ${mediaCount ? '' : 'disabled'}>
             <ic-icon slot="start" name="download" size="x-small"></ic-icon>${escapeHtml(tr('smart.contextDownload'))}
         </ic-button>
@@ -8614,7 +8621,8 @@ function bindSmartNodeFloatingPortal(){
         const frameAction = event.target.closest('[data-smart-frame-action]');
         const multiAction = event.target.closest('[data-smart-multi-action]');
         const multiLayout = event.target.closest('[data-smart-multi-layout]');
-        const button = nodeAction || groupAction || frameAction || multiAction || multiLayout;
+        const treeLayoutTrigger = event.target.closest('[data-smart-tree-layout-trigger]');
+        const button = nodeAction || groupAction || frameAction || multiAction || multiLayout || treeLayoutTrigger;
         event.preventDefault();
         event.stopPropagation();
         if(!button || button.disabled) return;
@@ -8627,6 +8635,10 @@ function bindSmartNodeFloatingPortal(){
         else if(frameAction) runSmartFrameToolbarAction(button.dataset.nodeId || '', button.dataset.smartFrameAction);
         else if(multiLayout){
             arrangeSelectedSmartNodes(multiLayout.dataset.smartMultiLayout || 'grid');
+        } else if(treeLayoutTrigger){
+            const menu = treeLayoutTrigger.closest('[data-smart-tree-layout-menu]');
+            if(menu?.hasAttribute('open')) menu.hide('trigger');
+            else menu?.show(treeLayoutTrigger);
         } else if(multiAction?.dataset.smartMultiAction === 'generate'){
             smartMultiInputFromToolbar(window.SmartCanvasModules.viewportSelection.selection.ids());
         } else if(multiAction?.dataset.smartMultiAction === 'download'){

@@ -8,18 +8,24 @@ test('recognizable exact ratios win, including the conventional 21:9 spelling', 
     }
 });
 
-test('nonstandard images use a bounded approximation or a short decimal', () => {
-    for(const [w,h,a,b] of [[1000,667,3,2],[1920,1088,16,9],[1366,768,16,9],[1024,1023,1,1],[1024,600,1.71,1],[2560,1080,2.37,1]]){
+test('images within 1% use a standard ratio without an approximation marker', () => {
+    for(const [w,h,a,b] of [[1000,667,3,2],[1920,1088,16,9],[1366,768,16,9],[1024,1023,1,1]]){
         const ratio = metadata.aspectRatio(w,h);
-        assert.equal(ratio.approximate, true);
+        assert.equal(ratio.approximate, false);
         assert.deepEqual([ratio.width,ratio.height], [a,b]);
     }
 });
 
+test('images outside the 1% tolerance use a marked short decimal', () => {
+    for(const [w,h,a,b] of [[1024,600,1.71,1],[2560,1080,2.37,1]]){
+        assert.deepEqual(metadata.aspectRatio(w,h), {width:a,height:b,approximate:true});
+    }
+});
+
 test('the inclusive 1% boundary is stable under rotation and scaling', () => {
-    assert.equal(metadata.aspectRatio(990,1000).width, 1);
-    assert.equal(metadata.aspectRatio(991,1000).width, 1);
-    assert.equal(metadata.aspectRatio(989,1000).height, 1.01);
+    assert.deepEqual(metadata.aspectRatio(990,1000), {width:1,height:1,approximate:false});
+    assert.deepEqual(metadata.aspectRatio(991,1000), {width:1,height:1,approximate:false});
+    assert.deepEqual(metadata.aspectRatio(989,1000), {width:1,height:1.01,approximate:true});
     for(const [w,h] of [[990,1000],[989,1000],[1920,1088],[1024,600],[2560,1080]]){
         const original = metadata.aspectRatio(w,h);
         const rotated = metadata.aspectRatio(h,w);

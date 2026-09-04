@@ -36,7 +36,7 @@ async function installSelection(page) {
         script.remove();
     }, tinyPng);
     await page.waitForFunction(() => (
-        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 4
+        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 5
     ));
 }
 
@@ -69,7 +69,46 @@ async function installGridSelection(page) {
         script.remove();
     }, tinyPng);
     await page.waitForFunction(() => (
-        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 4
+        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 5
+    ));
+}
+
+async function installCrossBatchBranchSelection(page) {
+    await page.evaluate(imageUrl => {
+        const script = document.createElement('script');
+        script.textContent = `(() => {
+            nodes.splice(0, nodes.length,
+                {id:'smart_bvn91r1u937s',type:'smart-image',x:160,y:330,w:172,h:259,
+                    images:[{url:${JSON.stringify(imageUrl)},kind:'image'}]},
+                {id:'smart_ylu93qelafr0',type:'smart-image',x:160,y:100,w:172,h:259,
+                    images:[{url:${JSON.stringify(imageUrl)},kind:'image'}],
+                    sourceNodeId:'smart_ylu93qelafr0',generationBatchSourceNodeId:'smart_e739igp3adty',
+                    generationBatchId:'generation-batch_gap5t4gyafr0',inputNodeIds:['smart_bvn91r1u937s']},
+                {id:'smart_b5tlimh6d1yb',type:'smart-image',x:500,y:330,w:172,h:259,
+                    images:[{url:${JSON.stringify(imageUrl)},kind:'image'}],
+                    generationBatchSourceNodeId:'smart_ylu93qelafr0',
+                    generationBatchId:'generation-batch_s1bcwi1td1yb',inputNodeIds:['smart_bvn91r1u937s']}
+            );
+            canvas.nodes = nodes;
+            canvas.connections = [
+                {from:'smart_bvn91r1u937s',to:'smart_ylu93qelafr0'},
+                {from:'smart_bvn91r1u937s',to:'smart_b5tlimh6d1yb'}
+            ];
+            selectedId = '';
+            selectedIds = nodes.map(node => node.id);
+            viewport.x = 0;
+            viewport.y = 0;
+            viewport.scale = 1;
+            render();
+            window.SmartCanvasModules.viewportSelection.viewport.apply();
+            syncSmartNodeFloatingPortal();
+            window.SmartCanvasModules.viewportSelection.selection.refresh();
+        })();`;
+        document.body.appendChild(script);
+        script.remove();
+    }, tinyPng);
+    await page.waitForFunction(() => (
+        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 5
     ));
 }
 
@@ -150,13 +189,17 @@ async function exactQuickAdd(page, fromPort, kind, point) {
         await page.locator('#smartSettingsToggle').click();
         await installSelection(page);
         const entries = await page.locator('#smartNodeFloatingPortal [data-smart-multi-layout]').evaluateAll(buttons => (
-            buttons.map(button => ({mode:button.dataset.smartMultiLayout,disabled:button.disabled}))
+            buttons.map(button => ({
+                mode:button.dataset.smartMultiLayout,
+                disabled:button.hasAttribute('disabled')
+            }))
         ));
         assert.deepEqual(entries, [
             {mode:'grid',disabled:false},
             {mode:'horizontal',disabled:false},
             {mode:'vertical',disabled:false},
-            {mode:'tree',disabled:false},
+            {mode:'tree-vertical',disabled:false},
+            {mode:'tree-horizontal',disabled:false},
         ]);
 
         await installGridSelection(page);
@@ -182,9 +225,11 @@ async function exactQuickAdd(page, fromPort, kind, point) {
         );
 
         await installSelection(page);
-        const treeButton = page.locator('[data-smart-multi-layout="tree"]');
-        await treeButton.focus();
-        await treeButton.press('Enter');
+        const treeTrigger = page.locator('[data-smart-tree-layout-trigger]');
+        await treeTrigger.focus();
+        await treeTrigger.press('Enter');
+        await page.waitForFunction(() => document.querySelector('[data-smart-tree-layout-menu]')?.hasAttribute('open'));
+        await page.keyboard.press('Enter');
         await page.waitForFunction(() => {
             const byId = Object.fromEntries(nodes.map(node => [node.id,node]));
             return byId.a.x === byId.b.x
@@ -200,6 +245,51 @@ async function exactQuickAdd(page, fromPort, kind, point) {
         })));
         assert.ok(Math.abs(tree.c.centerY - (tree.a.centerY + tree.b.centerY) / 2) <= 1);
         assert.ok(Math.abs(tree.d.centerY - tree.c.centerY) <= 1);
+
+        await installSelection(page);
+        await treeTrigger.click();
+        await page.locator('[data-smart-multi-layout="tree-horizontal"]').click();
+        await page.waitForFunction(() => {
+            const byId = Object.fromEntries(nodes.map(node => [node.id,node]));
+            return byId.a.x === byId.b.x
+                && byId.c.x > byId.b.x
+                && byId.d.x > byId.c.x
+                && byId.b.y === byId.c.y
+                && byId.c.y === byId.d.y
+                && byId.a.y > byId.b.y;
+        });
+        const horizontalTree = await page.evaluate(() => Object.fromEntries(nodes.map(node => {
+            const rect = nodeRect(node);
+            return [node.id,{
+                x:node.x,
+                centerY:node.y + rect.height / 2
+            }];
+        })));
+        assert.equal(horizontalTree.a.x, horizontalTree.b.x);
+        assert.ok(horizontalTree.c.x > horizontalTree.b.x);
+        assert.ok(horizontalTree.d.x > horizontalTree.c.x);
+        assert.ok(Math.abs(horizontalTree.b.centerY - horizontalTree.c.centerY) <= 1);
+        assert.ok(Math.abs(horizontalTree.c.centerY - horizontalTree.d.centerY) <= 1);
+        assert.ok(horizontalTree.a.centerY > horizontalTree.b.centerY);
+
+        await installCrossBatchBranchSelection(page);
+        await treeTrigger.click();
+        await page.locator('[data-smart-multi-layout="tree-horizontal"]').click();
+        await page.waitForFunction(() => {
+            const byId = Object.fromEntries(nodes.map(node => [node.id,node]));
+            const centers = nodes.map(node => node.y + nodeRect(node).height / 2);
+            return Math.max(...centers) - Math.min(...centers) <= 1
+                && byId['smart_bvn91r1u937s'].x < byId['smart_ylu93qelafr0'].x
+                && byId['smart_ylu93qelafr0'].x < byId['smart_b5tlimh6d1yb'].x;
+        });
+        const crossBatchTree = await page.evaluate(() => Object.fromEntries(nodes.map(node => {
+            const rect = nodeRect(node);
+            return [node.id,{x:node.x,centerY:node.y + rect.height / 2}];
+        })));
+        assert.ok(Math.max(...Object.values(crossBatchTree).map(node => node.centerY))
+            - Math.min(...Object.values(crossBatchTree).map(node => node.centerY)) <= 1);
+        assert.ok(crossBatchTree['smart_bvn91r1u937s'].x < crossBatchTree['smart_ylu93qelafr0'].x);
+        assert.ok(crossBatchTree['smart_ylu93qelafr0'].x < crossBatchTree['smart_b5tlimh6d1yb'].x);
 
         const theme = {};
         for (const name of ['light','dark']) {
@@ -233,7 +323,7 @@ async function exactQuickAdd(page, fromPort, kind, point) {
         }
 
         assert.deepEqual(runtimeErrors, []);
-        console.log(JSON.stringify({passed:true,entries,grid,horizontal,theme,quickAdd,screenshots:['/tmp/issue-148-light.png','/tmp/issue-148-dark.png']}, null, 2));
+        console.log(JSON.stringify({passed:true,entries,grid,horizontal,tree,horizontalTree,crossBatchTree,theme,quickAdd,screenshots:['/tmp/issue-148-light.png','/tmp/issue-148-dark.png']}, null, 2));
     } finally {
         await browser.close();
     }

@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-ea009f20e988"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-01910c282d9b"></script>
   <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
   <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
   <script src="/static/js/available-model-management-state.js?v=2026.09.01.5.1788439320"></script>
   <title data-i18n="models.pageTitle">可用模型管理 · Reroll</title>
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.5.1788439320">
-  <link rel="stylesheet" href="/static/css/available-model-management.css?v=2026.09.01.5.1788439320">
+  <link rel="stylesheet" href="/static/css/available-model-management.css?v=2026.09.04.3">
   <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
 </head>
 <body>
@@ -25,6 +25,12 @@
 
     <ic-alert id="page-message" tone="neutral" hidden></ic-alert>
 
+    <ic-tabs id="management-sections" class="management-tabs" label="模型管理区域" data-i18n-label="models.managementSections" value="catalog" activation="automatic">
+      <button id="catalog-tab-label" data-value="catalog" type="button" data-i18n="models.availableModels">可用模型</button>
+      <button data-value="capabilities" type="button" data-i18n="models.capabilityMatrix">模型能力</button>
+    </ic-tabs>
+
+    <section id="model-catalog-view" aria-labelledby="catalog-tab-label">
     <ic-tabs id="model-types" class="type-tabs" label="模型类型" data-i18n-label="models.types" value="image" activation="automatic">
       <button data-value="image" type="button">
         <span data-i18n="models.image">图片模型</span><ic-badge id="image-count" kind="count" tone="neutral">0</ic-badge>
@@ -49,9 +55,98 @@
         <div id="model-list" class="model-list" aria-live="polite"></div>
       </section>
     </ic-card>
+    </section>
+
+    <section id="capability-workbench-view" class="capability-view" aria-labelledby="capability-workbench-title" hidden>
+      <div class="capability-heading">
+        <div>
+          <h2 id="capability-workbench-title" data-i18n="models.capabilityMatrix">模型能力</h2>
+          <p data-i18n="models.capabilityMatrixDesc">每行一个模型。相同模型在不同平台出现时合并显示。</p>
+        </div>
+        <div class="capability-catalog-status">
+          <ic-button id="capability-sync-models" type="button" hierarchy="secondary" size="medium">
+            <ic-icon slot="start" name="refresh"></ic-icon><span data-i18n="models.syncModels">同步现有模型</span>
+          </ic-button>
+          <ic-button id="capability-refresh" type="button" hierarchy="secondary" size="medium">
+            <ic-icon slot="start" name="search"></ic-icon><span data-i18n="models.checkSources">检查资料</span>
+          </ic-button>
+          <ic-button id="capability-import-open" type="button" hierarchy="primary" size="medium">
+            <ic-icon slot="start" name="upload"></ic-icon><span data-i18n="models.importCapabilities">导入能力数据</span>
+          </ic-button>
+        </div>
+      </div>
+
+      <ic-alert id="capability-message" tone="neutral" hidden></ic-alert>
+
+      <div class="capability-summary" aria-live="polite">
+        <div><strong id="capability-model-count">0</strong><span data-i18n="models.modelsInEnvironment">个现有模型</span></div>
+        <div><strong id="capability-confirmed-count">0</strong><span data-i18n="models.modelsConfigured">个已有能力</span></div>
+        <div><strong id="capability-missing-count">0</strong><span data-i18n="models.modelsNeedSources">个缺少资料</span></div>
+        <span id="capability-source-refresh-status" class="capability-source-status" data-i18n="models.sourceRefreshPending">等待检查资料</span>
+      </div>
+
+      <ic-card class="capability-matrix-card" label="模型能力表" data-i18n-label="models.capabilityTable">
+        <div class="capability-table-tools">
+          <ic-input id="capability-search" type="search" name="capability_search" label="搜索模型" data-i18n-label="models.searchCapabilities" placeholder="模型名称或 ID" data-i18n-placeholder="models.searchCapabilitiesPlaceholder"></ic-input>
+        </div>
+        <div class="capability-table-scroll">
+          <table class="capability-table">
+            <thead><tr>
+              <th scope="col" data-i18n="models.model">模型</th>
+              <th scope="col" data-i18n="models.platforms">平台</th>
+              <th scope="col" data-i18n="models.modelType">类型</th>
+              <th scope="col" data-i18n="models.capabilityOverview">能力</th>
+              <th scope="col" data-i18n="models.sourceStatus">资料</th>
+              <th scope="col" data-i18n="models.operations">操作</th>
+            </tr></thead>
+            <tbody id="capability-model-rows"></tbody>
+          </table>
+        </div>
+        <ic-empty-state id="capability-empty" title="还没有现有模型" label="模型能力" data-i18n-title="models.noEnvironmentModels" data-i18n-label="models.capabilityMatrix" hidden></ic-empty-state>
+      </ic-card>
+
+      <section id="capability-editor" class="capability-product-editor" aria-labelledby="capability-editor-title" hidden>
+        <div class="capability-editor-heading">
+          <div>
+            <h3 id="capability-editor-title"></h3>
+            <p id="capability-editor-model-id"></p>
+          </div>
+          <ic-icon-button id="capability-editor-close" type="button" hierarchy="quiet" icon="close" label="关闭能力设置" data-i18n-label="models.closeCapabilityEditor"></ic-icon-button>
+        </div>
+        <p class="capability-editor-intro" data-i18n="models.capabilityEditorIntro">选择这个模型可以接收的素材和可以生成的结果。保存后会应用到使用该模型的所有平台。</p>
+        <div id="capability-operation-editors" class="capability-operation-editors"></div>
+        <details class="capability-source-details">
+          <summary data-i18n="models.sourceDetails">查看资料状态</summary>
+          <p id="capability-editor-source-summary"></p>
+        </details>
+        <div class="capability-editor-actions">
+          <ic-button id="capability-apply" type="button" hierarchy="primary"><span data-i18n="models.saveAndApply">保存并应用</span></ic-button>
+        </div>
+      </section>
+    </section>
   </main>
+
+  <ic-dialog id="capability-import-dialog" class="capability-import-dialog" label="导入模型能力" data-i18n-label="models.importDialogTitle" size="large" dismiss-policy="explicit">
+    <div class="capability-import-body">
+      <p data-i18n="models.importDialogIntro">先复制查找要求，在 ChatGPT 或 Codex 中完成资料搜索；再把返回的 JSON 粘贴到这里。</p>
+      <ol class="capability-import-steps">
+        <li data-i18n="models.importStepCopy">复制包含当前模型和固定格式的查找要求。</li>
+        <li data-i18n="models.importStepResearch">让 AI 只查官方资料，并按要求返回 JSON。</li>
+        <li data-i18n="models.importStepPaste">粘贴结果，先校验预览，再应用。</li>
+      </ol>
+      <ic-button id="capability-copy-lookup" type="button" hierarchy="secondary">
+        <ic-icon slot="start" name="copy"></ic-icon><span data-i18n="models.copyLookupPrompt">复制查找要求</span>
+      </ic-button>
+      <ic-textarea id="capability-import-data" name="capability_import_data" rows="16" resize="vertical" label="能力数据 JSON" data-i18n-label="models.importDataLabel" placeholder="粘贴 ChatGPT 或 Codex 返回的 JSON" data-i18n-placeholder="models.importDataPlaceholder"></ic-textarea>
+      <ic-alert id="capability-import-status" tone="neutral" hidden></ic-alert>
+    </div>
+    <ic-button id="capability-import-cancel" slot="footer" type="button" hierarchy="secondary" data-i18n="models.cancel">取消</ic-button>
+    <ic-button id="capability-import-preview" slot="footer" type="button" hierarchy="secondary" data-i18n="models.validateImport">校验数据</ic-button>
+    <ic-button id="capability-import-apply" slot="footer" type="button" hierarchy="primary" data-i18n="models.applyImport" disabled>应用数据</ic-button>
+  </ic-dialog>
 
   <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-ef410096e2b4"></script>
   <script src="/static/js/available-model-management.js?v=2026.09.01.5.1788439320" defer></script>
+  <script src="/static/js/model-capability-workbench.js?v=2026.09.04.3" defer></script>
 </body>
 </html>

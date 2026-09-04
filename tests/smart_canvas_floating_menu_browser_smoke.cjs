@@ -362,7 +362,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
     }, {imageUrl:tinyPng});
     await page.waitForFunction(() => (
         document.querySelector('#smartNodeFloatingPortal ic-smart-node-toolbar[data-smart-multi-menu]')?.dataset.icContractStatus === 'ready'
-        && document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 4
+        && document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 5
     ));
     const multiState = await page.locator('#smartNodeFloatingPortal').evaluate(portal => ({
         tag:portal.querySelector('[data-smart-multi-menu]')?.localName,
@@ -382,10 +382,10 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
         label:'多选节点操作',
         nativeButtonCount:0,
         buttonCount:5,
-        layouts:['grid', 'horizontal', 'vertical', 'tree'],
+        layouts:['grid', 'horizontal', 'vertical', 'tree-vertical', 'tree-horizontal'],
         actions:['download'],
         labels:['宫格', '水平', '垂直', '树状', '下载'],
-        icons:['layout-grid', 'layout-horizontal', 'layout-vertical', 'layout-tree', 'download'],
+        icons:['layout-grid', 'layout-horizontal', 'layout-vertical', 'layout-tree', 'expand', 'download'],
         disabled:[false, false, false, false, false],
     });
     await page.locator('#smartNodeFloatingPortal [data-smart-multi-layout="horizontal"]').click();

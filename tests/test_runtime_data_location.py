@@ -63,6 +63,10 @@ class RuntimeDataLocationTests(unittest.TestCase):
                 cache.image_processor_results,
                 (root / "cache" / "image-processor-results").resolve(),
             )
+            self.assertEqual(
+                cache.model_capability_sources,
+                (root / "cache" / "model-capability-sources.json").resolve(),
+            )
             self.assertFalse(
                 cache.canvas_list_index("workspace-a").is_relative_to(workspace)
             )

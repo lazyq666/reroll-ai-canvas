@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "static" / "available-model-management.html"
 STYLE = ROOT / "static" / "css" / "available-model-management.css"
 SCRIPT = ROOT / "static" / "js" / "available-model-management.js"
+WORKBENCH_SCRIPT = ROOT / "static" / "js" / "model-capability-workbench.js"
 STATE_SCRIPT = ROOT / "static" / "js" / "available-model-management-state.js"
 I18N = ROOT / "static" / "js" / "i18n" / "model-management.js"
 VENDOR_ICONS = ROOT / "static" / "js" / "model-vendor-icons.js"
@@ -21,6 +22,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         cls.page = PAGE.read_text(encoding="utf-8")
         cls.style = STYLE.read_text(encoding="utf-8")
         cls.script = SCRIPT.read_text(encoding="utf-8")
+        cls.workbench_script = WORKBENCH_SCRIPT.read_text(encoding="utf-8")
         cls.state_script = STATE_SCRIPT.read_text(encoding="utf-8")
         cls.i18n = I18N.read_text(encoding="utf-8")
         cls.vendor_icons = VENDOR_ICONS.read_text(encoding="utf-8")
@@ -32,8 +34,10 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
             "ic-alert",
             "ic-badge",
             "ic-card",
+            "ic-dialog",
             "ic-icon",
             "ic-tabs",
+            "ic-textarea",
         ):
             self.assertIn(f"<{tag}", self.page)
         self.assertIn("/static/js/infinite-canvas-ui/core.js", self.page)
@@ -42,8 +46,17 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertNotRegex(self.page, r"<wa-[a-z]")
         self.assertNotIn("--wa-", self.page)
         self.assertNotIn("/static/vendor/js/lucide.js", self.page)
-        self.assertEqual(len(re.findall(r"<button\b", self.page)), 3)
+        self.assertEqual(len(re.findall(r"<button\b", self.page)), 5)
         self.assertEqual(len(re.findall(r'<button data-value="(?:image|video|text)"', self.page)), 3)
+        self.assertEqual(
+            len(
+                re.findall(
+                    r'<button(?: id="[^"]+")? data-value="(?:catalog|capabilities)"',
+                    self.page,
+                )
+            ),
+            2,
+        )
         self.assertNotIn('id="save-order"', self.page)
         self.assertNotIn('models.saveOrder', self.page)
         self.assertNotIn('id="icon-style"', self.page)
@@ -141,6 +154,50 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
             ".page-message.error",
         ):
             self.assertNotIn(selector, self.style)
+
+    def test_capability_matrix_groups_models_and_uses_product_controls(self):
+        self.assertIn('/static/js/model-capability-workbench.js', self.page)
+        self.assertIn('id="capability-model-rows"', self.page)
+        self.assertIn('id="capability-operation-editors"', self.page)
+        self.assertIn('id="capability-sync-models"', self.page)
+        self.assertIn('id="capability-import-open"', self.page)
+        self.assertIn('id="capability-import-data"', self.page)
+        self.assertNotIn('id="capability-provider"', self.page)
+        self.assertNotIn('Inputs JSON', self.page)
+        self.assertNotIn('Parameters JSON', self.page)
+        for endpoint in (
+            "/api/admin/model-capability-matrix",
+            "/api/admin/model-capability-matrix/import",
+            "/api/admin/model-capabilities/refresh",
+        ):
+            self.assertIn(endpoint, self.workbench_script)
+        self.assertNotIn("/api/admin/model-capability-matrix/ai-draft", self.backend)
+        self.assertNotIn("/api/admin/model-capability-drafts/extract", self.backend)
+        self.assertNotIn("AI 补全能力", self.page)
+        self.assertIn("inputTypes.forEach", self.workbench_script)
+        self.assertIn("const lookupPrompt =", self.workbench_script)
+        self.assertIn("schema_version: 1", self.workbench_script)
+        self.assertIn("state.validatedImport", self.workbench_script)
+        self.assertIn("output_count_maximum", self.workbench_script)
+        self.assertIn("aspect_ratios", self.workbench_script)
+        self.assertNotIn("innerHTML", self.workbench_script)
+        self.assertNotIn("document.createElement('button')", self.workbench_script)
+
+    def test_capability_workbench_copy_is_localized_in_both_languages(self):
+        keys = set(re.findall(r'data-i18n(?:-label)?="([^"]+)"', self.page))
+        keys.update(re.findall(r"(?:tr|tf)\('([^']+)'", self.workbench_script))
+        for key in keys:
+            self.assertRegex(
+                self.i18n,
+                rf'"{re.escape(key)}"\s*:\s*\{{\s*zh:\s*"[^"]+",\s*en:\s*"[^"]+"',
+                key,
+            )
+
+    def test_capability_workbench_resizes_without_hardcoded_visual_tokens(self):
+        self.assertIn(".capability-table-scroll {", self.style)
+        self.assertIn("overflow-x: auto", self.style)
+        self.assertIn(".capability-choice-grid { grid-template-columns: 1fr; }", self.style)
+        self.assertIn(".capability-summary { grid-template-columns: 1fr; }", self.style)
 
 
 

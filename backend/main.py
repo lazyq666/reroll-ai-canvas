@@ -161,6 +161,15 @@ from infinite_canvas.model_capability_workbench import (
     ModelCapabilityWorkbenchPublication,
     ModelCapabilityWorkbenchValidation,
 )
+from infinite_canvas.model_capability_refresh import (
+    ModelCapabilityRefreshManager,
+    refresh_interval_from_environment,
+    sources_from_environment,
+)
+from infinite_canvas.model_capability_matrix import (
+    ModelCapabilityImportInvalid,
+    ModelCapabilityMatrix,
+)
 from infinite_canvas.video_capabilities import VideoCapabilityRegistry
 from infinite_canvas.generation_runs import (
     Background,
@@ -395,6 +404,11 @@ async def startup_event():
         # Discovery must never hold the application startup gate.  The manager
         # keeps the completed snapshot for administrators who sign in later.
         _CLI_UPDATE_TASK = asyncio.create_task(cli_update_manager.check_all())
+    model_capability_refresh = globals().get("MODEL_CAPABILITY_REFRESH")
+    if model_capability_refresh is not None:
+        # Source collection starts beside the application. It never delays the
+        # startup gate and can only create reviewable drafts, never publish.
+        model_capability_refresh.start()
 
 
 @app.on_event("shutdown")
@@ -418,6 +432,9 @@ async def shutdown_event():
             _CLI_UPDATE_TASK.cancel()
             await asyncio.gather(_CLI_UPDATE_TASK, return_exceptions=True)
         _CLI_UPDATE_TASK = None
+        model_capability_refresh = globals().get("MODEL_CAPABILITY_REFRESH")
+        if model_capability_refresh is not None:
+            await model_capability_refresh.stop()
     finally:
         cancel_pending_workspace_open()
         release_workspace_occupation()
@@ -532,6 +549,18 @@ WORKSPACE_CONFIGURED = _CONFIGURED_WORKSPACE is not None
 WORKSPACE_SELECTION_PRESENT = WORKSPACE_STORAGE.has_configuration()
 DEVICE_STATE = DeviceState(DEVICE_STATE_DIR)
 DEVICE_CACHE = DeviceCache(DEVICE_CACHE_DIR)
+MODEL_CAPABILITY_REFRESH = ModelCapabilityRefreshManager(
+    workbench=MODEL_CAPABILITY_WORKBENCH,
+    catalog=MODEL_CAPABILITY_CATALOG,
+    sources=sources_from_environment(),
+    cache_path=DEVICE_CACHE.model_capability_sources,
+    interval_seconds=refresh_interval_from_environment(),
+)
+MODEL_CAPABILITY_MATRIX = ModelCapabilityMatrix(
+    inventory=lambda: available_models(include_hidden=True),
+    catalog=MODEL_CAPABILITY_CATALOG,
+    workbench=MODEL_CAPABILITY_WORKBENCH,
+)
 WORKSPACE_SERVER_ID = DEVICE_STATE.server_identity()
 WORKSPACE_OCCUPATION = None
 WORKSPACE_TAKEOVER_CONFIRMED = str(
@@ -8199,6 +8228,29 @@ class ModelCapabilityPublishPayload(BaseModel):
     expected_catalog_revision: str
 
 
+class ModelCapabilityMatrixOperationPayload(BaseModel):
+    operation: str
+    confirmed: bool = False
+    inputs: Dict[str, int] = Field(default_factory=dict)
+    resolutions: List[str] = Field(default_factory=list, max_length=40)
+    aspect_ratios: List[str] = Field(default_factory=list, max_length=40)
+    output_count_maximum: int = Field(default=1, ge=1, le=100)
+    options: List[str] = Field(default_factory=list, max_length=40)
+
+
+class ModelCapabilityMatrixUpdatePayload(BaseModel):
+    model_id: str
+    name: str = ""
+    operations: List[ModelCapabilityMatrixOperationPayload] = Field(
+        default_factory=list, min_length=1, max_length=5
+    )
+
+
+class ModelCapabilityImportRequest(BaseModel):
+    apply: bool = False
+    bundle: Dict[str, Any]
+
+
 def _model_capability_workbench_actor() -> str:
     actor = require_current_user("admin")
     return str(actor.get("id") or actor.get("username") or "")
@@ -8264,13 +8316,76 @@ async def validate_model_capability(payload: ModelCapabilityValidationRequest):
     )
 
 
+@app.get("/api/admin/model-capability-matrix")
+async def model_capability_matrix_snapshot():
+    _model_capability_workbench_actor()
+    try:
+        return MODEL_CAPABILITY_MATRIX.snapshot()
+    except (OSError, ValueError) as error:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "model_capability_matrix_unavailable"},
+        ) from error
+
+
+@app.put("/api/admin/model-capability-matrix")
+async def update_model_capability_matrix(
+    payload: ModelCapabilityMatrixUpdatePayload,
+):
+    actor_id = _model_capability_workbench_actor()
+    try:
+        result = _model_capability_workbench_action(
+            lambda: MODEL_CAPABILITY_MATRIX.apply(
+                model_id=payload.model_id,
+                name=payload.name,
+                operations=[item.model_dump() for item in payload.operations],
+                actor_id=actor_id,
+            )
+        )
+        return {"result": result, "matrix": MODEL_CAPABILITY_MATRIX.snapshot()}
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "model_capability_matrix_invalid"},
+        ) from error
+
+
+@app.post("/api/admin/model-capability-matrix/import")
+async def import_model_capability_matrix(
+    payload: ModelCapabilityImportRequest,
+):
+    actor_id = _model_capability_workbench_actor()
+    try:
+        return _model_capability_workbench_action(
+            lambda: MODEL_CAPABILITY_MATRIX.import_bundle(
+                bundle=payload.bundle,
+                actor_id=actor_id,
+                apply=payload.apply,
+            )
+        )
+    except ModelCapabilityImportInvalid as error:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "model_capability_import_invalid",
+                "reason": error.reason,
+                "model_id": error.model_id,
+                "operation": error.operation,
+            },
+        ) from error
+
+
 @app.get("/api/admin/model-capability-workbench")
 async def model_capability_workbench_snapshot():
     _model_capability_workbench_actor()
     snapshot = _model_capability_workbench_action(
         MODEL_CAPABILITY_WORKBENCH.snapshot
     )
-    return {**snapshot, "catalog": MODEL_CAPABILITY_CATALOG.status()}
+    return {
+        **snapshot,
+        "catalog": MODEL_CAPABILITY_CATALOG.status(),
+        "refresh": MODEL_CAPABILITY_REFRESH.status(),
+    }
 
 
 @app.post("/api/admin/model-capability-evidence")
@@ -8345,16 +8460,22 @@ async def publish_model_capability_draft(
 @app.get("/api/admin/model-capabilities/status")
 async def model_capability_catalog_status():
     require_current_user("admin")
-    return MODEL_CAPABILITY_CATALOG.status()
+    return {
+        "catalog": MODEL_CAPABILITY_CATALOG.status(),
+        "refresh": MODEL_CAPABILITY_REFRESH.status(),
+    }
 
 
 @app.post("/api/admin/model-capabilities/refresh")
 async def refresh_model_capability_catalog():
     require_current_user("admin")
-    result = MODEL_CAPABILITY_CATALOG.refresh()
+    result = await MODEL_CAPABILITY_REFRESH.refresh(force=True)
     if not result.get("ok"):
         raise HTTPException(status_code=500, detail=result)
-    return result
+    return {
+        "catalog": MODEL_CAPABILITY_CATALOG.status(),
+        "refresh": result,
+    }
 
 
 @app.get("/api/image-model-capabilities")

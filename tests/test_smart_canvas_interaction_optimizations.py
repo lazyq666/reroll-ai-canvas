@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 import unittest
@@ -599,14 +600,23 @@ class SmartCanvasInteractionOptimizationTests(unittest.TestCase):
         self.assertIn("function arrangeSelectedSmartNodes", self.host)
         self.assertIn("smartContainer.frameFor(node.id)", self.host)
 
-    def test_multi_selection_exposes_layouts_without_an_arrange_disclosure(self):
+    def test_multi_selection_exposes_directional_tree_menu(self):
         start = self.host.index("function smartMultiSelectionToolbarHtml")
         end = self.host.index("\nfunction positionSmartNodeFloatingPortal", start)
         toolbar = self.host[start:end]
-        for mode in ("grid", "horizontal", "vertical", "tree"):
+        for mode in ("grid", "horizontal", "vertical", "tree-vertical", "tree-horizontal"):
             self.assertIn(f'data-smart-multi-layout="{mode}"', toolbar)
+        self.assertIn('data-smart-tree-layout-trigger="1"', toolbar)
+        self.assertIn('data-smart-tree-layout-menu="1"', toolbar)
         self.assertNotIn('data-smart-multi-action="arrange"', toolbar)
         self.assertNotIn("smart-multi-layout-tooltip", toolbar)
+
+    def test_selection_arrangement_reference_matches_current_content(self):
+        version = hashlib.sha256(SELECTION_ARRANGEMENT.read_bytes()).hexdigest()[:12]
+        self.assertIn(
+            f'/static/js/smart-canvas/selection-arrangement.js?v=asset-{version}',
+            self.page,
+        )
 
     def test_arrange_is_only_available_for_explicit_multi_selection(self):
         start = self.host.index("function arrangeSelectedSmartNodes")

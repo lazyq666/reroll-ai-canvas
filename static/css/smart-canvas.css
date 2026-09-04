@@ -1807,3 +1807,14 @@ ic-canvas-node.image-node[kind].selected:not(.smart-annotation-node) .image-wrap
     border-color:transparent;
     box-shadow:var(--ui-shadow-none);
 }
+/* A selected Smart Group media item owns the visible selection indicator.
+   Keep the Group logically selected for toolbar/keyboard routing, but do not
+   draw a second host ring or the clipped outer thumbnail ring. */
+ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected) {
+    border-color:var(--ui-color-border-nodes);
+    box-shadow:var(--ui-shadow-raised);
+}
+ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected)::before,
+.smart-group-node .thumb-item.image-selected::after {
+    content:none;
+}
