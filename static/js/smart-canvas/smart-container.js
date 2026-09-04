@@ -794,7 +794,7 @@ function smartContainerDragTarget(node, excludeIds=[]){
     );
     return groups[0].group;
 }
-function smartContainerGroup(nodeIds=[]){
+function smartContainerGroup(nodeIds=[], options={}){
     const selected = nodeIds.map(id =>
         nodes.find(node => node.id === id)
     ).filter(node =>
@@ -813,7 +813,9 @@ function smartContainerGroup(nodeIds=[]){
             || leftRect.x - rightRect.x
             || String(left.id).localeCompare(String(right.id));
     });
-    smartContainerMutationModule.history({action:'push'});
+    if(!options.skipUndo){
+        smartContainerMutationModule.history({action:'push'});
+    }
     const rects = selected.map(nodeRect);
     const minX = Math.min(...rects.map(rect => rect.x));
     const minY = Math.min(...rects.map(rect => rect.y));
@@ -843,13 +845,17 @@ function smartContainerGroup(nodeIds=[]){
     group.memberOrderVersion = SMART_GROUP_MEMBER_ORDER_VERSION;
     group.memberOrder = [];
     selected.forEach(node => smartContainerAddNode(group,node));
-    smartContainerArrange(group,{skipUndo:true});
+    if(options.arrange !== false){
+        smartContainerArrange(group,{skipUndo:true});
+    }
     selectedIds = [];
     selectedId = group.id;
     selectedImage = {nodeId:'',index:-1};
     smartContainerReconcileFrames();
-    render();
-    smartContainerPersistenceModule.schedule();
+    if(options.render !== false) render();
+    if(options.save !== false){
+        smartContainerPersistenceModule.schedule();
+    }
     return group;
 }
 function smartContainerUngroup(nodeId){
@@ -935,9 +941,13 @@ function smartContainerRemove(nodeIds=[], options={}){
     const expanded = new Set(nodeIds);
     nodeIds.forEach(id => {
         const node = nodes.find(item => item.id === id);
-        if(
-            (smartContainerIsFrame(node) && !options.preserveFrameContents)
-            || (smartContainerIsGroup(node) && !options.preserveGroupContents)
+        if(smartContainerIsFrame(node)){
+            if(!options.preserveFrameContents){
+                smartContainerDescendantIds(node)
+                    .forEach(memberId => expanded.add(memberId));
+            }
+        } else if(
+            smartContainerIsGroup(node) && !options.preserveGroupContents
         ){
             smartContainerDescendantIds(node)
                 .forEach(memberId => expanded.add(memberId));

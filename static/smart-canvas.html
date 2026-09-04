@@ -613,6 +613,26 @@
         <ic-button slot="footer" id="smartFrameExportCancel" hierarchy="secondary" data-i18n="smart.frameExport.cancel">取消</ic-button>
         <ic-button slot="footer" id="smartFrameExportDownload" hierarchy="primary" aria-describedby="smartFrameExportStatus" data-i18n="smart.contextDownload">下载</ic-button>
     </ic-dialog>
+    <ic-dialog id="layerDecompositionDialog" class="layer-decomposition-dialog" label="智能分层" data-i18n-label="smart.layerDecomposition" size="small" variant="compact" dismiss-policy="explicit">
+        <div class="layer-decomposition-form">
+            <p class="layer-decomposition-model"><strong>Seedream 5.0 Pro</strong><span>APIMart</span></p>
+            <label><span data-i18n="smart.resolution">分辨率</span>
+                <select data-layer-resolution aria-label="分层输出分辨率" data-i18n-aria-label="smart.layerDecompositionResolution">
+                    <option value="auto">Auto</option><option value="1K">1K</option><option value="1.5K">1.5K</option><option value="2K" selected>2K</option>
+                </select>
+            </label>
+            <label><span data-i18n="smart.layerDecompositionPrompt">补充提示词（可选）</span>
+                <textarea data-layer-prompt maxlength="6000" rows="4" placeholder="例如：保留人物、文字和背景的独立层" data-i18n-placeholder="smart.layerDecompositionPromptPlaceholder"></textarea>
+            </label>
+            <ic-alert tone="warning" heading="这是付费操作" data-i18n-heading="smart.layerDecompositionPaidHeading">
+                <span data-i18n="smart.layerDecompositionPaidWarning">提交后会产生一次上游费用。刷新页面不会重复提交同一任务。</span>
+            </ic-alert>
+            <p class="layer-decomposition-price"><span data-i18n="smart.layerDecompositionPrice">价格</span><strong data-layer-price role="status" aria-live="polite"></strong></p>
+            <p data-layer-capability-status role="status" aria-live="polite" data-i18n="smart.layerDecompositionChecking">正在确认模型能力…</p>
+        </div>
+        <ic-button slot="footer" hierarchy="secondary" data-layer-cancel data-i18n="common.cancel">取消</ic-button>
+        <ic-button slot="footer" hierarchy="primary" data-layer-submit data-i18n="smart.layerDecompositionSubmit" disabled>确认并开始分层</ic-button>
+    </ic-dialog>
     <script src="/static/js/smart-canvas/frame-image-export.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-image-resolution.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/account-avatar.js?v=2026.09.01.5.1788439320"></script>
@@ -640,6 +660,7 @@
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/image-studio.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/model-capabilities.js?v=2026.09.04.1"></script>
+    <script src="/static/js/smart-canvas/layer-decomposition.js?v=2026.09.04.1"></script>
     <script src="/static/js/smart-canvas/image-capabilities.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/reference-instances.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/video-capabilities.js?v=2026.09.01.5.1788439320"></script>

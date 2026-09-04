@@ -123,6 +123,7 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 | 场景 | 当前提交方式 | 返回形态 |
 | --- | --- | --- |
 | 普通 API 图片，包括 APIMART、Gemini CLI、即梦等 | `POST /api/canvas-image-tasks` | 后台任务，前端按 task ID 轮询 |
+| APIMart Seedream 5.0 Pro 智能分层 | `POST /api/canvas-layer-decomposition-tasks` | 一个付费 Generation Run；前端按同一 task ID 恢复，并交付底图、Manifest 与 1–16 个独立图层 |
 | ComfyUI | `POST /api/canvas-comfy-tasks` | 后台任务，前端轮询 |
 | API 视频 | `POST /api/canvas-video-tasks` | 后台任务，先返回 task ID；前端通过 `GET /api/canvas-video-tasks/{task_id}` 轮询 |
 | Prompt/LLM 节点 | `POST /api/canvas-llm-tasks` | 后台任务，前端轮询 |
@@ -138,6 +139,40 @@ Provider 业务错误和其他 HTTP 错误不会触发回退，避免重复提�
 
 无论前端收到 `completed`、`pending` 还是 `queued`，都会交给
 `generation-recovery.js` 和 `generation-output.js` 统一收尾。
+
+### 4.4 智能分层的专用交付
+
+Designer 在恰好一个 Image Node 上选择“智能分层”后，界面固定使用 APIMart 的
+`seedream-5-0-pro + image.layer_decomposition` 能力。设置只包含可选拆分提示词和
+`auto / 1K / 1.5K / 2K` Resolution Tier；默认 `2K`，不提供画幅、精确尺寸、4K、
+普通图片质量、透明背景或拆层开关。
+
+确认付费提示后，前端先创建 Pending Node 并保存 operation ID，再提交一个 Generation Run。
+Provider Adapter 将冻结请求翻译成 `POST /v1/images/generations`：单张上游图片 URL、
+`layer_decomposition: true`、`n: 1`、`output_format: png` 与选定档位；空提示词不发送。
+刷新页面、浏览器轮询失败或服务重启后，只使用原 Generation Run 和已保存的上游 task ID
+继续查询，不把“恢复”翻译成新的付费请求。
+
+上游完成后，后端先验证并保存底图和全部图层到 Workspace Managed Media。每个图层必须是
+尺寸匹配、含 Alpha 且非全透明的 PNG；响应数组错位、重复媒体、非法坐标、重复或异常
+`z_index`、超过 16 层，以及任一图层下载或校验失败，都不能发布成功。已经物化的材料保留，
+恢复时继续查询同一 task ID 并重放未完成交付。
+
+成功结果包含版本化 Layer Decomposition Manifest。Smart Canvas 按绝对坐标和 `z_index`
+创建一个专用 Smart Group；底图与各透明层仍是具有独立身份的 Image Node。组内可以选择、
+显隐、调整前后顺序、单独下载或拖出移动，并随 Canvas Save、Reload、Undo/Redo 和 Realtime
+协作保存。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也只允许
+Administrator 或 Designer 创建与查询任务。
+
+专用实现与验证入口：
+
+- [`backend/infinite_canvas/layer_decomposition.py`](../../backend/infinite_canvas/layer_decomposition.py)
+- [`static/js/smart-canvas/layer-decomposition.js`](../../static/js/smart-canvas/layer-decomposition.js)
+- [`tests/test_layer_decomposition.py`](../../tests/test_layer_decomposition.py)
+- [`tests/test_apimart_layer_decomposition.py`](../../tests/test_apimart_layer_decomposition.py)
+- [`tests/test_layer_decomposition_publication.py`](../../tests/test_layer_decomposition_publication.py)
+- [`tests/test_smart_canvas_layer_decomposition.py`](../../tests/test_smart_canvas_layer_decomposition.py)
+- [`tests/issue_31_layer_decomposition_browser_smoke.cjs`](../../tests/issue_31_layer_decomposition_browser_smoke.cjs)
 
 ## 5. 后端：Generation Run 生命周期
 

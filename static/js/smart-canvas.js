@@ -89,6 +89,22 @@ const promptAuthoring = window.SmartCanvasModules?.promptAuthoring;
 if(!promptAuthoring) throw new Error('Prompt Authoring Module failed to load');
 const smartMatting = window.SmartCanvasModules?.smartMatting;
 if(!smartMatting) throw new Error('Smart Matting Module failed to load');
+const smartLayerDecompositionFactory = window.SmartCanvasModules?.layerDecomposition;
+if(!smartLayerDecompositionFactory) throw new Error('Layer Decomposition Module failed to load');
+const smartLayerDecomposition = smartLayerDecompositionFactory.create({
+    nodes:() => nodes,
+    canvasId:() => canvasId,
+    clientId:() => smartClientId,
+    capability:window.SmartCanvasModules.modelCapabilities,
+    createPending:createLayerDecompositionPendingNode,
+    applyResult:applyLayerDecompositionResult,
+    save:() => canvasPersistence.schedule(),
+    render:() => render(),
+    toast,
+    text:key => tr(key),
+    format:(key, values) => trf(key, values),
+    responseError:responseErrorMessage
+});
 const smartDepthMap = window.SmartCanvasModules?.smartDepthMap;
 if(!smartDepthMap) throw new Error('Smart Depth Map Module failed to load');
 const generationRun = window.SmartCanvasModules?.generationRun;
@@ -1551,6 +1567,127 @@ function createImageNodeAt(point, images=[], options={}){
         },
         options:mutationOptions
     });
+}
+function createLayerDecompositionPendingNode(sourceNode, imageIndex=0){
+    const outputModule = window.SmartCanvasModules.generationOutput;
+    const sourceRect = nodeRect(sourceNode);
+    canvasMutation.history({action:'push'});
+    const output = outputModule.createPending({
+        sourceNode,
+        expectedCount:1,
+        meta:null,
+        connectSource:true,
+        selectOutput:true,
+        displaySize:{width:sourceRect.width,height:sourceRect.height},
+        outputKind:'image'
+    });
+    output.title = tr('smart.layerDecompositionPendingTitle');
+    output.layerDecompositionSourceNodeId = sourceNode.id;
+    output.layerDecompositionSourceImageIndex = Number(imageIndex) || 0;
+    return output;
+}
+function applyLayerDecompositionResult(pendingNode, result){
+    const manifest = result?.manifest;
+    const base = result?.base;
+    const layers = Array.isArray(result?.layers) ? result.layers.slice() : [];
+    if(!pendingNode || !manifest || !base?.url || !layers.length){
+        throw new Error(tr('smart.layerDecompositionInvalidResult'));
+    }
+    canvasMutation.history({action:'push'});
+    const canvasWidth = Math.max(1, Number(manifest.canvas_width) || 1);
+    const canvasHeight = Math.max(1, Number(manifest.canvas_height) || 1);
+    const displayWidth = Math.min(560, Math.max(280, canvasWidth * .35));
+    const displayHeight = Math.max(1, displayWidth * canvasHeight / canvasWidth);
+    const originX = Number(pendingNode.x) || 0;
+    const originY = Number(pendingNode.y) || 0;
+    const baseMedia = {
+        url:base.url,
+        output_media_id:base.output_media_id || base.url,
+        name:tr('smart.layerDecompositionBase'),
+        kind:'image',
+        natural_w:canvasWidth,
+        natural_h:canvasHeight
+    };
+    pendingNode.images = [baseMedia];
+    pendingNode.x = originX;
+    pendingNode.y = originY;
+    pendingNode.w = displayWidth;
+    pendingNode.h = displayHeight;
+    pendingNode.pending = 0;
+    pendingNode.running = false;
+    pendingNode.title = tr('smart.layerDecompositionBase');
+    pendingNode.layerDecomposition = {role:'base',z_index:-1,hidden:false};
+    delete pendingNode.layerDecompositionJob;
+    const children = [pendingNode];
+    layers.sort((left,right) => Number(left.z_index) - Number(right.z_index));
+    layers.forEach((layer, index) => {
+        const bbox = Array.isArray(layer.absolute_bbox) ? layer.absolute_bbox : [];
+        const left = Number(bbox[0]) || 0;
+        const top = Number(bbox[1]) || 0;
+        const right = Number(bbox[2]) || left + Number(layer.pixel_width || 1);
+        const bottom = Number(bbox[3]) || top + Number(layer.pixel_height || 1);
+        const width = Math.max(1, right - left) * displayWidth / canvasWidth;
+        const height = Math.max(1, bottom - top) * displayHeight / canvasHeight;
+        const media = {
+            url:layer.url || layer.output_media_id,
+            output_media_id:layer.output_media_id || layer.url,
+            name:layer.name || trf('smart.layerDecompositionLayerNumber',{number:index + 1}),
+            description:layer.description || '',
+            kind:'image',
+            natural_w:Number(layer.pixel_width) || Math.max(1, right - left),
+            natural_h:Number(layer.pixel_height) || Math.max(1, bottom - top)
+        };
+        const child = createImageNodeAt({
+            x:originX + left * displayWidth / canvasWidth + width / 2,
+            y:originY + top * displayHeight / canvasHeight + height / 2
+        }, [media], {
+            skipUndo:true,
+            select:false,
+            render:false,
+            save:false,
+            reveal:false,
+            positionMode:'exact'
+        });
+        child.x = originX + left * displayWidth / canvasWidth;
+        child.y = originY + top * displayHeight / canvasHeight;
+        child.w = width;
+        child.h = height;
+        child.title = media.name;
+        child.layerDecomposition = {
+            role:'layer',
+            source_index:index,
+            z_index:Number(layer.z_index),
+            absolute_bbox:bbox.slice(),
+            normalized_bbox:Array.isArray(layer.normalized_bbox)
+                ? layer.normalized_bbox.slice()
+                : [],
+            hidden:false
+        };
+        children.push(child);
+    });
+    const group = smartContainer.group(
+        children.map(child => child.id),
+        {skipUndo:true,arrange:false,render:false,save:false}
+    );
+    if(!group) throw new Error(tr('smart.layerDecompositionInvalidResult'));
+    group.title = tr('smart.layerDecompositionGroup');
+    group.x = originX - 16;
+    group.y = originY - 44;
+    group.w = displayWidth + 32;
+    group.h = displayHeight + 72;
+    group.layerDecompositionManifest = JSON.parse(JSON.stringify(manifest));
+    group.memberOrder = children
+        .slice()
+        .sort((left,right) => Number(left.layerDecomposition?.z_index) - Number(right.layerDecomposition?.z_index))
+        .map(child => ({kind:'node',id:child.id}));
+    group.items = group.memberOrder.map(entry => entry.id);
+    selectedId = group.id;
+    selectedIds = [];
+    selectedImage = {nodeId:'',index:-1};
+    render();
+    canvasPersistence.schedule();
+    toast(trf('smart.layerDecompositionDone',{count:layers.length}));
+    return group;
 }
 function mediaLayoutSize(img){
     const width = Number(img?.natural_w || img?.width || img?.w || img?.layout_w || img?.preview_w || 0);
@@ -7657,6 +7794,9 @@ function smartLoopBodyHtml(node){
     </div>`;
 }
 function smartGroupBodyHtml(node){
+    if(node.layerDecompositionManifest){
+        return smartGroupLayerDecompositionBodyHtml(node);
+    }
     const groupThumbLayout = smartContainer.thumbLayout(node);
     const refThumbs = groupThumbLayout?.refs || [];
     const members = smartContainer.groupMembers(node);
@@ -7707,6 +7847,35 @@ function smartGroupBodyHtml(node){
     return `<div class="smart-group-card">
         <div class="smart-group-summary"><i data-lucide="group"></i><span>${escapeHtml(summary)}</span></div>
         ${members.length ? '' : `<div class="smart-group-empty"><i data-lucide="plus"></i><span>${escapeHtml(tr('smart.groupDropImage'))}</span></div>`}
+    </div>`;
+}
+function smartGroupLayerDecompositionBodyHtml(group){
+    const manifest = group.layerDecompositionManifest || {};
+    const canvasWidth = Math.max(1, Number(manifest.canvas_width) || 1);
+    const canvasHeight = Math.max(1, Number(manifest.canvas_height) || 1);
+    const members = smartContainer.groupMembers(group)
+        .filter(member => member?.images?.[0]?.url)
+        .sort((left,right) => Number(left.layerDecomposition?.z_index) - Number(right.layerDecomposition?.z_index));
+    const base = members.find(member => member.layerDecomposition?.role === 'base');
+    const layers = members.filter(member => member.layerDecomposition?.role === 'layer');
+    const imageHtml = (member, style) => {
+        const item = imageForDisplay(member.images[0]);
+        const selected = selectedImage.nodeId === member.id ? ' image-selected' : '';
+        const hidden = member.layerDecomposition?.hidden ? ' is-hidden' : '';
+        return `<div class="thumb-item layer-decomposition-item${selected}${hidden}" data-ref-node-id="${escapeAttr(member.id)}" data-ref-image-index="0" data-image-index="0" data-media-signature="image:${escapeAttr(item.url)}" style="${style}">${smartPreviewImgHtml(item, 512, 'draggable="false"')}</div>`;
+    };
+    const baseHtml = base ? imageHtml(base, 'inset:0;z-index:0') : '';
+    const layersHtml = layers.map(member => {
+        const bbox = member.layerDecomposition?.absolute_bbox || [];
+        const left = Math.max(0, Number(bbox[0]) || 0) / canvasWidth * 100;
+        const top = Math.max(0, Number(bbox[1]) || 0) / canvasHeight * 100;
+        const width = Math.max(0, (Number(bbox[2]) || 0) - (Number(bbox[0]) || 0)) / canvasWidth * 100;
+        const height = Math.max(0, (Number(bbox[3]) || 0) - (Number(bbox[1]) || 0)) / canvasHeight * 100;
+        return imageHtml(member, `left:${left}%;top:${top}%;width:${width}%;height:${height}%;z-index:${Number(member.layerDecomposition?.z_index)||0}`);
+    }).join('');
+    return `<div class="smart-group-card layer-decomposition-card">
+        <div class="smart-group-summary"><i data-lucide="layers"></i><span>${escapeHtml(trf('smart.layerDecompositionSummary',{count:layers.length}))}</span></div>
+        <div class="layer-decomposition-stage" style="aspect-ratio:${canvasWidth}/${canvasHeight}">${baseHtml}${layersHtml}</div>
     </div>`;
 }
 function smartAnnotationBodyHtml(node, layout){
@@ -7769,6 +7938,9 @@ function nodeBodyHtml(node, layout){
     if(generationNodeHasFailedRun(node) && imgs.length === 0) return generationFailureTargetHtml(node);
     if(node.mattingJob && imgs.length === 0){
         return smartMatting.pendingHtml({node, layout, elapsed:generationPendingNodeElapsed(node)});
+    }
+    if(node.layerDecompositionJob && imgs.length === 0){
+        return smartLayerDecomposition.pendingHtml({node, layout, elapsed:generationPendingNodeElapsed(node)});
     }
     if(node.imageProcessorJob?.active && imgs.length === 0){
         return generationPendingNodeHtml({
@@ -8108,6 +8280,7 @@ function smartNodeToolbarHtml(node){
                 {key:'outpaint', icon:'fit', label:tr('canvas.modeOutpaint'), enabled:true},
                 {key:'angle-control', icon:'angle-control', label:tr('nav.angle'), enabled:true},
                 {key:'lighting-reference', icon:'lighting-reference', label:tr('smart.contextLightingReference'), enabled:true},
+                {key:'layer-decomposition', icon:'layers', label:tr('smart.layerDecomposition'), enabled:true},
                 {key:'divider'},
                 {key:'edit', icon:'edit', label:tr('smart.imageModeEdit'), enabled:true},
                 downloadAction
@@ -8230,6 +8403,12 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null){
         createReferencedNodeFromToolbar(node, 'image');
         return;
     }
+    if(action === 'layer-decomposition'){
+        smartLayerDecomposition.open({node,imageIndex:index}).catch(error => {
+            toast((error?.message || tr('smart.layerDecompositionUnavailable')).slice(0, 160));
+        });
+        return;
+    }
     if(action === 'outpaint' || action === 'angle-control' || action === 'lighting-reference'){
         openAiProcessorForSmartImage(action, nodeId, index).catch(error => {
             toast((error.message || tr('smart.operationFailed')).slice(0, 160));
@@ -8260,7 +8439,16 @@ function smartGroupToolbarHtml(node){
     const imageCount = smartContainer.imageRefs(node)
         .filter(ref => ref.item?.url).length;
     const hasContent = imageCount > 0 || smartContainer.groupMembers(node).length > 0;
+    const selectedLayer = node.layerDecompositionManifest && selectedImage.nodeId
+        ? smartContainer.groupMembers(node).find(member => member.id === selectedImage.nodeId && member.layerDecomposition?.role === 'layer')
+        : null;
     const actions = [
+        ...(selectedLayer ? [
+            {key:'layer-visibility', icon:selectedLayer.layerDecomposition.hidden ? 'eye' : 'eye-off', label:tr(selectedLayer.layerDecomposition.hidden ? 'smart.layerShow' : 'smart.layerHide'), enabled:true},
+            {key:'layer-backward', icon:'move-down', label:tr('smart.layerBackward'), enabled:true},
+            {key:'layer-forward', icon:'move-up', label:tr('smart.layerForward'), enabled:true},
+            {key:'layer-download', icon:'download', label:tr('smart.layerDownload'), enabled:true}
+        ] : []),
         {key:'arrange', icon:'arrange', label:tr('smart.contextArrange'), enabled:hasContent},
         {key:'preview', icon:'preview', label:tr('smart.contextPreview'), enabled:imageCount > 0},
         {key:'grid', icon:'join-grid', label:tr('smart.contextGridJoin'), enabled:imageCount > 1},
@@ -8552,6 +8740,35 @@ smartMultiSelectionBox?.addEventListener('contextmenu',event => {
 function runSmartGroupToolbarAction(nodeId, action){
     const group = nodes.find(n => n.id === nodeId);
     if(!smartContainer.isGroup(group)) return;
+    const selectedLayer = group.layerDecompositionManifest && selectedImage.nodeId
+        ? smartContainer.groupMembers(group).find(member => member.id === selectedImage.nodeId && member.layerDecomposition?.role === 'layer')
+        : null;
+    if(selectedLayer && action === 'layer-download'){
+        downloadPreviewFile(selectedLayer.images?.[0]);
+        return;
+    }
+    if(selectedLayer && ['layer-visibility','layer-backward','layer-forward'].includes(action)){
+        canvasMutation.history({action:'push'});
+        if(action === 'layer-visibility'){
+            selectedLayer.layerDecomposition.hidden = !selectedLayer.layerDecomposition.hidden;
+        } else {
+            const delta = action === 'layer-forward' ? 1 : -1;
+            const layers = smartContainer.groupMembers(group)
+                .filter(member => member.layerDecomposition?.role === 'layer')
+                .sort((left,right) => Number(left.layerDecomposition.z_index) - Number(right.layerDecomposition.z_index));
+            const current = layers.indexOf(selectedLayer);
+            const target = Math.max(0, Math.min(layers.length - 1, current + delta));
+            if(current !== target){
+                const other = layers[target];
+                const value = selectedLayer.layerDecomposition.z_index;
+                selectedLayer.layerDecomposition.z_index = other.layerDecomposition.z_index;
+                other.layerDecomposition.z_index = value;
+            }
+        }
+        render();
+        canvasPersistence.schedule();
+        return;
+    }
     selectedId = nodeId;
     selectedIds = [];
     selectedImage = {nodeId:'', index:-1};
@@ -17064,6 +17281,7 @@ window.onload = async () => {
     ]);
     const openedCanvas = await canvasPersistence.load();
     if(!openedCanvas) return;
+    smartLayerDecomposition.resume();
     await supportingData;
     syncApiKindToggleVisibility();
     render();

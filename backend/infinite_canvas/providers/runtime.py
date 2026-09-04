@@ -8,6 +8,11 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from ..layer_decomposition import (
+    ParsedLayerDecomposition,
+    layer_decomposition_mapping,
+)
+
 from .core import (
     Capability,
     Completed,
@@ -231,6 +236,20 @@ def _media_values(value: Any) -> tuple[Any, ...]:
 
 
 def _image_output(value: Any) -> ProviderOutput:
+    if isinstance(value, ParsedLayerDecomposition):
+        legacy = layer_decomposition_mapping(value)
+        base = legacy["base"]
+        layers = legacy["layers"]
+        return ProviderOutput(
+            media=tuple(
+                {"type": "url", "value": item["url"]}
+                for item in (base, *layers)
+            ),
+            raw=dict(value.raw_metadata),
+            remote_refs=(value.upstream_task_id,) if value.upstream_task_id else (),
+            metadata={"kind": "image_layer_decomposition"},
+            legacy=legacy,
+        )
     media_value = value
     raw = None
     if isinstance(value, tuple) and len(value) == 2:
@@ -340,8 +359,18 @@ def _image_call(
         count: int = 1,
         checkpoint: RemoteCheckpoint | None = None,
         transparent_png: bool = False,
+        operation: str = "image.generate",
+        resolution_tier: str = "",
     ) -> ExecutionResult:
         transparent_kwargs = {"transparent_png": True} if transparent_png else {}
+        operation_kwargs = (
+            {
+                "operation": operation,
+                "resolution_tier": resolution_tier,
+            }
+            if operation == "image.layer_decomposition"
+            else {}
+        )
         if include_quality:
             args = (
                 prompt,
@@ -363,6 +392,7 @@ def _image_call(
                 checkpoint=checkpoint,
                 require_checkpoint=require_checkpoint,
                 **transparent_kwargs,
+                **operation_kwargs,
                 **kwargs,
             )
         else:
@@ -376,6 +406,7 @@ def _image_call(
                 checkpoint=checkpoint,
                 require_checkpoint=require_checkpoint,
                 **transparent_kwargs,
+                **operation_kwargs,
             )
         return Completed(_image_output(output))
 
@@ -865,7 +896,7 @@ def build_recovery_registry(
                 supports_http_recovery,
                 {
                     Capability.IMAGE_RECOVERY: lambda **request: recover(
-                        executors.http, **request
+                        executors.http, **request, include_kind=True
                     )
                 },
             ),
@@ -1091,6 +1122,8 @@ class ProviderRuntime:
         count: int = 1,
         checkpoint: RemoteCheckpoint | None = None,
         transparent_png: bool = False,
+        operation: str = "image.generate",
+        resolution_tier: str = "",
     ) -> ExecutionResult:
         provider = self.provider_lookup(provider_id)
         return await self.image_registry.execute(
@@ -1105,6 +1138,8 @@ class ProviderRuntime:
             count=count,
             checkpoint=checkpoint,
             transparent_png=transparent_png,
+            operation=operation,
+            resolution_tier=resolution_tier,
         )
 
     async def generate_image(

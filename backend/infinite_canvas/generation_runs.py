@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import dataclasses
+import datetime
 import hashlib
 import inspect
 import json
@@ -34,6 +35,12 @@ from .generation_publication import (
     LegacyGenerationPublicationPorts,
 )
 from .generation_run_store import GenerationRunAttempt, GenerationRunState
+from .layer_decomposition import (
+    LayerDecompositionError,
+    MANIFEST_VERSION,
+    inspect_base_image,
+    inspect_layer_image,
+)
 from .providers.core import Completed, ExecutionResult, Failed, Pending, Queued
 from .providers.runtime import (
     ProviderOutput,
@@ -755,13 +762,23 @@ def _recovery_request_from_run(run: "_Run") -> RunRequest:
                 publication=publication,
                 effect_context=context,
             )
+    settings = run.request_data.get("settings")
+    image_operation = (
+        str(settings.get("operation") or "")
+        if isinstance(settings, Mapping)
+        else ""
+    )
     return RecoveryRun(
         provider_id=run.provider_id,
         remote_ref=remote_ref,
         media_kind=(
             "video"
             if run.kind == "video"
-            else str(run.request_data.get("media_kind") or "image")
+            else (
+                "image_layer_decomposition"
+                if image_operation == "image.layer_decomposition"
+                else str(run.request_data.get("media_kind") or "image")
+            )
         ),
         publication=publication,
         effect_context=context,
@@ -3100,6 +3117,16 @@ class ProviderGenerationExecutor:
                 if settings.get("transparent_png") is True
                 else {}
             )
+            operation_kwargs = (
+                {
+                    "operation": "image.layer_decomposition",
+                    "resolution_tier": str(
+                        settings.get("resolution_tier") or "2K"
+                    ),
+                }
+                if settings.get("operation") == "image.layer_decomposition"
+                else {}
+            )
             return await execute_image(
                 request.prompt,
                 str(settings.get("size") or "1024x1024"),
@@ -3110,6 +3137,7 @@ class ProviderGenerationExecutor:
                 settings.get("wait_for_task"),
                 count=max(1, min(8, int(request.count or 1))),
                 **transparent_kwargs,
+                **operation_kwargs,
                 **checkpoint_kwargs(execute_image),
             )
         if isinstance(request, VideoRun):
@@ -3495,12 +3523,177 @@ class WorkspaceGenerationEffects:
             effects=effects,
         )
 
+    async def _prepare_layer_decomposition(
+        self,
+        run_id: str,
+        request: ImageRun | RecoveryRun,
+        output: ProviderOutput,
+    ) -> PreparedGenerationOutput:
+        source = output.legacy
+        if not isinstance(source, Mapping) or source.get("kind") != "image_layer_decomposition":
+            raise GenerationRunConflict("图层拆分结果结构无效")
+        base = source.get("base")
+        layers = source.get("layers")
+        if not isinstance(base, Mapping) or not isinstance(layers, list):
+            raise GenerationRunConflict("图层拆分结果缺少底图或图层")
+        output_file = getattr(self._ports, "output_file_from_url", None)
+        if not callable(output_file):
+            raise GenerationRunConflict("图层拆分缺少 Managed Media 文件检查能力")
+
+        async def save(value: Mapping[str, Any], stable_id: str) -> str:
+            try:
+                local_url = await self._ports.save_image(
+                    {"type": "url", "value": str(value.get("url") or "")},
+                    prefix="layer_decomposition_",
+                    stable_id=stable_id,
+                )
+            except TypeError:
+                local_url = await self._ports.save_image(
+                    {"type": "url", "value": str(value.get("url") or "")},
+                    prefix="layer_decomposition_",
+                )
+            if not local_url:
+                raise LayerDecompositionError(
+                    "download_failed", "Provider media could not be saved"
+                )
+            return str(local_url)
+
+        try:
+            base_url = await save(base, f"{run_id}_base")
+            base_path = output_file(base_url)
+            if not base_path:
+                raise LayerDecompositionError(
+                    "download_failed", "Materialized base image is unavailable"
+                )
+            inspect_base_image(
+                base_path,
+                expected_width=int(base.get("width") or 0),
+                expected_height=int(base.get("height") or 0),
+            )
+        except LayerDecompositionError as exc:
+            raise GenerationRunConflict(
+                f"图层拆分底图校验失败（{exc.code}）：{exc.detail}"
+            ) from exc
+
+        manifest_layers: list[dict[str, Any]] = []
+        canvas_layers: list[dict[str, Any]] = []
+        seen_layer_digests: set[str] = set()
+        for ordinal, layer in enumerate(layers, start=1):
+            if not isinstance(layer, Mapping):
+                raise GenerationRunConflict(f"第 {ordinal} 个图层元数据无效")
+            source_index = int(layer.get("source_index") or ordinal)
+            try:
+                local_url = await save(layer, f"{run_id}_layer_{source_index}")
+                local_path = output_file(local_url)
+                if not local_path:
+                    raise LayerDecompositionError(
+                        "download_failed", "Materialized layer is unavailable"
+                    )
+                inspected = inspect_layer_image(
+                    local_path,
+                    expected_width=int(layer.get("width") or 0),
+                    expected_height=int(layer.get("height") or 0),
+                )
+                if inspected.sha256 in seen_layer_digests:
+                    raise LayerDecompositionError(
+                        "duplicate_layer", "Downloaded layer duplicates another layer"
+                    )
+                seen_layer_digests.add(inspected.sha256)
+            except (LayerDecompositionError, OSError, ValueError) as exc:
+                code = getattr(exc, "code", "download_failed")
+                detail = getattr(exc, "detail", str(exc))
+                raise GenerationRunConflict(
+                    f"第 {ordinal} 个图层下载或校验失败（{code}）：{detail}；"
+                    "已保存的材料会保留，恢复时不会重新提交付费任务"
+                ) from exc
+            manifest_layer = {
+                "output_media_id": local_url,
+                "name": str(layer.get("name") or f"Layer {ordinal}"),
+                "description": str(layer.get("description") or ""),
+                "z_index": int(layer.get("z_index") or 0),
+                "absolute_bbox": list(layer.get("absolute_bbox") or ()),
+                "normalized_bbox": list(layer.get("normalized_bbox") or ()),
+                "pixel_width": inspected.width,
+                "pixel_height": inspected.height,
+                "output_format": inspected.output_format,
+            }
+            manifest_layers.append(manifest_layer)
+            canvas_layers.append({**manifest_layer, "url": local_url})
+
+        settings = (
+            dict(request.settings)
+            if isinstance(request, ImageRun)
+            else dict(request.effect_context)
+        )
+        timestamp = float(self._ports.now())
+        created_at = datetime.datetime.fromtimestamp(
+            timestamp, tz=datetime.timezone.utc
+        ).isoformat()
+        source_media_id = str(settings.get("source_media_id") or "").strip()
+        if not source_media_id and isinstance(request, ImageRun) and request.references:
+            source_url = str(request.references[0].get("url") or "")
+            if source_url:
+                source_media_id = "source:" + hashlib.sha256(
+                    source_url.encode("utf-8")
+                ).hexdigest()
+        if not source_media_id:
+            source_url = str(settings.get("source_url") or "")
+            if source_url:
+                source_media_id = "source:" + hashlib.sha256(
+                    source_url.encode("utf-8")
+                ).hexdigest()
+        manifest = {
+            "manifest_version": MANIFEST_VERSION,
+            "source_media_id": source_media_id,
+            "provider_id": str(settings.get("provider_id") or ""),
+            "model": str(settings.get("model") or ""),
+            "resolution_tier": str(settings.get("resolution_tier") or ""),
+            "generation_run_id": run_id,
+            "upstream_task_id": str(source.get("upstream_task_id") or ""),
+            "created_at": created_at,
+            "base_output_media_id": base_url,
+            "canvas_width": int(source.get("canvas_width") or 0),
+            "canvas_height": int(source.get("canvas_height") or 0),
+            "layers": manifest_layers,
+        }
+        raw_metadata = source.get("provider_raw_metadata")
+        if isinstance(raw_metadata, Mapping) and raw_metadata:
+            manifest["provider_raw_metadata"] = copy.deepcopy(dict(raw_metadata))
+        result = {
+            "kind": "image_layer_decomposition",
+            "manifest": manifest,
+            "base": {"url": base_url, "output_media_id": base_url},
+            "layers": canvas_layers,
+            "images": [base_url, *(item["url"] for item in canvas_layers)],
+            "timestamp": timestamp,
+            "type": "layer-decomposition",
+            "model": manifest["model"],
+            "provider_id": manifest["provider_id"],
+            "task_id": manifest["upstream_task_id"],
+        }
+        return PreparedGenerationOutput(
+            result=result,
+            canvas={
+                "layer_decomposition_manifest": manifest,
+                "base": result["base"],
+                "layers": canvas_layers,
+            },
+            effects={"history": result, "notification": result},
+        )
+
     async def prepare(
         self,
         run_id: str,
         request: RunRequest,
         output: ProviderOutput,
     ) -> PreparedGenerationOutput:
+        if (
+            isinstance(request, (ImageRun, RecoveryRun))
+            and request.publication == "layer-decomposition"
+        ):
+            return await self._prepare_layer_decomposition(
+                run_id, request, output
+            )
         if isinstance(request, ImageRun) and request.publication in {
             "online-image",
             "batch-generation",
