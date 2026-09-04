@@ -160,10 +160,11 @@ Provider Adapter 将冻结请求翻译成 `POST /v1/images/generations`：单张
 恢复时继续查询同一 task ID 并重放未完成交付。
 
 成功结果包含版本化 Layer Decomposition Manifest。Smart Canvas 按绝对坐标和 `z_index`
-创建一个专用 Smart Group；底图与各透明层仍是具有独立身份的 Image Node。组内可以选择、
-显隐、调整前后顺序、单独下载或拖出移动，并随 Canvas Save、Reload、Undo/Redo 和 Realtime
-协作保存。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也只允许
-Administrator 或 Designer 创建与查询任务。
+创建一个专用 Smart Group；底图与各透明层仍是具有独立身份的 Image Node。画布上的合成预览
+作为整体响应点击，不把底图或透明图层的矩形范围作为独立点击热区，透明区域也不绘制缩略图
+底色。各层的显隐、前后顺序、单独下载和拖出状态继续随 Canvas Save、Reload、Undo/Redo 和
+Realtime 协作保存。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也
+只允许 Administrator 或 Designer 创建与查询任务。
 
 专用实现与验证入口：
 

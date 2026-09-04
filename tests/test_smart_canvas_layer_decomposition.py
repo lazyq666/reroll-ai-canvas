@@ -29,6 +29,15 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
         self.assertIn("if(options.arrange !== false)", container)
         self.assertIn("image.layer_decomposition", MODULE.read_text(encoding="utf-8"))
 
+    def test_composite_preview_is_passive_and_transparent(self):
+        source = HOST.read_text(encoding="utf-8")
+        css = (ROOT / "static/css/smart-canvas.css").read_text(encoding="utf-8")
+
+        self.assertNotIn('class="thumb-item layer-decomposition-item', source)
+        self.assertIn(".layer-decomposition-stage", css)
+        self.assertIn("pointer-events:none", css)
+        self.assertIn("background:transparent", css)
+
     def test_controller_validates_capability_submits_once_and_resumes(self):
         script = textwrap.dedent(
             f"""

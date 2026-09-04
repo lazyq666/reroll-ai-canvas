@@ -270,6 +270,55 @@ function apiPayload(url) {
     ]);
     assert.equal(state.pendingCount, 0);
 
+    const previewBehavior = await page.evaluate(groupId => {
+      const group = document.querySelector(`.image-node[data-id="${CSS.escape(groupId)}"]`);
+      const stage = group?.querySelector('.layer-decomposition-stage');
+      const items = [...(stage?.querySelectorAll('.layer-decomposition-item') || [])];
+      return {
+        itemCount:items.length,
+        stagePointerEvents:getComputedStyle(stage).pointerEvents,
+        passiveItems:items.every(item => (
+          getComputedStyle(item).pointerEvents === 'none'
+          && !item.classList.contains('thumb-item')
+          && !item.hasAttribute('data-ref-node-id')
+        )),
+        transparentImages:items.every(item => (
+          getComputedStyle(item).backgroundColor === 'rgba(0, 0, 0, 0)'
+          && getComputedStyle(item.querySelector('img')).backgroundColor === 'rgba(0, 0, 0, 0)'
+        )),
+      };
+    }, state.groupId);
+    assert.deepEqual(previewBehavior, {
+      itemCount:3,
+      stagePointerEvents:'none',
+      passiveItems:true,
+      transparentImages:true,
+    });
+
+    await page.evaluate(() => {
+      selectedId = '';
+      selectedIds = [];
+      selectedImage = {nodeId:'',index:-1};
+      render();
+    });
+    const stageBox = await page.locator(
+      `.image-node[data-id="${state.groupId}"] .layer-decomposition-stage`
+    ).boundingBox();
+    assert.ok(stageBox);
+    await page.mouse.click(
+      stageBox.x + stageBox.width / 2,
+      stageBox.y + stageBox.height / 2
+    );
+    await page.waitForTimeout(300);
+    const selectedAfterPreviewClick = await page.evaluate(() => ({
+      selectedId,
+      selectedImage:{...selectedImage},
+    }));
+    assert.deepEqual(selectedAfterPreviewClick, {
+      selectedId:state.groupId,
+      selectedImage:{nodeId:'',index:-1},
+    });
+
     await page.evaluate(groupId => {
       const group = nodes.find(node => node.id === groupId);
       const layer = window.SmartCanvasModules.smartContainer.groupMembers(group)

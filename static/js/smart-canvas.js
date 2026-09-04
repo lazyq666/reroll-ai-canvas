@@ -7861,9 +7861,8 @@ function smartGroupLayerDecompositionBodyHtml(group){
     const layers = members.filter(member => member.layerDecomposition?.role === 'layer');
     const imageHtml = (member, style) => {
         const item = imageForDisplay(member.images[0]);
-        const selected = selectedImage.nodeId === member.id ? ' image-selected' : '';
         const hidden = member.layerDecomposition?.hidden ? ' is-hidden' : '';
-        return `<div class="thumb-item layer-decomposition-item${selected}${hidden}" data-ref-node-id="${escapeAttr(member.id)}" data-ref-image-index="0" data-image-index="0" data-media-signature="image:${escapeAttr(item.url)}" style="${style}">${smartPreviewImgHtml(item, 512, 'draggable="false"')}</div>`;
+        return `<div class="layer-decomposition-item${hidden}" aria-hidden="true" style="${style}">${smartPreviewImgHtml(item, 512, 'draggable="false" aria-hidden="true"')}</div>`;
     };
     const baseHtml = base ? imageHtml(base, 'inset:0;z-index:0') : '';
     const layersHtml = layers.map(member => {
