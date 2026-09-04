@@ -70,6 +70,7 @@ async function runScenario(context, baseUrl, reload) {
   const page = await context.newPage();
   page.setDefaultTimeout(20000);
   let imageSubmissions = 0;
+  const imagePayloads = [];
   let textSubmissions = 0;
   const textTaskId = `issue-84-text-${reload}`;
 
@@ -101,6 +102,7 @@ async function runScenario(context, baseUrl, reload) {
   page.on('request', request => {
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/canvas-image-tasks') {
       imageSubmissions += 1;
+      imagePayloads.push(request.postDataJSON());
     }
   });
 
@@ -118,7 +120,7 @@ async function runScenario(context, baseUrl, reload) {
   await page.evaluate(() => {
     const source = nodes.find(item => item.id === 'generator-source');
     source.referenceGenerationKind = 'image';
-    source.runSettings = { ...source.runSettings, count: 1 };
+    source.runSettings = { ...source.runSettings, count: 3 };
     source.x = 420;
     source.y = 260;
     viewport.x = 0;
@@ -133,11 +135,13 @@ async function runScenario(context, baseUrl, reload) {
   });
   await page.waitForFunction(() => !document.querySelector('#runBtn')?.disabled);
   await page.locator('#runBtn').click();
-  await page.waitForFunction(() => nodes.some(node => (
-    node.sourceNodeId === 'generator-source'
+  await page.waitForFunction(() => nodes.filter(node => (
+    (node.sourceNodeId === 'generator-source'
+      || node.generationBatchSourceNodeId === 'generator-source')
       && (node.images || []).some(image => image.generatedResult || image.url)
-  )));
-  assert.equal(imageSubmissions, 1, `reload ${reload}: Composer first click must submit exactly one image task`);
+  )).length === 3);
+  assert.equal(imageSubmissions, 1, `reload ${reload}: one image intent must submit one Generation Run`);
+  assert.equal(imagePayloads[0]?.n, 3, `reload ${reload}: the Generation Run must carry the total output count`);
 
   await page.evaluate(() => {
     const node = nodes.find(item => item.id === 'tree-a');
@@ -172,9 +176,11 @@ async function runScenario(context, baseUrl, reload) {
   const result = {
     reload,
     imageSubmissions,
+    imageRequestedCount:imagePayloads[0]?.n || 0,
     textSubmissions,
     generatedImageOutputs: await page.evaluate(() => nodes.filter(node => (
-      node.sourceNodeId === 'generator-source'
+      (node.sourceNodeId === 'generator-source'
+        || node.generationBatchSourceNodeId === 'generator-source')
         && (node.images || []).some(image => image.generatedResult || image.url)
     )).length),
     generatedTextOutputs: await page.evaluate(expected => nodes.filter(node => node.text === expected).length, `Issue #84 generated text ${reload}`),
@@ -196,6 +202,8 @@ async function runScenario(context, baseUrl, reload) {
       results.push(await runScenario(context, manual.url, reload));
     }
     assert.equal(results.reduce((sum, item) => sum + item.imageSubmissions, 0), reloads);
+    assert.equal(results.every(item => item.imageRequestedCount === 3), true);
+    assert.equal(results.every(item => item.generatedImageOutputs === 3), true);
     assert.equal(results.reduce((sum, item) => sum + item.textSubmissions, 0), reloads);
     process.stdout.write(`${JSON.stringify({ passed: true, reloads, results })}\n`);
   } finally {

@@ -142,6 +142,7 @@ from infinite_canvas.design_tokens import (
     DesignTokenValidation,
     DesignTokenWorkbench,
 )
+from infinite_canvas.cli_updates import build_default_manager as build_cli_update_manager
 from infinite_canvas.generation_settings import GenerationSettingsService
 from infinite_canvas.image_capabilities import (
     ImageCapabilityRegistry,
@@ -149,6 +150,17 @@ from infinite_canvas.image_capabilities import (
     normalize_image_aspect,
 )
 from infinite_canvas.image_materialization import materialize_image_cover
+from infinite_canvas.model_capabilities import (
+    CAPABILITY_SCHEMA_VERSION,
+    ModelCapabilityCatalog,
+    ModelCapabilityContext,
+)
+from infinite_canvas.model_capability_workbench import (
+    ModelCapabilityWorkbench,
+    ModelCapabilityWorkbenchConflict,
+    ModelCapabilityWorkbenchPublication,
+    ModelCapabilityWorkbenchValidation,
+)
 from infinite_canvas.video_capabilities import VideoCapabilityRegistry
 from infinite_canvas.generation_runs import (
     Background,
@@ -291,6 +303,7 @@ PRESENCE_MANAGER = RealtimePresenceManager(manager)
 GLOBAL_LOOP = None
 _RUNTIME_RESTART_REQUESTER = None
 _RUNTIME_ASYNC_RESTART_REQUESTER = None
+_CLI_UPDATE_TASK = None
 
 
 def install_runtime_control(
@@ -328,12 +341,11 @@ def _prepare_startup_state():
             )
     if not AUTH_SYSTEM.needs_initial_setup():
         migrate_all_canvas_access()
-    sync_static_html_versions()
 
 
 @app.on_event("startup")
 async def startup_event():
-    global GLOBAL_LOOP
+    global GLOBAL_LOOP, _CLI_UPDATE_TASK
     if WORKSPACE_CONFIGURED:
         ensure_workspace_occupation()
         remember_current_workspace_identity()
@@ -378,11 +390,16 @@ async def startup_event():
     if batch_generation is not None:
         await batch_generation.resume_pending()
         await batch_generation.start_scheduler()
+    cli_update_manager = globals().get("CLI_UPDATE_MANAGER")
+    if cli_update_manager is not None:
+        # Discovery must never hold the application startup gate.  The manager
+        # keeps the completed snapshot for administrators who sign in later.
+        _CLI_UPDATE_TASK = asyncio.create_task(cli_update_manager.check_all())
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    global MATTING_WORKER_TASKS
+    global MATTING_WORKER_TASKS, _CLI_UPDATE_TASK
     try:
         batch_generation = globals().get("_BATCH_GENERATION")
         if batch_generation is not None:
@@ -397,6 +414,10 @@ async def shutdown_event():
                 task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+        if _CLI_UPDATE_TASK is not None and not _CLI_UPDATE_TASK.done():
+            _CLI_UPDATE_TASK.cancel()
+            await asyncio.gather(_CLI_UPDATE_TASK, return_exceptions=True)
+        _CLI_UPDATE_TASK = None
     finally:
         cancel_pending_workspace_open()
         release_workspace_occupation()
@@ -479,14 +500,29 @@ async def canvas_realtime_endpoint(
 CLIENT_ID = str(uuid.uuid4())
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(BACKEND_DIR)
+DEVICE_STATE_DIR = str(application_state_directory(BASE_DIR))
+DEVICE_CACHE_DIR = str(application_cache_directory(BASE_DIR))
+INSTANCE_STATE = InstanceState(DEVICE_STATE_DIR)
+MODEL_CAPABILITY_WORKBENCH = ModelCapabilityWorkbench(
+    INSTANCE_STATE.directory / "model-capability-workbench.json"
+)
 IMAGE_CAPABILITY_REGISTRY = ImageCapabilityRegistry(
     os.path.join(BASE_DIR, "resources", "image-model-capabilities.json")
 )
 VIDEO_CAPABILITY_REGISTRY = VideoCapabilityRegistry(
     os.path.join(BASE_DIR, "resources", "video-model-capabilities.json")
 )
-DEVICE_STATE_DIR = str(application_state_directory(BASE_DIR))
-DEVICE_CACHE_DIR = str(application_cache_directory(BASE_DIR))
+MODEL_CAPABILITY_CATALOG = ModelCapabilityCatalog(
+    image_registry=IMAGE_CAPABILITY_REGISTRY,
+    video_registry=VIDEO_CAPABILITY_REGISTRY,
+    text_path=os.path.join(BASE_DIR, "resources", "text-model-capabilities.json"),
+    revision_paths=(
+        os.path.join(BASE_DIR, "resources", "image-model-capabilities.json"),
+        os.path.join(BASE_DIR, "resources", "video-model-capabilities.json"),
+        os.path.join(BASE_DIR, "resources", "text-model-capabilities.json"),
+    ),
+    published_path=MODEL_CAPABILITY_WORKBENCH.path,
+)
 WORKSPACE_STORAGE = WorkspaceStorage(BASE_DIR, state_dir=DEVICE_STATE_DIR)
 WORKSPACE_SERVICE = WorkspaceService(WORKSPACE_STORAGE)
 _CONFIGURED_WORKSPACE, WORKSPACE_CONFIGURATION_ERROR = (
@@ -495,7 +531,6 @@ _CONFIGURED_WORKSPACE, WORKSPACE_CONFIGURATION_ERROR = (
 WORKSPACE_CONFIGURED = _CONFIGURED_WORKSPACE is not None
 WORKSPACE_SELECTION_PRESENT = WORKSPACE_STORAGE.has_configuration()
 DEVICE_STATE = DeviceState(DEVICE_STATE_DIR)
-INSTANCE_STATE = InstanceState(DEVICE_STATE_DIR)
 DEVICE_CACHE = DeviceCache(DEVICE_CACHE_DIR)
 WORKSPACE_SERVER_ID = DEVICE_STATE.server_identity()
 WORKSPACE_OCCUPATION = None
@@ -2266,6 +2301,47 @@ def save_api_providers(providers):
         ).save(providers)
         retire_legacy_shared_generation_env()
 
+
+def configured_cli_update_ids():
+    """Return enabled CLI Provider identities for device-local maintenance."""
+    if not WORKSPACE_CONFIGURED:
+        # Recovery/setup pages have no Provider configuration to inspect yet.
+        # Treat them as an empty selection instead of leaking a background-task
+        # exception into the application startup log.
+        return set()
+    supported = {"jimeng", "codex", "gemini-cli"}
+    return {
+        (
+            str(provider.get("protocol") or "").strip().lower()
+            if str(provider.get("protocol") or "").strip().lower() in supported
+            else str(provider.get("id") or "").strip().lower()
+        )
+        for provider in load_api_providers()
+        if provider.get("enabled", True) is not False
+        and (
+            str(provider.get("protocol") or "").strip().lower() in supported
+            or str(provider.get("id") or "").strip().lower() in supported
+        )
+    }
+
+
+def antigravity_cli_update_executable():
+    executable = _provider_implementation.gemini_cli_executable()
+    return (
+        executable
+        if executable and _provider_implementation.is_antigravity_cli(executable)
+        else ""
+    )
+
+
+CLI_UPDATE_MANAGER = build_cli_update_manager(
+    dreamina_executable=_provider_implementation.jimeng_cli_executable,
+    codex_executable=_provider_implementation.codex_cli_executable,
+    antigravity_executable=antigravity_cli_update_executable,
+    configured_ids=configured_cli_update_ids,
+    dreamina_version_command=lambda flag: _provider_implementation.jimeng_command([flag]),
+)
+
 def public_provider(provider):
     if provider.get("id") == "runninghub":
         try:
@@ -2795,60 +2871,20 @@ def versioned_static_html(html: str) -> str:
         ):
             # These assets use content-derived fingerprints synchronized with
             # their dependent module graphs. Replacing one with the application
-            # version or a file mtime makes the graph inconsistent and causes
-            # application startup to modify tracked source files.
+            # version would make the graph inconsistent.
             return match.group(0)
-        cache_version = safe_version
-        try:
-            rel = urllib.parse.unquote(
-                path_url[len("/static/"):]
-            ).replace("/", os.sep)
-            path = os.path.abspath(os.path.join(STATIC_DIR, rel))
-            static_root = os.path.abspath(STATIC_DIR)
-            if path.startswith(static_root + os.sep) and os.path.isfile(path):
-                cache_version = f"{safe_version}.{int(os.path.getmtime(path))}"
-        except Exception:
-            pass
         query_parts = [
             part
             for part in existing_query_parts
             if urllib.parse.unquote_plus(part.partition("=")[0]) != "v"
         ]
-        query_parts.append(f"v={cache_version}")
+        query_parts.append(f"v={safe_version}")
         return (
             f"{match.group('prefix')}{path_url}?{'&'.join(query_parts)}"
             f"{match.group('fragment') or ''}"
         )
 
     return pattern.sub(replace, html)
-
-def sync_static_html_versions():
-    version = current_app_version()
-    if not version:
-        return
-    try:
-        for name in os.listdir(STATIC_DIR):
-            # 跳过 macOS 在外置硬盘(ExFAT/NTFS)生成的 ._* Apple Double 元数据文件，
-            # 这些是二进制文件，按 UTF-8 读取会抛 UnicodeDecodeError。
-            if name.startswith("._"):
-                continue
-            if not name.lower().endswith(".html"):
-                continue
-            path = os.path.join(STATIC_DIR, name)
-            if not os.path.isfile(path):
-                continue
-            # 单文件容错：某个文件读写失败不应中断整批同步。
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    old = f.read()
-                new = versioned_static_html(old)
-                if new != old:
-                    with open(path, "w", encoding="utf-8", newline="") as f:
-                        f.write(new)
-            except Exception as e:
-                print(f"同步静态页面版本号失败({name}): {e}")
-    except Exception as e:
-        print(f"同步静态页面版本号失败: {e}")
 
 def static_html_response(filename: str):
     path = os.path.join(STATIC_DIR, filename)
@@ -3658,6 +3694,7 @@ class OnlineImageRequest(BaseModel):
     transparent_png: bool = False
     n: int = 1
     reference_images: List[AIReference] = []
+    catalog_revision: str = ""
     canvas_id: str = ""
     node_id: str = ""
     generation_operation_id: str = ""
@@ -3690,6 +3727,7 @@ class CanvasVideoRequest(BaseModel):
     generate_audio: bool = False
     multimodal: bool = False
     trusted_asset: bool = False
+    catalog_revision: str = ""
     canvas_id: str = ""
     node_id: str = ""
     generation_operation_id: str = ""
@@ -3838,6 +3876,7 @@ class CanvasLLMRequest(BaseModel):
     ms_model: str = ""
     images: List[str] = []   # 可以是 /assets/*.png 本地路径或 http(s)/data URL
     videos: List[str] = []   # 可以是 /assets/*.mp4 本地路径或 http(s)/data URL
+    catalog_revision: str = ""
     canvas_id: str = ""
     node_id: str = ""
     generation_operation_id: str = ""
@@ -6581,6 +6620,28 @@ async def gemini_cli_help(payload: GeminiCliHelpRequest):
 async def jimeng_status():
     return await _PROVIDER_INSPECTORS.status("jimeng")
 
+
+class CliUpdateDismissRequest(BaseModel):
+    cli_ids: List[str] = Field(default_factory=list, max_length=3)
+
+
+@app.get("/api/admin/cli-updates")
+async def cli_update_status():
+    require_current_user("admin")
+    return CLI_UPDATE_MANAGER.snapshot()
+
+
+@app.post("/api/admin/cli-updates/check")
+async def check_cli_updates():
+    require_current_user("admin")
+    return await CLI_UPDATE_MANAGER.check_all(force=True)
+
+
+@app.post("/api/admin/cli-updates/dismiss")
+async def dismiss_cli_updates(payload: CliUpdateDismissRequest):
+    require_current_user("admin")
+    return CLI_UPDATE_MANAGER.dismiss(payload.cli_ids)
+
 @app.get("/api/jimeng/credit")
 async def jimeng_credit():
     return await _provider_implementation.jimeng_credit()
@@ -7025,10 +7086,9 @@ def _online_image_run(payload, *, publication="online-image"):
     provider = get_api_provider(payload.provider_id)
     default_model = (provider.get("image_models") or [IMAGE_MODEL])[0]
     model = selected_model(payload.model, default_model)
+    payload.model = model
     capability = resolved_image_capability(provider, model)
     transparent_png = bool(payload.transparent_png)
-    if transparent_png and not capability.supports_transparent_png:
-        raise GenerationRunValidation("当前模型不支持透明 PNG 输出")
     target_aspect_ratio = str(payload.target_aspect_ratio or "").strip()
     if not target_aspect_ratio:
         match = re.fullmatch(
@@ -7041,19 +7101,7 @@ def _online_image_run(payload, *, publication="online-image"):
                 int(match.group(2)),
                 capability.aspect_ratios,
             )
-    if (
-        target_aspect_ratio
-        and target_aspect_ratio not in capability.aspect_ratios
-    ):
-        raise GenerationRunValidation("当前模型不支持所选 Output Aspect Ratio")
     resolution_tier = str(payload.resolution_tier or "").strip().upper()
-    if (
-        resolution_tier
-        and capability.known
-        and capability.resolution_tiers
-        and resolution_tier not in capability.resolution_tiers
-    ):
-        raise GenerationRunValidation("当前模型不支持所选 Resolution Tier")
     native_gemini = (
         effective_protocol(provider, model) == "gemini"
         and not is_apimart_provider(provider)
@@ -7066,6 +7114,29 @@ def _online_image_run(payload, *, publication="online-image"):
     refs = [
         ref.dict() for ref in payload.reference_images if ref.url
     ]
+    image_inputs = image_references(refs)
+    operation = "image.edit" if image_inputs else "image.generate"
+    model_capability = resolved_model_capability(
+        provider["id"], model, operation
+    )
+    capability_parameters = {
+        "count": int(payload.n),
+        "quality": str(payload.quality or "auto").strip().lower() or "auto",
+    }
+    if target_aspect_ratio:
+        capability_parameters["aspect_ratio"] = target_aspect_ratio
+    if resolution_tier:
+        capability_parameters["resolution_tier"] = resolution_tier
+    if transparent_png:
+        capability_parameters["transparent_png"] = True
+    capability_validation = MODEL_CAPABILITY_CATALOG.validate(
+        model_capability,
+        input_counts={"text": 1, "image": len(image_inputs)},
+        parameters=capability_parameters,
+        catalog_revision=str(payload.catalog_revision or ""),
+    )
+    raise_model_capability_validation(capability_validation)
+    payload.catalog_revision = model_capability["catalog_revision"]
     reference_aspect_ratio = ""
     submitted_reference_ratio = str(
         payload.reference_aspect_ratio or ""
@@ -7109,9 +7180,14 @@ def _online_image_run(payload, *, publication="online-image"):
             "reference_aspect_ratio": reference_aspect_ratio,
             "resolution_tier": resolution_tier,
             "transparent_png": transparent_png,
+            "catalog_revision": model_capability["catalog_revision"],
+            "capability_schema_version": model_capability[
+                "capability_schema_version"
+            ],
+            "operation": operation,
         },
-        references=tuple(image_references(refs)),
-        count=max(1, min(8, int(payload.n or 1))),
+        references=tuple(image_inputs),
+        count=int(payload.n),
         publication=publication,
     )
 
@@ -7619,6 +7695,13 @@ async def create_canvas_image_task(payload: OnlineImageRequest):
                 "type": "online-image",
                 "provider_id": payload.provider_id,
                 "model": payload.model,
+                "operation": (
+                    "image.edit"
+                    if any(ref.url for ref in payload.reference_images)
+                    else "image.generate"
+                ),
+                "catalog_revision": payload.catalog_revision,
+                "capability_schema_version": CAPABILITY_SCHEMA_VERSION,
             },
         )
     except Exception as exc:
@@ -7755,6 +7838,67 @@ def resolved_image_capability(provider: dict, model: str):
         ),
     )
 
+
+def model_capability_provider(provider_id: str) -> dict:
+    target_id = str(provider_id or "").strip().lower()
+    return next(
+        (
+            item
+            for item in load_api_providers()
+            if str(item.get("id") or "").strip().lower() == target_id
+        ),
+        {"id": target_id},
+    )
+
+
+def resolved_model_capability(
+    provider_id: str,
+    model: str,
+    operation: str,
+    *,
+    protocol: str = "",
+    base_url: str = "",
+):
+    provider = model_capability_provider(provider_id)
+    request_mode = (
+        effective_image_request_mode(provider, model)
+        if str(operation or "").startswith("image.")
+        else ""
+    )
+    return MODEL_CAPABILITY_CATALOG.resolve(
+        str(provider.get("id") or provider_id),
+        str(model or ""),
+        str(operation or ""),
+        context=ModelCapabilityContext(
+            protocol=str(protocol or provider.get("protocol") or ""),
+            base_url=str(base_url or provider.get("base_url") or ""),
+            image_request_mode=request_mode,
+            discovered_image=provider_image_capability_data(provider, str(model or "")),
+            default_image_resolution=str(
+                provider.get("default_image_resolution") or ""
+            ),
+            image_reference_maximum=(
+                min(6, ONLINE_IMAGE_REFERENCE_MAX)
+                if request_mode == "openai-video-proxy"
+                else ONLINE_IMAGE_REFERENCE_MAX
+            ),
+            text_image_maximum=8,
+            text_video_maximum=3,
+            text_history_maximum=MAX_HISTORY_MESSAGES,
+        ),
+    )
+
+
+def raise_model_capability_validation(result: dict) -> None:
+    if result.get("valid"):
+        return
+    errors = result.get("errors") if isinstance(result.get("errors"), list) else []
+    error = errors[0] if errors else {"code": "capability_invalid"}
+    raise HTTPException(
+        status_code=409 if error.get("code") == "catalog_changed" else 422,
+        detail=error,
+    )
+
 def build_image_param_fields(engine: str, provider: dict, model: str):
     """返回某平台/引擎的图像生成参数字段定义。客户端按 type 动态渲染并回填到生成请求。
     字段 key 直接对应 OnlineImageRequest 的字段名（size/quality/n/reference_images）。"""
@@ -7850,6 +7994,206 @@ class ImageCapabilityIntersectionRequest(BaseModel):
     models: List[ImageCapabilitySelection] = Field(default_factory=list)
 
 
+class ModelCapabilityValidationRequest(BaseModel):
+    provider_id: str = ""
+    model_id: str = ""
+    operation: str = ""
+    catalog_revision: str = ""
+    protocol: str = ""
+    base_url: str = ""
+    inputs: Dict[str, int] = Field(default_factory=dict)
+    input_roles: Dict[str, List[str]] = Field(default_factory=dict)
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ModelCapabilityEvidencePayload(BaseModel):
+    provider_id: str
+    model_id: str
+    operation: str
+    source_type: str
+    source_locator: str
+    fetched_at: str
+    applicable_version: str
+    content_location: str
+    excerpt: str
+
+
+class ModelCapabilityDraftPayload(BaseModel):
+    draft_id: str = ""
+    provider_id: str
+    model_id: str
+    operation: str
+    capability: Dict[str, Any] = Field(default_factory=dict)
+    field_evidence: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    base_catalog_revision: str
+
+
+class ModelCapabilityReturnPayload(BaseModel):
+    note: str
+
+
+class ModelCapabilityPublishPayload(BaseModel):
+    expected_catalog_revision: str
+
+
+def _model_capability_workbench_actor() -> str:
+    actor = require_current_user("admin")
+    return str(actor.get("id") or actor.get("username") or "")
+
+
+def _model_capability_workbench_action(action):
+    try:
+        return action()
+    except ModelCapabilityWorkbenchConflict as error:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "model_capability_workbench_conflict"},
+        ) from error
+    except ModelCapabilityWorkbenchValidation as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "model_capability_workbench_invalid"},
+        ) from error
+    except ModelCapabilityWorkbenchPublication as error:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "model_capability_catalog_publish_failed"},
+        ) from error
+    except OSError as error:
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "model_capability_workbench_unavailable"},
+        ) from error
+
+
+@app.get("/api/model-capabilities")
+async def model_capability(
+    provider_id: str = "",
+    model: str = "",
+    operation: str = "",
+    protocol: str = "",
+    base_url: str = "",
+):
+    return resolved_model_capability(
+        provider_id,
+        model,
+        operation,
+        protocol=protocol,
+        base_url=base_url,
+    )
+
+
+@app.post("/api/model-capabilities/validate")
+async def validate_model_capability(payload: ModelCapabilityValidationRequest):
+    capability = resolved_model_capability(
+        payload.provider_id,
+        payload.model_id,
+        payload.operation,
+        protocol=payload.protocol,
+        base_url=payload.base_url,
+    )
+    return MODEL_CAPABILITY_CATALOG.validate(
+        capability,
+        input_counts=payload.inputs,
+        input_roles=payload.input_roles,
+        parameters=payload.parameters,
+        catalog_revision=payload.catalog_revision,
+    )
+
+
+@app.get("/api/admin/model-capability-workbench")
+async def model_capability_workbench_snapshot():
+    _model_capability_workbench_actor()
+    snapshot = _model_capability_workbench_action(
+        MODEL_CAPABILITY_WORKBENCH.snapshot
+    )
+    return {**snapshot, "catalog": MODEL_CAPABILITY_CATALOG.status()}
+
+
+@app.post("/api/admin/model-capability-evidence")
+async def create_model_capability_evidence(
+    payload: ModelCapabilityEvidencePayload,
+):
+    actor_id = _model_capability_workbench_actor()
+    return _model_capability_workbench_action(
+        lambda: MODEL_CAPABILITY_WORKBENCH.record_evidence(
+            **payload.model_dump(), actor_id=actor_id
+        )
+    )
+
+
+@app.put("/api/admin/model-capability-drafts")
+async def save_model_capability_draft(payload: ModelCapabilityDraftPayload):
+    actor_id = _model_capability_workbench_actor()
+    return _model_capability_workbench_action(
+        lambda: MODEL_CAPABILITY_WORKBENCH.save_draft(
+            **payload.model_dump(), actor_id=actor_id
+        )
+    )
+
+
+@app.post("/api/admin/model-capability-drafts/{draft_id}/submit")
+async def submit_model_capability_draft(draft_id: str):
+    actor_id = _model_capability_workbench_actor()
+    return _model_capability_workbench_action(
+        lambda: MODEL_CAPABILITY_WORKBENCH.submit_for_review(
+            draft_id, actor_id=actor_id
+        )
+    )
+
+
+@app.post("/api/admin/model-capability-drafts/{draft_id}/return")
+async def return_model_capability_draft(
+    draft_id: str,
+    payload: ModelCapabilityReturnPayload,
+):
+    actor_id = _model_capability_workbench_actor()
+    return _model_capability_workbench_action(
+        lambda: MODEL_CAPABILITY_WORKBENCH.return_for_changes(
+            draft_id, actor_id=actor_id, note=payload.note
+        )
+    )
+
+
+@app.post("/api/admin/model-capability-drafts/{draft_id}/publish")
+async def publish_model_capability_draft(
+    draft_id: str,
+    payload: ModelCapabilityPublishPayload,
+):
+    actor_id = _model_capability_workbench_actor()
+    catalog = {}
+
+    def activate_catalog():
+        result = MODEL_CAPABILITY_CATALOG.refresh()
+        catalog.update(result)
+        return result
+
+    draft = _model_capability_workbench_action(
+        lambda: MODEL_CAPABILITY_WORKBENCH.publish(
+            draft_id,
+            actor_id=actor_id,
+            active_catalog_revision=payload.expected_catalog_revision,
+            activate=activate_catalog,
+        )
+    )
+    return {"draft": draft, "catalog": catalog}
+
+
+@app.get("/api/admin/model-capabilities/status")
+async def model_capability_catalog_status():
+    require_current_user("admin")
+    return MODEL_CAPABILITY_CATALOG.status()
+
+
+@app.post("/api/admin/model-capabilities/refresh")
+async def refresh_model_capability_catalog():
+    require_current_user("admin")
+    result = MODEL_CAPABILITY_CATALOG.refresh()
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result)
+    return result
+
+
 @app.get("/api/image-model-capabilities")
 async def image_model_capability(provider_id: str = "", model: str = ""):
     provider = next(
@@ -7917,52 +8261,78 @@ VIDEO_TASK_FAILURE_STATUSES = {
 }
 
 
+def validate_canvas_video_capability(payload: CanvasVideoRequest) -> dict:
+    capability = resolved_model_capability(
+        payload.provider_id,
+        payload.model,
+        "video.generate",
+    )
+    parameters = {"duration_seconds": int(payload.duration)}
+    if payload.aspect_ratio and payload.aspect_ratio != "adaptive":
+        parameters["aspect_ratio"] = payload.aspect_ratio
+    if payload.resolution:
+        parameters["resolution"] = payload.resolution
+    if payload.seed is not None:
+        parameters["seed"] = payload.seed
+    for field, value in (
+        ("enhance_prompt", payload.enhance_prompt),
+        ("enable_upsample", payload.enable_upsample),
+        ("watermark", payload.watermark),
+        ("camera_fixed", payload.camerafixed),
+        ("generate_audio", payload.generate_audio),
+    ):
+        if value:
+            parameters[field] = True
+    result = MODEL_CAPABILITY_CATALOG.validate(
+        capability,
+        input_counts={
+            "text": 1,
+            "image": len(payload.images or []),
+            "video": len(payload.videos or []),
+            "audio": len(payload.audios or []),
+        },
+        input_roles={
+            "image": [str(image.role or "") for image in payload.images or []]
+        },
+        parameters=parameters,
+        catalog_revision=str(payload.catalog_revision or ""),
+    )
+    raise_model_capability_validation(result)
+    reference_validation = VIDEO_CAPABILITY_REGISTRY.validate_references(
+        payload.provider_id,
+        payload.model,
+        images=payload.images,
+        videos=payload.videos,
+        audios=payload.audios,
+        multimodal=payload.multimodal,
+    )
+    if not reference_validation["valid"]:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "input_count",
+                "field": reference_validation.get("reason") or "reference",
+                "actual": reference_validation.get("count"),
+                "minimum": reference_validation.get("minimum"),
+                "maximum": reference_validation.get("maximum"),
+            },
+        )
+    payload.catalog_revision = capability["catalog_revision"]
+    return capability
+
+
 # ---- 玉玉API（yuli.host）OpenAI 视频格式：/v1/videos（multipart，支持 seconds 时长）----
 
 
 @app.post("/api/canvas-video")
 async def canvas_video(payload: CanvasVideoRequest):
-    reference_validation = VIDEO_CAPABILITY_REGISTRY.validate_references(
-        payload.provider_id,
-        payload.model,
-        images=payload.images,
-        videos=payload.videos,
-        audios=payload.audios,
-        multimodal=payload.multimodal,
-    )
-    if not reference_validation["valid"]:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "视频参考素材数量不符合模型能力："
-                f"{reference_validation.get('count')}，"
-                f"允许范围 {reference_validation.get('minimum')}–"
-                f"{reference_validation.get('maximum')}"
-            ),
-        )
+    validate_canvas_video_capability(payload)
     return await _run_generation_inline(VideoRun(payload), payload)
 
 
 @app.post("/api/canvas-video-tasks")
 async def create_canvas_video_task(payload: CanvasVideoRequest):
-    reference_validation = VIDEO_CAPABILITY_REGISTRY.validate_references(
-        payload.provider_id,
-        payload.model,
-        images=payload.images,
-        videos=payload.videos,
-        audios=payload.audios,
-        multimodal=payload.multimodal,
-    )
-    if not reference_validation["valid"]:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "视频参考素材数量不符合模型能力："
-                f"{reference_validation.get('count')}，"
-                f"允许范围 {reference_validation.get('minimum')}–"
-                f"{reference_validation.get('maximum')}"
-            ),
-        )
+    capability = validate_canvas_video_capability(payload)
     owner, key, target = _generation_target(payload)
     try:
         run = await _GENERATION_RUNS.start(
@@ -7975,6 +8345,11 @@ async def create_canvas_video_task(payload: CanvasVideoRequest):
                 "type": "video",
                 "provider_id": payload.provider_id,
                 "model": payload.model,
+                "operation": capability["operation"],
+                "catalog_revision": capability["catalog_revision"],
+                "capability_schema_version": capability[
+                    "capability_schema_version"
+                ],
             },
         )
     except Exception as exc:
@@ -8019,22 +8394,55 @@ async def get_canvas_video_task(task_id: str):
 
 async def _canvas_llm_run(payload: CanvasLLMRequest) -> TextRun:
     system_prompt = (payload.system_prompt or "").strip()
+    requested_images = list(payload.images or [])
+    requested_videos = list(payload.videos or [])
+    image_inputs = [img for img in requested_images if is_image_reference_value(img)]
+    video_inputs = [video for video in requested_videos if is_video_reference_value(video)]
+    if len(image_inputs) != len(requested_images):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "input_invalid", "field": "image"},
+        )
+    if len(video_inputs) != len(requested_videos):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "input_invalid", "field": "video"},
+        )
+    capability = resolved_model_capability(
+        payload.provider,
+        payload.model or payload.ms_model,
+        "text.generate",
+    )
+    payload.model = str(capability.get("model_id") or payload.model)
+    parameters = {"history": list(payload.messages or [])}
+    if system_prompt:
+        parameters["system_prompt"] = system_prompt
+    validation = MODEL_CAPABILITY_CATALOG.validate(
+        capability,
+        input_counts={
+            "text": 1,
+            "image": len(image_inputs),
+            "video": len(video_inputs),
+        },
+        parameters=parameters,
+        catalog_revision=str(payload.catalog_revision or ""),
+    )
+    raise_model_capability_validation(validation)
+    payload.catalog_revision = capability["catalog_revision"]
     upstream_messages = [{"role": "system", "content": system_prompt}] if system_prompt else []
-    for item in payload.messages[-MAX_HISTORY_MESSAGES:]:
+    for item in payload.messages:
         role = item.get("role")
         content = item.get("content")
         if role in {"user", "assistant"} and content:
             upstream_messages.append({"role": role, "content": content})
     # 构造用户消息：有图片/视频时用 OpenAI/Gemini 多模态格式
-    requested_image_count = len(payload.images or [])
-    image_inputs = [img for img in (payload.images or []) if is_image_reference_value(img)]
+    requested_image_count = len(requested_images)
     payload.images = list(image_inputs)
-    video_inputs = [video for video in (payload.videos or []) if is_video_reference_value(video)]
     if image_inputs or video_inputs:
         content_parts = [{"type": "text", "text": payload.message}]
         resolved_cli_images = []
         ok_imgs = 0
-        for img in image_inputs[:8]:
+        for img in image_inputs:
             if not img or not isinstance(img, str):
                 continue
             ref_url = media_reference_to_url(img, max_image_size=1024)
@@ -8044,7 +8452,7 @@ async def _canvas_llm_run(payload: CanvasLLMRequest) -> TextRun:
             resolved_cli_images.append(img)
             ok_imgs += 1
         ok_videos = 0
-        for video in video_inputs[:3]:
+        for video in video_inputs:
             if not video or not isinstance(video, str):
                 continue
             frame_urls = await video_reference_to_frame_data_urls(video, max_frames=6, max_size=768)
@@ -8105,6 +8513,9 @@ async def create_canvas_llm_task(payload: CanvasLLMRequest):
                 "type": "canvas-text",
                 "provider_id": payload.provider,
                 "model": payload.model,
+                "operation": "text.generate",
+                "catalog_revision": payload.catalog_revision,
+                "capability_schema_version": CAPABILITY_SCHEMA_VERSION,
             },
         )
     except Exception as exc:

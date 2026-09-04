@@ -451,7 +451,6 @@ class ApplicationFactoryTests(unittest.TestCase):
                     started.set()
                     release.wait(timeout=0.5)
                 main.migrate_all_canvas_access = slow_migration
-                main.sync_static_html_versions = lambda: None
 
                 async def scenario():
                     startup = asyncio.create_task(main.startup_event())

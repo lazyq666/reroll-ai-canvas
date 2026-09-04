@@ -1,7 +1,7 @@
 # Reroll AI Canvas 项目地图
 
 > Status: Baseline  
-> Last verified: 2026-09-02
+> Last verified: 2026-09-04
 > Audience: 产品、UI、交互、前端、后端、测试与发布
 
 本页是项目的单一总地图：产品边界、技术栈、系统结构、代码责任和功能覆盖都从这里进入。具体行为由 `current/` 中的 Current 规格定义；正在开发的行为位于 `active/`。
@@ -90,7 +90,7 @@ flowchart TB
 | 边界 | 包含 | 不包含 |
 | --- | --- | --- |
 | Workspace Data | Canvas、Project、Managed Media、生成历史、工作流、提示词库、共享非秘密 Generation Settings | 账号、Session、API Key、本机 Provider 地址、缓存 |
-| Instance State | Account、密码验证记录、Session、全局 Role、Workspace-scoped Project Access Grant | 可搬迁内容、设备秘密和缓存 |
+| Instance State | Account、密码验证记录、Session、全局 Role、Workspace-scoped Project Access Grant、Model Capability Evidence / Draft / Review / Published 投影 | 可搬迁内容、设备秘密和缓存 |
 | Device State | API Key、Token、CLI Session、本机 Provider 地址、硬件选择、当前 Workspace 路径 | Workspace Data、账号身份、可再生缓存 |
 | Device Cache | 预览和可重新下载的运行模型 | 用户唯一内容、长期设置和身份 |
 
@@ -107,12 +107,17 @@ backend/
     ├── canvas_permissions.py   Project 与 Canvas 可见性规则
     ├── canvas_store.py         Canvas SQLite 权威存储和投影
     ├── canvas_sync.py          Canvas 命令、Revision、Mutation、冲突、通知与统一 Generation History 接口
+    ├── cli_updates.py          本机 CLI 版本适配、启动检查与只读提醒去重
     ├── canvas_realtime.py      Smart Canvas Mutation 语义和历史
     ├── connection_manager.py   实时连接、发送队列、连接硬上限
     ├── realtime_presence.py    账号级短暂成员/指针状态、协议、批处理与 TTL
     ├── generation_runs.py      Generation Run 生命周期、结果物化编排、幂等和恢复
     ├── generation_run_store.py SQLite Run、Global History 与发布回执权威
     ├── generation_publication.py JSON / SQLite History 与通知发布接缝
+    ├── model_capabilities.py   跨图片、视频和文字的 Model Capability Catalog、Revision 与生成前校验
+    ├── model_capability_workbench.py Evidence、Draft、Review、原子 Publish 与失败回滚
+    ├── image_capabilities.py   图片 Model Operation、画幅、清晰度、参考输入与输出边界
+    ├── video_capabilities.py   视频命令、参考输入、时长、画幅与路由能力合同
     ├── sqlite_migration.py     历史 Workspace staging 导入与完整性 Gate
     ├── sqlite_publication_upgrade.py 早期 SQLite authority 的 Phase 2 补迁与精确回滚
     ├── offline_sqlite_migration.py 停服切换、恢复重试和回滚
@@ -149,6 +154,9 @@ static/
 │   ├── image-metadata.js       原图尺寸成对校验、精确与有界近似的宽高比展示计算
 │   ├── multi-input.js          多来源资格、Group 归一化、稳定视觉顺序和目标连接规划
 │   ├── multi-input-controller.js 选择快照、公共 Quick Add 与一次性 Mutation 的页面协调
+│   ├── model-capabilities.js 统一能力查询、缓存、Revision 与提交前校验
+│   ├── image-capabilities.js 图片 Composer 的能力投影与设置协调
+│   ├── video-capabilities.js 视频 Composer 的命令与参考输入协调
 │   └── connection-layer.js     Connection 索引、SVG 增量物化与事件委托
 ├── css/design-tokens.css       中央视觉 Token
 └── vendor/                     固定版本的第三方浏览器资源
@@ -161,6 +169,7 @@ tests/                          领域、HTTP/WebSocket、页面和浏览器合�
 
 - 新领域规则进入 `backend/infinite_canvas/` 的所属模块；只有组合多个现有能力时才修改 `backend/main.py`。
 - Provider 差异进入 `backend/infinite_canvas/providers/` 的 adapter；Generation Run 编排不得按平台散落分支。
+- `model_capabilities.py` 是跨媒体能力身份、状态、Revision 和提交前校验的统一边界；`model_capability_workbench.py` 拥有 Administrator-only 的 Evidence → Draft → Review → Publish 状态机，只有 Published 投影能改变运行目录。图片、视频、文字专用结构留在各自合同中。前端能力模块只负责展示与预检，不能取代服务端权威，也不能在目录中加入价格或消耗字段。参见 [ADR-0009](adr/0009-unified-model-capability-catalog.md)。
 - API Settings Package 的收集、加密、校验和原子合并属于独立模块；`main.py` 只组合入口。
 - 全局颜色 Token 的可编辑接口、Revision 冲突检查和原子 CSS 保存属于 `design_tokens.py`；`main.py` 只组合管理员路由，浏览器不提交任意 CSS 文本。
 - Smart Canvas 的入口仍是 `static/js/smart-canvas.js`，新业务逻辑应进入 `static/js/smart-canvas/` 的职责模块；`connection-layer.js` 统一拥有 Connection 的 Node ID/邻接索引、SVG 物化、按 Node 增量几何刷新与事件委托，页面宿主只提供当前状态和选择/断开回调；公共 Node 外壳接口位于 `static/js/infinite-canvas-ui/nodes.js`。Smart Minimap 的 SVG、投影、视口外遮罩与 Pointer / Keyboard 导航属于公共 `canvas-navigation/`，页面适配器只提供轻量节点语义和当前 Viewport。`/ui-component-library#nodes` 直接嵌入生产 Smart Canvas 的临时验收会话，按十行展示 22 个角色状态实例；`node-review-fixture.js` 只提供本地 Node、生产 Text Annotation 标签与模型数据，不维护第二套 Node 页面或交互。
@@ -213,7 +222,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 | F05 | Smart Canvas 创作与交互 | `partial` | Image Studio 在宫格后提供“深度图”直接动作，关闭编辑器后在来源附近创建保持来源 Selection 的 Pending Node，并原位完成相对深度图；十种 Node 角色已统一通过公共 `ic-canvas-node` 外壳渲染；`/ui-component-library#nodes` 以十行稳定状态实例直接运行生产画布的拖动、选择、Resize、Quick Add、Connection、浮动工具栏与模型选择器，Image Node 行同时验收 Image、Empty、Video 与 Audio 媒体数据，Generation Node 行验收参考图片与视频生成，仅以临时会话隔离持久化和协作反馈；[UI 设计与交互指南](current/ui-design-guidelines.md)定义媒体 Composer 资格；[批量运行节点](current/smart-canvas-batch-run-node.md)、[创建副本 Connection 继承规则](current/smart-canvas-duplicate-connection-inheritance.md)、[Node 自动避让](current/smart-canvas-node-auto-placement.md)、[选区整理](current/smart-canvas-selection-arrangement.md)、[连线与命中](current/smart-canvas-connection-quick-add-hit-priority.md)、[失败反馈](current/smart-canvas-generation-failure-feedback.md)、[预设处理器](current/smart-canvas-preset-ai-processors.md)已有 Current；[复制与粘贴的剪贴板优先级](active/2026-08-21-smart-canvas-clipboard-precedence.md)整体体验已确认，正式跨平台人工与真实环境 Gate 由 Issue #212 跟踪；仍缺完整工具/容器/快捷键总规格 |
 | F06 | Realtime Collaboration 与 Canvas Sync | `current` | [Canvas Sync 与 Canvas Updated Time](current/canvas-sync-implementation.md)已完成 Issue #102 的 Touch、no-op 与管理动作语义对齐；[性能与容量](current/realtime-collaboration-performance.md)、[单 Node 快速通道](current/canvas-mutation-single-node-move-fast-path.md)继续有效 |
 | F07 | Prompt Authoring 与 Prompt Library | `active` | [提示词库的通用与当前画布范围](active/2026-08-21-prompt-library-common-and-canvas-scope.md)已实现；[ADR-0007](adr/0007-prompt-library-directory-owns-cover-media.md)与 Issue #225 将权威 JSON、封面和可回退旧布局迁移收拢到 `data/prompt-libraries/`；Issue #113 完成 Modal/Sidebar/Card 交互，Issue #117 以共享 Canvas Commit Lane、事务内语义 intent、模板版本保护及 HTTP/WebSocket Revision 去重修复当前画布保存竞态；Issue #124 对齐范围命名、范围计数、组件库小号搜索组合与空范围表现；人工验收与真实旧 Workspace 向前兼容使用已完成，仍等待发布前备份回退演练，Prompt/Prompt Generation 身份与完整状态仍需统一 |
-| F08 | Provider、Model 与 Generation Settings | `partial` | [图片输出能力](current/smart-canvas-image-output-capabilities.md)、[API Settings Package](current/api-settings-package.md)已有 Current；Provider onboarding 与跨媒体设置仍未收束 |
+| F08 | Provider、Model 与 Generation Settings | `active` | [统一 CLI 版本检查与提醒](active/2026-09-04-cli-update-management.md)已实现启动异步检查、三适配器与管理员只读提醒，不提供 CLI 升级能力，真实平台响应仍待发布前 Gate；[统一模型能力目录](active/2026-09-04-model-capability-catalog.md)已用同一 Revision 约束图片、视频和文字，并完成 Administrator-only 手工 Evidence → Draft → Review → Publish 后端闭环，三栏工作台 UI 尚待实现；[图片输出能力](current/smart-canvas-image-output-capabilities.md)、[API Settings Package](current/api-settings-package.md)已有 Current；AI 填表、自动采集、缓存、定时刷新和 Provider onboarding 尚未收束 |
 | F09 | Generation Run、Recovery、Output 与 Cascade | `current` | [Generation Pipeline](current/generation-pipeline.md)、[ADR-0005](adr/0005-global-generation-publication-authority.md)；图片、视频与文字使用后台 task ID，Smart Canvas 通过画布级 active Run 接口恢复刷新时缺失的 Pending Node；包含确定性本地图片处理、进度持久化、无远端编号重启重跑与 `image-processor` Managed Media 发布；SQLite authority 下 Global History、Run lifecycle 与 Publication Receipt 同库且不接触三个 legacy JSON |
 | F10 | Managed Media、Workspace Asset Library、Image Studio 与 Smart Matting | `partial` | [工作区资产库与本地引用](current/workspace-asset-library.md)、[Smart Matting 性能与容量](current/smart-matting-performance.md)、[ADR-0004](adr/0004-workspace-asset-library-publication-boundary.md)已定义发布目录、权限、TXT、生成校验与本机并行容量；Managed Media 垃圾回收、Image Studio 与 Smart Matting 的统一生命周期仍是后续缺口 |
 | F11 | Batch Generation 与专用工作台 | `partial` | [结果画廊模型身份](current/batch-generation-result-gallery-model-identity.md)已统一为常驻 Provider 图标与生成时冻结的模型名称，并覆盖 Light/Dark、旧数据 fallback、下载与预览回归；`batch_generation.py` 和工作台测试覆盖其他现有行为，仍缺共享/特有行为总规格 |
@@ -227,6 +236,8 @@ Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 /
 F05 的[灯光参考编辑器](current/smart-canvas-lighting-reference.md)已经毕业为 Current：它从 Image Node 浮动工具栏进入，以 Lighting Intent 确定性生成中英文 Prompt，通过一次 Canvas Mutation 创建下游图片 Generation Node、填充 Composer，并把参数保存在来源与新 Node 上供后续微调；不导出媒体或 JSON，也不创建 Generation Run。
 
 Issue #22 的[多选快速连线与提示词生成快捷入口](active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md)正在实施：公共选区 Quick Add、多选与提示词工具栏、按视觉顺序接入一个新建或已有生成节点及整体撤销已落地并通过隔离生产页面检查。状态为 `drift`：D22-01 的服务端语义前置条件尚待协议扩展决定，完整双端协作及人工验收 Gate 未完成；不能据此宣称 Issue 完成或将 Active 毕业为 Current。
+
+Issue #28 的[Smart Group 可逆编组与成员还原](active/2026-09-04-smart-group-reversible-containment-spec.md)已本地实现并进入 Review：组内紧凑排列只属于派生的 Group Presentation，既有 Node 作为 Smart Group Node Member 保留身份、创作状态、Connection 与 Node Rest Geometry；直接媒体具有稳定成员身份，并在离开编组时才创建新 Image Node。跨类型成员顺序、唯一所有权、拖出/解组、复制重映射、空间与分享投影及 Realtime 权威校验已有自动化覆盖；真实双端协作、Keyboard / Focus、Reduced Motion 与发布前人工 Gate 尚未完成，因此规格仍保持 Active。
 
 Issue #195 的[渐进式打开与节点骨架](active/2026-08-28-smart-canvas-progressive-opening.md)为 F05 / F06 增加授权 NDJSON Opening Stream：同一次 Canvas Sync 快照依次投影 Node 几何轮廓与完整文档；前端 Opening 模块拥有瞬时骨架和页面状态机，Canvas Persistence 仍是完整文档进入权威客户端状态的唯一边界。Windows 首帧、输入和回退发布验收由 Issue #214 跟踪，因此暂不毕业为 Current Authority。
 

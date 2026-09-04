@@ -133,7 +133,6 @@ class MainSqliteAuthorityIntegrationTests(unittest.TestCase):
             )
             unload_main()
             main = importlib.import_module("main")
-            main.sync_static_html_versions = lambda: None
 
             with TestClient(main.app) as client:
                 login = client.post(

@@ -637,6 +637,123 @@ class CanvasRealtimeTests(unittest.TestCase):
             )
         self.assertEqual(self.canvas, before)
 
+    def test_group_node_member_has_only_one_owner(self):
+        before = copy.deepcopy(self.canvas)
+        with self.assertRaisesRegex(CanvasRealtimeError, "只能属于一个编组"):
+            apply_operation(
+                self.canvas,
+                operation(
+                    "client-a:group-owner",
+                    0,
+                    node_creates=[
+                        {
+                            "id": "group-a",
+                            "type": "smart-group",
+                            "items": ["node-a"],
+                        },
+                        {
+                            "id": "group-b",
+                            "type": "smart-group",
+                            "items": ["node-a"],
+                        },
+                    ],
+                ),
+                "actor-a",
+            )
+        self.assertEqual(self.canvas, before)
+
+    def test_group_member_order_must_match_node_and_media_projections(self):
+        before = copy.deepcopy(self.canvas)
+        with self.assertRaisesRegex(CanvasRealtimeError, "成员顺序与成员数据不一致"):
+            apply_operation(
+                self.canvas,
+                operation(
+                    "client-a:group-order",
+                    0,
+                    node_creates=[{
+                        "id": "group-a",
+                        "type": "smart-group",
+                        "items": ["node-a"],
+                        "images": [{
+                            "url": "direct.png",
+                            "groupMemberId": "media-a",
+                        }],
+                        "memberOrderVersion": 1,
+                        "memberOrder": [
+                            {"kind": "media", "id": "missing-media"},
+                            {"kind": "node", "id": "node-a"},
+                        ],
+                    }],
+                ),
+                "actor-a",
+            )
+        self.assertEqual(self.canvas, before)
+
+    def test_group_member_order_accepts_interleaved_members(self):
+        apply_operation(
+            self.canvas,
+            operation(
+                "client-a:group-interleaved-order",
+                0,
+                node_creates=[{
+                    "id": "group-a",
+                    "type": "smart-group",
+                    "items": ["node-a", "node-b"],
+                    "images": [{
+                        "url": "direct.png",
+                        "groupMemberId": "media-a",
+                    }],
+                    "memberOrderVersion": 1,
+                    "memberOrder": [
+                        {"kind": "node", "id": "node-a"},
+                        {"kind": "media", "id": "media-a"},
+                        {"kind": "node", "id": "node-b"},
+                    ],
+                }],
+            ),
+            "actor-a",
+        )
+        self.assertEqual(
+            self.node("group-a")["memberOrder"][1],
+            {"kind": "media", "id": "media-a"},
+        )
+
+    def test_versioned_group_cannot_be_downgraded_by_removing_member_order(self):
+        apply_operation(
+            self.canvas,
+            operation(
+                "client-a:create-versioned-group",
+                0,
+                node_creates=[{
+                    "id": "group-a",
+                    "type": "smart-group",
+                    "items": [],
+                    "images": [{
+                        "url": "direct.png",
+                        "groupMemberId": "media-a",
+                    }],
+                    "memberOrderVersion": 1,
+                    "memberOrder": [{"kind": "media", "id": "media-a"}],
+                }],
+            ),
+            "actor-a",
+        )
+        before = copy.deepcopy(self.canvas)
+        with self.assertRaisesRegex(CanvasRealtimeError, "不能被旧版本客户端移除"):
+            apply_operation(
+                self.canvas,
+                operation(
+                    "client-b:downgrade-group",
+                    1,
+                    node_unsets=[
+                        {"id": "group-a", "path": ["memberOrder"]},
+                        {"id": "group-a", "path": ["memberOrderVersion"]},
+                    ],
+                ),
+                "actor-b",
+            )
+        self.assertEqual(self.canvas, before)
+
     def test_actor_undo_preserves_other_users_changes(self):
         moved = apply_operation(
             self.canvas,

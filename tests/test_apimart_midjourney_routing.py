@@ -3,6 +3,8 @@ import json
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from fastapi import HTTPException
+
 from tests.runtime_env import ensure_test_workspace
 
 ensure_test_workspace()
@@ -191,20 +193,24 @@ class ApimartMidjourneyRoutingTests(unittest.TestCase):
             provider_id="apimart",
             model="gpt-image-2-official",
             transparent_png=True,
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
         )
         unsupported = main.OnlineImageRequest(
             prompt="icon",
             provider_id="apimart",
             model="gpt-image-2",
             transparent_png=True,
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
         )
 
         with patch.object(main, "get_api_provider", return_value=provider):
             run = main._online_image_run(supported)
-            with self.assertRaisesRegex(Exception, "不支持透明 PNG"):
+            with self.assertRaises(HTTPException) as raised:
                 main._online_image_run(unsupported)
 
         self.assertTrue(run.settings["transparent_png"])
+        self.assertEqual("parameter_value", raised.exception.detail["code"])
+        self.assertEqual("transparent_png", raised.exception.detail["field"])
         fields = main.build_image_param_fields(
             "api", provider, "gpt-image-2-official"
         )

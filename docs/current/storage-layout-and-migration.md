@@ -9,7 +9,7 @@
 | 边界 | 保存什么 | 是否随工作区搬家 | 是否可直接清理 |
 | --- | --- | --- | --- |
 | Workspace Data | 画布、素材、生成结果、内容历史、对话、团队模型选择和用户工作流 | 是 | 否 |
-| Instance State | 账号、密码校验信息、会话、全局角色，以及带 `workspace_id` 的视图状态、分享和内容审计 | 否 | 否 |
+| Instance State | 账号、密码校验信息、会话、全局角色、模型能力审核状态，以及带 `workspace_id` 的视图状态、分享和内容审计 | 否 | 否 |
 | Device State | 单个源码目录服务的 API Key、本机连接、启动器状态、服务身份和当前工作区选择 | 否 | 否 |
 | Device Cache | 单个源码目录服务的媒体预览和可重新下载模型 | 否 | 是；需要时会重新生成或下载 |
 
@@ -154,6 +154,7 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 ```text
 <device-state>/instance-state/
 ├── auth.db
+├── model-capability-workbench.json
 ├── account-recovery/
 │   ├── seed-<workspace-id>-<digest>.db
 │   ├── legacy-<workspace-id>-<digest>.db
@@ -165,6 +166,8 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 在所有 Workspace 中保持不变；分享、私有视图和内容审计通过 `workspace_id` 关联当前内容。可用
 `INFINITE_CANVAS_INSTANCE_STATE_DIR` 显式覆盖，主要用于测试和受控管理；选择或搬动
 Workspace 不会改变这个位置。
+
+`model-capability-workbench.json` 保存安装级 Administrator 共用的 Model Capability Evidence、Draft、Review State 与 Published 投影。它以版本化 JSON 原子替换；只有 Published 能力投影参与运行目录 Revision，Evidence、草稿和退回记录不会改变生成合同。该文件不包含 Provider 凭证，也不随 Workspace 搬迁或 Device Cache 清理。
 
 ### Device State
 

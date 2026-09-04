@@ -73,16 +73,28 @@ async function smartVideoCapabilityLoad(providerId='', modelId='', context={}){
     const key = smartVideoCapabilityKey(providerId, modelId, route);
     const existing = smartVideoCapabilityCache.get(key);
     if(existing) return existing;
+    const unifiedModule = window.SmartCanvasModules.modelCapabilities;
+    const unified = unifiedModule
+        ? await unifiedModule.load(providerId, modelId, 'video.generate', route)
+        : null;
     const query = new URLSearchParams({
         provider_id:String(providerId || ''),
         model:String(modelId || ''),
         protocol:route.protocol,
         base_url:route.base_url
     });
-    const value = await fetch(`/api/video-model-capabilities?${query}`).then(async response => {
-        if(!response.ok) throw new Error(await response.text());
-        return response.json();
-    }).catch(() => smartVideoCapabilityFallback(providerId, modelId));
+    const value = unified
+        ? {
+            ...(unified.media_contract || {}),
+            capability_schema_version:unified.capability_schema_version,
+            catalog_revision:unified.catalog_revision,
+            operation:unified.operation,
+            model_capability:unified
+        }
+        : await fetch(`/api/video-model-capabilities?${query}`).then(async response => {
+            if(!response.ok) throw new Error(await response.text());
+            return response.json();
+        }).catch(() => smartVideoCapabilityFallback(providerId, modelId));
     const capability = smartVideoCapabilityClean(value, providerId, modelId);
     smartVideoCapabilityCache.set(key, capability);
     if(capability.supported_model_ids.length){

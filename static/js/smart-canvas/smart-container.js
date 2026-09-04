@@ -2,8 +2,8 @@
  * Smart Container Module
  *
  * Owns Smart Group membership and Frame spatial membership. The Interface
- * exposes container queries and domain operations while hiding Node
- * absorption, Connection rerouting, layout, selection and persistence effects.
+ * exposes container queries and domain operations while hiding ordered member
+ * compatibility, presentation layout, selection and persistence effects.
  */
 const smartContainerMutationModule = window.SmartCanvasModules?.canvasMutation;
 if(!smartContainerMutationModule){
@@ -18,6 +18,7 @@ if(!smartContainerPersistenceModule){
 const SMART_CONTAINER_ARRANGE_PADDING = 18;
 const SMART_CONTAINER_ARRANGE_GAP = 16;
 const SMART_CONTAINER_ARRANGE_HEADER = 44;
+const SMART_GROUP_MEMBER_ORDER_VERSION = 1;
 
 function smartContainerIsGroup(node){
     return Boolean(node && node.type === 'smart-group');
@@ -58,18 +59,99 @@ function smartContainerLayout(node){
     if(smartContainerIsGroup(node)) return smartContainerGroupLayout(node);
     return null;
 }
-function smartContainerGroupMembers(node){
-    if(!smartContainerIsGroup(node)) return [];
-    const ids = Array.isArray(node.items) ? node.items : [];
-    const seen = new Set([node.id]);
-    return ids.map(id => nodes.find(item => item.id === id))
-        .filter(member => {
-            if(!member || seen.has(member.id) || smartContainerIsGroup(member)){
-                return false;
+function smartContainerLegacyMediaId(group, index){
+    return `legacy:${String(group?.id || 'group')}:${index}`;
+}
+function smartContainerMediaId(group, image, index){
+    return String(
+        image?.groupMemberId
+        || smartContainerLegacyMediaId(group,index)
+    );
+}
+function smartContainerOrderedEntries(group){
+    if(!smartContainerIsGroup(group)) return [];
+    const itemIds = [...new Set(
+        (Array.isArray(group.items) ? group.items : [])
+            .map(id => String(id || ''))
+            .filter(Boolean)
+    )];
+    const itemSet = new Set(itemIds);
+    const media = (Array.isArray(group.images) ? group.images : [])
+        .map((image,index) => ({
+            kind:'media',
+            id:smartContainerMediaId(group,image,index),
+            image,
+            index
+        }));
+    const mediaById = new Map(media.map(entry => [entry.id,entry]));
+    const ordered = [];
+    const seenNodes = new Set();
+    const seenMedia = new Set();
+    if(Array.isArray(group.memberOrder)){
+        group.memberOrder.forEach(raw => {
+            const kind = String(raw?.kind || '');
+            const id = String(raw?.id || '');
+            if(kind === 'node' && itemSet.has(id) && !seenNodes.has(id)){
+                const node = nodes.find(candidate => candidate.id === id);
+                if(node && node.id !== group.id && !smartContainerIsFrame(node)){
+                    ordered.push({kind,id,node});
+                    seenNodes.add(id);
+                }
+            } else if(kind === 'media' && mediaById.has(id) && !seenMedia.has(id)){
+                ordered.push(mediaById.get(id));
+                seenMedia.add(id);
             }
-            seen.add(member.id);
-            return true;
         });
+    }
+    media.forEach(entry => {
+        if(seenMedia.has(entry.id)) return;
+        ordered.push(entry);
+        seenMedia.add(entry.id);
+    });
+    itemIds.forEach(id => {
+        if(seenNodes.has(id)) return;
+        const node = nodes.find(candidate => candidate.id === id);
+        if(!node || node.id === group.id || smartContainerIsFrame(node)) return;
+        ordered.push({kind:'node',id,node});
+        seenNodes.add(id);
+    });
+    return ordered;
+}
+function smartContainerNormalizeOrder(group){
+    if(!smartContainerIsGroup(group)) return false;
+    let changed = false;
+    group.images = Array.isArray(group.images) ? group.images : [];
+    group.items = [...new Set(
+        (Array.isArray(group.items) ? group.items : [])
+            .map(id => String(id || ''))
+            .filter(Boolean)
+    )];
+    group.images.forEach(image => {
+        if(image?.groupMemberId) return;
+        image.groupMemberId = uid('group-media');
+        changed = true;
+    });
+    const previous = Array.isArray(group.memberOrder)
+        ? JSON.stringify(group.memberOrder)
+        : '';
+    const entries = smartContainerOrderedEntries(group);
+    group.memberOrderVersion = SMART_GROUP_MEMBER_ORDER_VERSION;
+    group.memberOrder = entries.map(entry => ({
+        kind:entry.kind,
+        id:entry.kind === 'media'
+            ? String(entry.image?.groupMemberId || entry.id)
+            : entry.id
+    }));
+    group.items = group.memberOrder
+        .filter(entry => entry.kind === 'node')
+        .map(entry => entry.id);
+    if(previous !== JSON.stringify(group.memberOrder)) changed = true;
+    return changed;
+}
+function smartContainerGroupMembers(node){
+    return smartContainerOrderedEntries(node)
+        .filter(entry => entry.kind === 'node')
+        .map(entry => entry.node);
 }
 function smartContainerFrameMembers(node){
     if(!smartContainerIsFrame(node)) return [];
@@ -187,15 +269,28 @@ function smartContainerReconcileFrames(){
     });
     return changed;
 }
+function smartContainerMemberHasDisplayMedia(member){
+    return Boolean(
+        isSmartImageNode(member)
+        && (member.images || []).some(image => imageForDisplay(image)?.url)
+    );
+}
 function smartContainerCompactMembers(node){
     return smartContainerGroupMembers(node).filter(member =>
-        !isSmartImageNode(member)
+        !smartContainerMemberHasDisplayMedia(member)
     );
 }
 function smartContainerIsCompactMember(node){
     return Boolean(
         node
-        && !isSmartImageNode(node)
+        && !smartContainerMemberHasDisplayMedia(node)
+        && smartContainerGroupFor(node.id)
+    );
+}
+function smartContainerIsImageMember(node){
+    return Boolean(
+        node
+        && smartContainerMemberHasDisplayMedia(node)
         && smartContainerGroupFor(node.id)
     );
 }
@@ -203,59 +298,16 @@ function smartContainerZoom(node){
     const zoom = Number(node?._memberZoom);
     return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
 }
-function smartContainerScaleMember(group, member, zoom){
-    if(!member || !(zoom > 0) || zoom === 1) return;
-    const rect = nodeRect(member);
-    member.w = Math.max(
-        40,
-        Math.round((Number(rect.width) || 0) * zoom)
-    );
-    member.h = Math.max(
-        40,
-        Math.round((Number(rect.height) || 0) * zoom)
-    );
-    if(isSmartImageNode(member)) member.scale = 1;
-}
-function smartContainerRerouteConnections(fromId, toId){
-    if(canvas){
-        canvas.connections = (canvas.connections || []).map(connection => {
-            let next = connection;
-            if(connection.from === fromId) next = {...next,from:toId};
-            if(connection.to === fromId) next = {...next,to:toId};
-            return next;
-        }).filter((connection, index, all) =>
-            connection.from !== connection.to
-            && all.findIndex(candidate =>
-                candidate.from === connection.from
-                && candidate.to === connection.to
-                && (candidate.kind || 'flow')
-                    === (connection.kind || 'flow')
-            ) === index
+function smartContainerRemoveNodeReference(group, nodeId){
+    if(!smartContainerIsGroup(group) || !nodeId) return false;
+    const before = Array.isArray(group.items) ? group.items.length : 0;
+    group.items = (group.items || []).filter(id => id !== nodeId);
+    if(Array.isArray(group.memberOrder)){
+        group.memberOrder = group.memberOrder.filter(entry =>
+            !(entry?.kind === 'node' && entry.id === nodeId)
         );
     }
-    nodes.forEach(node => {
-        if(!Array.isArray(node.inputNodeIds)) return;
-        node.inputNodeIds = Array.from(new Set(
-            node.inputNodeIds
-                .map(id => id === fromId ? toId : id)
-                .filter(id => id !== node.id)
-        ));
-    });
-}
-function smartContainerAbsorbImage(group, child){
-    const images = (child.images || []).map(image =>
-        stripImageGenerationMeta({...image})
-    );
-    if(!images.length) return false;
-    group.images = [...(group.images || []),...images];
-    delete group.w;
-    delete group.h;
-    smartContainerRerouteConnections(child.id, group.id);
-    smartContainerMutationModule.remove({
-        nodeIds:[child.id],
-        options:{skipUndo:true,render:false,save:false}
-    });
-    return true;
+    return group.items.length !== before;
 }
 function smartContainerAddNode(group, child){
     if(
@@ -263,85 +315,54 @@ function smartContainerAddNode(group, child){
         || !child
         || child.id === group.id
         || smartContainerIsFrame(child)
+        || smartContainerIsGroup(child)
     ){
         return false;
     }
-    const items = Array.isArray(group.items)
-        ? group.items.slice()
-        : [];
-    const zoom = smartContainerZoom(group);
-    if(smartContainerIsGroup(child)){
-        const images = (child.images || []).map(image =>
-            stripImageGenerationMeta({...image})
-        );
-        group.images = [...(group.images || []),...images];
-        if(images.length){
-            delete group.w;
-            delete group.h;
-        }
-        const childMemberIds = smartContainerGroupMembers(child)
-            .map(member => member.id)
-            .filter(id => id !== group.id && !items.includes(id));
-        group.items = [...items,...childMemberIds];
-        childMemberIds.forEach(id => {
-            const member = nodes.find(node => node.id === id);
-            if(member) smartContainerScaleMember(group, member, zoom);
-        });
-        smartContainerRerouteConnections(child.id, group.id);
-        smartContainerMutationModule.remove({
-            nodeIds:[child.id],
-            options:{skipUndo:true,render:false,save:false}
-        });
-        return true;
-    }
-    if(isSmartImageNode(child)){
-        return smartContainerAbsorbImage(group, child);
-    }
-    if(items.includes(child.id)) return false;
-    group.items = [...items,child.id];
-    smartContainerScaleMember(group, child, zoom);
+    if((group.items || []).includes(child.id)) return false;
+    nodes.filter(candidate =>
+        smartContainerIsGroup(candidate) && candidate.id !== group.id
+    ).forEach(owner => smartContainerRemoveNodeReference(owner,child.id));
+    smartContainerNormalizeOrder(group);
+    group.items = [...(group.items || []),child.id];
+    group.memberOrder.push({kind:'node',id:child.id});
     return true;
 }
-function smartContainerImageRefs(group){
-    if(!smartContainerIsGroup(group)) return [];
-    const refs = [];
-    (group.images || []).forEach((image, index) => {
-        const item = imageForDisplay(image);
-        if(item?.url){
-            refs.push({
+function smartContainerPresentationItems(group){
+    return smartContainerOrderedEntries(group).flatMap(entry => {
+        if(entry.kind === 'media'){
+            const item = imageForDisplay(entry.image);
+            return item?.url ? [{
+                kind:'media',
+                memberKind:'media',
+                memberId:entry.id,
                 nodeId:group.id,
-                index,
-                source:image,
+                index:entry.index,
+                source:entry.image,
                 item
-            });
+            }] : [];
         }
-    });
-    const members = smartContainerGroupMembers(group)
-        .filter(isSmartImageNode)
-        .slice()
-        .sort((left, right) => {
-            const leftRect = nodeRect(left);
-            const rightRect = nodeRect(right);
-            const deltaY = (Number(leftRect.y) || 0)
-                - (Number(rightRect.y) || 0);
-            if(Math.abs(deltaY) > 24) return deltaY;
-            return (Number(leftRect.x) || 0)
-                - (Number(rightRect.x) || 0);
-        });
-    members.forEach(node => {
-        (node.images || []).forEach((image, index) => {
-            const item = imageForDisplay(image);
-            if(item?.url){
-                refs.push({
-                    nodeId:node.id,
+        if(smartContainerMemberHasDisplayMedia(entry.node)){
+            return (entry.node.images || []).flatMap((image,index) => {
+                const item = imageForDisplay(image);
+                return item?.url ? [{
+                    kind:'media',
+                    memberKind:'node',
+                    memberId:entry.id,
+                    nodeId:entry.node.id,
                     index,
                     source:image,
                     item
-                });
-            }
-        });
-    });
-    return refs;
+                }] : [];
+            });
+        }
+        return [{kind:'node',memberKind:'node',memberId:entry.id,node:entry.node}];
+    }).map((entry,slotIndex) => ({...entry,slotIndex}));
+}
+function smartContainerImageRefs(group){
+    if(!smartContainerIsGroup(group)) return [];
+    return smartContainerPresentationItems(group)
+        .filter(entry => entry.kind === 'media');
 }
 function smartContainerGridMetrics(items, cols, thumb, gap=8){
     const safeCols = Math.max(1,Math.round(Number(cols) || 1));
@@ -378,11 +399,16 @@ function smartContainerGridMetrics(items, cols, thumb, gap=8){
     return {rowHeights,rowOffsets,gridHeight};
 }
 function smartContainerThumbLayout(node){
-    const refs = smartContainerImageRefs(node)
-        .filter(ref => ref.item?.url);
-    if(!refs.length) return null;
-    const compactMembers = smartContainerCompactMembers(node);
-    const count = refs.length + compactMembers.length;
+    const slots = smartContainerPresentationItems(node);
+    if(!slots.length) return null;
+    const refs = slots.filter(entry => entry.kind === 'media');
+    const compactMembers = slots
+        .filter(entry => entry.kind === 'node')
+        .map(entry => entry.node);
+    const count = slots.length;
+    const layoutItems = slots.map(entry =>
+        entry.kind === 'media' ? entry.item : null
+    );
     const images = refs.map(ref => ref.item);
     const explicitW = Number(node?.w);
     const explicitH = Number(node?.h);
@@ -400,6 +426,7 @@ function smartContainerThumbLayout(node){
     if(count === 1){
         if(hasExplicit){
             return {
+                slots,
                 refs,
                 compactMembers,
                 cols:1,
@@ -416,8 +443,19 @@ function smartContainerThumbLayout(node){
                 )
             };
         }
-        const single = singleImageLayout(refs[0].item, {}, scale);
+        const single = refs[0]
+            ? singleImageLayout(refs[0].item, {}, scale)
+            : {
+                cols:1,
+                rows:1,
+                visibleRows:1,
+                thumb:96,
+                width:96,
+                height:96,
+                single:true
+            };
         return {
+            slots,
             refs,
             compactMembers,
             ...single,
@@ -438,10 +476,6 @@ function smartContainerThumbLayout(node){
         ? count
         : SMART_GROUP_MAX_VISIBLE_ROWS;
     if(hasExplicit){
-        const layoutItems = [
-            ...images,
-            ...compactMembers.map(() => null)
-        ];
         const fitted = typeof boundedMultiMediaGridLayout === 'function'
             ? boundedMultiMediaGridLayout(
                 layoutItems,
@@ -472,6 +506,7 @@ function smartContainerThumbLayout(node){
                 Math.max(1,explicitH - outerPad - summarySpace)
             ),
             fullGridHeight:metrics.gridHeight,
+            slots,
             refs,
             compactMembers,
             width:Math.round(explicitW),
@@ -489,7 +524,7 @@ function smartContainerThumbLayout(node){
     const visibleRows = Math.min(maxVisibleRows,rows);
     const gridW = cols * thumb + (cols - 1) * gap;
     const metrics = smartContainerGridMetrics(
-        [...images,...compactMembers.map(() => null)],
+        layoutItems,
         cols,
         thumb,
         gap
@@ -499,6 +534,7 @@ function smartContainerThumbLayout(node){
         .reduce((total,height) => total + height,0)
         + Math.max(0,visibleRows - 1) * gap;
     return {
+        slots,
         refs,
         compactMembers,
         ...metrics,
@@ -516,176 +552,57 @@ function smartContainerThumbLayout(node){
         )
     };
 }
+function smartContainerPresentation(node){
+    if(!node?.id) return null;
+    const group = smartContainerGroupFor(node.id);
+    if(!group || smartContainerIsImageMember(node)) return null;
+    const layout = smartContainerThumbLayout(group);
+    const slot = layout?.slots?.find(entry =>
+        entry.kind === 'node' && entry.node?.id === node.id
+    );
+    if(!layout || !slot) return null;
+    const thumb = Math.max(28,Math.round(Number(layout.thumb) || 96));
+    const gap = 8;
+    const cols = Math.max(1,Number(layout.cols) || 1);
+    const gridW = cols * thumb + Math.max(0,cols - 1) * gap;
+    const contentW = Math.max(
+        0,
+        Math.round(Number(layout.width) || SMART_GROUP_DEFAULT_WIDTH) - 32
+    );
+    const originX = (Number(group.x) || 0)
+        + 16
+        + Math.max(0,Math.round((contentW - gridW) / 2));
+    const originY = (Number(group.y) || 0) + SMART_CONTAINER_ARRANGE_HEADER;
+    const col = slot.slotIndex % cols;
+    const row = Math.floor(slot.slotIndex / cols);
+    return {
+        x:Math.round(originX + col * (thumb + gap)),
+        y:Math.round(
+            originY
+            + (Number(layout.rowOffsets?.[row]) || row * (thumb + gap))
+        ),
+        width:thumb,
+        height:thumb
+    };
+}
 function smartContainerArrange(group, options={}){
     if(!smartContainerIsGroup(group)) return false;
-    const hasThumbImages = smartContainerImageRefs(group)
-        .some(ref => ref.item?.url);
-    if(hasThumbImages){
-        const compactMembers = smartContainerCompactMembers(group);
-        if(!options.skipUndo){
-            smartContainerMutationModule.history({action:'push'});
-        }
-        const layout = smartContainerThumbLayout(group);
-        if(!layout) return true;
-        const refs = layout.refs || [];
-        const thumb = Math.max(
-            28,
-            Math.round(Number(layout.thumb) || 96)
-        );
-        const gap = 8;
-        const cols = Math.max(1,Number(layout.cols) || 1);
-        const gridW = cols * thumb + Math.max(0,cols - 1) * gap;
-        const contentW = Math.max(
-            0,
-            Math.round(
-                Number(layout.width)
-                || SMART_GROUP_DEFAULT_WIDTH
-            ) - 32
-        );
-        const originX = (Number(group.x) || 0)
-            + 16
-            + Math.max(0,Math.round((contentW - gridW) / 2));
-        const originY = (Number(group.y) || 0) + 44;
-        group.w = Math.max(
-            SMART_GROUP_MIN_WIDTH,
-            Math.round(
-                Number(layout.width)
-                || SMART_GROUP_DEFAULT_WIDTH
-            )
-        );
-        const requiredHeight = compactMembers.length
-            && Number(layout.fullGridHeight) > 0
-            ? Math.max(
-                Number(layout.height) || 0,
-                Number(layout.fullGridHeight) + 32 + 28
-            )
-            : Number(layout.height);
-        group.h = Math.max(
-            SMART_GROUP_MIN_HEIGHT,
-            Math.round(
-                requiredHeight
-                || SMART_GROUP_DEFAULT_HEIGHT
-            )
-        );
-        const ordered = compactMembers.slice().sort((left, right) => {
-            const leftRect = nodeRect(left);
-            const rightRect = nodeRect(right);
-            const deltaY = (Number(leftRect.y) || 0)
-                - (Number(rightRect.y) || 0);
-            if(Math.abs(deltaY) > 24) return deltaY;
-            return (Number(leftRect.x) || 0)
-                - (Number(rightRect.x) || 0);
-        });
-        ordered.forEach((member, memberIndex) => {
-            const index = refs.length + memberIndex;
-            const col = index % cols;
-            const row = Math.floor(index / cols);
-            member.x = Math.round(originX + col * (thumb + gap));
-            member.y = Math.round(
-                originY
-                + (Number(layout.rowOffsets?.[row]) || row * (thumb + gap))
-            );
-            member.w = thumb;
-            member.h = thumb;
-            member.scale = 1;
-        });
-        if(group._memberZoom !== undefined) group._memberZoom = 1;
-        if(options.syncDom) syncSmartGroupMemberElements(group);
-        return true;
-    }
-    const members = smartContainerGroupMembers(group);
-    if(!members.length) return false;
     if(!options.skipUndo){
         smartContainerMutationModule.history({action:'push'});
     }
-    const ordered = members.slice().sort((left, right) => {
-        const leftRect = nodeRect(left);
-        const rightRect = nodeRect(right);
-        const deltaY = (Number(leftRect.y) || 0)
-            - (Number(rightRect.y) || 0);
-        if(Math.abs(deltaY) > 24) return deltaY;
-        return (Number(leftRect.x) || 0)
-            - (Number(rightRect.x) || 0);
-    });
-    ordered.forEach(node => {
-        if(isSmartImageNode(node)){
-            delete node.w;
-            delete node.h;
-        }
-    });
-    const sizes = ordered.map(node => {
-        const rect = nodeRect(node);
-        return {
-            node,
-            width:Math.max(40,Number(rect.width) || 120),
-            height:Math.max(40,Number(rect.height) || 120)
-        };
-    });
-    const count = sizes.length;
-    const padding = SMART_CONTAINER_ARRANGE_PADDING;
-    const gap = SMART_CONTAINER_ARRANGE_GAP;
-    const header = SMART_CONTAINER_ARRANGE_HEADER;
-    const cols = Math.max(
-        1,
-        Math.min(count,Math.round(Math.sqrt(count)) || 1)
-    );
-    const rows = Math.ceil(count / cols);
-    const columnWidths = new Array(cols).fill(0);
-    const rowHeights = new Array(rows).fill(0);
-    sizes.forEach((size, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        columnWidths[col] = Math.max(
-            columnWidths[col],
-            size.width
-        );
-        rowHeights[row] = Math.max(rowHeights[row],size.height);
-    });
-    const columnX = [];
-    let accumulatedX = 0;
-    for(let col = 0; col < cols; col += 1){
-        columnX[col] = accumulatedX;
-        accumulatedX += columnWidths[col] + gap;
-    }
-    const rowY = [];
-    let accumulatedY = 0;
-    for(let row = 0; row < rows; row += 1){
-        rowY[row] = accumulatedY;
-        accumulatedY += rowHeights[row] + gap;
-    }
-    const originX = (Number(group.x) || 0) + padding;
-    const originY = (Number(group.y) || 0) + header + padding;
-    sizes.forEach((size, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        size.node.x = Math.round(
-            originX
-            + columnX[col]
-            + (columnWidths[col] - size.width) / 2
-        );
-        size.node.y = Math.round(
-            originY
-            + rowY[row]
-            + (rowHeights[row] - size.height) / 2
-        );
-    });
-    const totalWidth = columnWidths.reduce(
-        (total, width) => total + width,
-        0
-    ) + gap * (cols - 1) + padding * 2;
-    const totalHeight = rowHeights.reduce(
-        (total, height) => total + height,
-        0
-    ) + gap * (rows - 1) + padding * 2 + header;
+    smartContainerNormalizeOrder(group);
+    const layout = smartContainerThumbLayout(group);
+    if(!layout) return false;
     group.w = Math.max(
         SMART_GROUP_MIN_WIDTH,
-        Math.round(totalWidth)
+        Math.round(Number(layout.width) || SMART_GROUP_DEFAULT_WIDTH)
     );
     group.h = Math.max(
         SMART_GROUP_MIN_HEIGHT,
-        Math.round(totalHeight)
+        Math.round(Number(layout.height) || SMART_GROUP_DEFAULT_HEIGHT)
     );
-    if(group._memberZoom !== undefined) group._memberZoom = 1;
+    delete group._memberZoom;
+    if(options.syncDom) syncSmartGroupMemberElements(group);
     return true;
 }
 function smartContainerAdd(targetId, nodeIds=[], options={}){
@@ -694,7 +611,9 @@ function smartContainerAdd(targetId, nodeIds=[], options={}){
     const requested = nodeIds.map(id =>
         nodes.find(node => node.id === id)
     ).filter(Boolean);
-    if(requested.some(smartContainerIsFrame)) return false;
+    if(requested.some(node =>
+        smartContainerIsFrame(node) || smartContainerIsGroup(node)
+    )) return false;
     const members = requested.filter(node =>
         node
         && node.id !== group.id
@@ -725,6 +644,93 @@ function smartContainerAdd(targetId, nodeIds=[], options={}){
     if(options.save) smartContainerPersistenceModule.schedule();
     return true;
 }
+function smartContainerAddMedia(targetId, images=[], options={}){
+    const group = nodes.find(node => node.id === targetId);
+    if(!smartContainerIsGroup(group)) return false;
+    const additions = (Array.isArray(images) ? images : [])
+        .filter(image => image && typeof image === 'object')
+        .map(image => {
+            const copy = stripImageGenerationMeta({...image});
+            copy.groupMemberId = uid('group-media');
+            return copy;
+        });
+    if(!additions.length) return false;
+    if(!options.skipUndo){
+        smartContainerMutationModule.history({action:'push'});
+    }
+    smartContainerNormalizeOrder(group);
+    group.images.push(...additions);
+    group.memberOrder.push(...additions.map(image => ({
+        kind:'media',
+        id:image.groupMemberId
+    })));
+    if(options.arrange !== false){
+        smartContainerArrange(group,{skipUndo:true,syncDom:options.syncDom});
+    }
+    if(options.select){
+        selectedIds = [];
+        selectedId = group.id;
+        selectedImage = {
+            nodeId:group.id,
+            index:group.images.length - additions.length
+        };
+    }
+    if(options.render !== false) render();
+    if(options.save !== false) smartContainerPersistenceModule.schedule();
+    return additions;
+}
+function smartContainerTakeMedia(group, index){
+    if(!smartContainerIsGroup(group)) return null;
+    const safeIndex = Number(index);
+    if(
+        !Number.isInteger(safeIndex)
+        || safeIndex < 0
+        || safeIndex >= (group.images || []).length
+    ) return null;
+    smartContainerNormalizeOrder(group);
+    const [image] = group.images.splice(safeIndex,1);
+    const mediaId = String(image?.groupMemberId || '');
+    group.memberOrder = (group.memberOrder || []).filter(entry =>
+        !(entry?.kind === 'media' && entry.id === mediaId)
+    );
+    return image || null;
+}
+function smartContainerReorderMedia(group, fromIndex, toIndex){
+    if(!smartContainerIsGroup(group)) return false;
+    const from = Number(fromIndex);
+    const to = Number(toIndex);
+    if(
+        !Number.isInteger(from)
+        || !Number.isInteger(to)
+        || from < 0
+        || to < 0
+        || from >= (group.images || []).length
+        || to >= (group.images || []).length
+        || from === to
+    ) return false;
+    smartContainerNormalizeOrder(group);
+    const movingId = group.images[from]?.groupMemberId;
+    const targetId = group.images[to]?.groupMemberId;
+    const [moving] = group.images.splice(from,1);
+    group.images.splice(to,0,moving);
+    const movingOrderIndex = group.memberOrder.findIndex(entry =>
+        entry.kind === 'media' && entry.id === movingId
+    );
+    const targetOrderIndex = group.memberOrder.findIndex(entry =>
+        entry.kind === 'media' && entry.id === targetId
+    );
+    if(movingOrderIndex < 0 || targetOrderIndex < 0) return true;
+    const [movingEntry] = group.memberOrder.splice(movingOrderIndex,1);
+    const nextTargetIndex = group.memberOrder.findIndex(entry =>
+        entry.kind === 'media' && entry.id === targetId
+    );
+    group.memberOrder.splice(
+        from < to ? nextTargetIndex + 1 : nextTargetIndex,
+        0,
+        movingEntry
+    );
+    return true;
+}
 function smartContainerRelease(nodeIds=[], groupId='', options={}){
     const targetIds = new Set(nodeIds.filter(Boolean));
     const groups = nodes.filter(group =>
@@ -739,10 +745,9 @@ function smartContainerRelease(nodeIds=[], groupId='', options={}){
     if(!options.skipUndo){
         smartContainerMutationModule.history({action:'push'});
     }
-    groups.forEach(group => {
-        group.items = (group.items || [])
-            .filter(id => !targetIds.has(id));
-    });
+    groups.forEach(group => targetIds.forEach(id =>
+        smartContainerRemoveNodeReference(group,id)
+    ));
     if(options.select !== false){
         selectedIds = [...targetIds]
             .filter(id => nodes.some(node => node.id === id));
@@ -774,8 +779,7 @@ function smartContainerPrune(nodeId){
         ){
             return;
         }
-        group.items = group.items.filter(id => id !== nodeId);
-        changed = true;
+        if(smartContainerRemoveNodeReference(group,nodeId)) changed = true;
     });
     return changed;
 }
@@ -815,6 +819,13 @@ function smartContainerGroup(nodeIds=[]){
         toast(tr('smart.selectNodesForGroup'));
         return null;
     }
+    selected.sort((left,right) => {
+        const leftRect = nodeRect(left);
+        const rightRect = nodeRect(right);
+        return leftRect.y - rightRect.y
+            || leftRect.x - rightRect.x
+            || String(left.id).localeCompare(String(right.id));
+    });
     smartContainerMutationModule.history({action:'push'});
     const rects = selected.map(nodeRect);
     const minX = Math.min(...rects.map(rect => rect.x));
@@ -842,6 +853,8 @@ function smartContainerGroup(nodeIds=[]){
     group.w = Math.max(340,Math.round(maxX - minX + 36));
     group.h = Math.max(220,Math.round(maxY - minY + 72));
     group.images = [];
+    group.memberOrderVersion = SMART_GROUP_MEMBER_ORDER_VERSION;
+    group.memberOrder = [];
     selected.forEach(node => smartContainerAddNode(group,node));
     smartContainerArrange(group,{skipUndo:true});
     selectedIds = [];
@@ -856,70 +869,73 @@ function smartContainerUngroup(nodeId){
     const group = nodes.find(node => node.id === nodeId);
     if(!smartContainerIsGroup(group)) return false;
     smartContainerMutationModule.history({action:'push'});
-    const memberIds = smartContainerGroupMembers(group)
-        .map(member => member.id);
-    const images = (group.images || [])
-        .filter(image => image?.url);
-    const created = [];
-    if(images.length){
-        const layout = imageLayout(
-            group.images || [],
-            nodeScale(group),
-            group
+    const ordered = smartContainerOrderedEntries(group);
+    const selectedInOrder = [];
+    let mediaX = Math.round(Number(group.x) || 0);
+    let mediaY = Math.round(
+        (Number(group.y) || 0)
+        + smartContainerGroupLayout(group).height
+        + SMART_CONTAINER_ARRANGE_GAP
+    );
+    const rowStartX = mediaX;
+    const rowLimitX = rowStartX + Math.max(
+        SMART_GROUP_DEFAULT_WIDTH,
+        smartContainerGroupLayout(group).width
+    );
+    let rowHeight = 0;
+    ordered.forEach(entry => {
+        if(entry.kind === 'node'){
+            selectedInOrder.push(entry.id);
+            return;
+        }
+        const image = entry.image;
+        if(!image?.url) return;
+        const detachedImage = stripImageGenerationMeta({...image});
+        delete detachedImage.groupMemberId;
+        const size = singleImageLayout(
+            detachedImage,
+            {},
+            MEDIA_NODE_DEFAULT_SCALE
         );
-        const padding = 16;
-        const gap = 8;
-        const cell = Math.max(28,Math.round(layout.thumb || 96));
-        const cols = Math.max(1,layout.cols || 1);
-        images.forEach((image, index) => {
-            const col = index % cols;
-            const row = Math.floor(index / cols);
-            const size = thumbDisplaySize(image,cell);
-            const x = Math.round(
-                Number(group.x || 0)
-                + padding
-                + col * (cell + gap)
-                + Math.max(0,(cell - size.width) / 2)
-            );
-            const y = Math.round(
-                Number(group.y || 0)
-                + padding
-                + row * (cell + gap)
-                + Math.max(0,(cell - size.height) / 2)
-            );
-            const node = {
-                id:uid('smart'),
-                type:'smart-image',
-                x,
-                y,
-                w:size.width,
-                h:size.height,
-                title:'Image',
-                images:[stripImageGenerationMeta({...image})],
-                scale:MEDIA_NODE_DEFAULT_SCALE,
-                created_at:Date.now()
-            };
-            inheritNodeMetaFromImage(node);
-            clearDetachedRunInputRefs(node);
-            smartContainerMutationModule.create({
-                kind:'prepared',
-                data:{node},
-                options:{
-                    skipUndo:true,
-                    select:false,
-                    render:false,
-                    save:false,
-                    positionMode:'exact'
-                }
-            });
-            created.push(node);
+        if(mediaX > rowStartX && mediaX + size.width > rowLimitX){
+            mediaX = rowStartX;
+            mediaY += rowHeight + SMART_CONTAINER_ARRANGE_GAP;
+            rowHeight = 0;
+        }
+        const node = {
+            id:uid('smart'),
+            type:'smart-image',
+            x:mediaX,
+            y:mediaY,
+            w:size.width,
+            h:size.height,
+            title:tr('smart.kindImage'),
+            images:[detachedImage],
+            scale:MEDIA_NODE_DEFAULT_SCALE,
+            created_at:Date.now()
+        };
+        inheritNodeMetaFromImage(node);
+        clearDetachedRunInputRefs(node);
+        smartContainerMutationModule.create({
+            kind:'prepared',
+            data:{node},
+            options:{
+                skipUndo:true,
+                select:false,
+                render:false,
+                save:false,
+                positionMode:'exact'
+            }
         });
-    }
+        selectedInOrder.push(node.id);
+        mediaX += size.width + SMART_CONTAINER_ARRANGE_GAP;
+        rowHeight = Math.max(rowHeight,size.height);
+    });
     smartContainerMutationModule.remove({
         nodeIds:[group.id],
         options:{skipUndo:true,render:false,save:false}
     });
-    selectedIds = [...created.map(node => node.id),...memberIds]
+    selectedIds = selectedInOrder
         .filter(id => nodes.some(node => node.id === id));
     selectedId = selectedIds.length === 1 ? selectedIds[0] : '';
     selectedImage = {nodeId:'',index:-1};
@@ -930,10 +946,13 @@ function smartContainerUngroup(nodeId){
 }
 function smartContainerRemove(nodeIds=[], options={}){
     const expanded = new Set(nodeIds);
-    if(!options.preserveFrameContents){
+    if(!options.preserveFrameContents || !options.preserveGroupContents){
         nodeIds.forEach(id => {
             const node = nodes.find(item => item.id === id);
-            if(smartContainerIsFrame(node)){
+            if(
+                (smartContainerIsFrame(node) && !options.preserveFrameContents)
+                || (smartContainerIsGroup(node) && !options.preserveGroupContents)
+            ){
                 smartContainerDescendantIds(node)
                     .forEach(memberId => expanded.add(memberId));
             }
@@ -943,6 +962,62 @@ function smartContainerRemove(nodeIds=[], options={}){
         nodeIds:[...expanded],
         options
     });
+}
+function smartContainerRemapCopy(copy, source, idMap){
+    if(!smartContainerIsGroup(copy) || !smartContainerIsGroup(source)){
+        return copy;
+    }
+    const mediaIdMap = new Map();
+    copy.images = (copy.images || []).map((image,index) => {
+        const cloned = {...image};
+        const sourceId = smartContainerMediaId(source,source.images?.[index],index);
+        cloned.groupMemberId = uid('group-media');
+        mediaIdMap.set(sourceId,cloned.groupMemberId);
+        return cloned;
+    });
+    const sourceMediaIds = (source.images || []).map((image,index) =>
+        smartContainerMediaId(source,image,index)
+    );
+    const sourceNodeIds = [...new Set((source.items || []).map(String))];
+    const seenSourceMedia = new Set();
+    const seenSourceNodes = new Set();
+    const sourceOrder = [];
+    (Array.isArray(source.memberOrder) ? source.memberOrder : []).forEach(entry => {
+        const kind = String(entry?.kind || '');
+        const id = String(entry?.id || '');
+        if(
+            kind === 'media'
+            && sourceMediaIds.includes(id)
+            && !seenSourceMedia.has(id)
+        ){
+            sourceOrder.push({kind,id});
+            seenSourceMedia.add(id);
+        } else if(
+            kind === 'node'
+            && sourceNodeIds.includes(id)
+            && !seenSourceNodes.has(id)
+        ){
+            sourceOrder.push({kind,id});
+            seenSourceNodes.add(id);
+        }
+    });
+    sourceMediaIds.forEach(id => {
+        if(!seenSourceMedia.has(id)) sourceOrder.push({kind:'media',id});
+    });
+    sourceNodeIds.forEach(id => {
+        if(!seenSourceNodes.has(id)) sourceOrder.push({kind:'node',id});
+    });
+    copy.memberOrderVersion = SMART_GROUP_MEMBER_ORDER_VERSION;
+    copy.memberOrder = sourceOrder.map(entry => ({
+        kind:entry.kind,
+        id:entry.kind === 'node'
+            ? String(idMap.get(entry.id) || '')
+            : String(mediaIdMap.get(entry.id) || '')
+    })).filter(entry => entry.id);
+    copy.items = copy.memberOrder
+        .filter(entry => entry.kind === 'node')
+        .map(entry => entry.id);
+    return copy;
 }
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
@@ -961,15 +1036,23 @@ window.SmartCanvasModules.smartContainer = Object.freeze({
     reconcileFrames:smartContainerReconcileFrames,
     compactMembers:smartContainerCompactMembers,
     isCompactMember:smartContainerIsCompactMember,
+    isImageMember:smartContainerIsImageMember,
     zoom:smartContainerZoom,
+    orderedEntries:smartContainerOrderedEntries,
+    normalizeOrder:smartContainerNormalizeOrder,
+    presentation:smartContainerPresentation,
     imageRefs:smartContainerImageRefs,
     thumbLayout:smartContainerThumbLayout,
     arrange:smartContainerArrange,
     add:smartContainerAdd,
+    addMedia:smartContainerAddMedia,
+    takeMedia:smartContainerTakeMedia,
+    reorderMedia:smartContainerReorderMedia,
     release:smartContainerRelease,
     prune:smartContainerPrune,
     dragTarget:smartContainerDragTarget,
     group:smartContainerGroup,
     ungroup:smartContainerUngroup,
-    remove:smartContainerRemove
+    remove:smartContainerRemove,
+    remapCopy:smartContainerRemapCopy
 });

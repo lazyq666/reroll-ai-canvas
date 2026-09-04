@@ -55,7 +55,6 @@
     }
     const dialog=document.getElementById('smartFrameExportDialog');
     const scaleControl=document.getElementById('smartFrameExportScale');
-    const name=document.getElementById('smartFrameExportName');
     const size=document.getElementById('smartFrameExportSize');
     const status=document.getElementById('smartFrameExportStatus');
     const primary=document.getElementById('smartFrameExportDownload');
@@ -64,7 +63,6 @@
     const busy=()=>Boolean(attempt);
     const scale=()=>Number(scaleControl.getAttribute('value'))||1;
     function showCopy(info){
-        name.textContent=info?.title || '';
         const dims=dimensions(info?.rect,scale());
         size.textContent=info ? trf('smart.frameExport.dimensions',dims) : '';
         for(const button of scaleControl.querySelectorAll('[data-value]')){

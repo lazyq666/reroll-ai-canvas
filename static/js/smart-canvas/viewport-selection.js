@@ -32,11 +32,15 @@ function smartViewportSelectionIds(){
 function smartViewportSelectionHas(nodeId){
     return selectedId === nodeId || selectedIds.includes(nodeId);
 }
+function smartViewportSelectionDisplayRect(node){
+    return window.SmartCanvasModules?.smartContainer?.presentation?.(node)
+        || nodeRect(node);
+}
 function smartViewportSelectionBounds(ids=smartViewportSelectionIds()){
     const rects = (ids || [])
         .map(id => nodes.find(node => node.id === id))
         .filter(Boolean)
-        .map(nodeRect);
+        .map(smartViewportSelectionDisplayRect);
     if(!rects.length) return null;
     const left = Math.min(...rects.map(rect => Number(rect.x) || 0));
     const top = Math.min(...rects.map(rect => Number(rect.y) || 0));
@@ -367,15 +371,19 @@ function smartViewportSelectionSyncMinimapScene(){
     }
     if(typeof minimap === 'undefined' || !minimap) return;
     const frameColors = smartViewportSelectionMinimapFrameColors();
+    const smartContainer = window.SmartCanvasModules?.smartContainer;
     const items = nodes
-        .filter(node => node.id !== SMART_LOG_PREVIEW_NODE_ID)
+        .filter(node =>
+            node.id !== SMART_LOG_PREVIEW_NODE_ID
+            && !smartContainer?.groupFor?.(node.id)
+        )
         .map(node => ({
             id:node.id,
             kind:smartViewportSelectionMinimapKind(node),
             frameColor:smartViewportSelectionMinimapKind(node) === 'frame'
                 ? node.frameColor || 'slate'
                 : frameColors.get(node.id) || '',
-            ...nodeRect(node)
+            ...smartViewportSelectionDisplayRect(node)
         }));
     minimap.scene = {
         items,
@@ -422,7 +430,10 @@ function smartViewportSelectionFitAll(){
         smartViewportSelectionApply();
         return;
     }
-    const rects = nodes.map(nodeRect);
+    const smartContainer = window.SmartCanvasModules?.smartContainer;
+    const rects = nodes
+        .filter(node => !smartContainer?.groupFor?.(node.id))
+        .map(smartViewportSelectionDisplayRect);
     const minX = Math.min(...rects.map(rect => rect.x));
     const minY = Math.min(...rects.map(rect => rect.y));
     const maxX = Math.max(...rects.map(rect => rect.x + rect.width));
@@ -465,7 +476,7 @@ function smartViewportSelectionExitZoomPreviewToNode(nodeId){
     const node = nodes.find(item => item.id === nodeId);
     if(!node) return smartViewportSelectionExitZoomPreview();
     const previous = zoomPreviewState;
-    const rect = nodeRect(node);
+    const rect = smartViewportSelectionDisplayRect(node);
     const centerX = rect.x + rect.width / 2;
     const centerY = rect.y + rect.height / 2;
     const fitWidth = Math.max(1, shell.clientWidth - 160);
@@ -537,8 +548,9 @@ function smartViewportSelectionFinishBox(event){
     const maxX = Math.max(start.x, end.x);
     const maxY = Math.max(start.y, end.y);
     selectedIds = nodes.filter(node => {
-        const rect = nodeRect(node);
         const containerModule = window.SmartCanvasModules?.smartContainer;
+        if(containerModule?.groupFor?.(node.id)) return false;
+        const rect = smartViewportSelectionDisplayRect(node);
         if(containerModule?.isFrame(node)){
             return rect.x >= minX
                 && rect.y >= minY

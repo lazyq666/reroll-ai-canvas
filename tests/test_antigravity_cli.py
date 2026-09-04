@@ -250,9 +250,8 @@ class AntigravityCliTests(unittest.TestCase):
         self.assertEqual(400, raised.exception.status_code)
         self.assertIn("不允许访问", str(raised.exception.detail))
 
-    def test_canvas_llm_syncs_filtered_images_and_video_frames_to_cli_payload(self):
+    def test_canvas_llm_syncs_valid_images_and_video_frames_to_cli_payload(self):
         image = "data:image/png;base64,aW1hZ2U="
-        rejected_video_in_image_field = "data:video/mp4;base64,dmlkZW8="
         video = "data:video/mp4;base64,dmlkZW8="
         frame = "data:image/jpeg;base64,ZnJhbWU="
         captured = {}
@@ -284,7 +283,7 @@ class AntigravityCliTests(unittest.TestCase):
                     main.CanvasLLMRequest(
                         message="describe",
                         provider="gemini-cli",
-                        images=[image, rejected_video_in_image_field],
+                        images=[image],
                         videos=[video],
                     )
                 )
@@ -296,23 +295,8 @@ class AntigravityCliTests(unittest.TestCase):
             captured["request"].payload.images,
         )
 
-    def test_canvas_llm_does_not_reintroduce_rejected_cli_image_values(self):
-        captured = {}
-
-        async def run_generation(request, payload=None):
-            captured["request"] = request
-            return SimpleNamespace(
-                text="ok",
-                model="auto",
-                raw_usage=None,
-                expose_raw=False,
-            )
-
-        with mock.patch.object(
-            main,
-            "_run_generation_inline",
-            run_generation,
-        ):
+    def test_canvas_llm_rejects_wrong_media_type_instead_of_filtering_it(self):
+        with self.assertRaises(HTTPException) as raised:
             asyncio.run(
                 main.canvas_llm(
                     main.CanvasLLMRequest(
@@ -323,7 +307,9 @@ class AntigravityCliTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual([], captured["request"].payload.images)
+        self.assertEqual(422, raised.exception.status_code)
+        self.assertEqual("input_invalid", raised.exception.detail["code"])
+        self.assertEqual("image", raised.exception.detail["field"])
 
     def test_image_generation_does_not_collect_another_tasks_shared_output(self):
         run_directories = []

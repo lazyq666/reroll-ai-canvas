@@ -238,6 +238,7 @@ class GenerationRecoveryRouteTests(unittest.IsolatedAsyncioTestCase):
             canvas_id="canvas-1",
             node_id="node-1",
             generation_operation_id="operation-1",
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
         )
         try:
             with (

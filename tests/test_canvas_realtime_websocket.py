@@ -34,7 +34,6 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
             unload_main()
             try:
                 main = importlib.import_module("main")
-                main.sync_static_html_versions = lambda: None
                 main.AUTH_SYSTEM.create_user(
                     username="admin",
                     password="admin-password",
@@ -112,7 +111,6 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
             unload_main()
             try:
                 main = importlib.import_module("main")
-                main.sync_static_html_versions = lambda: None
                 admin = main.AUTH_SYSTEM.create_user(
                     username="admin-presence",
                     password="admin-password",
@@ -260,7 +258,6 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
             unload_main()
             try:
                 main = importlib.import_module("main")
-                main.sync_static_html_versions = lambda: None
                 main.AUTH_SYSTEM.create_user(
                     username="admin",
                     password="admin-password",

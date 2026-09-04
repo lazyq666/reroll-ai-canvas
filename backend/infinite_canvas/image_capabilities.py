@@ -7,10 +7,12 @@ must not infer capabilities from model names.
 
 from __future__ import annotations
 
+import copy
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from threading import RLock
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -105,6 +107,12 @@ class ImageModelCapability:
     confirmed_at: str | None = None
     known: bool = True
     supports_transparent_png: bool = False
+    operations: tuple[str, ...] = ("image.generate",)
+    image_input_maximum: int = 20
+    output_count_maximum: int = 4
+    operation_contracts: Mapping[str, Mapping[str, Any]] = field(
+        default_factory=dict
+    )
 
     @property
     def show_resolution_control(self) -> bool:
@@ -124,6 +132,9 @@ class ImageModelCapability:
             "known": self.known,
             "show_resolution_control": self.show_resolution_control,
             "supports_transparent_png": self.supports_transparent_png,
+            "operations": list(self.operations),
+            "image_input_maximum": self.image_input_maximum,
+            "output_count_maximum": self.output_count_maximum,
         }
 
 
@@ -160,6 +171,12 @@ def _capability_from_mapping(
         confirmed_at=_clean_text(value.get("confirmed_at")) or None,
         known=known,
         supports_transparent_png=value.get("supports_transparent_png") is True,
+        operations=_ordered_unique(value.get("operations") or ("image.generate",)),
+        image_input_maximum=max(0, int(value.get("image_input_maximum") or 20)),
+        output_count_maximum=max(1, int(value.get("output_count_maximum") or 4)),
+        operation_contracts=copy.deepcopy(
+            dict(value.get("operation_contracts") or {})
+        ),
     )
 
 
@@ -170,15 +187,29 @@ class ImageCapabilityRegistry:
         self._maintained_path = (
             Path(maintained_path) if maintained_path is not None else None
         )
+        self._lock = RLock()
+        self._maintained_payload: Mapping[str, Any] | None = None
+
+    @property
+    def source_path(self) -> Path | None:
+        return self._maintained_path
+
+    def replace_payload(self, payload: Mapping[str, Any]) -> None:
+        """Publish a validated catalog snapshot for subsequent resolutions."""
+        with self._lock:
+            self._maintained_payload = copy.deepcopy(dict(payload))
 
     def _maintained(self) -> dict[tuple[str, str], Mapping[str, Any]]:
         path = self._maintained_path
-        if path is None or not path.exists():
-            return {}
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, TypeError, ValueError):
-            return {}
+        with self._lock:
+            payload = copy.deepcopy(self._maintained_payload)
+        if payload is None:
+            if path is None or not path.exists():
+                return {}
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, TypeError, ValueError):
+                return {}
         items = payload.get("capabilities") if isinstance(payload, dict) else []
         result: dict[tuple[str, str], Mapping[str, Any]] = {}
         for item in items if isinstance(items, list) else []:
@@ -232,6 +263,10 @@ class ImageCapabilityRegistry:
             confirmed_at=None,
             known=False,
             supports_transparent_png=False,
+            operations=(),
+            image_input_maximum=20,
+            output_count_maximum=4,
+            operation_contracts={},
         )
 
 

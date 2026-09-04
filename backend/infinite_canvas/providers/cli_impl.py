@@ -1477,6 +1477,16 @@ async def generate_jimeng_provider_image(
     if validation_error:
         raise HTTPException(status_code=400, detail=validation_error)
     refs = [ref for ref in (reference_images or []) if ref.get("url")]
+    if len(refs) > 10:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "input_maximum",
+                "field": "image",
+                "maximum": 10,
+                "actual": len(refs),
+            },
+        )
     poll_seconds = (
         0 if on_remote is not None else jimeng_poll_seconds()
     )
@@ -1485,7 +1495,7 @@ async def generate_jimeng_provider_image(
         args = []
         if refs:
             image_paths = []
-            for ref in refs[:10]:
+            for ref in refs:
                 image_path, created = await jimeng_prepare_local_media(ref.get("url"), "image")
                 image_paths.append(jimeng_cli_path_arg(image_path))
                 temp_paths.extend(created)

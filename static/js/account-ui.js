@@ -40,6 +40,7 @@
     if (menu) menu.hidden = false;
     applyRoleGate(user);
     window.initializeStudioForUser?.(user);
+    window.dispatchEvent(new CustomEvent('studio-user-ready', {detail: {user}}));
   }
 
   async function logout() {

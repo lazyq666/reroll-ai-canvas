@@ -19,9 +19,6 @@ import main  # noqa: E402
 from infinite_canvas.batch_generation import BatchGeneration  # noqa: E402
 
 
-main.sync_static_html_versions = lambda: None
-
-
 USERNAME = "batch-browser-designer"
 PASSWORD = "batch-browser-password"
 

@@ -621,7 +621,16 @@ async function generationRecoveryResumeNodeOnce(
             const rawOutputs=result?.image_items?.length
                 ? result.image_items
                 : (result?.images?.length ? result.images : result);
-            const processedOutputs=await generationRecoveryProcessorOutputs(currentNode,rawOutputs);
+            const generationSlotIndex = Number(task.generationSlotIndex);
+            const generationSlotCount = Number(task.generationSlotCount);
+            const slotOutputs = Number.isInteger(generationSlotIndex)
+                && generationSlotIndex >= 0
+                && Number.isInteger(generationSlotCount)
+                && generationSlotCount > 1
+                ? (Array.isArray(rawOutputs) ? rawOutputs : resultMediaUrls(rawOutputs))
+                    .slice(generationSlotIndex,generationSlotIndex + 1)
+                : rawOutputs;
+            const processedOutputs=await generationRecoveryProcessorOutputs(currentNode,slotOutputs);
             const additions = generationRecoveryOutputModule.apply({
                 node:currentNode,
                 taskId:task.taskId,

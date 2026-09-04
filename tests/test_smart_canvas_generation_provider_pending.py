@@ -68,6 +68,46 @@ class SmartCanvasGenerationProviderPendingTests(unittest.TestCase):
         self.assertEqual(result["tasks"][0]["actorId"], "owner-a")
         self.assertEqual(result["tasks"][0]["providerId"], "provider")
 
+    def test_one_image_intent_submits_total_output_count_in_one_run(self):
+        result = self.run_node(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const source = fs.readFileSync({json.dumps(str(PROVIDER_MODULE))}, 'utf8');
+            const payloads = [];
+            const sandbox = {{
+                window: {{ SmartCanvasModules: {{}} }},
+                isApiLikeEngine: engine => engine === 'api',
+                imageRefsOnly: refs => refs,
+                sizeForRun: () => '1024x1024',
+                SMART_REFERENCE_IMAGE_MAX: 20,
+                tr: key => key,
+                fetch: async (_url, options) => {{
+                    payloads.push(JSON.parse(options.body));
+                    return {{
+                        ok: true,
+                        json: async () => ({{task_id:'one-generation-run',actor_id:'owner-a'}}),
+                        text: async () => '',
+                    }};
+                }},
+            }};
+            vm.createContext(sandbox);
+            vm.runInContext(source, sandbox);
+            sandbox.window.SmartCanvasModules.generationProvider.submit({{
+                prompt:'three outputs',
+                refs:[],
+                settings:{{
+                    engine:'api',apiKind:'image',provider_id:'provider',model:'model',count:3,
+                }},
+            }}).then(submission => process.stdout.write(JSON.stringify({{payloads,submission}})));
+            """
+        )
+
+        self.assertEqual(len(result["payloads"]), 1)
+        self.assertEqual(result["payloads"][0]["n"], 3)
+        self.assertEqual(len(result["submission"]["tasks"]), 1)
+        self.assertEqual(result["submission"]["tasks"][0]["generationSlotCount"], 3)
+
     def test_transparent_png_submission_is_guarded_by_model_capability(self):
         result = self.run_node(
             f"""

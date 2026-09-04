@@ -33,9 +33,9 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-7b33bb553c30"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-0fd45a4c86a4"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=2026.09.01.5.1788452586">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-08c192d48798">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
@@ -598,9 +598,8 @@
     <ic-dialog id="workspaceAssetDialog" class="workspace-asset-dialog" label="资产库" data-i18n-label="smart.workspaceAssetLibrary" size="x-large" dismiss-policy="explicit">
         <ic-workspace-asset-library id="workspaceAssetPanel" aria-label="资产库" data-i18n-aria-label="smart.workspaceAssetLibrary"></ic-workspace-asset-library>
     </ic-dialog>
-    <ic-dialog id="smartFrameExportDialog" label="下载分区" data-i18n-label="smart.frameExport.title" size="small" variant="compact" dismiss-policy="explicit">
+    <ic-dialog id="smartFrameExportDialog" label="下载分区图片" data-i18n-label="smart.frameExport.title" size="small" variant="compact" dismiss-policy="explicit">
         <div class="smart-frame-export-content">
-            <strong id="smartFrameExportName" class="smart-frame-export-name"></strong>
             <div class="smart-frame-export-field">
                 <span data-i18n="smart.frameExport.scale">导出倍率</span>
                 <ic-segmented-control id="smartFrameExportScale" size="small" label="导出倍率" data-i18n-label="smart.frameExport.scale" value="1" data-legal-combination="single-label">
@@ -608,7 +607,7 @@
                 </ic-segmented-control>
             </div>
             <div class="smart-frame-export-field"><span data-i18n="smart.frameExport.size">图片尺寸</span><output id="smartFrameExportSize" aria-live="polite"></output></div>
-            <p class="smart-frame-export-hint"><span data-i18n="smart.frameExport.includes">包含图片、文字标注、画笔和分区背景</span><br><span data-i18n="smart.frameExport.excludes">不包含提示词卡片、连线或视频封面</span></p>
+            <p class="smart-frame-export-hint" data-i18n="smart.frameExport.contents">包含图片、文字标注、画笔和分区背景；不包含提示词卡片、连线或视频封面</p>
             <p id="smartFrameExportStatus" role="status" aria-live="polite" aria-atomic="true"></p>
         </div>
         <ic-button slot="footer" id="smartFrameExportCancel" hierarchy="secondary" data-i18n="smart.frameExport.cancel">取消</ic-button>
@@ -640,6 +639,7 @@
     <script src="/static/js/smart-canvas/smart-container.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/image-studio.js?v=2026.09.01.5.1788439320"></script>
+    <script src="/static/js/smart-canvas/model-capabilities.js?v=2026.09.04.1"></script>
     <script src="/static/js/smart-canvas/image-capabilities.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/reference-instances.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/video-capabilities.js?v=2026.09.01.5.1788439320"></script>
@@ -658,7 +658,7 @@
     <script src="/static/js/smart-canvas/generation-cascade.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas.js?v=2026.09.01.5.1788453002" onerror="window.__showSmartCanvasBootError()"></script>
-    <script src="/static/js/smart-canvas/frame-image-export-host.js?v=2026.09.01.5.1788439320"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-cb7386a866e3" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
 </body>
 </html>

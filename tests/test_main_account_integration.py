@@ -268,9 +268,6 @@ class MainAccountIntegrationTests(unittest.TestCase):
                     migrate_access = stack.enter_context(
                         patch.object(main, "migrate_all_canvas_access")
                     )
-                    stack.enter_context(
-                        patch.object(main, "sync_static_html_versions")
-                    )
                     asyncio.run(main.startup_event())
                     asyncio.run(main.startup_event())
 
@@ -292,6 +289,33 @@ class MainAccountIntegrationTests(unittest.TestCase):
             finally:
                 unload_main()
 
+    def test_startup_does_not_rewrite_static_html_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                main, _workspace = self._load_main(
+                    tmp,
+                    configured=False,
+                )
+                static_dir = Path(tmp) / "static"
+                script_dir = static_dir / "js"
+                script_dir.mkdir(parents=True)
+                (script_dir / "theme.js").write_text(
+                    "window.theme = 'light';\n",
+                    encoding="utf-8",
+                )
+                page = static_dir / "index.html"
+                original = (
+                    '<script src="/static/js/theme.js?v=committed"></script>\n'
+                )
+                page.write_text(original, encoding="utf-8")
+
+                with patch.object(main, "STATIC_DIR", str(static_dir)):
+                    main._prepare_startup_state()
+
+                self.assertEqual(original, page.read_text(encoding="utf-8"))
+            finally:
+                unload_main()
+
     def test_static_html_versioning_preserves_existing_query_parameters(self):
         with tempfile.TemporaryDirectory() as tmp:
             try:
@@ -310,6 +334,35 @@ class MainAccountIntegrationTests(unittest.TestCase):
                 self.assertEqual(len(query.get("v", [])), 1)
                 self.assertNotIn("?", query["v"][0])
                 self.assertEqual(parsed.fragment, "surface")
+            finally:
+                unload_main()
+
+    def test_static_html_versioning_is_independent_of_local_mtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                main, _workspace = self._load_main(tmp)
+                static_dir = Path(tmp) / "static"
+                script_dir = static_dir / "js"
+                script_dir.mkdir(parents=True)
+                script = script_dir / "theme.js"
+                script.write_text("window.theme = 'light';\n", encoding="utf-8")
+                source = '<script src="/static/js/theme.js?v=stale"></script>'
+
+                with (
+                    patch.object(main, "STATIC_DIR", str(static_dir)),
+                    patch.object(
+                        main,
+                        "current_app_version",
+                        return_value="2026.09.04.1",
+                    ),
+                ):
+                    os.utime(script, (100, 100))
+                    first = main.versioned_static_html(source)
+                    os.utime(script, (200, 200))
+                    second = main.versioned_static_html(source)
+
+                self.assertEqual(first, second)
+                self.assertIn("?v=2026.09.04.1", first)
             finally:
                 unload_main()
 

@@ -194,8 +194,31 @@
     const members = (Array.isArray(node?.items) ? node.items : [])
       .map((item) => typeof item === 'object' ? item : sharedNodesById.get(String(item)))
       .filter(Boolean);
-    const seen = new Set(direct.map((entry) => entry.url));
-    return direct.concat(members.flatMap(collectMedia).filter((entry) => !seen.has(entry.url) && seen.add(entry.url)));
+    const directById = new Map(direct.map((entry, index) => [
+      String(entry.item?.groupMemberId || `legacy:${String(node?.id || 'group')}:${index}`),
+      entry,
+    ]));
+    const memberById = new Map(members.map((member) => [String(member.id), member]));
+    const ordered = [];
+    const seenMedia = new Set();
+    const seenMembers = new Set();
+    (Array.isArray(node?.memberOrder) ? node.memberOrder : []).forEach((entry) => {
+      const id = String(entry?.id || '');
+      if (entry?.kind === 'media' && directById.has(id) && !seenMedia.has(id)) {
+        ordered.push(directById.get(id));
+        seenMedia.add(id);
+      } else if (entry?.kind === 'node' && memberById.has(id) && !seenMembers.has(id)) {
+        ordered.push(...collectMedia(memberById.get(id)));
+        seenMembers.add(id);
+      }
+    });
+    directById.forEach((entry, id) => {
+      if (!seenMedia.has(id)) ordered.push(entry);
+    });
+    members.forEach((member) => {
+      if (!seenMembers.has(String(member.id))) ordered.push(...collectMedia(member));
+    });
+    return ordered;
   };
   const smartGroupBodyMarkup = (node) => {
     const entries = groupMedia(node);
@@ -380,9 +403,20 @@
   const drawLinks = (connections) => {
     linksLayer.replaceChildren();
     const byId = new Map(nodeBounds.map((node) => [node.id, node]));
+    const groupByMember = new Map();
+    (sharedCanvas?.nodes || []).forEach((node) => {
+      if (nodeType(node) !== 'smart-group') return;
+      (node.items || []).forEach((id) => groupByMember.set(String(id),String(node.id)));
+    });
+    const seenLinks = new Set();
     const links = (connections || []).map((link) => {
-      const fromId = String(link.from || link.source || link.fromNode || link.sourceId || '');
-      const toId = String(link.to || link.target || link.toNode || link.targetId || '');
+      const rawFrom = String(link.from || link.source || link.fromNode || link.sourceId || '');
+      const rawTo = String(link.to || link.target || link.toNode || link.targetId || '');
+      const fromId = groupByMember.get(rawFrom) || rawFrom;
+      const toId = groupByMember.get(rawTo) || rawTo;
+      const key = `${fromId}\u0000${toId}`;
+      if (fromId === toId || seenLinks.has(key)) return null;
+      seenLinks.add(key);
       const from = byId.get(fromId);
       const to = byId.get(toId);
       if (!from || !to) return null;
@@ -672,7 +706,14 @@
       sharedNodesById = new Map((canvas.nodes || []).map((node, index) => [String(node.id || index), node]));
       sharedGeometrySession = window.SmartCanvasModules?.nodeGeometry?.createSession(canvas);
       if (!sharedGeometrySession) throw new Error('Canvas Node Geometry failed to load');
-      sharedNodeRecords = (canvas.nodes || []).map(createNodeRecord);
+      const ownedNodeIds = new Set();
+      (canvas.nodes || []).forEach((node) => {
+        if (nodeType(node) !== 'smart-group') return;
+        (node.items || []).forEach((id) => ownedNodeIds.add(String(id)));
+      });
+      sharedNodeRecords = (canvas.nodes || [])
+        .filter((node) => !ownedNodeIds.has(String(node?.id || '')))
+        .map(createNodeRecord);
       nodeBounds = sharedNodeRecords.map((record) => ({
         id:record.id, x:record.x, y:record.y, width:record.width, height:record.height,
         isFrame:record.isFrame, frameColor:record.frameColor,
