@@ -6,6 +6,7 @@ import copy
 import datetime as _datetime
 import json
 import os
+import re
 import uuid
 from pathlib import Path
 from threading import RLock
@@ -39,6 +40,34 @@ CAPABILITY_FIELDS = frozenset(
 )
 CAPABILITY_PARAMETER_TYPES = frozenset(
     {"array", "boolean", "enum", "integer", "number", "string"}
+)
+EVIDENCE_FIELD_LIMITS = {
+    "source_locator": 2048,
+    "fetched_at": 80,
+    "applicable_version": 160,
+    "content_location": 500,
+    "excerpt": 4000,
+    "actor_id": 200,
+}
+_EVIDENCE_FORBIDDEN_CONTENT = (
+    "price",
+    "pricing",
+    "billing",
+    "charge",
+    "credit",
+    "cost",
+    "currency",
+    "fee",
+    "quota balance",
+    "价格",
+    "计价",
+    "计费",
+    "消耗",
+    "积分",
+    "费用",
+    "金额",
+    "货币",
+    "余额",
 )
 
 
@@ -106,35 +135,21 @@ class ModelCapabilityWorkbench:
         excerpt: str,
         actor_id: str,
     ) -> dict[str, Any]:
-        identity = self._identity(provider_id, model_id, operation)
-        values = {
-            "source_locator": _clean(source_locator),
-            "fetched_at": _clean(fetched_at),
-            "applicable_version": _clean(applicable_version),
-            "content_location": _clean(content_location),
-            "excerpt": _clean(excerpt),
-            "actor_id": _clean(actor_id),
-        }
-        missing = next((key for key, value in values.items() if not value), None)
-        if missing:
-            raise ModelCapabilityWorkbenchValidation(
-                f"evidence field is required: {missing}"
-            )
-        normalized_source_type = _clean(source_type).lower()
-        if normalized_source_type not in EVIDENCE_SOURCE_TYPES:
-            raise ModelCapabilityWorkbenchValidation(
-                f"unsupported evidence source type: {normalized_source_type or 'empty'}"
-            )
+        values = self.validate_evidence(
+            provider_id=provider_id,
+            model_id=model_id,
+            operation=operation,
+            source_type=source_type,
+            source_locator=source_locator,
+            fetched_at=fetched_at,
+            applicable_version=applicable_version,
+            content_location=content_location,
+            excerpt=excerpt,
+            actor_id=actor_id,
+        )
         evidence = {
             "id": str(uuid.uuid4()),
-            **identity,
-            "source_type": normalized_source_type,
-            "source_locator": values["source_locator"],
-            "fetched_at": values["fetched_at"],
-            "applicable_version": values["applicable_version"],
-            "content_location": values["content_location"],
-            "excerpt": values["excerpt"],
-            "created_by": values["actor_id"],
+            **values,
             "created_at": self._clock(),
         }
         with self._lock:
@@ -142,6 +157,95 @@ class ModelCapabilityWorkbench:
             state["evidence"].append(evidence)
             self._write(state)
         return copy.deepcopy(evidence)
+
+    @classmethod
+    def validate_evidence(
+        cls,
+        *,
+        provider_id: str,
+        model_id: str,
+        operation: str,
+        source_type: str,
+        source_locator: str,
+        fetched_at: str,
+        applicable_version: str,
+        content_location: str,
+        excerpt: str,
+        actor_id: str,
+    ) -> dict[str, str]:
+        """Validate and normalize Evidence without mutating workbench state."""
+
+        identity = cls._identity(provider_id, model_id, operation)
+        fields = {
+            "source_locator": _clean(source_locator),
+            "fetched_at": _clean(fetched_at),
+            "applicable_version": _clean(applicable_version),
+            "content_location": _clean(content_location),
+            "excerpt": _clean(excerpt),
+            "actor_id": _clean(actor_id),
+        }
+        missing = next((key for key, value in fields.items() if not value), None)
+        if missing:
+            raise ModelCapabilityWorkbenchValidation(
+                f"evidence field is required: {missing}"
+            )
+        oversized = next(
+            (
+                key
+                for key, value in fields.items()
+                if len(value) > EVIDENCE_FIELD_LIMITS[key]
+            ),
+            None,
+        )
+        if oversized:
+            raise ModelCapabilityWorkbenchValidation(
+                f"evidence field is too long: {oversized}"
+            )
+        try:
+            fetched_time = _datetime.datetime.fromisoformat(
+                fields["fetched_at"].replace("Z", "+00:00")
+            )
+        except ValueError as error:
+            raise ModelCapabilityWorkbenchValidation(
+                "evidence fetched_at must be an ISO 8601 timestamp"
+            ) from error
+        if fetched_time.tzinfo is None:
+            raise ModelCapabilityWorkbenchValidation(
+                "evidence fetched_at must include a timezone"
+            )
+        normalized_source_type = _clean(source_type).lower()
+        if normalized_source_type not in EVIDENCE_SOURCE_TYPES:
+            raise ModelCapabilityWorkbenchValidation(
+                f"unsupported evidence source type: {normalized_source_type or 'empty'}"
+            )
+        forbidden = next(
+            (
+                fragment
+                for fragment in _EVIDENCE_FORBIDDEN_CONTENT
+                if re.search(
+                    rf"(?<![a-z]){re.escape(fragment)}(?![a-z])"
+                    if fragment.isascii()
+                    else re.escape(fragment),
+                    "\n".join(fields.values()),
+                    re.IGNORECASE,
+                )
+            ),
+            None,
+        )
+        if forbidden:
+            raise ModelCapabilityWorkbenchValidation(
+                "evidence contains forbidden commercial capability content"
+            )
+        return {
+            **identity,
+            "source_type": normalized_source_type,
+            "source_locator": fields["source_locator"],
+            "fetched_at": fields["fetched_at"],
+            "applicable_version": fields["applicable_version"],
+            "content_location": fields["content_location"],
+            "excerpt": fields["excerpt"],
+            "created_by": fields["actor_id"],
+        }
 
     def save_draft(
         self,
@@ -164,24 +268,7 @@ class ModelCapabilityWorkbench:
             raise ModelCapabilityWorkbenchValidation(
                 "draft base catalog revision is required"
             )
-        candidate = copy.deepcopy(dict(capability or {}))
-        unsupported = sorted(set(candidate) - CAPABILITY_FIELDS)
-        if unsupported:
-            raise ModelCapabilityWorkbenchValidation(
-                f"unsupported draft capability field: {unsupported[0]}"
-            )
-        support_state = _clean(candidate.get("support_state"))
-        if support_state not in SUPPORT_STATES:
-            raise ModelCapabilityWorkbenchValidation(
-                "draft support_state must be supported or unknown"
-            )
-        for required_mapping in ("inputs", "output", "parameters"):
-            if not isinstance(candidate.get(required_mapping), Mapping):
-                raise ModelCapabilityWorkbenchValidation(
-                    f"draft capability field must be an object: {required_mapping}"
-                )
-        _assert_no_forbidden_fields(candidate, path="draft.capability")
-        self._validate_capability_contract(candidate)
+        candidate = self.validate_capability(capability)
         bindings = copy.deepcopy(dict(field_evidence or {}))
         leaf_paths = set(self._leaf_paths(candidate))
         if set(bindings) != leaf_paths:
@@ -276,6 +363,33 @@ class ModelCapabilityWorkbench:
                 state["drafts"].append(draft)
             self._write(state)
         return copy.deepcopy(draft)
+
+    @classmethod
+    def validate_capability(cls, capability: Mapping[str, Any]) -> dict[str, Any]:
+        """Validate one candidate without mutating Evidence or Draft state."""
+
+        candidate = copy.deepcopy(dict(capability or {}))
+        unsupported = sorted(set(candidate) - CAPABILITY_FIELDS)
+        if unsupported:
+            raise ModelCapabilityWorkbenchValidation(
+                f"unsupported draft capability field: {unsupported[0]}"
+            )
+        support_state = _clean(candidate.get("support_state"))
+        if support_state not in SUPPORT_STATES:
+            raise ModelCapabilityWorkbenchValidation(
+                "draft support_state must be supported or unknown"
+            )
+        for required_mapping in ("inputs", "output", "parameters"):
+            if not isinstance(candidate.get(required_mapping), Mapping):
+                raise ModelCapabilityWorkbenchValidation(
+                    f"draft capability field must be an object: {required_mapping}"
+                )
+        try:
+            _assert_no_forbidden_fields(candidate, path="draft.capability")
+        except ValueError as error:
+            raise ModelCapabilityWorkbenchValidation(str(error)) from error
+        cls._validate_capability_contract(candidate)
+        return candidate
 
     def submit_for_review(self, draft_id: str, *, actor_id: str) -> dict[str, Any]:
         actor = self._required_actor(actor_id)
@@ -400,6 +514,181 @@ class ModelCapabilityWorkbench:
                         "model capability catalog activation failed"
                     )
             return copy.deepcopy(draft)
+
+    def publish_manual_capabilities(
+        self,
+        *,
+        records: list[Mapping[str, Any]],
+        model_name: str,
+        active_catalog_revision: str,
+        actor_id: str,
+        activate: Callable[[], Mapping[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Record and publish one product-level model matrix edit atomically.
+
+        Provider-specific records remain an implementation detail. One
+        Administrator action records the same reviewed model choice for every
+        matching provider and activates the catalog once, so no intermediate
+        catalog revision can split a multi-provider model update.
+        """
+
+        actor = self._required_actor(actor_id)
+        revision = _clean(active_catalog_revision)
+        if not revision:
+            raise ModelCapabilityWorkbenchValidation(
+                "active catalog revision is required"
+            )
+        if not records:
+            raise ModelCapabilityWorkbenchValidation(
+                "at least one capability record is required"
+            )
+        timestamp = self._clock()
+        prepared: list[dict[str, Any]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for raw_record in records:
+            identity = self._identity(
+                raw_record.get("provider_id"),
+                raw_record.get("model_id"),
+                raw_record.get("operation"),
+            )
+            identity_key = (
+                identity["provider_id"],
+                identity["model_id"],
+                identity["operation"],
+            )
+            if identity_key in seen:
+                continue
+            seen.add(identity_key)
+            candidate = self.validate_capability(raw_record.get("capability") or {})
+            raw_evidence = raw_record.get("evidence")
+            evidence_inputs = (
+                list(raw_evidence)
+                if isinstance(raw_evidence, (list, tuple)) and raw_evidence
+                else [
+                    {
+                        "source_type": "manual",
+                        "source_locator": "model-capability-matrix",
+                        "fetched_at": timestamp,
+                        "applicable_version": revision,
+                        "content_location": "Administrator model capability choices",
+                        "excerpt": (
+                            f"Administrator confirmed capability options for "
+                            f"{_clean(raw_record.get('model_name')) or _clean(model_name) or identity['model_id']} "
+                            f"({identity['operation']})."
+                        ),
+                    }
+                ]
+            )
+            evidences: list[dict[str, Any]] = []
+            for raw_evidence_item in evidence_inputs:
+                if not isinstance(raw_evidence_item, Mapping):
+                    raise ModelCapabilityWorkbenchValidation(
+                        "capability evidence must be an object"
+                    )
+                evidence_values = self.validate_evidence(
+                    **identity,
+                    source_type=raw_evidence_item.get("source_type"),
+                    source_locator=raw_evidence_item.get("source_locator"),
+                    fetched_at=raw_evidence_item.get("fetched_at"),
+                    applicable_version=raw_evidence_item.get("applicable_version"),
+                    content_location=raw_evidence_item.get("content_location"),
+                    excerpt=raw_evidence_item.get("excerpt"),
+                    actor_id=actor,
+                )
+                evidences.append(
+                    {
+                        "id": str(uuid.uuid4()),
+                        **evidence_values,
+                        "created_at": timestamp,
+                    }
+                )
+            prepared.append(
+                {
+                    "identity": identity,
+                    "identity_key": identity_key,
+                    "capability": candidate,
+                    "evidence": evidences,
+                }
+            )
+
+        with self._lock:
+            state = self._read()
+            previous_state = copy.deepcopy(state)
+            published_identities = {item["identity_key"] for item in prepared}
+            state["published"]["capabilities"] = [
+                item
+                for item in state["published"]["capabilities"]
+                if not isinstance(item, Mapping)
+                or (
+                    item.get("provider_id"),
+                    item.get("model_id"),
+                    item.get("operation"),
+                )
+                not in published_identities
+            ]
+            published_drafts: list[dict[str, Any]] = []
+            for item in prepared:
+                identity = item["identity"]
+                evidence = item["evidence"]
+                capability = item["capability"]
+                draft_id = str(uuid.uuid4())
+                bindings = {
+                    path: {
+                        "evidence_ids": [record["id"] for record in evidence],
+                        "confidence": "high",
+                    }
+                    for path in self._leaf_paths(capability)
+                }
+                draft = {
+                    "id": draft_id,
+                    **identity,
+                    "capability": capability,
+                    "field_evidence": bindings,
+                    "base_catalog_revision": revision,
+                    "review_state": "published",
+                    "created_by": actor,
+                    "created_at": timestamp,
+                    "updated_by": actor,
+                    "updated_at": timestamp,
+                    "submitted_at": timestamp,
+                    "reviewed_by": actor,
+                    "reviewed_at": timestamp,
+                    "review_note": "",
+                    "published_at": timestamp,
+                }
+                published = {
+                    "draft_id": draft_id,
+                    **identity,
+                    "capability": copy.deepcopy(capability),
+                    "field_evidence": copy.deepcopy(bindings),
+                    "published_by": actor,
+                    "published_at": timestamp,
+                }
+                state["evidence"].extend(evidence)
+                state["drafts"].append(draft)
+                state["published"]["capabilities"].append(published)
+                published_drafts.append(draft)
+            state["published"]["published_at"] = timestamp
+            self._write(state)
+            activation: Mapping[str, Any] = {"ok": True}
+            if activate is not None:
+                try:
+                    activation = activate()
+                except Exception as error:
+                    self._write(previous_state)
+                    raise ModelCapabilityWorkbenchPublication(
+                        "model capability catalog activation failed"
+                    ) from error
+                if not isinstance(activation, Mapping) or not activation.get("ok"):
+                    self._write(previous_state)
+                    raise ModelCapabilityWorkbenchPublication(
+                        "model capability catalog activation failed"
+                    )
+            return {
+                "published": len(published_drafts),
+                "drafts": copy.deepcopy(published_drafts),
+                "catalog": copy.deepcopy(dict(activation)),
+            }
 
     @staticmethod
     def _required_actor(actor_id: object) -> str:
@@ -546,6 +835,7 @@ class ModelCapabilityWorkbench:
 
 __all__ = [
     "EVIDENCE_SOURCE_TYPES",
+    "EVIDENCE_FIELD_LIMITS",
     "ModelCapabilityWorkbench",
     "ModelCapabilityWorkbenchConflict",
     "ModelCapabilityWorkbenchError",

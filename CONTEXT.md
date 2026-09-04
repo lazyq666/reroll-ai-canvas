@@ -224,6 +224,14 @@ _Avoid_: Model, Workflow, API Key
 Provider 提供的一个具名生成能力版本。
 _Avoid_: Provider, Workflow, Preset
 
+**Model Profile（模型档案）**:
+Administrator 按稳定 Model ID 查看和维护的一行产品记录；同一 Model ID 由多个 Provider 提供时仍是同一个 Model Profile，Provider 仅作为可用来源附着其上。可编辑显示名称不是身份，名称相近也不能自动合并不同 Model ID。
+_Avoid_: Provider Model, Model Capability, Display Name
+
+**Model Capability Matrix（模型能力表）**:
+Administrator 以一行一个 Model Profile、通过开关和选项维护模型输入、输出与参数范围，并导入外部研究结果的产品界面；它隐藏 Provider 路由、内部 JSON 合同、逐字段 Evidence 和 Catalog Revision。
+_Avoid_: Model List, Capability JSON Editor, Provider Capability Table
+
 **Model Capability（模型能力）**:
 一个确切 Model 在一种 Model Operation 下支持的输入、输出和参数边界。
 _Avoid_: Provider Default, UI Guess
@@ -249,7 +257,7 @@ _Avoid_: UI Status, Runtime Availability, Account Eligibility
 _Avoid_: AI Guess, Model Capability Draft, Provider Availability
 
 **Model Capability Draft（模型能力草稿）**:
-根据 Model Capability Evidence 由自动提取或人工录入形成、尚未进入 Model Capability Catalog 的候选能力；它可以编辑和退回，但不能约束 Generation Run。
+根据 Model Capability Evidence 由外部研究包或人工录入形成、尚未进入 Model Capability Catalog 的候选能力；它可以编辑和退回，但不能约束 Generation Run。
 _Avoid_: Model Capability, Published Capability, Runtime Contract
 
 **Model Capability Review（模型能力审核）**:

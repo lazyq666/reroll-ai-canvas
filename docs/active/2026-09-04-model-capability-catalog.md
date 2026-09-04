@@ -1,11 +1,11 @@
 # 统一模型能力目录
 
-- **Status**：Implementing（统一运行合同和手工 Evidence → Draft → Review → Publish 后端闭环已实现；下一步建设 Administrator 工作台界面，之后再接 AI 填表、自动采集与定时刷新）
+- **Status**：Implemented（统一运行合同、资料采集、按 Model ID 聚合的产品能力表和外部研究包导入已实现，等待产品验收后毕业为 Current）
 - **Feature ID**：F08；关联 F05 / F09 / F12
-- **Last verified**：2026-09-04；工作台/目录/媒体/生成恢复/应用组合专项 126 项，文档地图与相邻路由专项 51 项，3,128 个国际化键和三图单 Run 浏览器烟测通过；此前全项目 1882 项测试仍有 6 项非本功能专项失败，三栏 Administrator UI 与自动采集尚未完成，暂不进入 Review
+- **Last verified**：2026-09-04；158 项相关自动化测试、i18n 3317 keys 校验和真实 Chrome smoke 均通过。已验证无内置 AI 入口、查找要求复制、固定 JSON 粘贴、校验不写入、预览后应用、同 Model ID 跨平台原子发布、异常回滚、`image.layer_decomposition` 固定约束、桌面与 390px 窄屏、Light/Dark 和双语
 - **Applies to**：[Issue #32](https://github.com/lazyq666/reroll-ai-canvas/issues/32)
 - **Related ADRs**：[ADR-0009](../adr/0009-unified-model-capability-catalog.md)
-- **Domain terms**：Provider、Model、Model Operation、Model Capability、Model Capability State、Model Capability Evidence、Model Capability Draft、Model Capability Review、Model Capability Review State、Model Capability Catalog、Generation Settings、Generation Run
+- **Domain terms**：Provider、Model、Model Profile、Model Capability Matrix、Model Operation、Model Capability、Model Capability State、Model Capability Evidence、Model Capability Draft、Model Capability Review、Model Capability Review State、Model Capability Catalog、Generation Settings、Generation Run
 
 ## 1. 目标
 
@@ -65,11 +65,42 @@
 
 ## 6. 刷新、失败与恢复
 
-- 当前阶段从随版本发布的图片、视频、文字维护文件建立快照；管理员可以查看状态并人工刷新。
-- 刷新必须先完整解析、检查 Schema，并拒绝任何价格或消耗字段，再整体发布新的 Revision。
-- 解析失败时保留上一份有效快照和 Revision，状态接口记录错误；正在服务的请求不读取半份新目录。
+- 随版本发布的图片、视频、文字维护文件仍是基础快照；管理员可以查看状态并人工检查来源。
+- APIMART Seedream 5.0 Pro 官方页面默认以 `Accept: text/markdown` 读取，只在一张输入、像素/文件上限、拆层分辨率、单输出和结构化图层标记全部存在时生成 Evidence 与 Draft；页面结构变化或返回 HTML 时整条来源失败。已安装的 Dreamina CLI 默认作为只读来源，提取帮助中明确列出的精确视频模型、时长、比例和分辨率；资料未明确的输入或输出字段不会补猜测。可配置的公网结构化 JSON 来源使用 ETag / Last-Modified 条件请求。
+- 来源检查在启动旁路执行，不阻塞应用可用；默认每 24 小时复查。单进程内并发检查合并为一次，失败后从 5 分钟开始指数退避，最长 6 小时，并加入抖动。
+- 外部响应、条件请求标识和去重摘要属于 Device Cache。内容变化只创建逐字段 Evidence 与 Draft，不提交审核、不发布，也不改变当前 Catalog Revision；仅取得时间变化不会重复创建审核工作。
+- 刷新必须先完整解析、检查 Schema，并拒绝任何价格或消耗字段。解析、来源或缓存写入失败时保留上一份有效目录和 Revision，管理员状态接口保留失败原因；正在服务的请求不读取半份新目录。
 - 浏览器查询失败时内部使用 `unknown` 回退和保守合同，不伪造已确认状态，也不展示状态标签。
-- 后续阶段补充 Provider 文档/API 采集、缓存、退避重试、定时刷新和过期时间；完成前本规格保持 Active。
+
+结构化来源使用以下最小传输合同；每条 `records` 必须是一个精确能力身份，`capability` 是候选 Patch，`evidence` 提供可追溯位置。`capability` 可省略，此时只采集 Evidence。单响应最多 2 MiB / 1,000 条，最多配置 20 个来源。
+
+```json
+{
+  "version": 1,
+  "records": [
+    {
+      "provider_id": "apimart",
+      "model_id": "seedream-5-0-pro",
+      "operation": "image.layer_decomposition",
+      "confidence": "high",
+      "capability": {
+        "support_state": "supported",
+        "inputs": {},
+        "output": {},
+        "parameters": {}
+      },
+      "evidence": {
+        "source_type": "official_docs",
+        "source_locator": "https://example.invalid/model",
+        "fetched_at": "2026-09-04T08:00:00Z",
+        "applicable_version": "2026-09-04",
+        "content_location": "Layer decomposition parameters",
+        "excerpt": "One source image is required."
+      }
+    }
+  ]
+}
+```
 
 ## 7. 能力资料填表与审核工作台
 
@@ -79,14 +110,14 @@
 
 1. **建立字段规范**：先固定统一外层合同及媒体专用字段，未定义字段不能由采集器自行扩展。
 2. **采集 Evidence**：按 Provider 类型读取官方文档、结构化模型 API、CLI 帮助/版本资料或工作流 Schema，并保存来源地址或命令、取得时间、适用版本、内容摘要和可定位的原文位置。
-3. **AI 生成 Draft**：AI 按一条 `Provider + Model + Model Operation` 记录逐字段提取；每个填写值都要关联 Evidence 和置信度，资料未说明时保持空白，不允许猜测。
+3. **外部研究并导入**：Administrator 可在 ChatGPT、Codex 或其他工具中完成资料搜索，再按固定格式导入。Reroll 不运行 AI；每个确认值必须附官方来源，资料未说明的 Model Operation 必须省略。
 4. **确定性校验**：提交人工审核前检查 Schema、字段类型、枚举、最小/最大关系、重复身份、资料冲突和禁止字段。
 5. **人工 Review**：Administrator 在模型能力工作台查看证据、编辑表单、保存草稿、提交审核、退回或批准发布。
 6. **原子 Publish**：批准后整体生成新的 Catalog Revision。重新采集只生成与已发布版本的差异草稿，不能直接覆盖当前目录。
 
 当前后端闭环已经实现上述手工流程：Evidence 创建后不可由 Draft 偷换身份；Draft 每个已填写叶子字段必须绑定同一身份的 Evidence 与置信度；只有 `draft/returned → in_review → published` 的合法状态转换可以发布。草稿基于的 Catalog Revision 已过期时返回冲突；运行目录激活失败时回滚 Published 状态并继续使用上一 Revision。
 
-自动提取不是能力事实权威。模型列表 API 可能只提供名称，CLI 帮助可能只描述命令，家族级文档也不一定证明某个精确模型的限制；这些情况下相关字段保持空白，Model Capability State 保持 `unknown`。审核完成也不自动等于 `supported`。
+外部研究结果不是能力事实权威。模型列表 API 可能只提供名称，CLI 帮助可能只描述命令，家族级文档也不一定证明某个精确模型的限制；这些情况下相关 Model Operation 不得进入导入包，Model Capability State 保持 `unknown`。审核完成也不自动等于 `supported`。
 
 ### 7.2 状态与时间分离
 
@@ -95,14 +126,60 @@
 - 生成界面不显示上述状态；仅根据已发布合同渲染控件和校验设置。
 - Evidence 记录 `fetched_at`；Review 记录 `reviewed_at` 和审核人；确认支持时记录 `confirmed_at`；目录生效时记录 `published_at`。
 
-### 7.3 工作台最小界面
+### 7.3 产品能力表
 
-- 左栏：Provider、Model、Model Operation 和 Review State 列表。
-- 中栏：按身份、输入、输出和参数分组的可编辑表单。
-- 右栏：逐字段 Evidence、原文位置、AI 提取依据、冲突提示及与当前已发布版本的差异。
-- 操作：保存草稿、提交审核、退回修改、批准并发布。
+- 页面进入时读取当前环境全部可用模型，以稳定 Model ID 合并成一行；同一 Model ID 出现在多个 Provider 时，Provider 仅显示为平台标签。
+- 可编辑显示名称不作为稳定身份；不同 Model ID 即使名称相近也不自动合并，确需合并时必须使用明确别名映射。
+- 表格直接显示模型名称与 ID、平台、媒体类型、已确认能力和资料状态。Administrator 点击一行后使用开关、单选和多选设置可接收素材、数量、清晰度、画幅和附加能力。
+- Provider ID、Inputs / Output / Parameters JSON、逐字段路径、Evidence ID 和 Catalog Revision 不在主界面出现；资料只提供面向产品的完整度与可追溯摘要。
+- “同步现有模型”只重新读取环境模型；“检查资料”只检查已配置的确定性来源并明确反馈新增资料、建议和缺失模型数；“导入能力数据”提供可复制的查找要求和固定格式，Reroll 本身不发起 AI 请求。
+- 导入分为校验预览与应用两步。预览必须核对 Schema 版本、Model ID、显示名称、当前可用 Model Operation、五类输入数量和每项官方来源；数据变化后必须重新预览。应用对整个导入包执行一次原子发布，任一记录失败则全部回滚。
+- Administrator 的“保存并应用”同时表达人工核对与批准。后台为关联 Provider 生成同一模型选择的审计记录，并在一次原子目录激活中整体应用，不能出现跨平台只发布一半的状态。
+
+产品导入包固定使用以下 Provider 无关格式。`model_id` 与 `name` 必须逐字来自工作台生成的当前模型清单；同一 Model ID 不按平台拆分。只写有官方资料明确支持的 Model Operation，`inputs` 五个键表示各类素材的最大数量；`sources.type` 只允许 `official_docs`、`structured_api`、`cli_help` 或 `workflow_schema`。本格式禁止价格、计费、额度、积分、Token 消耗和余额数据。
+
+```json
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "model_id": "seedream-5-0-pro",
+      "name": "Seedream 5.0 Pro",
+      "operations": [
+        {
+          "operation": "image.layer_decomposition",
+          "confirmed": true,
+          "inputs": {
+            "text": 1,
+            "image": 1,
+            "video": 0,
+            "audio": 0,
+            "file": 0
+          },
+          "resolutions": ["auto", "1K", "1.5K", "2K"],
+          "aspect_ratios": [],
+          "output_count_maximum": 1,
+          "options": [],
+          "sources": [
+            {
+              "type": "official_docs",
+              "url": "https://example.invalid/official-model-docs",
+              "title": "Layer decomposition",
+              "excerpt": "A short passage that directly supports these values."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
 
 后端已提供 Administrator-only 接口：
+
+- `GET /api/admin/model-capability-matrix`：读取按 Model ID 合并的现有模型与产品能力选项；
+- `PUT /api/admin/model-capability-matrix`：把一行产品选项原子应用到该模型的所有关联 Provider；
+- `POST /api/admin/model-capability-matrix/import`：校验预览或原子应用一个外部研究包；
 
 - `GET /api/admin/model-capability-workbench`：读取 Evidence、Draft、Review State、Published 投影和当前目录状态；
 - `POST /api/admin/model-capability-evidence`：记录可追溯 Evidence；
@@ -111,16 +188,16 @@
 - `POST /api/admin/model-capability-drafts/{draft_id}/return`：附理由退回修改；
 - `POST /api/admin/model-capability-drafts/{draft_id}/publish`：按预期 Revision 批准并原子激活。
 
-页面级三栏工作台尚未实现，因此本规格仍为 Implementing。
+旧三栏合同编辑器不再作为产品界面。底层 Evidence、Draft、Review 和 Published 记录仍保留为审计与恢复实现，产品能力表通过单一矩阵接口隐藏这些细节。
 
 工作台和采集层都禁止创建、保存或发布价格、金额、货币、计费、额度、Token/积分消耗字段；即使来源资料包含这些章节，也必须在提取前过滤并由 Schema 再次拒绝。
 
 ### 7.4 实施顺序
 
-1. 手工 Evidence、Draft、Review、Publish 后端数据边界已实现；下一步用现有接口完成 Administrator 三栏工作台。
-2. 再接入 APIMART 等文档/API，以及即梦 CLI、GPT/Codex CLI 的首批资料采集适配器。
-3. 在稳定表单 Schema 上增加 AI 自动填表；逐字段 Evidence 与置信度绑定已经由后端强制执行。
-4. 最后增加周期复查、差异草稿、退避与过期提醒。
+1. 手工 Evidence、Draft、Review、Publish 后端数据边界已经实现；Administrator 产品能力表替代三栏开发者界面。
+2. Dreamina CLI 明确能力的首批适配器、可配置结构化来源、Device Cache、周期复查、差异草稿和退避已经实现。
+3. APIMART 官方 Markdown 的端到端 Gate 已通过；适配器缺少任一已审核语义标记时 fail-closed。只提供模型名称的后续来源仍必须保持 Evidence-only，不把名称猜成能力。
+4. 内置 AI 搜索与填表已经移除；产品提供当前模型查找要求、固定格式、粘贴导入、校验预览和原子应用。
 
 ## 8. 数据责任
 
@@ -137,18 +214,21 @@
 - 刷新成功产生新 Revision；刷新失败继续返回上一有效能力。
 - 中英文错误文案完整，能力状态不渲染到用户界面，能力模块在媒体专用模块之前加载。
 - 对公开能力合同和资源进行禁止字段回归，确认没有价格或消耗数据。
-- AI 提取不能直接发布；每个自动填写值可以回到具体 Evidence，资料缺失时不会补猜测值。
+- Reroll 不发起 AI 搜索或填表；外部研究包的每个确认操作必须附官方来源，资料缺失时不能导入猜测值。
 - Review State 与 Model Capability State 分离；已审核但证据不足的记录仍可保持 `unknown`。
 - 重新采集只产生差异草稿；批准发布前不会改变当前 Catalog Revision。
 - 手工 Evidence 与 Draft 可在重启后恢复；每个填写值均绑定同身份 Evidence，矛盾上下限和禁止字段被拒绝。
 - 只有待审核 Draft 可以发布；旧 Revision 发布冲突和目录激活失败都不会替换上一有效目录。
-- 完成自动采集/缓存/定时刷新后，再进行 Light/Dark、键盘、窄屏、真实 Provider 和失败恢复的页面级验收，并评估毕业为 Current。
+- 自动采集/缓存/定时刷新、Light/Dark、键盘、390px 窄屏和失败恢复已有自动化覆盖；真实 Provider 与最终人工验收通过后评估毕业为 Current。
 
 ## 10. 代表性验证入口
 
 - `tests/test_model_capabilities.py`
 - `tests/test_model_capability_api.py`
 - `tests/test_model_capability_workbench.py`
+- `tests/test_model_capability_refresh.py`
+- `tests/test_model_capability_matrix.py`
+- `tests/model_capability_workbench_browser_smoke.cjs`
 - `tests/test_smart_canvas_model_capabilities.py`
 - `tests/test_image_capabilities.py`
 - `tests/test_video_capabilities.py`
@@ -167,7 +247,7 @@
 | 只保留图片统一参数校验，消融旧图片合法性判断 | 统一层仍同时拒绝非法画幅、分辨率和透明 PNG | 已删除旧图片层的重复合法性判断；尺寸匹配、比例换算等媒体算法保留，但不再成为第二份约束权威 |
 | 只保留视频统一数量校验，消融视频专用组合规则 | Seedance 2.0 仅提供音频时，旧统一层判定通过，专用层以 `visual-reference-required` 正确拒绝 | 统一 `input_rules` 已能表达参考素材总量、音频依赖视觉参考、首尾帧角色与互斥输入；专用层仍保留，待更多模型组合回归证明覆盖等价后再删除 |
 
-下一轮实验优先验证：
+后续可选消融（不阻塞本期合同、工作台与刷新交付）：
 
 1. 把 Model Capability State 和来源元数据从运行合同移到独立管理员投影后，现有生成链路、媒体专用能力和审核需求能否同时成立。
 2. 扩充视频模型组合样本，比较统一 `input_rules` 与专用校验的判定集合；确认完全等价后再删除专用权威。

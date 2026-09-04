@@ -205,6 +205,7 @@ flowchart LR
 - 公网部署需要自行配置 HTTPS 反向代理、安全 Cookie、可信访问边界和备份策略。
 - 当前协作服务按单个 Uvicorn Worker 设计，不支持多 Worker、多实例或跨服务器同步。
 - API Key、账号数据、分享令牌和用户素材有不同存储边界，详见[存储路径与旧数据迁移](docs/current/storage-layout-and-migration.md)。
+- 管理员可在“可用模型管理 → 模型能力”查看当前环境的全部模型；相同 Model ID 跨平台合并为一行，并可用开关、单选和多选设置输入、输出、清晰度、画幅与附加能力。Reroll 不内置 AI 搜索或填表：点击“导入能力数据”可复制当前模型的查找要求，在 ChatGPT 或 Codex 完成研究后粘贴固定 JSON，先校验预览，再原子应用到关联平台。“检查资料”仍可读取 APIMART Seedream 5.0 Pro 官方 Markdown、已安装的 Dreamina CLI 和可配置结构化来源并反馈覆盖情况；可分别用 `.env` 的 `INFINITE_CANVAS_MODEL_CAPABILITY_APIMART_DOCS=0`、`INFINITE_CANVAS_MODEL_CAPABILITY_LOCAL_CLI=0` 关闭内置来源，或设置 `INFINITE_CANVAS_MODEL_CAPABILITY_SOURCE_URLS` 与默认 `86400` 秒的 `INFINITE_CANVAS_MODEL_CAPABILITY_REFRESH_SECONDS`。
 - 安全问题请不要公开披露，按 [SECURITY.md](SECURITY.md) 中的私密报告方式提交。
 
 ---
