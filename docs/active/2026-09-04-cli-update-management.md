@@ -77,7 +77,7 @@ Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamin
 
 ```sh
 .venv/bin/python -m unittest tests.test_cli_updates tests.test_cli_update_http -v
-NODE_PATH=/Users/luoyiqun/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules node tests/cli_updates_browser_smoke.cjs
+NODE_PATH=/path/to/playwright/node_modules node tests/cli_updates_browser_smoke.cjs
 ```
 
 Python 场景覆盖版本顺序、预发布、commit/build、恶意说明、未配置/未安装/版本命令失败、渠道适用性、gzip 解码、Hub 与 CLI 版本隔离、超时/限流、说明缺失、Provider 配置不可读、会话提醒去重和非管理员拒绝。HTTP 回归明确断言升级路径不存在。真实 App Shell 浏览器 smoke 覆盖自动 Dialog、只展示需关注项目、更新与无法判断的视觉分级、CLI 图标、版本关系、Dreamina 原因说明、中英文、纯文本说明、关闭即本次不再提醒、无更新不显示 Dialog，以及始终不存在更新按钮。
