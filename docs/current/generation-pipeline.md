@@ -150,6 +150,10 @@ Designer 在恰好一个 Image Node 上选择“智能分层”后，界面固�
 确认付费提示后，前端先创建 Pending Node 并保存 operation ID，再提交一个 Generation Run。
 Provider Adapter 将冻结请求翻译成 `POST /v1/images/generations`：单张上游图片 URL、
 `layer_decomposition: true`、`n: 1`、`output_format: png` 与选定档位；空提示词不发送。
+本地图片先上传到 API 设置中保存的 APIMart 请求地址；仅当该地址是
+`api.apimart.ai` 或 `apib.ai` 且发生 TLS/网络传输故障时，上传可以切换到另一个官方入口
+重试。自定义兼容地址不得携带凭证自动切换域名，上游已经返回 HTTP 业务错误时也不得回退。
+两个官方入口均无法连接时，Generation Run 记录可重试的连接中断，不得报告为参数错误。
 刷新页面、浏览器轮询失败或服务重启后，只使用原 Generation Run 和已保存的上游 task ID
 继续查询，不把“恢复”翻译成新的付费请求。
 
@@ -159,12 +163,20 @@ Provider Adapter 将冻结请求翻译成 `POST /v1/images/generations`：单张
 `z_index`、超过 16 层，以及任一图层下载或校验失败，都不能发布成功。已经物化的材料保留，
 恢复时继续查询同一 task ID 并重放未完成交付。
 
-成功结果包含版本化 Layer Decomposition Manifest。Smart Canvas 按绝对坐标和 `z_index`
-创建一个专用 Smart Group；底图与各透明层仍是具有独立身份的 Image Node。画布上的合成预览
-作为整体响应点击，不把底图或透明图层的矩形范围作为独立点击热区，透明区域也不绘制缩略图
-底色。各层的显隐、前后顺序、单独下载和拖出状态继续随 Canvas Save、Reload、Undo/Redo 和
-Realtime 协作保存。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也
-只允许 Administrator 或 Designer 创建与查询任务。
+成功结果包含版本化 Layer Decomposition Manifest，并原位完成为一个 Layer Decomposition Node。
+该 Node 自身拥有底图、透明图层、绝对坐标、`z_index` 与可见状态，不创建成员 Image Node，
+也不是 Smart Group。画布上的合成预览作为一个整体响应点击，不把任一图层矩形作为独立点击
+热区，透明区域不绘制缩略图底色。单选它不会打开 Composer；节点工具栏与右键菜单不提供
+编组运行、添加成员、整理、解组、批量下载或宫格拼接。
+
+双击 Layer Decomposition Node 会打开 Image Studio 的专用变体：顶部不显示图片编辑模式栏，
+中间保持当前全部可见图层的合成效果，右侧图层面板按从上到下的视觉层级列出缩略图和名称。
+每行在 Pointer Hover 或 Keyboard Focus 时显示预览与删除动作；预览动作切换该层显隐，删除
+动作从该 Node 移除该层。两者随 Canvas Save、Reload、Undo/Redo 和 Realtime 协作保存。
+底部只显示“下载 PSD”，在 [Issue #36](https://github.com/lazyq666/reroll-ai-canvas/issues/36)
+完成前保持禁用，不提供伪下载。旧版本保存的专用分层 Smart Group 在打开画布时迁移为这一
+单 Node 结构。Guest Account 和 Anonymous Share Visitor 没有提交入口，服务端也只允许
+Administrator 或 Designer 创建与查询任务。
 
 专用实现与验证入口：
 

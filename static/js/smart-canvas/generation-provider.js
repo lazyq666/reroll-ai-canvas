@@ -413,6 +413,9 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
         const referenceState = jimengResolved?.state || resolvedState;
         const referenceValidation = videoCapabilities.validateReferences(referenceState);
         if(!referenceValidation.valid){
+            if(referenceValidation.reason === 'reference-mode-unsupported'){
+                throw new Error(tr('smart.videoReferenceModeUnsupported'));
+            }
             throw new Error(trf('smart.videoReferenceInvalid', {
                 reason:referenceValidation.reason || '',
                 count:referenceValidation.count ?? referenceState.counts.total,

@@ -1,9 +1,12 @@
 import asyncio
 import json
 import unittest
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import httpx
 from fastapi import HTTPException
 
 from tests.runtime_env import ensure_test_workspace
@@ -11,6 +14,7 @@ from tests.runtime_env import ensure_test_workspace
 ensure_test_workspace()
 
 import main
+from infinite_canvas.providers import http_impl
 
 
 def apimart_provider(model="seedream-5-0-pro"):
@@ -112,7 +116,240 @@ class FakeRecoveryClient:
         return FakeResponse(self.payload)
 
 
+class RoutedUploadClient:
+    def __init__(self, calls, *args, **kwargs):
+        self.calls = calls
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+    async def post(self, url, **_kwargs):
+        self.calls.append(url)
+        if "api.apimart.ai" in url:
+            raise httpx.ConnectError("TLS connection interrupted")
+        if url.endswith("/v1/images/generations"):
+            return FakeResponse(
+                {
+                    "code": 200,
+                    "data": [
+                        {"status": "submitted", "task_id": "task-layer-1"}
+                    ],
+                }
+            )
+        return FakeResponse(
+            {"data": {"url": "https://cdn.example.test/uploaded.png"}}
+        )
+
+
+class FailingUploadClient:
+    def __init__(self, calls=None):
+        self.calls = calls
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+    async def post(self, url, **_kwargs):
+        if self.calls is not None:
+            self.calls.append(url)
+        raise httpx.ConnectError("")
+
+
+class SubmitFailingClient(RoutedUploadClient):
+    async def post(self, url, **kwargs):
+        if url.endswith("/v1/images/generations"):
+            self.calls.append(url)
+            raise httpx.ConnectError("")
+        return await super().post(url, **kwargs)
+
+
 class ApimartLayerDecompositionRequestTests(unittest.TestCase):
+    def test_local_upload_falls_back_to_official_domestic_endpoint(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"png")
+            with (
+                patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+                patch.object(main, "output_file_from_url", return_value=str(source)),
+                patch.object(
+                    http_impl.httpx,
+                    "AsyncClient",
+                    side_effect=lambda *args, **kwargs: RoutedUploadClient(
+                        calls, *args, **kwargs
+                    ),
+                ),
+                patch.object(http_impl.asyncio, "sleep", AsyncMock()),
+            ):
+                result = asyncio.run(
+                    main.upload_image_for_apimart(
+                        RoutedUploadClient(calls),
+                        apimart_provider(),
+                        "/assets/input/source.png",
+                    )
+                )
+
+        self.assertEqual("https://cdn.example.test/uploaded.png", result)
+        self.assertEqual(
+            "https://api.apimart.ai/v1/uploads/images", calls[0]
+        )
+        self.assertEqual("https://apib.ai/v1/uploads/images", calls[-1])
+
+    def test_upload_transport_failure_is_not_reported_as_invalid_parameter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"png")
+            with (
+                patch.object(main, "get_api_provider", return_value=apimart_provider()),
+                patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+                patch.object(main, "output_file_from_url", return_value=str(source)),
+                patch.object(
+                    http_impl.httpx,
+                    "AsyncClient",
+                    side_effect=lambda *args, **kwargs: FailingUploadClient(),
+                ),
+                patch.object(http_impl.asyncio, "sleep", AsyncMock()),
+                self.assertRaises(HTTPException) as raised,
+            ):
+                asyncio.run(
+                    main.generate_http_provider_image(
+                        "",
+                        "2K",
+                        "",
+                        "seedream-5-0-pro",
+                        [{"url": "/assets/input/source.png", "role": "source"}],
+                        "apimart",
+                        operation="image.layer_decomposition",
+                        resolution_tier="2K",
+                    )
+                )
+
+        self.assertEqual(502, raised.exception.status_code)
+        self.assertEqual(
+            "provider_connection_interrupted", raised.exception.detail
+        )
+
+    def test_layer_submit_stays_on_domestic_route_after_upload_fallback(self):
+        calls = []
+        provider = apimart_provider()
+        waiter = AsyncMock(return_value=completed_response())
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"png")
+            with (
+                patch.object(main, "get_api_provider", return_value=provider),
+                patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+                patch.object(main, "output_file_from_url", return_value=str(source)),
+                patch.object(
+                    http_impl.httpx,
+                    "AsyncClient",
+                    side_effect=lambda *args, **kwargs: RoutedUploadClient(
+                        calls, *args, **kwargs
+                    ),
+                ),
+                patch.object(http_impl.asyncio, "sleep", AsyncMock()),
+            ):
+                result = asyncio.run(
+                    main.generate_http_provider_image(
+                        "",
+                        "2K",
+                        "",
+                        "seedream-5-0-pro",
+                        [{"url": "/assets/input/source.png", "role": "source"}],
+                        "apimart",
+                        wait_for_task=waiter,
+                        operation="image.layer_decomposition",
+                        resolution_tier="2K",
+                    )
+                )
+
+        self.assertIn("https://apib.ai/v1/uploads/images", calls)
+        self.assertIn("https://apib.ai/v1/images/generations", calls)
+        self.assertEqual("task-layer-1", result["upstream_task_id"])
+        waiter.assert_awaited_once()
+        self.assertEqual(
+            "https://apib.ai", waiter.call_args.args[2]["base_url"]
+        )
+
+    def test_paid_submit_transport_failure_is_not_retried_or_misclassified(self):
+        calls = []
+        provider = apimart_provider()
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"png")
+            with (
+                patch.object(main, "get_api_provider", return_value=provider),
+                patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+                patch.object(main, "output_file_from_url", return_value=str(source)),
+                patch.object(
+                    http_impl.httpx,
+                    "AsyncClient",
+                    side_effect=lambda *args, **kwargs: SubmitFailingClient(
+                        calls, *args, **kwargs
+                    ),
+                ),
+                patch.object(http_impl.asyncio, "sleep", AsyncMock()),
+                self.assertRaises(HTTPException) as raised,
+            ):
+                asyncio.run(
+                    main.generate_http_provider_image(
+                        "",
+                        "2K",
+                        "",
+                        "seedream-5-0-pro",
+                        [{"url": "/assets/input/source.png", "role": "source"}],
+                        "apimart",
+                        operation="image.layer_decomposition",
+                        resolution_tier="2K",
+                    )
+                )
+
+        self.assertEqual(502, raised.exception.status_code)
+        self.assertEqual(
+            "provider_connection_interrupted", raised.exception.detail
+        )
+        self.assertEqual(
+            1,
+            calls.count("https://apib.ai/v1/images/generations"),
+        )
+
+    def test_custom_apimart_gateway_never_falls_back_to_official_hosts(self):
+        calls = []
+        provider = apimart_provider()
+        provider["base_url"] = "https://gateway.example.test/v1"
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"png")
+            with (
+                patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+                patch.object(main, "output_file_from_url", return_value=str(source)),
+                patch.object(
+                    http_impl.httpx,
+                    "AsyncClient",
+                    side_effect=lambda *args, **kwargs: FailingUploadClient(calls),
+                ),
+                patch.object(http_impl.asyncio, "sleep", AsyncMock()),
+                self.assertRaises(HTTPException) as raised,
+            ):
+                asyncio.run(
+                    main.upload_image_for_apimart(
+                        FailingUploadClient(calls),
+                        provider,
+                        "/assets/input/source.png",
+                    )
+                )
+
+        self.assertEqual(502, raised.exception.status_code)
+        self.assertTrue(calls)
+        self.assertEqual(
+            {"https://gateway.example.test/v1/uploads/images"}, set(calls)
+        )
+
     def test_task_endpoint_requires_designer_and_freezes_operation_metadata(self):
         request = main.LayerDecompositionRequest(
             image=main.AIReference(

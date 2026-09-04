@@ -1609,28 +1609,80 @@ def text_delta_from_chat_chunk(data):
         return "".join(parts)
     return str(content) if content else ""
 
-async def apimart_upload_post(client, upload_url, headers, file_tuple, timeout=60):
-    """上传文件到 APIMart，对瞬时 TLS 错误自动重试；重试时改用全新连接，避免复用坏掉的 TLS 连接。
-    file_tuple 形如 (filename, content_bytes, content_type)，content 为已读入内存的 bytes，可跨重试复用。"""
+async def apimart_upload_post(
+    client, provider, upload_url, headers, file_tuple, timeout=60
+):
+    """上传文件到 APIMart，并在官方入口发生传输故障时切换入口重试。
+
+    file_tuple 形如 (filename, content_bytes, content_type)，content 为已读入内存的
+    bytes，可跨重试复用。只允许在 api.apimart.ai 与 apib.ai 两个已知官方入口之间
+    切换，绝不把自定义 APIMart 兼容平台的凭证发送到其他域名。
+    """
+    parsed_upload_url = urllib.parse.urlsplit(str(upload_url or ""))
+    upload_host = (parsed_upload_url.hostname or "").lower()
+    alternate_host = {
+        "api.apimart.ai": "apib.ai",
+        "apib.ai": "api.apimart.ai",
+    }.get(upload_host, "")
+    alternate_url = (
+        urllib.parse.urlunsplit(
+            (
+                "https",
+                alternate_host,
+                parsed_upload_url.path,
+                parsed_upload_url.query,
+                parsed_upload_url.fragment,
+            )
+        )
+        if alternate_host
+        else ""
+    )
     last_exc = None
     for attempt in range(_ports.APIMART_UPLOAD_RETRY_ATTEMPTS):
         files = {"file": file_tuple}
+        attempt_url = (
+            alternate_url
+            if alternate_url and attempt > 0
+            else upload_url
+        )
         try:
             if attempt == 0:
-                return await client.post(upload_url, headers=headers, files=files, timeout=timeout)
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(connect=20.0, read=max(120.0, float(timeout)), write=120.0, pool=20.0),
-                follow_redirects=True,
-            ) as fresh:
-                return await fresh.post(upload_url, headers=headers, files=files, timeout=timeout)
+                response = await client.post(
+                    attempt_url, headers=headers, files=files, timeout=timeout
+                )
+            else:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(connect=20.0, read=max(120.0, float(timeout)), write=120.0, pool=20.0),
+                    follow_redirects=True,
+                ) as fresh:
+                    response = await fresh.post(
+                        attempt_url,
+                        headers=headers,
+                        files=files,
+                        timeout=timeout,
+                    )
+            if alternate_url and attempt_url == alternate_url:
+                selected = urllib.parse.urlsplit(alternate_url)
+                provider["base_url"] = urllib.parse.urlunsplit(
+                    (selected.scheme, selected.netloc, "", "", "")
+                )
+            return response
         except Exception as e:
-            if not is_transient_tls_error(e) or attempt == _ports.APIMART_UPLOAD_RETRY_ATTEMPTS - 1:
+            if not is_transient_tls_error(e):
                 raise
+            if attempt == _ports.APIMART_UPLOAD_RETRY_ATTEMPTS - 1:
+                raise HTTPException(
+                    status_code=502,
+                    detail="provider_connection_interrupted",
+                ) from e
             last_exc = e
             print(f"APIMart 上传遇到瞬时 TLS 错误，换新连接重试（第 {attempt + 1} 次）：{e}")
             await asyncio.sleep(0.6 * (attempt + 1))
     if last_exc:
-        raise last_exc
+        raise HTTPException(
+            status_code=502,
+            detail="provider_connection_interrupted",
+        ) from last_exc
 
 def agnes_video_frame_count(duration, fps=24):
     try:
@@ -2510,7 +2562,7 @@ async def generate_http_provider_image(
     operation="image.generate",
     resolution_tier="",
 ):
-    provider = _ports.get_api_provider(provider_id)
+    provider = dict(_ports.get_api_provider(provider_id))
     requested_count = max(1, min(8, int(n or 1)))
     is_gpt2 = is_gpt_image_2_model(model)
     is_apimart = is_apimart_provider(provider)
@@ -2696,11 +2748,23 @@ async def generate_http_provider_image(
             }
             if str(prompt or ""):
                 body["prompt"] = str(prompt)
-            response = await client.post(
-                gen_url,
-                headers=api_headers(provider=provider),
-                json=body,
-            )
+            try:
+                response = await client.post(
+                    _ports.provider_endpoint_url(
+                        provider,
+                        "image_generation_endpoint",
+                        "/v1/images/generations",
+                    ),
+                    headers=api_headers(provider=provider),
+                    json=body,
+                )
+            except httpx.TransportError as exc:
+                # A paid submit may have reached the Provider even when the
+                # response connection was lost. Never retry it automatically.
+                raise HTTPException(
+                    status_code=502,
+                    detail="provider_connection_interrupted",
+                ) from exc
         elif is_apimart:
             apimart_size, resolution = apimart_size_resolution(size)
             if is_apimart_gemini_image_model(model):
@@ -3312,7 +3376,7 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             mime = header.split(":", 1)[1].split(";", 1)[0] if ":" in header else "image/png"
             raw = base64.b64decode(encoded)
             filename, content, ct = apimart_upload_payload_from_bytes(raw, mime, name_hint="canvas_image")
-            resp = await apimart_upload_post(client, upload_url, api_headers(json_body=False, provider=provider), (filename, content, ct), timeout=60)
+            resp = await apimart_upload_post(client, provider, upload_url, api_headers(json_body=False, provider=provider), (filename, content, ct), timeout=60)
             if resp.status_code in (200, 201):
                 rj = resp.json()
                 url = extract_apimart_asset_url(rj)
@@ -3324,6 +3388,8 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             return f"ERR:APIMart 上传失败({resp.status_code})"
         except ValueError as e:
             return f"ERR:{e}"
+        except HTTPException:
+            raise
         except Exception as e:
             print(f"APIMart 上传 data URL 异常: {e}")
             return f"ERR:上传异常 {e}"
@@ -3335,7 +3401,7 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             return "ERR:本地文件不存在或已被删除"
         try:
             filename, content, ct = apimart_upload_file_payload(path)
-            resp = await apimart_upload_post(client, upload_url, api_headers(json_body=False, provider=provider), (filename, content, ct), timeout=60)
+            resp = await apimart_upload_post(client, provider, upload_url, api_headers(json_body=False, provider=provider), (filename, content, ct), timeout=60)
             if resp.status_code in (200, 201):
                 rj = resp.json()
                 url = extract_apimart_asset_url(rj)
@@ -3347,6 +3413,8 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             return f"ERR:APIMart 上传失败({resp.status_code})"
         except ValueError as e:
             return f"ERR:{e}"
+        except HTTPException:
+            raise
         except Exception as e:
             print(f"APIMart 文件上传异常: {e}")
             return f"ERR:上传异常 {e}"

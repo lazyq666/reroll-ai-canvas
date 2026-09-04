@@ -262,6 +262,46 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
         )
         self.assertEqual(result["diagnostics"], [])
 
+    def test_layer_decomposition_node_uses_single_image_geometry(self):
+        result = run_node_geometry(
+            """
+            const node = {
+                id:'layer-result',
+                type:'smart-layer-decomposition',
+                x:10,
+                y:20,
+                w:350,
+                h:175,
+                images:[{
+                    kind:'image',
+                    url:'base.png',
+                    natural_w:1000,
+                    natural_h:500
+                }]
+            };
+            const session = geometry.createSession({nodes:[node],connections:[]});
+            const measured = session.measure(node.id);
+            process.stdout.write(JSON.stringify({
+                supported:measured.supported,
+                layout:measured.layout,
+                footprint:measured.footprint,
+                aspectRatio:measured.constraints.aspectRatio,
+                diagnostics:measured.diagnostics
+            }));
+            """
+        )
+
+        self.assertTrue(result["supported"])
+        self.assertTrue(result["layout"]["single"])
+        self.assertEqual(result["layout"]["width"], 350)
+        self.assertEqual(result["layout"]["height"], 175)
+        self.assertEqual(
+            result["footprint"],
+            {"x": 10, "y": 20, "width": 350, "height": 175},
+        )
+        self.assertAlmostEqual(result["aspectRatio"], 2)
+        self.assertEqual(result["diagnostics"], [])
+
     def test_legacy_multi_output_no_longer_reserves_gallery_chrome(self):
         result = run_node_geometry(
             """

@@ -2,25 +2,14 @@
   const tr = (key) => window.StudioI18n?.t?.(key) || key;
   const tf = (key, values) => window.StudioI18n?.format?.(key, values) || tr(key);
   const byId = (id) => document.getElementById(id);
-  const viewTabs = byId('management-sections');
-  const catalogView = byId('model-catalog-view');
-  const capabilityView = byId('capability-workbench-view');
-  if (!viewTabs || !catalogView || !capabilityView) return;
+  const editorDialog = byId('capability-editor-dialog');
+  if (!editorDialog) return;
 
   const controls = {
-    page: document.querySelector('.model-page'),
     message: byId('capability-message'),
-    sync: byId('capability-sync-models'),
     refresh: byId('capability-refresh'),
     importOpen: byId('capability-import-open'),
-    sourceStatus: byId('capability-source-refresh-status'),
-    modelCount: byId('capability-model-count'),
-    confirmedCount: byId('capability-confirmed-count'),
-    missingCount: byId('capability-missing-count'),
-    search: byId('capability-search'),
-    rows: byId('capability-model-rows'),
-    empty: byId('capability-empty'),
-    editor: byId('capability-editor'),
+    editorDialog,
     editorTitle: byId('capability-editor-title'),
     editorModelId: byId('capability-editor-model-id'),
     editorSources: byId('capability-editor-source-summary'),
@@ -39,7 +28,6 @@
     loaded: false,
     matrix: { models: [], summary: {} },
     selectedModelId: '',
-    query: '',
     validatedImport: '',
   };
   const inputTypes = ['text', 'image', 'video', 'audio', 'file'];
@@ -50,7 +38,6 @@
     'video.generate': 'models.operationVideoGenerate',
     'text.generate': 'models.operationTextGenerate',
   };
-  const typeLabels = { image: 'models.image', video: 'models.video', text: 'models.text' };
   const inputLabels = {
     text: 'models.inputText', image: 'models.inputImage', video: 'models.inputVideo',
     audio: 'models.inputAudio', file: 'models.inputFile',
@@ -115,16 +102,36 @@
     return payload;
   };
   const selectedRow = () => state.matrix.models.find((row) => row.model_id === state.selectedModelId) || null;
-  const chipList = (values) => {
-    const list = element('div', 'capability-chip-list');
-    values.forEach((value) => list.appendChild(element('span', 'capability-chip', value)));
-    return list;
-  };
   const checkbox = (label, checked, data = {}) => {
     const control = element('ic-checkbox');
     control.setAttribute('label', label);
     control.checked = Boolean(checked);
     Object.entries(data).forEach(([key, value]) => { control.dataset[key] = String(value); });
+    return control;
+  };
+  const switchControl = (label, checked, data = {}) => {
+    const control = element('ic-switch');
+    control.setAttribute('label', label);
+    control.setAttribute('size', 's');
+    control.checked = Boolean(checked);
+    Object.entries(data).forEach(([key, value]) => { control.dataset[key] = String(value); });
+    return control;
+  };
+  const selectOptions = (control, values, selected, label) => {
+    control.setAttribute('aria-label', label);
+    values.forEach((value) => {
+      const option = element('option', '', tf('models.imageCount', { count: value }));
+      option.value = String(value);
+      control.appendChild(option);
+    });
+    control.value = String(selected);
+    control.setAttribute('value', String(selected));
+    const expand = element('ic-icon');
+    expand.setAttribute('name', 'expand');
+    expand.setAttribute('size', 'small');
+    expand.setAttribute('slot', 'expand-icon');
+    expand.setAttribute('aria-hidden', 'true');
+    control.appendChild(expand);
     return control;
   };
   const optionList = (values, selected, kind) => {
@@ -137,18 +144,296 @@
     group.append(element('strong', '', tr(labelKey)), content);
     return group;
   };
+  const commonValues = (operations, field) => {
+    const valueSets = operations.map((operation) => new Set(operation?.[field] || []));
+    if (!valueSets.length) return [];
+    return [...valueSets[0]].filter((value) => valueSets.every((values) => values.has(value)));
+  };
+  const relevantImageOperations = (row) => {
+    const standard = row.operations.filter((operation) => ['image.generate', 'image.edit'].includes(operation.operation));
+    const applicable = standard.filter((operation) => operation.confirmed || Number(operation.inputs?.image || 0) > 0);
+    return applicable.length ? applicable : standard;
+  };
+  const resolutionOptions = (values, selected) => {
+    const list = element('div', 'capability-segment-options');
+    list.setAttribute('role', 'group');
+    list.setAttribute('aria-label', tr('models.allowedResolutions'));
+    values.forEach((value) => {
+      const button = element('button', 'capability-segment', String(value).toLowerCase());
+      button.type = 'button';
+      button.setAttribute('role', 'checkbox');
+      button.setAttribute('aria-checked', String(selected.includes(value)));
+      button.dataset.choiceKind = 'resolution';
+      button.dataset.choiceValue = value;
+      button.addEventListener('click', () => {
+        button.setAttribute('aria-checked', String(button.getAttribute('aria-checked') !== 'true'));
+      });
+      list.appendChild(button);
+    });
+    return list;
+  };
+  const numberInput = (name, label, value, maximum, data = {}) => {
+    const control = element('ic-number-input', 'capability-number-input');
+    control.setAttribute('name', name);
+    control.setAttribute('label', label);
+    control.setAttribute('min', '0');
+    control.setAttribute('max', String(maximum));
+    control.setAttribute('step', '1');
+    control.setAttribute('size', 'small');
+    control.value = String(Math.max(0, Number(value || 0)));
+    control.setAttribute('value', control.value);
+    Object.entries(data).forEach(([key, dataValue]) => { control.dataset[key] = String(dataValue); });
+    return control;
+  };
+  const durationRange = (name, bounds, dataPrefix, minimumAllowed = 0, maximumAllowed = 3600) => {
+    const range = element('div', 'capability-duration-range');
+    const minimum = numberInput(
+      `${name}-minimum`,
+      tr('models.minimumSeconds'),
+      Math.max(minimumAllowed, Number(bounds?.minimum || minimumAllowed)),
+      maximumAllowed,
+      { [`${dataPrefix}Minimum`]: 'true' },
+    );
+    minimum.setAttribute('min', String(minimumAllowed));
+    const maximum = numberInput(
+      `${name}-maximum`,
+      tr('models.maximumSeconds'),
+      Math.max(minimumAllowed, Number(bounds?.maximum || minimumAllowed)),
+      maximumAllowed,
+      { [`${dataPrefix}Maximum`]: 'true' },
+    );
+    maximum.setAttribute('min', String(minimumAllowed));
+    range.append(minimum, element('span', 'capability-range-separator', tr('models.rangeTo')), maximum);
+    return range;
+  };
+  const renderImageProfile = (row) => {
+    const operations = relevantImageOperations(row);
+    const generate = row.operations.find((operation) => operation.operation === 'image.generate');
+    const edit = row.operations.find((operation) => operation.operation === 'image.edit');
+    const layer = row.operations.find((operation) => operation.operation === 'image.layer_decomposition');
+    const referenceMaximum = Math.max(
+      Number(generate?.inputs?.image || 0),
+      Number(edit?.inputs?.image || 0),
+    );
+    const resolutions = commonValues(operations, 'resolutions');
+    const ratios = commonValues(operations, 'aspect_ratios');
+    const allResolutions = [...new Set([...resolutions, ...resolutionDefaults['image.generate']])];
+    const allRatios = [...new Set([...ratios, ...ratioDefaults['image.generate'], '9:21'])];
+    const maximum = operations.length
+      ? Math.min(...operations.map((operation) => Number(operation.output_count_maximum || 1)))
+      : 1;
+    const confirmed = operations.length > 0 && operations.every((operation) => operation.confirmed);
+    const optionEnabled = (key) => operations.length > 0
+      && operations.every((operation) => operation.options?.[key] === true);
+
+    const card = element('section', 'capability-editor-card capability-image-profile');
+    card.dataset.profileType = 'image';
+    const header = element('div', 'capability-operation-header');
+    header.append(
+      element('h4', '', tr('models.imageCapabilities')),
+      checkbox(tr('models.settingsConfirmed'), confirmed, { confirmed: 'true' }),
+    );
+    const grid = element('div', 'capability-choice-grid');
+
+    const referenceControls = element('div', 'capability-reference-controls');
+    const referenceToggle = switchControl(
+      tr('models.supportsReferenceImages'),
+      referenceMaximum > 0,
+      { referenceEnabled: 'true' },
+    );
+    const referenceSelect = selectOptions(
+      element('ic-select', 'capability-reference-count'),
+      Array.from({ length: 20 }, (_item, index) => index + 1),
+      referenceMaximum || 1,
+      tr('models.maximumReferenceImages'),
+    );
+    referenceSelect.dataset.referenceMaximum = 'true';
+    referenceSelect.hidden = referenceMaximum === 0;
+    referenceToggle.addEventListener('change', () => { referenceSelect.hidden = !referenceToggle.checked; });
+    referenceControls.append(referenceToggle, referenceSelect);
+    grid.appendChild(choiceGroup('models.referenceImages', referenceControls));
+
+    const outputSelect = selectOptions(
+      element('ic-select', 'generation-count-select capability-output-count'),
+      Array.from({ length: 20 }, (_item, index) => index + 1),
+      maximum || 1,
+      tr('models.maximumOutputCount'),
+    );
+    outputSelect.dataset.outputMaximum = 'true';
+    outputSelect.dataset.componentVariant = 'generation-count';
+    outputSelect.setAttribute('hierarchy', 'quiet');
+    outputSelect.setAttribute('size', 'small');
+    outputSelect.setAttribute('placement', 'top');
+    grid.appendChild(choiceGroup('models.outputQuantity', outputSelect));
+
+    const resolutionGroup = choiceGroup('models.allowedResolutions', resolutionOptions(allResolutions, resolutions));
+    resolutionGroup.classList.add('capability-choice-group-wide');
+    grid.appendChild(resolutionGroup);
+    const ratioPicker = element('ic-aspect-ratio-picker', 'capability-ratio-picker');
+    ratioPicker.setAttribute('name', 'model-capability-aspect-ratios');
+    ratioPicker.setAttribute('label', tr('models.allowedRatios'));
+    ratioPicker.setAttribute('presets', allRatios.join(','));
+    ratioPicker.setAttribute('value', ratios.join(','));
+    ratioPicker.setAttribute('multiple', '');
+    ratioPicker.setAttribute('hide-label', '');
+    ratioPicker.setAttribute('data-component-variant', 'multiple');
+    const ratioGroup = choiceGroup('models.allowedRatios', ratioPicker);
+    ratioGroup.classList.add('capability-choice-group-wide');
+    grid.appendChild(ratioGroup);
+
+    const features = element('div', 'capability-feature-list');
+    features.append(
+      switchControl(tr('models.optionTransparentPng'), optionEnabled('transparent_png'), { feature: 'transparent_png' }),
+      switchControl(tr('models.optionPromptEnhancement'), optionEnabled('prompt_enhancement'), { feature: 'prompt_enhancement' }),
+    );
+    if (layer) {
+      features.appendChild(switchControl(tr('models.optionLayerDecomposition'), layer.confirmed, { layerDecomposition: 'true' }));
+    }
+    grid.appendChild(choiceGroup('models.additionalCapabilities', features));
+    card.append(header, grid);
+    return card;
+  };
+  const renderVideoProfile = (row) => {
+    const operation = row.operations.find((item) => item.operation === 'video.generate');
+    if (!operation) return null;
+    const profile = operation.video || {};
+    const referenceDuration = profile.reference_media_duration_seconds || {};
+    const modes = profile.modes || {};
+    const resolutions = operation.resolutions || [];
+    const ratios = operation.aspect_ratios || [];
+    const allResolutions = [...new Set([...resolutions, ...resolutionDefaults['video.generate']])];
+    const allRatios = [...new Set([...ratios, ...ratioDefaults['video.generate']])];
+
+    const card = element('section', 'capability-editor-card capability-video-profile');
+    card.dataset.profileType = 'video';
+    card.dataset.operation = operation.operation;
+    const header = element('div', 'capability-operation-header');
+    header.append(
+      element('h4', '', tr('models.videoCapabilities')),
+      checkbox(tr('models.settingsConfirmed'), operation.confirmed, { confirmed: 'true' }),
+    );
+    const grid = element('div', 'capability-choice-grid');
+
+    const inputLimits = element('div', 'capability-metric-grid');
+    [
+      ['image', 'models.maximumImages'],
+      ['video', 'models.maximumVideos'],
+      ['audio', 'models.maximumAudios'],
+    ].forEach(([inputType, labelKey]) => {
+      inputLimits.appendChild(numberInput(
+        `model-video-${inputType}-maximum`,
+        tr(labelKey),
+        operation.inputs?.[inputType] || 0,
+        100,
+        { inputMaximum: inputType },
+      ));
+    });
+    inputLimits.appendChild(numberInput(
+      'model-video-input-total-maximum',
+      tr('models.maximumReferenceMediaTotal'),
+      profile.input_total_maximum || 0,
+      100,
+      { videoInputTotalMaximum: 'true' },
+    ));
+    const inputLimitGroup = choiceGroup('models.referenceMediaLimits', inputLimits);
+    inputLimitGroup.classList.add('capability-choice-group-wide');
+    grid.appendChild(inputLimitGroup);
+
+    grid.append(
+      choiceGroup(
+        'models.eachReferenceDuration',
+        durationRange(
+          'model-video-reference-each',
+          referenceDuration.each,
+          'videoReferenceEach',
+        ),
+      ),
+      choiceGroup(
+        'models.combinedReferenceDuration',
+        durationRange(
+          'model-video-reference-combined',
+          referenceDuration.combined_total,
+          'videoReferenceCombined',
+        ),
+      ),
+    );
+
+    const inputFeatures = element('div', 'capability-feature-list');
+    inputFeatures.appendChild(switchControl(
+      tr('models.supportsAudioOnly'),
+      profile.audio_only_supported === true,
+      { videoAudioOnly: 'true' },
+    ));
+    grid.appendChild(choiceGroup('models.referenceInputModes', inputFeatures));
+
+    const videoModes = element('div', 'capability-feature-list');
+    videoModes.append(
+      switchControl(
+        tr('models.supportsFirstLastFrames'),
+        modes.first_last_frames === true,
+        { videoMode: 'first_last_frames' },
+      ),
+      switchControl(
+        tr('models.supportsAllAroundReference'),
+        modes.multimodal_all_around === true,
+        { videoMode: 'multimodal_all_around' },
+      ),
+    );
+    grid.appendChild(choiceGroup('models.videoModes', videoModes));
+
+    grid.appendChild(choiceGroup(
+      'models.outputDuration',
+      durationRange(
+        'model-video-output',
+        profile.output_duration_seconds,
+        'videoOutput',
+        1,
+        600,
+      ),
+    ));
+
+    const resolutionGroup = choiceGroup('models.allowedResolutions', resolutionOptions(allResolutions, resolutions));
+    resolutionGroup.classList.add('capability-choice-group-wide');
+    grid.appendChild(resolutionGroup);
+    const ratioPicker = element('ic-aspect-ratio-picker', 'capability-ratio-picker');
+    ratioPicker.setAttribute('name', 'model-video-capability-aspect-ratios');
+    ratioPicker.setAttribute('label', tr('models.allowedRatios'));
+    ratioPicker.setAttribute('presets', allRatios.join(','));
+    ratioPicker.setAttribute('value', ratios.join(','));
+    ratioPicker.setAttribute('multiple', '');
+    ratioPicker.setAttribute('hide-label', '');
+    ratioPicker.setAttribute('data-component-variant', 'multiple');
+    const ratioGroup = choiceGroup('models.allowedRatios', ratioPicker);
+    ratioGroup.classList.add('capability-choice-group-wide');
+    grid.appendChild(ratioGroup);
+
+    const options = operationOptions(operation);
+    if (options.length) {
+      const features = element('div', 'capability-feature-list');
+      options.forEach((key) => features.appendChild(switchControl(
+        tr(optionLabels[key] || 'models.otherCapability'),
+        operation.options?.[key] === true,
+        { feature: key },
+      )));
+      const optionGroup = choiceGroup('models.additionalCapabilities', features);
+      optionGroup.classList.add('capability-choice-group-wide');
+      grid.appendChild(optionGroup);
+    }
+    card.append(header, grid);
+    return card;
+  };
   const operationOptions = (operation) => {
     if (operation.operation === 'image.layer_decomposition') return [];
     const existing = Object.keys(operation.options || {});
     const defaults = operation.operation.startsWith('image.')
       ? ['transparent_png', 'prompt_enhancement']
       : operation.operation === 'video.generate'
-        ? ['enhance_prompt', 'generate_audio', 'enable_upsample', 'camera_fixed']
+        ? ['enhance_prompt', 'generate_audio', 'enable_upsample', 'camera_fixed', 'watermark']
         : [];
     return [...new Set([...existing, ...defaults])];
   };
   const renderOperationEditor = (operation) => {
-    const card = element('section', 'capability-operation-card');
+    const card = element('section', 'capability-editor-card capability-operation-card');
     card.dataset.operation = operation.operation;
     const header = element('div', 'capability-operation-header');
     header.append(
@@ -212,70 +497,32 @@
 
   const renderEditor = () => {
     const row = selectedRow();
-    controls.editor.hidden = !row;
-    if (!row) return;
+    if (!row) {
+      controls.operationEditors.replaceChildren();
+      return;
+    }
     controls.editorTitle.textContent = row.name;
     controls.editorModelId.textContent = row.model_id;
     controls.editorSources.textContent = row.evidence_count
       ? tf('models.sourceSummaryAvailable', { count: row.evidence_count })
       : tr('models.sourceSummaryMissing');
-    controls.operationEditors.replaceChildren(...row.operations.map(renderOperationEditor));
-    controls.editor.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    const editors = [];
+    if (row.types.includes('image')) editors.push(renderImageProfile(row));
+    if (row.types.includes('video')) editors.push(renderVideoProfile(row));
+    editors.push(...row.operations
+      .filter((operation) => !operation.operation.startsWith('image.') && operation.operation !== 'video.generate')
+      .map(renderOperationEditor));
+    controls.operationEditors.replaceChildren(...editors.filter(Boolean));
   };
-
-  const sourceStatus = () => {
-    const summary = state.matrix.summary || {};
-    controls.sourceStatus.textContent = summary.with_sources
-      ? tf('models.sourceCoverage', { sourced: summary.with_sources, total: summary.models || 0 })
-      : tr('models.noSourcesMatched');
-  };
-  const renderRows = () => {
-    const query = state.query.trim().toLocaleLowerCase();
-    const rows = state.matrix.models.filter((row) => !query || [row.name, row.model_id, ...row.names]
-      .some((value) => String(value).toLocaleLowerCase().includes(query)));
-    controls.rows.replaceChildren();
-    rows.forEach((row) => {
-      const tableRow = element('tr');
-      const model = element('td');
-      model.append(element('strong', 'capability-model-name', row.name), element('span', 'capability-model-id', row.model_id));
-      const providers = element('td');
-      providers.appendChild(chipList(row.providers.map((provider) => provider.name)));
-      const types = element('td');
-      types.appendChild(chipList(row.types.map((type) => tr(typeLabels[type]))));
-      const abilities = element('td');
-      const confirmed = row.operations.filter((operation) => operation.confirmed)
-        .map((operation) => tr(operationLabels[operation.operation] || 'models.capabilityOverview'));
-      abilities.appendChild(confirmed.length ? chipList(confirmed) : element('span', 'capability-status', tr('models.capabilitiesPending')));
-      const sources = element('td');
-      sources.appendChild(element('span', `capability-status${row.evidence_count ? ' is-ready' : ''}`,
-        row.evidence_count ? tf('models.sourceCount', { count: row.evidence_count }) : tr('models.sourcesMissing')));
-      const actions = element('td');
-      const edit = element('ic-button');
-      edit.setAttribute('type', 'button');
-      edit.setAttribute('hierarchy', 'secondary');
-      edit.setAttribute('size', 'small');
-      edit.textContent = tr('models.setCapabilities');
-      edit.addEventListener('click', () => { state.selectedModelId = row.model_id; renderEditor(); });
-      actions.appendChild(edit);
-      tableRow.append(model, providers, types, abilities, sources, actions);
-      controls.rows.appendChild(tableRow);
-    });
-    controls.empty.hidden = rows.length > 0;
-  };
-  const render = () => {
-    const summary = state.matrix.summary || {};
-    controls.modelCount.textContent = String(summary.models || 0);
-    controls.confirmedCount.textContent = String(summary.confirmed || 0);
-    controls.missingCount.textContent = String(summary.needs_sources || 0);
-    sourceStatus();
-    renderRows();
-    renderEditor();
-  };
+  const render = () => renderEditor();
   const loadMatrix = async () => {
     state.matrix = await request('/api/admin/model-capability-matrix');
     state.loaded = true;
     if (state.selectedModelId && !selectedRow()) state.selectedModelId = '';
     render();
+    window.dispatchEvent(new CustomEvent('model-capability-matrix-change', {
+      detail: { matrix: state.matrix },
+    }));
   };
   const runAction = (action) => async () => {
     showMessage('');
@@ -290,11 +537,6 @@
       controls.importStatus.setAttribute('tone', 'danger');
       controls.importStatus.hidden = false;
     }
-  };
-  const syncModels = async () => {
-    setDisabled(controls.sync, true);
-    try { await loadMatrix(); showMessage('models.modelsSynced', 'success', { count: state.matrix.summary.models || 0 }); }
-    finally { setDisabled(controls.sync, false); }
   };
   const refreshSources = async () => {
     setDisabled(controls.refresh, true);
@@ -322,6 +564,16 @@
           aspect_ratios: [],
           output_count_maximum: 1,
           options: [],
+          video: {
+            input_total_maximum: 0,
+            reference_media_duration_seconds: {
+              each: { minimum: 0, maximum: 0 },
+              combined_total: { minimum: 0, maximum: 0 },
+            },
+            audio_only_supported: false,
+            modes: { first_last_frames: false, multimodal_all_around: false },
+            output_duration_seconds: { minimum: 1, maximum: 1 },
+          },
           sources: [{
             type: 'official_docs',
             url: 'https://official.example/model-docs',
@@ -333,22 +585,44 @@
     };
   };
   const lookupPrompt = () => {
-    const models = state.matrix.models.map((row) => ({
-      model_id: row.model_id,
-      name: row.name,
-      operations: row.operations.map((operation) => operation.operation),
-    }));
+    const channels = [];
+    state.matrix.models.forEach((row) => {
+      (row.providers || []).forEach((provider) => {
+        let channel = channels.find((item) => item.channel_id === provider.id);
+        if (!channel) {
+          channel = { channel_id: provider.id, channel_name: provider.name, models: [] };
+          channels.push(channel);
+        }
+        const providerTypes = (row.variants || [])
+          .filter((variant) => variant.provider_id === provider.id)
+          .map((variant) => variant.type)
+          .filter((value, index, values) => value && values.indexOf(value) === index);
+        const modelTypes = providerTypes.length ? providerTypes : (row.types || []);
+        channel.models.push({
+          model_id: row.model_id,
+          name: row.name,
+          aliases: (row.names || []).filter((name) => name !== row.name),
+          model_types: modelTypes,
+          available_operations: row.operations
+            .map((operation) => operation.operation)
+            .filter((operation) => modelTypes.some((type) => operation.startsWith(`${type}.`))),
+        });
+      });
+    });
     return [
       tr('models.lookupPromptRole'),
+      tr('models.lookupPromptChannelResearch'),
       tr('models.lookupPromptOfficialSources'),
       tr('models.lookupPromptNoGuessing'),
       tr('models.lookupPromptIdentity'),
+      tr('models.lookupPromptChannelMerge'),
       tr('models.lookupPromptNoCommercial'),
       tr('models.lookupPromptOptions'),
+      tr('models.lookupPromptVideoProfile'),
       tr('models.lookupPromptJsonOnly'),
       '',
       tr('models.lookupPromptCurrentModels'),
-      JSON.stringify(models, null, 2),
+      JSON.stringify({ channels }, null, 2),
       '',
       tr('models.lookupPromptFormat'),
       JSON.stringify(importExample(), null, 2),
@@ -406,6 +680,7 @@
     showMessage('models.importApplied', 'success', result.preview || {});
   };
   const openImport = async () => {
+    await loadMatrix();
     resetImportValidation();
     controls.importStatus.hidden = true;
     await controls.importDialog.show();
@@ -427,6 +702,86 @@
       options: [...card.querySelectorAll('[data-feature]')].filter((item) => item.checked).map((item) => item.dataset.feature),
     };
   };
+  const readImageProfile = (card, row) => {
+    const confirmed = Boolean(card.querySelector('[data-confirmed]')?.checked);
+    const referenceEnabled = Boolean(card.querySelector('[data-reference-enabled]')?.checked);
+    const referenceMaximum = referenceEnabled
+      ? Number(getValue(card.querySelector('[data-reference-maximum]')) || 1)
+      : 0;
+    const resolutions = [...card.querySelectorAll('[data-choice-kind="resolution"]')]
+      .filter((item) => item.getAttribute('aria-checked') === 'true')
+      .map((item) => item.dataset.choiceValue);
+    const ratioPicker = card.querySelector('ic-aspect-ratio-picker[multiple]');
+    const aspectRatios = Array.isArray(ratioPicker?.values) ? ratioPicker.values : [];
+    const outputMaximum = Number(getValue(card.querySelector('[data-output-maximum]')) || 1);
+    const options = [...card.querySelectorAll('[data-feature]')]
+      .filter((item) => item.checked)
+      .map((item) => item.dataset.feature);
+    const layerEnabled = Boolean(card.querySelector('[data-layer-decomposition]')?.checked);
+    return row.operations
+      .filter((operation) => operation.operation.startsWith('image.'))
+      .map((operation) => {
+        if (operation.operation === 'image.layer_decomposition') {
+          return {
+            ...operation,
+            confirmed: layerEnabled,
+            options: [],
+          };
+        }
+        const inputs = { ...(operation.inputs || {}) };
+        inputs.image = operation.operation === 'image.edit' ? referenceMaximum : 0;
+        return {
+          operation: operation.operation,
+          confirmed: confirmed && (operation.operation !== 'image.edit' || referenceEnabled),
+          inputs,
+          resolutions,
+          aspect_ratios: aspectRatios,
+          output_count_maximum: outputMaximum,
+          options,
+        };
+      });
+  };
+  const readVideoProfile = (card, row) => {
+    const operation = row.operations.find((item) => item.operation === 'video.generate');
+    if (!operation) return [];
+    const number = (selector, fallback = 0) => Number(getValue(card.querySelector(selector)) || fallback);
+    const range = (prefix, fallback = 0) => ({
+      minimum: number(`[data-${prefix}-minimum]`, fallback),
+      maximum: number(`[data-${prefix}-maximum]`, fallback),
+    });
+    const inputs = { ...(operation.inputs || {}) };
+    ['image', 'video', 'audio'].forEach((inputType) => {
+      inputs[inputType] = number(`[data-input-maximum="${inputType}"]`);
+    });
+    const ratioPicker = card.querySelector('ic-aspect-ratio-picker[multiple]');
+    const modes = {};
+    card.querySelectorAll('[data-video-mode]').forEach((control) => {
+      modes[control.dataset.videoMode] = Boolean(control.checked);
+    });
+    return [{
+      operation: operation.operation,
+      confirmed: Boolean(card.querySelector('[data-confirmed]')?.checked),
+      inputs,
+      resolutions: [...card.querySelectorAll('[data-choice-kind="resolution"]')]
+        .filter((item) => item.getAttribute('aria-checked') === 'true')
+        .map((item) => item.dataset.choiceValue),
+      aspect_ratios: Array.isArray(ratioPicker?.values) ? ratioPicker.values : [],
+      output_count_maximum: Number(operation.output_count_maximum || 1),
+      options: [...card.querySelectorAll('[data-feature]')]
+        .filter((item) => item.checked)
+        .map((item) => item.dataset.feature),
+      video: {
+        input_total_maximum: number('[data-video-input-total-maximum]'),
+        reference_media_duration_seconds: {
+          each: range('video-reference-each'),
+          combined_total: range('video-reference-combined'),
+        },
+        audio_only_supported: Boolean(card.querySelector('[data-video-audio-only]')?.checked),
+        modes,
+        output_duration_seconds: range('video-output', 1),
+      },
+    }];
+  };
   const apply = async () => {
     const row = selectedRow();
     if (!row) return;
@@ -437,24 +792,28 @@
         body: JSON.stringify({
           model_id: row.model_id,
           name: row.name,
-          operations: [...controls.operationEditors.querySelectorAll('.capability-operation-card')].map(readOperation),
+          operations: [...controls.operationEditors.querySelectorAll('.capability-editor-card')]
+            .flatMap((card) => {
+              if (card.dataset.profileType === 'image') return readImageProfile(card, row);
+              if (card.dataset.profileType === 'video') return readVideoProfile(card, row);
+              return [readOperation(card)];
+            }),
         }),
       });
       state.matrix = payload.matrix;
       render();
+      await controls.editorDialog.hide('confirm');
       showMessage('models.capabilitiesApplied');
     } finally { setDisabled(controls.apply, false); }
   };
-  const showSection = async (value) => {
-    const capabilities = value === 'capabilities';
-    catalogView.hidden = capabilities;
-    capabilityView.hidden = !capabilities;
-    controls.page?.classList.toggle('workbench-active', capabilities);
-    if (capabilities && !state.loaded) await runAction(loadMatrix)();
+  const openEditor = async (modelId) => {
+    state.selectedModelId = String(modelId || '').trim();
+    await loadMatrix();
+    if (!selectedRow()) throw new Error(tr('models.detailsUnavailable'));
+    renderEditor();
+    await controls.editorDialog.show();
   };
 
-  viewTabs.addEventListener('ic-change', (event) => showSection(event.detail?.value || 'catalog'));
-  controls.sync.addEventListener('click', runAction(syncModels));
   controls.refresh.addEventListener('click', runAction(refreshSources));
   controls.importOpen.addEventListener('click', runAction(openImport));
   controls.apply.addEventListener('click', runAction(apply));
@@ -463,8 +822,10 @@
   controls.importPreview.addEventListener('click', runImportAction(() => submitImport(false)));
   controls.importApply.addEventListener('click', runImportAction(() => submitImport(true)));
   controls.importData.addEventListener('input', resetImportValidation);
-  controls.close.addEventListener('click', () => { state.selectedModelId = ''; renderEditor(); });
-  controls.search.addEventListener('input', () => { state.query = getValue(controls.search); renderRows(); });
+  controls.close.addEventListener('click', () => controls.editorDialog.hide('cancel'));
   window.addEventListener('studio-lang-change', render);
-  showSection(getValue(viewTabs) || 'catalog');
+  window.ModelCapabilityEditor = Object.freeze({
+    open: (modelId) => runAction(() => openEditor(modelId))(),
+  });
+  void runAction(loadMatrix)();
 })();

@@ -53,6 +53,58 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
             image["catalog_revision"], text["catalog_revision"]
         )
 
+    async def test_model_fetch_attaches_review_summary_and_hides_private_snapshot(self):
+        manager = Mock()
+        manager.collect_sources_for_review = AsyncMock(
+            return_value={
+                "ok": True,
+                "source_count": 1,
+                "record_count": 2,
+                "drafts_created": 1,
+                "evidence_created": 1,
+                "sources": [],
+                "errors": [],
+            }
+        )
+        source = object()
+        with (
+            patch.object(main, "MODEL_CAPABILITY_REFRESH", manager),
+            patch.object(main, "sources_from_model_discovery", return_value=(source,)) as factory,
+        ):
+            result = await main._attach_fetch_time_capability_review(
+                {
+                    "all": ["gemini-2.5-pro"],
+                    "chat_models": ["gemini-2.5-pro"],
+                    "_capability_discovery": {"kind": "gemini-api"},
+                },
+                provider_id="gemini-team",
+                base_url="https://generativelanguage.googleapis.com",
+                protocol="gemini",
+            )
+
+        self.assertNotIn("_capability_discovery", result)
+        self.assertEqual(1, result["capability_review"]["drafts_created"])
+        manager.collect_sources_for_review.assert_awaited_once_with((source,))
+        self.assertEqual(
+            ["gemini-2.5-pro"], factory.call_args.kwargs["chat_model_ids"]
+        )
+
+    async def test_model_fetch_keeps_models_when_capability_source_fails(self):
+        with patch.object(
+            main,
+            "sources_from_model_discovery",
+            side_effect=RuntimeError("bad capability source"),
+        ):
+            result = await main._attach_fetch_time_capability_review(
+                {"all": ["model-a"], "chat_models": []},
+                provider_id="apimart",
+                base_url="https://api.apimart.ai",
+                protocol="apimart",
+            )
+
+        self.assertEqual(["model-a"], result["all"])
+        self.assertFalse(result["capability_review"]["ok"])
+
     async def test_unified_api_exposes_layer_decomposition_contract(self):
         capability = await main.model_capability(
             "apimart", "seedream-5-0-pro", "image.layer_decomposition"
@@ -475,6 +527,33 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("shared-model", called["model_id"])
         self.assertEqual("admin-1", called["actor_id"])
         self.assertEqual(["2K"], called["operations"][0]["resolutions"])
+
+    def test_admin_matrix_payload_keeps_video_profile_choices(self):
+        operation = main.ModelCapabilityMatrixOperationPayload(
+            operation="video.generate",
+            confirmed=True,
+            inputs={"text": 1, "image": 9, "video": 3, "audio": 3, "file": 0},
+            resolutions=["720p"],
+            aspect_ratios=["16:9"],
+            video={
+                "input_total_maximum": 12,
+                "reference_media_duration_seconds": {
+                    "each": {"minimum": 2, "maximum": 15},
+                    "combined_total": {"minimum": 2, "maximum": 15},
+                },
+                "audio_only_supported": False,
+                "modes": {
+                    "first_last_frames": True,
+                    "multimodal_all_around": True,
+                },
+                "output_duration_seconds": {"minimum": 4, "maximum": 15},
+            },
+        )
+
+        self.assertEqual(12, operation.model_dump()["video"]["input_total_maximum"])
+        self.assertTrue(
+            operation.model_dump()["video"]["modes"]["first_last_frames"]
+        )
 
     async def test_admin_can_preview_an_external_capability_import(self):
         actor = {"id": "admin-1", "role": "admin"}

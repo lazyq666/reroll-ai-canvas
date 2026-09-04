@@ -33,9 +33,9 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-01910c282d9b"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-c6ce9234c029"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-d2c5261ae32a">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-8715d7fc0e8e">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
@@ -280,6 +280,12 @@
                             <ic-icon-button type="button" size="small" hierarchy="quiet" icon="fit" label="适应/复位" data-i18n-label="canvas.fit" onclick="resetImageEditZoom()"></ic-icon-button>
                         </span>
                     </ic-toolbar>
+                    <ic-toolbar id="layerDecompositionEditorTools" class="image-edit-tools layer-decomposition-editor-tools" label="智能分层操作" data-i18n-label="smart.layerEditorControls" appearance="plain" orientation="horizontal" hidden>
+                        <ic-button id="layerDecompositionPsdDownload" type="button" size="small" hierarchy="primary" disabled title="PSD 下载功能即将推出" data-i18n-title="smart.layerPsdComingSoon">
+                            <ic-icon name="download" size="small" slot="start" aria-hidden="true"></ic-icon>
+                            <span data-i18n="smart.downloadPsd">下载 PSD</span>
+                        </ic-button>
+                    </ic-toolbar>
                     <ic-toolbar id="imagePanoramaTools" class="image-edit-tools image-panorama-tools" label="360全景参数" data-i18n-label="smart.panoramaControls" appearance="plain" orientation="horizontal" hidden>
                         <div id="panoramaControls" class="panorama-controls" style="display:none">
                             <div class="panorama-control-group">
@@ -440,6 +446,18 @@
                 </ic-image-edit-dock>
             <div id="imageEditStage" class="image-edit-stage">
                     <div id="imageStudioResolutionNotice" class="image-studio-resolution-notice" role="status" hidden></div>
+                    <div id="layerDecompositionEditor" class="layer-decomposition-editor" hidden>
+                        <main class="layer-decomposition-editor-canvas" aria-label="图层合成预览" data-i18n-aria-label="smart.layerCompositePreview">
+                            <div id="layerDecompositionEditorComposite" class="layer-decomposition-editor-composite"></div>
+                        </main>
+                        <aside class="layer-decomposition-editor-panel" aria-label="图层" data-i18n-aria-label="smart.layers">
+                            <header class="layer-decomposition-editor-panel-header">
+                                <strong data-i18n="smart.layers">图层</strong>
+                                <ic-badge id="layerDecompositionEditorCount" kind="count" tone="neutral">0</ic-badge>
+                            </header>
+                            <div id="layerDecompositionEditorList" class="layer-decomposition-editor-list" role="list"></div>
+                        </aside>
+                    </div>
                     <div class="image-edit-stage-inner">
                         <div id="previewStage" class="preview-stage" style="display:none">
                             <ic-media-container id="previewMediaContainer" class="preview-media-container" label="媒体预览" data-i18n-label="smart.mediaPreview" kind="image" fit="contain" aspect="auto" state="ready">
@@ -638,8 +656,8 @@
     <script src="/static/js/account-avatar.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/clipboard-ownership.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/node-review-fixture.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/node-kinds.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/node-geometry.js?v=2026.09.01.5.1788439320"></script>
+    <script src="/static/js/smart-canvas/node-kinds.js?v=asset-f9656454e490"></script>
+    <script src="/static/js/smart-canvas/node-geometry.js?v=asset-7e78a181fce7"></script>
     <script src="/static/js/smart-canvas/image-metadata.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-level-of-detail.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-far-presentation.js?v=2026.09.01.5.1788439320"></script>
@@ -652,22 +670,22 @@
     <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-ef410096e2b4"></script>
     <script src="/static/js/smart-canvas/canvas-opening.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/canvas-persistence.js?v=2026.09.01.5.1788439320"></script>
+    <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-fa10393d3fd6"></script>
     <script src="/static/js/smart-canvas/viewport-selection.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/realtime-presence.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-mutation.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/smart-container.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/image-studio.js?v=2026.09.01.5.1788439320"></script>
+    <script src="/static/js/smart-canvas/image-studio.js?v=asset-24da33466318"></script>
     <script src="/static/js/smart-canvas/model-capabilities.js?v=2026.09.04.1"></script>
-    <script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-d4c87431933b"></script>
+    <script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-fbf13c61abc8"></script>
     <script src="/static/js/smart-canvas/image-capabilities.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/reference-instances.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/video-capabilities.js?v=2026.09.01.5.1788439320"></script>
+    <script src="/static/js/smart-canvas/video-capabilities.js?v=asset-edfea9f9feb4"></script>
     <script src="/static/js/smart-canvas/generation-settings.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/prompt-authoring.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/generation-provider.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=2026.09.01.5.1788439320"></script>
+    <script src="/static/js/smart-canvas/generation-provider.js?v=asset-3f8fc43ee2e8"></script>
+    <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=asset-3500783ca403"></script>
     <script src="/static/js/smart-canvas/generation-log-modal.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/task-modals.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/generation-pending.js?v=2026.09.01.5.1788439320"></script>
@@ -679,7 +697,7 @@
     <script src="/static/js/smart-canvas/generation-cascade.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-a6833791abef" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-dd462b976ed8" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
 </body>
 </html>

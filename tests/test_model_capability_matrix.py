@@ -1,11 +1,18 @@
+import copy
 import tempfile
 import unittest
 from pathlib import Path
 
+from backend.infinite_canvas.image_capabilities import ImageCapabilityRegistry
+from backend.infinite_canvas.model_capabilities import ModelCapabilityCatalog
 from backend.infinite_canvas.model_capability_matrix import (
     ModelCapabilityImportInvalid,
     ModelCapabilityMatrix,
 )
+from backend.infinite_canvas.video_capabilities import VideoCapabilityRegistry
+
+
+ROOT = Path(__file__).resolve().parents[1]
 from backend.infinite_canvas.model_capability_workbench import (
     ModelCapabilityWorkbench,
     ModelCapabilityWorkbenchPublication,
@@ -88,6 +95,128 @@ def inventory():
 
 
 class ModelCapabilityMatrixTests(unittest.TestCase):
+    @staticmethod
+    def video_inventory():
+        return {
+            "image": [],
+            "video": [
+                {
+                    "model": "shared-video",
+                    "name": "Shared Video",
+                    "provider_id": "first",
+                    "provider_name": "First Platform",
+                },
+                {
+                    "model": "shared-video",
+                    "name": "Shared Video",
+                    "provider_id": "second",
+                    "provider_name": "Second Platform",
+                },
+            ],
+            "text": [],
+        }
+
+    @staticmethod
+    def video_capability(provider_id):
+        latest = provider_id == "second"
+        image_maximum, media_maximum, total_maximum = (
+            (30, 10, 50) if latest else (9, 3, 12)
+        )
+        duration_maximum = 30 if latest else 15
+        audio_only = latest
+        return {
+            "provider_id": provider_id,
+            "model_id": "shared-video",
+            "operation": "video.generate",
+            "support_state": "supported",
+            "inputs": {
+                "text": {"minimum": 1, "maximum": 1, "required": True},
+                "image": {"minimum": 0, "maximum": image_maximum},
+                "video": {"minimum": 0, "maximum": media_maximum},
+                "audio": {"minimum": 0, "maximum": media_maximum},
+                "file": {"minimum": 0, "maximum": 0},
+            },
+            "input_rules": {
+                "totals": [
+                    {
+                        "id": "reference_media",
+                        "inputs": ["image", "video", "audio"],
+                        "minimum": 1,
+                        "maximum": total_maximum,
+                        "active_when_any_present": True,
+                    }
+                ],
+                "requirements": [] if audio_only else [
+                    {
+                        "id": "visual_reference",
+                        "when": {"input": "audio", "minimum": 1},
+                        "any_of": ["image", "video"],
+                        "minimum": 1,
+                    }
+                ],
+                "role_groups": [
+                    {
+                        "id": "first_last_frames",
+                        "input": "image",
+                        "roles": ["first_frame", "last_frame"],
+                        "minimum": 1,
+                        "maximum": 2,
+                        "exclusive_inputs": ["video", "audio"],
+                    }
+                ],
+            },
+            "output": {
+                "kind": "video",
+                "count": {"minimum": 1, "maximum": 1, "default": 1},
+                "duration_seconds": {"minimum": 4, "maximum": duration_maximum},
+                "resolutions": ["720p", "1080p"] if latest else ["720p"],
+                "aspect_ratios": ["16:9", "9:16"],
+            },
+            "parameters": {
+                "duration_seconds": {
+                    "type": "integer",
+                    "minimum": 4,
+                    "maximum": duration_maximum,
+                    "default": 5,
+                },
+                "resolution": {
+                    "type": "enum",
+                    "values": ["720p", "1080p"] if latest else ["720p"],
+                    "default": "720p",
+                },
+                "aspect_ratio": {
+                    "type": "enum",
+                    "values": ["16:9", "9:16"],
+                    "default": "16:9",
+                },
+                "generate_audio": {
+                    "type": "boolean",
+                    "values": [False, True],
+                    "default": False,
+                },
+            },
+            "media_contract": {
+                "commands": {
+                    "frames2video": {
+                        "image_count": {"minimum": 1, "maximum": 2},
+                    },
+                    "multimodal2video": {
+                        "inputs": {
+                            "image_count": {"minimum": 0, "maximum": image_maximum},
+                            "video_count": {"minimum": 0, "maximum": media_maximum},
+                            "audio_count": {"minimum": 0, "maximum": media_maximum},
+                            "total_count": {"minimum": 1, "maximum": total_maximum},
+                            "reference_media_duration_seconds": {
+                                "each": {"minimum": 2, "maximum": duration_maximum},
+                                "combined_total": {"minimum": 2, "maximum": duration_maximum},
+                            },
+                            "audio_only_supported": audio_only,
+                        }
+                    },
+                }
+            },
+        }
+
     def test_groups_the_same_model_id_across_providers(self):
         with tempfile.TemporaryDirectory() as directory:
             matrix = ModelCapabilityMatrix(
@@ -129,6 +258,268 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
         self.assertEqual(2, operation["output_count_maximum"])
         self.assertEqual(["1K"], operation["resolutions"])
 
+    def test_video_profile_projects_the_safe_common_limits_and_modes(self):
+        class VideoCatalog(FakeCatalog):
+            def resolve(self, provider_id, model_id, operation):
+                return ModelCapabilityMatrixTests.video_capability(provider_id)
+
+        with tempfile.TemporaryDirectory() as directory:
+            matrix = ModelCapabilityMatrix(
+                inventory=self.video_inventory,
+                catalog=VideoCatalog(),
+                workbench=ModelCapabilityWorkbench(Path(directory) / "workbench.json"),
+            )
+            operation = matrix.snapshot()["models"][0]["operations"][0]
+
+        self.assertEqual(
+            {"text": 1, "image": 9, "video": 3, "audio": 3, "file": 0},
+            operation["inputs"],
+        )
+        self.assertEqual(12, operation["video"]["input_total_maximum"])
+        self.assertEqual(
+            {"minimum": 2, "maximum": 15},
+            operation["video"]["reference_media_duration_seconds"]["each"],
+        )
+        self.assertEqual(
+            {"minimum": 2, "maximum": 15},
+            operation["video"]["reference_media_duration_seconds"]["combined_total"],
+        )
+        self.assertFalse(operation["video"]["audio_only_supported"])
+        self.assertEqual(
+            {"first_last_frames": True, "multimodal_all_around": True},
+            operation["video"]["modes"],
+        )
+        self.assertEqual(
+            {"minimum": 4, "maximum": 15},
+            operation["video"]["output_duration_seconds"],
+        )
+        self.assertEqual(["720p"], operation["resolutions"])
+
+    def test_seedance_profiles_project_the_maintained_reference_limits(self):
+        resource_paths = (
+            ROOT / "resources" / "image-model-capabilities.json",
+            ROOT / "resources" / "video-model-capabilities.json",
+            ROOT / "resources" / "text-model-capabilities.json",
+        )
+        catalog = ModelCapabilityCatalog(
+            image_registry=ImageCapabilityRegistry(resource_paths[0]),
+            video_registry=VideoCapabilityRegistry(resource_paths[1]),
+            text_path=resource_paths[2],
+            revision_paths=resource_paths,
+        )
+        inventory = lambda: {
+            "image": [],
+            "video": [
+                {
+                    "model": model_id,
+                    "name": model_id,
+                    "provider_id": "jimeng",
+                    "provider_name": "Dreamina",
+                }
+                for model_id in ("seedance2.0", "seedance2.5")
+            ],
+            "text": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            matrix = ModelCapabilityMatrix(
+                inventory=inventory,
+                catalog=catalog,
+                workbench=ModelCapabilityWorkbench(Path(directory) / "workbench.json"),
+            )
+            profiles = {
+                row["model_id"]: row["operations"][0]
+                for row in matrix.snapshot()["models"]
+            }
+
+        seedance20 = profiles["seedance2.0"]
+        seedance25 = profiles["seedance2.5"]
+        self.assertEqual(
+            {"image": 9, "video": 3, "audio": 3},
+            {key: seedance20["inputs"][key] for key in ("image", "video", "audio")},
+        )
+        self.assertEqual(12, seedance20["video"]["input_total_maximum"])
+        self.assertEqual(
+            {"minimum": 2, "maximum": 15},
+            seedance20["video"]["reference_media_duration_seconds"]["each"],
+        )
+        self.assertFalse(seedance20["video"]["audio_only_supported"])
+        self.assertEqual(
+            {"image": 30, "video": 10, "audio": 10},
+            {key: seedance25["inputs"][key] for key in ("image", "video", "audio")},
+        )
+        self.assertEqual(50, seedance25["video"]["input_total_maximum"])
+        self.assertEqual(
+            {"minimum": 2, "maximum": 30},
+            seedance25["video"]["reference_media_duration_seconds"]["combined_total"],
+        )
+        self.assertTrue(seedance25["video"]["audio_only_supported"])
+        self.assertTrue(seedance25["video"]["modes"]["first_last_frames"])
+        self.assertTrue(seedance25["video"]["modes"]["multimodal_all_around"])
+
+    def test_saved_seedance25_profile_keeps_thirty_image_limit_on_reopen(self):
+        resource_paths = (
+            ROOT / "resources" / "image-model-capabilities.json",
+            ROOT / "resources" / "video-model-capabilities.json",
+            ROOT / "resources" / "text-model-capabilities.json",
+        )
+        inventory = lambda: {
+            "image": [],
+            "video": [
+                {
+                    "model": "seedance2.5",
+                    "name": "Seedance 2.5",
+                    "provider_id": "jimeng",
+                    "provider_name": "Dreamina",
+                }
+            ],
+            "text": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            workbench_path = Path(directory) / "workbench.json"
+            workbench = ModelCapabilityWorkbench(workbench_path)
+            catalog = ModelCapabilityCatalog(
+                image_registry=ImageCapabilityRegistry(resource_paths[0]),
+                video_registry=VideoCapabilityRegistry(resource_paths[1]),
+                text_path=resource_paths[2],
+                revision_paths=resource_paths,
+                published_path=workbench_path,
+            )
+            matrix = ModelCapabilityMatrix(
+                inventory=inventory,
+                catalog=catalog,
+                workbench=workbench,
+            )
+            operation = matrix.snapshot()["models"][0]["operations"][0]
+            matrix.apply(
+                model_id="seedance2.5",
+                name="Seedance 2.5",
+                actor_id="admin-1",
+                operations=[
+                    {
+                        **operation,
+                        "options": [
+                            key
+                            for key, enabled in operation["options"].items()
+                            if enabled
+                        ],
+                    }
+                ],
+            )
+            reopened = matrix.snapshot()["models"][0]["operations"][0]
+
+        self.assertEqual(30, reopened["inputs"]["image"])
+        self.assertEqual(50, reopened["video"]["input_total_maximum"])
+        self.assertEqual(
+            {"minimum": 4, "maximum": 30},
+            reopened["video"]["output_duration_seconds"],
+        )
+
+    def test_video_profile_choices_publish_existing_runtime_contracts(self):
+        class VideoCatalog(FakeCatalog):
+            def resolve(self, provider_id, model_id, operation):
+                return ModelCapabilityMatrixTests.video_capability(provider_id)
+
+        with tempfile.TemporaryDirectory() as directory:
+            workbench = ModelCapabilityWorkbench(Path(directory) / "workbench.json")
+            matrix = ModelCapabilityMatrix(
+                inventory=self.video_inventory,
+                catalog=VideoCatalog(),
+                workbench=workbench,
+            )
+            matrix.apply(
+                model_id="shared-video",
+                name="Shared Video",
+                actor_id="admin-1",
+                operations=[
+                    {
+                        "operation": "video.generate",
+                        "confirmed": True,
+                        "inputs": {
+                            "text": 1,
+                            "image": 9,
+                            "video": 3,
+                            "audio": 3,
+                            "file": 0,
+                        },
+                        "resolutions": ["720p"],
+                        "aspect_ratios": ["16:9"],
+                        "output_count_maximum": 1,
+                        "options": ["generate_audio"],
+                        "video": {
+                            "input_total_maximum": 12,
+                            "reference_media_duration_seconds": {
+                                "each": {"minimum": 2, "maximum": 15},
+                                "combined_total": {"minimum": 2, "maximum": 15},
+                            },
+                            "audio_only_supported": False,
+                            "modes": {
+                                "first_last_frames": True,
+                                "multimodal_all_around": True,
+                            },
+                            "output_duration_seconds": {
+                                "minimum": 4,
+                                "maximum": 15,
+                            },
+                        },
+                    }
+                ],
+            )
+            capabilities = [
+                item["capability"]
+                for item in workbench.snapshot()["published"]["capabilities"]
+            ]
+
+        self.assertEqual(2, len(capabilities))
+        for capability in capabilities:
+            self.assertEqual(12, capability["input_rules"]["totals"][0]["maximum"])
+            self.assertEqual("visual_reference", capability["input_rules"]["requirements"][0]["id"])
+            self.assertEqual("first_last_frames", capability["input_rules"]["role_groups"][0]["id"])
+            self.assertEqual(
+                {"minimum": 4, "maximum": 15},
+                capability["output"]["duration_seconds"],
+            )
+            self.assertEqual(15, capability["parameters"]["duration_seconds"]["maximum"])
+            self.assertEqual(
+                "user_toggle",
+                capability["media_contract"]["composer_options"]["generate_audio"],
+            )
+            self.assertEqual(
+                "unsupported",
+                capability["media_contract"]["composer_options"]["watermark"],
+            )
+            self.assertEqual(
+                {
+                    "first_last_frames": True,
+                    "multimodal_all_around": True,
+                },
+                capability["media_contract"]["video_profile"]["modes"],
+            )
+
+    def test_exposes_high_value_tags_from_the_runtime_catalog(self):
+        class TaggedCatalog(FakeCatalog):
+            def resolve(self, provider_id, model_id, operation):
+                capability = super().resolve(provider_id, model_id, operation)
+                if operation == "image.generate":
+                    capability["parameters"]["transparent_png"]["values"] = [
+                        False,
+                        True,
+                    ]
+                if operation == "image.layer_decomposition":
+                    capability["support_state"] = "supported"
+                return capability
+
+        with tempfile.TemporaryDirectory() as directory:
+            matrix = ModelCapabilityMatrix(
+                inventory=inventory,
+                catalog=TaggedCatalog(),
+                workbench=ModelCapabilityWorkbench(Path(directory) / "workbench.json"),
+            )
+            row = matrix.snapshot()["models"][0]
+
+        self.assertEqual(
+            ["layer_decomposition", "transparent_png"], row["capability_tags"]
+        )
+
     def test_one_product_edit_publishes_all_provider_variants_once(self):
         with tempfile.TemporaryDirectory() as directory:
             workbench = ModelCapabilityWorkbench(Path(directory) / "workbench.json")
@@ -164,6 +555,126 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             self.assertEqual(2, capability["inputs"]["image"]["maximum"])
             self.assertEqual(["2K"], capability["parameters"]["resolution_tier"]["values"])
             self.assertEqual([False, True], capability["parameters"]["transparent_png"]["values"])
+
+    def test_pending_refresh_draft_does_not_prefill_a_saved_model(self):
+        class PublishedCatalog(FakeCatalog):
+            def __init__(self):
+                super().__init__()
+                self.saved = {}
+
+            def resolve(self, provider_id, model_id, operation):
+                identity = (provider_id, model_id, operation)
+                if identity in self.saved:
+                    return copy.deepcopy(self.saved[identity])
+                return super().resolve(provider_id, model_id, operation)
+
+        with tempfile.TemporaryDirectory() as directory:
+            workbench = ModelCapabilityWorkbench(Path(directory) / "workbench.json")
+            catalog = PublishedCatalog()
+            matrix = ModelCapabilityMatrix(
+                inventory=inventory, catalog=catalog, workbench=workbench
+            )
+            matrix.apply(
+                model_id="same-model",
+                name="Same Model",
+                actor_id="admin-1",
+                operations=[
+                    {
+                        "operation": "image.generate",
+                        "confirmed": True,
+                        "inputs": {"text": 1, "image": 2},
+                        "resolutions": ["2K"],
+                        "aspect_ratios": ["1:1"],
+                        "output_count_maximum": 2,
+                        "options": [],
+                    }
+                ],
+            )
+            published = workbench.snapshot()["published"]["capabilities"]
+            catalog.saved = {
+                (item["provider_id"], item["model_id"], item["operation"]): item[
+                    "capability"
+                ]
+                for item in published
+            }
+
+            for provider_id in ("first", "second"):
+                for operation in ("image.generate", "image.edit"):
+                    identity = {
+                        "provider_id": provider_id,
+                        "model_id": "same-model",
+                        "operation": operation,
+                    }
+                    candidate = (
+                        copy.deepcopy(
+                            catalog.saved[
+                                (provider_id, "same-model", "image.generate")
+                            ]
+                        )
+                        if operation == "image.generate"
+                        else ModelCapabilityMatrix._apply_choice(
+                            catalog.resolve(provider_id, "same-model", operation),
+                            {
+                                "confirmed": True,
+                                "inputs": {"text": 1, "image": 8},
+                                "resolutions": ["1K"],
+                                "aspect_ratios": ["1:1"],
+                                "output_count_maximum": 1,
+                                "options": [],
+                            },
+                        )
+                    )
+                    candidate["support_state"] = "supported"
+                    candidate["inputs"]["image"]["maximum"] = 8
+                    candidate["output"]["count"]["maximum"] = 1
+                    candidate["parameters"]["count"]["maximum"] = 1
+                    candidate["parameters"]["transparent_png"]["values"] = [
+                        False,
+                        True,
+                    ]
+                    evidence = workbench.record_evidence(
+                        **identity,
+                        source_type="structured_api",
+                        source_locator="https://example.com/models",
+                        fetched_at="2026-09-04T00:00:00Z",
+                        applicable_version="latest",
+                        content_location="model response",
+                        excerpt="The fetched response suggests different limits.",
+                        actor_id="model-capability-refresh",
+                    )
+                    workbench.save_draft(
+                        **identity,
+                        capability=candidate,
+                        field_evidence={
+                            path: {
+                                "evidence_ids": [evidence["id"]],
+                                "confidence": "medium",
+                            }
+                            for path in workbench._leaf_paths(candidate)
+                        },
+                        base_catalog_revision=catalog.revision,
+                        actor_id="model-capability-refresh",
+                    )
+
+            snapshot = matrix.snapshot()
+
+        operation = next(
+            item
+            for item in snapshot["models"][0]["operations"]
+            if item["operation"] == "image.generate"
+        )
+        self.assertEqual(2, operation["inputs"]["image"])
+        self.assertEqual(2, operation["output_count_maximum"])
+        unconfigured_operation = next(
+            item
+            for item in snapshot["models"][0]["operations"]
+            if item["operation"] == "image.edit"
+        )
+        self.assertFalse(unconfigured_operation["confirmed"])
+        self.assertEqual(0, unconfigured_operation["inputs"]["image"])
+        self.assertEqual(4, unconfigured_operation["output_count_maximum"])
+        self.assertEqual(4, snapshot["models"][0]["review"]["draft"])
+        self.assertEqual([], snapshot["models"][0]["capability_tags"])
 
     def test_failed_activation_rolls_back_the_whole_model_edit(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -235,6 +746,86 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             all(
                 item["source_locator"] == "https://example.com/models/same-model"
                 for item in state["evidence"]
+            )
+        )
+
+    def test_external_video_import_keeps_the_product_profile(self):
+        class VideoCatalog(FakeCatalog):
+            def resolve(self, provider_id, model_id, operation):
+                return ModelCapabilityMatrixTests.video_capability(provider_id)
+
+        bundle = {
+            "schema_version": 1,
+            "models": [
+                {
+                    "model_id": "shared-video",
+                    "name": "Shared Video",
+                    "operations": [
+                        {
+                            "operation": "video.generate",
+                            "confirmed": True,
+                            "inputs": {
+                                "text": 1,
+                                "image": 9,
+                                "video": 3,
+                                "audio": 3,
+                                "file": 0,
+                            },
+                            "resolutions": ["720p"],
+                            "aspect_ratios": ["16:9"],
+                            "output_count_maximum": 1,
+                            "options": ["generate_audio"],
+                            "video": {
+                                "input_total_maximum": 12,
+                                "reference_media_duration_seconds": {
+                                    "each": {"minimum": 2, "maximum": 15},
+                                    "combined_total": {"minimum": 2, "maximum": 15},
+                                },
+                                "audio_only_supported": False,
+                                "modes": {
+                                    "first_last_frames": True,
+                                    "multimodal_all_around": True,
+                                },
+                                "output_duration_seconds": {
+                                    "minimum": 4,
+                                    "maximum": 15,
+                                },
+                            },
+                            "sources": [
+                                {
+                                    "type": "official_docs",
+                                    "url": "https://example.com/shared-video",
+                                    "title": "Video limits",
+                                    "excerpt": "The model supports the listed reference limits.",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            workbench = ModelCapabilityWorkbench(Path(directory) / "workbench.json")
+            matrix = ModelCapabilityMatrix(
+                inventory=self.video_inventory,
+                catalog=VideoCatalog(),
+                workbench=workbench,
+            )
+            result = matrix.import_bundle(
+                bundle=bundle, actor_id="admin-1", apply=True
+            )
+            saved = workbench.snapshot()["published"]["capabilities"]
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(2, len(saved))
+        self.assertTrue(
+            all(
+                item["capability"]["media_contract"]["video_profile"]["modes"]
+                == {
+                    "first_last_frames": True,
+                    "multimodal_all_around": True,
+                }
+                for item in saved
             )
         )
 

@@ -757,6 +757,12 @@ function canvasPersistenceAssignDocument(
     canvas.logs = Array.isArray(canvas.logs) ? canvas.logs : [];
     canvas.revision = canvasPersistenceRevision;
     nodes = canvas.nodes;
+    if(
+        typeof migrateLegacyLayerDecompositionGroups === 'function'
+        && migrateLegacyLayerDecompositionGroups()
+    ){
+        canvasPersistencePendingSave = true;
+    }
     const generationSettingsModule =
         window.SmartCanvasModules?.generationSettings;
     if(generationSettingsModule?.reconcileCanvasSync){
@@ -1873,6 +1879,9 @@ async function canvasPersistenceLoad(){
         const migratedGenerationOutputGalleries = Boolean(
             window.SmartCanvasModules?.generationOutput?.migrateLegacyGalleries?.()
         );
+        const migratedLayerDecompositionGroups =
+            typeof migrateLegacyLayerDecompositionGroups === 'function'
+            && migrateLegacyLayerDecompositionGroups();
         const migratedPromptSplits =
             typeof migrateLegacyPromptSplitNodes === 'function'
             && migrateLegacyPromptSplitNodes();
@@ -1939,6 +1948,7 @@ async function canvasPersistenceLoad(){
         if(
             migratedGenerationOutputs
             || migratedGenerationOutputGalleries
+            || migratedLayerDecompositionGroups
             || migratedPromptSplits
             || cleanedDetachedInputs
             || cleanedCompletedState

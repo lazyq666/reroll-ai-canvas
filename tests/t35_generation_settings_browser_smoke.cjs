@@ -159,19 +159,19 @@ function startServer(){
     const closedByTrigger = await page.locator('ic-generation-settings-picker').evaluate(picker => picker.open);
     assert.equal(closedByTrigger, false);
     await page.locator('ic-generation-settings-picker').evaluate(picker => picker.shadowRoot.querySelector('[part="trigger"]').click());
-    await page.getByRole('heading', {name:'MOD · RAT'}).click();
+    await page.locator('body').click({position:{x:8,y:8}});
     const closedByOutsideClick = await page.locator('ic-generation-settings-picker').evaluate(picker => picker.open);
     assert.equal(closedByOutsideClick, false);
 
-    const count = await page.locator('ic-select[data-component-variant="generation-count"]').evaluate(select => ({
+    const count = await page.locator('ic-select[data-component-variant="generation-count"]').nth(1).evaluate(select => ({
       status:select.dataset.icContractStatus,
       value:select.value,
       height:select.shadowRoot.querySelector('[part="combobox"]').getBoundingClientRect().height,
     }));
     assert.deepEqual(count, {status:'ready', value:'1', height:32});
 
-    await page.locator('ic-select[data-component-variant="generation-count"]').evaluate(select => { void select.show(); });
-    const countLayout = await page.locator('ic-select[data-component-variant="generation-count"]').evaluate(select => {
+    await page.locator('ic-select[data-component-variant="generation-count"]').nth(1).evaluate(select => { void select.show(); });
+    const countLayout = await page.locator('ic-select[data-component-variant="generation-count"]').nth(1).evaluate(select => {
       const listbox = select.shadowRoot.querySelector('[part~="listbox"]');
       const slot = listbox.querySelector('slot');
       const optionRects = [...select.querySelectorAll('wa-option')].map(option => option.getBoundingClientRect());
@@ -182,14 +182,14 @@ function startServer(){
         optionCount:optionRects.length,
       };
     });
-    assert.deepEqual(countLayout, {display:'grid', columns:2, rows:4, optionCount:8});
-    await page.locator('ic-select[data-component-variant="generation-count"] wa-option').nth(1).click();
-    const countClosedAfterSelection = await page.locator('ic-select[data-component-variant="generation-count"]').evaluate(select => select.open);
+    assert.deepEqual(countLayout, {display:'grid', columns:2, rows:2, optionCount:4});
+    await page.locator('ic-select[data-component-variant="generation-count"]').nth(1).locator('wa-option').nth(1).click();
+    const countClosedAfterSelection = await page.locator('ic-select[data-component-variant="generation-count"]').nth(1).evaluate(select => select.open);
     assert.equal(countClosedAfterSelection, false);
 
-    await page.locator('ic-select[data-component-variant="model-picker"]').evaluate(select => { void select.show(); });
-    await page.locator('ic-select[data-component-variant="model-picker"] wa-option').nth(1).click();
-    const modelClosedAfterSelection = await page.locator('ic-select[data-component-variant="model-picker"]').evaluate(select => select.open);
+    await page.locator('ic-select[data-component-variant="model-picker"]').nth(1).evaluate(select => { void select.show(); });
+    await page.locator('ic-select[data-component-variant="model-picker"]').nth(1).locator('wa-option').nth(1).click();
+    const modelClosedAfterSelection = await page.locator('ic-select[data-component-variant="model-picker"]').nth(1).evaluate(select => select.open);
     assert.equal(modelClosedAfterSelection, false);
 
     await page.screenshot({path:'/tmp/t35-generation-settings-picker-light.png', fullPage:true});
@@ -446,6 +446,7 @@ function startServer(){
         counts:{total:1},
         reference_limit:{maximum:12},
         reference_mode:'multimodal_all_around',
+        supported_reference_modes:['multimodal_all_around','first_last_frames'],
       });
       document.body.append(fixture);
       const select = fixture.querySelector('ic-select');
@@ -488,6 +489,31 @@ function startServer(){
     assert.ok(referenceModePicker.optionIconColors.every(colors => colors.icon === colors.text));
     assert.equal(referenceModePicker.count, '1/12');
     assert.equal(referenceModePicker.legacyControl, false);
+
+    const singleReferenceModePicker = await page.evaluate(async () => {
+      const fixture = document.createElement('div');
+      fixture.innerHTML = renderJimengReferenceModeControl({
+        counts:{total:1},
+        reference_limit:{maximum:2},
+        reference_mode:'multimodal_all_around',
+        supported_reference_modes:['first_last_frames'],
+      });
+      document.body.append(fixture);
+      const select = fixture.querySelector('ic-select');
+      await select.updateComplete;
+      const result = {
+        optionCount:select.querySelectorAll('wa-option').length,
+        value:select.value,
+        startIcon:select.querySelector('[slot="start"]')?.getAttribute('name'),
+      };
+      fixture.remove();
+      return result;
+    });
+    assert.deepEqual(singleReferenceModePicker, {
+      optionCount:1,
+      value:'first_last_frames',
+      startIcon:'first-last-frames',
+    });
 
     await page.locator('#dynamicParams ic-generation-settings-picker[data-smart-generation-mode="video"]').evaluate(picker => {
       picker.shadowRoot.querySelector('ic-aspect-ratio-picker').shadowRoot.querySelector('[data-value="9:16"]').click();

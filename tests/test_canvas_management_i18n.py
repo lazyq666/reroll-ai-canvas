@@ -130,7 +130,7 @@ class CanvasManagementI18nTests(unittest.TestCase):
         )
         for expected in (
             'en: "Manage available models"',
-            'en: "Set the names, visibility, and order shown to users."',
+            'en: "Set the names, visibility, order, and capabilities shown to users."',
             'en: "Sign out"',
         ):
             self.assertIn(expected, resources)

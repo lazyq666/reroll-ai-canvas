@@ -8,11 +8,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from backend.infinite_canvas.model_capability_refresh import (
+    ApiMartModelsCapabilitySource,
     ApiMartSeedreamDocsSource,
     CapabilitySourceSnapshot,
     DreaminaCliCapabilitySource,
+    GeminiApiCapabilitySource,
     JsonUrlCapabilitySource,
     ModelCapabilityRefreshManager,
+    sources_from_model_discovery,
     sources_from_environment,
 )
 from backend.infinite_canvas.model_capability_workbench import (
@@ -196,6 +199,56 @@ class ApiMartSeedreamDocsSourceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((), sources_from_environment())
 
 
+class ApiMartModelsCapabilitySourceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_expanded_schema_becomes_reviewable_video_candidate(self):
+        source = ApiMartModelsCapabilitySource(
+            "team-apimart",
+            "https://api.apimart.ai/v1/models?expand=parameters",
+            [
+                {
+                    "model_id": "wan2.6",
+                    "category": "video",
+                    "capability_tags": ["Text to Video", "Image to Video"],
+                    "parameters": {
+                        "operation": "video_generation",
+                        "method": "POST",
+                        "endpoint": "/v1/videos/generations",
+                        "schema_version": "2026-07-30",
+                        "source": "task_model_registry",
+                        "input_schema": {
+                            "type": "object",
+                            "required": ["model"],
+                            "properties": {
+                                "model": {"type": "string", "const": "wan2.6"},
+                                "duration": {"type": "integer", "minimum": 1, "maximum": 15},
+                                "resolution": {"type": "string", "enum": ["720p", "1080p"]},
+                                "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16"]},
+                            },
+                        },
+                    },
+                }
+            ],
+            clock=lambda: NOW,
+        )
+
+        snapshot = await source.collect()
+
+        self.assertEqual(1, len(snapshot.records))
+        record = snapshot.records[0]
+        self.assertEqual("team-apimart", record["provider_id"])
+        self.assertEqual("video.generate", record["operation"])
+        self.assertEqual("supported", record["capability"]["support_state"])
+        self.assertEqual(
+            15,
+            record["capability"]["parameters"]["duration_seconds"]["maximum"],
+        )
+        self.assertEqual(
+            ["720p", "1080p"], record["capability"]["output"]["resolutions"]
+        )
+        self.assertEqual("2026-07-30", record["evidence"]["applicable_version"])
+        ModelCapabilityWorkbench.validate_capability(record["capability"])
+
+
 class DreaminaCliCapabilitySourceTests(unittest.IsolatedAsyncioTestCase):
     async def test_cli_help_extracts_only_explicit_exact_model_limits(self):
         async def runner(command):
@@ -217,7 +270,7 @@ class DreaminaCliCapabilitySourceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(3, len(snapshot.records))
         by_model = {record["model_id"]: record for record in snapshot.records}
         self.assertEqual(
-            ["480p", "720p", "1080p"],
+            ["480p", "720p"],
             by_model["seedance2.5"]["capability"]["parameters"]["resolution"]["values"],
         )
         self.assertEqual(
@@ -237,6 +290,143 @@ class DreaminaCliCapabilitySourceTests(unittest.IsolatedAsyncioTestCase):
         task.cancel()
         with self.assertRaises(asyncio.CancelledError):
             await task
+
+    async def test_fetch_snapshot_reuses_image_and_video_help_without_running_cli(self):
+        discovery = {
+            "help_outputs": {
+                "text2image": """Supported combinations:
+- model_version: 5.0, 5.0Pro
+- ratio: 1:1, 16:9
+- generate_num: 1-10
+- 5.0 -> resolution_type 2k or 4k
+- 5.0Pro -> resolution_type 1k, 2k, or 4k
+""",
+                "image2image": """Upload 1 to 10 local images.
+Supported combinations:
+- model_version: 5.0Pro
+- ratio: 1:1, 16:9
+- generate_num: 1-10
+- 5.0Pro -> resolution_type 1k, 2k, or 4k
+""",
+                "text2video": """Supported combinations:
+- model_version: seedance2.0, seedance2.5
+- ratio: 1:1, 16:9
+- seedance2.5 -> video_resolution 480p or 720p; duration 4-30s
+- all other models -> video_resolution 720p; duration 4-15s
+""",
+                "multimodal2video": """Supported combinations:
+- model_version: seedance2.0, seedance2.5
+- seedance2.5 -> audio-only is allowed; image<=30, video<=10, audio<=10, total inputs<=50
+- seedance2.0 family -> image<=9, video<=3, audio<=3, total inputs<=12
+""",
+            },
+            "version_output": '{"version":"2.0.0"}\nlogger initialized',
+        }
+
+        source = DreaminaCliCapabilitySource(
+            "dreamina",
+            provider_id="team-dreamina",
+            discovery=discovery,
+            runner=None,
+            clock=lambda: NOW,
+        )
+        snapshot = await source.collect()
+
+        identities = {
+            (record["provider_id"], record["model_id"], record["operation"])
+            for record in snapshot.records
+        }
+        self.assertIn(("team-dreamina", "5.0Pro", "image.generate"), identities)
+        self.assertIn(("team-dreamina", "5.0Pro", "image.edit"), identities)
+        self.assertIn(("team-dreamina", "seedance2.5", "video.generate"), identities)
+        video = next(
+            record for record in snapshot.records
+            if record["model_id"] == "seedance2.5"
+        )
+        self.assertEqual(30, video["capability"]["inputs"]["image"]["maximum"])
+        self.assertEqual("dreamina 2.0.0", video["evidence"]["applicable_version"])
+
+
+class GeminiApiCapabilitySourceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_models_response_creates_reviewable_explicit_text_candidate(self):
+        source = GeminiApiCapabilitySource(
+            "team-gemini",
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            [
+                {
+                    "model_id": "gemini-2.5-pro",
+                    "version": "2.5",
+                    "supported_generation_methods": ["generateContent", "countTokens"],
+                    "input_token_limit": 1048576,
+                    "output_token_limit": 65536,
+                    "temperature": 1.0,
+                    "max_temperature": 2.0,
+                    "top_p": 0.95,
+                    "thinking": True,
+                },
+                {
+                    "model_id": "embedding-001",
+                    "supported_generation_methods": ["embedContent"],
+                },
+            ],
+            eligible_model_ids=["gemini-2.5-pro", "embedding-001"],
+            clock=lambda: NOW,
+        )
+
+        snapshot = await source.collect()
+
+        self.assertEqual(1, len(snapshot.records))
+        record = snapshot.records[0]
+        self.assertEqual("team-gemini", record["provider_id"])
+        self.assertEqual("text.generate", record["operation"])
+        self.assertEqual("unknown", record["capability"]["support_state"])
+        self.assertEqual(
+            1048576,
+            record["capability"]["media_contract"]["input_token_limit"],
+        )
+        self.assertEqual(
+            65536, record["capability"]["media_contract"]["output_token_limit"]
+        )
+        self.assertEqual(2.0, record["capability"]["parameters"]["temperature"]["maximum"])
+        self.assertEqual("medium", record["confidence"])
+
+    def test_fetch_time_factory_is_limited_to_the_first_batch_providers(self):
+        gemini = sources_from_model_discovery(
+            provider_id="gemini-team",
+            base_url="https://generativelanguage.googleapis.com",
+            protocol="gemini",
+            discovery={
+                "kind": "gemini-api",
+                "source_locator": "https://generativelanguage.googleapis.com/v1beta/models",
+                "models": [],
+            },
+            model_ids=[],
+            chat_model_ids=[],
+        )
+        apimart = sources_from_model_discovery(
+            provider_id="team-apimart",
+            base_url="https://api.apimart.ai",
+            protocol="apimart",
+            discovery={
+                "kind": "apimart-api",
+                "source_locator": "https://api.apimart.ai/v1/models?expand=parameters",
+                "models": [],
+            },
+            model_ids=["seedream-5-0-pro"],
+        )
+        compatible_gateway = sources_from_model_discovery(
+            provider_id="exellome",
+            base_url="https://new.exellome.online",
+            protocol="apimart",
+            discovery=None,
+            model_ids=["seedream-5-0-pro"],
+        )
+
+        self.assertIsInstance(gemini[0], GeminiApiCapabilitySource)
+        self.assertIsInstance(apimart[0], ApiMartModelsCapabilitySource)
+        self.assertIsInstance(apimart[1], ApiMartSeedreamDocsSource)
+        self.assertTrue(all(source.provider_id == "team-apimart" for source in apimart))
+        self.assertEqual((), compatible_gateway)
 
 
 class ModelCapabilityRefreshManagerTests(unittest.IsolatedAsyncioTestCase):
@@ -269,6 +459,45 @@ class ModelCapabilityRefreshManagerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([], snapshot["published"]["capabilities"])
             self.assertEqual("high", snapshot["drafts"][0]["field_evidence"]["/support_state"]["confidence"])
             self.assertTrue(manager.cache_path.exists())
+
+    async def test_fetch_time_collection_creates_review_work_without_publishing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.manager(directory, FakeSource())
+
+            result = await manager.collect_sources_for_review(
+                [FakeSource([source_record()])]
+            )
+            snapshot = manager.workbench.snapshot()
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(1, result["record_count"])
+            self.assertEqual(1, result["drafts_created"])
+            self.assertEqual([], snapshot["published"]["capabilities"])
+
+    async def test_repeated_fetch_time_collection_does_not_duplicate_review_work(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.manager(directory, FakeSource())
+            source = FakeSource([source_record()])
+
+            await manager.collect_sources_for_review([source])
+            second = await manager.collect_sources_for_review([source])
+            snapshot = manager.workbench.snapshot()
+
+            self.assertEqual(0, second["drafts_created"])
+            self.assertEqual(0, second["evidence_created"])
+            self.assertEqual(1, len(snapshot["drafts"]))
+            self.assertEqual(1, len(snapshot["evidence"]))
+
+    async def test_fetch_time_collection_reports_source_failure_instead_of_raising(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.manager(directory, FakeSource())
+
+            result = await manager.collect_sources_for_review(
+                [FakeSource(error=RuntimeError("source unavailable"))]
+            )
+
+            self.assertFalse(result["ok"])
+            self.assertIn("source unavailable", result["errors"][0])
 
     async def test_repeated_source_snapshot_does_not_duplicate_review_work(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -43,17 +43,34 @@
             redraw();
             save(node);
         }
-        function fail(node, message, recoverable=false, technicalMessage=''){
+        function fail(node, message, recoverable=false, technicalMessage='', task=null){
             const fallback = text('smart.layerDecompositionFailed');
             const detail = String(message || fallback).slice(0, 500);
+            const technicalError = String(technicalMessage || '').slice(0, 500);
+            const failureFeedback = options.reportFailure?.({
+                node,
+                task,
+                taskId:String(
+                    task?.id
+                    || task?.task_id
+                    || node?.layerDecompositionJob?.taskId
+                    || ''
+                ),
+                message:detail,
+                technicalError,
+                recoverable:Boolean(recoverable),
+            });
+            if(failureFeedback && typeof failureFeedback === 'object'){
+                node.generationRunFeedback = failureFeedback;
+            }
             setJob(node, {
                 status:recoverable ? 'recoverable' : 'failed',
                 message:recoverable ? text('smart.layerDecompositionRecoverable') : fallback,
                 error:detail,
-                technicalError:String(technicalMessage || '').slice(0, 500),
+                technicalError,
                 recoverable:Boolean(recoverable)
             });
-            notify(detail.slice(0, 160));
+            if(!failureFeedback) notify(detail.slice(0, 160));
         }
         function priceText(resolutionTier){
             const maximum = ['1K','1.5K'].includes(String(resolutionTier))
@@ -108,7 +125,8 @@
                                 current,
                                 text('smart.layerDecompositionFailed'),
                                 Boolean(data.recoverable),
-                                data.error || data.message || ''
+                                data.error || data.message || '',
+                                data
                             );
                             return;
                         }
@@ -162,7 +180,13 @@
                 || `layer-decomposition-${now()}-${Math.random().toString(36).slice(2, 9)}`;
             pending.layerDecompositionSourceNodeId = node.id;
             pending.layerDecompositionSourceImageIndex = Number(imageIndex) || 0;
-            setJob(pending, {status:'submitting',taskId:'',submittedAt:now()});
+            setJob(pending, {
+                status:'submitting',
+                taskId:'',
+                submittedAt:now(),
+                resolutionTier,
+                prompt:String(prompt || '').trim(),
+            });
             try {
                 await checkpoint();
                 const response = await fetch('/api/canvas-layer-decomposition-tasks', {
@@ -265,9 +289,6 @@
             open, run, resume, isActive:job => jobActive(job),
             pendingHtml({node,layout={},elapsed=''}={}){
                 const job = node?.layerDecompositionJob || {};
-                if(job.status === 'failed' || job.status === 'recoverable'){
-                    return `<div class="layer-decomposition-feedback" style="width:${Number(layout.width)||260}px;height:${Number(layout.height)||180}px"><ic-alert tone="danger" heading="${text('smart.layerDecompositionFailed')}">${job.error || text('smart.layerDecompositionRecoverable')}</ic-alert></div>`;
-                }
                 return `<ic-generation-pending data-generation-pending-node kind="image" state="${job.status === 'running' ? 'generating' : 'queued'}" count="1" label="${text('smart.layerDecompositionRunning')}"${elapsed ? ` elapsed="${elapsed}"` : ''}></ic-generation-pending>`;
             },
             waitForIdle:() => Promise.all([...polls.values()])

@@ -56,6 +56,20 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertEqual(payload["billingEvidence"], {"cost": 0})
         self.assertEqual(payload["titleKey"], "smart.error.provider_account_restricted.apimart.title")
 
+    def test_provider_connection_marker_wins_over_generic_502(self):
+        payload = self.run_module(
+            """
+            const value = feedback.classify({
+                providerId:'apimart',
+                technicalError:'provider_connection_interrupted',
+                httpStatus:502,
+            });
+            process.stdout.write(JSON.stringify(value));
+            """
+        )
+        self.assertEqual(payload["category"], "connection_interrupted")
+        self.assertEqual(payload["retryability"], "retry_later")
+
     def test_apimart_chinese_unavailable_size_is_not_reported_as_unknown(self):
         payload = self.run_module(
             """

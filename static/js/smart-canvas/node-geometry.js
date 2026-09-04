@@ -78,8 +78,7 @@
 
     function isSingleImageNode(node) {
         return Boolean(
-            node
-            && (node.type === 'smart-image' || !node.type)
+            isImageNode(node)
             && Array.isArray(node.images)
             && node.images.length === 1
             && (isStillImage(node.images[0])
@@ -88,7 +87,11 @@
     }
 
     function isImageNode(node) {
-        return Boolean(node && (node.type === 'smart-image' || !node.type));
+        return Boolean(node && (
+            node.type === 'smart-image'
+            || node.type === 'smart-layer-decomposition'
+            || !node.type
+        ));
     }
 
     function explicitLayout(node, fallback) {
