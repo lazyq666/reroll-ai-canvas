@@ -231,8 +231,8 @@ class ApimartLayerDecompositionRequestTests(unittest.TestCase):
         waiter.assert_awaited_once_with(
             unittest.mock.ANY, "task-layer-1", apimart_provider()
         )
-        self.assertEqual("task-layer-1", result.upstream_task_id)
-        self.assertEqual(1, len(result.layers))
+        self.assertEqual("task-layer-1", result["upstream_task_id"])
+        self.assertEqual(1, len(result["layers"]))
         self.assertEqual("task-layer-1", checkpoint.call_args.args[0].remote_ref)
 
     def test_preserves_optional_layer_instruction(self):

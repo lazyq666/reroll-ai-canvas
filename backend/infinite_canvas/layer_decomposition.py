@@ -37,37 +37,6 @@ class LayerDecompositionError(ValueError):
 
 
 @dataclass(frozen=True)
-class ProviderImage:
-    url: str
-    width: int
-    height: int
-    output_format: str
-
-    def source(self) -> dict[str, str]:
-        return {"type": "url", "value": self.url}
-
-
-@dataclass(frozen=True)
-class ProviderLayer(ProviderImage):
-    name: str
-    description: str
-    z_index: int
-    absolute_bbox: tuple[int, int, int, int]
-    normalized_bbox: tuple[int, int, int, int]
-    source_index: int
-
-
-@dataclass(frozen=True)
-class ParsedLayerDecomposition:
-    upstream_task_id: str
-    canvas_width: int
-    canvas_height: int
-    base: ProviderImage
-    layers: tuple[ProviderLayer, ...]
-    raw_metadata: Mapping[str, Any]
-
-
-@dataclass(frozen=True)
 class LayerImageInspection:
     width: int
     height: int
@@ -146,7 +115,7 @@ def _task_id(raw: Mapping[str, Any]) -> str:
 
 def parse_apimart_layer_decomposition(
     raw: Mapping[str, Any],
-) -> ParsedLayerDecomposition:
+) -> dict[str, Any]:
     """Translate the documented APIMart response without repairing bad data."""
 
     if not isinstance(raw, Mapping):
@@ -204,14 +173,14 @@ def parse_apimart_layer_decomposition(
         raise LayerDecompositionError("base_metadata", "Base metadata does not align")
     if base_format != "png":
         raise LayerDecompositionError("base_format", "Base image must be PNG")
-    base = ProviderImage(
-        url=clean_urls[0],
-        width=canvas_width,
-        height=canvas_height,
-        output_format="jpeg" if base_format == "jpg" else base_format,
-    )
+    base = {
+        "url": clean_urls[0],
+        "width": canvas_width,
+        "height": canvas_height,
+        "output_format": "jpeg" if base_format == "jpg" else base_format,
+    }
 
-    parsed_layers: list[ProviderLayer] = []
+    parsed_layers: list[dict[str, Any]] = []
     seen_z: set[int] = {base_z_index}
     previous_z: int | None = base_z_index
     for index in range(1, len(urls)):
@@ -272,61 +241,27 @@ def parse_apimart_layer_decomposition(
                 "Absolute and normalized bounding boxes disagree",
             )
         parsed_layers.append(
-            ProviderLayer(
-                url=clean_urls[index],
-                width=width,
-                height=height,
-                output_format="png",
-                name=str(metadata.get("name") or f"Layer {index}")[:240],
-                description=str(metadata.get("description") or "")[:2000],
-                z_index=z_index,
-                absolute_bbox=absolute,
-                normalized_bbox=normalized,
-                source_index=index,
-            )
+            {
+                "url": clean_urls[index],
+                "width": width,
+                "height": height,
+                "output_format": "png",
+                "name": str(metadata.get("name") or f"Layer {index}")[:240],
+                "description": str(metadata.get("description") or "")[:2000],
+                "z_index": z_index,
+                "absolute_bbox": list(absolute),
+                "normalized_bbox": list(normalized),
+                "source_index": index,
+            }
         )
-    return ParsedLayerDecomposition(
-        upstream_task_id=_task_id(raw),
-        canvas_width=canvas_width,
-        canvas_height=canvas_height,
-        base=base,
-        layers=tuple(parsed_layers),
-        raw_metadata=sanitize_provider_metadata(raw),
-    )
-
-
-def layer_decomposition_mapping(
-    value: ParsedLayerDecomposition,
-) -> dict[str, Any]:
-    """Serialize a parsed result for durable Generation Run storage."""
-
     return {
         "kind": "image_layer_decomposition",
-        "upstream_task_id": value.upstream_task_id,
-        "canvas_width": value.canvas_width,
-        "canvas_height": value.canvas_height,
-        "base": {
-            "url": value.base.url,
-            "width": value.base.width,
-            "height": value.base.height,
-            "output_format": value.base.output_format,
-        },
-        "layers": [
-            {
-                "url": layer.url,
-                "width": layer.width,
-                "height": layer.height,
-                "output_format": layer.output_format,
-                "name": layer.name,
-                "description": layer.description,
-                "z_index": layer.z_index,
-                "absolute_bbox": list(layer.absolute_bbox),
-                "normalized_bbox": list(layer.normalized_bbox),
-                "source_index": layer.source_index,
-            }
-            for layer in value.layers
-        ],
-        "provider_raw_metadata": dict(value.raw_metadata),
+        "upstream_task_id": _task_id(raw),
+        "canvas_width": canvas_width,
+        "canvas_height": canvas_height,
+        "base": base,
+        "layers": parsed_layers,
+        "provider_raw_metadata": dict(sanitize_provider_metadata(raw)),
     }
 
 
@@ -456,12 +391,8 @@ __all__ = [
     "LayerImageInspection",
     "MANIFEST_VERSION",
     "MAX_LAYERS",
-    "ParsedLayerDecomposition",
-    "ProviderImage",
-    "ProviderLayer",
     "inspect_layer_image",
     "inspect_base_image",
-    "layer_decomposition_mapping",
     "parse_apimart_layer_decomposition",
     "sanitize_provider_metadata",
 ]

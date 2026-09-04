@@ -8,11 +8,6 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from ..layer_decomposition import (
-    ParsedLayerDecomposition,
-    layer_decomposition_mapping,
-)
-
 from .core import (
     Capability,
     Completed,
@@ -236,19 +231,22 @@ def _media_values(value: Any) -> tuple[Any, ...]:
 
 
 def _image_output(value: Any) -> ProviderOutput:
-    if isinstance(value, ParsedLayerDecomposition):
-        legacy = layer_decomposition_mapping(value)
-        base = legacy["base"]
-        layers = legacy["layers"]
+    if (
+        isinstance(value, Mapping)
+        and value.get("kind") == "image_layer_decomposition"
+    ):
+        base = value["base"]
+        layers = value["layers"]
+        upstream_task_id = str(value.get("upstream_task_id") or "")
         return ProviderOutput(
             media=tuple(
                 {"type": "url", "value": item["url"]}
                 for item in (base, *layers)
             ),
-            raw=dict(value.raw_metadata),
-            remote_refs=(value.upstream_task_id,) if value.upstream_task_id else (),
+            raw=dict(value.get("provider_raw_metadata") or {}),
+            remote_refs=(upstream_task_id,) if upstream_task_id else (),
             metadata={"kind": "image_layer_decomposition"},
-            legacy=legacy,
+            legacy=dict(value),
         )
     media_value = value
     raw = None

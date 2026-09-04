@@ -68,18 +68,22 @@ class LayerDecompositionResponseTests(unittest.TestCase):
 
         result = parse_apimart_layer_decomposition(payload)
 
-        self.assertEqual((1600, 900), (result.canvas_width, result.canvas_height))
-        self.assertEqual("task-layer-1", result.upstream_task_id)
-        self.assertEqual([8, 12], [layer.z_index for layer in result.layers])
         self.assertEqual(
-            ["Layer 1", "Layer 2"], [layer.name for layer in result.layers]
+            (1600, 900), (result["canvas_width"], result["canvas_height"])
+        )
+        self.assertEqual("task-layer-1", result["upstream_task_id"])
+        self.assertEqual(
+            [8, 12], [layer["z_index"] for layer in result["layers"]]
+        )
+        self.assertEqual(
+            ["Layer 1", "Layer 2"], [layer["name"] for layer in result["layers"]]
         )
 
     def test_accepts_exactly_sixteen_layers(self):
         result = parse_apimart_layer_decomposition(
             apimart_result(layer_count=16)
         )
-        self.assertEqual(16, len(result.layers))
+        self.assertEqual(16, len(result["layers"]))
 
     def test_rejects_structural_and_coordinate_errors_explicitly(self):
         cases = []
@@ -176,9 +180,12 @@ class LayerDecompositionResponseTests(unittest.TestCase):
         result = parse_apimart_layer_decomposition(payload)
 
         self.assertEqual(
-            (400, 300), (result.layers[0].width, result.layers[0].height)
+            (400, 300),
+            (result["layers"][0]["width"], result["layers"][0]["height"]),
         )
-        self.assertEqual((100, 100, 500, 350), result.layers[0].absolute_bbox)
+        self.assertEqual(
+            [100, 100, 500, 350], result["layers"][0]["absolute_bbox"]
+        )
 
     def test_provider_metadata_is_redacted_and_bounded(self):
         payload = {

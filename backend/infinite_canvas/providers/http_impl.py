@@ -64,10 +64,7 @@ except Exception:
 
 from .ports import DynamicPorts, HttpPorts
 from .core import Pending
-from ..layer_decomposition import (
-    layer_decomposition_mapping,
-    parse_apimart_layer_decomposition,
-)
+from ..layer_decomposition import parse_apimart_layer_decomposition
 from .implementation import (
     codex_cli_executable,
     codex_decode_output,
@@ -5202,10 +5199,9 @@ async def recover_http_image_task(provider, task_id, kind="image"):
         kind == "image_layer_decomposition"
         and status in _ports.IMAGE_TASK_SUCCESS_STATUSES
     ):
-        parsed = parse_apimart_layer_decomposition(raw)
         return {
             "status": "succeeded",
-            **layer_decomposition_mapping(parsed),
+            **parse_apimart_layer_decomposition(raw),
         }
     try:
         image_items = extract_images(raw)

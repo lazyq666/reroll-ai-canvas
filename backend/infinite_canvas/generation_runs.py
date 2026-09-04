@@ -3185,7 +3185,7 @@ class ProviderGenerationExecutor:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class GenerationOutputPorts:
     """Managed-media operations shared by both publication authorities."""
 
@@ -3201,24 +3201,14 @@ class GenerationOutputPorts:
     materialize_image: Callable[..., Awaitable[str]] | None = None
 
 
-@dataclass(frozen=True)
-class GenerationEffectPorts:
+@dataclass(frozen=True, kw_only=True)
+class GenerationEffectPorts(GenerationOutputPorts):
     """Legacy JSON publication plus Managed Media compatibility ports."""
 
     history_path: Callable[[], str | Path]
     journal_path: Callable[[], str | Path]
     history_lock: Any
-    save_image: Callable[..., Awaitable[str]]
-    image_meta: Callable[[str, Any], dict[str, Any]]
-    extract_images: Callable[[Any], list[Any]]
     notify: Callable[[dict[str, Any]], Awaitable[None]]
-    now: Callable[[], float] = time.time
-    now_ms: Callable[[], int] = lambda: int(time.time() * 1000)
-    output_file_from_url: Callable[[str], str | None] | None = None
-    save_video: Callable[..., Awaitable[str]] | None = None
-    save_asset: Callable[..., Awaitable[str]] | None = None
-    save_text: Callable[..., str] | None = None
-    materialize_image: Callable[..., Awaitable[str]] | None = None
 
 
 class WorkspaceGenerationEffects:
@@ -3226,7 +3216,7 @@ class WorkspaceGenerationEffects:
 
     def __init__(
         self,
-        ports: GenerationEffectPorts | GenerationOutputPorts,
+        ports: GenerationOutputPorts,
         *,
         publication: GenerationPublication | None = None,
     ) -> None:
