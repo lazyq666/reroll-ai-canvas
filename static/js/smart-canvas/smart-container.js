@@ -164,16 +164,14 @@ function smartContainerFrameMembers(node){
             return true;
         });
 }
-function smartContainerMembers(node){
-    if(smartContainerIsFrame(node)) return smartContainerFrameMembers(node);
-    if(smartContainerIsGroup(node)) return smartContainerGroupMembers(node);
-    return [];
-}
 function smartContainerDescendantIds(node, seen=new Set()){
     if(!node || seen.has(node.id)) return [];
     seen.add(node.id);
     const descendants = [];
-    smartContainerMembers(node).forEach(member => {
+    const members = smartContainerIsFrame(node)
+        ? smartContainerFrameMembers(node)
+        : smartContainerGroupMembers(node);
+    members.forEach(member => {
         if(seen.has(member.id)) return;
         descendants.push(member.id);
         descendants.push(...smartContainerDescendantIds(member, seen));
@@ -206,12 +204,6 @@ function smartContainerFrameFor(nodeId){
         && Array.isArray(node.items)
         && node.items.includes(nodeId)
     ) || null;
-}
-function smartContainerScope(nodeId){
-    const group = smartContainerGroupFor(nodeId);
-    if(group) return group.id;
-    const node = nodes.find(item => item.id === nodeId);
-    return smartContainerIsGroup(node) ? node.id : '';
 }
 function smartContainerReconcileFrames(){
     const frames = nodes.filter(smartContainerIsFrame);
@@ -293,10 +285,6 @@ function smartContainerIsImageMember(node){
         && smartContainerMemberHasDisplayMedia(node)
         && smartContainerGroupFor(node.id)
     );
-}
-function smartContainerZoom(node){
-    const zoom = Number(node?._memberZoom);
-    return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
 }
 function smartContainerRemoveNodeReference(group, nodeId){
     if(!smartContainerIsGroup(group) || !nodeId) return false;
@@ -601,7 +589,6 @@ function smartContainerArrange(group, options={}){
         SMART_GROUP_MIN_HEIGHT,
         Math.round(Number(layout.height) || SMART_GROUP_DEFAULT_HEIGHT)
     );
-    delete group._memberZoom;
     if(options.syncDom) syncSmartGroupMemberElements(group);
     return true;
 }
@@ -946,18 +933,16 @@ function smartContainerUngroup(nodeId){
 }
 function smartContainerRemove(nodeIds=[], options={}){
     const expanded = new Set(nodeIds);
-    if(!options.preserveFrameContents || !options.preserveGroupContents){
-        nodeIds.forEach(id => {
-            const node = nodes.find(item => item.id === id);
-            if(
-                (smartContainerIsFrame(node) && !options.preserveFrameContents)
-                || (smartContainerIsGroup(node) && !options.preserveGroupContents)
-            ){
-                smartContainerDescendantIds(node)
-                    .forEach(memberId => expanded.add(memberId));
-            }
-        });
-    }
+    nodeIds.forEach(id => {
+        const node = nodes.find(item => item.id === id);
+        if(
+            (smartContainerIsFrame(node) && !options.preserveFrameContents)
+            || (smartContainerIsGroup(node) && !options.preserveGroupContents)
+        ){
+            smartContainerDescendantIds(node)
+                .forEach(memberId => expanded.add(memberId));
+        }
+    });
     return smartContainerMutationModule.remove({
         nodeIds:[...expanded],
         options
@@ -1027,19 +1012,14 @@ window.SmartCanvasModules.smartContainer = Object.freeze({
     layout:smartContainerLayout,
     groupMembers:smartContainerGroupMembers,
     frameMembers:smartContainerFrameMembers,
-    members:smartContainerMembers,
     descendantIds:smartContainerDescendantIds,
     expand:smartContainerExpand,
     groupFor:smartContainerGroupFor,
     frameFor:smartContainerFrameFor,
-    scope:smartContainerScope,
     reconcileFrames:smartContainerReconcileFrames,
     compactMembers:smartContainerCompactMembers,
     isCompactMember:smartContainerIsCompactMember,
     isImageMember:smartContainerIsImageMember,
-    zoom:smartContainerZoom,
-    orderedEntries:smartContainerOrderedEntries,
-    normalizeOrder:smartContainerNormalizeOrder,
     presentation:smartContainerPresentation,
     imageRefs:smartContainerImageRefs,
     thumbLayout:smartContainerThumbLayout,

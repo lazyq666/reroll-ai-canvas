@@ -141,7 +141,6 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 lastMouseWorld:{{x:0,y:0}},viewport:{{scale:1}},
                 smartFrameToolActive:false,suppressNodeClickUntil:0,
                 SMART_GROUP_MIN_WIDTH:120,SMART_GROUP_MIN_HEIGHT:90,
-                SMART_GROUP_MAX_MEMBER_ZOOM:1,
                 SMART_FRAME_MIN_WIDTH:120,SMART_FRAME_MIN_HEIGHT:80,
                 document:{{
                     activeElement:{{blur:() => {{}}}},
@@ -532,7 +531,6 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 suppressNodeClickUntil:0,
                 SMART_GROUP_MIN_WIDTH:120,
                 SMART_GROUP_MIN_HEIGHT:90,
-                SMART_GROUP_MAX_MEMBER_ZOOM:1,
                 SMART_FRAME_MIN_WIDTH:120,
                 SMART_FRAME_MIN_HEIGHT:80,
                 CSS:{{escape:value => value}},
@@ -829,7 +827,6 @@ class SmartCanvasInteractionModuleTests(unittest.TestCase):
                 suppressNodeClickUntil:0,
                 SMART_GROUP_MIN_WIDTH:120,
                 SMART_GROUP_MIN_HEIGHT:90,
-                SMART_GROUP_MAX_MEMBER_ZOOM:1,
                 SMART_FRAME_MIN_WIDTH:120,
                 SMART_FRAME_MIN_HEIGHT:80,
                 document:{{

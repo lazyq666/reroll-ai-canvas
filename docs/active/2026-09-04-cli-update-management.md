@@ -48,7 +48,7 @@ Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamin
 
 | CLI | 官方检查来源 | 渠道处理 |
 | --- | --- | --- |
-| Dreamina | 官方 `version.json` 的 version / release_date / release_notes | 本机只报告 commit/build 且官方没有映射时为 `uncomparable`，界面解释原因，不猜测新旧 |
+| Dreamina | 官方 `version.json` 的 version / release_date / release_notes | 本机只报告 commit/build 且官方没有映射时为 `uncomparable`；保留并显示 CLI 返回的本机构建时间作为辅助信息，但不据此猜测新旧 |
 | Codex | npm 安装读取 npm Registry 的官方包版本，Homebrew 安装读取 Cask 元数据，standalone 读取 `openai/codex` GitHub Latest Release；仅在版本一致时附加对应 GitHub release notes | 安装渠道只用于选择正确的官方版本来源，不用于执行升级 |
 | Antigravity | 官方 Download 页中指向 `changelog?tab=cli` 的 CLI 版本标签及 CLI changelog | 解码官方 gzip 响应，并通过 CLI 专属链接排除 Antigravity Hub/IDE 和普通 Gemini CLI |
 
@@ -66,7 +66,7 @@ Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamin
 
 - App Shell 持有统一 `ic-dialog`，Administrator 进入后仅在至少一个已启用 CLI 存在可用更新时自动展示；没有可用更新时不渲染项目，也不显示 Dialog。
 - Dialog 省略已是最新、未启用和未安装项目；存在可用更新时，同时保留 `uncomparable` 与 `check_failed` 项作为低强调度的灰色已知信息。
-- 每项只显示一次 CLI 名称与状态、本机和官方版本关系、有效说明、官方发布日期和来源；可用更新使用绿色文字，无法判断或无法监测使用中性灰与灰度图标，不再叠加状态圆点、图标容器或第二层卡片背景。
+- 每项只显示一次 CLI 名称与状态、本机和官方版本关系、有效说明、可用的本机构建时间、官方发布日期和来源；可用更新使用绿色文字，无法判断或无法监测使用中性灰与灰度图标，不再叠加状态圆点、图标容器或第二层卡片背景。
 - Dialog 只保留标题与关闭入口；关闭即代表本次进程不再提醒，没有重复的说明、数量、检查时间、页脚操作或升级按钮。
 - API 设置的 CLI 列表只保留一个“检查 CLI 更新”入口；手动检查没有发现更新时使用轻量反馈，不打开空 Dialog。
 - 动态进度、错误、空状态、按钮和可访问状态均提供中文与英文；语言切换会重绘动态内容。
@@ -88,6 +88,7 @@ Python 场景覆盖版本顺序、预发布、commit/build、恶意说明、未�
 
 | 日期 | 状态 | 说明 |
 | --- | --- | --- |
+| 2026-09-04 | Implemented | Dreamina 无法映射发行号时补充展示 CLI 返回的本机构建时间，但不将时间先后用于更新判定 |
 | 2026-09-04 | Implemented | 消融无效层级：设置页双入口合并为一次检查，移除灰底卡片、图标容器、状态圆点和只被单处调用的 DOM 包装函数 |
 | 2026-09-04 | Implemented | 按确认的方案 A 消融提醒界面：只展示需关注项，突出唯一版本关系，无法判断置灰，无更新不显示 Dialog |
 | 2026-09-04 | Implemented | 收紧为只读版本检查与提醒；移除升级 API/按钮；修复 Antigravity gzip 与 Hub/CLI 版本混淆；明确 Dreamina build identity 无法映射发行号 |

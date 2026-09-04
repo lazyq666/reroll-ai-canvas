@@ -598,9 +598,6 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 "isGroup",
                 "isImageMember",
                 "layout",
-                "members",
-                "normalizeOrder",
-                "orderedEntries",
                 "presentation",
                 "prune",
                 "reconcileFrames",
@@ -608,11 +605,9 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                 "remapCopy",
                 "remove",
                 "reorderMedia",
-                "scope",
                 "takeMedia",
                 "thumbLayout",
                 "ungroup",
-                "zoom",
             ],
         )
         self.assertEqual(payload["grouped"]["type"], "smart-group")

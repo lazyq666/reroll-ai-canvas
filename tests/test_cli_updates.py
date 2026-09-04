@@ -136,7 +136,7 @@ class AdapterTests(unittest.TestCase):
         with mock.patch(
             "infinite_canvas.cli_updates._run_version_command",
             side_effect=[
-                (True, '{"version":"34f0ca9","commit":"34f0ca9"}'),
+                (True, '{"version":"34f0ca9","commit":"34f0ca9","build_time":"2026-07-13T15:39:22Z"}'),
                 (False, "unsupported"),
                 (False, "unsupported"),
             ],
@@ -145,6 +145,7 @@ class AdapterTests(unittest.TestCase):
         self.assertTrue(local["installed"])
         self.assertEqual(local["version"], "")
         self.assertEqual(local["local_display_version"], "34f0ca9")
+        self.assertEqual(local["local_build_time"], "2026-07-13T15:39:22Z")
         self.assertIn("34f0ca9", local["raw_version"])
         self.assertEqual(run.call_args_list[0].args[0], ["wsl.exe", "dreamina", "--version"])
 

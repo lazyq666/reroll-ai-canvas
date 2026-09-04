@@ -97,7 +97,6 @@
             String(node.activeOutputId || ''), Boolean(node.llmEnabled),
             Boolean(node.llmSystemEnabled), Boolean(node.promptSplitEnabled),
             finite(node.llmInstructionHeight), finite(node.promptSplitPreviewHeight),
-            finite(node._memberZoom, 1),
             Array.isArray(node.items) ? node.items : [],
             images.map(image => [
                 String(image?.kind || ''), String(image?.url || ''),
