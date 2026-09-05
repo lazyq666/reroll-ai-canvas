@@ -66,7 +66,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
                 "errors": [],
             }
         )
-        with patch.object(main, "MODEL_CAPABILITY_REFRESH", manager):
+        with patch.object(main, "MODEL_CAPABILITY_DISCOVERY", manager):
             result = await main._attach_fetch_time_capability_review(
                 {
                     "all": ["gemini-2.5-pro"],
@@ -91,7 +91,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         manager.collect_model_discovery = AsyncMock(
             side_effect=RuntimeError("bad capability source")
         )
-        with patch.object(main, "MODEL_CAPABILITY_REFRESH", manager):
+        with patch.object(main, "MODEL_CAPABILITY_DISCOVERY", manager):
             result = await main._attach_fetch_time_capability_review(
                 {"all": ["model-a"], "chat_models": []},
                 provider_id="apimart",
@@ -454,26 +454,10 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(403, raised.exception.status_code)
 
-    async def test_manual_refresh_runs_the_source_manager_after_admin_check(self):
-        actor = {"id": "admin-1", "role": "admin"}
-        refresh = AsyncMock(
-            return_value={
-                "ok": True,
-                "enabled": True,
-                "drafts_created": 1,
-                "evidence_created": 1,
-            }
-        )
-        manager = Mock()
-        manager.refresh = refresh
-        with (
-            patch.object(main, "require_current_user", return_value=actor),
-            patch.object(main, "MODEL_CAPABILITY_REFRESH", manager),
-        ):
-            result = await main.refresh_model_capability_catalog()
-
-        refresh.assert_awaited_once_with(force=True)
-        self.assertEqual(1, result["refresh"]["drafts_created"])
+    async def test_standalone_source_refresh_endpoint_is_removed(self):
+        paths = {route.path for route in main.app.routes}
+        self.assertNotIn("/api/admin/model-capabilities/refresh", paths)
+        self.assertFalse(hasattr(main.MODEL_CAPABILITY_DISCOVERY, "start"))
 
     async def test_admin_matrix_lists_models_without_requiring_a_draft(self):
         actor = {"id": "admin-1", "role": "admin"}

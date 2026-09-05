@@ -89,7 +89,9 @@ function apiPayload(url) {
   return {};
 }
 
-(async () => {
+module.exports = {apiPayload, capabilityPayload};
+
+if (require.main === module) (async () => {
   const server = await startServer();
   const browser = await chromium.launch({ headless:true, executablePath:browserExecutable });
   try {
@@ -245,8 +247,8 @@ function apiPayload(url) {
     );
     assert.equal(await dialog.locator('ic-alert[tone="warning"], [data-layer-capability-status]').count(), 0);
     assert.match(await dialog.locator('[data-layer-price]').textContent(), /¥0\.3.*¥11/);
-    const initialResolutions = dialog.locator('ic-radio-group[name="layer-resolution"]');
-    assert.deepEqual(await initialResolutions.locator('ic-radio').evaluateAll(options => options.map(option => option.value)), ['auto','1K','1.5K','2K']);
+    const initialResolutions = dialog.locator('ic-segmented-control[name="layer-resolution"]');
+    assert.deepEqual(await initialResolutions.locator('button[data-value]').evaluateAll(options => options.map(option => option.dataset.value)), ['auto','1K','1.5K','2K']);
     assert.equal(await initialResolutions.getAttribute('value'), '2K');
     assert.equal(await dialog.locator('ic-generation-settings-picker[name="layer-generation-settings"]').count(), 0);
     const layout = await dialog.locator('[data-ai-processor-layout="layer-decomposition"]').boundingBox();
@@ -260,9 +262,9 @@ function apiPayload(url) {
       select.dispatchEvent(new Event('change', {bubbles:true}));
     });
     await page.waitForFunction(() => {
-      const group = document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"] ic-radio-group[name="layer-resolution"]');
+      const group = document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"] ic-segmented-control[name="layer-resolution"]');
       return group?.getAttribute('value') === '1K'
-        && [...group.querySelectorAll('ic-radio')].map(option => option.value).join(',') === 'auto,1K';
+        && [...group.querySelectorAll('button[data-value]')].map(option => option.dataset.value).join(',') === 'auto,1K';
     });
     await dialog.locator('ic-textarea[name="layer-prompt"]').evaluate(element => {
       element.value = 'Keep the title separate';
@@ -271,7 +273,7 @@ function apiPayload(url) {
     await page.evaluate(() => window.StudioI18n.set('en'));
     await page.waitForFunction(() => document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"]')?.label === 'Smart layer decomposition');
     assert.match(await dialog.locator('[data-layer-price]').textContent(), /Approx\. CNY/);
-    assert.equal(await dialog.locator('ic-radio-group[name="layer-resolution"]').getAttribute('value'), '1K');
+    assert.equal(await dialog.locator('ic-segmented-control[name="layer-resolution"]').getAttribute('value'), '1K');
     assert.equal(await dialog.locator('ic-textarea[name="layer-prompt"]').evaluate(element => element.value), 'Keep the title separate');
     await page.evaluate(() => window.StudioI18n.set('zh'));
     await page.waitForFunction(() => document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"]')?.label === '智能分层');
@@ -402,6 +404,7 @@ function apiPayload(url) {
     });
 
     assert.equal(await page.locator('#smartNodeFloatingPortal [data-smart-group-action]').count(), 0);
+    assert.deepEqual(await page.locator('#smartNodeFloatingPortal [data-smart-node-action]').evaluateAll(buttons => buttons.map(button => button.dataset.smartNodeAction)), ['preview', 'download-psd']);
     await page.mouse.dblclick(
       stageBox.x + stageBox.width / 2,
       stageBox.y + stageBox.height / 2
@@ -423,7 +426,12 @@ function apiPayload(url) {
     assert.equal(editorLayout.width, 9 * editorLayout.rem);
     assert.ok(Math.abs(editorLayout.offset) < 2, JSON.stringify(editorLayout));
     assert.equal(editorLayout.actionsPosition, 'absolute');
-    assert.equal(editorLayout.downloadInPanel, true);
+    assert.equal(editorLayout.downloadInPanel, false);
+    assert.equal(await page.locator('#layerDecompositionEditorTools #layerDecompositionPsdDownload').count(), 1);
+    await page.locator('#layerDecompositionEditorTools [icon="zoom-in"]').click();
+    assert.equal(await page.locator('#layerDecompositionZoomLabel').innerText(), '110%');
+    await page.locator('#layerDecompositionEditorTools [icon="fit"]').click();
+    assert.equal(await page.locator('#layerDecompositionZoomLabel').innerText(), '100%');
     await page.evaluate(() => window.StudioI18n.set('en'));
     await page.waitForFunction(() => document.querySelector('.image-node.smart-layer-decomposition .image-name-badge-copy')?.textContent === 'Smart layer decomposition'
       || [...document.querySelectorAll('.image-name-badge-copy')].some(el => el.textContent === 'Smart layer decomposition'));

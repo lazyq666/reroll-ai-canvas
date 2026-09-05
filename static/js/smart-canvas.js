@@ -119,7 +119,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-a7dd55e61123')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-0e81b6afe7d8')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -8329,15 +8329,15 @@ function smartNodeToolbarActionHtml(node, action){
 }
 function smartNodeToolbarActionsHtml(node, actions=[]){
     if(!actions.length) return '';
-    if(actions.length === 1){
-        const action = actions[0];
-        return `<ic-smart-node-toolbar label="${escapeAttr(tr('smart.nodeActions'))}" data-smart-node-menu="1">
-            ${smartNodeToolbarActionHtml(node, action)}
-        </ic-smart-node-toolbar>`;
-    }
     return `<ic-smart-node-toolbar label="${escapeAttr(tr('smart.nodeActions'))}" data-smart-node-menu="1">${actions.map(action => smartNodeToolbarActionHtml(node, action)).join('')}</ic-smart-node-toolbar>`;
 }
 function smartNodeToolbarHtml(node){
+    if(nodeKinds.isLayerDecomposition(node)){
+        return smartNodeToolbarActionsHtml(node, [
+            {key:'preview', icon:'preview', label:tr('canvas.preview'), enabled:true},
+            {key:'download-psd', icon:'download', label:tr('smart.downloadPsd'), enabled:true}
+        ]);
+    }
     if(smartNodeInFlight(node) && isSmartRunnableNode(node)){
         return smartNodeToolbarActionsHtml(node, [
             {key:'duplicate', icon:'create-copy', label:tr('smart.contextDuplicate'), enabled:true},
@@ -8382,13 +8382,13 @@ function smartNodeToolbarHtml(node){
         ]
         : kind === 'image'
             ? [
-                {key:'reverse-prompt', icon:'reverse-prompt', label:tr('smart.contextReversePrompt'), enabled:true},
                 {key:'generate-image', icon:'online-generate', label:tr('smart.action.generateMedia'), enabled:true},
+                {key:'layer-decomposition', icon:'layers', label:tr('smart.layerDecomposition'), enabled:true},
+                {key:'reverse-prompt', icon:'reverse-prompt', label:tr('smart.contextReversePrompt'), enabled:true},
                 {key:'matting', icon:'cut', label:tr('smart.matting'), enabled:true},
                 {key:'outpaint', icon:'fit', label:tr('canvas.modeOutpaint'), enabled:true},
                 {key:'angle-control', icon:'angle-control', label:tr('nav.angle'), enabled:true},
                 {key:'lighting-reference', icon:'lighting-reference', label:tr('smart.contextLightingReference'), enabled:true},
-                {key:'layer-decomposition', icon:'layers', label:tr('smart.layerDecomposition'), enabled:true},
                 {key:'divider'},
                 {key:'edit', icon:'edit', label:tr('smart.imageModeEdit'), enabled:true},
                 downloadAction
@@ -8445,9 +8445,14 @@ function openSmartVideoFullscreen(nodeId, imageIndex=0){
     imageStudio.open({nodeId, imageIndex:index, mode:'preview', groupAware:false});
     return true;
 }
-function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null){
+function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, triggerButton=null){
     const node = nodes.find(n => n.id === nodeId);
     if(!node) return;
+    if(nodeKinds.isLayerDecomposition(node)){
+        if(action === 'preview') imageStudio.open({nodeId, mode:'layer-decomposition'});
+        else if(action === 'download-psd') void window.SmartCanvasModules.layeredPsd.download({canvasId, nodeId, button:triggerButton});
+        return;
+    }
     if(action === 'duplicate'){
         canvasMutation.duplicate({
             nodeIds:smartContainer.expand([node.id]),
@@ -8725,7 +8730,8 @@ function bindSmartNodeFloatingPortal(){
         if(nodeAction) runSmartNodeToolbarAction(
             button.dataset.nodeId || '',
             button.dataset.smartNodeAction,
-            button.hasAttribute('data-media-index') ? Number(button.dataset.mediaIndex) : null
+            button.hasAttribute('data-media-index') ? Number(button.dataset.mediaIndex) : null,
+            button
         );
         else if(groupAction) runSmartGroupToolbarAction(button.dataset.nodeId || '', button.dataset.smartGroupAction);
         else if(frameAction) runSmartFrameToolbarAction(button.dataset.nodeId || '', button.dataset.smartFrameAction);
@@ -11773,12 +11779,14 @@ function aiProcessorDialogModels(entries){
             iconMonochrome:Boolean(icon?.monochrome),
             icon:icon ? '' : 'sparkles',
             resolutionTiers:entry.resolutionTiers || [],
+            supportsLayerRegions:Boolean(entry.supportsLayerRegions),
             defaultResolution:entry.defaultResolution || ''
         };
     });
 }
 function aiProcessorDialogMessages(){
     return {
+        layerAuthoring:Object.fromEntries(["mode", "intelligent", "regions", "granularity", "prompt", "preset.auto", "preset.subject-background", "preset.text-subject-background", "preset.objects", "prompt.subject-background", "prompt.text-subject-background", "prompt.objects", "canvas", "drawHint", "add", "clear", "delete", "selectedRegion", "regionNumber", "x", "y", "width", "height", "description", "descriptionHint", "supplement", "preview", "regionLine", "regionPrompt", "promptRequired", "unsupported", "loading", "imageError", "retry", "staleSize", "invalidRegion", "limit", "sourceChanged", "conflict", "cannotSave", "discardUnsaved"].map(key=>[key,tr(`smart.layerAuthoring.${key}`)])),
         title:tr('smart.layerDecomposition'),
         model:tr('smart.layerDecompositionModel'),
         resolution:tr('smart.layerDecompositionResolution'),
@@ -11795,6 +11803,50 @@ function aiProcessorDialogMessages(){
         submit:tr('smart.layerDecompositionSubmit')
     };
 }
+function layerDecompositionSource(context){
+    const source=nodes.find(item=>item.id===context?.sourceNodeId);
+    const index=source?.images?.findIndex(image=>window.SmartCanvasModules.layerDecompositionDraft.mediaKey(image)===context?.layerMediaKey) ?? -1;
+    return {source,image:source?.images?.[index],index};
+}
+function queueLayerDecompositionDraft(draft){
+    const context=aiProcessorDialogContext;
+    if(context?.processor!=='layer-decomposition') return;
+    context.pendingLayerDraft=draft;
+    clearTimeout(context.layerSaveTimer);
+    context.layerSaveTimer=setTimeout(()=>flushLayerDecompositionDraft(context),300);
+}
+function flushLayerDecompositionDraft(context=aiProcessorDialogContext){
+    if(context?.processor!=='layer-decomposition') return true;
+    clearTimeout(context.layerSaveTimer);
+    const next=context.pendingLayerDraft;
+    if(!next) return true;
+    const module=window.SmartCanvasModules.layerDecompositionDraft;
+    const {source,image}=layerDecompositionSource(context);
+    const fail=key=>{
+        aiProcessorDialog?.setError(tr(key));
+        const discard=aiProcessorDialog?.querySelector('[data-layer-discard]');
+        if(discard) discard.hidden=false;
+        return false;
+    };
+    if(!source||!image) return fail('smart.layerAuthoring.sourceChanged');
+    if(!canvasPersistence.editable()) return fail('smart.layerAuthoring.cannotSave');
+    const current=source.layerDecompositionDrafts?.[context.layerMediaKey];
+    let merged;
+    try { merged=module.merge(current,context.layerDraftBaseline,next); }
+    catch(_error){ return fail('smart.layerAuthoring.conflict'); }
+    if(!module.equal(current,merged)){
+        canvasMutation.update({nodeId:source.id,mutate:node=>{
+            node.layerDecompositionDrafts={...(node.layerDecompositionDrafts||{}),[context.layerMediaKey]:merged};
+        },options:{render:false,select:false}});
+    }
+    context.layerDraftBaseline=module.copy(next);
+    context.pendingLayerDraft=null;
+    return true;
+}
+// Flush authoring before Canvas Sync records its pending local recovery state.
+window.addEventListener('beforeunload',()=>flushLayerDecompositionDraft(),{capture:true});
+window.addEventListener('pagehide',()=>flushLayerDecompositionDraft());
+window.addEventListener('blur',()=>flushLayerDecompositionDraft());
 async function ensureAiProcessorDialog(){
     await customElements.whenDefined('ic-ai-processor-dialog');
     if(aiProcessorDialog?.isConnected) return aiProcessorDialog;
@@ -11822,8 +11874,14 @@ async function ensureAiProcessorDialog(){
             if(!error?.aiProcessorToastShown) toast(message,{tone:'danger'});
         });
     });
-    aiProcessorDialog.addEventListener('ic-cancel',()=>{
-        aiProcessorDialogContext=null;
+    aiProcessorDialog.addEventListener('ic-layer-draft-change', event=>queueLayerDecompositionDraft(event.detail.draft));
+    aiProcessorDialog.addEventListener('focusout',()=>flushLayerDecompositionDraft());
+    aiProcessorDialog.addEventListener('ic-hide', event=>{
+        if(event.target!==aiProcessorDialog||aiProcessorDialogContext?.processor!=='layer-decomposition') return;
+        if(event.detail.reason==='discard-layer-draft'){
+            clearTimeout(aiProcessorDialogContext.layerSaveTimer);
+            aiProcessorDialogContext.pendingLayerDraft=null;
+        } else if(!flushLayerDecompositionDraft()) event.preventDefault();
     });
     aiProcessorDialog.addEventListener('ic-after-hide',event=>{
         if(event.target!==aiProcessorDialog) return;
@@ -12095,12 +12153,14 @@ async function submitLightingReferenceProcessor(context,detail){
     }
 }
 async function submitLayerDecompositionProcessor(context,detail,model){
-    const source=nodes.find(item=>item.id===context.sourceNodeId);
-    const image=source?.images?.[context.imageIndex];
+    if(!canvasPersistence.editable()) throw new Error(tr('smart.layerAuthoring.cannotSave'));
+    const {source,image,index}=layerDecompositionSource(context);
     if(!source||!image?.url||mediaKindForItem(image)!=='image') throw new Error(tr('smart.reversePromptSourceUnavailable'));
+    if(!flushLayerDecompositionDraft()) throw new Error(aiProcessorDialog.errorMessage);
+    if(aiProcessorDialog.layerDraft.mode==='regions'&&!model.supportsLayerRegions) throw new Error(tr('smart.layerAuthoring.unsupported'));
     const pending=await smartLayerDecomposition.run({
         node:source,
-        imageIndex:context.imageIndex,
+        imageIndex:index,
         providerId:model.provider_id,
         modelId:model.model,
         capabilityContext:{protocol:model.protocol || '',base_url:model.base_url || ''},
@@ -12142,6 +12202,7 @@ async function submitAiProcessorDialog(detail){
     return submitAngleProcessor(context,detail,model);
 }
 async function openAiProcessorForSmartImage(processor,nodeId,imageIndex){
+    if(aiProcessorDialog?.open) return;
     const source = nodes.find(item => item.id === nodeId);
     const image = source?.images?.[imageIndex];
     if(!source || !image?.url || mediaKindForItem(image) !== 'image') return;
@@ -12149,7 +12210,10 @@ async function openAiProcessorForSmartImage(processor,nodeId,imageIndex){
     const groups=processor==='reverse-prompt'||processor==='outpaint'?aiProcessorPromptGroups():[];
     const candidateModels=processor==='lighting-reference'?[]:aiProcessorModelEntries(processor==='reverse-prompt'?'text':'image');
     const models=processor==='layer-decomposition'
-        ? await smartLayerDecomposition.supportedModels(candidateModels)
+        ? await smartLayerDecomposition.supportedModels(candidateModels.map(entry=>{
+            const provider=(apiProviders||[]).find(item=>item.id===entry.provider_id);
+            return {...entry,protocol:entry.protocol||provider?.protocol||'',base_url:entry.base_url||provider?.base_url||''};
+        }))
         : candidateModels;
     const dialog=await ensureAiProcessorDialog();
     const displayImage = imageForDisplay(image);
@@ -12159,12 +12223,17 @@ async function openAiProcessorForSmartImage(processor,nodeId,imageIndex){
     dialog.sourceImage = displayImage?.url || image.url;
     dialog.sourceAlt = image.alias || image.name || tr('smart.kindImage');
     dialog.sourceWidth=sourceSize.width; dialog.sourceHeight=sourceSize.height;
+    const layerMediaKey=window.SmartCanvasModules.layerDecompositionDraft.mediaKey(image);
+    const savedLayerDraft=source.layerDecompositionDrafts?.[layerMediaKey];
+    dialog.initialLayerDraft=processor==='layer-decomposition' ? savedLayerDraft || null : null;
     dialog.initialLightingIntent=processor==='lighting-reference'&&source.metadata?.lightingIntent
         ? JSON.parse(JSON.stringify(source.metadata.lightingIntent))
         : null;
     dialog.groups=groups; dialog.models=aiProcessorDialogModels(models);
     aiProcessorDialogContext = {
         sourceNodeId:source.id,
+        layerMediaKey,
+        layerDraftBaseline:window.SmartCanvasModules.layerDecompositionDraft.copy(savedLayerDraft),
         imageIndex,
         sourceUrl:displayImage?.url||image.url,
         processor,groups,models,historyCaptured:false
@@ -12811,13 +12880,13 @@ function syncPromptAuthoringHeight(){
     const shell = promptInput.closest('.prompt-editor-shell');
     if(!shell) return;
     const shellStyle = getComputedStyle(shell);
-    const maxHeight = parseFloat(shellStyle.maxHeight) || 192;
-    const statusHeight = parseFloat(
-        shellStyle.getPropertyValue('--prompt-character-count-row-size')
-    ) || 20;
+    const minHeight = parseFloat(shellStyle.minHeight) || 0;
+    const maxHeight = parseFloat(shellStyle.maxHeight) || Infinity;
+    const statusHeight = shell.querySelector('[data-prompt-character-count]')?.offsetHeight || 0;
+    shell.style.height = `${minHeight}px`;
     promptInput.style.height = '100%';
     const contentHeight = promptInput.scrollHeight || 0;
-    const height = Math.max(120, Math.min(maxHeight, contentHeight + statusHeight));
+    const height = Math.max(minHeight, Math.min(maxHeight, contentHeight + statusHeight));
     shell.style.height = `${height}px`;
     promptInput.style.overflowY = contentHeight > Math.max(0, height - statusHeight)
         ? 'auto'

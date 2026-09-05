@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-04
+- Amended: 2026-09-05：移除独立资料刷新，只保留模型拉取中的能力提取；导入按当前编辑器合同校验。
 
 ## Context
 
@@ -25,6 +26,8 @@ Model Capability Review State 与 Model Capability State 分离。前者描述�
 
 Reroll 不内置 AI 搜索或 AI 填表执行器。确定性 Model Discovery Snapshot 先减少可直接取得字段的人工查找量；剩余缺口由 Administrator 在 ChatGPT、Codex 或其他外部研究工具中使用工作台生成的查找要求补齐，再把结果作为版本化、Provider 无关的能力包导入。导入包必须逐字匹配当前 Model ID 与显示名称，每个确认的 Model Operation 都必须带可追溯官方来源；未明确的能力必须省略。Reroll 只负责格式校验、当前模型匹配、预览和原子应用，不持有外部 AI 会话，也不消耗其额度。
 
+外部查找要求将 `match` 回填身份与 `research` 线索分离，不输出内部渠道 ID。渠道自定义名称、显示名称和纯数字 Model ID 不能当作公开身份；必须通过实际平台域名、官方模型目录或 CLI 版本映射核对。每个模型的可导入字段由服务端生成 JSON Schema，编辑器候选和导入校验使用同一合同；候选不等于已支持值。当前完整操作格式不表达未知字段，缺少任一必填事实就省略该操作，禁止用零值填空。校验保证身份、格式、枚举、范围及可表达性，不认证来源真实性；管理员仍负责核对。
+
 Administrator 的产品界面不直接暴露上述维护实现，也不设置独立的“模型能力”页签或第二张模型表。可用模型已经按图片、视频和文字分类，并显示 Provider ID；每行最右侧的编辑动作按稳定 Model ID 打开模型详情，同一 Model ID 在多个 Provider 出现时进入同一份 Model Profile。图片模型详情只呈现一个“图片能力”区块；`image.generate` 与 `image.edit` 继续作为内部运行合同，参考图支持和最大数量作为同一区块的条件能力维护，不能因为 Provider 端点或命令不同而成为两个同级产品分类。Administrator 在详情 Dialog 中通过开关、单选和多选维护常用能力，矩阵模块把一次产品选择翻译为关联 Provider 的详细合同、人工 Evidence 与 Published 记录，并只激活一次 Catalog Revision。可用模型行只从当前运行目录投影少量高价值功能标签，首批为拆分图层与透明 PNG；未审核 Draft 不参与标签判断。可编辑显示名称不参与稳定身份，不同 Model ID 也不根据相似名称自动合并。
 
 视频模型详情同样只呈现一个“视频能力”区块。产品投影明确维护图片、视频、音频和三者合计数量，单个与合计参考媒体时长、纯音频输入、输出时长、清晰度、画幅及附加能力；首尾帧视频和全能参考视频作为两个 Video Generation Mode 单独确认。矩阵模块把这些产品字段回写到统一 `inputs`、`input_rules`、`output`、`parameters` 和视频专有合同，Composer 只展示已保存为支持的模式，不能再从 Model 名称推断模式。
@@ -35,7 +38,7 @@ Administrator 的产品界面不直接暴露上述维护实现，也不设置独
 
 Smart Canvas 使用同一目录渲染合法设置并在提交前预检；服务端在进入 Provider Adapter 前使用同一目录再次校验。前端不是能力权威，缺少精确资料时目录记录 `unknown`，前端只使用保守合同，不得从模型名称推断为已确认支持。
 
-目录刷新采用“完整校验后整体发布”的最后有效快照。外部结构化来源响应、ETag 和去重摘要属于可删除并重建的 Device Cache；由来源生成的 Evidence、Draft 与 Review 仍属于 Instance State。APIMART Seedream 5.0 Pro 官方页面通过 `Accept: text/markdown` 的固定语义标记采集；缺少任一已审核标记、返回非 Markdown 或内容越界时整条来源失败，不能用页面标题或模型名称猜测能力。启动旁路和周期检查只产生差异草稿，失败时指数退避并继续服务上一 Revision。一次 Generation Run 冻结目录 Revision；提交缺少 Revision 或携带的 Revision 已过期时，服务端都拒绝请求，不代填当前版本。客户端必须重新加载目录、按新能力检查设置后再提交。
+运行目录仍采用完整校验后整体激活的最后有效快照。根据 2026-09-05 产品决定，移除独立资料检查入口、刷新 API、启动/周期调度、可配置 JSON 来源及其缓存和退避配置。资料提取仅由 API 设置页主动拉取模型触发，复用 Provider 响应与已读 CLI 帮助；不另起 CLI。APIMART 官方模型拉取包含 Seedream 5.0 Pro 时仍可读取其严格 Markdown 参数页作为本次拉取的补充，失败不影响模型清单。证据与草稿仍属于 Instance State，不自动发布。一次 Generation Run 冻结目录 Revision；提交缺少 Revision 或携带的 Revision 已过期时，服务端都拒绝请求，不代填当前版本。客户端必须重新加载目录、按新能力检查设置后再提交。
 
 一次用户生成意图对应一个 Generation Run。图片生成数量是该 Run 的总输出数量；前端不能为绕过合同而拆成多个 `n=1` 请求。Provider 不支持原生多输出时，执行层可以在同一 Run 内拆成可恢复的子请求，但不改变用户意图、幂等边界或目录校验单位。
 
@@ -58,14 +61,14 @@ Smart Canvas 使用同一目录渲染合法设置并在提交前预检；服务�
 - 多输出图片在一个 Generation Run 中校验总数；内部子请求不是新的用户意图。
 - 媒体专用模块可以独立演进，但必须通过目录边界提供两态确认程度和具体约束。
 - 用户界面不展示 Model Capability State；只有参数缺失、超限或目录 Revision 变化等可操作问题才反馈给用户。
-- 外部结构化来源通过独立刷新模块接入；采集、缓存和定时刷新不改变目录调用方接口，也不能跨过 Review 直接发布。
+- 模型发现资料仅由主动拉取模型触发，经确定性解析进入 Evidence / Draft；保存并应用仍是目录发布边界。
 - API 设置的模型拉取可以顺带创建 Model Capability Evidence 与待审核 Draft；浏览器只得到汇总反馈，不得到内部快照或完整上游响应。
 - 首批 Provider 范围固定为 Dreamina、Gemini API 与 APIMART；其他 OpenAI 兼容网关即使复用相同协议，也不能据此套用 APIMART 证据。
-- 内置 APIMART 文档来源只保留已审核的能力摘要与语义摘要，不缓存包含无关章节的完整页面；官方文档结构变化时进入失败与退避，不生成宽松 Draft。
-- 自动采集在单进程内合并并发检查，默认每 24 小时执行；来源失败使用带抖动的指数退避，缓存清理只导致重新下载，不会删除审核记录或改变当前 Revision。
+- 模型拉取中的 APIMART Markdown 补充只保留审核过的参数摘要；结构变化时本次来源失败，不产生宽松草稿。
+- 不再创建、读取或写入资料来源缓存；去重使用已有 Evidence / Draft / Published，历史缓存可删除。
 - 外部研究包只是录入载体，不是能力事实权威；缺少官方来源的能力不能导入，未确认项必须省略。
 - 工作台状态属于 Instance State；Workspace 搬迁、Device Cache 清理或 Provider 凭证更新不改变审核记录。
-- 可用模型列表是能力维护的唯一模型入口；图片、视频和文字分类、Provider ID 与显示顺序不在详情 Dialog 中重复。不能把“已有 Draft”误当成“已有 Model”；来源检查即使没有发现差异，也必须返回匹配与缺失数量。
+- 可用模型列表是能力维护的唯一模型入口；图片、视频和文字分类、Provider ID 与显示顺序不在详情 Dialog 中重复。不能把“已有 Draft”误当成“已有 Model”；模型拉取仍返回本次资料与建议数量。
 - 一次 Model Profile 保存要么同时更新所有关联 Provider，要么全部回滚；浏览器不负责逐平台拼接发布流程。
 - 每个 Draft 已填写的叶子字段必须绑定同一 `Provider + Model + Model Operation` 身份下的 Evidence 和置信度；矛盾上下限或禁止字段不能进入审核。
 - 可用模型中的模型详情 Dialog 是 Administrator 的能力维护界面；普通生成界面不读取或展示 Review State、Evidence 置信度或内部确认标签。可用模型行内功能 Tag 只表达当前目录已确认的高价值功能，不表达审核状态。

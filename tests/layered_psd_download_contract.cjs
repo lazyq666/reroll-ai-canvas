@@ -55,7 +55,7 @@ function loadModule() {
     },
     document:{
       body:{append() {}},
-      getElementById(id) { return id === 'layerDecompositionPsdDownload' ? button : null; },
+      getElementById() { throw new Error('PSD export must not look up page-specific controls'); },
       createElement() {
         return {
           hidden:false,
@@ -96,6 +96,7 @@ function loadModule() {
   const downloaded = await success.api.download({
     canvasId:'canvas / 36',
     nodeId:'layers / 36',
+    button:success.button,
   });
   assert.equal(downloaded, true);
   assert.deepEqual(events, ['checkpoint', 'fetch']);
@@ -103,6 +104,29 @@ function loadModule() {
   assert.deepEqual(success.revoked, ['blob:issue-36']);
   assert.equal(success.button.disabled, false);
   assert.equal(success.button['aria-busy'], false);
+
+  for (const ok of [true, false]) {
+    const custom = loadModule();
+    const trigger = {disabled:false, toggleAttribute(name, active) { this[name] = active; }};
+    let release;
+    let checkpointCount = 0;
+    custom.root.SmartCanvasModules.canvasPersistence = {checkpoint:() => {
+      checkpointCount++;
+      return new Promise(resolve => { release = resolve; });
+    }};
+    custom.root.fetch = async () => response({ok});
+    const pending = custom.api.download({canvasId:'toolbar-canvas', nodeId:'toolbar-node', button:trigger});
+    assert.equal(trigger.disabled, true, 'Disable the clicked toolbar button');
+    assert.equal(trigger['aria-busy'], true);
+    assert.equal(custom.button.disabled, false, 'Do not disable a separate editor button');
+    const duplicate = custom.api.download({canvasId:'toolbar-canvas', nodeId:'toolbar-node', button:trigger});
+    assert.equal(checkpointCount, 1, 'Duplicate export does not start a second checkpoint');
+    assert.equal(await duplicate, false, 'Coalesce exports for the same node');
+    release();
+    assert.equal(await pending, ok);
+    assert.equal(trigger.disabled, false, 'Restore toolbar after success or failure');
+    assert.equal(trigger['aria-busy'], false);
+  }
 
   for (const failedResponse of [
     response({ok:false, body:Buffer.from('{"detail":"failed"}')}),

@@ -145,10 +145,12 @@ Provider 业务错误和其他 HTTP 错误不会触发回退，避免重复提�
 Designer 在恰好一个 Image Node 上选择“智能分层”后，Smart Canvas 使用公共
 `ic-ai-processor-dialog`：左侧显示原图，右侧只列出当前 Available Model Catalog 中
 `image.layer_decomposition` 精确能力为 `supported` 的 Provider + Model。模型切换时，
-分辨率选项与默认值来自该模型的能力合同；界面只保留模型、Resolution Tier、可选拆分提示词
-和一条人民币参考价格范围，不提供画幅、精确尺寸、普通图片质量、透明背景或拆层开关，也不
+分辨率选项与默认值来自该模型的能力合同；界面共用模型、Resolution Tier
+和一条人民币参考价格范围，拆分要求来自智能识别的可编辑预设或区域框选编译的提示词，不提供画幅、精确尺寸、普通图片质量、透明背景或拆层开关，也不
 显示单独的付费警告或“设置已准备”状态。当前内置确认身份仍是 APIMart 的
 `seedream-5-0-pro`，后续模型只有在能力目录确认后才会进入列表。
+
+来源 Node 的分层草稿按稳定媒体身份保存，关闭未执行的 Dialog 也保留输入。区域模式以原图像素保存几何，针对已核验 APIMart Seedream 5.0 Pro 渠道生成 0–1000 的 `<bbox>left top right bottom</bbox>`；提交原图而非标注截图。输入框只定位目标，不充当返回图层的几何权威。详细交互和效果验收边界见[分层 Dialog 规格](../active/2026-09-05-smart-canvas-layer-decomposition-dialog-spec.md)。
 
 提交后，前端先创建 Pending Node 并保存 operation ID，再提交一个 Generation Run。
 Provider Adapter 根据冻结的 Provider + Model 将请求翻译成 `POST /v1/images/generations`：
@@ -178,8 +180,10 @@ Provider Adapter 根据冻结的 Provider + Model 将请求翻译成 `POST /v1/i
 Node，也不复用 Smart Group 的 Composer、宫格、整理、运行、添加成员、批量下载或解散能力。
 旧版智能分层 Smart Group 在加载时迁移为同一个专用 Node，并把原成员连接重定向到该 Node。
 
-Canvas 只把它显示为一张合成图：内部图片不参与命中，透明区域不绘制缩略图底色。双击进入
-Image Studio 的智能分层模式；顶部不显示普通图片编辑模式栏，右侧图层列表提供显隐与删除，
+Canvas 只把它显示为一张合成图：内部图片不参与命中，透明区域不绘制缩略图底色。单选节点时，
+公共节点工具栏提供“预览”和“下载 PSD”，分别打开分层编辑器或导出当前节点。双击进入
+Image Studio 的智能分层模式；顶部不显示普通图片编辑模式栏，右侧图层列表提供显隐与删除；底部工作栏提供下载 PSD、原图滑动对比、缩放与适应窗口，
+原图取自来源 Node 对应图片，来源缺失时禁用对比。查看状态不修改 Canvas；图层
 修改继续随 Canvas Save、Reload、Undo/Redo 和 Realtime 协作保存。提交或轮询失败沿用标准
 Generation Failed Node，并在页面级失败队列显示可查看诊断的持续 Alert；Node 内不得嵌套
 Alert。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也只允许

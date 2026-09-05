@@ -9,7 +9,6 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
 
   const controls = {
     message: byId('capability-message'),
-    refresh: byId('capability-refresh'),
     importOpen: byId('capability-import-open'),
     editorDialog,
     editorTitle: byId('capability-editor-title'),
@@ -20,6 +19,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     apply: byId('capability-apply'),
     importDialog: byId('capability-import-dialog'),
     importData: byId('capability-import-data'),
+    lookupPreview: byId('capability-lookup-preview'),
     importStatus: byId('capability-import-status'),
     copyLookup: byId('capability-copy-lookup'),
     importCancel: byId('capability-import-cancel'),
@@ -49,17 +49,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     camera_fixed: 'models.optionFixedCamera',
     watermark: 'models.optionWatermark',
   };
-  const resolutionDefaults = {
-    'image.generate': ['auto', '0.5K', '1K', '1.5K', '2K', '4K'],
-    'video.generate': ['480p', '720p', '1080p', '4K'],
-  };
-  const ratioDefaults = {
-    'image.generate': [
-      '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9',
-      '1:2', '2:1', '1:3', '3:1', '9:21', '21:9', '1:4', '4:1', '1:8', '8:1',
-    ],
-    'video.generate': ['1:1', '3:4', '4:3', '9:16', '16:9', '21:9'],
-  };
+  const candidateValues = (field, operation) => state.matrix.editor_candidates?.[field]?.[operation.split('.')[0]] || [];
   const ratioOptions = (values, defaults) => orderAspectRatios([...values, ...defaults]);
 
   const element = (tag, className, text) => {
@@ -216,8 +206,8 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     );
     const resolutions = commonValues(operations, 'resolutions');
     const ratios = commonValues(operations, 'aspect_ratios');
-    const allResolutions = orderResolutions([...resolutions, ...resolutionDefaults['image.generate']]);
-    const allRatios = ratioOptions(ratios, ratioDefaults['image.generate']);
+    const allResolutions = orderResolutions([...resolutions, ...candidateValues('resolutions', 'image.generate')]);
+    const allRatios = ratioOptions(ratios, candidateValues('aspect_ratios', 'image.generate'));
     const maximum = operations.length
       ? Math.min(...operations.map((operation) => Number(operation.output_count_maximum || 1)))
       : 1;
@@ -242,7 +232,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     );
     const referenceSelect = selectOptions(
       element('ic-select', 'capability-reference-count'),
-      Array.from({ length: 20 }, (_item, index) => index + 1),
+      Array.from({ length: row.import_schemas?.['image.edit']?.properties.inputs.properties.image.maximum || 20 }, (_item, index) => index + 1),
       referenceMaximum || 1,
       tr('models.maximumReferenceImages'),
     );
@@ -254,7 +244,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
 
     const outputSelect = selectOptions(
       element('ic-select', 'generation-count-select capability-output-count'),
-      Array.from({ length: 20 }, (_item, index) => index + 1),
+      Array.from({ length: 100 }, (_item, index) => index + 1),
       maximum || 1,
       tr('models.maximumOutputCount'),
     );
@@ -300,8 +290,8 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     const modes = profile.modes || {};
     const resolutions = operation.resolutions || [];
     const ratios = operation.aspect_ratios || [];
-    const allResolutions = orderResolutions([...resolutions, ...resolutionDefaults['video.generate']]);
-    const allRatios = ratioOptions(ratios, ratioDefaults['video.generate']);
+    const allResolutions = orderResolutions([...resolutions, ...candidateValues('resolutions', 'video.generate')]);
+    const allRatios = ratioOptions(ratios, candidateValues('aspect_ratios', 'video.generate'));
 
     const card = element('section', 'capability-editor-card capability-video-profile');
     card.dataset.profileType = 'video';
@@ -446,7 +436,8 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
       const select = element('ic-select', 'capability-count-select');
       select.dataset.inputMaximum = inputType;
       select.setAttribute('label', tf('models.maximumInputCount', { type: tr(inputLabels[inputType]) }));
-      [1, 2, 3, 4, 8, 10, 20].forEach((value) => {
+      const inputMaximum = selectedRow()?.import_schemas?.[operation.operation]?.properties.inputs.properties[inputType]?.maximum ?? 100;
+      Array.from({ length: inputMaximum }, (_, index) => index + 1).forEach((value) => {
         const option = element('option', '', String(value));
         option.value = String(value);
         select.appendChild(option);
@@ -463,7 +454,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     const outputSelect = element('ic-select', 'capability-count-select');
     outputSelect.dataset.outputMaximum = 'true';
     outputSelect.setAttribute('label', tr('models.maximumOutputCount'));
-    [1, 2, 3, 4, 8, 10, 20].forEach((value) => {
+    Array.from({ length: 100 }, (_, index) => index + 1).forEach((value) => {
       const option = element('option', '', String(value));
       option.value = String(value);
       outputSelect.appendChild(option);
@@ -473,9 +464,9 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     setDisabled(outputSelect, operation.operation === 'image.layer_decomposition');
     grid.appendChild(choiceGroup('models.outputQuantity', outputSelect));
 
-    const resolutions = [...new Set([...(operation.resolutions || []), ...(resolutionDefaults[operation.operation] || [])])];
+    const resolutions = [...new Set([...(operation.resolutions || []), ...(candidateValues('resolutions', operation.operation) || [])])];
     if (resolutions.length) grid.appendChild(choiceGroup('models.allowedResolutions', optionList(resolutions, operation.resolutions || [], 'resolution')));
-    const ratios = [...new Set([...(operation.aspect_ratios || []), ...(ratioDefaults[operation.operation] || [])])];
+    const ratios = [...new Set([...(operation.aspect_ratios || []), ...(candidateValues('aspect_ratios', operation.operation) || [])])];
     if (ratios.length) grid.appendChild(choiceGroup('models.allowedRatios', optionList(ratios, operation.aspect_ratios || [], 'ratio')));
     const options = operationOptions(operation);
     if (options.length) {
@@ -507,7 +498,10 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
       .map(renderOperationEditor));
     controls.operationEditors.replaceChildren(...editors.filter(Boolean));
   };
-  const render = () => renderEditor();
+  const render = () => {
+    renderEditor();
+    if (controls.importDialog.open) controls.lookupPreview.value = lookupPrompt();
+  };
   const loadMatrix = async () => {
     state.matrix = await request('/api/admin/model-capability-matrix');
     state.loaded = true;
@@ -531,77 +525,34 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
       controls.importStatus.hidden = false;
     }
   };
-  const refreshSources = async () => {
-    setDisabled(controls.refresh, true);
-    try {
-      const result = await request('/api/admin/model-capabilities/refresh', { method: 'POST' });
-      await loadMatrix();
-      showMessage('models.sourcesChecked', 'success', {
-        evidence: Number(result.refresh?.evidence_created || 0),
-        drafts: Number(result.refresh?.drafts_created || 0),
-        missing: Number(state.matrix.summary.needs_sources || 0),
-      });
-    } finally { setDisabled(controls.refresh, false); }
-  };
-  const importExample = () => {
-    return {
-      schema_version: 1,
-      models: [{
-        model_id: 'COPY_EXACT_MODEL_ID_FROM_LIST',
-        name: 'COPY_EXACT_MODEL_NAME_FROM_LIST',
-        operations: [{
-          operation: 'COPY_ONE_AVAILABLE_OPERATION',
-          confirmed: true,
-          inputs: { text: 0, image: 0, video: 0, audio: 0, file: 0 },
-          resolutions: [],
-          aspect_ratios: [],
-          output_count_maximum: 1,
-          options: [],
-          video: {
-            input_total_maximum: 0,
-            reference_media_duration_seconds: {
-              each: { minimum: 0, maximum: 0 },
-              combined_total: { minimum: 0, maximum: 0 },
-            },
-            audio_only_supported: false,
-            modes: { first_last_frames: false, multimodal_all_around: false },
-            output_duration_seconds: { minimum: 1, maximum: 1 },
-          },
-          sources: [{
-            type: 'official_docs',
-            url: 'https://official.example/model-docs',
-            title: 'Official capability documentation',
-            excerpt: 'A short passage that directly supports these capability values.',
-          }],
-        }],
-      }],
-    };
-  };
   const lookupPrompt = () => {
-    const channels = [];
-    state.matrix.models.forEach((row) => {
-      (row.providers || []).forEach((provider) => {
-        let channel = channels.find((item) => item.channel_id === provider.id);
-        if (!channel) {
-          channel = { channel_id: provider.id, channel_name: provider.name, models: [] };
-          channels.push(channel);
-        }
-        const providerTypes = (row.variants || [])
-          .filter((variant) => variant.provider_id === provider.id)
-          .map((variant) => variant.type)
-          .filter((value, index, values) => value && values.indexOf(value) === index);
-        const modelTypes = providerTypes.length ? providerTypes : (row.types || []);
-        channel.models.push({
-          model_id: row.model_id,
-          name: row.name,
-          aliases: (row.names || []).filter((name) => name !== row.name),
-          model_types: modelTypes,
-          available_operations: row.operations
-            .map((operation) => operation.operation)
-            .filter((operation) => modelTypes.some((type) => operation.startsWith(`${type}.`))),
-        });
-      });
-    });
+    const contracts = {};
+    const schemaKeys = new Map();
+    const contractRefs = (schemas) => Object.fromEntries(Object.entries(schemas || {}).map(([operation, schema]) => {
+      const serialized = JSON.stringify(schema);
+      let key = schemaKeys.get(serialized);
+      if (!key) {
+        key = `contract_${schemaKeys.size + 1}`;
+        schemaKeys.set(serialized, key);
+        contracts[key] = schema;
+      }
+      return [operation, { $ref: `#/contracts/${key}` }];
+    }));
+    const models = state.matrix.models.map((row) => ({
+      // Stable keys are for returning results; administrator labels are only clues.
+      match: { model_id: row.model_id, name: row.name },
+      research: {
+        display_names: row.names || [row.name],
+        model_types: row.types,
+        routes: (row.providers || []).map((provider) => ({
+          configured_name: provider.name,
+          protocol: provider.protocol || '',
+          service_host: provider.service_host || '',
+          model_types: (row.variants || []).filter((variant) => variant.provider_id === provider.id).map((variant) => variant.type),
+        })),
+      },
+      operation_schemas: contractRefs(row.import_schemas),
+    }));
     return [
       tr('models.lookupPromptRole'),
       tr('models.lookupPromptChannelResearch'),
@@ -613,12 +564,10 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
       tr('models.lookupPromptOptions'),
       tr('models.lookupPromptVideoProfile'),
       tr('models.lookupPromptJsonOnly'),
-      '',
-      tr('models.lookupPromptCurrentModels'),
-      JSON.stringify({ channels }, null, 2),
-      '',
-      tr('models.lookupPromptFormat'),
-      JSON.stringify(importExample(), null, 2),
+      '', tr('models.lookupPromptCurrentModels'),
+      JSON.stringify({ models, contracts }, null, 2),
+      '', tr('models.lookupPromptFormat'),
+      JSON.stringify({ schema_version: state.matrix.import_schema_version, models: [] }),
     ].join('\n');
   };
   const copyLookupPrompt = async () => {
@@ -675,6 +624,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   const openImport = async () => {
     await loadMatrix();
     resetImportValidation();
+    controls.lookupPreview.value = lookupPrompt();
     controls.importStatus.hidden = true;
     await controls.importDialog.show();
   };
@@ -807,7 +757,6 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     await controls.editorDialog.show();
   };
 
-  controls.refresh.addEventListener('click', runAction(refreshSources));
   controls.importOpen.addEventListener('click', runAction(openImport));
   controls.apply.addEventListener('click', runAction(apply));
   controls.copyLookup.addEventListener('click', runImportAction(copyLookupPrompt));

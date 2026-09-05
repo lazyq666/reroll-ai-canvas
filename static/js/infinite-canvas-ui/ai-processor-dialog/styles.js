@@ -175,10 +175,31 @@ export function ensureAiProcessorDialogStyles() {
       object-position: center;
       border-radius: var(--ui-radius-s);
     }
-    ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] > [data-ai-processor-panel] { min-block-size: 0; overflow: auto; overscroll-behavior: contain; }
-    ic-ai-processor-dialog [data-layer-resolution-options] { inline-size: 100%; }
-    ic-ai-processor-dialog [data-layer-resolution-options]::part(form-control-input) { inline-size: 100%; }
-    ic-ai-processor-dialog [data-layer-resolution-options] > ic-radio { flex: 1 0 auto; justify-content: center; }
+    ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] > [data-ai-processor-panel] { min-block-size: 0; grid-template-columns: minmax(0,1fr); overflow: auto; overscroll-behavior: contain; }
+    ic-ai-processor-dialog [data-layer-resolution-options] { inline-size: 100%; min-inline-size: 0; }
+    ic-ai-processor-dialog [data-layer-resolution-options] > button { flex: 1 1 0; min-inline-size: 0; }
+    ic-ai-processor-dialog[processor="layer-decomposition"] [data-layer-preset-options] { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); block-size: auto; min-inline-size: 0; inline-size: 100%; }
+    ic-ai-processor-dialog[processor="layer-decomposition"] [data-layer-preset-options] > button { min-inline-size: 0; height: auto; min-height: 2.5rem; white-space: normal; padding-block: var(--ui-space-2); text-align: center; }
+    ic-ai-processor-dialog [data-layer-mode] { inline-size: 100%; flex: none; }
+    ic-ai-processor-dialog [data-layer-mode] > button { flex: 1 1 0; min-inline-size: 0; white-space: normal; display: flex; align-items: center; justify-content: center; gap: var(--ui-space-2); }
+    ic-ai-processor-dialog [data-layer-canvas] { display: block; flex: none; position: relative; min-width: 0; min-height: 0; background: transparent; overflow: visible; }
+    ic-ai-processor-dialog [data-layer-canvas]:focus-visible { outline: 2px solid var(--ui-color-border-primary); outline-offset: 6px; }
+    ic-ai-processor-dialog [data-layer-canvas] > img { position: absolute; inset: 0; pointer-events: none; }
+    ic-ai-processor-dialog [data-layer-canvas] > [data-layer-draw] { position: absolute; inset: 0; }
+    ic-ai-processor-dialog cropper-selection { position: absolute; outline: 1px solid white; box-shadow: 0 0 0 1px #0008; }
+    ic-ai-processor-dialog cropper-selection:not([data-region-id]) { display: none; }
+    ic-ai-processor-dialog cropper-selection[active] { outline: 2px solid white; }
+    ic-ai-processor-dialog cropper-selection > cropper-handle[action="move"] { position: absolute; inset: 0; }
+    ic-ai-processor-dialog cropper-selection > cropper-handle[action$="-resize"]::after { width: 12px; height: 12px; border-radius: 3px; box-shadow: 0 1px 4px #0008; }
+    ic-ai-processor-dialog [data-layer-number] { position: absolute; top: 3px; left: 3px; z-index: 2; padding: 1px 5px; border-radius: 4px; color: #161616; background: white; font: var(--ui-text-label); pointer-events: none; visibility: visible; }
+    ic-ai-processor-dialog [data-layer-region-actions] { display: flex; flex-wrap: wrap; gap: var(--ui-space-2); }
+    ic-ai-processor-dialog [data-layer-region-panel] { display: grid; gap: var(--ui-space-3); }
+    ic-ai-processor-dialog [data-layer-coordinates] { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-space-2); }
+    ic-ai-processor-dialog [data-layer-hint], ic-ai-processor-dialog [data-layer-status] { margin: 0; color: var(--ui-color-text-secondary); font: var(--ui-text-caption); }
+    ic-ai-processor-dialog [data-layer-status]:empty { display: none; }
+    ic-ai-processor-dialog [data-layer-preview] { font: var(--ui-text-caption); }
+    ic-ai-processor-dialog [data-layer-preview] summary { cursor: pointer; }
+    ic-ai-processor-dialog [data-layer-prompt-preview] { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; color: var(--ui-color-text-secondary); }
     ic-ai-processor-dialog [data-layer-price] {
       display: flex;
       align-items: baseline;
@@ -453,6 +474,12 @@ export function ensureAiProcessorDialogStyles() {
       }
       ic-ai-processor-dialog [data-outpaint-stage] { block-size: 20rem; padding: var(--ui-space-5); }
       ic-ai-processor-dialog [data-layer-source-stage] { block-size: 16rem; }
+      ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] { grid-template-rows: 16rem auto; align-content: start; }
+      ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] > [data-ai-processor-panel] { overflow: visible; }
+      ic-ai-processor-dialog [data-layer-mode], ic-ai-processor-dialog [data-layer-resolution-options] { min-inline-size: 0; }
+      ic-ai-processor-dialog [data-layer-mode] > button { min-block-size: 3rem; }
+      ic-ai-processor-dialog [data-layer-mode] > button > ic-icon { display: none; }
+      ic-ai-processor-dialog [data-layer-resolution-options] > button { flex: 1 1 0; min-inline-size: 0; padding-inline: var(--ui-space-2); }
       ic-ai-processor-dialog .ai-angle-viewport { block-size: 20rem; }
       ic-ai-processor-dialog .ai-lighting-stage { block-size: 24rem; }
     }

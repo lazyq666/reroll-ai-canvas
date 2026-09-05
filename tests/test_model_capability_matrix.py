@@ -813,6 +813,20 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
                 catalog=VideoCatalog(),
                 workbench=workbench,
             )
+            for invalid_profile in (
+                {"audio_only_supported": True},
+                {"output_duration_seconds": {"minimum": 15, "maximum": 4}},
+                {"input_total_maximum": 0},
+                {"output_duration_seconds": {"minimum": 4, "maximum": 15.5}},
+            ):
+                invalid = copy.deepcopy(bundle)
+                invalid_choice = invalid["models"][0]["operations"][0]
+                invalid_choice["video"].update(invalid_profile)
+                if invalid_profile.get("audio_only_supported"):
+                    invalid_choice["inputs"]["audio"] = 0
+                with self.subTest(profile=invalid_profile), self.assertRaises(ModelCapabilityImportInvalid):
+                    matrix.import_bundle(bundle=invalid, actor_id="admin-1", apply=True)
+                self.assertEqual([], workbench.snapshot()["published"]["capabilities"])
             result = matrix.import_bundle(
                 bundle=bundle, actor_id="admin-1", apply=True
             )
@@ -844,6 +858,91 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
         self.assertEqual("name_mismatch", raised.exception.reason)
         self.assertEqual("same-model", raised.exception.model_id)
 
+    def test_import_rejects_values_outside_editor_contract_without_writes(self):
+        for patch in (
+            {"resolutions": ["potato"]},
+            {"operation": "image.edit", "inputs": {"text": 1, "image": 21, "video": 0, "audio": 0, "file": 0}}, {"aspect_ratios": ["16/9"]},
+            {"resolutions": ["1K", "1K"]}, {"output_count_maximum": 101},
+            {"inputs": {"text": 1, "image": 0, "video": 3, "audio": 0, "file": 0}},
+            {"operation": "image.layer_decomposition", "resolutions": ["4K"]},
+        ):
+            with self.subTest(patch=patch), tempfile.TemporaryDirectory() as directory:
+                workbench = ModelCapabilityWorkbench(Path(directory) / "workbench.json")
+                matrix = ModelCapabilityMatrix(inventory=inventory, catalog=FakeCatalog(), workbench=workbench)
+                bundle = self.import_bundle()
+                bundle["models"][0]["operations"][0].update(patch)
+                before = workbench.snapshot()
+                with self.assertRaises(ModelCapabilityImportInvalid):
+                    matrix.import_bundle(bundle=bundle, actor_id="admin", apply=True)
+                self.assertEqual(before, workbench.snapshot())
+
+    def test_imported_large_counts_and_new_options_round_trip_to_editor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workbench = ModelCapabilityWorkbench(Path(directory) / "workbench.json")
+            catalog = FakeCatalog()
+            matrix = ModelCapabilityMatrix(inventory=inventory, catalog=catalog, workbench=workbench)
+            bundle = self.import_bundle()
+            choice = bundle["models"][0]["operations"][0]
+            choice.update(output_count_maximum=37, resolutions=["0.5K", "4K"],
+                          aspect_ratios=["1:8", "5:4"], options=["prompt_enhancement"])
+            matrix.import_bundle(bundle=bundle, actor_id="admin", apply=True)
+            saved = workbench.snapshot()["published"]["capabilities"][0]["capability"]
+            projected = matrix._operation_projection("image.generate", [saved])
+            for key in ("inputs", "resolutions", "aspect_ratios", "output_count_maximum"):
+                self.assertEqual(choice[key], projected[key])
+            self.assertTrue(projected["options"]["prompt_enhancement"])
+            self.assertFalse(projected["options"]["transparent_png"])
+
+    def test_import_rejects_image_fields_that_the_shared_editor_cannot_represent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            matrix = ModelCapabilityMatrix(inventory=inventory, catalog=FakeCatalog(),
+                workbench=ModelCapabilityWorkbench(Path(directory) / "workbench.json"))
+            bundle = self.import_bundle()
+            edit = copy.deepcopy(bundle["models"][0]["operations"][0])
+            edit.update(operation="image.edit", output_count_maximum=9)
+            edit["inputs"]["image"] = 2
+            bundle["models"][0]["operations"].append(edit)
+            with self.assertRaisesRegex(ModelCapabilityImportInvalid, "field_values"):
+                matrix.import_bundle(bundle=bundle, actor_id="admin", apply=True)
+
+    def test_partial_image_import_cannot_disappear_in_existing_editor_intersection(self):
+        class EditingCatalog(FakeCatalog):
+            def resolve(self, provider_id, model_id, operation):
+                value = super().resolve(provider_id, model_id, operation)
+                value["support_state"] = "supported"
+                if operation == "image.edit":
+                    value["inputs"]["image"]["maximum"] = 2
+                return value
+        with tempfile.TemporaryDirectory() as directory:
+            workbench = ModelCapabilityWorkbench(Path(directory) / "workbench.json")
+            matrix = ModelCapabilityMatrix(inventory=inventory, catalog=EditingCatalog(), workbench=workbench)
+            bundle = self.import_bundle()
+            choice = bundle["models"][0]["operations"][0]
+            choice["output_count_maximum"] = 37
+            with self.assertRaisesRegex(ModelCapabilityImportInvalid, "image_profile_conflict"):
+                matrix.import_bundle(bundle=bundle, actor_id="admin", apply=True)
+            self.assertEqual([], workbench.snapshot()["published"]["capabilities"])
+            edit = copy.deepcopy(choice)
+            edit["operation"] = "image.edit"
+            edit["inputs"]["image"] = 2
+            bundle["models"][0]["operations"].append(edit)
+            result = matrix.import_bundle(bundle=bundle, actor_id="admin", apply=True)
+            self.assertTrue(result["applied"])
+
+    def test_research_context_exposes_only_host_and_keeps_route_media_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            matrix = ModelCapabilityMatrix(inventory=inventory, catalog=FakeCatalog(),
+                workbench=ModelCapabilityWorkbench(Path(directory) / "workbench.json"),
+                providers=lambda: [{"id": "first", "protocol": "apimart",
+                    "base_url": "https://user:secret@api.example.org/private?key=secret", "api_key": "secret"}])
+            row = matrix.snapshot()["models"][0]
+            self.assertEqual("api.example.org", row["providers"][0]["service_host"])
+            self.assertNotIn("secret", str(row))
+            self.assertEqual("image", row["variants"][0]["type"])
+            schema = row["import_schemas"]["image.generate"]["properties"]
+            self.assertIn("0.5K", schema["resolutions"]["items"]["enum"])
+            self.assertEqual(100, schema["output_count_maximum"]["maximum"])
+
     @staticmethod
     def import_bundle():
         return {
@@ -858,7 +957,7 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
                             "confirmed": True,
                             "inputs": {
                                 "text": 1,
-                                "image": 2,
+                                "image": 0,
                                 "video": 0,
                                 "audio": 0,
                                 "file": 0,
