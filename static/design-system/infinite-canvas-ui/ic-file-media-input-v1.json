@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "infinite-canvas-ui.file-media-input",
-  "interfaceVersion": 10,
+  "interfaceVersion": 11,
   "ticket": "145",
   "module": {
     "layer": "pattern",
@@ -62,11 +62,11 @@
     },
     {
       "tag": "ic-reference-thumbnail", "purpose": "Compact preview and shared actions for one Reference Input Instance.",
-      "requiredAttributes": ["kind", "label"], "attributes": ["kind", "label", "src", "preview-src", "original-src", "alt", "preview-text", "removable", "remove-label", "data-preview-state"],
+      "requiredAttributes": ["kind", "label"], "attributes": ["kind", "label", "src", "preview-src", "original-src", "alt", "preview-text", "removable", "remove-label", "data-preview-state", "draggable", "data-input-remove-local-text-reference"],
       "methods": ["activate", "requestRemove"], "events": ["ic-activate", "ic-remove"],
       "semanticDimensions": {"kind": ["image", "video", "audio", "text"], "state": ["default", "hover", "focus-visible", "removable", "dragging", "blocked"]},
       "legalCombinations": [{"id": "reference-image", "kind": "image"}, {"id": "reference-video", "kind": "video"}, {"id": "reference-audio", "kind": "audio"}, {"id": "reference-text", "kind": "text"}],
-      "invariants": ["The component owns its 45px frame, label and Hover/Focus removal action, and composes ic-thumb-hovercard for its passive Hover preview.", "Text Hover content resolves from preview-text, caller text data, aria-label and label in that order, so full callers show source text while minimal legal examples still expose the Hover surface.", "Audio uses audio-lines and text uses square-text; each icon is centered within the media stage after subtracting the bottom label area, and the text thumbnail frame uses var(--ui-color-surface).", "Pointer click and Enter or Space dispatch ic-activate for media references.", "Removal is a cancelable request; callers own Reference Input Instance mutation and ordering.", "Smart Canvas and the component library render the same public element rather than duplicate thumbnail markup or styles."]
+      "invariants": ["The component owns its 45px frame, label and Hover/Focus removal action, and composes ic-thumb-hovercard for its passive Hover preview.", "Text Hover content resolves from preview-text, caller text data, aria-label and label in that order, so full callers show source text while minimal legal examples still expose the Hover surface.", "Audio uses audio-lines and text uses square-text; each icon is centered within the media stage after subtracting the bottom label area, and the text thumbnail frame uses var(--ui-color-surface).", "Pointer click and Enter or Space dispatch ic-activate for media references.", "Removal is a cancelable request; callers own Reference Input Instance mutation and ordering.", "Smart Canvas and the component library render the same public element rather than duplicate thumbnail markup or styles.", "Text references with draggable=\"true\" are focusable; callers own drag and keyboard reordering.", "TXT removal carries data-input-remove-local-text-reference as ic-remove.detail.localTextReferenceId."]
     },
     {
       "tag": "ic-thumb-hovercard", "purpose": "Passive Hover preview for one reference thumbnail.",

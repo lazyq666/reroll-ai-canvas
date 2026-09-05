@@ -81,11 +81,11 @@ class Issue128WorkspaceAssetUiTests(unittest.TestCase):
         self.assertIn("referenceUploadTargetId = node.id", SCRIPT)
         self.assertIn("const targetId = referenceUploadTargetId", SCRIPT)
         self.assertIn("smart.referenceTargetMissing", SCRIPT)
-        self.assertIn("bindLocalTextReferenceDrag", SCRIPT)
+        self.assertIn("bindTextReferenceDrag", SCRIPT)
 
     def test_txt_prompt_order_and_generation_validation_are_explicit(self):
         self.assertIn(
-            "promptAuthoringJoinUnique([groupPrompt, inputPrompt, localTextPrompt, body])",
+            "promptAuthoringJoinUnique([body, ...textInputs.map(entry => entry.text)])",
             AUTHORING,
         )
         self.assertIn("本次生成合并的 TXT 文本超过 2MB", AUTHORING)

@@ -612,6 +612,10 @@ function canvasMutationDuplicate(options={}){
         } else if(Array.isArray(copy.items)){
             copy.items = copy.items.map(id => idMap.get(id)).filter(Boolean);
         }
+        if(Array.isArray(copy.inputRefOrder)){
+            copy.inputRefOrder = copy.inputRefOrder.map(key => typeof key === 'string' && key.startsWith('text|')
+                ? `text|${idMap.get(key.slice(5)) || key.slice(5)}` : key);
+        }
         if(Array.isArray(copy.inputNodeIds)){
             const sourceNodeId = sourceNodes[index]?.id;
             const validInputIds = new Set(sourceConnections

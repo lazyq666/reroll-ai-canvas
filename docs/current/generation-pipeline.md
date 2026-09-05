@@ -67,7 +67,7 @@ flowchart TD
 
 `runGeneration()` 是 Smart Canvas 的主要生成入口。它会：
 
-1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。Prompt 顺序固定为 Smart Group、上游 Prompt Node、本地 TXT、Composer 正文，各段以两个换行连接。
+1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。Composer 正文固定放在用户提示词最前；随后按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，各段以两个换行连接并跳过空段与重复文本。正文为空时直接从第一个文本引用开始。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。媒体 `@` 引用的编号映射说明继续保留在用户需求正文之外。
 2. 对需要 Prompt 的运行做前置校验：空提示词时“运行”仍可点击，点击后提示“请输入提示词”；TXT 解码失败、单文件超过 1MB、合计超过 2MB，或引用媒体类型不被最终 Model Capability 支持时同样明确列出原因。校验失败不创建 Pending Node，也不提交 Provider 请求。
 3. 通过 Generation Settings 生成不可变的运行快照，并冻结本次使用的 Model Operation、能力 Schema 版本和目录 Revision。
 4. 根据同一 Model Capability Catalog 检查输入类型与数量、画幅、Resolution Tier、视频时长和输出数量；前端预检后，服务端在 Provider Adapter 前再次校验。
@@ -342,6 +342,8 @@ lifecycle；为保持旧合同，图片 History 删除仍清理其图片文件�
 5. 在该 Canvas 的操作锁内合并多输出、减少 Pending 数量并递增 Canvas Revision。
 6. 记录 `run_id + operation ID + request index`，保证重复回放不会重复写入。
 
+同一 Run 对应多个输出槽位时，服务端按提交前冻结的批次、operation ID 和槽位序号，在同一次 Canvas 提交中把结果分别写入仍属于本次运行的 Pending Node，并一并结束它们的 Pending 状态。不能先把全部结果写入单个目标、再依赖浏览器分发。任务回执尚未保存时使用冻结的输入快照识别输出数量；已删除或已开始其他任务的同批槽位不接收旧结果，也不会将其序号对应的图片挪给其他槽位。浏览器先完成部分槽位、服务端重放或连续刷新都不得重复交付同一结果。
+
 如果节点被删除或已开始另一轮生成，运行进入 `discarded`。这不一定表示供应商生成失败，
 只表示结果不再允许写回当前画布。
 
@@ -471,6 +473,7 @@ Managed Media，删除 Device Cache 只会导致下次使用时重新下载或�
 
 | 关注点 | 测试入口 |
 | --- | --- |
+| 同一 Run 多槽位原子交付、任务回执迟到、部分槽位替换及刷新幂等 | `tests/test_canvas_store.py`、`tests/shared_run_slots_browser_app.py` + `tests/shared_run_slots_browser_test.cjs`（真实 SQLite / HTTP / WebSocket，固定 Provider 结果） |
 | Generation Run 生命周期、去重、恢复和迟到结果 | `tests/test_generation_runs.py` |
 | Depth Anything 模型清单、下载校验、推理合同、本地执行器、HTTP Target Guard 与真实页面生命周期 | `tests/test_depth_processor.py`、`tests/test_local_image_processor.py`、`tests/test_issue_152_depth_map.py`、`tests/issue_152_depth_map_browser_smoke.cjs` |
 | SQLite 图片/视频/文字 Run、重启、History 分页/删除与通知重放，且 legacy JSON 不变 | `tests/test_generation_runs_sqlite_authority.py`、`tests/test_main_sqlite_authority_integration.py` |
@@ -480,5 +483,6 @@ Managed Media，删除 Device Cache 只会导致下次使用时重新下载或�
 | Gemini CLI 会话/图片名隔离、429 透传、独立目录、并发和清理 | `tests/test_antigravity_cli.py` |
 | Smart Canvas 批量输出、方向快照与真实页面设置 | `tests/test_smart_canvas_generation_batch.py`、`tests/test_smart_canvas_node_placement.py`、`tests/issue_148_layout_browser_smoke.cjs` |
 | 生成中节点再次提交与悬浮菜单（含 Prompt Generation Node 并行文字输出） | `tests/test_issue_115_inflight_generation.py`、`tests/issue_115_inflight_generation_browser_smoke.cjs`、`tests/issue_115_prompt_generation_inflight_browser_smoke.cjs` |
+| Composer 正文前置、连接文本 / TXT 拖拽与键盘排序、图片顺序隔离、撤销重做及保存恢复 | `tests/composer_text_order_test.cjs`、`tests/composer_text_order_fixture.cjs` + `tests/composer_text_order_checks.js`（真实页面） |
 | Image Node 禁止触发、Smart Group / Generation Node（含旧 Generation Output 身份修复）的 Composer 资格与三层门禁一致性，以及 Quick Add 视频初始模式可切回图片 | `tests/test_issue_161_media_composer_eligibility.py`、`tests/issue_161_media_composer_browser_smoke.cjs`、`tests/test_smart_canvas_generation_output.py`、`tests/composer_quick_add_kind_toggle_browser_smoke.cjs` |
 | 画幅能力与结果物化 | `tests/test_image_capabilities.py`、`tests/test_issue_71_generation_output.py` |

@@ -160,6 +160,7 @@
         "smart.assetsSkippedCount": { zh: "已跳过 {count} 个其他节点", en: "Other nodes skipped: {count}" },
         "smart.assetLibrarySummary": { zh: "资产库：{summary}", en: "Asset library: {summary}" },
         "smart.summarySeparator": { zh: "，", en: ", " },
+        "smart.reorderTextReference": { zh: "拖动排序，或聚焦后按 Alt + 左右方向键", en: "Drag to reorder, or focus and press Alt + Left/Right arrow" },
         "smart.removeTxtReference": { zh: "移除 TXT 引用", en: "Remove TXT reference" },
         "smart.assetLibraryLoadFailed": { zh: "资产库加载失败", en: "Could not load the asset library" },
         "smart.assetLibraryLoadRetry": { zh: "资产库加载失败，请重试", en: "Could not load the asset library. Try again." },

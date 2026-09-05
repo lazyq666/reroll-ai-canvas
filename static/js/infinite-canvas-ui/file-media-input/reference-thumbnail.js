@@ -193,7 +193,7 @@ function ensureReferenceThumbnailStyles() {
 
 /** A compact Reference Input Instance preview with shared activation/removal behavior. */
 export class IcReferenceThumbnail extends HTMLElement {
-  static observedAttributes = ['kind', 'label', 'src', 'preview-src', 'original-src', 'alt', 'preview-text', 'removable', 'remove-label', 'data-input-remove-reference', 'data-input-remove-text-reference'];
+  static observedAttributes = ['kind', 'label', 'src', 'preview-src', 'original-src', 'alt', 'preview-text', 'removable', 'remove-label', 'data-input-remove-reference', 'data-input-remove-text-reference', 'data-input-remove-local-text-reference', 'draggable'];
 
   constructor() {
     super();
@@ -246,6 +246,7 @@ export class IcReferenceThumbnail extends HTMLElement {
       detail: {
         referenceKey: this.getAttribute('data-input-remove-reference') || '',
         textReferenceId: this.getAttribute('data-input-remove-text-reference') || '',
+        localTextReferenceId: this.getAttribute('data-input-remove-local-text-reference') || '',
       },
     }));
   }
@@ -297,7 +298,7 @@ export class IcReferenceThumbnail extends HTMLElement {
     const removeLabel = this.getAttribute('remove-label') || (document.documentElement.lang.toLowerCase().startsWith('zh') ? '移除引用' : 'Remove reference');
     this.dataset.kind = kind;
     this.setAttribute('role', kind === 'text' ? 'group' : 'button');
-    if (kind === 'text') this.removeAttribute('tabindex');
+    if (kind === 'text' && this.getAttribute('draggable') !== 'true') this.removeAttribute('tabindex');
     else if (!this.hasAttribute('tabindex')) this.tabIndex = 0;
     if (!this.hasAttribute('aria-label') && label) this.setAttribute('aria-label', label);
 
@@ -308,11 +309,14 @@ export class IcReferenceThumbnail extends HTMLElement {
         : `<img src="${escapeHtml(previewSrc)}" data-preview-src="${escapeHtml(previewSrc)}" data-original-src="${escapeHtml(originalSrc)}"${kind === 'video' ? ' data-preview-kind="video"' : ''} alt="${escapeHtml(alt)}" draggable="false">`;
     const referenceKey = this.getAttribute('data-input-remove-reference');
     const textReferenceId = this.getAttribute('data-input-remove-text-reference');
+    const localTextReferenceId = this.getAttribute('data-input-remove-local-text-reference');
     const removeData = referenceKey !== null
       ? ` data-input-remove-reference="${escapeHtml(referenceKey)}"`
       : textReferenceId !== null
         ? ` data-input-remove-text-reference="${escapeHtml(textReferenceId)}"`
-        : '';
+        : localTextReferenceId !== null
+          ? ` data-input-remove-local-text-reference="${escapeHtml(localTextReferenceId)}"`
+          : '';
     this.innerHTML = `${media}<span class="input-thumb-label">${escapeHtml(label)}</span>${removable ? `<button class="input-thumb-remove" type="button" draggable="false" aria-label="${escapeHtml(removeLabel)}" title="${escapeHtml(removeLabel)}"${removeData}><ic-icon name="close" size="x-small" aria-hidden="true"></ic-icon></button>` : ''}`;
     this.querySelector('.input-thumb-remove')?.addEventListener('click', event => {
       event.preventDefault();

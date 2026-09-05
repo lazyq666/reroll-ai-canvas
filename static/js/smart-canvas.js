@@ -119,7 +119,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-0e81b6afe7d8')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1d9b8d84e857')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -1009,6 +1009,10 @@ function insertSmartNodePackageIntoCanvas(imported, placementContext={}){
             smartContainer.remapCopy(copy,source,idMap);
         } else if(Array.isArray(copy.items)){
             copy.items = copy.items.map(id => idMap.get(id)).filter(Boolean);
+        }
+        if(Array.isArray(copy.inputRefOrder)){
+            copy.inputRefOrder = copy.inputRefOrder.map(key => typeof key === 'string' && key.startsWith('text|')
+                ? `text|${idMap.get(key.slice(5)) || key.slice(5)}` : key);
         }
         if(Array.isArray(copy.inputNodeIds)) copy.inputNodeIds = copy.inputNodeIds.map(id => idMap.get(id)).filter(Boolean);
         if(copy.sourceNodeId) copy.sourceNodeId = idMap.get(copy.sourceNodeId) || '';
@@ -13151,6 +13155,7 @@ function renderInputThumbsRow(node){
         node: node?.id || '',
         items: dedup.map(img => `${inputRefKey(img)}@${img.url || ''}`),
         textItems: textReferences.map(ref => `${ref.id}@${ref.title || ''}@${textForNode(ref).trim()}`),
+        textOrder:(authoring.textInputs || []).map(entry => entry.key),
         localTextItems:localTextReferences.map(ref => `${ref.inputInstanceId}@${ref.name || ''}@${ref.textBytes || 0}@${ref.textError || ''}`),
         manual: [...manualRefKeys],
         generationKind:isApiLikeEngine(settings.engine) ? settings.apiKind : settings.engine,
@@ -13174,26 +13179,33 @@ function renderInputThumbsRow(node){
     const mediaCounters = {image:0, video:0, audio:0, text:0, file:0};
     const thumbsHtml = dedup.map((img, index) => composerInputMediaThumbHtml(node, img, index, manualRefKeys, mediaCounters)).join('');
     const directTextIds = new Set(promptInputNodesFor(node).map(ref => ref.id));
-    let textThumbsHtml = textReferences.map((ref, index) => {
+    const textThumbs = new Map();
+    const textOrder = new Map((authoring.textInputs || []).map((entry, index) => [entry.key, index]));
+    const textSortHint = escapeAttr(tr('smart.reorderTextReference'));
+    textReferences.forEach(ref => {
+        const key = `text|${ref.id}`;
+        const index = textOrder.get(key);
         const label = trf('smart.textNumber', {number: index + 1});
         const fullText = textForNode(ref).trim();
         const fullPreview = fullText.replace(/\s+/g, ' ');
         const preview = fullPreview.length > 160 ? `${fullPreview.slice(0, 160)}…` : fullPreview;
         const sourceName = String(ref.title || label).trim() || label;
         const removable = directTextIds.has(ref.id);
-        return `<ic-reference-thumbnail class="input-text-reference" kind="text" label="${escapeAttr(label)}" preview-text="${escapeAttr(fullText)}" ${removable ? `removable remove-label="${escapeAttr(tr('smart.removeTextReference'))}" data-input-remove-text-reference="${escapeAttr(ref.id)}"` : ''} draggable="false" data-text-node-id="${escapeAttr(ref.id)}" data-text-preview="${escapeAttr(preview)}" data-reference-text="${escapeAttr(fullText)}" data-name="${escapeAttr(sourceName)}" aria-label="${escapeAttr(`${sourceName}：${preview}`)}"></ic-reference-thumbnail>`;
-    }).join('');
-    const localTextThumbsHtml = localTextReferences.map((ref, index) => {
-        const label = `TXT ${index + 1}`;
+        textThumbs.set(key, `<ic-reference-thumbnail class="input-text-reference" kind="text" data-text-thumb-index="${index}" title="${textSortHint}" aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight" label="${escapeAttr(label)}" preview-text="${escapeAttr(fullText)}" ${removable ? `removable remove-label="${escapeAttr(tr('smart.removeTextReference'))}" data-input-remove-text-reference="${escapeAttr(ref.id)}"` : ''} draggable="false" data-kind="text" data-text-node-id="${escapeAttr(ref.id)}" data-text-preview="${escapeAttr(preview)}" data-reference-text="${escapeAttr(fullText)}" data-name="${escapeAttr(sourceName)}" aria-label="${escapeAttr(`${sourceName}：${preview}`)}"></ic-reference-thumbnail>`);
+    });
+    localTextReferences.forEach(ref => {
+        const key = inputRefKey(ref);
+        const index = textOrder.get(key);
+        const label = trf('smart.textNumber', {number:index + 1});
         const preview = String(ref.textSnapshot || '').replace(/\s+/g, ' ').slice(0, 160);
         const error = String(ref.textError || '');
-        return `<div class="input-thumb input-text-reference ${error ? 'is-invalid' : ''}" draggable="${localTextReferences.length > 1}" data-local-text-instance-id="${escapeAttr(ref.inputInstanceId || '')}" data-text-preview="${escapeAttr(preview || error)}" data-reference-text="${escapeAttr(ref.textSnapshot || '')}" data-kind="text" data-name="${escapeAttr(ref.name || label)}" aria-label="${escapeAttr(`${ref.name || label}：${preview || error}`)}"><div class="input-thumb-text-icon"><i data-lucide="file-text"></i></div><span class="input-thumb-label">${escapeHtml(label)}</span><button class="input-thumb-remove" type="button" draggable="false" data-input-remove-local-text-reference="${escapeAttr(ref.inputInstanceId || '')}" title="${escapeAttr(tr('smart.removeTxtReference'))}" aria-label="${escapeAttr(tr('smart.removeTxtReference'))}"><ic-icon name="close" size="x-small" aria-hidden="true"></ic-icon></button></div>`;
-    }).join('');
-    textThumbsHtml += localTextThumbsHtml;
+        textThumbs.set(key, `<ic-reference-thumbnail class="input-text-reference ${error ? 'is-invalid' : ''}" kind="text" label="${escapeAttr(label)}" preview-text="${escapeAttr(ref.textSnapshot || error)}" data-text-thumb-index="${index}" title="${textSortHint}" aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight" removable remove-label="${escapeAttr(tr('smart.removeTxtReference'))}" data-input-remove-local-text-reference="${escapeAttr(ref.inputInstanceId || '')}" data-local-text-instance-id="${escapeAttr(ref.inputInstanceId || '')}" data-text-preview="${escapeAttr(preview || error)}" data-reference-text="${escapeAttr(ref.textSnapshot || '')}" data-kind="text" data-name="${escapeAttr(ref.name || label)}" aria-label="${escapeAttr(`${ref.name || label}：${preview || error}`)}"></ic-reference-thumbnail>`);
+    });
+    const textThumbsHtml = (authoring.textInputs || []).map(entry => textThumbs.get(entry.key) || '').join('');
     inputThumbsRow.innerHTML = `<div class="input-thumb-list ${totalInputCount > 1 ? 'is-scrollable' : 'is-single'}">${thumbsHtml}${textThumbsHtml}${addButton}</div>`;
     bindSmartPreviewImageFallbacks(inputThumbsRow);
     bindInputThumbsDrag(node, dedup, manualRefKeys);
-    if(typeof bindLocalTextReferenceDrag === 'function') bindLocalTextReferenceDrag(node);
+    bindTextReferenceDrag(node, authoring.textInputs || []);
     bindInputThumbReferenceActions();
     bindInputTextReferencePreviews();
     refreshIcons();
@@ -13382,26 +13394,40 @@ function bindInputThumbReferenceActions(root=inputThumbsRow, node=window.SmartCa
             removeTextInputReferenceFromSelectedNode(event.detail?.textReferenceId || thumb.dataset.inputRemoveTextReference || '');
         });
     });
-    root?.querySelectorAll('[data-input-remove-local-text-reference]').forEach(btn => {
-        btn.addEventListener('click', event => {
+    root?.querySelectorAll('ic-reference-thumbnail[data-input-remove-local-text-reference]').forEach(thumb => {
+        thumb.addEventListener('ic-remove', event => {
             event.preventDefault();
             event.stopPropagation();
-            removeLocalTextReference(node, btn.dataset.inputRemoveLocalTextReference || '');
+            removeLocalTextReference(node, event.detail?.localTextReferenceId || thumb.dataset.inputRemoveLocalTextReference || '');
         });
     });
 }
-function bindInputThumbsDrag(node, items, manualRefKeys=new Set(), {root=inputThumbsRow,onRefresh=null}={}){
+function bindInputThumbsDrag(node, items, manualRefKeys=new Set(), {root=inputThumbsRow,onRefresh=null,text=false}={}){
     if(!root) return;
+    const selector = text ? '[data-text-thumb-index]' : '.input-thumb[data-thumb-index]';
+    const indexAttribute = text ? 'textThumbIndex' : 'thumbIndex';
+    const dragType = text ? 'application/x-smart-input-text' : 'application/x-smart-input-thumb';
+    const keyForRef = text ? entry => entry.key : inputRefKey;
     let thumbDragIndex = -1;
-    root.querySelectorAll('.input-thumb[data-thumb-index]').forEach(el => {
-        const index = Number(el.dataset.thumbIndex || -1);
+    root.querySelectorAll(selector).forEach(el => {
+        const index = Number(el.dataset[indexAttribute] ?? -1);
         const item = items[index];
-        const key = inputRefKey(item);
+        const key = keyForRef(item);
         el.draggable = items.length > 1 && Boolean(key);
         el.addEventListener('ic-activate', e => {
             e.preventDefault();
             e.stopPropagation();
             openReferenceViewer(referenceDataFromElement(el));
+        });
+        if(text) el.tabIndex = 0;
+        if(text) el.addEventListener('keydown', event => {
+            if(event.target !== el || !event.altKey || !['ArrowLeft','ArrowRight'].includes(event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const to = index + (event.key === 'ArrowLeft' ? -1 : 1);
+            if(reorderInputThumb(node, items, index, to, to < index ? 'before' : 'after', {root,onRefresh,keyForRef})){
+                root.querySelector(`[data-text-thumb-index="${to}"]`)?.focus();
+            }
         });
         if(!el.draggable) return;
         el.addEventListener('dragstart', e => {
@@ -13409,7 +13435,7 @@ function bindInputThumbsDrag(node, items, manualRefKeys=new Set(), {root=inputTh
             thumbDragIndex = index;
             el.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('application/x-smart-input-thumb', String(index));
+            e.dataTransfer.setData(dragType, String(index));
             e.dataTransfer.setData('text/plain', key);
         });
         el.addEventListener('dragend', e => {
@@ -13419,7 +13445,7 @@ function bindInputThumbsDrag(node, items, manualRefKeys=new Set(), {root=inputTh
             el.classList.remove('dragging');
         });
         el.addEventListener('dragover', e => {
-            const rawFrom = e.dataTransfer.getData('application/x-smart-input-thumb');
+            const rawFrom = e.dataTransfer.getData(dragType);
             const from = rawFrom === '' ? thumbDragIndex : Number(rawFrom);
             if(!Number.isFinite(from) || from < 0 || from === index) return;
             e.preventDefault();
@@ -13436,73 +13462,29 @@ function bindInputThumbsDrag(node, items, manualRefKeys=new Set(), {root=inputTh
             el.classList.remove('drop-before', 'drop-after');
         });
         el.addEventListener('drop', e => {
-            const rawFrom = e.dataTransfer.getData('application/x-smart-input-thumb');
+            const rawFrom = e.dataTransfer.getData(dragType);
             const from = rawFrom === '' ? thumbDragIndex : Number(rawFrom);
             if(!Number.isFinite(from) || from < 0 || from === index) return;
             e.preventDefault();
             e.stopPropagation();
             const placement = inputThumbDropPlacement(el, e);
             clearInputThumbDropMarkers(root);
-            reorderInputThumb(node, items, from, index, placement, {root,onRefresh});
+            reorderInputThumb(node, items, from, index, placement, {root,onRefresh,keyForRef});
         });
     });
 }
-function bindLocalTextReferenceDrag(node, {root=inputThumbsRow}={}){
-    if(!root || !node) return;
-    let draggedId = '';
-    const thumbs = [...root.querySelectorAll('[data-local-text-instance-id]')];
-    thumbs.forEach(thumb => {
-        const id = thumb.dataset.localTextInstanceId || '';
-        thumb.draggable = thumbs.length > 1 && Boolean(id);
+function bindTextReferenceDrag(node, items){
+    bindInputThumbsDrag(node, items, new Set(), {text:true});
+    inputThumbsRow?.querySelectorAll('[data-local-text-instance-id]').forEach(thumb => {
         thumb.addEventListener('click', event => {
-            if(event.target.closest('[data-input-remove-local-text-reference]')) return;
+            if(event.target.closest('.input-thumb-remove')) return;
             event.preventDefault();
             event.stopPropagation();
             openReferenceViewer(referenceDataFromElement(thumb));
         });
-        if(!thumb.draggable) return;
-        thumb.addEventListener('dragstart', event => {
-            draggedId = id;
-            thumb.classList.add('dragging');
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('application/x-smart-local-text', id);
-        });
-        thumb.addEventListener('dragend', () => {
-            draggedId = '';
-            clearInputThumbDropMarkers(root);
-        });
-        thumb.addEventListener('dragover', event => {
-            const fromId = event.dataTransfer.getData('application/x-smart-local-text') || draggedId;
-            if(!fromId || fromId === id) return;
-            event.preventDefault();
-            event.stopPropagation();
-            event.dataTransfer.dropEffect = 'move';
-            clearInputThumbDropMarkers(root);
-            const placement = inputThumbDropPlacement(thumb, event);
-            thumb.dataset.dropPlacement = placement;
-            thumb.classList.add(placement === 'before' ? 'drop-before' : 'drop-after');
-        });
-        thumb.addEventListener('drop', event => {
-            const fromId = event.dataTransfer.getData('application/x-smart-local-text') || draggedId;
-            if(!fromId || fromId === id) return;
-            event.preventDefault();
-            event.stopPropagation();
-            const refs = Array.isArray(node.localTextRefs) ? node.localTextRefs.slice() : [];
-            const fromIndex = refs.findIndex(ref => ref?.inputInstanceId === fromId);
-            const targetIndex = refs.findIndex(ref => ref?.inputInstanceId === id);
-            if(fromIndex < 0 || targetIndex < 0) return;
-            const placement = inputThumbDropPlacement(thumb, event);
-            const [moved] = refs.splice(fromIndex, 1);
-            let insertAt = refs.findIndex(ref => ref?.inputInstanceId === id);
-            if(placement === 'after') insertAt += 1;
-            refs.splice(insertAt, 0, moved);
-            canvasMutation.history({action:'push'});
-            node.localTextRefs = refs;
-            renderInputThumbsRow(node);
-            canvasPersistence.schedule();
-        });
     });
 }
+
 function reorderManualInputRefs(currentNode, fromKey, targetKey, placement='before'){
     if(!currentNode || !fromKey || !targetKey || fromKey === targetKey) return false;
     const refs = Array.isArray(currentNode.manualInputRefs) ? currentNode.manualInputRefs.slice() : [];
@@ -13605,11 +13587,11 @@ function reorderInputSourceNodes(currentNode, movedId, targetId, placement='befo
     }
     return true;
 }
-function reorderInputThumb(currentNode, items, from, to, placement='before', {root=inputThumbsRow,onRefresh=null}={}){
+function reorderInputThumb(currentNode, items, from, to, placement='before', {root=inputThumbsRow,onRefresh=null,keyForRef=inputRefKey}={}){
     if(!currentNode || from < 0 || to < 0 || from >= items.length || to >= items.length) return false;
-    const visibleKeys = items.map(inputRefKey).filter(Boolean);
-    const fromKey = inputRefKey(items[from]);
-    const targetKey = inputRefKey(items[to]);
+    const visibleKeys = items.map(keyForRef).filter(Boolean);
+    const fromKey = keyForRef(items[from]);
+    const targetKey = keyForRef(items[to]);
     if(!fromKey || !targetKey || fromKey === targetKey) return false;
     const nextVisible = movedBeforeAfterIds(visibleKeys, fromKey, targetKey, placement);
     if(sameOrderedIds(visibleKeys, nextVisible)) return false;
@@ -13813,7 +13795,7 @@ function hasMediaDrawerDrag(dataTransfer){
     return smartDropDataTypes(dataTransfer).includes('application/x-smart-asset');
 }
 function hasSmartInputThumbDrag(dataTransfer){
-    return smartDropDataTypes(dataTransfer).includes('application/x-smart-input-thumb');
+    return smartDropDataTypes(dataTransfer).some(type => ['application/x-smart-input-thumb','application/x-smart-input-text'].includes(type));
 }
 function setSmartDropCopyEffect(e, includeAsset=false){
     e.preventDefault();

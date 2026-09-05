@@ -201,7 +201,7 @@ class SmartCanvasReferenceInstanceTests(unittest.TestCase):
                 smartOriginalMediaUrl:ref=>ref.url, smartMediaPreviewUrl:ref=>ref.url,
                 smartImagePerformanceOptimization:true, displayMediaUrl:ref=>ref.url,
                 escapeAttr:value=>String(value), promptInputNodesFor:()=>[],
-                bindSmartPreviewImageFallbacks:()=>{}, bindInputThumbsDrag:()=>{},
+                bindSmartPreviewImageFallbacks:()=>{}, bindInputThumbsDrag:()=>{}, bindTextReferenceDrag:()=>{},
                 bindInputThumbReferenceActions:()=>{}, bindInputTextReferencePreviews:()=>{},
                 refreshIcons:()=>{}
             };
