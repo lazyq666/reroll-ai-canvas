@@ -422,6 +422,7 @@ async def jimeng_models_payload():
     )
     discovered = {"image": [], "video": []}
     commands = {}
+    help_outputs = {}
     errors = {}
     for (command, kind), result in zip(JIMENG_MODEL_HELP_COMMANDS, results):
         if isinstance(result, BaseException):
@@ -438,6 +439,7 @@ async def jimeng_models_payload():
         )
         models = jimeng_model_versions_from_help(text)
         commands[command] = {"kind": kind, "models": models}
+        help_outputs[command] = text
         if not models:
             errors[command] = "CLI 帮助未提供可解析的 model_version 列表"
             continue
@@ -462,7 +464,24 @@ async def jimeng_models_payload():
         message = "部分模型已从本机 Dreamina CLI 读取；未识别的类别使用内置清单。"
     else:
         message = "未能解析本机 Dreamina CLI 模型，已使用内置兼容清单。"
-    return {
+    version_output = ""
+    if help_outputs:
+        try:
+            version_result = await run_jimeng_cli(
+                ["--version"], timeout=10, raw_text=True
+            )
+            version_output = "\n".join(
+                part
+                for part in (
+                    str((version_result or {}).get("_stdout") or "").strip(),
+                    str((version_result or {}).get("_stderr") or "").strip(),
+                )
+                if part
+            )
+        except Exception:
+            # Version enriches Evidence but is not required to return the model list.
+            version_output = ""
+    result = {
         "ok": True,
         "protocol": "jimeng",
         "status": 200,
@@ -477,6 +496,13 @@ async def jimeng_models_payload():
         "capabilities": {"commands": commands},
         "raw": {"errors": errors},
     }
+    if help_outputs:
+        result["_capability_discovery"] = {
+            "kind": "dreamina-cli",
+            "help_outputs": help_outputs,
+            "version_output": version_output,
+        }
+    return result
 
 def gemini_cli_image_size_instruction(size="", model=""):
     size_text = str(size or "").strip()

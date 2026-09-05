@@ -11,6 +11,8 @@ const imageStudioMutationModule = window.SmartCanvasModules?.canvasMutation;
 if(!imageStudioMutationModule) throw new Error('Canvas Mutation Module failed to load');
 const imageStudioContainerModule = window.SmartCanvasModules?.smartContainer;
 if(!imageStudioContainerModule) throw new Error('Smart Container Module failed to load');
+const imageStudioLayeredPsdModule = window.SmartCanvasModules?.layeredPsd;
+if(!imageStudioLayeredPsdModule) throw new Error('Layered PSD Module failed to load');
 const imageEditModal = document.getElementById('imageEditModal');
 let imageStudioReopenAfterHide = false;
 let imageStudioSourceState = 'idle';
@@ -104,6 +106,7 @@ let cropAspectPreset = 'free';
 let cropAspectRatio = null;
 let imageEditMode = 'crop';
 let imageEditModeTouched = false;
+let layerDecompositionEditNodeId = '';
 let imageResizeScale = 0.5;
 let editDrawState = null;
 let editTextItems = [];
@@ -1523,6 +1526,18 @@ function redoEditDrawing(){
     restoreEditDrawSnapshot(next);
     syncEditDrawingHistoryButtons();
 }
+imageEditModal?.addEventListener('keydown', event => {
+    if(
+        !imageStudioDialogOpen()
+        || imageEditMode !== 'brush'
+        || !(event.ctrlKey || event.metaKey)
+        || String(event.key || '').toLowerCase() !== 'z'
+        || event.target?.closest?.('input,textarea,[contenteditable="true"],ic-slider,ic-color-field')
+    ) return;
+    event.preventDefault();
+    if(event.shiftKey) redoEditDrawing();
+    else undoEditDrawing();
+});
 function editCanvasHasPixels(){
     if(editTextHasContent()) return true;
     const canvasEl = editDrawCanvas();
@@ -2399,6 +2414,109 @@ function openGroupImagePreview(group, startNodeId, startIndex=0){
     // 恢复分组上下文后重算导航/下载全部按钮（openImageEditor 已把 previewNavState 重置成单节点态）。
     setImageEditMode('preview');
 }
+function layerDecompositionEditorNode(){
+    return nodes.find(node => node.id === layerDecompositionEditNodeId && node.type === 'smart-layer-decomposition') || null;
+}
+function layerDecompositionEditorItemStyle(item, canvasWidth, canvasHeight){
+    const bbox = Array.isArray(item?.absolute_bbox) ? item.absolute_bbox : [];
+    if(item?.role === 'base') return 'left:0;top:0;width:100%;height:100%;z-index:0';
+    const left = Math.max(0, Number(bbox[0]) || 0) / canvasWidth * 100;
+    const top = Math.max(0, Number(bbox[1]) || 0) / canvasHeight * 100;
+    const width = Math.max(0, (Number(bbox[2]) || 0) - (Number(bbox[0]) || 0)) / canvasWidth * 100;
+    const height = Math.max(0, (Number(bbox[3]) || 0) - (Number(bbox[1]) || 0)) / canvasHeight * 100;
+    return `left:${left}%;top:${top}%;width:${width}%;height:${height}%;z-index:${Number(item.z_index)||0}`;
+}
+function renderLayerDecompositionEditor(){
+    const node = layerDecompositionEditorNode();
+    const composite = document.getElementById('layerDecompositionEditorComposite');
+    const list = document.getElementById('layerDecompositionEditorList');
+    const count = document.getElementById('layerDecompositionEditorCount');
+    if(!node || !composite || !list) return false;
+    const manifest = node.layerDecompositionManifest || {};
+    const canvasWidth = Math.max(1, Number(manifest.canvas_width) || 1);
+    const canvasHeight = Math.max(1, Number(manifest.canvas_height) || 1);
+    const items = (Array.isArray(node.layerDecompositionItems) ? node.layerDecompositionItems : [])
+        .filter(item => item?.media?.url)
+        .slice()
+        .sort((left,right) => Number(left.z_index) - Number(right.z_index));
+    composite.style.aspectRatio = `${canvasWidth} / ${canvasHeight}`;
+    composite.style.height = `min(100%, ${canvasHeight}px)`;
+    composite.innerHTML = items.map(item => {
+        const media = imageForDisplay(item.media);
+        return `<div class="layer-decomposition-item${item.hidden ? ' is-hidden' : ''}" style="${layerDecompositionEditorItemStyle(item, canvasWidth, canvasHeight)}" aria-hidden="true"><img src="${escapeAttr(displayMediaUrl(media))}" alt="" draggable="false"></div>`;
+    }).join('');
+    list.innerHTML = items.slice().reverse().map(item => {
+        const media = imageForDisplay(item.media);
+        const name = item.role === 'base' ? tr('smart.layerDecompositionBase') : media.name || tr('smart.layerDecomposition');
+        const nameBinding = item.role === 'base' ? ' data-i18n="smart.layerDecompositionBase"' : '';
+        const visibilityKey = item.hidden ? 'smart.layerShow' : 'smart.layerHide';
+        return `<div class="layer-decomposition-editor-layer${item.hidden ? ' is-hidden' : ''}" role="listitem">
+            <span class="layer-decomposition-editor-layer-thumb"><img src="${escapeAttr(displayMediaUrl(media))}" alt="" draggable="false"></span>
+            <span class="layer-decomposition-editor-layer-name" title="${escapeAttr(name)}"${nameBinding}>${escapeHtml(name)}</span>
+            <span class="layer-decomposition-editor-layer-actions">
+                <ic-icon-button type="button" size="s" hierarchy="quiet" icon="preview" label="${escapeAttr(tr(visibilityKey))}" data-i18n-label="${visibilityKey}" data-layer-visibility="${escapeAttr(item.id)}"></ic-icon-button>
+                <ic-icon-button type="button" size="s" hierarchy="quiet" tone="danger" icon="delete" label="${escapeAttr(tr('smart.deleteLayer'))}" data-i18n-label="smart.deleteLayer" data-layer-delete="${escapeAttr(item.id)}"></ic-icon-button>
+            </span>
+        </div>`;
+    }).join('');
+    if(count) count.textContent = String(items.length);
+    refreshIcons();
+    return true;
+}
+function applyLayerDecompositionEditorAction(itemId, action){
+    const node = layerDecompositionEditorNode();
+    const index = (node?.layerDecompositionItems || []).findIndex(item => item?.id === itemId);
+    if(!node || index < 0 || !['visibility','delete'].includes(action)) return;
+    imageStudioMutationModule.history({action:'push'});
+    if(action === 'visibility') node.layerDecompositionItems[index].hidden = !node.layerDecompositionItems[index].hidden;
+    else node.layerDecompositionItems.splice(index,1);
+    renderLayerDecompositionEditor();
+    if(typeof render === 'function') render({syncVirtualization:false,nodeIds:[node.id]});
+    imageStudioPersistenceModule.schedule();
+}
+document.getElementById('layerDecompositionEditorList')?.addEventListener('click', event => {
+    const button = event.target.closest?.('[data-layer-visibility],[data-layer-delete]');
+    if(!button) return;
+    const visibilityId = button.dataset.layerVisibility || '';
+    const itemId = visibilityId || button.dataset.layerDelete || '';
+    event.preventDefault();
+    event.stopPropagation();
+    applyLayerDecompositionEditorAction(itemId, visibilityId ? 'visibility' : 'delete');
+});
+document.getElementById('layerDecompositionPsdDownload')?.addEventListener('click', () => {
+    const node = layerDecompositionEditorNode();
+    if(!node) return;
+    void imageStudioLayeredPsdModule.download({
+        canvasId,
+        nodeId:node.id,
+    });
+});
+function resetLayerDecompositionEditorPresentation(){
+    imageEditModal?.classList.remove('layer-decomposition-edit-mode');
+    document.getElementById('layerDecompositionEditor')?.setAttribute('hidden','');
+    layerDecompositionEditNodeId = '';
+}
+function openLayerDecompositionEditor({nodeId}={}){
+    const node = nodes.find(candidate => candidate.id === nodeId && candidate.type === 'smart-layer-decomposition');
+    if(!node) return false;
+    layerDecompositionEditNodeId = node.id;
+    imageEditMode = 'layer-decomposition';
+    cropState = null;
+    selectedId = node.id;
+    selectedIds = [];
+    selectedImage = {nodeId:'',index:-1};
+    const dialogWasOpen = imageStudioDialogPresented();
+    imageEditModal.classList.remove('image-preview-mode', 'video-preview-mode');
+    imageEditModal.classList.add('open', 'layer-decomposition-edit-mode');
+    document.getElementById('layerDecompositionEditor')?.removeAttribute('hidden');
+    document.getElementById('imageEditCommitActions')?.setAttribute('hidden','');
+    renderLayerDecompositionEditor();
+    if(!dialogWasOpen){
+        if(typeof imageEditModal.show === 'function') void imageEditModal.show();
+        else imageEditModal.setAttribute('open', '');
+    }
+    return true;
+}
 function openImageEditor(nodeId, imageIndex=0, options={}){
     const node = nodes.find(n => n.id === nodeId);
     const image = imageForDisplay(node?.images?.[imageIndex]);
@@ -2408,6 +2526,7 @@ function openImageEditor(nodeId, imageIndex=0, options={}){
         downloadPreviewFile(image);
         return;
     }
+    resetLayerDecompositionEditorPresentation();
     const dialogWasOpen = imageStudioDialogPresented();
     const previousPreviewVideo = document.getElementById('previewCurrentVideo');
     if(dialogWasOpen && typeof window.smartPlaybackBeforePreviewSwitch === 'function'){
@@ -2524,6 +2643,7 @@ function closeImageEditor(options={}){
     imageStudioSharedTransition = null;
     imageEditModal.classList.remove('open');
     imageEditModal.classList.remove('video-preview-mode', 'image-preview-mode');
+    resetLayerDecompositionEditorPresentation();
     if(!options.dialogAlreadyHidden){
         if(typeof imageEditModal.hide === 'function' && imageEditModal.open) void imageEditModal.hide(options.reason || 'cancel');
         else imageEditModal.removeAttribute('open');
@@ -2938,6 +3058,7 @@ window.SmartCanvasModules.imageStudio = Object.freeze({
         };
     },
     open({nodeId, imageIndex=0, mode='preview', groupAware=true}={}){
+        if(mode === 'layer-decomposition') return openLayerDecompositionEditor({nodeId});
         if(mode === 'preview'){
             return groupAware
                 ? openImagePreviewSmart(nodeId, imageIndex)

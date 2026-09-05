@@ -37,9 +37,13 @@ function startServer() {
   });
 }
 
-function capabilityPayload() {
+function capabilityPayload(url) {
+  const query = new URL(url).searchParams;
+  const providerId = query.get('provider_id') || 'apimart';
+  const modelId = query.get('model') || 'seedream-5-0-pro';
+  const secondary = providerId === 'apimart-secondary';
   return {
-    provider_id:'apimart', model_id:'seedream-5-0-pro',
+    provider_id:providerId, model_id:modelId,
     operation:'image.layer_decomposition', capability_schema_version:1,
     catalog_revision:'issue-31-browser-revision', support_state:'supported',
     inputs:{
@@ -52,7 +56,7 @@ function capabilityPayload() {
       exclusive_inputs:['video','audio','file'],
     }]},
     parameters:{
-      resolution_tier:{type:'enum',values:['auto','1K','1.5K','2K'],default:'2K'},
+      resolution_tier:{type:'enum',values:secondary?['auto','1K']:['auto','1K','1.5K','2K'],default:secondary?'1K':'2K'},
       count:{type:'integer',minimum:1,maximum:1,default:1},
     },
     output:{kind:'image_layer_decomposition',count:{minimum:1,maximum:1,default:1}},
@@ -61,13 +65,20 @@ function capabilityPayload() {
 
 function apiPayload(url) {
   const pathname = new URL(url).pathname;
-  if (pathname === '/api/config') return { api_providers:[], available_models:{}, comfy_instances:[] };
+  if (pathname === '/api/config') return {
+    api_providers:[],
+    available_models:{image:[
+      {id:'apimart|seedream-5-0-pro',provider_id:'apimart',provider_name:'APIMART Primary',model:'seedream-5-0-pro',name:'Seedream 5.0 Pro'},
+      {id:'apimart-secondary|seedream-layer-pro',provider_id:'apimart-secondary',provider_name:'APIMART Secondary',model:'seedream-layer-pro',name:'Seedream Layer Pro'},
+    ]},
+    comfy_instances:[],
+  };
   if (pathname === '/api/workflows') return { workflows:[] };
   if (pathname === '/api/prompt-libraries') return { library:{libraries:[]} };
   if (pathname === '/api/smart-canvas/prompt-templates') return { templates:[] };
   if (pathname === '/api/auth/me') return { user:{id:'issue-31-admin',username:'admin',role:'admin'} };
   if (pathname === '/api/workspace-assets') return { items:[], next_cursor:'' };
-  if (pathname === '/api/model-capabilities') return capabilityPayload();
+  if (pathname === '/api/model-capabilities') return capabilityPayload(url);
   if (pathname.endsWith('/view-state')) return { view_state:null };
   if (pathname === `/api/canvases/${CANVAS_ID}`) {
     return { canvas:{
@@ -86,6 +97,7 @@ function apiPayload(url) {
     page.setDefaultTimeout(20000);
     const pageErrors = [];
     const submissions = [];
+    let failUpload = false;
     page.on('pageerror', error => pageErrors.push(error.message));
     await page.addInitScript(() => {
       localStorage.clear();
@@ -146,12 +158,19 @@ function apiPayload(url) {
         })});
         return;
       }
+      if (pathname === '/api/canvas-layer-decomposition-tasks/issue-31-run' && failUpload) {
+        await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+          id:'issue-31-run',status:'failed',status_code:413,
+          error:JSON.stringify({code:'reference_upload_rejected',stage:'reference_upload',source_bytes:2494369})
+        })});
+        return;
+      }
       if (pathname === '/api/canvas-layer-decomposition-tasks/issue-31-run') {
         await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
           id:'issue-31-run', status:'succeeded', result:{
             manifest:{
-              manifest_version:1, source_media_id:'source-media', provider_id:'apimart',
-              model:'seedream-5-0-pro', resolution_tier:'2K', generation_run_id:'issue-31-run',
+              manifest_version:1, source_media_id:'source-media', provider_id:'apimart-secondary',
+              model:'seedream-layer-pro', resolution_tier:'1K', generation_run_id:'issue-31-run',
               upstream_task_id:'upstream-31', created_at:'2026-09-04T00:00:00Z',
               base_output_media_id:'/api/outputs/base.png', canvas_width:1000, canvas_height:500,
               layers:[],
@@ -203,25 +222,67 @@ function apiPayload(url) {
     await page.waitForFunction(() => Boolean(
       document.querySelector('#smartNodeFloatingPortal [data-smart-node-action="layer-decomposition"]')
     ));
+    await page.waitForFunction(() => (
+      document.querySelector('#smartNodeFloatingPortal [data-smart-node-action="layer-decomposition"] ic-icon')?.dataset.iconStatus === 'ready'
+    ));
+    assert.equal(
+      await page.locator('#smartNodeFloatingPortal [data-smart-node-action="layer-decomposition"] ic-icon').getAttribute('name'),
+      'layers',
+    );
     await page.evaluate(() => {
       document.querySelector('#smartNodeFloatingPortal [data-smart-node-action="layer-decomposition"]').click();
     });
     await page.waitForFunction(() => (
-      document.getElementById('layerDecompositionDialog')?.open
-      && /1\.53/.test(document.querySelector('[data-layer-price]')?.textContent || '')
+      document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"]')?.open
+      && /¥0\.3.*¥11/.test(document.querySelector('[data-layer-price]')?.textContent || '')
     ));
 
-    const dialog = page.locator('#layerDecompositionDialog');
-    assert.equal(await dialog.locator('[data-layer-resolution] option[value="4K"]').count(), 0);
-    assert.equal(await dialog.locator('[data-aspect-ratio], [data-exact-width]').count(), 0);
-    assert.match(await dialog.locator('[data-layer-price]').textContent(), /1\.53/);
-    await dialog.locator('[data-layer-resolution]').selectOption('1K');
-    assert.match(await dialog.locator('[data-layer-price]').textContent(), /0\.765/);
-    await dialog.locator('[data-layer-resolution]').selectOption('2K');
-    await dialog.locator('[data-layer-submit]').click();
+    const dialog = page.locator('ic-ai-processor-dialog[processor="layer-decomposition"]');
+    assert.equal(await dialog.locator('ic-select[name="ai-processor-model"] option').count(), 2);
+    assert.deepEqual(
+      await dialog.locator('ic-select[name="ai-processor-model"] option').allTextContents(),
+      ['Seedream 5.0 Pro · APIMART Primary', 'Seedream Layer Pro · APIMART Secondary'],
+    );
+    assert.equal(await dialog.locator('ic-alert[tone="warning"], [data-layer-capability-status]').count(), 0);
+    assert.match(await dialog.locator('[data-layer-price]').textContent(), /¥0\.3.*¥11/);
+    const initialResolutions = dialog.locator('ic-radio-group[name="layer-resolution"]');
+    assert.deepEqual(await initialResolutions.locator('ic-radio').evaluateAll(options => options.map(option => option.value)), ['auto','1K','1.5K','2K']);
+    assert.equal(await initialResolutions.getAttribute('value'), '2K');
+    assert.equal(await dialog.locator('ic-generation-settings-picker[name="layer-generation-settings"]').count(), 0);
+    const layout = await dialog.locator('[data-ai-processor-layout="layer-decomposition"]').boundingBox();
+    const sourceStage = await dialog.locator('[data-layer-source-stage]').boundingBox();
+    const parameterPanel = await dialog.locator('[data-ai-processor-panel]').boundingBox();
+    assert.ok(layout && sourceStage && parameterPanel && sourceStage.x < parameterPanel.x);
+    assert.equal(await dialog.locator('[data-layer-source]').evaluate(element => getComputedStyle(element).objectFit), 'contain');
+    await dialog.evaluate(element => {
+      const select = element.querySelector('ic-select[name="ai-processor-model"]');
+      select.value = 'apimart-secondary|seedream-layer-pro';
+      select.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+    await page.waitForFunction(() => {
+      const group = document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"] ic-radio-group[name="layer-resolution"]');
+      return group?.getAttribute('value') === '1K'
+        && [...group.querySelectorAll('ic-radio')].map(option => option.value).join(',') === 'auto,1K';
+    });
+    await dialog.locator('ic-textarea[name="layer-prompt"]').evaluate(element => {
+      element.value = 'Keep the title separate';
+      element.dispatchEvent(new Event('input', {bubbles:true}));
+    });
+    await page.evaluate(() => window.StudioI18n.set('en'));
+    await page.waitForFunction(() => document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"]')?.label === 'Smart layer decomposition');
+    assert.match(await dialog.locator('[data-layer-price]').textContent(), /Approx\. CNY/);
+    assert.equal(await dialog.locator('ic-radio-group[name="layer-resolution"]').getAttribute('value'), '1K');
+    assert.equal(await dialog.locator('ic-textarea[name="layer-prompt"]').evaluate(element => element.value), 'Keep the title separate');
+    await page.evaluate(() => window.StudioI18n.set('zh'));
+    await page.waitForFunction(() => document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"]')?.label === '智能分层');
+    if (process.env.SMART_LAYER_SCREENSHOT) {
+      await page.screenshot({path:process.env.SMART_LAYER_SCREENSHOT});
+    }
+    await dialog.locator('[data-ic-ai-processor-owned="confirm"]').click();
 
     try {
       await page.waitForFunction(() => nodes.some(node => node.layerDecompositionManifest));
+      await page.waitForFunction(() => !document.querySelector('ic-ai-processor-dialog[processor="layer-decomposition"]')?.open);
     } catch (error) {
       console.error(JSON.stringify({
         submissions,
@@ -234,17 +295,15 @@ function apiPayload(url) {
       throw error;
     }
     const state = await page.evaluate(() => {
-      const group = nodes.find(node => node.layerDecompositionManifest);
-      const members = window.SmartCanvasModules.smartContainer.groupMembers(group);
-      const base = members.find(member => member.layerDecomposition?.role === 'base');
-      const layers = members.filter(member => member.layerDecomposition?.role === 'layer');
+      const resultNode = nodes.find(node => node.layerDecompositionManifest);
+      const items = resultNode.layerDecompositionItems || [];
       return {
-        groupId:group.id,
-        memberCount:members.length,
-        layerCount:layers.length,
-        baseGeometry:[base.x,base.y,base.w,base.h],
-        layerGeometry:layers.map(layer => [layer.x,layer.y,layer.w,layer.h]),
-        order:layers.map(layer => layer.layerDecomposition.z_index),
+        resultId:resultNode.id,
+        type:resultNode.type,
+        itemCount:items.length,
+        roles:items.map(item => item.role),
+        order:items.map(item => item.z_index),
+        resultSize:[resultNode.w,resultNode.h],
         pendingCount:nodes.filter(node => node.layerDecompositionJob).length,
         persistedNodeIds:[...window.__issue31PersistedNodeIds],
       };
@@ -258,21 +317,42 @@ function apiPayload(url) {
       prompt:submissions[0].prompt,
       source_media_id:submissions[0].source_media_id,
     }, {
-      provider_id:'apimart', model:'seedream-5-0-pro', resolution_tier:'2K',
-      prompt:'', source_media_id:'source-media',
+      provider_id:'apimart-secondary', model:'seedream-layer-pro', resolution_tier:'1K',
+      prompt:'Keep the title separate', source_media_id:'source-media',
     });
-    assert.equal(state.memberCount, 3);
-    assert.equal(state.layerCount, 2);
-    assert.deepEqual(state.order, [1, 2]);
-    assert.deepEqual(state.layerGeometry, [
-      [state.baseGeometry[0] + 35, state.baseGeometry[1] + 35, 140, 105],
-      [state.baseGeometry[0] + 210, state.baseGeometry[1] + 17.5, 105, 35],
-    ]);
+    assert.equal(state.type, 'smart-layer-decomposition');
+    assert.equal(state.itemCount, 3);
+    assert.deepEqual(state.roles, ['base','layer','layer']);
+    assert.deepEqual(state.order, [-1,1,2]);
+    assert.deepEqual(state.resultSize, [350,175]);
     assert.equal(state.pendingCount, 0);
 
-    const previewBehavior = await page.evaluate(groupId => {
-      const group = document.querySelector(`.image-node[data-id="${CSS.escape(groupId)}"]`);
-      const stage = group?.querySelector('.layer-decomposition-stage');
+    // A restored node may retain square preview dimensions; the manifest owns the composition ratio.
+    await page.evaluate(resultId => {
+      const node = nodes.find(item => item.id === resultId);
+      window.__layerOriginal = JSON.stringify(node);
+      node.layerDecompositionManifest.canvas_width = 1000;
+      node.layerDecompositionManifest.canvas_height = 1500;
+      node.images[0].natural_w = 1024;
+      node.images[0].natural_h = 1024;
+      node.images.push(...Array.from({length:14}, (_, i) => ({url:`/layer-${i}.png`, kind:'image'})));
+      delete node.w;
+      delete node.h;
+      node.generationMediaW = 350;
+      node.generationMediaH = 350;
+      render();
+    }, state.resultId);
+    const portraitBox = await page.locator(`.image-node[data-id="${state.resultId}"]`).boundingBox();
+    assert.ok(Math.abs(portraitBox.width / portraitBox.height - 2 / 3) < 0.01, JSON.stringify(portraitBox));
+    await page.evaluate(resultId => {
+      const index = nodes.findIndex(item => item.id === resultId);
+      nodes[index] = JSON.parse(window.__layerOriginal);
+      render();
+    }, state.resultId);
+
+    const previewBehavior = await page.evaluate(resultId => {
+      const resultNode = document.querySelector(`.image-node[data-id="${CSS.escape(resultId)}"]`);
+      const stage = resultNode?.querySelector('.layer-decomposition-stage');
       const items = [...(stage?.querySelectorAll('.layer-decomposition-item') || [])];
       return {
         itemCount:items.length,
@@ -287,7 +367,7 @@ function apiPayload(url) {
           && getComputedStyle(item.querySelector('img')).backgroundColor === 'rgba(0, 0, 0, 0)'
         )),
       };
-    }, state.groupId);
+    }, state.resultId);
     assert.deepEqual(previewBehavior, {
       itemCount:3,
       stagePointerEvents:'none',
@@ -301,10 +381,12 @@ function apiPayload(url) {
       selectedImage = {nodeId:'',index:-1};
       render();
     });
+    assert.equal(await page.locator(`.image-node[data-id="${state.resultId}"] .image-name-badge.image-name-badge-outside ic-icon[name="layers"]`).count(), 1);
     const stageBox = await page.locator(
-      `.image-node[data-id="${state.groupId}"] .layer-decomposition-stage`
+      `.image-node[data-id="${state.resultId}"] .layer-decomposition-stage`
     ).boundingBox();
     assert.ok(stageBox);
+    assert.ok(Math.abs(stageBox.width / stageBox.height - 2) < 0.05, JSON.stringify(stageBox));
     await page.mouse.click(
       stageBox.x + stageBox.width / 2,
       stageBox.y + stageBox.height / 2
@@ -315,32 +397,66 @@ function apiPayload(url) {
       selectedImage:{...selectedImage},
     }));
     assert.deepEqual(selectedAfterPreviewClick, {
-      selectedId:state.groupId,
+      selectedId:state.resultId,
       selectedImage:{nodeId:'',index:-1},
     });
 
-    await page.evaluate(groupId => {
-      const group = nodes.find(node => node.id === groupId);
-      const layer = window.SmartCanvasModules.smartContainer.groupMembers(group)
-        .find(member => member.layerDecomposition?.role === 'layer');
-      selectedId = group.id;
-      selectedImage = {nodeId:layer.id,index:0};
-      syncSmartNodeFloatingPortal();
-    }, state.groupId);
+    assert.equal(await page.locator('#smartNodeFloatingPortal [data-smart-group-action]').count(), 0);
+    await page.mouse.dblclick(
+      stageBox.x + stageBox.width / 2,
+      stageBox.y + stageBox.height / 2
+    );
     await page.waitForFunction(() => Boolean(
-      document.querySelector('#smartNodeFloatingPortal [data-smart-group-action="layer-visibility"]')
-      && document.querySelector('#smartNodeFloatingPortal [data-smart-group-action="layer-backward"]')
-      && document.querySelector('#smartNodeFloatingPortal [data-smart-group-action="layer-forward"]')
-      && document.querySelector('#smartNodeFloatingPortal [data-smart-group-action="layer-download"]')
+      document.getElementById('imageEditModal')?.classList.contains('layer-decomposition-edit-mode')
+      && document.querySelectorAll('#layerDecompositionEditorList [data-layer-visibility]').length === 3
     ));
-    await page.locator('#smartNodeFloatingPortal [data-smart-group-action="layer-visibility"]').click();
-    const hidden = await page.evaluate(groupId => {
-      const group = nodes.find(node => node.id === groupId);
-      return window.SmartCanvasModules.smartContainer.groupMembers(group)
-        .find(member => member.layerDecomposition?.role === 'layer')
-        .layerDecomposition.hidden;
-    }, state.groupId);
+    const editorLayout = await page.evaluate(() => {
+      const editor = document.getElementById('layerDecompositionEditor').getBoundingClientRect();
+      const composite = document.getElementById('layerDecompositionEditorComposite').getBoundingClientRect();
+      const panel = document.querySelector('.layer-decomposition-editor-panel');
+      const actions = document.querySelector('.layer-decomposition-editor-layer-actions');
+      return {width:panel.getBoundingClientRect().width, rem:parseFloat(getComputedStyle(document.documentElement).fontSize),
+        offset:composite.x + composite.width / 2 - editor.x - editor.width / 2,
+        actionsPosition:getComputedStyle(actions).position,
+        downloadInPanel:panel.contains(document.getElementById('layerDecompositionPsdDownload'))};
+    });
+    assert.equal(editorLayout.width, 9 * editorLayout.rem);
+    assert.ok(Math.abs(editorLayout.offset) < 2, JSON.stringify(editorLayout));
+    assert.equal(editorLayout.actionsPosition, 'absolute');
+    assert.equal(editorLayout.downloadInPanel, true);
+    await page.evaluate(() => window.StudioI18n.set('en'));
+    await page.waitForFunction(() => document.querySelector('.image-node.smart-layer-decomposition .image-name-badge-copy')?.textContent === 'Smart layer decomposition'
+      || [...document.querySelectorAll('.image-name-badge-copy')].some(el => el.textContent === 'Smart layer decomposition'));
+    assert.equal(await page.locator('#layerDecompositionPsdDownload').innerText(), 'Download PSD');
+    await page.evaluate(() => window.StudioI18n.set('zh'));
+    if (process.env.SMART_LAYER_EDITOR_SCREENSHOT) await page.screenshot({path:process.env.SMART_LAYER_EDITOR_SCREENSHOT});
+    await page.setViewportSize({width:600,height:900});
+    const compact = await page.locator('.layer-decomposition-editor-panel').boundingBox();
+    assert.ok(compact.x >= 0 && compact.x + compact.width <= 600);
+    await page.setViewportSize({width:1440,height:900});
+    const hiddenItemId = await page.locator('#layerDecompositionEditorList [data-layer-visibility]').first().getAttribute('data-layer-visibility');
+    await page.locator('#layerDecompositionEditorList .layer-decomposition-editor-layer').first().hover();
+    await page.locator('#layerDecompositionEditorList [data-layer-visibility]').first().click();
+    const hidden = await page.evaluate(({resultId,itemId}) => nodes
+      .find(node => node.id === resultId)
+      ?.layerDecompositionItems.find(item => item.id === itemId)?.hidden, {
+        resultId:state.resultId,
+        itemId:hiddenItemId,
+      });
     assert.equal(hidden, true);
+    failUpload = true;
+    const uploadFailure = await page.evaluate(async () => {
+      window.StudioI18n.set('zh');
+      await smartLayerDecomposition.run({node:nodes.find(item => item.id === 'issue-31-source'),
+        providerId:'apimart-secondary',modelId:'seedream-layer-pro',resolutionTier:'1K'});
+      await smartLayerDecomposition.waitForIdle();
+      return {refs:canvas.logs[0].refs.length, category:canvas.logs[0].errorDetail.category};
+    });
+    assert.deepEqual(uploadFailure, {refs:1,category:'reference_upload_rejected'});
+    await page.waitForFunction(() => document.body.innerText.includes('参考图上传被拒绝'));
+    await page.evaluate(() => window.StudioI18n.set('en'));
+    await page.waitForFunction(() => document.body.innerText.includes('Reference upload rejected'));
+    await page.waitForFunction(() => !document.body.innerText.includes('参考图上传被拒绝'));
     assert.deepEqual(pageErrors, []);
     console.log('Issue #31 layer decomposition browser smoke passed.');
   } finally {

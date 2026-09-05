@@ -1612,7 +1612,6 @@ def text_delta_from_chat_chunk(data):
 async def apimart_upload_post(client, upload_url, headers, file_tuple, timeout=60):
     """上传文件到 APIMart，对瞬时 TLS 错误自动重试；重试时改用全新连接，避免复用坏掉的 TLS 连接。
     file_tuple 形如 (filename, content_bytes, content_type)，content 为已读入内存的 bytes，可跨重试复用。"""
-    last_exc = None
     for attempt in range(_ports.APIMART_UPLOAD_RETRY_ATTEMPTS):
         files = {"file": file_tuple}
         try:
@@ -1623,14 +1622,16 @@ async def apimart_upload_post(client, upload_url, headers, file_tuple, timeout=6
                 follow_redirects=True,
             ) as fresh:
                 return await fresh.post(upload_url, headers=headers, files=files, timeout=timeout)
-        except Exception as e:
-            if not is_transient_tls_error(e) or attempt == _ports.APIMART_UPLOAD_RETRY_ATTEMPTS - 1:
+        except Exception as exc:
+            if not is_transient_tls_error(exc):
                 raise
-            last_exc = e
-            print(f"APIMart 上传遇到瞬时 TLS 错误，换新连接重试（第 {attempt + 1} 次）：{e}")
+            if attempt == _ports.APIMART_UPLOAD_RETRY_ATTEMPTS - 1:
+                raise HTTPException(
+                    status_code=502,
+                    detail="provider_connection_interrupted",
+                ) from exc
+            print(f"APIMart 上传遇到瞬时 TLS 错误，换新连接重试（第 {attempt + 1} 次）：{exc}")
             await asyncio.sleep(0.6 * (attempt + 1))
-    if last_exc:
-        raise last_exc
 
 def agnes_video_frame_count(duration, fps=24):
     try:
@@ -2652,7 +2653,7 @@ async def generate_http_provider_image(
             midjourney_url = _ports.provider_endpoint_url(provider, "image_generation_endpoint", "/v1/midjourney/generations")
             response = await client.post(midjourney_url, headers=api_headers(provider=provider), json=body)
         elif operation == "image.layer_decomposition":
-            if not is_apimart or str(model or "").strip() != "seedream-5-0-pro":
+            if not is_apimart:
                 raise HTTPException(
                     status_code=422,
                     detail={
@@ -2672,7 +2673,8 @@ async def generate_http_provider_image(
                     },
                 )
             upstream_url = await upload_image_for_apimart(
-                client, provider, str(image_refs[0].get("url") or "")
+                client, provider, str(image_refs[0].get("url") or ""),
+                layer_decomposition=True
             )
             if not valid_apimart_video_image_input(upstream_url):
                 reason = (
@@ -2687,7 +2689,7 @@ async def generate_http_provider_image(
             else:
                 tier = tier.upper()
             body = {
-                "model": "seedream-5-0-pro",
+                "model": model,
                 "image_urls": [upstream_url],
                 "layer_decomposition": True,
                 "size": tier,
@@ -2696,11 +2698,18 @@ async def generate_http_provider_image(
             }
             if str(prompt or ""):
                 body["prompt"] = str(prompt)
-            response = await client.post(
-                gen_url,
-                headers=api_headers(provider=provider),
-                json=body,
-            )
+            try:
+                response = await client.post(
+                    gen_url,
+                    headers=api_headers(provider=provider),
+                    json=body,
+                )
+            except httpx.TransportError as exc:
+                # This paid request may have reached APIMart. Do not resubmit.
+                raise HTTPException(
+                    status_code=502,
+                    detail="provider_connection_interrupted",
+                ) from exc
         elif is_apimart:
             apimart_size, resolution = apimart_size_resolution(size)
             if is_apimart_gemini_image_model(model):
@@ -3290,7 +3299,51 @@ def normalize_apimart_video_reference(value: str) -> str:
         return text
     return local_asset_public_url(text)
 
-async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
+async def apimart_layer_upload(client, upload_url, headers, payload):
+    """Retry only a rejected upload, using a smaller in-memory copy at original size."""
+    filename, content, mime = payload
+    evidence = {"stage": "reference_upload", "source_bytes": len(content), "source_mime": mime}
+    with Image.open(BytesIO(content)) as source:
+        evidence.update(source_width=source.width, source_height=source.height)
+    response = await apimart_upload_post(client, upload_url, headers, payload)
+    evidence["upload_attempts"] = 1
+    if response.status_code == 413:
+        with Image.open(BytesIO(content)) as source:
+            buffer = BytesIO()
+            rgba = source.convert("RGBA")
+            if rgba.getchannel("A").getextrema()[0] < 255:
+                rgba.save(buffer, format="PNG", optimize=True)
+                retry_payload = ("reference.png", buffer.getvalue(), "image/png")
+            else:
+                source.convert("RGB").save(buffer, format="JPEG", quality=92, optimize=True)
+                retry_payload = ("reference.jpg", buffer.getvalue(), "image/jpeg")
+        if len(retry_payload[1]) < len(content):
+            evidence.update(upload_attempts=2, retry_bytes=len(retry_payload[1]), retry_mime=retry_payload[2])
+            response = await apimart_upload_post(client, upload_url, headers, retry_payload)
+    if response.status_code not in (200, 201):
+        # Keep only recognized response evidence, never arbitrary upstream text which
+        # may echo credentials, URLs or image content (including HTML gateway pages).
+        body = str(response.text or "").lower()
+        evidence.update(
+            code="reference_upload_rejected" if response.status_code == 413 else "reference_upload_failed",
+            upstream_status=response.status_code,
+            response_hint=next((phrase for phrase in (
+                "file too large", "request entity too large", "payload too large",
+                "request body too large", "bad gateway", "service unavailable"
+            ) if phrase in body), "unrecognized_response"),
+        )
+        raise HTTPException(status_code=response.status_code, detail=json.dumps(evidence))
+    try:
+        url = extract_apimart_asset_url(response.json())
+    except (ValueError, TypeError):
+        url = ""
+    if not valid_apimart_video_image_input(url):
+        evidence.update(code="reference_upload_failed", upstream_status=response.status_code)
+        raise HTTPException(status_code=502, detail=json.dumps(evidence))
+    return url
+
+
+async def upload_image_for_apimart(client, provider, ref_url: str, *, layer_decomposition=False) -> str:
     """把本地图片转成上游可接受的输入。
     按 APIMart 文档上传到 /v1/uploads/images，拿到可用于生成接口的 http/https URL。
     绝不把 /assets/* 这类本地路径直接传给上游。
@@ -3311,6 +3364,11 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             header, encoded = ref_url.split(";base64,", 1)
             mime = header.split(":", 1)[1].split(";", 1)[0] if ":" in header else "image/png"
             raw = base64.b64decode(encoded)
+            if layer_decomposition:
+                return await apimart_layer_upload(
+                    client, upload_url, api_headers(json_body=False, provider=provider),
+                    ("reference", raw, mime),
+                )
             filename, content, ct = apimart_upload_payload_from_bytes(raw, mime, name_hint="canvas_image")
             resp = await apimart_upload_post(client, upload_url, api_headers(json_body=False, provider=provider), (filename, content, ct), timeout=60)
             if resp.status_code in (200, 201):
@@ -3324,6 +3382,8 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             return f"ERR:APIMart 上传失败({resp.status_code})"
         except ValueError as e:
             return f"ERR:{e}"
+        except HTTPException:
+            raise
         except Exception as e:
             print(f"APIMart 上传 data URL 异常: {e}")
             return f"ERR:上传异常 {e}"
@@ -3334,6 +3394,12 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             print(f"APIMart 上传跳过：本地文件不存在 {ref_url}")
             return "ERR:本地文件不存在或已被删除"
         try:
+            if layer_decomposition:
+                with open(path, "rb") as source:
+                    payload = (os.path.basename(path), source.read(), _ports.content_type_for_path(path))
+                return await apimart_layer_upload(
+                    client, upload_url, api_headers(json_body=False, provider=provider), payload,
+                )
             filename, content, ct = apimart_upload_file_payload(path)
             resp = await apimart_upload_post(client, upload_url, api_headers(json_body=False, provider=provider), (filename, content, ct), timeout=60)
             if resp.status_code in (200, 201):
@@ -3347,6 +3413,8 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             return f"ERR:APIMart 上传失败({resp.status_code})"
         except ValueError as e:
             return f"ERR:{e}"
+        except HTTPException:
+            raise
         except Exception as e:
             print(f"APIMart 文件上传异常: {e}")
             return f"ERR:上传异常 {e}"

@@ -14,27 +14,80 @@ import main
 
 
 class GenerationSettingsIntegrationTests(unittest.TestCase):
-    def test_jimeng_defaults_expose_lite_pro_and_latest_cli_models(self):
-        providers = main.merge_default_api_providers(
-            [{
-                "id": "jimeng",
-                "name": "即梦 CLI",
-                "protocol": "jimeng",
-                "image_models": ["5.0"],
-                "video_models": [],
-                "model_names": {},
-            }],
-            inject_missing=False,
-        )
+    def test_cli_provider_normalization_keeps_only_supported_model_categories(self):
+        jimeng = main.normalize_provider({
+            "id": "jimeng",
+            "protocol": "jimeng",
+            "image_models": ["5.0", "jimeng-image-2k"],
+            "video_models": ["seedance2.5", "jimeng-video-720p"],
+        })
+        codex = main.normalize_provider({
+            "id": "codex",
+            "protocol": "codex",
+            "image_models": ["gpt-image-2", "$imagegen"],
+            "video_models": ["unsupported-video"],
+        })
+        gemini = main.normalize_provider({
+            "id": "gemini-cli",
+            "protocol": "gemini-cli",
+            "video_models": ["unsupported-video"],
+        })
 
-        jimeng = providers[0]
-        self.assertEqual("5.0", jimeng["image_models"][0])
-        self.assertIn("5.0Pro", jimeng["image_models"])
-        self.assertIn("4.7", jimeng["image_models"])
+        self.assertEqual(["5.0"], jimeng["image_models"])
+        self.assertEqual(["seedance2.5"], jimeng["video_models"])
+        self.assertEqual(["gpt-image-2"], codex["image_models"])
+        self.assertEqual([], codex["video_models"])
+        self.assertEqual([], gemini["video_models"])
+
+    def test_loading_cli_providers_preserves_saved_model_deletions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            workspace_settings = root / "workspace" / "data" / "api_providers.json"
+            device_connections = root / "device" / "provider-connections.json"
+            device_credentials = root / "device" / "api.env"
+            saved = [
+                main.normalize_provider({
+                    "id": "jimeng",
+                    "name": "即梦 CLI",
+                    "protocol": "jimeng",
+                    "image_models": ["5.0"],
+                    "video_models": [],
+                    "model_names": {"5.0": "5.0 Lite"},
+                }),
+                main.normalize_provider({
+                    "id": "codex",
+                    "name": "GPT CLI",
+                    "protocol": "codex",
+                    "image_models": [],
+                    "chat_models": ["gpt-5.5"],
+                    "video_models": [],
+                }),
+                main.normalize_provider({
+                    "id": "gemini-cli",
+                    "name": "Antigravity CLI",
+                    "protocol": "gemini-cli",
+                    "image_models": [],
+                    "chat_models": [],
+                    "video_models": [],
+                }),
+            ]
+            with (
+                patch.object(main, "api_providers_file", return_value=str(workspace_settings)),
+                patch.object(main, "PROVIDER_CONNECTIONS_FILE", str(device_connections)),
+                patch.object(main, "API_ENV_FILE", str(device_credentials)),
+            ):
+                main.save_api_providers(saved)
+                providers = main.load_api_providers()
+
+        by_id = {provider["id"]: provider for provider in providers}
+        jimeng = by_id["jimeng"]
+        self.assertEqual(["5.0"], jimeng["image_models"])
+        self.assertEqual([], jimeng["video_models"])
         self.assertEqual("5.0 Lite", jimeng["model_names"]["5.0"])
-        self.assertEqual("5.0 Pro", jimeng["model_names"]["5.0Pro"])
-        self.assertIn("seedance2.0mini", jimeng["video_models"])
-        self.assertIn("seedance2.5", jimeng["video_models"])
+        self.assertEqual([], by_id["codex"]["image_models"])
+        self.assertEqual(["gpt-5.5"], by_id["codex"]["chat_models"])
+        self.assertEqual([], by_id["gemini-cli"]["image_models"])
+        self.assertEqual([], by_id["gemini-cli"]["chat_models"])
 
     def test_provider_save_keeps_models_in_workspace_and_credentials_on_device(self):
         with tempfile.TemporaryDirectory() as temporary:

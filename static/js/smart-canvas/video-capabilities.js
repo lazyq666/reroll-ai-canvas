@@ -54,6 +54,7 @@ function smartVideoCapabilityClean(value, providerId='', modelId=''){
     const fallback = smartVideoCapabilityFallback(providerId, modelId);
     if(!value || typeof value !== 'object') return fallback;
     const commands = value.commands && typeof value.commands === 'object' ? value.commands : {};
+    const reviewed = value.model_capability?.support_state === 'supported';
     return {
         ...fallback,
         ...value,
@@ -65,7 +66,7 @@ function smartVideoCapabilityClean(value, providerId='', modelId=''){
         composer_options:value.composer_options && typeof value.composer_options === 'object' ? value.composer_options : {},
         composer_option_definitions:value.composer_option_definitions && typeof value.composer_option_definitions === 'object' ? value.composer_option_definitions : {},
         composer_policy:value.composer_policy && typeof value.composer_policy === 'object' ? value.composer_policy : {},
-        commands:Object.keys(commands).length ? commands : fallback.commands
+        commands:Object.keys(commands).length || reviewed ? commands : fallback.commands
     };
 }
 async function smartVideoCapabilityLoad(providerId='', modelId='', context={}){
@@ -135,9 +136,15 @@ function smartVideoCapabilityReferenceCounts(references=[]){
 }
 function smartVideoCapabilityRequestedMode(settings={}, capability={}){
     const explicit = String(settings.videoReferenceMode || '');
-    if(['multimodal_all_around','first_last_frames'].includes(explicit)) return explicit;
+    const supportsAllAround = Boolean(capability?.commands?.multimodal2video);
+    const supportsFirstLast = Boolean(capability?.commands?.frames2video);
+    if(explicit === 'multimodal_all_around' && supportsAllAround) return explicit;
+    if(explicit === 'first_last_frames' && supportsFirstLast) return explicit;
     if(explicit === 'image_to_video' && capability?.provider_id !== 'jimeng') return explicit;
-    if(settings.videoUseFrameRoles) return 'first_last_frames';
+    if(settings.videoUseFrameRoles && supportsFirstLast) return 'first_last_frames';
+    if(supportsAllAround) return 'multimodal_all_around';
+    if(supportsFirstLast) return 'first_last_frames';
+    if(capability?.provider_id === 'jimeng') return '';
     return settings.videoMultimodal === false && capability?.provider_id !== 'jimeng'
         ? 'image_to_video'
         : 'multimodal_all_around';
@@ -150,9 +157,9 @@ function smartVideoCapabilityResolve(settings={}, references=[], capability=null
     let command = 'text2video';
     if(counts.total){
         if(capability.provider_id === 'jimeng'){
-            referenceMode = requestedMode === 'first_last_frames'
-                ? 'first_last_frames'
-                : 'multimodal_all_around';
+            if(['first_last_frames','multimodal_all_around'].includes(requestedMode)){
+                referenceMode = requestedMode;
+            }
         } else if(requestedMode === 'first_last_frames'){
             referenceMode = 'first_last_frames';
         } else if(requestedMode === 'image_to_video'){
@@ -160,11 +167,13 @@ function smartVideoCapabilityResolve(settings={}, references=[], capability=null
         } else {
             referenceMode = 'multimodal_all_around';
         }
-        command = {
-            image_to_video:'image2video',
-            first_last_frames:'frames2video',
-            multimodal_all_around:'multimodal2video'
-        }[referenceMode];
+        if(referenceMode){
+            command = {
+                image_to_video:'image2video',
+                first_last_frames:'frames2video',
+                multimodal_all_around:'multimodal2video'
+            }[referenceMode];
+        }
     }
     const commandCapability = capability.commands?.[command] || {};
     const ratioCapability = referenceMode === 'image_to_video'
@@ -198,7 +207,11 @@ function smartVideoCapabilityResolve(settings={}, references=[], capability=null
             maximum:Number(duration.maximum) || 60
         },
         command_capability:commandCapability,
-        multimodal_inputs:multimodalInputs
+        multimodal_inputs:multimodalInputs,
+        supported_reference_modes:[
+            ...(capability.commands?.multimodal2video ? ['multimodal_all_around'] : []),
+            ...(capability.commands?.frames2video ? ['first_last_frames'] : [])
+        ]
     };
 }
 function smartVideoCapabilityReconcile(settings={}, references=[], capability=null){
@@ -243,6 +256,9 @@ function smartVideoCapabilityValidateCount(count, limit={}, reason='reference-co
 function smartVideoCapabilityValidateReferences(state={}){
     const counts = state.counts || {};
     const inputs = state.multimodal_inputs || {};
+    if(Number(counts.total || 0) > 0 && !state.reference_mode){
+        return {valid:false,reason:'reference-mode-unsupported',count:Number(counts.total || 0)};
+    }
     if(state.command === 'image2video'){
         if(Number(counts.total || 0) !== Number(counts.image || 0)) return {valid:false,reason:'image-media-type',count:Number(counts.total || 0)};
         return smartVideoCapabilityValidateCount(Number(counts.image || 0), state.command_capability?.image_count || state.reference_limit, 'image-count');

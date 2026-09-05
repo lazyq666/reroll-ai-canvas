@@ -46,17 +46,10 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertNotRegex(self.page, r"<wa-[a-z]")
         self.assertNotIn("--wa-", self.page)
         self.assertNotIn("/static/vendor/js/lucide.js", self.page)
-        self.assertEqual(len(re.findall(r"<button\b", self.page)), 5)
+        self.assertEqual(len(re.findall(r"<button\b", self.page)), 3)
         self.assertEqual(len(re.findall(r'<button data-value="(?:image|video|text)"', self.page)), 3)
-        self.assertEqual(
-            len(
-                re.findall(
-                    r'<button(?: id="[^"]+")? data-value="(?:catalog|capabilities)"',
-                    self.page,
-                )
-            ),
-            2,
-        )
+        self.assertNotIn('id="management-sections"', self.page)
+        self.assertNotIn('id="capability-workbench-view"', self.page)
         self.assertNotIn('id="save-order"', self.page)
         self.assertNotIn('models.saveOrder', self.page)
         self.assertNotIn('id="icon-style"', self.page)
@@ -74,6 +67,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn("element('ic-checkbox', 'model-visibility-checkbox')", self.script)
         self.assertIn("element('ic-table', 'model-table')", self.script)
         self.assertIn("element('ic-toolbar', 'order-actions')", self.script)
+        self.assertIn("element('ic-button', 'model-capability-edit'", self.script)
         self.assertIn("empty.setAttribute('label', activeLabel)", self.script)
         self.assertIn("button.setAttribute('label', label)", self.script)
         self.assertIn("button.toggleAttribute('disabled', disabled)", self.script)
@@ -107,7 +101,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn("state.orderDirty = true", self.script)
         self.assertIn("const namesApplied = [...submittedNames].every", self.script)
         self.assertIn("throw new Error(tr('models.saveNotApplied'))", self.script)
-        for key in ("models.icon", "models.modelNaming", "models.modelId", "models.providerId", "models.visibility", "models.operations"):
+        for key in ("models.icon", "models.modelNaming", "models.modelId", "models.providerId", "models.features", "models.visibility", "models.operations"):
             self.assertIn(key, self.script)
         self.assertNotIn("input.setAttribute('required'", self.script)
         self.assertIn("parent.postMessage({ type: 'models-changed' }", self.script)
@@ -155,13 +149,15 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         ):
             self.assertNotIn(selector, self.style)
 
-    def test_capability_matrix_groups_models_and_uses_product_controls(self):
+    def test_model_rows_open_capability_details_in_a_dialog(self):
         self.assertIn('/static/js/model-capability-workbench.js', self.page)
-        self.assertIn('id="capability-model-rows"', self.page)
+        self.assertIn('id="capability-editor-dialog"', self.page)
         self.assertIn('id="capability-operation-editors"', self.page)
-        self.assertIn('id="capability-sync-models"', self.page)
         self.assertIn('id="capability-import-open"', self.page)
         self.assertIn('id="capability-import-data"', self.page)
+        self.assertNotIn('id="capability-model-rows"', self.page)
+        self.assertNotIn('data-i18n="models.modelType"', self.page)
+        self.assertNotIn('data-i18n="models.platforms"', self.page)
         self.assertNotIn('id="capability-provider"', self.page)
         self.assertNotIn('Inputs JSON', self.page)
         self.assertNotIn('Parameters JSON', self.page)
@@ -176,16 +172,27 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertNotIn("AI 补全能力", self.page)
         self.assertIn("inputTypes.forEach", self.workbench_script)
         self.assertIn("const lookupPrompt =", self.workbench_script)
+        self.assertIn("channel_id: provider.id", self.workbench_script)
+        self.assertIn("model_types: modelTypes", self.workbench_script)
+        self.assertIn("available_operations:", self.workbench_script)
+        self.assertIn("aliases:", self.workbench_script)
         self.assertIn("schema_version: 1", self.workbench_script)
         self.assertIn("state.validatedImport", self.workbench_script)
         self.assertIn("output_count_maximum", self.workbench_script)
         self.assertIn("aspect_ratios", self.workbench_script)
+        self.assertIn("window.ModelCapabilityEditor = Object.freeze", self.workbench_script)
+        self.assertIn("window.ModelCapabilityEditor.open(model.model)", self.script)
+        self.assertIn("model-capability-matrix-change", self.workbench_script)
+        self.assertIn("model-capability-matrix-change", self.script)
+        self.assertIn("models.tagLayerDecomposition", self.script)
+        self.assertIn("models.tagTransparentPng", self.script)
         self.assertNotIn("innerHTML", self.workbench_script)
         self.assertNotIn("document.createElement('button')", self.workbench_script)
 
     def test_capability_workbench_copy_is_localized_in_both_languages(self):
         keys = set(re.findall(r'data-i18n(?:-label)?="([^"]+)"', self.page))
         keys.update(re.findall(r"(?:tr|tf)\('([^']+)'", self.workbench_script))
+        keys.update(re.findall(r"(?:tr|tf)\('([^']+)'", self.script))
         for key in keys:
             self.assertRegex(
                 self.i18n,
@@ -194,10 +201,9 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
             )
 
     def test_capability_workbench_resizes_without_hardcoded_visual_tokens(self):
-        self.assertIn(".capability-table-scroll {", self.style)
-        self.assertIn("overflow-x: auto", self.style)
+        self.assertIn(".capability-product-editor { min-width: 0; }", self.style)
         self.assertIn(".capability-choice-grid { grid-template-columns: 1fr; }", self.style)
-        self.assertIn(".capability-summary { grid-template-columns: 1fr; }", self.style)
+        self.assertIn(".capability-catalog-actions > * { flex: 1 1 100%; }", self.style)
 
 
 

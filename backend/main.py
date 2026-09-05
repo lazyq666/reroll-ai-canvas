@@ -150,6 +150,10 @@ from infinite_canvas.image_capabilities import (
     normalize_image_aspect,
 )
 from infinite_canvas.image_materialization import materialize_image_cover
+from infinite_canvas.layered_psd import (
+    LayeredPsdError,
+    build_layer_decomposition_psd,
+)
 from infinite_canvas.model_capabilities import (
     CAPABILITY_SCHEMA_VERSION,
     ModelCapabilityCatalog,
@@ -1463,10 +1467,6 @@ JIMENG_DEFAULT_IMAGE_MODELS = [
     "3.1",
     "3.0",
 ]
-JIMENG_DEFAULT_IMAGE_MODEL_NAMES = {
-    "5.0": "5.0 Lite",
-    "5.0Pro": "5.0 Pro",
-}
 JIMENG_DEFAULT_VIDEO_MODELS = [
     "seedance2.5",
     "seedance2.0_vip",
@@ -2024,39 +2024,6 @@ def merge_default_api_providers(providers, inject_missing=True):
             current["protocol"] = "volcengine"
             current["volcengine_project_name"] = str(current.get("volcengine_project_name") or VOLCENGINE_DEFAULT_PROJECT_NAME).strip() or VOLCENGINE_DEFAULT_PROJECT_NAME
             current["volcengine_region"] = str(current.get("volcengine_region") or VOLCENGINE_DEFAULT_REGION).strip() or VOLCENGINE_DEFAULT_REGION
-    # 即梦 CLI 不再是强制保留的默认平台：仅在用户已添加了即梦协议的平台时，规范化其默认模型/地址。
-    for current in merged:
-        if not is_jimeng_provider(current):
-            continue
-        current["protocol"] = "jimeng"
-        current["base_url"] = ""
-        current["image_models"] = model_list_from_values([
-            *[item for item in (current.get("image_models") or []) if str(item or "").strip() not in JIMENG_LEGACY_IMAGE_MODELS],
-            *JIMENG_DEFAULT_IMAGE_MODELS,
-        ])
-        current["model_names"] = {
-            **JIMENG_DEFAULT_IMAGE_MODEL_NAMES,
-            **normalize_model_name_map(current.get("model_names")),
-        }
-        current["video_models"] = model_list_from_values([
-            *[item for item in (current.get("video_models") or []) if str(item or "").strip() not in JIMENG_LEGACY_VIDEO_MODELS],
-            *JIMENG_DEFAULT_VIDEO_MODELS,
-        ])
-    # OpenAI/Antigravity CLI 和即梦一样作为协议使用：用户选中 CLI 协议时再规范化模型与地址，不强制额外注入平台。
-    for current in merged:
-        current_protocol = str((current or {}).get("protocol") or "").strip().lower()
-        if current_protocol not in {"codex", "gemini-cli"}:
-            continue
-        current["protocol"] = current_protocol
-        current["base_url"] = ""
-        default_image_models = CODEX_DEFAULT_IMAGE_MODELS if current_protocol == "codex" else GEMINI_CLI_DEFAULT_IMAGE_MODELS
-        default_chat_models = CODEX_DEFAULT_CHAT_MODELS if current_protocol == "codex" else GEMINI_CLI_DEFAULT_CHAT_MODELS
-        image_models = current.get("image_models") or []
-        if current_protocol == "codex":
-            image_models = [item for item in image_models if str(item or "").strip().lower() != "$imagegen"]
-        current["image_models"] = model_list_from_values([*image_models, *default_image_models])
-        current["chat_models"] = model_list_from_values([*(current.get("chat_models") or []), *default_chat_models])
-        current["video_models"] = []
     return merged
 
 def normalize_model_list(values):
@@ -2210,7 +2177,26 @@ def normalize_provider(item):
     if locked_rule:
         protocol = locked_rule["protocol"]
         image_request_mode = locked_rule["image_request_mode"]
+    image_models = model_list_from_values(item.get("image_models") or [])
+    chat_models = model_list_from_values(item.get("chat_models") or [])
     video_models = model_list_from_values(item.get("video_models") or [])
+    if protocol == "jimeng":
+        image_models = [
+            model for model in image_models
+            if model not in JIMENG_LEGACY_IMAGE_MODELS
+        ]
+        video_models = [
+            model for model in video_models
+            if model not in JIMENG_LEGACY_VIDEO_MODELS
+        ]
+    elif protocol == "codex":
+        image_models = [
+            model for model in image_models
+            if model.lower() != "$imagegen"
+        ]
+        video_models = []
+    elif protocol == "gemini-cli":
+        video_models = []
     if locked_rule and "video_models" in locked_rule:
         video_models = model_list_from_values(locked_rule.get("video_models") or [])
     return {
@@ -2223,8 +2209,8 @@ def normalize_provider(item):
         "image_edit_endpoint": image_edit_endpoint,
         "enabled": bool(item.get("enabled", True)),
         "primary": bool(item.get("primary", False)),
-        "image_models": model_list_from_values(item.get("image_models") or []),
-        "chat_models": model_list_from_values(item.get("chat_models") or []),
+        "image_models": image_models,
+        "chat_models": chat_models,
         "video_models": video_models,
         "model_names": normalize_model_name_map(item.get("model_names")),
         "model_protocols": normalize_model_protocols(item.get("model_protocols")),
@@ -7005,11 +6991,60 @@ async def probe_async_endpoint(payload: TestConnectionPayload):
 
 @app.post("/api/providers/fetch-models")
 async def fetch_upstream_models_from_payload(payload: TestConnectionPayload):
-    return await _provider_implementation.fetch_upstream_models_from_payload(payload)
+    result = await _provider_implementation.fetch_upstream_models_from_payload(payload)
+    return await _attach_fetch_time_capability_review(
+        result,
+        provider_id=payload.provider_id,
+        base_url=payload.base_url,
+        protocol=_provider_implementation.protocol_from_payload(payload),
+    )
 
 @app.get("/api/providers/{provider_id}/fetch-models")
 async def fetch_upstream_models(provider_id: str):
-    return await _provider_implementation.fetch_upstream_models(provider_id)
+    provider = get_api_provider_exact(provider_id)
+    result = await _provider_implementation.fetch_upstream_models(provider_id)
+    return await _attach_fetch_time_capability_review(
+        result,
+        provider_id=str(provider.get("id") or provider_id),
+        base_url=str(provider.get("base_url") or ""),
+        protocol=str(provider.get("protocol") or "openai"),
+    )
+
+
+async def _attach_fetch_time_capability_review(
+    result,
+    *,
+    provider_id: str,
+    base_url: str,
+    protocol: str,
+):
+    response = dict(result or {})
+    discovery = response.pop("_capability_discovery", None)
+    try:
+        review = await MODEL_CAPABILITY_REFRESH.collect_model_discovery(
+            provider_id=provider_id,
+            base_url=base_url,
+            protocol=protocol,
+            discovery=discovery,
+            model_ids=response.get("all") or (),
+            chat_model_ids=response.get("chat_models") or (),
+        )
+        if review is not None:
+            response["capability_review"] = review
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        # Capability collection is additive; model-list discovery remains usable.
+        response["capability_review"] = {
+            "ok": False,
+            "source_count": 0,
+            "record_count": 0,
+            "drafts_created": 0,
+            "evidence_created": 0,
+            "sources": [],
+            "errors": [str(error)],
+        }
+    return response
 
 def _raise_generation_http(error):
     if isinstance(error, HTTPException):
@@ -7242,15 +7277,6 @@ def _layer_decomposition_run(payload: LayerDecompositionRequest) -> ImageRun:
     provider_id = str(provider.get("id") or payload.provider_id).strip().lower()
     model = str(payload.model or "").strip()
     operation = "image.layer_decomposition"
-    if provider_id != "apimart" or model != "seedream-5-0-pro":
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": "capability_unknown",
-                "field": "operation",
-                "actual": operation,
-            },
-        )
     image = payload.image.model_dump()
     if not image.get("url") or not is_image_reference(image):
         raise HTTPException(
@@ -7292,9 +7318,9 @@ def _layer_decomposition_run(payload: LayerDecompositionRequest) -> ImageRun:
     return ImageRun(
         prompt=str(payload.prompt or ""),
         settings={
-            "provider_id": "apimart",
-            "provider_name": str(provider.get("name") or "APIMART"),
-            "model": "seedream-5-0-pro",
+            "provider_id": provider_id,
+            "provider_name": str(provider.get("name") or provider_id),
+            "model": model,
             "size": resolution_tier,
             "requested_size": resolution_tier,
             "resolution_tier": resolution_tier,
@@ -7309,8 +7335,8 @@ def _layer_decomposition_run(payload: LayerDecompositionRequest) -> ImageRun:
         count=1,
         publication="layer-decomposition",
         effect_context={
-            "provider_id": "apimart",
-            "model": "seedream-5-0-pro",
+            "provider_id": provider_id,
+            "model": model,
             "resolution_tier": resolution_tier,
             "source_media_id": str(payload.source_media_id or ""),
             "source_url": str(image.get("url") or ""),
@@ -8236,6 +8262,7 @@ class ModelCapabilityMatrixOperationPayload(BaseModel):
     aspect_ratios: List[str] = Field(default_factory=list, max_length=40)
     output_count_maximum: int = Field(default=1, ge=1, le=100)
     options: List[str] = Field(default_factory=list, max_length=40)
+    video: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelCapabilityMatrixUpdatePayload(BaseModel):
@@ -9391,6 +9418,44 @@ async def get_canvas(canvas_id: str):
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
     return {"canvas": canvas}
+
+
+@app.post(
+    "/api/canvases/{canvas_id}/layer-decompositions/{node_id}/psd"
+)
+async def export_layer_decomposition_psd(canvas_id: str, node_id: str):
+    canvas = load_canvas(canvas_id, write=True)
+    try:
+        exported = await asyncio.to_thread(
+            build_layer_decomposition_psd,
+            canvas,
+            node_id,
+            resolve_media=output_file_from_url,
+        )
+    except LayeredPsdError as exc:
+        status = {
+            "node_not_found": 404,
+            "media_unavailable": 409,
+            "node_invalid": 422,
+            "media_invalid": 422,
+        }.get(exc.code, 500)
+        raise HTTPException(
+            status_code=status,
+            detail={"code": exc.code},
+        ) from exc
+    encoded = urllib.parse.quote(exported.filename)
+    return Response(
+        content=exported.content,
+        media_type="image/vnd.adobe.photoshop",
+        headers={
+            "Content-Disposition": (
+                "attachment; filename=layered-export.psd; "
+                f"filename*=UTF-8''{encoded}"
+            ),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @app.get("/api/canvases/{canvas_id}/generation-runs/active")

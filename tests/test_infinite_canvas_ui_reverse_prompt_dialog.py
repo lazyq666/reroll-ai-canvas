@@ -9,6 +9,7 @@ CORE = ROOT / "static/js/infinite-canvas-ui/core.js"
 AI_STYLES = ROOT / "static/js/infinite-canvas-ui/ai-processor-dialog/styles.js"
 DIALOG_STYLES = ROOT / "static/js/infinite-canvas-ui/dialog/styles.js"
 ASPECT_PICKER = ROOT / "static/js/infinite-canvas-ui/aspect-ratio-picker.js"
+GENERATION_SETTINGS_PICKER = ROOT / "static/js/infinite-canvas-ui/generation-settings-picker.js"
 CASE = ROOT / "static/design-system/infinite-canvas-ui/dialog-case.html"
 CASE_APP = ROOT / "static/js/infinite-canvas-ui/dialog-case.js"
 
@@ -96,6 +97,21 @@ class InfiniteCanvasUiAiProcessorDialogTests(unittest.TestCase):
         self.assertIn('--ui-dialog-block-size-x-large: 92vh', adapter)
         self.assertNotIn('ic-ai-processor-dialog[size="x-large"]::part(dialog) { inline-size: calc(100dvw', adapter)
         self.assertIn('ic-ai-processor-dialog[size="large"]::part(dialog)', adapter)
+
+    def test_layer_decomposition_reuses_the_shared_dialog_with_inline_resolution_options(self):
+        module = MODULE.read_text(encoding="utf-8")
+        adapter = owned_styles()
+        self.assertIn("'layer-decomposition'", module)
+        self.assertIn('data-ai-processor-layout="layer-decomposition"', module)
+        self.assertIn('name="layer-resolution"', module)
+        self.assertIn('data-layer-resolution-options', module)
+        self.assertNotIn('name="layer-generation-settings"', module)
+        self.assertIn("layerResolution:this.layerResolution", module)
+        self.assertIn("providerName?`${model.name} · ${model.providerName}`", module)
+        self.assertIn('[data-ai-processor-layout="layer-decomposition"]', adapter)
+        self.assertIn('[data-layer-source-stage]', adapter)
+        self.assertIn('object-fit: contain', adapter)
+        self.assertIn('[data-layer-resolution-options]', adapter)
 
     def test_visual_workbenches_fill_available_height_and_locked_ratios_survive_dragging(self):
         module = MODULE.read_text(encoding="utf-8")

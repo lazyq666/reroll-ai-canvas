@@ -40,6 +40,18 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def test_upload_status_and_historical_422_classify_without_parameter_blame(self):
+        values = self.run_module("""
+            const cases = [
+                {httpStatus:413, technicalError:'reference_upload_rejected'},
+                {httpStatus:422, technicalError:'APIMart 上传失败(413)'},
+                {httpStatus:503, technicalError:'reference_upload_failed'},
+            ];
+            process.stdout.write(JSON.stringify(cases.map(value => feedback.classify(value))));
+        """)
+        self.assertEqual(['reference_upload_rejected', 'reference_upload_rejected',
+                          'reference_upload_failed'], [value['category'] for value in values])
+
     def test_apimart_restriction_wins_over_credential_and_quota_guesses(self):
         payload = self.run_module(
             """
@@ -55,6 +67,20 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertEqual(payload["category"], "provider_account_restricted")
         self.assertEqual(payload["billingEvidence"], {"cost": 0})
         self.assertEqual(payload["titleKey"], "smart.error.provider_account_restricted.apimart.title")
+
+    def test_connection_marker_wins_over_generic_bad_gateway_status(self):
+        payload = self.run_module(
+            """
+            const value = feedback.classify({
+                providerId:'apimart',
+                technicalError:'provider_connection_interrupted',
+                httpStatus:502,
+            });
+            process.stdout.write(JSON.stringify(value));
+            """
+        )
+        self.assertEqual(payload["category"], "connection_interrupted")
+        self.assertEqual(payload["retryability"], "retry_later")
 
     def test_apimart_chinese_unavailable_size_is_not_reported_as_unknown(self):
         payload = self.run_module(

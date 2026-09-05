@@ -69,6 +69,15 @@
             : null;
     }
 
+    function nodeMediaSize(node) {
+        if (node?.type === 'smart-layer-decomposition') {
+            const manifest = node.layerDecompositionManifest;
+            const size = mediaSize({width:manifest?.canvas_width, height:manifest?.canvas_height});
+            if (size) return size;
+        }
+        return mediaSize(node?.images?.[0]);
+    }
+
     function isStillImage(image) {
         const kind = String(image?.kind || '').toLowerCase();
         if (['audio', 'video', 'text', 'file'].includes(kind)) return false;
@@ -77,9 +86,10 @@
     }
 
     function isSingleImageNode(node) {
+        // A decomposition is one composition even when recovery republishes all layer outputs.
+        if (node?.type === 'smart-layer-decomposition' && nodeMediaSize(node)) return true;
         return Boolean(
-            node
-            && (node.type === 'smart-image' || !node.type)
+            isImageNode(node)
             && Array.isArray(node.images)
             && node.images.length === 1
             && (isStillImage(node.images[0])
@@ -88,7 +98,11 @@
     }
 
     function isImageNode(node) {
-        return Boolean(node && (node.type === 'smart-image' || !node.type));
+        return Boolean(node && (
+            node.type === 'smart-image'
+            || node.type === 'smart-layer-decomposition'
+            || !node.type
+        ));
     }
 
     function explicitLayout(node, fallback) {
@@ -284,21 +298,29 @@
     }
 
     function singleImageLayout(node) {
-        const image = node.images[0];
-        const size = mediaSize(image);
+        const image = node.images?.[0];
+        const size = nodeMediaSize(node);
         const savedMediaWidth = Number(node.generationMediaW);
         const savedMediaHeight = Number(node.generationMediaH);
         if (
-            Number.isFinite(savedMediaWidth)
+            (node.type !== 'smart-layer-decomposition' || !(Number(node.w) > 24))
+            && Number.isFinite(savedMediaWidth)
             && savedMediaWidth > 24
             && Number.isFinite(savedMediaHeight)
             && savedMediaHeight > 24
         ) {
+            // Saved generation geometry can still describe the pending placeholder.
+            // Fit the delivered image inside those bounds without cropping its aspect ratio.
+            const fit = node.type !== 'smart-layer-decomposition' && size && isStillImage(image)
+                ? Math.min(savedMediaWidth / size.width, savedMediaHeight / size.height)
+                : null;
             return {
                 cols:1,
                 rows:1,
-                width:Math.round(savedMediaWidth),
-                height:Math.round(savedMediaHeight),
+                width:fit ? Math.max(1, Math.round(size.width * fit)) : Math.round(savedMediaWidth),
+                height:node.type === 'smart-layer-decomposition' && size
+                    ? Math.max(1, Math.round(savedMediaWidth * size.height / size.width))
+                    : fit ? Math.max(1, Math.round(size.height * fit)) : Math.round(savedMediaHeight),
                 thumb:Math.round(96 * effectiveScale(node)),
                 single:true
             };
@@ -392,7 +414,7 @@
                 path:'w/h'
             });
         }
-        const image = node.images[0];
+        const image = node.images?.[0];
         const dimensionKeys = [
             'natural_w',
             'natural_h',
@@ -429,7 +451,7 @@
     }
 
     function diagnosticsForNode(node, layout) {
-        if (isSingleImageNode(node)) return diagnosticsForSingleImage(node, mediaSize(node.images[0]));
+        if (isSingleImageNode(node)) return diagnosticsForSingleImage(node, nodeMediaSize(node));
         const diagnostics = [];
         const nodeId = String(node?.id || '');
         const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
@@ -487,7 +509,7 @@
         };
         const centerX = x + layout.width / 2;
         const centerY = y + layout.height / 2;
-        const size = isSingleImageNode(node) ? mediaSize(node.images[0]) : null;
+        const size = isSingleImageNode(node) ? nodeMediaSize(node) : null;
         const diagnostics = diagnosticsForNode(node, layout);
         const placementObstacle = !['smart-frame','smart-text','smart-brush'].includes(type);
         const interactionFootprint = placementObstacle

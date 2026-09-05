@@ -142,6 +142,10 @@ _Avoid_: Card, Block
 持有用户媒体或 Generation Output 的 Node；普通多媒体集合与历史生成画廊不是同一概念。
 _Avoid_: Smart Group, Generation Output Gallery
 
+**Layer Decomposition Node（智能分层节点）**:
+持有一份 Layer Decomposition Manifest、合成底图与有序透明图层的单一 Node；Canvas 把它作为一张合成图预览，不把内部图层建模为 Image Node 或 Smart Group Member。
+_Avoid_: Smart Group, Multi-image Node, Layer Folder
+
 **Prompt Node（提示词节点）**:
 持有人工编写 Prompt、并可参与 Connection 和 Generation Run 的 Node。
 _Avoid_: Prompt Generation Node, Text Annotation Node
@@ -225,11 +229,15 @@ Provider 提供的一个具名生成能力版本。
 _Avoid_: Provider, Workflow, Preset
 
 **Model Profile（模型档案）**:
-Administrator 按稳定 Model ID 查看和维护的一行产品记录；同一 Model ID 由多个 Provider 提供时仍是同一个 Model Profile，Provider 仅作为可用来源附着其上。可编辑显示名称不是身份，名称相近也不能自动合并不同 Model ID。
+Administrator 按稳定 Model ID 和输出媒体查看、维护的模型详情；同一 Model ID 由多个 Provider 提供时仍是同一个 Model Profile，各 Provider 的可用模型条目都指向它。Model Operation 的运行差异不自然成为并列档案，可编辑显示名称也不是身份。
 _Avoid_: Provider Model, Model Capability, Display Name
 
+**Model Discovery Snapshot（模型发现快照）**:
+API 设置页一次模型拉取过程中，从同一 Provider 响应或本地 CLI 帮助取得并脱敏后的有界事实快照；其中明确字段可以转成 Model Capability Evidence 和待审核 Draft，但快照本身不证明支持、不会进入运行目录，也不能改变 Generation Run 的约束。
+_Avoid_: Model Capability, Runtime Availability, Published Catalog
+
 **Model Capability Matrix（模型能力表）**:
-Administrator 以一行一个 Model Profile、通过开关和选项维护模型输入、输出与参数范围，并导入外部研究结果的产品界面；它隐藏 Provider 路由、内部 JSON 合同、逐字段 Evidence 和 Catalog Revision。
+按稳定 Model ID 汇总 Model Profile 输入、输出与参数范围的管理员产品投影；Administrator 通过可用模型中的模型详情维护它，也可以导入外部研究结果。它不是另一份 Model List，并隐藏 Provider 路由、内部 JSON 合同、逐字段 Evidence 和 Catalog Revision。
 _Avoid_: Model List, Capability JSON Editor, Provider Capability Table
 
 **Model Capability（模型能力）**:
@@ -277,8 +285,16 @@ _Avoid_: Model List, Provider Config, Pricing Catalog
 _Avoid_: Video Model Capability, Shared Image Default
 
 **Video Model Capability（视频模型能力）**:
-视频 Model 支持的时长、帧率、画幅、参考输入和输出边界。
+视频 Model 支持的参考输入数量、组合与时长，Video Generation Mode，以及输出时长、帧率、画幅和清晰度边界。
 _Avoid_: Image Model Capability, Shared Video Default
+
+**First-and-Last-Frame Video（首尾帧视频）**:
+用一到两张有顺序角色的图片约束视频首帧和尾帧的 Video Generation Mode；该模式中的帧图片不与视频或音频参考混用。
+_Avoid_: Image-to-Video, All-around Reference Video, Unordered Reference Images
+
+**All-around Reference Video（全能参考视频）**:
+允许图片、视频与音频按 Model 合同混合参与生成的 Video Generation Mode；各类数量、合计数量、单个与合计时长及纯音频可用性都是该模式的能力边界。
+_Avoid_: First-and-Last-Frame Video, Generic Video Generation
 
 **Workflow（工作流）**:
 可以复用的生成图或执行配置，其身份独立于 Smart Canvas 上的 Node Package 和 Smart Cascade。

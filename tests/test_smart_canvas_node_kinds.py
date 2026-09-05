@@ -29,6 +29,7 @@ class SmartCanvasNodeKindsTests(unittest.TestCase):
                     type:'smart-image',referenceGenerationKind:'video',generationOutputNode:true,
                     images:[{{url:'/result.mp4',kind:'video'}}]
                 }}),
+                layerDecomposition:kinds.roleOf({{type:'smart-layer-decomposition'}}),
             }}));
         """
         result = subprocess.run(
@@ -45,6 +46,7 @@ class SmartCanvasNodeKindsTests(unittest.TestCase):
                 "pendingVideoGeneration": "generation",
                 "deliveredImage": "image",
                 "deliveredVideo": "image",
+                "layerDecomposition": "image",
             },
         )
 
