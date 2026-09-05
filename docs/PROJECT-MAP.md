@@ -235,6 +235,8 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 
 Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 / F13 的图片分辨率与宽高比双 Badge。布局、固定画幅对比图标、比例识别容差、尺寸恢复及可访问说明统一由 [UI 设计与交互指南](current/ui-design-guidelines.md)定义；`image-metadata.js` 只负责尺寸与比例计算，页面负责显示，公共 `ic-icon` 负责图标。回归入口为 [比例与尺寸来源测试](../tests/smart_canvas_image_metadata.test.cjs)和[真实页面、双语及日志验收](../tests/issue_21_image_metadata_browser_app.cjs)。
 
+F05 的[统一节点定位、排列间距与 Frame 扩容规格](active/2026-09-05-smart-canvas-unified-spatial-layout-spec.md)为 Draft：两轮产品评审已确认明确落点与历史恢复接受重叠、代码常量 G = 96、紧凑整理、实际父节点与视口评分、直接 Frame 单次扩容及空间归属。当前仅完成规格，尚未实施；不替代既有 Node 自动避让与选区整理 Current。
+
 F05 的[灯光参考编辑器](current/smart-canvas-lighting-reference.md)已经毕业为 Current：它从 Image Node 浮动工具栏进入，以 Lighting Intent 确定性生成中英文 Prompt，通过一次 Canvas Mutation 创建下游图片 Generation Node、填充 Composer，并把参数保存在来源与新 Node 上供后续微调；不导出媒体或 JSON，也不创建 Generation Run。
 
 Issue #22 的[多选快速连线与提示词生成快捷入口](active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md)正在实施：公共选区 Quick Add、多选与提示词工具栏、按视觉顺序接入一个新建或已有生成节点及整体撤销已落地并通过隔离生产页面检查。状态为 `drift`：D22-01 的服务端语义前置条件尚待协议扩展决定，完整双端协作及人工验收 Gate 未完成；不能据此宣称 Issue 完成或将 Active 毕业为 Current。
