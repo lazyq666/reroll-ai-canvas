@@ -13,6 +13,7 @@
  */
 (function initSmartCanvasNodeKinds(global){
     const IMAGE = 'smart-image';
+    const LAYER_DECOMPOSITION = 'smart-layer-decomposition';
     const PROMPT = 'smart-prompt';
     const SPLITTER = 'smart-splitter';
     const LOOP = 'smart-loop';
@@ -58,6 +59,10 @@
         return isImage(node) && ['image','video'].includes(node?.referenceGenerationKind);
     }
 
+    function isLayerDecomposition(node){
+        return node?.type === LAYER_DECOMPOSITION;
+    }
+
     function hasDeliveredMedia(node){
         return isImage(node)
             && Array.isArray(node?.images)
@@ -88,6 +93,7 @@
         if(isPromptGeneration(node)) return 'prompt-generation';
         if(isPrompt(node)) return 'prompt';
         if(isGeneration(node) && !hasDeliveredMedia(node)) return 'generation';
+        if(isLayerDecomposition(node)) return 'image';
         if(isImage(node)) return 'image';
         if(isSplitter(node)) return 'splitter';
         if(isLoop(node)) return 'loop';
@@ -105,6 +111,7 @@
     global.SmartCanvasModules = global.SmartCanvasModules || {};
     global.SmartCanvasModules.nodeKinds = Object.freeze({
         IMAGE,
+        LAYER_DECOMPOSITION,
         PROMPT,
         SPLITTER,
         LOOP,
@@ -115,6 +122,7 @@
         catalog,
         isImage,
         isGeneration,
+        isLayerDecomposition,
         isPromptFamily,
         isPrompt,
         isPromptGeneration,

@@ -3,6 +3,10 @@
   const tf = (key, values) => window.StudioI18n?.format?.(key, values) || tr(key);
   const stateTools = window.AvailableModelManagementState;
   const labels = { image: 'models.image', video: 'models.video', text: 'models.text' };
+  const capabilityTagLabels = {
+    layer_decomposition: 'models.tagLayerDecomposition',
+    transparent_png: 'models.tagTransparentPng',
+  };
   const state = {
     active: 'image',
     models: { image: [], video: [], text: [] },
@@ -10,6 +14,7 @@
     dirtyNames: new Map(),
     orderDirty: false,
     visibilityDirty: false,
+    capabilityTags: new Map(),
     revision: 0,
     queued: false,
     inFlight: null,
@@ -47,6 +52,21 @@
     ) || '').trim();
     return template.content.firstElementChild || element('span', 'model-vendor-icon model-vendor-icon--fallback');
   };
+  const capabilityTags = (modelId) => {
+    const container = element('div', 'model-capability-tags');
+    (state.capabilityTags.get(modelId) || []).forEach((tag) => {
+      const labelKey = capabilityTagLabels[tag];
+      if (!labelKey) return;
+      const badge = element('ic-badge', '', tr(labelKey));
+      badge.setAttribute('kind', 'label');
+      badge.setAttribute('tone', 'neutral');
+      container.appendChild(badge);
+    });
+    if (!container.childElementCount) {
+      container.appendChild(element('span', 'model-capability-empty', tr('models.noFeatureTags')));
+    }
+    return container;
+  };
   const iconButton = (icon, label, className, disabled, action) => {
     const button = element('ic-icon-button', className);
     button.setAttribute('type', 'button');
@@ -55,6 +75,24 @@
     button.setAttribute('label', label);
     button.toggleAttribute('disabled', disabled);
     button.addEventListener('click', action);
+    return button;
+  };
+  const modelDetailsButton = (model) => {
+    const button = element('ic-button', 'model-capability-edit', tr('models.edit'));
+    button.setAttribute('type', 'button');
+    button.setAttribute('hierarchy', 'secondary');
+    button.setAttribute('size', 'small');
+    button.setAttribute('aria-label', tf('models.editModelDetails', { name: model.name || model.model }));
+    button.addEventListener('pointerdown', (event) => event.stopPropagation());
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      if (!await commitChanges()) return;
+      if (!window.ModelCapabilityEditor?.open) {
+        setMessage(tr('models.detailsUnavailable'), true);
+        return;
+      }
+      await window.ModelCapabilityEditor.open(model.model);
+    });
     return button;
   };
   const visibilityCheckbox = (model, kind) => {
@@ -222,6 +260,7 @@
       tr('models.modelNaming'),
       tr('models.modelId'),
       tr('models.providerId'),
+      tr('models.features'),
       tr('models.visibility'),
       tr('models.operations'),
     ].forEach((label) => {
@@ -252,6 +291,8 @@
 
       const modelIdCell = element('td', 'model-id', model.model);
       const providerIdCell = element('td', 'provider-id', model.provider_id);
+      const capabilityCell = element('td', 'model-capability-cell');
+      capabilityCell.appendChild(capabilityTags(model.model));
       const visibilityCell = element('td', 'model-visibility-cell');
       visibilityCell.appendChild(visibilityCheckbox(model, state.active));
 
@@ -262,9 +303,10 @@
       actions.append(
         iconButton('back', tr('models.moveUp'), 'move-up', index === 0, () => move(index, index - 1)),
         iconButton('forward', tr('models.moveDown'), 'move-down', index === models.length - 1, () => move(index, index + 1)),
+        modelDetailsButton(model),
       );
       actionCell.appendChild(actions);
-      row.append(iconCell, nameCell, modelIdCell, providerIdCell, visibilityCell, actionCell);
+      row.append(iconCell, nameCell, modelIdCell, providerIdCell, capabilityCell, visibilityCell, actionCell);
       row.addEventListener('dragstart', (event) => {
         if (event.target.closest?.('ic-input')) {
           event.preventDefault();
@@ -300,6 +342,13 @@
     state.active = event.detail.value;
     render();
     commitChanges();
+  });
+  window.addEventListener('model-capability-matrix-change', (event) => {
+    state.capabilityTags = new Map((event.detail?.matrix?.models || []).map((model) => [
+      model.model_id,
+      Array.isArray(model.capability_tags) ? model.capability_tags : [],
+    ]));
+    render();
   });
   request('/api/admin/available-models')
     .then((payload) => { state.models = payload.models || state.models; render(); })

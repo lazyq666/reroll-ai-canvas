@@ -206,6 +206,13 @@ Image、Video 与 Audio Node 的外置 Name Badge 高 14px，与媒体容器保�
 
 生成设置选择器的分辨率与质量选中项使用 `--ui-color-action-secondary` 背景、`--ui-color-border-primary` 边框与 `--ui-shadow-raised` 阴影；分段选项容器与 Panel 均使用 `--ui-radius-s` 圆角，嵌套画幅选择器沿用基础 `--ui-radius-s`，不得由生成设置变体覆盖为 `--ui-radius-m`。
 
+Smart Canvas 智能分层使用 Large `ic-ai-processor-dialog`：桌面端原图在左、参数在右；窄屏
+改为上下排列。原图在预览容器内使用 `object-fit: contain` 居中完整显示；分辨率档位使用
+横向 Tabs Radio Group 直接露出，不进入点击后浮层。参数区的 Model Picker 只接收业务层按 `image.layer_decomposition` 精确能力
+筛选后的 Provider + Model，并显示两者身份；模型、分辨率、附加提示词和人民币参考价格之外
+不再叠加付费警告或准备状态。
+智能分层结果节点在外侧显示名称 Badge，复用 `layers` 图标。节点预览、缩放约束与编辑器统一以分层清单的 `canvas_width / canvas_height` 为画幅权威；旧的图片预览尺寸或生成占位尺寸不得覆盖合成比例，重新打开已保存节点时同样适用。即使恢复记录的 `images` 包含底图和全部图层，也始终使用单个合成画幅，不能按图片数量转为多图网格布局。图层编辑器的合成预览在桌面编辑区水平居中；图层面板宽 `9rem`，圆角使用 `--ui-radius-m`。行操作默认不占布局宽度，在 Hover 或键盘 Focus 时浮现；图层列表独立滚动，下载 PSD 按钮固定在面板底部。窄屏预览与面板上下排列。
+
 设计参数默认只读；进入编辑后，只给原子 HEX 色值和可拆成 Light/Dark 原子引用的 `--ui-color-*` 语义映射显示编辑控件，其他全局 Token 与 `--ic-*`、`--smart-*`、`--api-*` 等模块或业务变量保持只读。草稿必须即时覆盖当前预览但不写文件；底部持久显示修改数量、放弃和“检查并保存”，保存前用 Modal 对比原值与新值。非法值不得进入保存确认；源文件已变化或写入失败时保留草稿并显示失败，不允许覆盖或伪造成功。
 
 “菜单、浮层与提示”不得把全部实例聚合成只有一个内容行的超宽总表；必须按 Thumb Hovercard、Mention Picker、Dropdown Menu、选择菜单、Context Menu、命令菜单项、选择菜单项、轻关闭 Popover、显式确认 Popover 与 Tooltip 分组，每个矩阵最多两个变体列。`ic-thumb-hovercard` 在该分组独立展示 Image、Video、Audio、Text 四种真实 Hover 状态；“文件与媒体输入”仍以 `ic-reference-thumbnail` 作为真实调用方验收组合效果，但目录归属和独立组件预览不重复放置。矩阵表头高度由标签内容决定，不继承为浮层预览保留的内容单元最小高度；专用高度只应用于承载可展开浮层的内容格。
@@ -242,6 +249,8 @@ Text Entry 的默认 `appearance="outlined"` 使用 Surface 与 Border；低强�
 
 `ic-badge` 按用途只分为 Label、Count 与 Status。Small、Medium、Large 是独立的视觉尺寸，三种用途均可使用；高度与字号依次为 16px / `--ui-font-size-1`、20px / `--ui-font-size-2`、24px / `--ui-font-size-3`，Medium 为默认值。Label 使用 `--ui-font-weight-regular` 字重、`--ui-color-surface` 背景和 `--ui-color-border-secondary` 边框；Status 的三档字号沿用同一组字号 Token，字重同样使用 `--ui-font-weight-regular`，状态背景和边框配色保持各 Tone 语义。正常或空闲对象不显示 Status Badge；同步中、加载中、等待中和生成中统一属于 Processing 语义，使用 Info 与 Spinner，具体文案由业务场景替换；Spinner 默认每 1.2 秒旋转一圈，避免持续处理状态显得急促。Processing Badge 使用适配小尺寸徽标的独立细圆环，`ic-loading` 保留独立的 Busy Spinner；两者不互相嵌套。完成状态仅在结果仍值得识别时使用 Success，否则恢复为无 Badge；需要注意与失败分别使用 Warning 和 Danger。Badge 只展示附着对象的信息，不作为交互控件，也不替代 Loading、Progress 或 Alert。
 
+Smart Canvas 单张生成图片的预览必须遵循已交付媒体的真实宽高比。保存的生成预览宽高仅作为适配边界，不得把 1:8 或 8:1 等图片裁成旧占位框的比例；已知尺寸时等比适配，尺寸缺失时保留原显示尺寸。恢复已保存节点时遵循同一规则，测量不改写持久节点数据。回归入口：`python3 -m unittest tests.test_smart_canvas_node_geometry`。
+
 Smart Canvas 图片左上角的信息分成两个相邻的非交互 Badge：`[1080×1080] [1:1]`。分辨率在前，宽高比在后，间距为 `--ui-space-1`；各自沿用 16px 高、常规字重、半透明黑底白字和背景模糊。宽高比文字前固定显示 Lucide `Proportions` 画幅对比图标，使用公共 `ic-icon name="aspect-ratio" size="x-small"`（12px），图文间距为 `--ui-space-1`；近似比例的图标位于 `≈` 前。图标仅为装饰，不随横竖方向切换，也不增加独立读屏内容。空间不足时两个 Badge 自动换行，不把宽高比截成省略号。单图、多图与 Smart Group 中的图片使用相同规则；Hover、图片选中或图片内键盘 Focus 时显示，拖动与远景 LOD 时隐藏，Reduced Motion 不播放位移动画。它们不改变 Node 的几何尺寸，也不拦截图片操作。视频继续只显示分辨率。
 
 宽高比始终按宽在前、高在后计算。精确匹配固定常见比例时保留熟悉名称（如 `21:9`，不强制改写为 `7:3`）；否则，精确约分后的两个整数都不超过 20 时直接显示（如 `6:5`、`7:4`）。再否则，以 `1 − min(实际比例 / 候选比例, 候选比例 / 实际比例)` 选择误差最小的常见比例，误差不超过 1% 时按该常见比例显示且不加 `≈`。这个误差表示裁成候选比例所需丢弃的最小面积比例，只用于标签识别，不触发裁切。超出容差时，短边归一为 1，长边最多保留两位小数并加 `≈`，去掉无意义的尾零；例如 `1024×600 → ≈ 1.71:1`，`2560×1080 → ≈ 2.37:1`。固定常见集合为 `1:1`、`2:3`、`3:4`、`9:16`、`9:21`、`4:5`、`1:2`、`1:3`、`1:4`、`1:8` 及其横向倒数，不随 Model 切换。1% 包含边界，横竖互换或像素等比例放大不改变判定。
@@ -264,6 +273,7 @@ Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 的验收入
 - 邻近单个危险入口、且后果可用短文解释的确认使用公共 `ic-confirm-popover`：Surface 继续使用普通 Border、Surface、Radius 与 Popover Shadow Token，只有最终确认按钮使用 Danger Tone；初始 Focus 落在取消，`Escape` 与点击外部均按取消处理并把 Focus 返回 Trigger。Popover 打开时拥有第一层 `Escape`，必须拦截该次按键，只关闭自身，不得同时关闭承载它的 Modal、Menu 或其他 UI；影响整个任务或需要较长说明的确认继续使用 `ic-confirmation-dialog`。
 - 搜索框不能仅因位于 Overlay 顶部而自动获得焦点，除非用户明确执行搜索或输入任务。
 - 快捷键不能在文本编辑、菜单锁定或模态任务中误触发画布命令。
+- Image Studio 打开时拥有当前模态任务的撤销历史：在画笔模式、且 Focus 不位于可编辑控件时，`Command/Ctrl + Z` 撤销最近一次绘制，`Command/Ctrl + Shift + Z` 重做；两者都不得改动 Smart Canvas Mutation 历史。其他模式继续阻止这组按键落到 Smart Canvas；关闭工作室后，快捷键归还 Smart Canvas。文字或表单控件正在编辑时保留原生输入撤销。
 - Smart Canvas 在非文本编辑、非菜单锁定且非模态任务中，将 `Command/Ctrl + +`、`Command/Ctrl + =` 与数字小键盘 `Add` 解释为围绕 Canvas Viewport 中心放大，将 `Command/Ctrl + -` 与数字小键盘 `Subtract` 解释为围绕中心缩小；键盘缩放复用 Canvas Settings 的缩放速度。页面级浏览器缩放继续由全局守卫取消，但守卫不得停止事件传播或代替 Smart Canvas 修改 Viewport。
 - 容器级 Enter、Space、Paste、Context Menu 或 Drag 快捷逻辑必须识别原生控件与 `ic-*` 自定义控件边界；不得把自定义输入或按钮误判成卡片、页面或 Canvas 空白区域。
 
@@ -361,3 +371,5 @@ Quick Add 在默认、普通 Hover 与 Dark 主题下与 Node 外壳共用 `--ui
 兼容 Image Node 的“灯光参考”入口位于 `smartNodeFloatingPortal` 的“角度控制”之后，复用 Large `ic-ai-processor-dialog` 的左右两栏骨架。左栏用尽可能大的连续区域显示可拖拽标准灯光球场景，来源图仅以不带说明文案的小型上下文缩略图出现；右栏允许纵向滚动并按“方向、颜色、曝光与阴影、确定性 Prompt”分组密集参数，分组之间使用 24px 间距，分组标题不追加解释性辅助文案。颜色模式复用 Small `ic-segmented-control`，Number Input、Color Field 与 Textarea 统一使用 Small Size；单个选项标题行与 Slider 使用 4px 垂直间距，所有 `ic-slider` 的可视宽度与所在选项/数值列对齐。Pointer 拖拽与 Number / Slider 必须双向同步，所有主任务可只用 Keyboard 完成。
 
 表观光源尺寸必须在 Three.js 参考场景中产生可见的球面过渡与地面半影变化，并由固定像素差分防止控件退化为无效果状态。Light / Dark 只改变 Dialog Surface 和文字的 Token 映射，不改变 Three.js 参考场景的固定色彩管理。取消、关闭按钮、Escape、成功和 DOM 断连都必须释放 Renderer。确认后选中新建图片 Generation Node 并把英文 Prompt 填入 Composer；来源与新 Node 都保存 Lighting Intent 以支持下次继续微调，但不会自动开始 Generation Run。
+
+生成设置中的 `ic-generation-settings-picker` 与模型详情共用参数排序：固定画幅从 `1:1` 开始，随后为 `3:2`、`2:3`、`4:3`、`3:4`、`16:9`、`9:16`、`5:4`、`4:5`、`21:9`、`1:4`、`4:1`、`1:8`、`8:1`，其他比例随后显示；原图等特殊项保持独立位置。分辨率按数值递增，`0.5K` 在 `1K` 前，自动等非数值选项位于末尾。排序只改变展示，不改变模型支持范围或当前选择。

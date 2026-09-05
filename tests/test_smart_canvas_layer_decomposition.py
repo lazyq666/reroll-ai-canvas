@@ -11,6 +11,8 @@ HOST = ROOT / "static/js/smart-canvas.js"
 PAGE = ROOT / "static/smart-canvas.html"
 I18N = ROOT / "static/js/i18n/smart-canvas.js"
 CONTAINER = ROOT / "static/js/smart-canvas/smart-container.js"
+AI_PROCESSOR_DIALOG = ROOT / "static/js/infinite-canvas-ui/ai-processor-dialog.js"
+ICON = ROOT / "static/js/infinite-canvas-ui/icon.js"
 
 
 class SmartCanvasLayerDecompositionTests(unittest.TestCase):
@@ -18,11 +20,20 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
         host = HOST.read_text(encoding="utf-8")
         page = PAGE.read_text(encoding="utf-8")
         i18n = I18N.read_text(encoding="utf-8")
-        self.assertIn("{key:'layer-decomposition'", host)
-        self.assertIn("id=\"layerDecompositionDialog\"", page)
+        self.assertIn("{key:'layer-decomposition', icon:'layers'", host)
+        self.assertNotIn("id=\"layerDecompositionDialog\"", page)
+        self.assertIn("openAiProcessorForSmartImage('layer-decomposition'", host)
         self.assertIn("smart.layerDecomposition", i18n)
-        self.assertIn("smart.layerDecompositionPriceEstimate", i18n)
-        self.assertIn("priceText", MODULE.read_text(encoding="utf-8"))
+        self.assertIn("smart.layerDecompositionPriceRange", i18n)
+        self.assertNotIn("smart.layerDecompositionPriceEstimate", i18n)
+        self.assertIn("supportedModels", MODULE.read_text(encoding="utf-8"))
+        self.assertIn("reportFailure:reportLayerDecompositionFailure", host)
+        self.assertNotIn("<ic-alert", MODULE.read_text(encoding="utf-8"))
+        self.assertIn("id=\"layerDecompositionEditor\"", page)
+        self.assertIn("id=\"layerDecompositionEditorList\"", page)
+        self.assertIn("id=\"layerDecompositionPsdDownload\"", page)
+        self.assertIn("layerDecompositionMarkup", AI_PROCESSOR_DIALOG.read_text(encoding="utf-8"))
+        self.assertIn("layers: 'Layers'", ICON.read_text(encoding="utf-8"))
         container = CONTAINER.read_text(encoding="utf-8")
         self.assertIn("if(options.render !== false) render();", container)
         self.assertIn("if(options.save !== false)", container)
@@ -37,6 +48,9 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
         self.assertIn(".layer-decomposition-stage", css)
         self.assertIn("pointer-events:none", css)
         self.assertIn("background:transparent", css)
+        self.assertIn("width:100%; height:100%", css)
+        self.assertIn("pendingNode.type = nodeKinds.LAYER_DECOMPOSITION", source)
+        self.assertNotIn("smartContainer.group(\n        children", source)
 
     def test_controller_validates_capability_submits_once_and_resumes(self):
         script = textwrap.dedent(
@@ -54,27 +68,10 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
                     natural_w:1600, natural_h:900, kind:'image'
                 }}]
             }}];
-            const dialog = {{
-                open:false,
-                querySelector(selector) {{
-                    const values = {{
-                        '[data-layer-resolution]':{{value:'2K'}},
-                        '[data-layer-prompt]':{{value:''}},
-                        '[data-layer-submit]':{{disabled:false}},
-                        '[data-layer-cancel]':{{}},
-                        '[data-layer-price]':{{textContent:''}},
-                        '[data-layer-capability-status]':{{textContent:''}},
-                    }};
-                    return values[selector] || null;
-                }},
-                addEventListener() {{}},
-                async show() {{ this.open = true; }},
-                async hide() {{ this.open = false; }},
-            }};
             let statusCalls = 0;
+            const capabilityLoads = [];
             const sandbox = {{
                 window:{{SmartCanvasModules:{{}}}},
-                document:{{getElementById:id => id === 'layerDecompositionDialog' ? dialog : null}},
                 setTimeout:fn => Promise.resolve().then(fn),
                 clearTimeout:() => {{}},
                 fetch:async (url, options={{}}) => {{
@@ -92,12 +89,14 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
             const controller = sandbox.window.SmartCanvasModules.layerDecomposition.create({{
                 nodes:() => nodes,
                 canvasId:() => 'canvas-1',
-                clientId:() => 'client-1',
                 capability:{{
-                    load:async()=>({{
-                        support_state:'supported', catalog_revision:'rev-1',
-                        parameters:{{resolution_tier:{{values:['auto','1K','1.5K','2K']}},count:{{values:[1]}}}}
-                    }}),
+                    load:async(providerId, modelId, operation)=>{{
+                        capabilityLoads.push({{providerId,modelId,operation}});
+                        return {{
+                            support_state:'supported', catalog_revision:'rev-1',
+                            parameters:{{resolution_tier:{{values:['auto','1K','1.5K','2K']}},count:{{values:[1]}}}}
+                        }};
+                    }},
                     validate:(capability, request) => ({{
                         valid:request.catalogRevision === 'rev-1'
                             && request.inputs.image === 1
@@ -120,13 +119,16 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
                 sleep:async()=> {{}},
             }});
             (async()=>{{
-                const pending = await controller.run({{node:nodes[0],imageIndex:0,resolutionTier:'2K',prompt:''}});
+                const pending = await controller.run({{
+                    node:nodes[0],imageIndex:0,providerId:'apimart-secondary',
+                    modelId:'seedream-layer-pro',resolutionTier:'2K',prompt:''
+                }});
                 await controller.waitForIdle();
                 assert.equal(pending.id, 'pending');
                 assert.equal(requests.filter(item => item.options.method === 'POST').length, 1);
                 const body = JSON.parse(requests.find(item => item.options.method === 'POST').options.body);
                 assert.deepEqual(body, {{
-                    provider_id:'apimart', model:'seedream-5-0-pro',
+                    provider_id:'apimart-secondary', model:'seedream-layer-pro',
                     resolution_tier:'2K', prompt:'',
                     image:{{url:'/api/outputs/source.png',role:'source',natural_w:1600,natural_h:900}},
                     source_media_id:'media-source', catalog_revision:'rev-1',
@@ -134,13 +136,53 @@ class SmartCanvasLayerDecompositionTests(unittest.TestCase):
                     generation_operation_id:pending.generationOperationId,
                     generation_request_index:0,
                 }});
+                assert.equal(pending.layerDecompositionJob.sourceReference.url, '/api/outputs/source.png');
+                assert.equal(pending.layerDecompositionJob.sourceReference.role, 'source');
                 assert.equal(completed.length, 1);
+                assert.deepEqual(capabilityLoads[0], {{
+                    providerId:'apimart-secondary', modelId:'seedream-layer-pro',
+                    operation:'image.layer_decomposition'
+                }});
                 const postCount = requests.filter(item => item.options.method === 'POST').length;
                 pending.layerDecompositionJob = {{taskId:'run-1',status:'running'}};
                 controller.resume();
                 await controller.waitForIdle();
                 assert.equal(requests.filter(item => item.options.method === 'POST').length, postCount);
                 assert.ok(saved.length > 0);
+                console.log('ok');
+            }})().catch(error => {{ console.error(error); process.exitCode=1; }});
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script], cwd=ROOT, capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_supported_models_are_filtered_by_exact_capability(self):
+        script = textwrap.dedent(
+            f"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const assert = require('node:assert/strict');
+            const source = fs.readFileSync({json.dumps(str(MODULE))}, 'utf8');
+            const sandbox = {{window:{{SmartCanvasModules:{{}}}},console}};
+            vm.createContext(sandbox);
+            vm.runInContext(source, sandbox);
+            const controller = sandbox.window.SmartCanvasModules.layerDecomposition.create({{
+                capability:{{load:async(providerId,modelId)=> modelId === 'supported'
+                    ? {{support_state:'supported',catalog_revision:'rev-2',parameters:{{resolution_tier:{{values:['auto','1K'],default:'1K'}}}}}}
+                    : {{support_state:'unknown',parameters:{{}}}}
+                }}
+            }});
+            (async()=>{{
+                const models = await controller.supportedModels([
+                    {{id:'one',provider_id:'apimart-a',provider_name:'APIMart A',model:'supported'}},
+                    {{id:'two',provider_id:'apimart-b',provider_name:'APIMart B',model:'unknown'}}
+                ]);
+                assert.equal(models.length, 1);
+                assert.equal(models[0].id, 'one');
+                assert.deepEqual(models[0].resolutionTiers, ['auto','1K']);
+                assert.equal(models[0].defaultResolution, '1K');
                 console.log('ok');
             }})().catch(error => {{ console.error(error); process.exitCode=1; }});
             """

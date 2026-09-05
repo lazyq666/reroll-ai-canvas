@@ -142,6 +142,56 @@ export function ensureAiProcessorDialogStyles() {
       align-items: stretch;
     }
 
+    ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] {
+      grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 1fr);
+      min-block-size: 0;
+      block-size: 100%;
+      align-items: stretch;
+    }
+    ic-ai-processor-dialog[processor="layer-decomposition"] > [data-ic-ai-processor-owned="body"] { block-size: 100%; }
+    ic-ai-processor-dialog [data-layer-source-column] { min-inline-size: 0; min-block-size: 0; block-size: 100%; }
+    ic-ai-processor-dialog [data-layer-source-stage] {
+      box-sizing: border-box;
+      min-inline-size: 0;
+      min-block-size: 0;
+      block-size: 100%;
+      display: grid;
+      place-items: center;
+      padding: var(--ui-space-5);
+      overflow: hidden;
+      border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+      border-radius: var(--ui-radius-m);
+      background: var(--ui-color-surface-canvas);
+    }
+    ic-ai-processor-dialog [data-layer-source] {
+      display: block;
+      min-inline-size: 0;
+      min-block-size: 0;
+      inline-size: 100%;
+      block-size: 100%;
+      max-inline-size: 100%;
+      max-block-size: 100%;
+      object-fit: contain;
+      object-position: center;
+      border-radius: var(--ui-radius-s);
+    }
+    ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] > [data-ai-processor-panel] { min-block-size: 0; overflow: auto; overscroll-behavior: contain; }
+    ic-ai-processor-dialog [data-layer-resolution-options] { inline-size: 100%; }
+    ic-ai-processor-dialog [data-layer-resolution-options]::part(form-control-input) { inline-size: 100%; }
+    ic-ai-processor-dialog [data-layer-resolution-options] > ic-radio { flex: 1 0 auto; justify-content: center; }
+    ic-ai-processor-dialog [data-layer-price] {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--ui-space-3);
+      padding: var(--ui-space-3) var(--ui-space-4);
+      border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+      border-radius: var(--ui-radius-s);
+      color: var(--ui-color-text-secondary);
+      font: var(--ui-text-label);
+    }
+    ic-ai-processor-dialog [data-layer-price] strong { color: var(--ui-color-text-primary); font-variant-numeric: tabular-nums; }
+
     ic-ai-processor-dialog [data-outpaint-canvas-column] {
       min-inline-size: 0;
       display: grid;
@@ -388,11 +438,13 @@ export function ensureAiProcessorDialogStyles() {
     @media (max-width: 68rem) {
       ic-ai-processor-dialog [data-ai-processor-layout="angle-control"] { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(20rem, 1fr) auto; overflow: auto; }
       ic-ai-processor-dialog [data-ai-processor-layout="lighting-reference"] { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(24rem, 1fr) auto; overflow: auto; }
+      ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(18rem, 1fr) auto; overflow: auto; }
     }
 
     @media (max-width: 45rem) {
       ic-ai-processor-dialog [data-ai-processor-layout="reverse-prompt"],
-      ic-ai-processor-dialog [data-ai-processor-layout="outpaint"] {
+      ic-ai-processor-dialog [data-ai-processor-layout="outpaint"],
+      ic-ai-processor-dialog [data-ai-processor-layout="layer-decomposition"] {
         grid-template-columns: 1fr;
         min-block-size: 0;
       }
@@ -400,6 +452,7 @@ export function ensureAiProcessorDialogStyles() {
         block-size: 8.125rem;
       }
       ic-ai-processor-dialog [data-outpaint-stage] { block-size: 20rem; padding: var(--ui-space-5); }
+      ic-ai-processor-dialog [data-layer-source-stage] { block-size: 16rem; }
       ic-ai-processor-dialog .ai-angle-viewport { block-size: 20rem; }
       ic-ai-processor-dialog .ai-lighting-stage { block-size: 24rem; }
     }

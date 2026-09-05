@@ -116,7 +116,7 @@ class ModelCapabilityContext:
     discovered_image: Mapping[str, Any] | None = None
     default_image_resolution: str = ""
     image_reference_maximum: int = 20
-    video_reference_maximum: int = 10
+    video_reference_maximum: int | None = None
     text_image_maximum: int = 8
     text_video_maximum: int = 3
     text_history_maximum: int = 30
@@ -343,10 +343,11 @@ class ModelCapabilityCatalog:
                     inputs, "image", context.image_reference_maximum
                 )
             elif identity[2] == "video.generate":
-                for kind in ("image", "video", "audio"):
-                    self._clamp_input_maximum(
-                        inputs, kind, context.video_reference_maximum
-                    )
+                if context.video_reference_maximum is not None:
+                    for kind in ("image", "video", "audio"):
+                        self._clamp_input_maximum(
+                            inputs, kind, context.video_reference_maximum
+                        )
             elif identity[2] == "text.generate":
                 self._clamp_input_maximum(
                     inputs, "image", context.text_image_maximum
@@ -911,6 +912,11 @@ class ModelCapabilityCatalog:
                 "visible": mode == "user_toggle",
                 "editable": mode == "user_toggle",
             }
+        fallback_reference_maximum = (
+            context.video_reference_maximum
+            if context.video_reference_maximum is not None
+            else 10
+        )
         inputs = {
             "text": {
                 "minimum": 1,
@@ -921,21 +927,21 @@ class ModelCapabilityCatalog:
                 **(
                     _count_bounds(image_limits)
                     if image_limits
-                    else {"minimum": 0, "maximum": context.video_reference_maximum}
+                    else {"minimum": 0, "maximum": fallback_reference_maximum}
                 ),
             },
             "video": {
                 **(
                     _count_bounds(video_limits)
                     if video_limits
-                    else {"minimum": 0, "maximum": context.video_reference_maximum}
+                    else {"minimum": 0, "maximum": fallback_reference_maximum}
                 ),
             },
             "audio": {
                 **(
                     _count_bounds(audio_limits)
                     if audio_limits
-                    else {"minimum": 0, "maximum": context.video_reference_maximum}
+                    else {"minimum": 0, "maximum": fallback_reference_maximum}
                 ),
             },
             "file": {"minimum": 0, "maximum": 0},

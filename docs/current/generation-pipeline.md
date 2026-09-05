@@ -123,7 +123,7 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 | 场景 | 当前提交方式 | 返回形态 |
 | --- | --- | --- |
 | 普通 API 图片，包括 APIMART、Gemini CLI、即梦等 | `POST /api/canvas-image-tasks` | 后台任务，前端按 task ID 轮询 |
-| APIMart Seedream 5.0 Pro 智能分层 | `POST /api/canvas-layer-decomposition-tasks` | 一个付费 Generation Run；前端按同一 task ID 恢复，并交付底图、Manifest 与 1–16 个独立图层 |
+| 具备 `image.layer_decomposition` 能力的图片模型 | `POST /api/canvas-layer-decomposition-tasks` | 一个付费 Generation Run；前端按同一 task ID 恢复，并交付底图、Manifest 与 1–16 个独立图层 |
 | ComfyUI | `POST /api/canvas-comfy-tasks` | 后台任务，前端轮询 |
 | API 视频 | `POST /api/canvas-video-tasks` | 后台任务，先返回 task ID；前端通过 `GET /api/canvas-video-tasks/{task_id}` 轮询 |
 | Prompt/LLM 节点 | `POST /api/canvas-llm-tasks` | 后台任务，前端轮询 |
@@ -142,14 +142,28 @@ Provider 业务错误和其他 HTTP 错误不会触发回退，避免重复提�
 
 ### 4.4 智能分层的专用交付
 
-Designer 在恰好一个 Image Node 上选择“智能分层”后，界面固定使用 APIMart 的
-`seedream-5-0-pro + image.layer_decomposition` 能力。设置只包含可选拆分提示词和
-`auto / 1K / 1.5K / 2K` Resolution Tier；默认 `2K`，不提供画幅、精确尺寸、4K、
-普通图片质量、透明背景或拆层开关。
+Designer 在恰好一个 Image Node 上选择“智能分层”后，Smart Canvas 使用公共
+`ic-ai-processor-dialog`：左侧显示原图，右侧只列出当前 Available Model Catalog 中
+`image.layer_decomposition` 精确能力为 `supported` 的 Provider + Model。模型切换时，
+分辨率选项与默认值来自该模型的能力合同；界面只保留模型、Resolution Tier、可选拆分提示词
+和一条人民币参考价格范围，不提供画幅、精确尺寸、普通图片质量、透明背景或拆层开关，也不
+显示单独的付费警告或“设置已准备”状态。当前内置确认身份仍是 APIMart 的
+`seedream-5-0-pro`，后续模型只有在能力目录确认后才会进入列表。
 
-确认付费提示后，前端先创建 Pending Node 并保存 operation ID，再提交一个 Generation Run。
-Provider Adapter 将冻结请求翻译成 `POST /v1/images/generations`：单张上游图片 URL、
-`layer_decomposition: true`、`n: 1`、`output_format: png` 与选定档位；空提示词不发送。
+提交后，前端先创建 Pending Node 并保存 operation ID，再提交一个 Generation Run。
+Provider Adapter 根据冻结的 Provider + Model 将请求翻译成 `POST /v1/images/generations`：
+单张上游图片 URL、`layer_decomposition: true`、`n: 1`、`output_format: png` 与选定档位；
+空提示词不发送。UI 的能力筛选不是授权边界，服务端提交时仍按同一精确能力重新校验。
+本地图片上传、付费任务提交和后续查询始终使用 API 设置中保存的 APIMart Base URL，
+不得携带凭证自动切换域名。传输失败记录为可重试的连接中断，不得报告为参数错误；
+付费任务提交发生传输错误时不自动重试，避免任务其实已到达上游而重复扣费。
+智能分层上传收到 HTTP 413 时，只在可获得更小副本时重试一次上传：原尺寸不变，
+不透明图片以 JPEG quality 92 编码，透明图片使用无损 PNG；不修改 Workspace 原图。
+其他 HTTP 上传错误不重试，上传失败不提交生成请求。失败保留真实上游 HTTP 状态、
+`reference_upload` 阶段、源图尺寸/字节数/格式、上传次数和重试副本信息；响应证据仅保留
+已识别的错误短语，不记录任意响应正文、凭证或图片内容。上传服务拒绝大小不等于源图
+超过公开模型限制，提示用户尝试更小图片并检查平台或代理限制。失败日志保存提交时的
+源图引用，引用图计数不再依赖失败节点的空输出列表。
 刷新页面、浏览器轮询失败或服务重启后，只使用原 Generation Run 和已保存的上游 task ID
 继续查询，不把“恢复”翻译成新的付费请求。
 
@@ -159,22 +173,41 @@ Provider Adapter 将冻结请求翻译成 `POST /v1/images/generations`：单张
 `z_index`、超过 16 层，以及任一图层下载或校验失败，都不能发布成功。已经物化的材料保留，
 恢复时继续查询同一 task ID 并重放未完成交付。
 
-成功结果包含版本化 Layer Decomposition Manifest。Smart Canvas 按绝对坐标和 `z_index`
-创建一个专用 Smart Group；底图与各透明层仍是具有独立身份的 Image Node。画布上的合成预览
-作为整体响应点击，不把底图或透明图层的矩形范围作为独立点击热区，透明区域也不绘制缩略图
-底色。各层的显隐、前后顺序、单独下载和拖出状态继续随 Canvas Save、Reload、Undo/Redo 和
-Realtime 协作保存。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也
-只允许 Administrator 或 Designer 创建与查询任务。
+成功结果包含版本化 Layer Decomposition Manifest，并物化为单个
+`smart-layer-decomposition` Node。该 Node 直接拥有合成底图和有序图层条目，不创建子 Image
+Node，也不复用 Smart Group 的 Composer、宫格、整理、运行、添加成员、批量下载或解散能力。
+旧版智能分层 Smart Group 在加载时迁移为同一个专用 Node，并把原成员连接重定向到该 Node。
+
+Canvas 只把它显示为一张合成图：内部图片不参与命中，透明区域不绘制缩略图底色。双击进入
+Image Studio 的智能分层模式；顶部不显示普通图片编辑模式栏，右侧图层列表提供显隐与删除，
+修改继续随 Canvas Save、Reload、Undo/Redo 和 Realtime 协作保存。提交或轮询失败沿用标准
+Generation Failed Node，并在页面级失败队列显示可查看诊断的持续 Alert；Node 内不得嵌套
+Alert。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也只允许
+Administrator 或 Designer 创建与查询任务。
+
+智能分层模式底部的“下载 PSD”导出当前专用 Node，而不是初始 Provider 响应。单击后客户端
+先等待 Canvas checkpoint，再调用
+`POST /api/canvases/{canvas_id}/layer-decompositions/{node_id}/psd`。服务端重新校验
+Administrator / Designer 的画布写权限，只从当前 Workspace Managed Media 解析底图与图层，
+并按 Manifest 画布尺寸、当前图层名称、`z_index`、`absolute_bbox`、Alpha 与显隐状态在内存中
+组装完整 PSD；已经从 `layerDecompositionItems` 删除的图层不再导出。隐藏图层仍保留为 PSD
+图层，但不进入合成预览。导出不创建 Generation Run、不修改 Canvas，也不提供 PSD 回导。
+服务端只有在文件完整生成后才返回下载响应；素材缺失、状态非法或生成失败时返回结构化错误，
+客户端不下载响应体，只显示当前语言下的通用失败提示。
 
 专用实现与验证入口：
 
 - [`backend/infinite_canvas/layer_decomposition.py`](../../backend/infinite_canvas/layer_decomposition.py)
+- [`backend/infinite_canvas/layered_psd.py`](../../backend/infinite_canvas/layered_psd.py)
 - [`static/js/smart-canvas/layer-decomposition.js`](../../static/js/smart-canvas/layer-decomposition.js)
+- [`static/js/smart-canvas/layered-psd.js`](../../static/js/smart-canvas/layered-psd.js)
 - [`tests/test_layer_decomposition.py`](../../tests/test_layer_decomposition.py)
 - [`tests/test_apimart_layer_decomposition.py`](../../tests/test_apimart_layer_decomposition.py)
 - [`tests/test_layer_decomposition_publication.py`](../../tests/test_layer_decomposition_publication.py)
 - [`tests/test_smart_canvas_layer_decomposition.py`](../../tests/test_smart_canvas_layer_decomposition.py)
+- [`tests/test_layered_psd.py`](../../tests/test_layered_psd.py)
 - [`tests/issue_31_layer_decomposition_browser_smoke.cjs`](../../tests/issue_31_layer_decomposition_browser_smoke.cjs)
+- [`tests/issue_36_layered_psd_browser_smoke.cjs`](../../tests/issue_36_layered_psd_browser_smoke.cjs)
 
 ## 5. 后端：Generation Run 生命周期
 

@@ -4,7 +4,7 @@ import { ensureAiProcessorDialogStyles } from './ai-processor-dialog/styles.js';
 ensureAiProcessorDialogStyles();
 
 const OWNED_ATTRIBUTE = 'data-ic-ai-processor-owned';
-const PROCESSORS = new Set(['reverse-prompt', 'outpaint', 'angle-control', 'lighting-reference']);
+const PROCESSORS = new Set(['reverse-prompt', 'outpaint', 'angle-control', 'lighting-reference', 'layer-decomposition']);
 const OUTPAINT_LONG_EDGE_LIMIT = 8192;
 const OUTPAINT_PIXEL_LIMIT = 64_000_000;
 const OUTPAINT_ASPECT_RATIO_PRESETS = Object.freeze(['1:1','2:3','3:2','3:4','4:3','9:16','16:9','21:9','9:21']);
@@ -38,9 +38,12 @@ function normalizeModels(value) {
   return (Array.isArray(value) ? value : []).filter(item => item?.id).map(item => ({
     id:String(item.id),
     name:String(item.name || item.id),
+    providerName:String(item.providerName || ''),
     icon:String(item.icon || ''),
     iconSrc:String(item.iconSrc || ''),
     iconMonochrome:Boolean(item.iconMonochrome),
+    resolutionTiers:(Array.isArray(item.resolutionTiers) ? item.resolutionTiers : []).map(String).filter(Boolean),
+    defaultResolution:String(item.defaultResolution || ''),
   }));
 }
 function modelOptionAttributes(model) {
@@ -121,6 +124,7 @@ export class IcAiProcessorDialog extends IcDialog {
     processor:{reflect:true},
     groups:{attribute:false},
     models:{attribute:false},
+    messages:{attribute:false},
     sourceImage:{attribute:'source-image',reflect:true},
     sourceAlt:{attribute:'source-alt',reflect:true},
     sourceWidth:{type:Number,attribute:'source-width'},
@@ -134,6 +138,7 @@ export class IcAiProcessorDialog extends IcDialog {
     outpaintResolution:{attribute:'outpaint-resolution',reflect:true},
     angleAspectRatio:{attribute:'angle-aspect-ratio',reflect:true},
     angleResolution:{attribute:'angle-resolution',reflect:true},
+    layerResolution:{attribute:'layer-resolution',reflect:true},
     errorMessage:{attribute:'error-message',reflect:true},
     pending:{type:Boolean,reflect:true},
     initialLightingIntent:{attribute:false},
@@ -145,6 +150,7 @@ export class IcAiProcessorDialog extends IcDialog {
     this.label = '反推提示词';
     this.groups = [];
     this.models = [];
+    this.messages = {};
     this.sourceImage = '';
     this.sourceAlt = '';
     this.sourceWidth = 0;
@@ -159,6 +165,7 @@ export class IcAiProcessorDialog extends IcDialog {
     this.outpaintResolution = 'auto';
     this.angleAspectRatio = 'source';
     this.angleResolution = 'auto';
+    this.layerResolution = '';
     this.errorMessage = '';
     this.pending = false;
     this.dismissPolicy = 'explicit';
@@ -183,6 +190,9 @@ export class IcAiProcessorDialog extends IcDialog {
   set groups(value){ const old=this._groups; this._groups=normalizeGroups(value); this.requestUpdate('groups',old); }
   get models(){ return this._models || []; }
   set models(value){ const old=this._models; this._models=normalizeModels(value); this.requestUpdate('models',old); }
+  get messages(){ return this._messages || {}; }
+  set messages(value){ const old=this._messages; this._messages=value&&typeof value==='object'?{...value}:{}; this.requestUpdate('messages',old); }
+  message(key,fallback=''){ return String(this.messages[key] || fallback); }
 
   connectedCallback(){ this.ensureOwnedStructure(); super.connectedCallback(); }
   disconnectedCallback(){ this.disposeAngleController(); this.disposeLightingController(); this.disposeOutpaintPreview(); super.disconnectedCallback(); }
@@ -217,9 +227,24 @@ export class IcAiProcessorDialog extends IcDialog {
   }
   currentGroup(){ return this.groups.find(group=>group.id===this.selectedGroup)||null; }
   currentTemplates(){ return this.currentGroup()?.templates || []; }
+  currentModel(){ return this.models.find(model=>model.id===this.selectedModel)||null; }
+  reconcileLayerResolution(forceDefault=false){
+    const model=this.currentModel();
+    const values=model?.resolutionTiers||[];
+    if(forceDefault||!values.includes(this.layerResolution)){
+      this.layerResolution=values.includes(model?.defaultResolution)
+        ? model.defaultResolution
+        : values.find(value=>value.toLowerCase()==='2k')||values[0]||'';
+    }
+  }
   submissionReason(){
-    if(this.processor!=='lighting-reference'&&!this.models.length) return '没有可用模型，请先到模型设置中配置。';
-    if(this.processor!=='lighting-reference'&&!this.models.some(model=>model.id===this.selectedModel)) return '请选择模型。';
+    if(this.processor!=='lighting-reference'&&!this.models.length) return this.processor==='layer-decomposition'
+      ? this.message('noModels')
+      : '没有可用模型，请先到模型设置中配置。';
+    if(this.processor!=='lighting-reference'&&!this.models.some(model=>model.id===this.selectedModel)) return this.processor==='layer-decomposition'
+      ? this.message('selectModel')
+      : '请选择模型。';
+    if(this.processor==='layer-decomposition'&&!this.currentModel()?.resolutionTiers.includes(this.layerResolution)) return this.message('selectResolution');
     if(this.processor==='reverse-prompt'){
       if(!this.selectedGroup) return '未找到“反推”分组，请手动选择一个分组。';
       if(!this.currentTemplates().some(template=>template.id===this.selectedTemplate)) return '请选择一个提示词模板。';
@@ -240,6 +265,7 @@ export class IcAiProcessorDialog extends IcDialog {
     this.errorMessage=''; this.pending=false; this.selectedModel=this.models[0]?.id||'';
     this.selectedTemplate=''; this.selectedGroup=''; this.fillColor='#ffffff'; this.customFillColor=''; this.outpaintAspectRatio='adaptive'; this.outpaintResolution='auto';
     this.angleAspectRatio='source'; this.angleResolution='auto';
+    this.layerResolution='';
     const emptyOutpaint={left:0,right:0,top:0,bottom:0};
     this.outpaint={...emptyOutpaint,atLimit:!this.validOutpaint(emptyOutpaint)};
     this.angleState={horizontal:0,vertical:0,distance:4,command:''};
@@ -251,8 +277,9 @@ export class IcAiProcessorDialog extends IcDialog {
     } else if(this.processor==='outpaint') this.prompt='Remove the solid-color area and fill the scene';
     else if(this.processor==='angle-control') this.prompt=ANGLE_PROMPT_SUFFIX;
     else this.prompt='';
+    if(this.processor==='layer-decomposition') this.reconcileLayerResolution(true);
     this.size=this.processor==='reverse-prompt'?'medium':'large';
-    this.label=this.processor==='reverse-prompt'?'反推提示词':this.processor==='outpaint'?'扩图':this.processor==='angle-control'?'视角控制':'灯光参考';
+    this.label=this.processor==='reverse-prompt'?'反推提示词':this.processor==='outpaint'?'扩图':this.processor==='angle-control'?'视角控制':this.processor==='layer-decomposition'?this.message('title'):'灯光参考';
     this.renderBody(); this.syncActions();
   }
   async show(){ this.openProcessor=this.processor; this.resetForOpen(); await this.updateComplete; return super.show(); }
@@ -277,9 +304,9 @@ export class IcAiProcessorDialog extends IcDialog {
   }
   modelMarkup(label){
     const selected=this.models.find(model=>model.id===this.selectedModel)||this.models[0];
-    if(!this.models.length) return `<ic-empty-state data-ai-processor-empty title="暂无可用模型" label="请前往模型设置添加可用模型"></ic-empty-state>`;
+    if(!this.models.length) return `<ic-empty-state data-ai-processor-empty title="${escapeHtml(this.processor==='layer-decomposition'?this.message('noModels'):'暂无可用模型')}" label="${escapeHtml(this.processor==='layer-decomposition'?this.message('noModelsHint'):'请前往模型设置添加可用模型')}"></ic-empty-state>`;
     return `<div class="ai-processor-field"><ic-select name="ai-processor-model" label="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" hierarchy="quiet" placement="top" value="${escapeHtml(this.selectedModel)}" data-component-variant="model-picker">
-      ${this.models.map(model=>`<option value="${escapeHtml(model.id)}"${modelOptionAttributes(model)}${model.id===this.selectedModel?' selected':''}>${escapeHtml(model.name)}</option>`).join('')}
+      ${this.models.map(model=>`<option value="${escapeHtml(model.id)}"${modelOptionAttributes(model)}${model.id===this.selectedModel?' selected':''}>${escapeHtml(model.providerName?`${model.name} · ${model.providerName}`:model.name)}</option>`).join('')}
       ${selectedModelIcon(selected)}<ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
     </ic-select></div>`;
   }
@@ -334,12 +361,27 @@ export class IcAiProcessorDialog extends IcDialog {
       </div>
     </section><section data-ai-processor-panel>${lightingControlsMarkup()}</section></div>`;
   }
+  layerDecompositionMarkup(){
+    const model=this.currentModel();
+    const resolutions=model?.resolutionTiers||[];
+    const label=this.message('resolution');
+    return `<div data-ai-processor-layout="layer-decomposition"><section data-layer-source-column>
+      <div data-layer-source-stage><img data-layer-source src="${escapeHtml(this.sourceImage)}" alt="${escapeHtml(this.sourceAlt)}"></div>
+    </section><section data-ai-processor-panel>
+      ${this.modelMarkup(this.message('model'))}
+      ${model?`<div class="ai-processor-field ai-processor-layer-resolution"><span class="ai-processor-option-title">${escapeHtml(label)}</span><ic-radio-group name="layer-resolution" label="${escapeHtml(label)}" value="${escapeHtml(this.layerResolution)}" appearance="tabs" orientation="horizontal" size="small" data-legal-combination="horizontal-tab-label" data-layer-resolution-options>
+        ${resolutions.map(value=>`<ic-radio label="${escapeHtml(value.toLowerCase()==='auto'?this.message('automatic'):value)}" value="${escapeHtml(value)}"${value===this.layerResolution?' checked':''}></ic-radio>`).join('')}
+      </ic-radio-group></div>`:''}
+      <ic-form-field label="${escapeHtml(this.message('prompt'))}" orientation="vertical" data-legal-combination="textarea-vertical" data-component-name="ic-form-field-textarea"><ic-textarea name="layer-prompt" label="${escapeHtml(this.message('prompt'))}" placeholder="${escapeHtml(this.message('promptPlaceholder'))}" rows="5" resize="vertical" value="${escapeHtml(this.prompt)}"></ic-textarea></ic-form-field>
+      <div data-layer-price><span>${escapeHtml(this.message('price'))}</span><strong>${escapeHtml(this.message('priceRange'))}</strong></div>
+    </section></div>`;
+  }
   renderBody(){
     if(!this.bodyElement) return;
     this.disposeAngleController();
     this.disposeLightingController();
     this.disposeOutpaintPreview();
-    this.bodyElement.innerHTML=`${this.processor==='reverse-prompt'?this.reverseMarkup():this.processor==='outpaint'?this.outpaintMarkup():this.processor==='angle-control'?this.angleMarkup():this.lightingReferenceMarkup()}<ic-alert data-ai-processor-error tone="danger"${this.errorMessage?'':' hidden'}>${escapeHtml(this.errorMessage)}</ic-alert>`;
+    this.bodyElement.innerHTML=`${this.processor==='reverse-prompt'?this.reverseMarkup():this.processor==='outpaint'?this.outpaintMarkup():this.processor==='angle-control'?this.angleMarkup():this.processor==='layer-decomposition'?this.layerDecompositionMarkup():this.lightingReferenceMarkup()}<ic-alert data-ai-processor-error tone="danger"${this.errorMessage?'':' hidden'}>${escapeHtml(this.errorMessage)}</ic-alert>`;
     this.bindCommonControls();
     if(this.processor==='outpaint'){ this.bindOutpaint(); this.syncOutpaintVisual(); }
     if(this.processor==='angle-control') this.mountAngleController();
@@ -350,7 +392,14 @@ export class IcAiProcessorDialog extends IcDialog {
     group?.addEventListener('change',()=>this.selectGroup(group.value));
     this.bodyElement.querySelectorAll('[data-template-id]').forEach(choice=>choice.addEventListener('change',()=>this.selectTemplate(choice.dataset.templateId)));
     const model=this.bodyElement.querySelector('ic-select[name="ai-processor-model"]');
-    model?.addEventListener('change',()=>{ this.selectedModel=model.value; this.syncActions(); });
+    model?.addEventListener('change',()=>{
+      this.selectedModel=model.value;
+      if(this.processor==='layer-decomposition'){
+        this.reconcileLayerResolution(true);
+        this.renderBody();
+      }
+      this.syncActions();
+    });
     const textarea=this.bodyElement.querySelector('ic-textarea');
     textarea?.addEventListener('input',()=>{ this.prompt=textarea.value; this.syncActions(); });
     const angleSettings=this.bodyElement.querySelector('ic-generation-settings-picker[name="angle-generation-settings"]');
@@ -360,6 +409,13 @@ export class IcAiProcessorDialog extends IcDialog {
       }
       if(event.detail?.field==='resolution'&&ANGLE_RESOLUTION_VALUES.has(event.detail.value)){
         this.angleResolution=event.detail.value; angleSettings.resolution=this.angleResolution;
+      }
+      this.syncActions();
+    });
+    const layerSettings=this.bodyElement.querySelector('ic-radio-group[name="layer-resolution"]');
+    layerSettings?.addEventListener('change',()=>{
+      if(this.currentModel()?.resolutionTiers.includes(layerSettings.value)){
+        this.layerResolution=layerSettings.value;
       }
       this.syncActions();
     });
@@ -592,8 +648,8 @@ export class IcAiProcessorDialog extends IcDialog {
   }
   syncActions(){
     if(!this.cancelAction||!this.confirmAction) return;
-    this.cancelAction.textContent='取消'; this.cancelAction.disabled=this.pending;
-    this.confirmAction.textContent=this.processor==='reverse-prompt'?'开始反推':this.processor==='outpaint'?'开始扩图':this.processor==='angle-control'?'生成新视角':'创建灯光参考';
+    this.cancelAction.textContent=this.processor==='layer-decomposition'?this.message('cancel'):'取消'; this.cancelAction.disabled=this.pending;
+    this.confirmAction.textContent=this.processor==='reverse-prompt'?'开始反推':this.processor==='outpaint'?'开始扩图':this.processor==='angle-control'?'生成新视角':this.processor==='layer-decomposition'?this.message('submit'):'创建灯光参考';
     this.confirmAction.loading=this.pending; this.confirmAction.disabled=this.pending||Boolean(this.validateContract())||Boolean(this.submissionReason());
     const error=this.bodyElement?.querySelector('[data-ai-processor-error]');
     if(error){ error.textContent=this.errorMessage; error.hidden=!this.errorMessage; }
@@ -601,7 +657,7 @@ export class IcAiProcessorDialog extends IcDialog {
   setError(message=''){ this.errorMessage=String(message||''); this.syncActions(); }
   detail(){
     const template=this.currentTemplates().find(item=>item.id===this.selectedTemplate)||null;
-    return {processor:this.processor,groupId:this.selectedGroup,templateId:this.selectedTemplate,template,modelId:this.selectedModel,prompt:String(this.prompt||''),fillColor:this.fillColor,outpaintAspectRatio:this.outpaintAspectRatio,outpaintResolution:this.outpaintResolution,outpaint:{...this.outpaint,...this.outpaintSize()},angleAspectRatio:this.angleAspectRatio,angleResolution:this.angleResolution,angle:{...this.angleState},lightingIntent:this.lightingIntent?JSON.parse(JSON.stringify(this.lightingIntent)):null,lightingPrompts:this.lightingPrompts?{...this.lightingPrompts}:null};
+    return {processor:this.processor,groupId:this.selectedGroup,templateId:this.selectedTemplate,template,modelId:this.selectedModel,prompt:String(this.prompt||''),fillColor:this.fillColor,outpaintAspectRatio:this.outpaintAspectRatio,outpaintResolution:this.outpaintResolution,outpaint:{...this.outpaint,...this.outpaintSize()},angleAspectRatio:this.angleAspectRatio,angleResolution:this.angleResolution,angle:{...this.angleState},layerResolution:this.layerResolution,lightingIntent:this.lightingIntent?JSON.parse(JSON.stringify(this.lightingIntent)):null,lightingPrompts:this.lightingPrompts?{...this.lightingPrompts}:null};
   }
   async cancel(){ if(this.pending)return; const event=new CustomEvent('ic-cancel',{bubbles:true,composed:true,cancelable:true}); if(this.dispatchEvent(event)) await this.hide('cancel'); }
   confirm(){
@@ -621,7 +677,8 @@ export class IcAiProcessorDialog extends IcDialog {
   firstInvalidOrTaskControl(){ return this.bodyElement?.querySelector('ic-number-input,ic-select,ic-segmented-control,ic-generation-settings-picker,ic-aspect-ratio-picker,ic-checkbox,ic-textarea,[data-outpaint-handle]')||this.cancelAction||super.firstInvalidOrTaskControl(); }
   updated(changed){
     this.ensureOwnedStructure();
-    const structural=['processor','groups','models','sourceImage','sourceAlt','sourceWidth','sourceHeight','selectedGroup'];
+    if(this.processor==='layer-decomposition'&&changed.has('messages')) this.label=this.message('title');
+    const structural=['processor','groups','models','messages','sourceImage','sourceAlt','sourceWidth','sourceHeight','selectedGroup'];
     if(structural.some(key=>changed.has(key))) this.renderBody();
     this.syncActions(); super.updated(changed);
   }

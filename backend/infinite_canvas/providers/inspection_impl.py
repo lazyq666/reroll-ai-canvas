@@ -166,6 +166,7 @@ def parse_upstream_models(raw, protocol="openai"):
     if not isinstance(items, list):
         items = []
     ids = []
+    explicit_categories = {}
     for it in items:
         if isinstance(it, str):
             mid = it
@@ -178,11 +179,178 @@ def parse_upstream_models(raw, protocol="openai"):
             if protocol == "gemini" and mid.startswith("models/"):
                 mid = mid[len("models/"):]
             ids.append(mid)
+            if isinstance(it, dict):
+                category = str(it.get("category") or "").strip().lower()
+                if category in {"image", "chat", "video"}:
+                    explicit_categories[mid] = category
     ids = sorted(set(ids))
     grouped = {"image": [], "chat": [], "video": []}
     for mid in ids:
-        grouped[classify_upstream_model(mid)].append(mid)
+        grouped[explicit_categories.get(mid) or classify_upstream_model(mid)].append(mid)
     return grouped, ids
+
+
+def gemini_model_discovery(raw):
+    """Keep only capability-shaped fields from a Gemini Models response."""
+    items = raw.get("models") if isinstance(raw, dict) else []
+    if not isinstance(items, list):
+        return [], {}
+    models = []
+    model_names = {}
+    for item in items[:1000]:
+        if not isinstance(item, dict):
+            continue
+        model_id = str(item.get("name") or "").strip()
+        if model_id.startswith("models/"):
+            model_id = model_id[len("models/"):]
+        if not model_id:
+            continue
+        candidate = {"model_id": model_id}
+        for source_key, target_key in (
+            ("baseModelId", "base_model_id"),
+            ("version", "version"),
+            ("displayName", "display_name"),
+        ):
+            value = str(item.get(source_key) or "").strip()
+            if value:
+                candidate[target_key] = value
+        methods = item.get("supportedGenerationMethods")
+        if isinstance(methods, list):
+            candidate["supported_generation_methods"] = [
+                str(value).strip()
+                for value in methods
+                if str(value or "").strip()
+            ][:50]
+        for source_key, target_key in (
+            ("inputTokenLimit", "input_token_limit"),
+            ("outputTokenLimit", "output_token_limit"),
+            ("temperature", "temperature"),
+            ("maxTemperature", "max_temperature"),
+            ("topP", "top_p"),
+            ("topK", "top_k"),
+        ):
+            value = item.get(source_key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                candidate[target_key] = value
+        if isinstance(item.get("thinking"), bool):
+            candidate["thinking"] = item["thinking"]
+        models.append(candidate)
+        display_name = str(candidate.get("display_name") or "").strip()
+        if display_name and display_name != model_id:
+            model_names[model_id] = display_name
+    return models, model_names
+
+
+def _bounded_json_schema(value, *, depth=0):
+    if depth > 6:
+        return None
+    if isinstance(value, dict):
+        result = {}
+        scalar_fields = {
+            "$schema",
+            "type",
+            "format",
+            "minimum",
+            "maximum",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+            "minLength",
+            "maxLength",
+            "minItems",
+            "maxItems",
+            "default",
+            "const",
+            "additionalProperties",
+        }
+        for key, child in list(value.items())[:200]:
+            name = str(key or "").strip()
+            lowered = name.lower()
+            if any(fragment in lowered for fragment in ("price", "cost", "credit", "billing", "usage")):
+                continue
+            if name in scalar_fields and isinstance(child, (str, int, float, bool)):
+                result[name] = child
+            elif name in {"required", "enum"} and isinstance(child, list):
+                result[name] = [
+                    item for item in child[:100]
+                    if isinstance(item, (str, int, float, bool)) or item is None
+                ]
+            elif name in {"anyOf", "oneOf", "allOf"} and isinstance(child, list):
+                result[name] = [
+                    sanitized for item in child[:30]
+                    if (sanitized := _bounded_json_schema(item, depth=depth + 1)) is not None
+                ]
+            elif name == "properties" and isinstance(child, dict):
+                properties = {}
+                for property_name, contract in list(child.items())[:200]:
+                    property_key = str(property_name or "").strip()
+                    lowered_property = property_key.lower()
+                    if not property_key or any(
+                        fragment in lowered_property
+                        for fragment in ("price", "cost", "credit", "billing", "usage")
+                    ):
+                        continue
+                    sanitized = _bounded_json_schema(contract, depth=depth + 1)
+                    if sanitized is not None:
+                        properties[property_key[:120]] = sanitized
+                result[name] = properties
+            elif name == "items":
+                sanitized = _bounded_json_schema(child, depth=depth + 1)
+                if sanitized is not None:
+                    result[name] = sanitized
+        return result
+    return value if isinstance(value, (str, int, float, bool)) or value is None else None
+
+
+def apimart_model_discovery(raw):
+    """Keep APIMART's expanded category, tags, and bounded request schema."""
+    items = raw.get("data") if isinstance(raw, dict) else []
+    if not isinstance(items, list):
+        return []
+    models = []
+    for item in items[:1000]:
+        if not isinstance(item, dict):
+            continue
+        model_id = str(item.get("id") or "").strip()
+        if not model_id:
+            continue
+        candidate = {"model_id": model_id}
+        category = str(item.get("category") or "").strip().lower()
+        if category in {"chat", "image", "video", "audio", "unknown"}:
+            candidate["category"] = category
+        tags = item.get("capability_tags")
+        if isinstance(tags, list):
+            candidate["capability_tags"] = [
+                str(value).strip()
+                for value in tags[:50]
+                if str(value or "").strip()
+            ]
+        parameters = item.get("parameters")
+        if isinstance(parameters, dict):
+            contract = {}
+            for key in ("operation", "method", "endpoint", "schema_version", "source"):
+                value = str(parameters.get(key) or "").strip()
+                if value:
+                    contract[key] = value[:500]
+            input_schema = _bounded_json_schema(parameters.get("input_schema"))
+            if isinstance(input_schema, dict):
+                contract["input_schema"] = input_schema
+            if contract:
+                candidate["parameters"] = contract
+        models.append(candidate)
+    return models
+
+
+def is_official_apimart_url(base_url: str) -> bool:
+    try:
+        host = (urllib.parse.urlsplit(str(base_url or "").strip()).hostname or "").lower()
+    except ValueError:
+        return False
+    return (
+        host == "apimart.ai"
+        or host.endswith(".apimart.ai")
+        or host == "apib.ai"
+        or host.endswith(".apib.ai")
+    )
 
 def volcengine_default_model_payload(status=200, message="", raw=None):
     return {
@@ -250,9 +418,14 @@ async def fetch_models_from_upstream(base_url: str, api_key: str, protocol: str 
         key_name = "方舟 API Key" if protocol == "volcengine" else "API Key"
         raise HTTPException(status_code=400, detail=f"请先填写或保存 {key_name}")
     url = upstream_models_url(base_url, protocol)
+    request_url = (
+        f"{url}?expand=parameters"
+        if protocol == "apimart" and is_official_apimart_url(base_url)
+        else url
+    )
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, headers=upstream_model_headers(api_key, protocol))
+            resp = await client.get(request_url, headers=upstream_model_headers(api_key, protocol))
             endpoint_label = "/v1beta/models" if protocol == "gemini" else "/api/v3/models" if protocol == "volcengine" else "/openapi/v2/models" if protocol == "runninghub" else "/v1/models"
             if resp.status_code in (301, 302, 303, 307, 308):
                 location = resp.headers.get("Location") or resp.headers.get("location") or ""
@@ -337,7 +510,7 @@ async def fetch_models_from_upstream(base_url: str, api_key: str, protocol: str 
             "message": payload["message"],
             "raw": payload["raw"],
         }
-    return {
+    result = {
         "total": len(ids),
         "image_models": grouped["image"],
         "chat_models": grouped["chat"],
@@ -345,6 +518,21 @@ async def fetch_models_from_upstream(base_url: str, api_key: str, protocol: str 
         "all": ids,
         "image_request_mode": detect_image_request_mode(base_url, ids) or _ports.normalize_image_request_mode(image_request_mode),
     }
+    if protocol == "gemini":
+        metadata, model_names = gemini_model_discovery(raw)
+        result["model_names"] = model_names
+        result["_capability_discovery"] = {
+            "kind": "gemini-api",
+            "source_locator": url,
+            "models": metadata,
+        }
+    elif protocol == "apimart" and is_official_apimart_url(base_url):
+        result["_capability_discovery"] = {
+            "kind": "apimart-api",
+            "source_locator": request_url,
+            "models": apimart_model_discovery(raw),
+        }
+    return result
 
 def apply_agnes_model_defaults(base_url, grouped, ids):
     if "apihub.agnes-ai.com" not in str(base_url or "").strip().lower():

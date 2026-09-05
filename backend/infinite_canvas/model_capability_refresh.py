@@ -18,10 +18,12 @@ import random
 import re
 import shutil
 import shlex
+import urllib.parse
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 import httpx
@@ -181,7 +183,6 @@ class JsonUrlCapabilitySource:
 class ApiMartSeedreamDocsSource:
     """Extract only reviewed layer-decomposition facts from APIMART Markdown."""
 
-    name = "apimart-seedream-5-0-pro-docs"
     url = APIMART_SEEDREAM_DOCS_URL
     _REQUIRED_MARKERS = (
         '<ParamField body="layer_decomposition" type="boolean"',
@@ -202,6 +203,7 @@ class ApiMartSeedreamDocsSource:
     def __init__(
         self,
         *,
+        provider_id: str = "apimart",
         fetcher: Callable[
             [str, Mapping[str, str]],
             Awaitable[tuple[int, Mapping[str, str], bytes]],
@@ -209,6 +211,14 @@ class ApiMartSeedreamDocsSource:
         | None = None,
         clock: Callable[[], _datetime.datetime] = _utc_now,
     ) -> None:
+        self.provider_id = _clean(provider_id).lower()
+        if not self.provider_id:
+            raise ValueError("APIMART provider ID is required")
+        self.name = (
+            "apimart-seedream-5-0-pro-docs"
+            if self.provider_id == "apimart"
+            else f"apimart-seedream-5-0-pro-docs:{self.provider_id}"
+        )
         self._fetcher = fetcher or self._fetch
         self._clock = clock
 
@@ -331,7 +341,7 @@ class ApiMartSeedreamDocsSource:
             },
         }
         return {
-            "provider_id": "apimart",
+            "provider_id": self.provider_id,
             "model_id": "seedream-5-0-pro",
             "operation": "image.layer_decomposition",
             "capability": capability,
@@ -369,43 +379,389 @@ class ApiMartSeedreamDocsSource:
                 await response.aclose()
 
 
-class DreaminaCliCapabilitySource:
-    """Extract the explicit video limits printed by the installed Dreamina CLI."""
+class GeminiApiCapabilitySource:
+    """Translate explicit Gemini Models fields into reviewable text candidates."""
 
-    name = "dreamina-cli"
-    _HELP_COMMANDS = ("text2video", "frames2video")
+    def __init__(
+        self,
+        provider_id: str,
+        source_locator: str,
+        models: Sequence[Mapping[str, Any]],
+        *,
+        eligible_model_ids: Sequence[str] = (),
+        clock: Callable[[], _datetime.datetime] = _utc_now,
+    ) -> None:
+        self.provider_id = _clean(provider_id).lower()
+        self.source_locator = _clean(source_locator)
+        self.models = tuple(copy.deepcopy(list(models)))
+        self.eligible_model_ids = {
+            _clean(value) for value in eligible_model_ids if _clean(value)
+        }
+        if not self.provider_id or not self.source_locator:
+            raise ValueError("Gemini model discovery identity is required")
+        self.name = f"gemini-models-api:{self.provider_id}"
+        self._clock = clock
+
+    async def collect(
+        self, _cached: Mapping[str, Any] | None = None
+    ) -> CapabilitySourceSnapshot:
+        records = []
+        fetched_at = _iso(self._clock())
+        for item in self.models:
+            if not isinstance(item, Mapping):
+                continue
+            model_id = _clean(item.get("model_id"))
+            methods = [
+                _clean(value)
+                for value in item.get("supported_generation_methods") or []
+                if _clean(value)
+            ]
+            if (
+                not model_id
+                or model_id not in self.eligible_model_ids
+                or "generateContent" not in methods
+            ):
+                continue
+            capability: dict[str, Any] = {
+                "support_state": "unknown",
+                "source": "Gemini Models API",
+                "source_url": self.source_locator,
+                "inputs": {},
+                "output": {},
+                "parameters": {},
+                "media_contract": {
+                    "supported_generation_methods": methods,
+                },
+            }
+            input_limit = item.get("input_token_limit")
+            output_limit = item.get("output_token_limit")
+            if isinstance(input_limit, int) and input_limit > 0:
+                capability["media_contract"]["input_token_limit"] = input_limit
+            if isinstance(output_limit, int) and output_limit > 0:
+                capability["media_contract"]["output_token_limit"] = output_limit
+            for key in ("base_model_id", "version", "thinking"):
+                value = item.get(key)
+                if value not in (None, ""):
+                    capability["media_contract"][key] = value
+            for field, parameter_type in (
+                ("temperature", "number"),
+                ("top_p", "number"),
+                ("top_k", "integer"),
+            ):
+                value = item.get(field)
+                if not isinstance(value, (int, float)) or isinstance(value, bool):
+                    continue
+                parameter = {
+                    "type": parameter_type,
+                    "default": value,
+                    "required": False,
+                    "visible": False,
+                    "editable": False,
+                }
+                if field == "temperature":
+                    maximum = item.get("max_temperature")
+                    if isinstance(maximum, (int, float)) and not isinstance(maximum, bool):
+                        parameter["maximum"] = maximum
+                capability["parameters"][field] = parameter
+            details = [f"supportedGenerationMethods: {', '.join(methods)}"]
+            if isinstance(input_limit, int) and input_limit > 0:
+                details.append(f"inputTokenLimit: {input_limit}")
+            if isinstance(output_limit, int) and output_limit > 0:
+                details.append(f"outputTokenLimit: {output_limit}")
+            records.append(
+                {
+                    "provider_id": self.provider_id,
+                    "model_id": model_id,
+                    "operation": "text.generate",
+                    "capability": capability,
+                    "confidence": "medium",
+                    "evidence": {
+                        "source_type": "structured_api",
+                        "source_locator": self.source_locator,
+                        "fetched_at": fetched_at,
+                        "applicable_version": _clean(item.get("version"))
+                        or "Gemini Models API",
+                        "content_location": f"models/{model_id}",
+                        "excerpt": "; ".join(details),
+                    },
+                }
+            )
+            if len(records) >= MAX_SOURCE_RECORDS:
+                break
+        return CapabilitySourceSnapshot(
+            name=self.name,
+            records=tuple(records),
+            etag=_fingerprint({"models": self.models}),
+        )
+
+
+class ApiMartModelsCapabilitySource:
+    """Translate APIMART expanded model metadata into review candidates."""
+
+    _TAG_OPERATIONS = {
+        "text to image": "image.generate",
+        "image to image": "image.edit",
+        "text to video": "video.generate",
+        "image to video": "video.generate",
+        "video to video": "video.generate",
+    }
+    _PARAMETER_NAMES = {
+        "duration": "duration_seconds",
+        "resolution": "resolution",
+        "video_resolution": "resolution",
+        "aspect_ratio": "aspect_ratio",
+        "ratio": "aspect_ratio",
+        "size": "size",
+        "n": "count",
+        "count": "count",
+        "generate_num": "count",
+        "width": "width",
+        "height": "height",
+        "quality": "quality",
+        "background": "background",
+        "response_format": "response_format",
+        "seed": "seed",
+        "fps": "fps",
+        "steps": "steps",
+        "guidance_scale": "guidance_scale",
+        "enhance_prompt": "enhance_prompt",
+        "generate_audio": "generate_audio",
+        "enable_upsample": "enable_upsample",
+    }
+
+    def __init__(
+        self,
+        provider_id: str,
+        source_locator: str,
+        models: Sequence[Mapping[str, Any]],
+        *,
+        clock: Callable[[], _datetime.datetime] = _utc_now,
+    ) -> None:
+        self.provider_id = _clean(provider_id).lower()
+        self.source_locator = _clean(source_locator)
+        self.models = tuple(copy.deepcopy(list(models)))
+        if not self.provider_id or not self.source_locator:
+            raise ValueError("APIMART model discovery identity is required")
+        self.name = f"apimart-models-api:{self.provider_id}"
+        self._clock = clock
+
+    async def collect(
+        self, _cached: Mapping[str, Any] | None = None
+    ) -> CapabilitySourceSnapshot:
+        fetched_at = _iso(self._clock())
+        records = []
+        for item in self.models:
+            if not isinstance(item, Mapping):
+                continue
+            model_id = _clean(item.get("model_id"))
+            category = _clean(item.get("category")).lower()
+            tags = [_clean(value) for value in item.get("capability_tags") or [] if _clean(value)]
+            parameters = item.get("parameters")
+            parameters = parameters if isinstance(parameters, Mapping) else {}
+            schema = parameters.get("input_schema")
+            schema = schema if isinstance(schema, Mapping) else {}
+            schema_properties = schema.get("properties")
+            schema_properties = (
+                schema_properties if isinstance(schema_properties, Mapping) else {}
+            )
+            operations: dict[str, str] = {}
+            for tag in tags:
+                operation = self._TAG_OPERATIONS.get(tag.lower())
+                if operation:
+                    operations[operation] = "supported"
+                elif category == "chat" and tag.lower() == "text":
+                    operations["text.generate"] = "supported"
+            declared_operation = _clean(parameters.get("operation")).lower()
+            if declared_operation == "video_generation":
+                operations.setdefault("video.generate", "supported")
+            elif declared_operation == "image_generation" and not any(
+                operation.startswith("image.") for operation in operations
+            ):
+                operations["image.generate"] = "unknown"
+            if not model_id or not operations:
+                continue
+            candidate_parameters = self._parameters(schema)
+            for operation, support_state in operations.items():
+                output_kind = operation.split(".", 1)[0]
+                output: dict[str, Any] = {"kind": output_kind}
+                count = candidate_parameters.get("count")
+                if isinstance(count, Mapping):
+                    output["count"] = {
+                        key: count[key]
+                        for key in ("minimum", "maximum", "default")
+                        if key in count
+                    }
+                resolution = candidate_parameters.get("resolution")
+                if isinstance(resolution, Mapping) and isinstance(resolution.get("values"), list):
+                    output["resolutions"] = copy.deepcopy(resolution["values"])
+                aspect_ratio = candidate_parameters.get("aspect_ratio")
+                if isinstance(aspect_ratio, Mapping) and isinstance(aspect_ratio.get("values"), list):
+                    output["aspect_ratios"] = copy.deepcopy(aspect_ratio["values"])
+                duration = candidate_parameters.get("duration_seconds")
+                if operation == "video.generate" and isinstance(duration, Mapping):
+                    output["duration_seconds"] = {
+                        key: duration[key]
+                        for key in ("minimum", "maximum", "default")
+                        if key in duration
+                    }
+                schema_version = _clean(parameters.get("schema_version"))
+                media_contract = {
+                    "category": category or "unknown",
+                    "capability_tags": tags,
+                    "model_parameters": copy.deepcopy(dict(parameters)),
+                }
+                records.append(
+                    {
+                        "provider_id": self.provider_id,
+                        "model_id": model_id,
+                        "operation": operation,
+                        "capability": {
+                            "support_state": support_state,
+                            "source": "APIMART Models API",
+                            "source_url": self.source_locator,
+                            "inputs": {},
+                            "output": output,
+                            "parameters": candidate_parameters,
+                            "media_contract": media_contract,
+                        },
+                        "confidence": "medium",
+                        "evidence": {
+                            "source_type": "structured_api",
+                            "source_locator": self.source_locator,
+                            "fetched_at": fetched_at,
+                            "applicable_version": schema_version or "APIMART Models API",
+                            "content_location": f"data[id={model_id}]",
+                            "excerpt": (
+                                f"category: {category or 'unknown'}; capability_tags: "
+                                f"{', '.join(tags) or 'none'}; operation: "
+                                f"{declared_operation or 'not supplied'}; input properties: "
+                                f"{', '.join(sorted(schema_properties.keys())) or 'none'}"
+                            ),
+                        },
+                    }
+                )
+                if len(records) >= MAX_SOURCE_RECORDS:
+                    break
+            if len(records) >= MAX_SOURCE_RECORDS:
+                break
+        return CapabilitySourceSnapshot(
+            name=self.name,
+            records=tuple(records),
+            etag=_fingerprint({"models": self.models}),
+        )
+
+    @classmethod
+    def _parameters(cls, schema: Mapping[str, Any]) -> dict[str, Any]:
+        properties = schema.get("properties")
+        if not isinstance(properties, Mapping):
+            return {}
+        required = {
+            _clean(value) for value in schema.get("required") or [] if _clean(value)
+        }
+        result = {}
+        for raw_name, raw_contract in properties.items():
+            name = cls._PARAMETER_NAMES.get(_clean(raw_name).lower())
+            if not name or not isinstance(raw_contract, Mapping):
+                continue
+            values = raw_contract.get("enum")
+            if (
+                _clean(raw_name).lower() == "size"
+                and isinstance(values, list)
+                and values
+                and all(re.fullmatch(r"\d+(?:\.\d+)?:\d+(?:\.\d+)?", _clean(value)) for value in values)
+            ):
+                name = "aspect_ratio"
+            parameter_type = "enum" if isinstance(values, list) and values else _clean(raw_contract.get("type")).lower()
+            if parameter_type not in {"array", "boolean", "integer", "number", "string", "enum"}:
+                continue
+            contract: dict[str, Any] = {
+                "type": parameter_type,
+                "required": _clean(raw_name) in required,
+                "visible": False,
+                "editable": False,
+            }
+            if parameter_type == "enum":
+                contract["values"] = copy.deepcopy(values[:100])
+            for key in ("minimum", "maximum", "default"):
+                value = raw_contract.get(key)
+                if isinstance(value, (str, int, float, bool)) or value is None:
+                    if key != "default" or "default" in raw_contract:
+                        contract[key] = value
+            existing = result.get(name)
+            if existing is None or len(contract) > len(existing):
+                result[name] = contract
+        return result
+
+
+class DreaminaCliCapabilitySource:
+    """Extract explicit image and video limits printed by Dreamina CLI help."""
+
+    _HELP_COMMANDS = (
+        "text2image",
+        "image2image",
+        "text2video",
+        "image2video",
+        "frames2video",
+        "multimodal2video",
+    )
 
     def __init__(
         self,
         executable: str,
         *,
+        provider_id: str = "jimeng",
+        discovery: Mapping[str, Any] | None = None,
         runner: Callable[[Sequence[str]], Awaitable[tuple[int, str, str]]] | None = None,
         clock: Callable[[], _datetime.datetime] = _utc_now,
     ) -> None:
         self.executable = _clean(executable)
         if not self.executable:
             raise ValueError("Dreamina executable is required")
+        self.provider_id = _clean(provider_id).lower()
+        if not self.provider_id:
+            raise ValueError("Dreamina provider ID is required")
+        self.name = (
+            "dreamina-cli"
+            if self.provider_id == "jimeng"
+            else f"dreamina-cli:{self.provider_id}"
+        )
+        self._discovery = copy.deepcopy(dict(discovery or {}))
         self._runner = runner or self._run
         self._clock = clock
 
     async def collect(
         self, _cached: Mapping[str, Any] | None = None
     ) -> CapabilitySourceSnapshot:
-        version_status, version_stdout, version_stderr = await self._runner(
-            (self.executable, "--version")
-        )
-        if version_status != 0:
-            raise ValueError(version_stderr or "Dreamina version check failed")
-        version = self._version(version_stdout)
-        help_outputs: dict[str, str] = {}
-        for command in self._HELP_COMMANDS:
-            status, stdout, stderr = await self._runner(
-                (self.executable, command, "-h")
+        if self._discovery:
+            raw_help = self._discovery.get("help_outputs")
+            raw_help = raw_help if isinstance(raw_help, Mapping) else {}
+            help_outputs = {
+                command: _clean(raw_help.get(command))
+                for command in self._HELP_COMMANDS
+                if _clean(raw_help.get(command))
+            }
+            version = self._version(_clean(self._discovery.get("version_output")))
+        else:
+            version_status, version_stdout, version_stderr = await self._runner(
+                (self.executable, "--version")
             )
-            if status != 0:
-                raise ValueError(stderr or f"Dreamina {command} help failed")
-            help_outputs[command] = stdout
-        records = self._video_records(help_outputs, version)
+            if version_status != 0:
+                raise ValueError(version_stderr or "Dreamina version check failed")
+            version = self._version(version_stdout)
+            help_outputs = {}
+            for command in self._HELP_COMMANDS:
+                status, stdout, stderr = await self._runner(
+                    (self.executable, command, "-h")
+                )
+                if status != 0:
+                    raise ValueError(stderr or f"Dreamina {command} help failed")
+                help_outputs[command] = stdout
+        records = [
+            *self._image_records(help_outputs, version),
+            *self._video_records(help_outputs, version),
+        ]
+        if not records:
+            raise ValueError("Dreamina help did not expose exact model limits")
         return CapabilitySourceSnapshot(
             name=self.name,
             records=tuple(records),
@@ -414,35 +770,131 @@ class DreaminaCliCapabilitySource:
             ),
         )
 
+    def _image_records(
+        self, help_outputs: Mapping[str, str], version: str
+    ) -> list[Mapping[str, Any]]:
+        records = []
+        fetched_at = _iso(self._clock())
+        for command, operation in (
+            ("text2image", "image.generate"),
+            ("image2image", "image.edit"),
+        ):
+            help_text = _clean(help_outputs.get(command))
+            models = self._model_values(help_text)
+            ratios = self._line_values(help_text, "ratio")
+            count_match = re.search(r"generate_num:\s*(\d+)\s*[-–]\s*(\d+)", help_text, re.I)
+            if not models or not ratios or count_match is None:
+                continue
+            count_minimum, count_maximum = map(int, count_match.groups())
+            for model in models:
+                resolutions = self._image_resolutions(model, help_text)
+                if not resolutions:
+                    continue
+                inputs: dict[str, Any] = {}
+                if operation == "image.edit":
+                    image_count = re.search(
+                        r"Upload\s+(\d+)\s+to\s+(\d+)\s+local images",
+                        help_text,
+                        re.I,
+                    )
+                    if image_count is None:
+                        continue
+                    inputs["image"] = {
+                        "minimum": int(image_count.group(1)),
+                        "maximum": int(image_count.group(2)),
+                        "required": True,
+                    }
+                capability = {
+                    "support_state": "supported",
+                    "source": "Dreamina CLI help",
+                    "inputs": inputs,
+                    "output": {
+                        "kind": "image",
+                        "count": {
+                            "minimum": count_minimum,
+                            "maximum": count_maximum,
+                            "default": 1,
+                        },
+                        "aspect_ratios": ratios,
+                        "resolutions": resolutions,
+                    },
+                    "parameters": {
+                        "count": {
+                            "type": "integer",
+                            "minimum": count_minimum,
+                            "maximum": count_maximum,
+                            "default": 1,
+                            "required": False,
+                            "visible": True,
+                            "editable": True,
+                        },
+                        "aspect_ratio": {
+                            "type": "enum",
+                            "values": ratios,
+                            "required": False,
+                            "visible": True,
+                            "editable": True,
+                        },
+                        "resolution": {
+                            "type": "enum",
+                            "values": resolutions,
+                            "required": True,
+                            "visible": True,
+                            "editable": True,
+                        },
+                    },
+                    "media_contract": {"cli_command": command},
+                }
+                records.append(
+                    self._record(
+                        model=model,
+                        operation=operation,
+                        capability=capability,
+                        version=version,
+                        fetched_at=fetched_at,
+                        location=f"{command} supported combinations",
+                        excerpt=(
+                            f"model_version: {model}; ratio: {', '.join(ratios)}; "
+                            f"resolution_type: {', '.join(resolutions)}; "
+                            f"generate_num: {count_minimum}-{count_maximum}"
+                        ),
+                    )
+                )
+        return records
+
     def _video_records(
         self, help_outputs: Mapping[str, str], version: str
     ) -> list[Mapping[str, Any]]:
         combined = "\n".join(help_outputs.values())
         model_values: list[str] = []
-        for match in re.finditer(r"model_version:\s*([^\n]+)", combined, re.I):
-            for raw in match.group(1).split(","):
-                model = raw.strip().rstrip(".")
+        commands_by_model: dict[str, list[str]] = {}
+        for command in ("text2video", "image2video", "frames2video", "multimodal2video"):
+            for model in self._model_values(_clean(help_outputs.get(command))):
                 if model and model not in model_values:
                     model_values.append(model)
-        ratio_match = re.search(r"^\s*-\s*ratio:\s*([^\n]+)", help_outputs.get("text2video", ""), re.I | re.M)
-        ratios = []
-        if ratio_match:
-            ratios = [value.strip().rstrip(".") for value in ratio_match.group(1).split(",")]
+                commands_by_model.setdefault(model, []).append(command)
+        ratios = self._line_values(
+            "\n".join(
+                _clean(help_outputs.get(command))
+                for command in ("text2video", "multimodal2video")
+            ),
+            "ratio",
+        )
         records: list[Mapping[str, Any]] = []
         fetched_at = _iso(self._clock())
-        locator = " ; ".join(
-            shlex.join((self.executable, command, "-h"))
-            for command in self._HELP_COMMANDS
-        )
         for model in model_values:
             limits = self._video_limits(model, combined)
-            if limits is None or not ratios:
+            if limits is None:
                 continue
             minimum, maximum, resolutions, excerpt = limits
+            inputs, input_rules = self._video_inputs(model, combined, commands_by_model)
             capability = {
                 "support_state": "supported",
-                "inputs": {},
+                "source": "Dreamina CLI help",
+                "inputs": inputs,
+                "input_rules": input_rules,
                 "output": {
+                    "kind": "video",
                     "duration_seconds": {"minimum": minimum, "maximum": maximum},
                     "aspect_ratios": ratios,
                     "resolutions": resolutions,
@@ -471,27 +923,164 @@ class DreaminaCliCapabilitySource:
                         "editable": True,
                     },
                 },
+                "media_contract": {
+                    "cli_commands": commands_by_model.get(model, []),
+                },
             }
             records.append(
-                {
-                    "provider_id": "jimeng",
-                    "model_id": model,
-                    "operation": "video.generate",
-                    "capability": capability,
-                    "confidence": "high",
-                    "evidence": {
-                        "source_type": "cli_help",
-                        "source_locator": locator,
-                        "fetched_at": fetched_at,
-                        "applicable_version": version,
-                        "content_location": "Supported combinations and video flags",
-                        "excerpt": f"model_version: {model}; ratio: {', '.join(ratios)}; {excerpt}",
-                    },
-                }
+                self._record(
+                    model=model,
+                    operation="video.generate",
+                    capability=capability,
+                    version=version,
+                    fetched_at=fetched_at,
+                    location="video commands supported combinations",
+                    excerpt=(
+                        f"model_version: {model}; commands: "
+                        f"{', '.join(commands_by_model.get(model, []))}; "
+                        f"ratio: {', '.join(ratios)}; {excerpt}"
+                    ),
+                )
             )
-        if not records:
-            raise ValueError("Dreamina help did not expose exact video model limits")
         return records
+
+    def _record(
+        self,
+        *,
+        model: str,
+        operation: str,
+        capability: Mapping[str, Any],
+        version: str,
+        fetched_at: str,
+        location: str,
+        excerpt: str,
+    ) -> Mapping[str, Any]:
+        locator = " ; ".join(
+            shlex.join((self.executable, command, "-h"))
+            for command in self._HELP_COMMANDS
+        )
+        return {
+            "provider_id": self.provider_id,
+            "model_id": model,
+            "operation": operation,
+            "capability": capability,
+            "confidence": "high",
+            "evidence": {
+                "source_type": "cli_help",
+                "source_locator": locator,
+                "fetched_at": fetched_at,
+                "applicable_version": version,
+                "content_location": location,
+                "excerpt": excerpt,
+            },
+        }
+
+    @staticmethod
+    def _model_values(help_text: str) -> list[str]:
+        values = []
+        for match in re.finditer(
+            r"(?mi)^\s*-\s*model_version(?:\s+values)?\s*:\s*([^\r\n]+)",
+            help_text,
+        ):
+            for raw in match.group(1).split(","):
+                model = raw.strip().strip("`'\". ")
+                if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", model) and model not in values:
+                    values.append(model)
+        if not values:
+            flag = re.search(
+                r"(?mi)^\s*--model_version\s+\S+\s+supported values\s*:\s*([^;\r\n]+)",
+                help_text,
+            )
+            if flag:
+                for raw in flag.group(1).split(","):
+                    model = raw.strip().strip("`'\". ")
+                    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", model) and model not in values:
+                        values.append(model)
+        return values
+
+    @staticmethod
+    def _line_values(help_text: str, field: str) -> list[str]:
+        match = re.search(
+            rf"(?mi)^\s*-\s*{re.escape(field)}:\s*([^\r\n]+)", help_text
+        )
+        if not match:
+            return []
+        return [value.strip().rstrip(".") for value in match.group(1).split(",")]
+
+    @staticmethod
+    def _image_resolutions(model: str, help_text: str) -> list[str]:
+        for line in re.findall(
+            r"(?mi)^\s*-\s*([^\r\n]+?)\s*->\s*resolution_type\s+([^\r\n;]+)",
+            help_text,
+        ):
+            group, values = line
+            models = [value.strip().lower() for value in group.split("/")]
+            if model.lower() not in models:
+                continue
+            resolutions = []
+            for value in re.findall(r"\b(?:1k|2k|4k)\b", values, re.I):
+                normalized = value.upper()
+                if normalized not in resolutions:
+                    resolutions.append(normalized)
+            return resolutions
+        return []
+
+    @staticmethod
+    def _video_inputs(
+        model: str,
+        help_text: str,
+        commands_by_model: Mapping[str, Sequence[str]],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        commands = commands_by_model.get(model, ())
+        inputs: dict[str, Any] = {"text": {"minimum": 0, "maximum": 1}}
+        rules: dict[str, Any] = {"totals": [], "requirements": []}
+        normalized = model.lower()
+        if "multimodal2video" in commands:
+            if normalized == "seedance2.5" and all(
+                marker in help_text
+                for marker in ("image<=30", "video<=10", "audio<=10", "total inputs<=50")
+            ):
+                maxima = (30, 10, 10, 50)
+            elif normalized.startswith("seedance2.0") and all(
+                marker in help_text
+                for marker in ("image<=9", "video<=3", "audio<=3", "total inputs<=12")
+            ):
+                maxima = (9, 3, 3, 12)
+            else:
+                maxima = None
+            if maxima is not None:
+                image_maximum, video_maximum, audio_maximum, total_maximum = maxima
+                inputs.update(
+                    {
+                        "image": {"minimum": 0, "maximum": image_maximum},
+                        "video": {"minimum": 0, "maximum": video_maximum},
+                        "audio": {"minimum": 0, "maximum": audio_maximum},
+                    }
+                )
+                rules["totals"].append(
+                    {
+                        "id": "reference_media",
+                        "inputs": ["image", "video", "audio"],
+                        "minimum": 0,
+                        "maximum": total_maximum,
+                        "active_when_any_present": True,
+                    }
+                )
+                if normalized.startswith("seedance2.0"):
+                    rules["requirements"].append(
+                        {
+                            "id": "visual_reference",
+                            "when": {"input": "audio", "minimum": 1},
+                            "any_of": ["image", "video"],
+                            "minimum": 1,
+                        }
+                    )
+                return inputs, rules
+        if "frames2video" in commands:
+            inputs["image"] = {"minimum": 0, "maximum": 2}
+        elif "image2video" in commands:
+            inputs["image"] = {"minimum": 0, "maximum": 1}
+        return inputs, rules
 
     @staticmethod
     def _video_limits(
@@ -499,9 +1088,11 @@ class DreaminaCliCapabilitySource:
     ) -> tuple[int, int, list[str], str] | None:
         normalized = model.lower()
         if normalized == "seedance2.5":
-            expected = (4, 30, ["480p", "720p", "1080p"])
+            expected = (4, 30, ["480p", "720p"])
         elif normalized == "seedance2.0_vip":
             expected = (4, 15, ["720p", "1080p", "4k"])
+        elif normalized == "seedance1.0fast":
+            expected = (5, 10, ["720p"])
         elif normalized == "seedance1.5pro":
             expected = (5, 12, ["720p"])
         elif normalized.startswith("seedance2.0"):
@@ -529,7 +1120,14 @@ class DreaminaCliCapabilitySource:
         try:
             payload = json.loads(text)
         except json.JSONDecodeError:
-            payload = {}
+            match = re.search(r"(?m)^\s*(\{[^\r\n]+\})\s*$", text)
+            if match:
+                try:
+                    payload = json.loads(match.group(1))
+                except json.JSONDecodeError:
+                    payload = {}
+            else:
+                payload = {}
         version = _clean(payload.get("version")) if isinstance(payload, Mapping) else ""
         if not version:
             match = re.search(r"\b(?:v)?([0-9]+(?:\.[0-9A-Za-z_-]+)+)\b", text)
@@ -594,6 +1192,7 @@ class ModelCapabilityRefreshManager:
         self._active_refresh: asyncio.Task | None = None
         self._scheduler: asyncio.Task | None = None
         self._stop_event: asyncio.Event | None = None
+        self._materialize_lock = RLock()
         self._status: dict[str, Any] = {
             "enabled": bool(self.sources),
             "checking": False,
@@ -640,6 +1239,120 @@ class ModelCapabilityRefreshManager:
             active = asyncio.create_task(self._refresh_once(force=force))
             self._active_refresh = active
         return await asyncio.shield(active)
+
+    async def collect_model_discovery(
+        self,
+        *,
+        provider_id: str,
+        base_url: str,
+        protocol: str,
+        discovery: Mapping[str, Any] | None,
+        model_ids: Sequence[str],
+        chat_model_ids: Sequence[str] = (),
+    ) -> dict[str, Any] | None:
+        """Turn one supported model-list response into review work, when applicable."""
+        provider = _clean(provider_id).lower()
+        selected_protocol = _clean(protocol).lower()
+        snapshot = discovery if isinstance(discovery, Mapping) else {}
+        sources: list[Any] = []
+        if selected_protocol == "jimeng" and snapshot.get("kind") == "dreamina-cli":
+            sources.append(
+                DreaminaCliCapabilitySource(
+                    "dreamina",
+                    provider_id=provider or "jimeng",
+                    discovery=snapshot,
+                )
+            )
+        if selected_protocol == "gemini" and snapshot.get("kind") == "gemini-api":
+            models = snapshot.get("models")
+            if isinstance(models, Sequence) and not isinstance(models, (str, bytes)):
+                sources.append(
+                    GeminiApiCapabilitySource(
+                        provider or "gemini",
+                        _clean(snapshot.get("source_locator")),
+                        [item for item in models if isinstance(item, Mapping)],
+                        eligible_model_ids=chat_model_ids,
+                    )
+                )
+        try:
+            host = (urllib.parse.urlsplit(_clean(base_url)).hostname or "").lower()
+        except ValueError:
+            host = ""
+        is_apimart = selected_protocol == "apimart" and (
+            host == "apimart.ai"
+            or host.endswith(".apimart.ai")
+            or host == "apib.ai"
+            or host.endswith(".apib.ai")
+        )
+        if is_apimart and snapshot.get("kind") == "apimart-api":
+            models = snapshot.get("models")
+            if isinstance(models, Sequence) and not isinstance(models, (str, bytes)):
+                sources.append(
+                    ApiMartModelsCapabilitySource(
+                        provider or "apimart",
+                        _clean(snapshot.get("source_locator")),
+                        [item for item in models if isinstance(item, Mapping)],
+                    )
+                )
+        if is_apimart and "seedream-5-0-pro" in {
+            _clean(value) for value in model_ids
+        }:
+            sources.append(
+                ApiMartSeedreamDocsSource(provider_id=provider or "apimart")
+            )
+        if not sources:
+            return None
+        source_statuses = []
+        drafts_created = 0
+        evidence_created = 0
+        record_count = 0
+        errors = []
+        try:
+            catalog = await asyncio.to_thread(self.catalog.refresh)
+        except Exception as error:
+            catalog = {"ok": False, "error": str(error)}
+        if not catalog.get("ok"):
+            errors.append(_clean(catalog.get("error")) or "catalog refresh failed")
+        else:
+            for source in sources:
+                source_name = _clean(getattr(source, "name", "")) or "unnamed"
+                try:
+                    snapshot = await source.collect()
+                    result = await asyncio.to_thread(
+                        self._materialize, snapshot, set()
+                    )
+                    record_count += len(snapshot.records)
+                    drafts_created += result["drafts_created"]
+                    evidence_created += result["evidence_created"]
+                    source_statuses.append(
+                        {
+                            "name": source_name,
+                            "ok": True,
+                            "record_count": len(snapshot.records),
+                            "error": None,
+                        }
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as error:
+                    errors.append(f"{source_name}: {error}")
+                    source_statuses.append(
+                        {
+                            "name": source_name,
+                            "ok": False,
+                            "record_count": 0,
+                            "error": str(error),
+                        }
+                    )
+        return {
+            "ok": not errors,
+            "source_count": len(sources),
+            "record_count": record_count,
+            "drafts_created": drafts_created,
+            "evidence_created": evidence_created,
+            "sources": source_statuses,
+            "errors": errors,
+        }
 
     async def _run_scheduler(self) -> None:
         while self._stop_event is not None and not self._stop_event.is_set():
@@ -761,6 +1474,14 @@ class ModelCapabilityRefreshManager:
         return {"ok": not failed, "forced": bool(force), **self.status()}
 
     def _materialize(
+        self,
+        snapshot: CapabilitySourceSnapshot,
+        observed: set[str],
+    ) -> dict[str, int]:
+        with self._materialize_lock:
+            return self._materialize_unlocked(snapshot, observed)
+
+    def _materialize_unlocked(
         self,
         snapshot: CapabilitySourceSnapshot,
         observed: set[str],
@@ -959,10 +1680,12 @@ def refresh_interval_from_environment() -> int:
 __all__ = [
     "APIMART_SEEDREAM_DOCS_URL",
     "AUTOMATION_ACTOR",
+    "ApiMartModelsCapabilitySource",
     "ApiMartSeedreamDocsSource",
     "CapabilitySourceSnapshot",
     "DEFAULT_REFRESH_INTERVAL_SECONDS",
     "DreaminaCliCapabilitySource",
+    "GeminiApiCapabilitySource",
     "JsonUrlCapabilitySource",
     "ModelCapabilityRefreshManager",
     "REFRESH_CACHE_VERSION",

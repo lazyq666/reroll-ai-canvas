@@ -1,9 +1,12 @@
 import asyncio
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import httpx
 from fastapi import HTTPException
 
 from tests.runtime_env import ensure_test_workspace
@@ -112,7 +115,177 @@ class FakeRecoveryClient:
         return FakeResponse(self.payload)
 
 
+class FailingClient:
+    def __init__(self, calls=None, *args, **kwargs):
+        self.calls = calls if calls is not None else []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+    async def post(self, url, **_kwargs):
+        self.calls.append(url)
+        raise httpx.ConnectError("TLS connection interrupted")
+
+
 class ApimartLayerDecompositionRequestTests(unittest.TestCase):
+    def test_upload_413_retries_smaller_copy_once_before_paid_submit(self):
+        self.check_upload_statuses([413, 200], paid_count=1)
+
+    def test_repeated_413_preserves_status_and_never_submits_generation(self):
+        self.check_upload_statuses([413, 413], paid_count=0)
+
+    def test_upload_503_does_not_retry_or_submit(self):
+        self.check_upload_statuses([503], paid_count=0)
+
+    def test_transparent_upload_retry_preserves_alpha(self):
+        self.check_upload_statuses([413, 200], paid_count=1, transparent=True)
+
+    def test_data_uri_upload_uses_the_same_bounded_retry(self):
+        self.check_upload_statuses([413, 200], paid_count=1, data_uri=True)
+
+    def test_no_retry_when_reencoding_does_not_reduce_size(self):
+        self.check_upload_statuses([413], paid_count=0, compact=True)
+
+    def test_successful_upload_preserves_original_bytes_without_retry(self):
+        self.check_upload_statuses([200], paid_count=1)
+
+    def check_upload_statuses(self, statuses, paid_count, transparent=False, data_uri=False, compact=False):
+        from PIL import Image
+        from io import BytesIO
+        calls = []
+        uploads = []
+        provider = apimart_provider()
+        provider['base_url'] = 'https://gateway.example.test/v1'
+
+        class Client(FailingClient):
+            async def post(self, url, **kwargs):
+                calls.append(url)
+                if 'files' in kwargs:
+                    uploads.append(kwargs['files']['file'])
+                    code = statuses[len(uploads) - 1]
+                    return httpx.Response(code, json={
+                        'url': 'https://cdn.example.test/upload.png',
+                        'message': 'File Too Large token=secret-value',
+                    })
+                return FakeResponse(completed_response())
+
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.png'
+            Image.new('RGBA' if transparent else 'RGB', ((1, 1) if compact else (512, 512)),
+                      (40, 60, 80, 100) if transparent else (40, 60, 80)).save(source, compress_level=0)
+            original = source.read_bytes()
+            import base64
+            ref = ('data:image/png;base64,' + base64.b64encode(original).decode()) if data_uri else '/assets/input/source.png'
+            with (
+                patch.object(main, 'get_api_provider', return_value=provider),
+                patch.object(main, 'provider_env_key_value', return_value='test-api-key'),
+                patch.object(main, 'output_file_from_url', return_value=str(source)),
+                patch.object(main.httpx, 'AsyncClient', side_effect=lambda *a, **k: Client()),
+            ):
+                async def execute():
+                    return await main.generate_http_provider_image(
+                        '', '2K', '', 'seedream-5-0-pro',
+                        [{'url':ref, 'role':'source'}],
+                        'apimart', operation='image.layer_decomposition', resolution_tier='2K',
+                        wait_for_task=AsyncMock(return_value=completed_response()))
+                if paid_count:
+                    asyncio.run(execute())
+                else:
+                    with self.assertRaises(HTTPException) as raised:
+                        asyncio.run(execute())
+                    self.assertEqual(statuses[-1], raised.exception.status_code)
+                    detail = str(raised.exception.detail)
+                    self.assertIn('reference_upload', detail)
+                    self.assertIn(str(len(original)), detail)
+                    self.assertIn('source_width', detail)
+                    self.assertNotIn('secret-value', detail)
+                    self.assertNotIn('test-api-key', detail)
+            self.assertEqual(original, source.read_bytes())
+        self.assertEqual(original, uploads[0][1])
+        self.assertEqual(len(statuses), len(uploads))
+        self.assertEqual(paid_count, sum(url.endswith('/generations') for url in calls))
+        self.assertTrue(all(url.startswith('https://gateway.example.test/v1/') for url in calls))
+        if len(uploads) > 1:
+            self.assertLess(len(uploads[1][1]), len(uploads[0][1]))
+            with Image.open(BytesIO(uploads[1][1])) as image:
+                self.assertEqual((512, 512), image.size)
+                if transparent:
+                    self.assertEqual((100, 100), image.getchannel('A').getextrema())
+
+    def test_local_upload_transport_failure_uses_configured_route_and_returns_502(self):
+        calls = []
+        provider = apimart_provider()
+        provider["base_url"] = "https://gateway.example.test/v1"
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"png")
+            with (
+                patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+                patch.object(main, "output_file_from_url", return_value=str(source)),
+                patch.object(
+                    main.httpx,
+                    "AsyncClient",
+                    side_effect=lambda *args, **kwargs: FailingClient(
+                        calls, *args, **kwargs
+                    ),
+                ),
+                patch.object(main.asyncio, "sleep", AsyncMock()),
+                self.assertRaises(HTTPException) as raised,
+            ):
+                asyncio.run(
+                    main.upload_image_for_apimart(
+                        FailingClient(calls),
+                        provider,
+                        "/assets/input/source.png",
+                    )
+                )
+
+        self.assertEqual(502, raised.exception.status_code)
+        self.assertEqual("provider_connection_interrupted", raised.exception.detail)
+        self.assertEqual(
+            {"https://gateway.example.test/v1/uploads/images"},
+            set(calls),
+        )
+
+    def test_paid_submit_transport_failure_returns_502_without_retry(self):
+        calls = []
+        provider = apimart_provider()
+        provider["base_url"] = "https://gateway.example.test/v1"
+        with (
+            patch.object(main, "get_api_provider", return_value=provider),
+            patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+            patch.object(
+                main.httpx,
+                "AsyncClient",
+                side_effect=lambda *args, **kwargs: FailingClient(
+                    calls, *args, **kwargs
+                ),
+            ),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            asyncio.run(
+                main.generate_http_provider_image(
+                    "",
+                    "2K",
+                    "",
+                    "seedream-5-0-pro",
+                    [{"url": "https://images.example.test/source.png", "role": "source"}],
+                    "apimart",
+                    operation="image.layer_decomposition",
+                    resolution_tier="2K",
+                )
+            )
+
+        self.assertEqual(502, raised.exception.status_code)
+        self.assertEqual("provider_connection_interrupted", raised.exception.detail)
+        self.assertEqual(
+            ["https://gateway.example.test/v1/images/generations"],
+            calls,
+        )
+
     def test_task_endpoint_requires_designer_and_freezes_operation_metadata(self):
         request = main.LayerDecompositionRequest(
             image=main.AIReference(
@@ -172,9 +345,9 @@ class ApimartLayerDecompositionRequestTests(unittest.TestCase):
         self.assertEqual("task-layer-1", result["upstream_task_id"])
         self.assertEqual(1, len(result["layers"]))
 
-    def execute(self, prompt=""):
+    def execute(self, prompt="", model="seedream-5-0-pro"):
         capture = {}
-        provider = apimart_provider()
+        provider = apimart_provider(model)
         waiter = AsyncMock(return_value=completed_response())
         checkpoint = unittest.mock.Mock()
         with (
@@ -199,7 +372,7 @@ class ApimartLayerDecompositionRequestTests(unittest.TestCase):
                     prompt,
                     "2K",
                     "",
-                    "seedream-5-0-pro",
+                    model,
                     [{"url": "https://images.example.test/source.png", "role": "source"}],
                     "apimart",
                     wait_for_task=waiter,
@@ -242,6 +415,12 @@ class ApimartLayerDecompositionRequestTests(unittest.TestCase):
         self.assertEqual(
             "Separate the title and product", capture["json"]["prompt"]
         )
+
+    def test_provider_adapter_forwards_capability_selected_model(self):
+        capture, _waiter, _checkpoint, _result = self.execute(
+            model="seedream-layer-pro"
+        )
+        self.assertEqual("seedream-layer-pro", capture["json"]["model"])
 
     def test_unified_capability_validation_runs_before_provider_execution(self):
         provider = apimart_provider()
@@ -294,6 +473,34 @@ class ApimartLayerDecompositionRequestTests(unittest.TestCase):
             ):
                 main._layer_decomposition_run(request)
             self.assertEqual(422, raised.exception.status_code)
+
+    def test_supported_future_capability_freezes_selected_provider_and_model(self):
+        provider = apimart_provider("seedream-layer-pro")
+        provider["id"] = "apimart-secondary"
+        request = main.LayerDecompositionRequest(
+            provider_id="apimart-secondary",
+            model="seedream-layer-pro",
+            resolution_tier="1K",
+            image=main.AIReference(
+                url="https://images.example.test/source.png",
+                role="source",
+                kind="image",
+            ),
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
+        )
+        capability = main.resolved_model_capability(
+            "apimart", "seedream-5-0-pro", "image.layer_decomposition"
+        )
+        with (
+            patch.object(main, "get_api_provider", return_value=provider),
+            patch.object(main, "resolved_model_capability", return_value=capability),
+        ):
+            run = main._layer_decomposition_run(request)
+
+        self.assertEqual("apimart-secondary", run.settings["provider_id"])
+        self.assertEqual("seedream-layer-pro", run.settings["model"])
+        self.assertEqual("apimart-secondary", run.effect_context["provider_id"])
+        self.assertEqual("seedream-layer-pro", run.effect_context["model"])
 
 
 if __name__ == "__main__":

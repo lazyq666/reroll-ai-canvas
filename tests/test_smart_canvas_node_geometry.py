@@ -262,6 +262,97 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
         )
         self.assertEqual(result["diagnostics"], [])
 
+    def test_generated_image_fits_saved_preview_bounds_using_actual_aspect_ratio(self):
+        for width, height in [(128, 1024), (1024, 128), (512, 512)]:
+            with self.subTest(width=width, height=height):
+                result = run_node_geometry(f"""
+                    const node = {{id:'result', type:'smart-image',
+                        generationOutputNode:true, generationMediaW:352, generationMediaH:352,
+                        images:[{{url:'output.jpg',natural_w:{width},natural_h:{height}}}]}};
+                    const measured = geometry.createSession({{nodes:[node]}}).measure(node.id);
+                    process.stdout.write(JSON.stringify({{layout:measured.layout,
+                        savedWidth:node.generationMediaW,savedHeight:node.generationMediaH}}));
+                """)
+                self.assertEqual(result['layout']['width'] / result['layout']['height'], width / height)
+                self.assertEqual(max(result['layout']['width'], result['layout']['height']), 352)
+                self.assertEqual((result['savedWidth'], result['savedHeight']), (352, 352))
+
+    def test_generated_image_without_dimensions_keeps_saved_preview_bounds(self):
+        result = run_node_geometry("""
+            const node = {id:'result',type:'smart-image',generationMediaW:352,generationMediaH:264,
+                images:[{url:'output.jpg'}]};
+            process.stdout.write(JSON.stringify(geometry.createSession({nodes:[node]}).measure(node.id).layout));
+        """)
+        self.assertEqual((result['width'], result['height']), (352, 264))
+
+    def test_layer_manifest_overrides_stale_square_preview_and_generation_size(self):
+        result = run_node_geometry("""
+            const node = {id:'layers', type:'smart-layer-decomposition', w:350, h:350,
+                generationMediaW:350, generationMediaH:350,
+                images:[{url:'base.png', natural_w:1024, natural_h:1024}],
+                layerDecompositionManifest:{canvas_width:1000, canvas_height:1500}};
+            const measured = geometry.createSession({nodes:[node]}).measure(node.id);
+            process.stdout.write(JSON.stringify({layout:measured.layout,
+                ratio:measured.constraints.aspectRatio, originalHeight:node.h}));
+        """)
+        self.assertEqual(result['layout']['width'], 350)
+        self.assertEqual(result['layout']['height'], 525)
+        self.assertAlmostEqual(result['ratio'], 2 / 3)
+        self.assertEqual(result['originalHeight'], 350)
+
+    def test_restored_layer_node_with_all_outputs_remains_one_composition(self):
+        result = run_node_geometry("""
+            const node = {id:'layers', type:'smart-layer-decomposition',
+                generationMediaW:291, generationMediaH:437,
+                images:[{url:'base.png', natural_w:832, natural_h:1248},
+                    ...Array.from({length:14}, (_, i) => ({url:`layer-${i}.png`}))],
+                layerDecompositionManifest:{canvas_width:832, canvas_height:1248}};
+            const measured = geometry.createSession({nodes:[node]}).measure(node.id);
+            process.stdout.write(JSON.stringify({layout:measured.layout,
+                ratio:measured.constraints.aspectRatio}));
+        """)
+        self.assertTrue(result['layout']['single'])
+        self.assertEqual(result['layout']['cols'], 1)
+        self.assertEqual(result['layout']['width'], 291)
+        self.assertEqual(result['layout']['height'], 437)
+        self.assertAlmostEqual(result['layout']['width'] / result['layout']['height'], 2 / 3, places=2)
+        self.assertAlmostEqual(result['ratio'], 2 / 3)
+
+    def test_layer_decomposition_node_uses_single_image_geometry(self):
+        result = run_node_geometry(
+            """
+            const node = {
+                id:'layer-result',
+                type:'smart-layer-decomposition',
+                x:10,
+                y:20,
+                w:350,
+                h:175,
+                images:[{kind:'image',url:'base.png',natural_w:1000,natural_h:500}]
+            };
+            const session = geometry.createSession({nodes:[node],connections:[]});
+            const measured = session.measure(node.id);
+            process.stdout.write(JSON.stringify({
+                supported:measured.supported,
+                layout:measured.layout,
+                footprint:measured.footprint,
+                aspectRatio:measured.constraints.aspectRatio,
+                diagnostics:measured.diagnostics
+            }));
+            """
+        )
+
+        self.assertTrue(result["supported"])
+        self.assertTrue(result["layout"]["single"])
+        self.assertEqual(result["layout"]["width"], 350)
+        self.assertEqual(result["layout"]["height"], 175)
+        self.assertEqual(
+            result["footprint"],
+            {"x": 10, "y": 20, "width": 350, "height": 175},
+        )
+        self.assertAlmostEqual(result["aspectRatio"], 2)
+        self.assertEqual(result["diagnostics"], [])
+
     def test_legacy_multi_output_no_longer_reserves_gallery_chrome(self):
         result = run_node_geometry(
             """

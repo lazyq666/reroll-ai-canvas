@@ -120,6 +120,79 @@ class SmartCanvasVideoCapabilityTests(unittest.TestCase):
         self.assertFalse(value["validation"]["valid"])
         self.assertIn(value["validation"]["reason"], {"image-count", "total-count"})
 
+    def test_reviewed_commands_control_reference_modes_and_limits(self):
+        value = self.run_module(
+            """(() => {
+                const capability = api.clean({
+                    provider_id:'jimeng',
+                    known:true,
+                    commands:{
+                        frames2video:{
+                            duration_seconds:{minimum:4,maximum:15},
+                            video_resolutions:['720p'],
+                            image_count:{minimum:1,maximum:2}
+                        }
+                    },
+                    model_capability:{
+                        support_state:'supported',
+                        inputs:{image:{maximum:9},video:{maximum:3},audio:{maximum:3}},
+                        output:{
+                            duration_seconds:{minimum:4,maximum:15},
+                            resolutions:['720p'],
+                            aspect_ratios:['16:9']
+                        }
+                    }
+                },'jimeng','seedance2.0');
+                const state = api.resolve(
+                    {videoReferenceMode:'multimodal_all_around'},
+                    [{url:'first.png',kind:'image'}],
+                    capability
+                );
+                return {capability,state};
+            })()"""
+        )
+
+        self.assertNotIn("multimodal2video", value["capability"]["commands"])
+        self.assertIn("frames2video", value["capability"]["commands"])
+        self.assertEqual(
+            {"minimum": 4, "maximum": 15},
+            value["capability"]["commands"]["frames2video"]["duration_seconds"],
+        )
+        self.assertEqual("first_last_frames", value["state"]["reference_mode"])
+        self.assertEqual(
+            ["first_last_frames"], value["state"]["supported_reference_modes"]
+        )
+
+    def test_reviewed_commands_reject_references_when_no_mode_is_supported(self):
+        value = self.run_module(
+            """(() => {
+                const capability = api.clean({
+                    provider_id:'jimeng',
+                    known:true,
+                    commands:{text2video:{duration_seconds:{minimum:4,maximum:15}}},
+                    model_capability:{
+                        support_state:'supported',
+                        inputs:{image:{maximum:9},video:{maximum:3},audio:{maximum:3}},
+                        output:{duration_seconds:{minimum:4,maximum:15}}
+                    }
+                },'jimeng','seedance2.0');
+                const state = api.resolve(
+                    {videoReferenceMode:'multimodal_all_around'},
+                    [{url:'reference.png',kind:'image'}],
+                    capability
+                );
+                return {state,validation:api.validateReferences(state)};
+            })()"""
+        )
+
+        self.assertEqual("text2video", value["state"]["command"])
+        self.assertIsNone(value["state"]["reference_mode"])
+        self.assertEqual([], value["state"]["supported_reference_modes"])
+        self.assertEqual(
+            "reference-mode-unsupported", value["validation"]["reason"]
+        )
+        self.assertFalse(value["validation"]["valid"])
+
     def test_backend_options_only_keep_user_toggle_settings(self):
         value = self.run_module(
             """(() => {
@@ -174,6 +247,7 @@ class SmartCanvasVideoCapabilityTests(unittest.TestCase):
         )
         self.assertIn("smartVideoComposerState()", host)
         self.assertIn("renderJimengReferenceModeControl(videoState)", host)
+        self.assertIn("|| modes[0]", host)
         self.assertNotIn("label:tr('smart.videoImageToVideo')", host)
         self.assertIn("renderVideoCapabilityToggle(capability, 'enhance_prompt'", host)
         self.assertIn("renderVideoCapabilityToggle(capability, 'generate_audio'", host)
@@ -183,6 +257,7 @@ class SmartCanvasVideoCapabilityTests(unittest.TestCase):
         self.assertIn("videoCapabilities?.applyComposerOptions", provider)
         self.assertIn("videoCapabilities.reconcile", provider)
         self.assertIn("videoCapabilities.validateReferences", provider)
+        self.assertIn("smart.videoReferenceModeUnsupported", provider)
 
 
 if __name__ == "__main__":

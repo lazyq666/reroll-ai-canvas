@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "static" / "api-settings.html"
 STYLE = ROOT / "static" / "css" / "api-settings-t18.css"
 SCRIPT = ROOT / "static" / "js" / "api-settings.js"
+I18N = ROOT / "static" / "js" / "i18n" / "api-settings.js"
 SELECTION = ROOT / "static" / "js" / "infinite-canvas-ui" / "selection-adjustment" / "select.js"
 SELECTION_STYLES = ROOT / "static" / "js" / "infinite-canvas-ui" / "selection-adjustment" / "styles.js"
 THEME_ADAPTER = ROOT / "static" / "js" / "infinite-canvas-ui" / "theme-adapter.js"
@@ -24,6 +25,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         cls.style = STYLE.read_text(encoding="utf-8")
         cls.legacy_style = (ROOT / "static" / "css" / "api-settings.css").read_text(encoding="utf-8")
         cls.script = SCRIPT.read_text(encoding="utf-8")
+        cls.i18n = I18N.read_text(encoding="utf-8")
         cls.selection = SELECTION.read_text(encoding="utf-8")
         cls.selection_styles = SELECTION_STYLES.read_text(encoding="utf-8")
         cls.theme_adapter = THEME_ADAPTER.read_text(encoding="utf-8")
@@ -386,6 +388,9 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertIn("broadcastStudioApiChange('providers-changed')", self.script)
         self.assertIn("updateProtocolFromInput();", self.script)
         self.assertIn("requestAutoSave({affectsVerification:true});", self.script)
+        self.assertIn("modelCapabilityReviewNote(data.capability_review)", self.script)
+        self.assertIn('api.modelCapabilityReviewCollected', self.i18n)
+        self.assertIn('api.modelCapabilityReviewFailed', self.i18n)
         self.assertIn("document.addEventListener('focusout', handleAutoSaveFocusOut)", self.script)
         self.assertIn("document.addEventListener('keydown', handleAutoSaveKeyDown)", self.script)
         self.assertRegex(self.page, r'id="baseInput"[^>]+data-auto-save="connection"')

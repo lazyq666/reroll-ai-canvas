@@ -17,6 +17,115 @@ let browser = null;
         throw new Error(`${error.message}; state=${JSON.stringify(state)}; pageErrors=${JSON.stringify(pageErrors)}`);
     });
 
+    const layerDefault = await page.locator('#reverse-prompt-dialog').evaluate(async dialog => {
+        dialog.processor = 'layer-decomposition';
+        dialog.messages = {
+            title:'Smart layer decomposition', model:'Model', resolution:'Layer output resolution',
+            automatic:'Auto', prompt:'Additional prompt (optional)', promptPlaceholder:'Optional detail',
+            price:'Estimated price', priceRange:'Approx. CNY ¥0.3–¥11 per run',
+            noModels:'No layer models', noModelsHint:'Enable a supported model',
+            selectModel:'Choose a model', selectResolution:'Choose a resolution',
+            cancel:'Cancel', submit:'Decompose',
+        };
+        dialog.models = [
+            {id:'primary',name:'Layer Primary',providerName:'Provider A',resolutionTiers:['auto','1K','2K'],defaultResolution:'2K'},
+            {id:'secondary',name:'Layer Secondary',providerName:'Provider B',resolutionTiers:['auto','1K'],defaultResolution:'1K'},
+        ];
+        await dialog.show();
+        const resolutions = dialog.querySelector('ic-radio-group[name="layer-resolution"]');
+        const source = dialog.querySelector('[data-layer-source-stage]').getBoundingClientRect();
+        const sourceImage = dialog.querySelector('[data-layer-source]');
+        const panel = dialog.querySelector('[data-ai-processor-panel]').getBoundingClientRect();
+        return {
+            open:dialog.open,
+            title:dialog.label,
+            size:dialog.size,
+            selectedModel:dialog.selectedModel,
+            resolution:dialog.layerResolution,
+            resolutions:[...resolutions.querySelectorAll('ic-radio')].map(option=>option.value),
+            resolutionOptionsVisible:resolutions.getBoundingClientRect().height > 0,
+            hasGenerationSettingsPicker:Boolean(dialog.querySelector('ic-generation-settings-picker[name="layer-generation-settings"]')),
+            sourceObjectFit:getComputedStyle(sourceImage).objectFit,
+            optionLabels:[...dialog.querySelectorAll('ic-select[name="ai-processor-model"] option')].map(option=>option.textContent),
+            price:dialog.querySelector('[data-layer-price]').textContent.trim(),
+            sourceIsLeft:source.x < panel.x,
+            confirmText:dialog.confirmAction.textContent,
+            confirmDisabled:dialog.confirmAction.disabled,
+        };
+    });
+    assert.deepEqual(layerDefault, {
+        open:true,
+        title:'Smart layer decomposition',
+        size:'large',
+        selectedModel:'primary',
+        resolution:'2K',
+        resolutions:['auto','1K','2K'],
+        resolutionOptionsVisible:true,
+        hasGenerationSettingsPicker:false,
+        sourceObjectFit:'contain',
+        optionLabels:['Layer Primary · Provider A','Layer Secondary · Provider B'],
+        price:'Estimated priceApprox. CNY ¥0.3–¥11 per run',
+        sourceIsLeft:true,
+        confirmText:'Decompose',
+        confirmDisabled:false,
+    });
+    if (process.env.SMART_LAYER_COMPONENT_SCREENSHOT) {
+        await page.screenshot({path:process.env.SMART_LAYER_COMPONENT_SCREENSHOT});
+    }
+    await page.setViewportSize({width:640,height:800});
+    await page.evaluate(() => document.documentElement.dataset.uiTheme='dark');
+    const layerResponsive = await page.locator('#reverse-prompt-dialog').evaluate(dialog => {
+        const source = dialog.querySelector('[data-layer-source-stage]').getBoundingClientRect();
+        const panel = dialog.querySelector('[data-ai-processor-panel]').getBoundingClientRect();
+        const surface = dialog.shadowRoot.querySelector('[part="dialog"]');
+        return {
+            stacked:source.y < panel.y && Math.abs(source.x-panel.x) < 2,
+            sourceHeight:Math.round(source.height),
+            surfaceWidth:Math.round(surface.getBoundingClientRect().width),
+            surfaceBackground:getComputedStyle(surface).backgroundColor,
+        };
+    });
+    assert.equal(layerResponsive.stacked, true, JSON.stringify(layerResponsive));
+    assert.equal(layerResponsive.sourceHeight, 256, JSON.stringify(layerResponsive));
+    assert.ok(layerResponsive.surfaceWidth <= 608, JSON.stringify(layerResponsive));
+    assert.notEqual(layerResponsive.surfaceBackground, 'rgb(255, 255, 255)', JSON.stringify(layerResponsive));
+    await page.evaluate(() => document.documentElement.dataset.uiTheme='light');
+    await page.setViewportSize({width:1440,height:900});
+    const layerChanged = await page.locator('#reverse-prompt-dialog').evaluate(async dialog => {
+        const select = dialog.querySelector('ic-select[name="ai-processor-model"]');
+        select.value = 'secondary';
+        select.dispatchEvent(new Event('change', {bubbles:true,composed:true}));
+        const prompt = dialog.querySelector('ic-textarea[name="layer-prompt"]');
+        prompt.value = 'Keep title separate';
+        prompt.dispatchEvent(new Event('input', {bubbles:true,composed:true}));
+        const resolutions = dialog.querySelector('ic-radio-group[name="layer-resolution"]');
+        const detail = dialog.detail();
+        await dialog.hide('accepted');
+        return {
+            model:detail.modelId,
+            resolution:detail.layerResolution,
+            resolutions:[...resolutions.querySelectorAll('ic-radio')].map(option=>option.value),
+            prompt:detail.prompt,
+        };
+    });
+    assert.deepEqual(layerChanged, {
+        model:'secondary', resolution:'1K', resolutions:['auto','1K'], prompt:'Keep title separate',
+    });
+    const layerEmpty = await page.locator('#reverse-prompt-dialog').evaluate(async dialog => {
+        dialog.models = [];
+        await dialog.show();
+        const state = {
+            emptyTitle:dialog.querySelector('[data-ai-processor-empty]')?.getAttribute('title'),
+            resolutionGroupCount:dialog.querySelectorAll('ic-radio-group[name="layer-resolution"]').length,
+            confirmDisabled:dialog.confirmAction.disabled,
+        };
+        await dialog.hide('accepted');
+        return state;
+    });
+    assert.deepEqual(layerEmpty, {
+        emptyTitle:'No layer models', resolutionGroupCount:0, confirmDisabled:true,
+    });
+
     await page.locator('#reverse-prompt-dialog').evaluate(async dialog => {
         dialog.processor = 'outpaint';
         dialog.sourceWidth = 720;

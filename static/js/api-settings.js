@@ -87,8 +87,6 @@ const EXAMPLE_BASE_URL = 'https://api.example.com/v1';
 const JIMENG_DEFAULT_IMAGE_MODELS = ['5.0', '5.0Pro', '4.7', '4.6', '4.5', '4.1', '4.0', '3.1', '3.0'];
 const JIMENG_DEFAULT_IMAGE_MODEL_NAMES = {'5.0':'5.0 Lite', '5.0Pro':'5.0 Pro'};
 const JIMENG_DEFAULT_VIDEO_MODELS = ['seedance2.0fast_vip', 'seedance2.0_vip'];
-const JIMENG_LEGACY_IMAGE_MODELS = new Set(['jimeng-image-2k', 'jimeng-image-4k']);
-const JIMENG_LEGACY_VIDEO_MODELS = new Set(['jimeng-video-720p', 'jimeng-video-1080p']);
 const CODEX_DEFAULT_IMAGE_MODELS = ['gpt-image-2'];
 const CODEX_DEFAULT_CHAT_MODELS = ['gpt-5.5'];
 const GEMINI_CLI_DEFAULT_IMAGE_MODELS = ['auto'];
@@ -128,22 +126,19 @@ const ONBOARDING_GUIDES = {
         primaryUrl:LINGJING_REGISTER_URL
     }
 };
-function applyJimengModelDefaults(item){
-    item.image_models = unique([...(item.image_models || []).filter(model => !JIMENG_LEGACY_IMAGE_MODELS.has(String(model || '').trim())), ...JIMENG_DEFAULT_IMAGE_MODELS]);
-    item.video_models = unique([...(item.video_models || []).filter(model => !JIMENG_LEGACY_VIDEO_MODELS.has(String(model || '').trim())), ...JIMENG_DEFAULT_VIDEO_MODELS]);
-    item.model_names = {...JIMENG_DEFAULT_IMAGE_MODEL_NAMES, ...((item.model_names && typeof item.model_names === 'object') ? item.model_names : {})};
-}
-function applyCliProtocolDefaults(item, protocol){
+function initializeCliProvider(item, protocol){
     if(!item) return;
     const value = String(protocol || item.protocol || '').toLowerCase();
     if(!CLI_PROTOCOLS.has(value)) return;
     item.base_url = '';
     item.protocol = value;
     if(value === 'jimeng'){
-        applyJimengModelDefaults(item);
+        item.image_models = unique([...(item.image_models || []), ...JIMENG_DEFAULT_IMAGE_MODELS]);
         item.chat_models = unique(item.chat_models || []);
+        item.video_models = unique([...(item.video_models || []), ...JIMENG_DEFAULT_VIDEO_MODELS]);
+        item.model_names = {...JIMENG_DEFAULT_IMAGE_MODEL_NAMES, ...((item.model_names && typeof item.model_names === 'object') ? item.model_names : {})};
     } else if(value === 'codex'){
-        item.image_models = unique([...(item.image_models || []).filter(model => String(model || '').trim().toLowerCase() !== '$imagegen'), ...CODEX_DEFAULT_IMAGE_MODELS]);
+        item.image_models = unique([...(item.image_models || []), ...CODEX_DEFAULT_IMAGE_MODELS]);
         item.chat_models = unique([...(item.chat_models || []), ...CODEX_DEFAULT_CHAT_MODELS]);
         item.video_models = [];
     } else if(value === 'gemini-cli'){
@@ -716,14 +711,8 @@ function applyProviderOnboardingDefaults(id){
         item.base_url = item.base_url || LINGJING_DEFAULT_BASE_URL;
         item.protocol = item.protocol || 'openai';
         item.image_request_mode = normalizeImageRequestMode(item.image_request_mode);
-    } else if(id === 'jimeng'){
-        item.base_url = '';
-        item.protocol = 'jimeng';
-        applyJimengModelDefaults(item);
-    } else if(id === 'codex'){
-        applyCliProtocolDefaults(item, 'codex');
-    } else if(id === 'gemini-cli'){
-        applyCliProtocolDefaults(item, 'gemini-cli');
+    } else if(CLI_PROTOCOLS.has(id)){
+        initializeCliProvider(item, id);
     }
     selectedId = item.id;
     renderEditor();
@@ -804,7 +793,7 @@ function updateProtocolFromInput(){
     const value = String(protocolInput.value || 'openai').toLowerCase();
     item.protocol = API_PROTOCOLS.includes(value) ? value : 'openai';
     if(CLI_PROTOCOLS.has(item.protocol)) item.base_url = '';
-    applyCliProtocolDefaults(item, item.protocol);
+    initializeCliProvider(item, item.protocol);
     document.body.classList.toggle('show-jimeng', item.protocol === 'jimeng');
     document.body.classList.toggle('show-codex', item.protocol === 'codex');
     document.body.classList.toggle('show-gemini-cli', item.protocol === 'gemini-cli');
@@ -2323,9 +2312,14 @@ function renderEditor(){
     const isRunningHub = item.id === 'runninghub';
     const isVolcengine = item.id === 'volcengine' || String(protocolInput?.value || item.protocol || '').toLowerCase() === 'volcengine';
     const isStandaloneVolcengine = item.id === 'volcengine';
-    const isJimeng = String(protocolInput?.value || item.protocol || '').toLowerCase() === 'jimeng';
-    const isCodex = String(protocolInput?.value || item.protocol || '').toLowerCase() === 'codex';
-    const isGeminiCli = String(protocolInput?.value || item.protocol || '').toLowerCase() === 'gemini-cli';
+    const editorProtocol = String(protocolInput?.value || item.protocol || '').toLowerCase();
+    const isJimeng = editorProtocol === 'jimeng';
+    const isCodex = editorProtocol === 'codex';
+    const isGeminiCli = editorProtocol === 'gemini-cli';
+    if(CLI_PROTOCOLS.has(editorProtocol)){
+        item.base_url = '';
+        item.protocol = editorProtocol;
+    }
     if(isRunningHub){
         ensureRunningHubLists(item);
         if(rhFreeKeyInput){
@@ -2361,19 +2355,14 @@ function renderEditor(){
         if(volcRegionInput) volcRegionInput.value = item.volcengine_region || VOLCENGINE_DEFAULT_REGION;
     }
     if(isJimeng){
-        item.base_url = '';
-        item.protocol = 'jimeng';
-        applyJimengModelDefaults(item);
         keyInput.placeholder = tr('api.jimengCliNoKey');
         if(keyFormField) keyFormField.setAttribute('hint', tr('api.jimengCliInstallHint'));
     }
     if(isCodex){
-        applyCliProtocolDefaults(item, 'codex');
         keyInput.placeholder = tr('api.codexCliNoKey');
         if(keyFormField) keyFormField.setAttribute('hint', tr('api.codexCliInstallHint'));
     }
     if(isGeminiCli){
-        applyCliProtocolDefaults(item, 'gemini-cli');
         keyInput.placeholder = tr('api.antigravityCliNoKey');
         if(keyFormField) keyFormField.setAttribute('hint', tr('api.antigravityCliInstallHint'));
     }
@@ -2748,7 +2737,7 @@ function applyDetectedProtocol(protocol){
         item.chat_models = unique(item.chat_models || []);
         item.video_models = unique(item.video_models || []);
     }
-    applyCliProtocolDefaults(item, detected);
+    initializeCliProvider(item, detected);
     dispatchSelectionChange(protocolInput);
     return true;
 }
@@ -2941,6 +2930,20 @@ function providerModelBadge(model, label){
     return 'RH';
 }
 
+function modelCapabilityReviewNote(review){
+    if(!review || !Number(review.source_count || 0)) return '';
+    const values = {
+        records: Number(review.record_count || 0),
+        drafts: Number(review.drafts_created || 0)
+    };
+    if(review.ok === false){
+        return values.records
+            ? trf('api.modelCapabilityReviewPartial', values)
+            : tr('api.modelCapabilityReviewFailed');
+    }
+    return trf('api.modelCapabilityReviewCollected', values);
+}
+
 async function fetchModels(){
     const item = provider();
     if(!item) return;
@@ -2982,7 +2985,8 @@ async function fetchModels(){
             ? ` · RunningHub OpenAPI${runninghubModelSourceNote(data)}`
             : (detectedProtocol === 'volcengine' || isVolcengineProvider(item)) ? tr('api.arkDetectedHint') : '';
         const imageModeExtra = normalizeImageRequestMode(imageRequestModeInput?.value || item.image_request_mode) === 'openai-json' ? tr('api.openaiJsonSet') : '';
-        setStatus(trf('api.modelsFetched', {count: data.total, extra: `${extra}${imageModeExtra}`}), 'success');
+        const capabilityExtra = modelCapabilityReviewNote(data.capability_review);
+        setStatus(trf('api.modelsFetched', {count: data.total, extra: `${extra}${imageModeExtra}${capabilityExtra}`}), 'success');
         openModelPicker();
     } catch(e){
         showError(`${tr('api.fetchFailed')}: ${e.message || e}`);
@@ -3374,12 +3378,7 @@ async function addCliProvider(kind){
     item.name = item.name || preset.name;
     item.base_url = '';
     item.protocol = preset.protocol;
-    if(preset.protocol === 'jimeng'){
-        applyJimengModelDefaults(item);
-        item.chat_models = unique(item.chat_models || []);
-    } else {
-        applyCliProtocolDefaults(item, preset.protocol);
-    }
+    initializeCliProvider(item, preset.protocol);
     selectedId = item.id;
     renderProviderList();
     renderEditor();
@@ -3728,7 +3727,6 @@ async function saveProviders({silent=false, expectedRevision=null}={}){
                 ? 'general'
                 : item.image_edit_route
         );
-        if(isCliProtocol) applyCliProtocolDefaults(item, item.protocol);
         if(item.id === 'runninghub'){
             item.base_url = item.base_url || RH_DEFAULT_BASE_URL;
             item.image_models = unique(item.image_models || []);

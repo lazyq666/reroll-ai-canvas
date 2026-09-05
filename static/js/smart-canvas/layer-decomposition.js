@@ -1,7 +1,7 @@
 /* Smart Canvas image layer decomposition controller. */
 (function(){
-    const PROVIDER = 'apimart';
-    const MODEL = 'seedream-5-0-pro';
+    const DEFAULT_PROVIDER = 'apimart';
+    const DEFAULT_MODEL = 'seedream-5-0-pro';
     const OPERATION = 'image.layer_decomposition';
     const ACTIVE = new Set(['submitting','queued','running','recoverable']);
 
@@ -9,10 +9,6 @@
         const polls = new Map();
         const getNodes = options.nodes || (() => []);
         const text = options.text || (key => key);
-        const format = options.format || ((key, values={}) => Object.entries(values).reduce(
-            (value, [name, replacement]) => value.replaceAll(`{${name}}`, String(replacement)),
-            text(key)
-        ));
         const notify = options.toast || (() => {});
         const save = options.save || (() => {});
         const checkpoint = options.checkpoint || (async () => {});
@@ -20,8 +16,6 @@
         const now = options.now || (() => Date.now());
         const sleep = options.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms)));
         const responseError = options.responseError || (async response => response.text());
-        let dialogContext = null;
-        let dialogBound = false;
 
         function jobActive(job){
             return Boolean(job && ACTIVE.has(String(job.status || '')));
@@ -43,7 +37,7 @@
             redraw();
             save(node);
         }
-        function fail(node, message, recoverable=false, technicalMessage=''){
+        function fail(node, message, recoverable=false, technicalMessage='', task=null){
             const fallback = text('smart.layerDecompositionFailed');
             const detail = String(message || fallback).slice(0, 500);
             setJob(node, {
@@ -53,18 +47,57 @@
                 technicalError:String(technicalMessage || '').slice(0, 500),
                 recoverable:Boolean(recoverable)
             });
-            notify(detail.slice(0, 160));
+            const feedback = options.reportFailure?.({
+                node,
+                task,
+                taskId:node?.layerDecompositionJob?.taskId || '',
+                message:detail,
+                technicalError:technicalMessage,
+                recoverable
+            });
+            if(feedback){
+                node.generationRunFeedback = feedback;
+                redraw();
+                save(node);
+            } else {
+                notify(detail.slice(0, 160));
+            }
         }
-        function priceText(resolutionTier){
-            const maximum = ['1K','1.5K'].includes(String(resolutionTier))
-                ? '0.765'
-                : '1.53';
-            return format('smart.layerDecompositionPriceEstimate', {amount:maximum});
-        }
-        function updateDialogPrice(dialog){
-            const tier = dialog?.querySelector('[data-layer-resolution]')?.value || '2K';
-            const price = dialog?.querySelector('[data-layer-price]');
-            if(price) price.textContent = priceText(tier);
+        async function supportedModels(entries=[]){
+            const candidates = (Array.isArray(entries) ? entries : []).filter(
+                entry => entry?.id && entry?.provider_id && entry?.model
+            );
+            const resolved = await Promise.all(candidates.map(async entry => {
+                try {
+                    const capability = await options.capability.load(
+                        entry.provider_id,
+                        entry.model,
+                        OPERATION,
+                        {protocol:entry.protocol || '',base_url:entry.base_url || ''}
+                    );
+                    if(capability?.support_state !== 'supported') return null;
+                    const resolution = capability.parameters?.resolution_tier || {};
+                    const resolutionTiers = (Array.isArray(resolution.values)
+                        ? resolution.values
+                        : []
+                    ).map(value => String(value)).filter(Boolean);
+                    if(!resolutionTiers.length) return null;
+                    const preferred = String(resolution.default || '');
+                    const defaultResolution = resolutionTiers.includes(preferred)
+                        ? preferred
+                        : resolutionTiers.find(value => value.toLowerCase() === '2k')
+                            || resolutionTiers[0];
+                    return {
+                        ...entry,
+                        layerCapability:capability,
+                        resolutionTiers,
+                        defaultResolution
+                    };
+                } catch(_error){
+                    return null;
+                }
+            }));
+            return resolved.filter(Boolean);
         }
         async function status(taskId){
             const response = await fetch(
@@ -108,7 +141,8 @@
                                 current,
                                 text('smart.layerDecompositionFailed'),
                                 Boolean(data.recoverable),
-                                data.error || data.message || ''
+                                data.error || data.message || '',
+                                data
                             );
                             return;
                         }
@@ -135,13 +169,26 @@
             polls.set(taskId, promise);
             return promise;
         }
-        async function run({node,imageIndex=0,resolutionTier='2K',prompt=''}={}){
+        async function run({
+            node,
+            imageIndex=0,
+            providerId=DEFAULT_PROVIDER,
+            modelId=DEFAULT_MODEL,
+            capabilityContext={},
+            resolutionTier='2K',
+            prompt=''
+        }={}){
             const source = node?.images?.[Number(imageIndex) || 0];
             if(!node || !source?.url){
                 notify(text('smart.selectImageNode'));
                 return null;
             }
-            const capability = await options.capability.load(PROVIDER, MODEL, OPERATION);
+            const capability = await options.capability.load(
+                providerId,
+                modelId,
+                OPERATION,
+                capabilityContext
+            );
             if(capability.support_state !== 'supported'){
                 notify(text('smart.layerDecompositionUnavailable'));
                 return null;
@@ -162,15 +209,24 @@
                 || `layer-decomposition-${now()}-${Math.random().toString(36).slice(2, 9)}`;
             pending.layerDecompositionSourceNodeId = node.id;
             pending.layerDecompositionSourceImageIndex = Number(imageIndex) || 0;
-            setJob(pending, {status:'submitting',taskId:'',submittedAt:now()});
+            setJob(pending, {
+                sourceReference:{url:source.url, role:'source', kind:'image', nodeId:node.id, imageIndex:Number(imageIndex) || 0},
+                status:'submitting',
+                taskId:'',
+                submittedAt:now(),
+                providerId,
+                modelId,
+                resolutionTier,
+                prompt:String(prompt || '').trim()
+            });
             try {
                 await checkpoint();
                 const response = await fetch('/api/canvas-layer-decomposition-tasks', {
                     method:'POST',
                     headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({
-                        provider_id:PROVIDER,
-                        model:MODEL,
+                        provider_id:providerId,
+                        model:modelId,
                         resolution_tier:resolutionTier,
                         prompt:String(prompt || '').trim(),
                         image:{
@@ -214,43 +270,6 @@
                 return pending;
             }
         }
-        function bindDialog(dialog){
-            if(dialogBound || !dialog) return;
-            dialogBound = true;
-            dialog.querySelector('[data-layer-cancel]')?.addEventListener('click', () => dialog.hide?.('cancelled'));
-            dialog.querySelector('[data-layer-resolution]')?.addEventListener(
-                'change',
-                () => updateDialogPrice(dialog)
-            );
-            dialog.querySelector('[data-layer-submit]')?.addEventListener('click', async () => {
-                if(!dialogContext) return;
-                const resolutionTier = dialog.querySelector('[data-layer-resolution]')?.value || '2K';
-                const prompt = dialog.querySelector('[data-layer-prompt]')?.value || '';
-                const context = dialogContext;
-                dialogContext = null;
-                await dialog.hide?.('accepted');
-                run({...context,resolutionTier,prompt});
-            });
-        }
-        async function open({node,imageIndex=0}={}){
-            const dialog = document.getElementById('layerDecompositionDialog');
-            if(!dialog) return null;
-            bindDialog(dialog);
-            dialogContext = {node,imageIndex};
-            const submit = dialog.querySelector('[data-layer-submit]');
-            const statusLine = dialog.querySelector('[data-layer-capability-status]');
-            if(submit) submit.disabled = true;
-            if(statusLine) statusLine.textContent = text('smart.layerDecompositionChecking');
-            const capability = await options.capability.load(PROVIDER, MODEL, OPERATION);
-            const supported = capability.support_state === 'supported';
-            if(submit) submit.disabled = !supported;
-            if(statusLine) statusLine.textContent = text(supported
-                ? 'smart.layerDecompositionReady'
-                : 'smart.layerDecompositionUnavailable');
-            updateDialogPrice(dialog);
-            await dialog.show?.();
-            return capability;
-        }
         function resume(){
             let count = 0;
             getNodes().forEach(node => {
@@ -262,12 +281,9 @@
             return count;
         }
         return Object.freeze({
-            open, run, resume, isActive:job => jobActive(job),
+            run, supportedModels, resume,
             pendingHtml({node,layout={},elapsed=''}={}){
                 const job = node?.layerDecompositionJob || {};
-                if(job.status === 'failed' || job.status === 'recoverable'){
-                    return `<div class="layer-decomposition-feedback" style="width:${Number(layout.width)||260}px;height:${Number(layout.height)||180}px"><ic-alert tone="danger" heading="${text('smart.layerDecompositionFailed')}">${job.error || text('smart.layerDecompositionRecoverable')}</ic-alert></div>`;
-                }
                 return `<ic-generation-pending data-generation-pending-node kind="image" state="${job.status === 'running' ? 'generating' : 'queued'}" count="1" label="${text('smart.layerDecompositionRunning')}"${elapsed ? ` elapsed="${elapsed}"` : ''}></ic-generation-pending>`;
             },
             waitForIdle:() => Promise.all([...polls.values()])

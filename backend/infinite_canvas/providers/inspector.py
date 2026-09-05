@@ -115,6 +115,7 @@ def build_inspector_runtime(
     async def jimeng_test(_payload):
         status = await functions.jimeng_status()
         models = await functions.jimeng_models()
+        models.pop("_capability_discovery", None)
         models.update({
             "ok": bool(status.get("installed") and status.get("logged_in")),
             "status": 200 if status.get("logged_in") else 0,

@@ -1,10 +1,11 @@
-import { closeTopLayer, isTopLayerOpen, openTopLayer } from './overlay-layer.js?v=ic-ui-ef410096e2b4';
+import { orderAspectRatios, orderResolutions } from './generation-option-order.js?v=ic-ui-a7dd55e61123';
+import { closeTopLayer, isTopLayerOpen, openTopLayer } from './overlay-layer.js?v=ic-ui-a7dd55e61123';
 import {
   ANCHORED_OVERLAY_MOTION_STYLES,
   nextOverlayPaint,
   setOverlayInteraction,
   waitForOverlayMotion,
-} from './overlay-motion.js?v=ic-ui-ef410096e2b4';
+} from './overlay-motion.js?v=ic-ui-a7dd55e61123';
 
 const QUALITY_VALUES = Object.freeze(['auto', 'low', 'medium', 'high']);
 const EXCLUSIVE_OVERLAY_REQUEST_EVENT = 'ic-exclusive-overlay-request';
@@ -53,7 +54,7 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       'keep-ratio-label', 'adaptive-label', 'resolution-auto-label',
       'quality-auto-label', 'quality-low-label', 'quality-medium-label', 'quality-high-label',
       'duration', 'duration-min', 'duration-max', 'duration-step', 'duration-label',
-      'hide-resolution', 'hide-quality', 'lock-ratio', 'ratio-variant', 'warning', 'disabled',
+      'hide-ratio', 'hide-resolution', 'hide-quality', 'lock-ratio', 'ratio-variant', 'warning', 'disabled',
     ];
   }
 
@@ -164,11 +165,11 @@ export class IcGenerationSettingsPicker extends HTMLElement {
   }
 
   validateContract() {
-    const ratios = csvValues(this.getAttribute('ratio-presets'));
-    const resolutions = csvValues(this.getAttribute('resolutions'));
+    const ratios = orderAspectRatios(csvValues(this.getAttribute('ratio-presets')));
+    const resolutions = orderResolutions(csvValues(this.getAttribute('resolutions')));
     if (!this.getAttribute('label')?.trim()) return 'label is required';
-    if (!ratios.length) return 'ratio-presets requires at least one value';
-    if (this.ratio && !ratios.includes(this.ratio)) return 'ratio must match one ratio-presets value';
+    if (!this.hasAttribute('hide-ratio') && !ratios.length) return 'ratio-presets requires at least one value';
+    if (!this.hasAttribute('hide-ratio') && this.ratio && !ratios.includes(this.ratio)) return 'ratio must match one ratio-presets value';
     if (!this.hasAttribute('hide-resolution') && this.resolution && resolutions.length && !resolutions.includes(this.resolution)) {
       return 'resolution must match one resolutions value';
     }
@@ -282,13 +283,14 @@ export class IcGenerationSettingsPicker extends HTMLElement {
   }
 
   render() {
-    const ratios = csvValues(this.getAttribute('ratio-presets'));
-    const resolutions = csvValues(this.getAttribute('resolutions'));
+    const ratios = orderAspectRatios(csvValues(this.getAttribute('ratio-presets')));
+    const resolutions = orderResolutions(csvValues(this.getAttribute('resolutions')));
     const qualityLabels = this.qualityLabels();
     const ratioLabel = this.getAttribute('ratio-label') || (isEnglish(this) ? 'Aspect ratio' : '比例');
     const resolutionLabel = this.getAttribute('resolution-label') || (isEnglish(this) ? 'Resolution' : '分辨率');
     const qualityLabel = this.getAttribute('quality-label') || (isEnglish(this) ? 'Quality' : '质量');
     const sourceLabel = this.getAttribute('source-label') || (isEnglish(this) ? 'Original' : '原图');
+    const hideRatio = this.hasAttribute('hide-ratio');
     const hideResolution = this.hasAttribute('hide-resolution') || !resolutions.length;
     const hideQuality = this.hasAttribute('hide-quality');
     const showDuration = this.hasAttribute('duration');
@@ -299,7 +301,7 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     const singleRatio = ratios.length === 1;
     const ratioDisabled = disabled || (ratioLocked && !singleRatio);
     const ratioDisplay = this.ratioText() || ratioLabel;
-    const entryParts = [ratioDisplay];
+    const entryParts = hideRatio ? [] : [ratioDisplay];
     if (!hideResolution && this.resolution) entryParts.push(this.resolutionText());
     if (!hideQuality) entryParts.push(qualityLabels[this.quality] || this.quality);
     if (showDuration) entryParts.push(`${duration.value}s`);
@@ -352,10 +354,10 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       </button>
       <section part="panel" aria-label="${htmlEscape(this.getAttribute('label') || '')}" popover="manual">
         ${this.getAttribute('warning') ? `<p class="warning">${htmlEscape(this.getAttribute('warning'))}</p>` : ''}
-        <div class="setting-section">
+        ${hideRatio ? '' : `<div class="setting-section">
           <span class="setting-label">${htmlEscape(ratioLabel)}</span>
           <ic-aspect-ratio-picker name="generation-ratio" label="${htmlEscape(ratioLabel)}" value="${htmlEscape(this.ratio)}" presets="${htmlEscape(ratios.join(','))}" source-label="${htmlEscape(sourceLabel)}" keep-ratio-label="${htmlEscape(this.getAttribute('keep-ratio-label') || '')}" adaptive-label="${htmlEscape(this.getAttribute('adaptive-label') || '')}" hide-label data-component-variant="${htmlEscape(this.getAttribute('ratio-variant') || 'generation-settings')}" ${this.ratio ? '' : 'required'} ${singleRatio ? 'data-selection-forced' : ''} ${ratioDisabled ? 'disabled' : ''}></ic-aspect-ratio-picker>
-        </div>
+        </div>`}
         ${hideResolution ? '' : `<div class="setting-section">
           <span class="setting-label">${htmlEscape(resolutionLabel)}</span>
           <div class="segments" style="--segment-count:${resolutions.length}" role="radiogroup" aria-label="${htmlEscape(resolutionLabel)}">

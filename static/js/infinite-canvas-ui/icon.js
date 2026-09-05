@@ -68,6 +68,7 @@ export const IC_ICON_NAMES = Object.freeze({
   'layout-horizontal': 'Columns3',
   'layout-tree': 'Network',
   'layout-vertical': 'Rows3',
+  layers: 'Layers',
   light: 'Sun',
   'lighting-reference': 'Sun',
   loop: 'Repeat2',

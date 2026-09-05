@@ -37,6 +37,8 @@ EDITABLE_CAPABILITY_FIELDS = (
     "media_contract",
 )
 RESOLUTION_PARAMETERS = ("resolution_tier", "resolution")
+VIDEO_MODE_FIRST_LAST_FRAMES = "first_last_frames"
+VIDEO_MODE_ALL_AROUND = "multimodal_all_around"
 IMPORT_SCHEMA_VERSION = 1
 IMPORT_SOURCE_TYPES = frozenset(
     {"official_docs", "structured_api", "cli_help", "workflow_schema"}
@@ -54,6 +56,20 @@ IMPORT_OPERATION_FIELDS = frozenset(
         "options",
         "sources",
     }
+)
+IMPORT_VIDEO_FIELDS = frozenset(
+    {
+        "input_total_maximum",
+        "reference_media_duration_seconds",
+        "audio_only_supported",
+        "modes",
+        "output_duration_seconds",
+    }
+)
+IMPORT_VIDEO_DURATION_FIELDS = frozenset({"each", "combined_total"})
+IMPORT_BOUNDS_FIELDS = frozenset({"minimum", "maximum"})
+IMPORT_VIDEO_MODE_FIELDS = frozenset(
+    {VIDEO_MODE_FIRST_LAST_FRAMES, VIDEO_MODE_ALL_AROUND}
 )
 IMPORT_SOURCE_FIELDS = frozenset({"type", "url", "title", "excerpt"})
 IMPORT_OPTIONS_BY_OPERATION = {
@@ -110,6 +126,48 @@ def _enum_values(contract: object) -> list[str]:
         return []
     values = contract.get("values")
     return _unique(values) if isinstance(values, (list, tuple)) else []
+
+
+def _number(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def _bounds(contract: object) -> dict[str, int | None]:
+    values = contract if isinstance(contract, Mapping) else {}
+    return {
+        "minimum": _number(values.get("minimum")),
+        "maximum": _number(values.get("maximum")),
+    }
+
+
+def _common_bounds(contracts: Sequence[object]) -> dict[str, int]:
+    bounds = [_bounds(contract) for contract in contracts]
+    if not bounds or any(
+        item["minimum"] is None or item["maximum"] is None for item in bounds
+    ):
+        return {"minimum": 0, "maximum": 0}
+    minimum = max(int(item["minimum"] or 0) for item in bounds)
+    maximum = min(int(item["maximum"] or 0) for item in bounds)
+    return {
+        "minimum": min(minimum, maximum),
+        "maximum": max(0, maximum),
+    }
+
+
+def _normalized_bounds(
+    contract: object,
+    *,
+    minimum_allowed: int,
+    maximum_allowed: int,
+) -> dict[str, int]:
+    values = contract if isinstance(contract, Mapping) else {}
+    minimum = _number(values.get("minimum"))
+    maximum = _number(values.get("maximum"))
+    minimum = max(minimum_allowed, min(maximum_allowed, minimum or minimum_allowed))
+    maximum = max(minimum_allowed, min(maximum_allowed, maximum or minimum))
+    return {"minimum": min(minimum, maximum), "maximum": maximum}
 
 
 def _merge(left: Mapping[str, Any], right: Mapping[str, Any]) -> dict[str, Any]:
@@ -188,6 +246,11 @@ class ModelCapabilityMatrix:
             for item in workbench.get("drafts", [])
             if isinstance(item, Mapping)
         ]
+        published_model_ids = {
+            _clean(item.get("model_id"))
+            for item in workbench.get("published", {}).get("capabilities", [])
+            if isinstance(item, Mapping) and _clean(item.get("model_id"))
+        }
         draft_capabilities: dict[tuple[str, str, str], Mapping[str, Any]] = {}
         for draft in sorted(drafts, key=lambda item: _clean(item.get("updated_at"))):
             capability = draft.get("capability")
@@ -204,21 +267,30 @@ class ModelCapabilityMatrix:
         for row in rows.values():
             row["name"] = row["names"][0] if row["names"] else row["model_id"]
             operation_records: dict[str, list[Mapping[str, Any]]] = {}
+            catalog_operation_records: dict[str, list[Mapping[str, Any]]] = {}
             for variant in row["variants"]:
                 for operation in OPERATIONS_BY_TYPE.get(variant["type"], ()):
                     capability = self.catalog.resolve(
                         variant["provider_id"], row["model_id"], operation
                     )
-                    draft = draft_capabilities.get(
-                        (variant["provider_id"], row["model_id"], operation)
+                    catalog_operation_records.setdefault(operation, []).append(
+                        capability
                     )
-                    if isinstance(draft, Mapping):
-                        capability = _merge(capability, draft)
+                    identity = (variant["provider_id"], row["model_id"], operation)
+                    if row["model_id"] not in published_model_ids:
+                        draft = draft_capabilities.get(identity)
+                        if isinstance(draft, Mapping):
+                            capability = _merge(capability, draft)
                     operation_records.setdefault(operation, []).append(capability)
             row["operations"] = [
                 self._operation_projection(operation, capabilities)
                 for operation, capabilities in operation_records.items()
             ]
+            catalog_operations = [
+                self._operation_projection(operation, capabilities)
+                for operation, capabilities in catalog_operation_records.items()
+            ]
+            row["capability_tags"] = self._capability_tags(catalog_operations)
             row_evidence = [
                 item for item in evidence if _clean(item.get("model_id")) == row["model_id"]
             ]
@@ -251,8 +323,158 @@ class ModelCapabilityMatrix:
         }
 
     @staticmethod
+    def _capability_tags(operations: Sequence[Mapping[str, Any]]) -> list[str]:
+        confirmed = [operation for operation in operations if operation.get("confirmed")]
+        has_layer_decomposition = any(
+            _clean(operation.get("operation")) == "image.layer_decomposition"
+            for operation in confirmed
+        )
+        has_transparent_png = any(
+            _clean(operation.get("operation"))
+            in {"image.generate", "image.edit"}
+            and isinstance(operation.get("options"), Mapping)
+            and operation["options"].get("transparent_png") is True
+            for operation in confirmed
+        )
+        return [
+            tag
+            for tag, enabled in (
+                ("layer_decomposition", has_layer_decomposition),
+                ("transparent_png", has_transparent_png),
+            )
+            if enabled
+        ]
+
+    @staticmethod
+    def _video_capability_projection(capability: Mapping[str, Any]) -> dict[str, Any]:
+        media_contract = capability.get("media_contract")
+        media_contract = (
+            media_contract if isinstance(media_contract, Mapping) else {}
+        )
+        commands_value = media_contract.get("commands")
+        has_commands_contract = isinstance(commands_value, Mapping)
+        commands = commands_value if has_commands_contract else {}
+        cli_commands = {
+            _clean(value)
+            for value in media_contract.get("cli_commands", [])
+            if _clean(value)
+        }
+        multimodal = commands.get("multimodal2video")
+        multimodal = multimodal if isinstance(multimodal, Mapping) else {}
+        multimodal_inputs = multimodal.get("inputs")
+        multimodal_inputs = (
+            multimodal_inputs if isinstance(multimodal_inputs, Mapping) else {}
+        )
+        input_rules = capability.get("input_rules")
+        input_rules = input_rules if isinstance(input_rules, Mapping) else {}
+        reference_duration = multimodal_inputs.get(
+            "reference_media_duration_seconds"
+        )
+        reference_duration = (
+            reference_duration if isinstance(reference_duration, Mapping) else {}
+        )
+        totals = input_rules.get("totals")
+        totals = totals if isinstance(totals, list) else []
+        total_rule = next(
+            (
+                item
+                for item in totals
+                if isinstance(item, Mapping)
+                and _clean(item.get("id")) == "reference_media"
+            ),
+            {},
+        )
+        role_groups = input_rules.get("role_groups")
+        role_groups = role_groups if isinstance(role_groups, list) else []
+        requirements = input_rules.get("requirements")
+        requirements = requirements if isinstance(requirements, list) else []
+        total_maximum = _number(total_rule.get("maximum"))
+        if total_maximum is None:
+            total_count = multimodal_inputs.get("total_count")
+            total_maximum = _number(
+                total_count.get("maximum")
+                if isinstance(total_count, Mapping)
+                else None
+            )
+        audio_only = multimodal_inputs.get("audio_only_supported")
+        if not isinstance(audio_only, bool):
+            audio_only = not any(
+                isinstance(item, Mapping)
+                and _clean(item.get("id")) == "visual_reference"
+                for item in requirements
+            ) and (
+                bool(multimodal_inputs)
+                or (not has_commands_contract and "multimodal2video" in cli_commands)
+            )
+        supports_first_last = bool(commands.get("frames2video")) or (
+            not has_commands_contract and "frames2video" in cli_commands
+        ) or any(
+            isinstance(item, Mapping)
+            and _clean(item.get("id")) == VIDEO_MODE_FIRST_LAST_FRAMES
+            for item in role_groups
+        )
+        supports_all_around = bool(multimodal) or (
+            not has_commands_contract and "multimodal2video" in cli_commands
+        )
+        output = capability.get("output")
+        output = output if isinstance(output, Mapping) else {}
+        return {
+            "input_total_maximum": max(0, total_maximum or 0),
+            "reference_media_duration_seconds": {
+                "each": _bounds(reference_duration.get("each")),
+                "combined_total": _bounds(
+                    reference_duration.get("combined_total")
+                ),
+            },
+            "audio_only_supported": bool(audio_only),
+            "modes": {
+                VIDEO_MODE_FIRST_LAST_FRAMES: bool(supports_first_last),
+                VIDEO_MODE_ALL_AROUND: bool(supports_all_around),
+            },
+            "output_duration_seconds": _bounds(output.get("duration_seconds")),
+        }
+
+    @classmethod
+    def _video_projection(
+        cls, capabilities: Sequence[Mapping[str, Any]]
+    ) -> dict[str, Any]:
+        profiles = [cls._video_capability_projection(item) for item in capabilities]
+        return {
+            "input_total_maximum": min(
+                (item["input_total_maximum"] for item in profiles), default=0
+            ),
+            "reference_media_duration_seconds": {
+                "each": _common_bounds(
+                    [
+                        item["reference_media_duration_seconds"]["each"]
+                        for item in profiles
+                    ]
+                ),
+                "combined_total": _common_bounds(
+                    [
+                        item["reference_media_duration_seconds"]["combined_total"]
+                        for item in profiles
+                    ]
+                ),
+            },
+            "audio_only_supported": bool(profiles)
+            and all(item["audio_only_supported"] for item in profiles),
+            "modes": {
+                mode: bool(profiles)
+                and all(item["modes"][mode] for item in profiles)
+                for mode in (
+                    VIDEO_MODE_FIRST_LAST_FRAMES,
+                    VIDEO_MODE_ALL_AROUND,
+                )
+            },
+            "output_duration_seconds": _common_bounds(
+                [item["output_duration_seconds"] for item in profiles]
+            ),
+        }
+
+    @classmethod
     def _operation_projection(
-        operation: str, capabilities: Sequence[Mapping[str, Any]]
+        cls, operation: str, capabilities: Sequence[Mapping[str, Any]]
     ) -> dict[str, Any]:
         inputs = {
             input_type: min(
@@ -306,7 +528,7 @@ class ModelCapabilityMatrix:
             key: all(options.get(key, False) for options in option_support)
             for key in option_keys
         }
-        return {
+        result = {
             "operation": operation,
             "confirmed": all(
                 _clean(item.get("support_state")) == "supported"
@@ -318,6 +540,9 @@ class ModelCapabilityMatrix:
             "output_count_maximum": min(output_maximums, default=1),
             "options": boolean_options,
         }
+        if operation == "video.generate":
+            result["video"] = cls._video_projection(capabilities)
+        return result
 
     def apply(
         self,
@@ -445,9 +670,18 @@ class ModelCapabilityMatrix:
             }
             seen_operations: set[str] = set()
             for imported_operation in imported_operations:
+                imported_operation_fields = (
+                    set(imported_operation)
+                    if isinstance(imported_operation, Mapping)
+                    else set()
+                )
                 if (
                     not isinstance(imported_operation, Mapping)
-                    or set(imported_operation) != set(IMPORT_OPERATION_FIELDS)
+                    or imported_operation_fields
+                    not in (
+                        set(IMPORT_OPERATION_FIELDS),
+                        set(IMPORT_OPERATION_FIELDS | {"video"}),
+                    )
                 ):
                     raise ModelCapabilityImportInvalid(
                         "operation_format", model_id=model_id
@@ -518,6 +752,11 @@ class ModelCapabilityMatrix:
                         model_id=model_id,
                         operation=operation,
                     )
+                self._validate_import_video(
+                    imported_operation.get("video"),
+                    model_id=model_id,
+                    operation=operation,
+                )
                 evidence = self._import_evidence(
                     imported_operation.get("sources"),
                     model_id=model_id,
@@ -588,6 +827,59 @@ class ModelCapabilityMatrix:
         }
 
     @staticmethod
+    def _validate_import_video(
+        profile: object, *, model_id: str, operation: str
+    ) -> None:
+        if profile is None:
+            return
+        invalid = ModelCapabilityImportInvalid(
+            "operation_format", model_id=model_id, operation=operation
+        )
+        if (
+            operation != "video.generate"
+            or not isinstance(profile, Mapping)
+            or set(profile) != set(IMPORT_VIDEO_FIELDS)
+        ):
+            raise invalid
+        total_maximum = profile.get("input_total_maximum")
+        if (
+            isinstance(total_maximum, bool)
+            or not isinstance(total_maximum, int)
+            or not 0 <= total_maximum <= 100
+            or not isinstance(profile.get("audio_only_supported"), bool)
+        ):
+            raise invalid
+        reference_duration = profile.get("reference_media_duration_seconds")
+        modes = profile.get("modes")
+        if (
+            not isinstance(reference_duration, Mapping)
+            or set(reference_duration) != set(IMPORT_VIDEO_DURATION_FIELDS)
+            or not isinstance(modes, Mapping)
+            or set(modes) != set(IMPORT_VIDEO_MODE_FIELDS)
+            or any(not isinstance(value, bool) for value in modes.values())
+        ):
+            raise invalid
+        bounds = [
+            reference_duration.get("each"),
+            reference_duration.get("combined_total"),
+            profile.get("output_duration_seconds"),
+        ]
+        for index, value in enumerate(bounds):
+            minimum_allowed, maximum_allowed = ((0, 3600) if index < 2 else (1, 600))
+            if not isinstance(value, Mapping) or set(value) != set(IMPORT_BOUNDS_FIELDS):
+                raise invalid
+            minimum = value.get("minimum")
+            maximum = value.get("maximum")
+            if (
+                isinstance(minimum, bool)
+                or isinstance(maximum, bool)
+                or not isinstance(minimum, int)
+                or not isinstance(maximum, int)
+                or not minimum_allowed <= minimum <= maximum <= maximum_allowed
+            ):
+                raise invalid
+
+    @staticmethod
     def _import_evidence(
         sources: object,
         *,
@@ -632,6 +924,201 @@ class ModelCapabilityMatrix:
                 }
             )
         return result
+
+    @staticmethod
+    def _apply_video_choice(
+        candidate: dict[str, Any], choice: Mapping[str, Any]
+    ) -> None:
+        profile = choice.get("video")
+        if not isinstance(profile, Mapping):
+            return
+        total_maximum = _number(profile.get("input_total_maximum"))
+        total_maximum = max(0, min(100, total_maximum or 0))
+        reference_duration = profile.get("reference_media_duration_seconds")
+        reference_duration = (
+            reference_duration if isinstance(reference_duration, Mapping) else {}
+        )
+        each_duration = _normalized_bounds(
+            reference_duration.get("each"),
+            minimum_allowed=0,
+            maximum_allowed=3600,
+        )
+        combined_duration = _normalized_bounds(
+            reference_duration.get("combined_total"),
+            minimum_allowed=0,
+            maximum_allowed=3600,
+        )
+        output_duration = _normalized_bounds(
+            profile.get("output_duration_seconds"),
+            minimum_allowed=1,
+            maximum_allowed=600,
+        )
+        modes = profile.get("modes")
+        modes = modes if isinstance(modes, Mapping) else {}
+        supports_first_last = bool(modes.get(VIDEO_MODE_FIRST_LAST_FRAMES))
+        supports_all_around = bool(modes.get(VIDEO_MODE_ALL_AROUND))
+        audio_maximum = _maximum(candidate.get("inputs", {}).get("audio"))
+        audio_only_supported = bool(profile.get("audio_only_supported")) and bool(
+            audio_maximum
+        )
+
+        input_rules = candidate.get("input_rules")
+        input_rules = copy.deepcopy(input_rules) if isinstance(input_rules, Mapping) else {}
+        totals = [
+            copy.deepcopy(item)
+            for item in input_rules.get("totals", [])
+            if isinstance(item, Mapping)
+            and _clean(item.get("id")) != "reference_media"
+        ]
+        if total_maximum:
+            totals.append(
+                {
+                    "id": "reference_media",
+                    "inputs": ["image", "video", "audio"],
+                    "minimum": 1,
+                    "maximum": total_maximum,
+                    "active_when_any_present": True,
+                }
+            )
+        requirements = [
+            copy.deepcopy(item)
+            for item in input_rules.get("requirements", [])
+            if isinstance(item, Mapping)
+            and _clean(item.get("id")) != "visual_reference"
+        ]
+        if audio_maximum and not audio_only_supported:
+            requirements.append(
+                {
+                    "id": "visual_reference",
+                    "when": {"input": "audio", "minimum": 1},
+                    "any_of": ["image", "video"],
+                    "minimum": 1,
+                }
+            )
+        role_groups = [
+            copy.deepcopy(item)
+            for item in input_rules.get("role_groups", [])
+            if isinstance(item, Mapping)
+            and _clean(item.get("id")) != VIDEO_MODE_FIRST_LAST_FRAMES
+        ]
+        if supports_first_last:
+            role_groups.append(
+                {
+                    "id": VIDEO_MODE_FIRST_LAST_FRAMES,
+                    "input": "image",
+                    "roles": ["first_frame", "last_frame"],
+                    "minimum": 1,
+                    "maximum": 2,
+                    "exclusive_inputs": ["video", "audio"],
+                }
+            )
+        input_rules.update(
+            {
+                "totals": totals,
+                "requirements": requirements,
+                "role_groups": role_groups,
+            }
+        )
+        candidate["input_rules"] = input_rules
+
+        output = candidate.get("output")
+        output = output if isinstance(output, dict) else {}
+        output["duration_seconds"] = copy.deepcopy(output_duration)
+        candidate["output"] = output
+        parameters = candidate.get("parameters")
+        parameters = parameters if isinstance(parameters, dict) else {}
+        duration_parameter = parameters.get("duration_seconds")
+        duration_parameter = (
+            duration_parameter if isinstance(duration_parameter, dict) else {}
+        )
+        duration_parameter.update(output_duration)
+        if duration_parameter.get("default") is not None:
+            duration_parameter["default"] = max(
+                output_duration["minimum"],
+                min(
+                    output_duration["maximum"],
+                    int(duration_parameter.get("default") or output_duration["minimum"]),
+                ),
+            )
+        parameters["duration_seconds"] = duration_parameter
+        candidate["parameters"] = parameters
+
+        media_contract = candidate.get("media_contract")
+        media_contract = (
+            media_contract if isinstance(media_contract, dict) else {}
+        )
+        output = candidate["output"]
+        resolutions = _unique(
+            output.get("resolutions") or output.get("resolution_tiers") or []
+        )
+        aspect_ratios = _unique(output.get("aspect_ratios") or [])
+        commands_value = media_contract.get("commands")
+        commands = copy.deepcopy(commands_value) if isinstance(commands_value, Mapping) else {}
+        for command_name, command_value in tuple(commands.items()):
+            if not isinstance(command_value, Mapping):
+                continue
+            command = copy.deepcopy(dict(command_value))
+            command["duration_seconds"] = copy.deepcopy(output_duration)
+            command["video_resolutions"] = list(resolutions)
+            if command_name in {"text2video", "multimodal2video"}:
+                command["aspect_ratios"] = list(aspect_ratios)
+            commands[command_name] = command
+        if supports_first_last:
+            frame_command = commands.get("frames2video")
+            frame_command = (
+                copy.deepcopy(dict(frame_command))
+                if isinstance(frame_command, Mapping)
+                else {}
+            )
+            frame_command.update(
+                {
+                    "duration_seconds": copy.deepcopy(output_duration),
+                    "video_resolutions": list(resolutions),
+                    "image_count": {"minimum": 1, "maximum": 2},
+                }
+            )
+            commands["frames2video"] = frame_command
+        else:
+            commands.pop("frames2video", None)
+        if supports_all_around:
+            multimodal_command = commands.get("multimodal2video")
+            multimodal_command = (
+                copy.deepcopy(dict(multimodal_command))
+                if isinstance(multimodal_command, Mapping)
+                else {}
+            )
+            multimodal_command.update(
+                {
+                    "duration_seconds": copy.deepcopy(output_duration),
+                    "video_resolutions": list(resolutions),
+                    "aspect_ratios": list(aspect_ratios),
+                    "inputs": {
+                        "image_count": {
+                            "minimum": 0,
+                            "maximum": _maximum(candidate["inputs"].get("image")),
+                        },
+                        "video_count": {
+                            "minimum": 0,
+                            "maximum": _maximum(candidate["inputs"].get("video")),
+                        },
+                        "audio_count": {
+                            "minimum": 0,
+                            "maximum": audio_maximum,
+                        },
+                        "total_count": {"minimum": 1, "maximum": total_maximum},
+                        "reference_media_duration_seconds": {
+                            "each": copy.deepcopy(each_duration),
+                            "combined_total": copy.deepcopy(combined_duration),
+                        },
+                        "audio_only_supported": audio_only_supported,
+                    },
+                }
+            )
+            commands["multimodal2video"] = multimodal_command
+        else:
+            commands.pop("multimodal2video", None)
+        media_contract["commands"] = commands
+        candidate["media_contract"] = media_contract
 
     @staticmethod
     def _apply_choice(
@@ -738,6 +1225,18 @@ class ModelCapabilityMatrix:
                 media_contract["supports_transparent_png"] = (
                     "transparent_png" in selected_options
                 )
+            if operation == "video.generate":
+                composer_options = media_contract.get("composer_options")
+                composer_options = (
+                    composer_options if isinstance(composer_options, dict) else {}
+                )
+                for key in IMPORT_OPTIONS_BY_OPERATION["video.generate"]:
+                    composer_options[key] = (
+                        "user_toggle" if key in selected_options else "unsupported"
+                    )
+                media_contract["composer_options"] = composer_options
+        if operation == "video.generate":
+            ModelCapabilityMatrix._apply_video_choice(candidate, choice)
         return candidate
 
 __all__ = [
