@@ -1,4 +1,4 @@
-import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/generation-option-order.js?v=ic-ui-e1ee33806d53';
+import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/generation-option-order.js?v=ic-ui-0e81b6afe7d8';
 
 (() => {
   const tr = (key) => window.StudioI18n?.t?.(key) || key;
@@ -9,7 +9,6 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
 
   const controls = {
     message: byId('capability-message'),
-    importOpen: byId('capability-import-open'),
     editorDialog,
     editorTitle: byId('capability-editor-title'),
     editorModelId: byId('capability-editor-model-id'),
@@ -17,20 +16,11 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     operationEditors: byId('capability-operation-editors'),
     close: byId('capability-editor-close'),
     apply: byId('capability-apply'),
-    importDialog: byId('capability-import-dialog'),
-    importData: byId('capability-import-data'),
-    lookupPreview: byId('capability-lookup-preview'),
-    importStatus: byId('capability-import-status'),
-    copyLookup: byId('capability-copy-lookup'),
-    importCancel: byId('capability-import-cancel'),
-    importPreview: byId('capability-import-preview'),
-    importApply: byId('capability-import-apply'),
   };
   const state = {
     loaded: false,
     matrix: { models: [], summary: {} },
     selectedModelId: '',
-    validatedImport: '',
   };
   const inputTypes = ['text', 'image', 'video', 'audio', 'file'];
   const operationLabels = {
@@ -68,16 +58,6 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   const errorMessage = (payload) => {
     const detail = payload?.detail;
     const code = typeof detail === 'object' ? detail?.code : '';
-    const reason = typeof detail === 'object' ? detail?.reason : '';
-    if (code === 'model_capability_import_invalid' && reason) {
-      const reasonKey = `models.importError.${reason}`;
-      if (tr(reasonKey) !== reasonKey) {
-        return tf(reasonKey, {
-          model: detail?.model_id || tr('models.unknownModel'),
-          operation: detail?.operation || tr('models.unknownOperation'),
-        });
-      }
-    }
     if (code) {
       const key = `models.error.${code}`;
       if (tr(key) !== key) return tr(key);
@@ -232,7 +212,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     );
     const referenceSelect = selectOptions(
       element('ic-select', 'capability-reference-count'),
-      Array.from({ length: row.import_schemas?.['image.edit']?.properties.inputs.properties.image.maximum || 20 }, (_item, index) => index + 1),
+      Array.from({ length: state.matrix.editor_limits?.image_reference_maximum || 20 }, (_item, index) => index + 1),
       referenceMaximum || 1,
       tr('models.maximumReferenceImages'),
     );
@@ -436,7 +416,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
       const select = element('ic-select', 'capability-count-select');
       select.dataset.inputMaximum = inputType;
       select.setAttribute('label', tf('models.maximumInputCount', { type: tr(inputLabels[inputType]) }));
-      const inputMaximum = selectedRow()?.import_schemas?.[operation.operation]?.properties.inputs.properties[inputType]?.maximum ?? 100;
+      const inputMaximum = operation.operation === 'text.generate' ? (state.matrix.editor_limits?.text_inputs?.[inputType] ?? 100) : 100;
       Array.from({ length: inputMaximum }, (_, index) => index + 1).forEach((value) => {
         const option = element('option', '', String(value));
         option.value = String(value);
@@ -500,7 +480,6 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
   const render = () => {
     renderEditor();
-    if (controls.importDialog.open) controls.lookupPreview.value = lookupPrompt();
   };
   const loadMatrix = async () => {
     state.matrix = await request('/api/admin/model-capability-matrix');
@@ -514,119 +493,6 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   const runAction = (action) => async () => {
     showMessage('');
     try { await action(); } catch (error) { showMessage('', 'danger'); controls.message.textContent = error.message || tr('models.operationRetry'); controls.message.hidden = false; }
-  };
-  const runImportAction = (action) => async () => {
-    controls.importStatus.hidden = true;
-    try {
-      await action();
-    } catch (error) {
-      controls.importStatus.textContent = error.message || tr('models.operationRetry');
-      controls.importStatus.setAttribute('tone', 'danger');
-      controls.importStatus.hidden = false;
-    }
-  };
-  const lookupPrompt = () => {
-    const contracts = {};
-    const schemaKeys = new Map();
-    const contractRefs = (schemas) => Object.fromEntries(Object.entries(schemas || {}).map(([operation, schema]) => {
-      const serialized = JSON.stringify(schema);
-      let key = schemaKeys.get(serialized);
-      if (!key) {
-        key = `contract_${schemaKeys.size + 1}`;
-        schemaKeys.set(serialized, key);
-        contracts[key] = schema;
-      }
-      return [operation, { $ref: `#/contracts/${key}` }];
-    }));
-    const models = state.matrix.models.map((row) => ({
-      // Stable keys are for returning results; administrator labels are only clues.
-      match: { model_id: row.model_id, name: row.name },
-      research: {
-        display_names: row.names || [row.name],
-        model_types: row.types,
-        routes: (row.providers || []).map((provider) => ({
-          configured_name: provider.name,
-          protocol: provider.protocol || '',
-          service_host: provider.service_host || '',
-          model_types: (row.variants || []).filter((variant) => variant.provider_id === provider.id).map((variant) => variant.type),
-        })),
-      },
-      operation_schemas: contractRefs(row.import_schemas),
-    }));
-    return [
-      tr('models.lookupPromptRole'),
-      tr('models.lookupPromptChannelResearch'),
-      tr('models.lookupPromptOfficialSources'),
-      tr('models.lookupPromptNoGuessing'),
-      tr('models.lookupPromptIdentity'),
-      tr('models.lookupPromptChannelMerge'),
-      tr('models.lookupPromptNoCommercial'),
-      tr('models.lookupPromptOptions'),
-      tr('models.lookupPromptVideoProfile'),
-      tr('models.lookupPromptJsonOnly'),
-      '', tr('models.lookupPromptCurrentModels'),
-      JSON.stringify({ models, contracts }, null, 2),
-      '', tr('models.lookupPromptFormat'),
-      JSON.stringify({ schema_version: state.matrix.import_schema_version, models: [] }),
-    ].join('\n');
-  };
-  const copyLookupPrompt = async () => {
-    const value = lookupPrompt();
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch (_error) {
-      const fallback = element('textarea');
-      fallback.value = value;
-      fallback.setAttribute('readonly', '');
-      fallback.className = 'visually-hidden';
-      document.body.appendChild(fallback);
-      fallback.select();
-      if (!document.execCommand('copy')) throw new Error(tr('models.copyLookupFailed'));
-      fallback.remove();
-    }
-    controls.importStatus.textContent = tr('models.lookupPromptCopied');
-    controls.importStatus.setAttribute('tone', 'success');
-    controls.importStatus.hidden = false;
-  };
-  const resetImportValidation = () => {
-    state.validatedImport = '';
-    setDisabled(controls.importApply, true);
-  };
-  const parseImport = () => {
-    const raw = getValue(controls.importData).trim();
-    if (!raw) throw new Error(tr('models.importDataRequired'));
-    try {
-      return { raw, bundle: JSON.parse(raw) };
-    } catch (_error) {
-      throw new Error(tr('models.importJsonInvalid'));
-    }
-  };
-  const submitImport = async (apply) => {
-    const parsed = parseImport();
-    if (apply && state.validatedImport !== parsed.raw) throw new Error(tr('models.importChangedAfterPreview'));
-    const result = await request('/api/admin/model-capability-matrix/import', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apply, bundle: parsed.bundle }),
-    });
-    if (!apply) {
-      state.validatedImport = parsed.raw;
-      setDisabled(controls.importApply, false);
-      controls.importStatus.textContent = tf('models.importPreviewReady', result.preview || {});
-      controls.importStatus.setAttribute('tone', 'success');
-      controls.importStatus.hidden = false;
-      return;
-    }
-    state.matrix = result.matrix || state.matrix;
-    render();
-    await controls.importDialog.hide();
-    showMessage('models.importApplied', 'success', result.preview || {});
-  };
-  const openImport = async () => {
-    await loadMatrix();
-    resetImportValidation();
-    controls.lookupPreview.value = lookupPrompt();
-    controls.importStatus.hidden = true;
-    await controls.importDialog.show();
   };
   const readOperation = (card) => {
     const inputs = {};
@@ -757,13 +623,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     await controls.editorDialog.show();
   };
 
-  controls.importOpen.addEventListener('click', runAction(openImport));
   controls.apply.addEventListener('click', runAction(apply));
-  controls.copyLookup.addEventListener('click', runImportAction(copyLookupPrompt));
-  controls.importCancel.addEventListener('click', () => controls.importDialog.hide());
-  controls.importPreview.addEventListener('click', runImportAction(() => submitImport(false)));
-  controls.importApply.addEventListener('click', runImportAction(() => submitImport(true)));
-  controls.importData.addEventListener('input', resetImportValidation);
   controls.close.addEventListener('click', () => controls.editorDialog.hide('cancel'));
   window.addEventListener('studio-lang-change', render);
   window.ModelCapabilityEditor = Object.freeze({

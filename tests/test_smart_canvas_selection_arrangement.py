@@ -26,7 +26,7 @@ def run_arrangement(body: str):
 
 
 class SmartCanvasSelectionArrangementTests(unittest.TestCase):
-    def test_horizontal_and_vertical_clamp_actual_gap_to_two_rem(self):
+    def test_horizontal_and_vertical_use_fixed_node_gap(self):
         result = run_arrangement(
             """
             const nodes = [
@@ -40,15 +40,15 @@ class SmartCanvasSelectionArrangementTests(unittest.TestCase):
             };
             """
         )
-        self.assertEqual(result["horizontal"]["gap"], 32)
+        self.assertEqual(result["horizontal"]["gap"], 64)
         self.assertEqual(
             [item["x"] for item in result["horizontal"]["placements"]],
-            [0, 132, 264],
+            [0, 164, 328],
         )
-        self.assertEqual(result["vertical"]["gap"], 32)
+        self.assertEqual(result["vertical"]["gap"], 64)
         self.assertEqual(
             [item["y"] for item in result["vertical"]["placements"]],
-            [0, 82, 164],
+            [0, 114, 228],
         )
 
     def test_horizontal_preserves_original_left_to_right_order_regardless_of_connections(self):
@@ -76,7 +76,7 @@ class SmartCanvasSelectionArrangementTests(unittest.TestCase):
         ]
         self.assertEqual(arranged_ids, ["a", "b", "c"])
 
-    def test_grid_uses_actual_column_and_row_gaps_with_two_rem_minimum(self):
+    def test_grid_uses_fixed_node_gap(self):
         result = run_arrangement(
             """
             const nodes = Array.from({length:4},(_,index) => ({
@@ -85,9 +85,9 @@ class SmartCanvasSelectionArrangementTests(unittest.TestCase):
             return arrangement.plan({nodes,selectedIds:nodes.map(node=>node.id),mode:'grid'});
             """
         )
-        self.assertEqual(result["gap"], 32)
-        self.assertEqual(result["bounds"]["width"], 232)
-        self.assertEqual(result["bounds"]["height"], 232)
+        self.assertEqual(result["gap"], 64)
+        self.assertEqual(result["bounds"]["width"], 264)
+        self.assertEqual(result["bounds"]["height"], 264)
 
     def test_grid_preserves_existing_four_by_two_topology(self):
         result = run_arrangement(
@@ -161,7 +161,7 @@ class SmartCanvasSelectionArrangementTests(unittest.TestCase):
         self.assertEqual(len({item["x"] for item in result["placements"]}), 3)
         self.assertEqual(len({item["y"] for item in result["placements"]}), 3)
 
-    def test_linear_modes_average_the_original_axis_gap(self):
+    def test_linear_modes_remove_original_space_distribution(self):
         result = run_arrangement(
             """
             const horizontal = [
@@ -188,10 +188,10 @@ class SmartCanvasSelectionArrangementTests(unittest.TestCase):
             };
             """
         )
-        self.assertEqual(result["horizontal"]["gap"], 60)
-        self.assertEqual(result["vertical"]["gap"], 75)
+        self.assertEqual(result["horizontal"]["gap"], 64)
+        self.assertEqual(result["vertical"]["gap"], 64)
 
-    def test_grid_keeps_the_shared_average_of_horizontal_and_vertical_gaps(self):
+    def test_grid_compacts_with_one_fixed_gap(self):
         result = run_arrangement(
             """
             const nodes = [
@@ -207,12 +207,12 @@ class SmartCanvasSelectionArrangementTests(unittest.TestCase):
             });
             """
         )
-        self.assertEqual(result["gap"], 60)
+        self.assertEqual(result["gap"], 64)
         self.assertEqual(
-            sorted({item["x"] for item in result["placements"]}), [0, 160]
+            sorted({item["x"] for item in result["placements"]}), [0, 164]
         )
         self.assertEqual(
-            sorted({item["y"] for item in result["placements"]}), [0, 160]
+            sorted({item["y"] for item in result["placements"]}), [0, 164]
         )
 
     def test_tree_builds_one_forest_and_preserves_left_and_vertical_center(self):

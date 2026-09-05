@@ -237,7 +237,7 @@ API 设置页一次模型拉取过程中，从同一 Provider 响应或本地 CL
 _Avoid_: Model Capability, Runtime Availability, Published Catalog
 
 **Model Capability Matrix（模型能力表）**:
-按稳定 Model ID 汇总 Model Profile 输入、输出与参数范围的管理员产品投影；Administrator 通过可用模型中的模型详情维护它，也可以导入外部研究结果。它不是另一份 Model List，并隐藏 Provider 路由、内部 JSON 合同、逐字段 Evidence 和 Catalog Revision。
+按稳定 Model ID 汇总 Model Profile 输入、输出与参数范围的管理员产品投影；Administrator 通过可用模型中的模型详情维护它。它不是另一份 Model List，并隐藏 Provider 路由、内部 JSON 合同、逐字段 Evidence 和 Catalog Revision。
 _Avoid_: Model List, Capability JSON Editor, Provider Capability Table
 
 **Model Capability（模型能力）**:
@@ -265,7 +265,7 @@ _Avoid_: UI Status, Runtime Availability, Account Eligibility
 _Avoid_: AI Guess, Model Capability Draft, Provider Availability
 
 **Model Capability Draft（模型能力草稿）**:
-根据 Model Capability Evidence 由外部研究包或人工录入形成、尚未进入 Model Capability Catalog 的候选能力；它可以编辑和退回，但不能约束 Generation Run。
+根据 Model Capability Evidence 由模型发现资料或人工录入形成、尚未进入 Model Capability Catalog 的候选能力；它可以编辑和退回，但不能约束 Generation Run。
 _Avoid_: Model Capability, Published Capability, Runtime Contract
 
 **Model Capability Review（模型能力审核）**:

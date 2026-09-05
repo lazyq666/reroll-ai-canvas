@@ -52,6 +52,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.SmartCanvasModules = sandbox.SmartCanvasModules || sandbox.window?.SmartCanvasModules || {{}};
+            sandbox.SmartCanvasModules.viewportSelection = sandbox.SmartCanvasModules.viewportSelection || {{viewport:{{center:()=>({{x:0,y:0}})}}}};
             vm.createContext(sandbox);
             vm.runInContext(geometrySource,sandbox);
             vm.runInContext(placementSource,sandbox);
@@ -87,13 +89,13 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
         created = payload["created"]
         self.assertEqual(
             {key: created[key] for key in ("x", "y", "w", "h")},
-            {"x": 400, "y": 0, "w": 316, "h": 323},
+            {"x": 264, "y": 0, "w": 316, "h": 323},
         )
         self.assertTrue(created["llmEnabled"])
         self.assertEqual(created["llmInputMedia"][0]["url"], "source.png")
         self.assertEqual(
             payload["reveal"]["bounds"],
-            {"x": 400, "y": 0, "width": 316, "height": 323},
+            {"x": 264, "y": 0, "width": 316, "height": 323},
         )
 
     def test_auto_batch_plans_and_commits_nodes_and_connections_atomically(self):
@@ -125,6 +127,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.SmartCanvasModules = sandbox.SmartCanvasModules || sandbox.window?.SmartCanvasModules || {{}};
+            sandbox.SmartCanvasModules.viewportSelection = sandbox.SmartCanvasModules.viewportSelection || {{viewport:{{center:()=>({{x:0,y:0}})}}}};
             vm.createContext(sandbox);
             vm.runInContext(geometrySource,sandbox);
             vm.runInContext(placementSource,sandbox);
@@ -154,8 +158,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["created"], [
-            {"id": "a", "x": 400, "y": 0},
-            {"id": "b", "x": 400, "y": 98},
+            {"id": "a", "x": 264, "y": 0},
+            {"id": "b", "x": 264, "y": 114},
         ])
         self.assertEqual(payload["connectionCount"], 0)
         self.assertTrue(payload["undone"])
@@ -163,7 +167,7 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
         self.assertEqual(payload["renders"], 2)
         self.assertEqual(payload["saves"], 2)
 
-    def test_batch_can_reposition_an_existing_first_slot_without_duplicating_it(self):
+    def test_batch_keeps_existing_first_slot_fixed_and_places_only_new_results(self):
         script = textwrap.dedent(
             f"""
             const fs = require('fs');
@@ -198,6 +202,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.SmartCanvasModules = sandbox.SmartCanvasModules || sandbox.window?.SmartCanvasModules || {{}};
+            sandbox.SmartCanvasModules.viewportSelection = sandbox.SmartCanvasModules.viewportSelection || {{viewport:{{center:()=>({{x:0,y:0}})}}}};
             vm.createContext(sandbox);
             vm.runInContext(geometrySource,sandbox);
             vm.runInContext(placementSource,sandbox);
@@ -234,8 +240,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
         self.assertEqual(
             payload["created"],
             [
-                {"id": "seed", "x": 400, "y": 0},
-                {"id": "sibling", "x": 400, "y": 98},
+                {"id": "seed", "x": 400, "y": 20},
+                {"id": "sibling", "x": 264, "y": -94},
             ],
         )
         self.assertEqual(payload["nodeIds"], ["source", "seed", "sibling"])
@@ -334,6 +340,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.SmartCanvasModules = sandbox.SmartCanvasModules || sandbox.window?.SmartCanvasModules || {{}};
+            sandbox.SmartCanvasModules.viewportSelection = sandbox.SmartCanvasModules.viewportSelection || {{viewport:{{center:()=>({{x:0,y:0}})}}}};
             vm.createContext(sandbox);
             vm.runInContext(geometrySource,sandbox);
             vm.runInContext(mutationSource,sandbox);
@@ -417,6 +425,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.SmartCanvasModules = sandbox.SmartCanvasModules || sandbox.window?.SmartCanvasModules || {{}};
+            sandbox.SmartCanvasModules.viewportSelection = sandbox.SmartCanvasModules.viewportSelection || {{viewport:{{center:()=>({{x:0,y:0}})}}}};
             vm.createContext(sandbox);
             vm.runInContext(geometrySource,sandbox);
             vm.runInContext(placementSource,sandbox);
@@ -517,6 +527,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.SmartCanvasModules = sandbox.SmartCanvasModules || sandbox.window?.SmartCanvasModules || {{}};
+            sandbox.SmartCanvasModules.viewportSelection = sandbox.SmartCanvasModules.viewportSelection || {{viewport:{{center:()=>({{x:0,y:0}})}}}};
             vm.createContext(sandbox);
             vm.runInContext(geometrySource,sandbox);
             vm.runInContext(placementSource,sandbox);
@@ -661,6 +673,8 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             sandbox.SmartCanvasModules = sandbox.window.SmartCanvasModules;
             sandbox.window = sandbox;
             sandbox.globalThis = sandbox;
+            sandbox.SmartCanvasModules = sandbox.SmartCanvasModules || sandbox.window?.SmartCanvasModules || {{}};
+            sandbox.SmartCanvasModules.viewportSelection = sandbox.SmartCanvasModules.viewportSelection || {{viewport:{{center:()=>({{x:0,y:0}})}}}};
             vm.createContext(sandbox);
             vm.runInContext(geometrySource, sandbox);
             vm.runInContext(placementSource, sandbox);

@@ -161,6 +161,7 @@ class SmartCanvasSmartContainerModuleTests(unittest.TestCase):
                     return Boolean(ids.size);
                 }},
             }};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             sandbox.window.SmartCanvasModules.canvasMutation = mutation;
             sandbox.window.SmartCanvasModules.canvasPersistence = {{
                 schedule:() => events.push('save'),

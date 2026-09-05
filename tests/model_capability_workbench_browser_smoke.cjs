@@ -80,14 +80,12 @@ const matrix = {
   summary: { models: 3, confirmed: 2, needs_sources: 1, with_sources: 2 },
   catalog_revision: 'catalog-revision-1',
 };
-// Use the production field contract instead of maintaining a second prompt schema.
+// Share editor limits with the backend; no external research schema is exported.
 const { execFileSync } = require('node:child_process');
-const contractData = JSON.parse(execFileSync(path.join(ROOT, '.venv/bin/python'), ['-c',
-  'import json,sys; from backend.infinite_canvas.model_capability_matrix import operation_import_schema,EDITOR_RESOLUTIONS,EDITOR_ASPECT_RATIOS,IMPORT_SCHEMA_VERSION; rows=json.load(sys.stdin); print(json.dumps({"schemas":[{op["operation"]:operation_import_schema(op) for op in row["operations"]} for row in rows],"editor_candidates":{"resolutions":EDITOR_RESOLUTIONS,"aspect_ratios":EDITOR_ASPECT_RATIOS},"import_schema_version":IMPORT_SCHEMA_VERSION}))'
-], { cwd: ROOT, input: JSON.stringify(matrix.models), encoding: 'utf8' }));
-matrix.editor_candidates = contractData.editor_candidates;
-matrix.import_schema_version = contractData.import_schema_version;
-matrix.models.forEach((row, index) => { row.import_schemas = contractData.schemas[index]; });
+const editorData = JSON.parse(execFileSync(path.join(ROOT, '.venv/bin/python'), ['-c',
+  'import json; from backend.infinite_canvas.model_capability_matrix import editor_limits,EDITOR_RESOLUTIONS,EDITOR_ASPECT_RATIOS; print(json.dumps({"editor_limits":editor_limits(),"editor_candidates":{"resolutions":EDITOR_RESOLUTIONS,"aspect_ratios":EDITOR_ASPECT_RATIOS}}))'
+], { cwd: ROOT, encoding: 'utf8' }));
+Object.assign(matrix, editorData);
 
 const availableModels = {
   image: [{
@@ -123,19 +121,6 @@ function startServer(state) {
         json(response, 200, { result: { published: 2 }, matrix });
       });
     }
-    if (url.pathname === '/api/admin/model-capability-matrix/import' && request.method === 'POST') {
-      let body = '';
-      request.on('data', chunk => { body += chunk; });
-      return request.on('end', () => {
-        const payload = JSON.parse(body);
-        const preview = { models: 1, operations: 1, platform_variants: 2, models_unchanged: 1 };
-        if (payload.apply) state.imported += 1;
-        else state.previewed += 1;
-        return json(response, 200, payload.apply
-          ? { applied: true, preview, published: 2, matrix }
-          : { applied: false, preview });
-      });
-    }
     const requestPath = url.pathname === '/available-model-management'
       ? '/static/available-model-management.html'
       : decodeURIComponent(url.pathname);
@@ -159,7 +144,7 @@ function startServer(state) {
 
 (async () => {
   if (!fs.existsSync(CHROME)) throw new Error(`Chrome executable not found: ${CHROME}`);
-  const state = { applied: 0, appliedPayload: null, refreshed: 0, previewed: 0, imported: 0 };
+  const state = { applied: 0, appliedPayload: null, refreshed: 0 };
   const server = await startServer(state);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'capability-matrix-'));
   const browser = await chromium.launch({ headless: true, executablePath: CHROME });
@@ -330,61 +315,8 @@ function startServer(state) {
 
     assert.equal(await page.locator('#capability-refresh').count(), 0);
 
-    await page.locator('#capability-import-open').click();
-    await page.waitForFunction(() => document.querySelector('#capability-import-dialog')?.open);
-    await page.evaluate(() => {
-      window.__copiedLookupPrompt = '';
-      Object.defineProperty(navigator, 'clipboard', {
-        configurable: true,
-        value: { writeText: async value => { window.__copiedLookupPrompt = value; } },
-      });
-    });
-    await page.locator('#capability-copy-lookup').click();
-    const lookupPrompt = await page.evaluate(() => window.__copiedLookupPrompt);
-    assert.equal(lookupPrompt.includes('channel_id'), false);
-    assert.ok(lookupPrompt.includes('"configured_name": "Platform One"'));
-    assert.ok(lookupPrompt.includes('"match": {'));
-    assert.ok(lookupPrompt.includes('"operation_schemas": {'));
-    assert.ok(lookupPrompt.includes('"maximum": 100'));
-    assert.ok(lookupPrompt.includes('"0.5K"'));
-    assert.ok(lookupPrompt.includes('match 只用于回填'));
-    assert.ok(lookupPrompt.includes('video.generate 必须完整包含 video'));
-    const importBundle = {
-      schema_version: 1,
-      models: [{
-        model_id: 'shared-image', name: 'Shared Image',
-        operations: [{
-          operation: 'image.generate', confirmed: true,
-          inputs: { text: 1, image: 0, video: 0, audio: 0, file: 0 },
-          resolutions: ['1K'], aspect_ratios: ['1:1'], output_count_maximum: 1,
-          options: [],
-          sources: [{
-            type: 'official_docs', url: 'https://example.com/shared-image',
-            title: 'Official docs', excerpt: 'The model generates one image.',
-          }],
-        }],
-      }],
-    };
-    await page.locator('#capability-import-data').evaluate((control, value) => {
-      control.value = value;
-      control.dispatchEvent(new Event('input', { bubbles: true }));
-    }, JSON.stringify(importBundle));
-    await page.locator('#capability-import-preview').click();
-    await page.waitForFunction(() => document.querySelector('#capability-import-status').textContent.includes('校验通过'));
-    assert.equal(state.previewed, 1);
-    const importApplyState = await page.locator('#capability-import-apply').evaluate(control => ({
-      attribute: control.hasAttribute('disabled'),
-      property: control.disabled,
-      internal: control.shadowRoot?.querySelector('button')?.disabled,
-    }));
-    assert.deepEqual(importApplyState, { attribute: false, property: false, internal: false });
-    if (process.env.MODEL_CAPABILITY_IMPORT_SCREENSHOT) {
-      await page.screenshot({ path: process.env.MODEL_CAPABILITY_IMPORT_SCREENSHOT, fullPage: true });
-    }
-    await page.locator('#capability-import-apply').click();
-    await page.waitForFunction(() => !document.querySelector('#capability-import-dialog')?.open);
-    assert.equal(state.imported, 1);
-    assert.ok((await page.locator('#capability-message').textContent()).includes('已导入'));
+    assert.equal(await page.locator('#capability-import-open').count(), 0);
+    assert.equal(await page.locator('#capability-import-dialog').count(), 0);
     if (process.env.MODEL_CAPABILITY_SCREENSHOT) await page.screenshot({ path: process.env.MODEL_CAPABILITY_SCREENSHOT, fullPage: true });
 
     await page.locator('#model-types [data-value="image"]').click();
@@ -424,16 +356,11 @@ function startServer(state) {
     assert.ok(narrow.videoOverflow <= 1, JSON.stringify(narrow));
     await page.locator('#capability-editor-close').click();
     await page.waitForFunction(() => !document.querySelector('#capability-editor-dialog')?.open);
-    await page.locator('#capability-import-open').click();
-    await page.waitForFunction(() => document.querySelector('#capability-import-dialog')?.open);
-    narrow.importOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    assert.ok(narrow.importOverflow <= 1, JSON.stringify(narrow));
-    await page.locator('#capability-import-cancel').click();
     await page.evaluate(() => window.StudioTheme.set('light'));
     const lightTheme = await page.evaluate(() => document.documentElement.dataset.uiTheme === 'light' || document.documentElement.classList.contains('theme-light'));
     assert.equal(lightTheme, true);
     assert.deepEqual(pageErrors, []);
-    process.stdout.write(`${JSON.stringify({ desktop, narrow, lightTheme, applied: state.applied, refreshed: state.refreshed, previewed: state.previewed, imported: state.imported })}\n`);
+    process.stdout.write(`${JSON.stringify({ desktop, narrow, lightTheme, applied: state.applied, refreshed: state.refreshed })}\n`);
   } finally {
     await browser.close();
     server.close();

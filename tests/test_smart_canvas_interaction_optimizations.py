@@ -646,10 +646,11 @@ class SmartCanvasInteractionOptimizationTests(unittest.TestCase):
             sync.index("positionSmartNodeFloatingPortal(node,bounds)"),
         )
 
-    def test_arrange_gap_uses_actual_gaps_before_applying_minimum(self):
+    def test_arrange_gap_uses_shared_constant_without_space_distribution(self):
         source = self.selection_arrangement
-        self.assertIn("const gapCount = columnGaps + rowGaps", source)
-        self.assertIn("const gap = totalGap / gapCount", source)
+        self.assertIn("const gap = NODE_GAP", source)
+        self.assertIn("geometry.layoutOffsets", source)
+        self.assertNotIn("function equalGap", source)
         self.assertNotIn("SMART_ARRANGE_DEFAULT_GAP", source)
         self.assertNotIn("averageGap >= 0", source)
 

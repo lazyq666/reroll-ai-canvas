@@ -26,7 +26,7 @@ let canvasPersistenceIntentionalClose = false;
 let canvasPersistenceConnectionIssueStartedAt = 0;
 let canvasPersistenceLocalStorageWarned = false;
 let canvasPersistencePlacementRetryPending = false;
-let canvasPersistenceRestorePlacementRetry = null;
+const canvasPersistencePlacementIntents = new Map();
 let canvasPersistenceTransientSession = false;
 const canvasPersistenceMergeHolds = new Set();
 const canvasPersistenceQueuedMessages = [];
@@ -426,7 +426,11 @@ function canvasPersistenceDiff(before={},after={}){
         if(!nodeId) return;
         const previous = beforeNodes.get(nodeId);
         if(!previous){
-            changes.node_creates.push(canvasPersistenceClone(node));
+            const placement=canvasPersistenceMutation()?.placementIntent?.({nodeId})
+                || canvasPersistencePlacementIntents.get(nodeId);
+            changes.node_creates.push(placement
+                ? {node:canvasPersistenceClone(node),placement}
+                : canvasPersistenceClone(node));
             return;
         }
         canvasPersistenceDiffObject(
@@ -522,6 +526,7 @@ function canvasPersistenceApplyChanges(documentValue,changes={}){
             ? raw.node
             : raw;
         const nodeId = String(node?.id || '');
+        if(raw.placement) canvasPersistencePlacementIntents.set(nodeId,canvasPersistenceClone(raw.placement));
         if(!nodeId || nodeMap.has(nodeId)) return;
         const copy = canvasPersistenceClone(node);
         documentCopy.nodes.push(copy);
@@ -615,100 +620,66 @@ function canvasPersistenceApplyChanges(documentValue,changes={}){
     return documentCopy;
 }
 function canvasPersistenceReplanCreatedNodes(changes,confirmedDocument){
-    const placement = window.SmartCanvasModules?.nodePlacement;
-    const geometry = window.SmartCanvasModules?.nodeGeometry;
-    const mutation = canvasPersistenceMutation();
-    const createdDrafts = (changes?.node_creates || []).map(raw =>
-        canvasPersistencePlainObject(raw?.node) ? raw.node : raw
-    ).filter(node => node?.id);
-    const exactDrafts = createdDrafts.filter(node =>
-        mutation?.placementMode?.({nodeId:node.id}) === 'exact'
-    );
-    const drafts = createdDrafts.filter(node =>
-        mutation?.placementMode?.({nodeId:node.id}) !== 'exact'
-    );
-    if(!placement?.plan || !geometry?.createSession || !drafts.length) return changes;
-    const createdIds = new Set(drafts.map(node => String(node.id)));
-    const external = (changes.connection_adds || []).find(connection => {
-        const fromCreated = createdIds.has(String(connection?.from || ''));
-        const toCreated = createdIds.has(String(connection?.to || ''));
-        return fromCreated !== toCreated;
+    const placement=window.SmartCanvasModules?.nodePlacement;
+    const geometry=window.SmartCanvasModules?.nodeGeometry;
+    if(!placement?.plan || !geometry?.createSession) return changes;
+    const entries=(changes.node_creates || []).map(raw=>({raw,node:raw.node || raw,
+        placement:raw.placement || canvasPersistenceMutation()?.placementIntent?.({nodeId:(raw.node || raw).id})}));
+    const groups=new Map();
+    entries.forEach(entry=>{
+        if(entry.placement?.mode==='exact') return;
+        const key=entry.placement?.collectionId || entry.node.generationBatchId || entry.node.id;
+        if(!groups.has(key)) groups.set(key,[]);
+        groups.get(key).push(entry);
     });
-    let anchor = null;
-    let relation = 'free';
-    if(external){
-        const fromCreated = createdIds.has(String(external.from || ''));
-        anchor = {
-            kind:'source',
-            sourceNodeId:fromCreated ? external.to : external.from
-        };
-        if(!fromCreated && drafts.length === 1){
-            const sourceIds = [...new Set((changes.connection_adds || [])
-                .filter(connection=>String(connection.to)===String(drafts[0].id) && !createdIds.has(String(connection.from)))
+    // Apply concurrent local updates (including a fixed reused result) before
+    // planning. Remove only the current new collection from its obstacle set.
+    let snapshot=canvasPersistenceApplyChanges(confirmedDocument,changes);
+    const setField=(id,key,value)=>{
+        changes.node_updates=(changes.node_updates || []).filter(item=>!(item.id===id && item.path?.length===1 && item.path[0]===key));
+        changes.node_updates.push({id,path:[key],value});
+    };
+    // A concurrent expansion must never be undone by this operation's older
+    // Frame box. Union once before replanning, with no extra padding.
+    const frameIds=new Set(entries.map(entry=>entry.placement?.intent?.frameId).filter(Boolean));
+    frameIds.forEach(id=>{
+        const current=confirmedDocument.nodes.find(node=>node.id===id);
+        const local=snapshot.nodes.find(node=>node.id===id);
+        if(!current || !local) return;
+        const x=Math.min(current.x,local.x), y=Math.min(current.y,local.y);
+        const box={x,y,w:Math.max(current.x+current.w,local.x+local.w)-x,
+            h:Math.max(current.y+current.h,local.y+local.h)-y};
+        Object.entries(box).forEach(([key,value])=>setField(id,key,value));
+    });
+    snapshot=canvasPersistenceApplyChanges(confirmedDocument,changes);
+    for(const members of groups.values()){
+        const drafts=members.map(entry=>entry.node);
+        const ids=new Set(drafts.map(node=>String(node.id)));
+        let intent=members[0].placement?.intent;
+        if(!intent){
+            const parents=[...new Set((changes.connection_adds || [])
+                .filter(connection=>ids.has(String(connection.to)) && !ids.has(String(connection.from)))
                 .map(connection=>String(connection.from)))];
-            if(sourceIds.length > 1) anchor.sourceNodeIds = sourceIds;
+            const session=geometry.createSession({nodes:drafts});
+            const boxes=drafts.map(node=>session.measure(node.id).footprint);
+            const left=Math.min(...boxes.map(box=>box.x)), top=Math.min(...boxes.map(box=>box.y));
+            const right=Math.max(...boxes.map(box=>box.x+box.width)), bottom=Math.max(...boxes.map(box=>box.y+box.height));
+            intent={anchor:parents.length ? {kind:'source',sourceNodeIds:parents}
+                : {kind:'viewport',x:(left+right)/2,y:(top+bottom)/2},relation:'downstream',
+                arrangement:drafts.length>1 && drafts[0].generationBatchId
+                    ? `${drafts[0].generationBatchLayout || 'vertical'}-batch` : 'rigid'};
         }
-        relation = fromCreated ? 'upstream' : 'downstream';
-    } else {
-        const session = geometry.createSession({nodes:drafts,connections:[]});
-        const footprints = drafts.map(node => session.measure(node.id).footprint);
-        const left = Math.min(...footprints.map(rect => rect.x));
-        const top = Math.min(...footprints.map(rect => rect.y));
-        const right = Math.max(...footprints.map(rect => rect.x + rect.width));
-        const bottom = Math.max(...footprints.map(rect => rect.y + rect.height));
-        anchor = {kind:'point',x:(left + right) / 2,y:(top + bottom) / 2};
+        const plan=placement.plan({snapshot:{nodes:snapshot.nodes.filter(node=>!ids.has(String(node.id)))},drafts,intent});
+        if(!plan.ok) throw new Error('Canvas placement retry failed');
+        const positions=new Map(plan.placements.map(position=>[String(position.id),position]));
+        drafts.forEach(node=>Object.assign(node,positions.get(String(node.id))));
+        (plan.frameUpdates || []).forEach(update=>{
+            ['x','y','w','h'].forEach(key=>setField(update.id,key,update[key]));
+        });
+        snapshot=canvasPersistenceApplyChanges(confirmedDocument,changes);
     }
-    const batchIds = new Set(drafts.map(node => String(node.generationBatchId || '')).filter(Boolean));
-    const batchLayouts = new Set(drafts
-        .filter(node => node.generationBatchId)
-        .map(node => node.generationBatchLayout === 'horizontal' ? 'horizontal' : 'vertical'));
-    const arrangement = drafts.length === 1
-        ? 'single'
-        : batchIds.size === 1 && batchLayouts.size === 1
-            ? `${[...batchLayouts][0]}-batch`
-            : 'rigid';
-    const snapshotNodes = [
-        ...(confirmedDocument?.nodes || []),
-        ...exactDrafts
-    ];
-    const ownedNodeIds = new Set();
-    snapshotNodes.forEach(node => {
-        if(node?.type !== 'smart-group') return;
-        (node.items || []).forEach(id => ownedNodeIds.add(String(id)));
-    });
-    const plan = placement.plan({
-        snapshot:{
-            nodes:snapshotNodes.filter(node =>
-                !ownedNodeIds.has(String(node?.id || ''))
-            )
-        },
-        drafts,
-        intent:{anchor,relation,arrangement}
-    });
-    if(!plan.ok) return changes;
-    const byId = new Map(plan.placements.map(item => [String(item.id),item]));
-    drafts.forEach(node => {
-        const position = byId.get(String(node.id));
-        if(!position) return;
-        node.x = position.x;
-        node.y = position.y;
-    });
+    if(groups.size || frameIds.size) geometry.frameMembership(snapshot.nodes).forEach(frame=>setField(frame.id,'items',frame.items));
     return changes;
-}
-function canvasPersistencePlacementOverridesForRetry(changes,confirmedDocument){
-    const replanned = canvasPersistenceReplanCreatedNodes(
-        changes,
-        confirmedDocument
-    );
-    const overrides = {};
-    (replanned?.node_creates || []).forEach(raw => {
-        const node = canvasPersistencePlainObject(raw?.node) ? raw.node : raw;
-        const x = Number(node?.x);
-        const y = Number(node?.y);
-        if(!node?.id || !Number.isFinite(x) || !Number.isFinite(y)) return;
-        overrides[String(node.id)] = {x,y};
-    });
-    return overrides;
 }
 function canvasPersistenceAssignDocument(
     documentValue,
@@ -986,8 +957,7 @@ function canvasPersistenceSendOperation(
     {
         revertsOperationId='',
         operationId='',
-        optimistic=true,
-        placementOverrides=null
+        optimistic=true
     }={}
 ){
     if(
@@ -1006,14 +976,6 @@ function canvasPersistenceSendOperation(
     };
     if(revertsOperationId){
         operation.reverts_operation_id = revertsOperationId;
-        if(
-            canvasPersistencePlainObject(placementOverrides)
-            && Object.keys(placementOverrides).length
-        ){
-            operation.placement_overrides = canvasPersistenceClone(
-                placementOverrides
-            );
-        }
     } else {
         operation.changes = canvasPersistenceClone(changes);
     }
@@ -1524,30 +1486,22 @@ function canvasPersistenceApplySnapshot(message){
             canvasPersistenceDiff(openingSource,snapshotDocument)
         )
         : snapshotDocument;
-    let restorePlacementRetry = null;
     if(canvasPersistencePlacementRetryPending){
-        pending = canvasPersistenceReplanCreatedNodes(
-            pending,
-            canvasPersistenceConfirmedDocument
-        );
-        canvasPersistencePlacementRetryPending = false;
-    }
-    if(canvasPersistenceRestorePlacementRetry){
-        const retry = canvasPersistenceRestorePlacementRetry;
-        const retryChanges = canvasPersistenceClone(retry.changes);
-        const placementOverrides = canvasPersistencePlacementOverridesForRetry(
-            retryChanges,
-            canvasPersistenceConfirmedDocument
-        );
-        if(Object.keys(placementOverrides).length){
-            restorePlacementRetry = {
-                revertsOperationId:retry.revertsOperationId,
-                placementOverrides
-            };
-        } else {
+        try {
+            pending = canvasPersistenceReplanCreatedNodes(
+                pending,
+                canvasPersistenceConfirmedDocument
+            );
+        } catch(error){
+            // A deleted source or invalid geometry cancels the atomic pending
+            // mutation. Continue hydration from authority; never leave a half
+            // collection or a stuck resync after a failed planner invocation.
+            pending = canvasPersistenceEmptyChanges();
+            canvasPersistencePendingSave = false;
             canvasPersistenceMutation()?.history?.({action:'rejected'});
+            toast(canvasPersistenceText('smart.invalidLayoutGeometry'));
         }
-        canvasPersistenceRestorePlacementRetry = null;
+        canvasPersistencePlacementRetryPending = false;
     }
     const rebased = canvasPersistenceRebaseLocalChanges(
         canvasPersistenceConfirmedDocument,
@@ -1580,16 +1534,7 @@ function canvasPersistenceApplySnapshot(message){
     canvasPersistenceSetStatus('ready');
     canvasPersistenceGenerationRun().resume();
     canvasPersistenceSmartMatting().resume();
-    if(restorePlacementRetry){
-        canvasPersistenceSendOperation(
-            canvasPersistenceEmptyChanges(),
-            {
-                revertsOperationId:restorePlacementRetry.revertsOperationId,
-                placementOverrides:restorePlacementRetry.placementOverrides,
-                optimistic:false
-            }
-        );
-    } else if(canvasPersistenceInFlight){
+    if(canvasPersistenceInFlight){
         canvasPersistenceSocket.send(JSON.stringify({
             type:'canvas_mutation',
             canvas_id:canvasId,
@@ -1614,7 +1559,7 @@ function canvasPersistenceHandleRejected(message){
         : null;
     if(rejectedInFlight){
         canvasPersistenceInFlight = null;
-        if(followingChanges && message.code !== 'placement_conflict'){
+        if(followingChanges && !['placement_conflict','frame_placement_conflict'].includes(message.code)){
             const restored = canvasPersistenceApplyChanges(canvasPersistenceConfirmedDocument,followingChanges);
             canvasPersistencePendingSave = !canvasPersistenceChangesEmpty(followingChanges);
             canvasPersistenceWriteLocal(followingChanges);
@@ -1624,25 +1569,14 @@ function canvasPersistenceHandleRejected(message){
     const revertsOperationId = String(
         rejectedInFlight?.operation?.reverts_operation_id || ''
     );
-    const retryChanges = message.retry_changes;
-    const retryingRestore = Boolean(
-        message.code === 'placement_conflict'
-        && revertsOperationId
-        && Array.isArray(retryChanges?.node_creates)
-        && retryChanges.node_creates.length
-    );
-    if(retryingRestore){
-        canvasPersistenceRestorePlacementRetry = {
-            revertsOperationId,
-            changes:canvasPersistenceClone(retryChanges)
-        };
-    } else if(message.code === 'placement_conflict'){
+    if(['placement_conflict','frame_placement_conflict'].includes(message.code) && !revertsOperationId){
         canvasPersistencePlacementRetryPending = true;
     }
-    if(!retryingRestore){
-        canvasPersistenceMutation()?.history?.({action:'rejected'});
-    }
+    canvasPersistenceMutation()?.history?.({action:'rejected'});
     const localizedGroupError = {
+        layout_contract_mismatch:'smart.layoutContractMismatch',
+        invalid_layout_geometry:'smart.invalidLayoutGeometry',
+        frame_placement_conflict:'smart.layoutChangedRetry',
         invalid_group_owner:'smart.groupOwnerConflict',
         invalid_group_order:'smart.groupOrderInvalid'
     }[message.code];
@@ -1716,6 +1650,7 @@ function canvasPersistenceConnect(){
         `${protocol}://${location.host}/ws/canvases/`
         + `${encodeURIComponent(canvasId)}?client_id=`
         + encodeURIComponent(smartClientId)
+        + '&layout_gap=' + encodeURIComponent(window.SmartCanvasModules.nodeGeometry.nodeGap)
     );
     canvasPersistenceSocket = socket;
     socket.onopen = () => {
@@ -1734,6 +1669,7 @@ function canvasPersistenceConnect(){
             4401:canvasPersistenceText('smart.sessionExpired'),
             4403:canvasPersistenceText('smart.editPermissionLost'),
             4404:canvasPersistenceText('smart.realtimeUnsupported'),
+            4410:canvasPersistenceText('smart.layoutContractMismatch'),
             4429:canvasPersistenceText('smart.realtimeFull')
         })[Number(event?.code || 0)];
         if(fatalMessage){

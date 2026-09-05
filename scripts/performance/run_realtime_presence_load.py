@@ -21,6 +21,8 @@ from typing import Any
 
 import websockets
 
+LAYOUT_GAP = json.loads((Path(__file__).resolve().parents[2] / "static/js/smart-canvas/layout-constants.json").read_text())["nodeGap"]
+
 
 FORMAL_ACCOUNT_COUNT = 10
 FORMAL_DURATION_SECONDS = 30 * 60
@@ -198,7 +200,7 @@ async def run_load(options: argparse.Namespace, accounts: list[dict[str, str]]) 
     for index, (cookie_header, _account_id) in enumerate(sessions):
         client_id = urllib.parse.quote(f"presence-load-{index + 1}-{uuid.uuid4().hex[:8]}")
         connection = await websockets.connect(
-            f"{websocket_base}/ws/canvases/{urllib.parse.quote(options.canvas_id)}?client_id={client_id}",
+            f"{websocket_base}/ws/canvases/{urllib.parse.quote(options.canvas_id)}?layout_gap={LAYOUT_GAP}&client_id={client_id}",
             additional_headers={"Cookie": cookie_header},
             proxy=None,
             open_timeout=10,

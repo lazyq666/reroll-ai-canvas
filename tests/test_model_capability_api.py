@@ -536,32 +536,10 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
             operation.model_dump()["video"]["modes"]["first_last_frames"]
         )
 
-    async def test_admin_can_preview_an_external_capability_import(self):
-        actor = {"id": "admin-1", "role": "admin"}
-        matrix = Mock()
-        matrix.import_bundle.return_value = {
-            "applied": False,
-            "preview": {
-                "models": 1,
-                "operations": 1,
-                "platform_variants": 2,
-            },
-        }
-        package = {"schema_version": 1, "models": []}
-        with (
-            patch.object(main, "require_current_user", return_value=actor),
-            patch.object(main, "MODEL_CAPABILITY_MATRIX", matrix),
-        ):
-            result = await main.import_model_capability_matrix(
-                main.ModelCapabilityImportRequest(apply=False, bundle=package)
-            )
+    async def test_external_capability_import_route_is_removed(self):
+        self.assertNotIn("/api/admin/model-capability-matrix/import", {route.path for route in main.app.routes})
+        self.assertFalse(hasattr(main, "ModelCapabilityImportRequest"))
 
-        self.assertFalse(result["applied"])
-        matrix.import_bundle.assert_called_once_with(
-            bundle=package,
-            actor_id="admin-1",
-            apply=False,
-        )
 
 
 if __name__ == "__main__":

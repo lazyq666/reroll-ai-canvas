@@ -2,7 +2,7 @@
 
 - 状态：Current
 - 范围：Smart Canvas 中对 Canvas Selection 主动执行宫格、水平、垂直和带方向变体的树状整理
-- 关联任务：[Issue #34](https://github.com/lazyq666/reroll-ai-canvas/issues/34)
+- 关联任务：[Issue #40](https://github.com/lazyq666/reroll-ai-canvas/issues/40)、[Issue #34](https://github.com/lazyq666/reroll-ai-canvas/issues/34)
 
 ## 1. 职责边界
 
@@ -14,21 +14,16 @@ Selection Arrangement 是 Designer 对既有 Node 的显式多选操作。它与
 
 - 宫格、水平、垂直、分支纵排和分支横排均提交一次 Canvas Mutation，产生一次 Undo，并以一个协作操作原子提交所有 Node 坐标和必要的 Frame 尺寸变化。
 - 整理前先冻结选区、Node 几何、Connection 和 Frame 关系；计算期间不逐个保存中间位置。
-- Undo/Redo 恢复该次整理前后已确定的精确坐标，不重新计算布局。
+- Undo/Redo 恢复该次整理前后已确定的精确坐标，不重新计算布局；即使被后来节点占用，也接受重叠，仍保护他人后续修改。
 - 水平整理按整理前的横向位置从左到右排列，以纵向位置和 Node ID 打破平局；垂直整理按整理前的纵向位置从上到下排列，以横向位置和 Node ID 打破平局。宫格在可识别原有视觉宫格时保持 Node 的原行、原列和槽位顺序；无法可靠识别时才按先纵向、再横向的稳定顺序生成紧凑宫格。分支纵排按原始纵坐标决定同层顺序；分支横排按原始纵坐标决定父分支行顺序、按原始横坐标决定每行子 Node 顺序，最后均以另一坐标和 Node ID 稳定打破平局。
 
 ## 3. 等间距规则
 
-所有模式共享同一个等间距 `gap`。先以整理前选区外接矩形的宽高减去目标布局各列最大宽度和各行最大高度，得到目标布局可分配的间距总量，再除以目标布局中实际存在的列间隙数与行间隙数之和。计算结果以 `2rem` 为下限；Smart Canvas 的基准字号为 16px，因此布局规划使用 32 世界单位。
+所有模式使用统一节点间距 **G = 4rem（64 世界单位）**，代码权威与自动放置共用 [统一定位合同](smart-canvas-node-auto-placement.md#3-自动位置与唯一间距)。不再按原选区宽高均摊剩余空间，不设横向、纵向或树状模式的独立间距。
 
-- 水平：一行 `n` 列，只使用 `n - 1` 个实际列间隙。
-- 垂直：一列 `n` 行，只使用 `n - 1` 个实际行间隙。
-- 宫格：优先使用可信原宫格的实际行列数；无法识别时列数为 `ceil(sqrt(Node 数))`。间距使用 `实际列数 - 1` 与 `实际行数 - 1`。
-- 分支纵排：每个层级共享一列；每个断开流程按其最宽层所需行数占用紧凑行带，多个流程的行带构成同一片 forest。使用实际层级列间隙与这些 forest 行带中的实际行间隙。
-- 分支横排：树仍从左向右生长；Node 按拓扑层级占据共享纵列，每条水平分支泳道从自身所在层级开始，而不是统一退回最左列。使用泳道内 Node 之间和泳道之间的实际间隙。
-- 计算结果小于 32 世界单位（包括 0 或负数）时统一提升为 32；主动整理不会因为原选区空间不足而压缩或重叠 Node，允许整理后的整体外接矩形扩大。
+水平、垂直按节点尺寸依次累加 G；宫格与树状使用各目标行列或泳道的槽位尺寸及 G。不同尺寸节点在槽位内居中，槽位间距相同不意味着任意两个可见边缘均恰好相距 G。旧选区很宽时也收紧到这一固定间距；空间不足则允许整体外框扩大。
 
-旧的“允许 0 或负数间距”和“负间距回退 24”合同均由本次修订废止；权威下限是 `2rem` / 32 世界单位。
+宫格识别容差保持 `max(16, 最小对应尺寸 / 2)`，不随 G 放大。Frame 标题、内部留白和 Group Presentation 的缩略图间隔不使用 G。
 
 ## 4. 宫格、水平与垂直
 
@@ -67,13 +62,16 @@ Selection Arrangement 是 Designer 对既有 Node 的显式多选操作。它与
 
 ## 6. Frame 与容器
 
+主动整理保留既有锚点，允许覆盖未选中节点；G 只约束本次内部排列，不再整体避让外部障碍。共同直接 Frame 按最终布局扩容一次，不级联祖先或新圈入成员；随后按中心、最小面积、稳定 Frame ID 重算归属。新圈入节点保持坐标，编组成员仍投影到编组整体。
+
+
 - Smart Group 作为整体 Node 移动，成员随 Group 保持相对关系。
 - 选中的 Frame 成员可在同一 Frame 内主动整理；若新布局不能被原 Frame 完整容纳，可以扩大 Frame，但不缩小 Frame。
 - Frame 扩大与成员位置属于同一次 Canvas Mutation 和同一次 Undo。
 
 ## 7. 验收案例
 
-1. 三个 Node 的原始横向冗余为负时，水平整理仍使用两个实际间隙，但最终 `gap` 提升为 32 世界单位，布局宽度可以超出整理前选区。
+1. 三个 Node 的原始横向冗余为负时，水平整理仍使用两个实际间隙，但最终 `gap` 固定为 4rem（64 世界单位），布局宽度可以超出整理前选区。
 2. 八个 Node 已形成四列两行时，宫格整理后仍为四列两行，不回退成三列三行。
 3. 四列两行中同一行 Node 有不超过容差的纵向错位时，整理后仍保留原来的行、列和从左到右顺序。
 4. 八个 Node 呈对角散点、无法形成连续槽位时，宫格整理回退为三列三行。
@@ -98,3 +96,5 @@ Selection Arrangement 是 Designer 对既有 Node 的显式多选操作。它与
 - 真实页面：宫格、水平、垂直与树状方向菜单的 Pointer / Keyboard 操作、Light/Dark、Frame 内整理和 Smart Group 拓扑。
 
 `tests/test_smart_canvas_selection_arrangement.py` 覆盖纯规划，包括原有四列两行、非严格视觉宫格、散点回退、线性间距、两个树状方向、forest、Group 投影、锚点和循环；`tests/test_smart_canvas_canvas_mutation.py` 覆盖一次 Mutation/Undo 与 Frame/Group 原子移动，`tests/issue_148_layout_browser_smoke.cjs` 在真实 Smart Canvas 页面覆盖工具栏树状方向菜单、Pointer/Keyboard、宫格、水平、分支纵排、分支横排及 Light/Dark。循环仍按非目标保留确定性回退。
+
+本轮统一间距的纯模块与真实页面验证见 `tests/smart_canvas_unified_layout.test.cjs` 和 `tests/smart_canvas_unified_layout_browser_smoke.cjs`；产品体验复核由 Issue #40 跟踪。

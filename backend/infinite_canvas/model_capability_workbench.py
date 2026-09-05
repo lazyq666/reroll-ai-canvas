@@ -641,6 +641,7 @@ class ModelCapabilityWorkbench:
                 }
                 draft = {
                     "id": draft_id,
+                    "maintenance_origin": "manual",
                     **identity,
                     "capability": capability,
                     "field_evidence": bindings,
@@ -658,6 +659,7 @@ class ModelCapabilityWorkbench:
                 }
                 published = {
                     "draft_id": draft_id,
+                    "maintenance_origin": "manual",
                     **identity,
                     "capability": copy.deepcopy(capability),
                     "field_evidence": copy.deepcopy(bindings),

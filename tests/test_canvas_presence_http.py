@@ -54,10 +54,10 @@ class CanvasPresenceHttpTests(unittest.TestCase):
                     before = client.get(f"/api/canvases/{shared}").json()["canvas"]
                     self.assertEqual(client.post("/api/canvases/presence", json={"canvas_ids": ids}).json()["canvases"][shared], [])
                     header = {"cookie": f"{main.SESSION_COOKIE}={cookies['admin']}"}
-                    with client.websocket_connect(f"/ws/canvases/{shared}?client_id=first", headers=header) as first:
+                    with client.websocket_connect(f"/ws/canvases/{shared}?layout_gap=64&client_id=first", headers=header) as first:
                         while first.receive_json()["type"] != "presence_snapshot":
                             pass
-                        with client.websocket_connect(f"/ws/canvases/{shared}?client_id=second", headers=header) as second:
+                        with client.websocket_connect(f"/ws/canvases/{shared}?layout_gap=64&client_id=second", headers=header) as second:
                             while second.receive_json()["type"] != "presence_snapshot":
                                 pass
                             act_as("designer")

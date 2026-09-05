@@ -26,6 +26,8 @@ from pathlib import Path
 
 import websockets
 
+LAYOUT_GAP = json.loads((Path(__file__).resolve().parents[2] / "static/js/smart-canvas/layout-constants.json").read_text())["nodeGap"]
+
 
 PASSWORD_ENV = "INFINITE_CANVAS_ACCEPTANCE_ADMIN_PASSWORD"
 MAX_ROBOT_COUNT = 9
@@ -261,7 +263,7 @@ async def _run_robot_mutations(
         query_client = urllib.parse.quote(client_id, safe="")
         connection = await websockets.connect(
             f"{websocket_base}/ws/canvases/{canvas_id}"
-            f"?client_id={query_client}",
+            f"?layout_gap={LAYOUT_GAP}&client_id={query_client}",
             additional_headers={"Cookie": _cookie_header(cookie_jar)},
             proxy=None,
             open_timeout=10,

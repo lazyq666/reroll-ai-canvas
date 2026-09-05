@@ -35,7 +35,7 @@ def operation(operation_id, base_revision, **change_values):
 
 
 class CanvasRealtimeTests(unittest.TestCase):
-    def test_undo_restore_replans_when_confirmed_node_occupies_original_slot(self):
+    def test_undo_restores_exact_history_even_when_original_slot_is_occupied(self):
         created = apply_operation(
             self.canvas,
             operation(
@@ -88,26 +88,6 @@ class CanvasRealtimeTests(unittest.TestCase):
             "actor-b",
         )
 
-        with self.assertRaises(CanvasRealtimeError) as rejected:
-            apply_operation(
-                self.canvas,
-                {
-                    "operation_id": "client-a:undo-delete-conflict",
-                    "base_revision": occupied.revision,
-                    "reverts_operation_id": deleted.operation_id,
-                },
-                "actor-a",
-            )
-
-        self.assertEqual(rejected.exception.code, "placement_conflict")
-        retry_changes = rejected.exception.retry_changes
-        self.assertEqual(
-            [entry["id"] for entry in retry_changes["node_creates"]],
-            ["restorable-1", "restorable-2"],
-        )
-        self.assertEqual(self.node("occupant")["x"], 2000)
-        self.assertFalse(any(node["id"].startswith("restorable-") for node in self.canvas["nodes"]))
-
         restored = apply_operation(
             self.canvas,
             {
@@ -122,8 +102,8 @@ class CanvasRealtimeTests(unittest.TestCase):
             "actor-a",
         )
         self.assertEqual(restored.reverts_operation_id, deleted.operation_id)
-        self.assertEqual((self.node("restorable-1")["x"], self.node("restorable-1")["y"]), (2516, 2000))
-        self.assertEqual((self.node("restorable-2")["x"], self.node("restorable-2")["y"]), (2516, 2276))
+        self.assertEqual((self.node("restorable-1")["x"], self.node("restorable-1")["y"]), (2000, 2000))
+        self.assertEqual((self.node("restorable-2")["x"], self.node("restorable-2")["y"]), (2000, 2276))
         self.assertEqual((self.node("occupant")["x"], self.node("occupant")["y"]), (2000, 2000))
 
     def test_stale_node_creation_is_rejected_for_client_replacement_retry(self):
@@ -366,6 +346,60 @@ class CanvasRealtimeTests(unittest.TestCase):
             )
         self.assertEqual(rejected.exception.code, "placement_conflict")
         self.assertEqual(self.canvas, before)
+
+    def test_explicit_concurrent_overlap_is_idempotent_and_metadata_is_not_node_data(self):
+        node = {"id":"winner","type":"smart-image","x":2000,"y":100,"w":100,"h":100}
+        apply_operation(self.canvas, operation("layout:winner",0,node_creates=[node]), "actor-b")
+        exact = {"node":{**node,"id":"exact"},"placement":{"mode":"exact","gap":64}}
+        op = operation("layout:exact",0,node_creates=[exact])
+        accepted = apply_operation(self.canvas,op,"actor-a")
+        self.assertNotIn("placement",self.node("exact"))
+        self.assertNotIn("placement",accepted.changes["node_creates"][0])
+        self.assertTrue(apply_operation(self.canvas,op,"actor-a").duplicate)
+        self.assertEqual(self.node("exact")["x"],2000)
+
+    def test_auto_clearance_is_64_on_both_axes(self):
+        for dx,dy,allowed in [(164,0,True),(163,0,False),(0,164,True),(0,163,False)]:
+            with self.subTest(dx=dx,dy=dy):
+                self.setUp()
+                node={"id":"winner","type":"smart-image","x":2000,"y":2000,"w":100,"h":100}
+                apply_operation(self.canvas,operation("layout:winner",0,node_creates=[node]),"actor-b")
+                created={"node":{**node,"id":"auto","x":2000+dx,"y":2000+dy},"placement":{"mode":"auto","gap":64}}
+                op=operation("layout:auto",0,node_creates=[created])
+                if allowed:
+                    apply_operation(self.canvas,op,"actor-a")
+                else:
+                    with self.assertRaises(CanvasRealtimeError) as rejected:
+                        apply_operation(self.canvas,op,"actor-a")
+                    self.assertEqual(rejected.exception.code,"placement_conflict")
+
+    def test_layout_metadata_does_not_allow_lineage_injection_or_invalid_geometry(self):
+        for metadata,node in [({"mode":"exact","gap":48},{"x":0,"y":0}),
+                              ({"mode":[],"gap":64},{"x":0,"y":0}),
+                              ({"mode":"exact","gap":64},{"x":float("inf"),"y":0})]:
+            with self.subTest(metadata=metadata):
+                before=copy.deepcopy(self.canvas)
+                with self.assertRaises(CanvasRealtimeError):
+                    apply_operation(self.canvas,operation("layout:invalid",0,node_creates=[{
+                        "node":{"id":"invalid",**node},"placement":metadata}]),"actor-a")
+                self.assertEqual(self.canvas,before)
+        with self.assertRaises(CanvasRealtimeError):
+            apply_operation(self.canvas,operation("layout:lineage",0,node_creates=[{
+                "node":{"id":"bad","x":0,"y":0},"placement":{"mode":"exact","gap":64},
+                "restore_version":"fake"}]),"actor-a")
+
+    def test_concurrent_frame_changes_require_reconciliation_even_for_exact_creates(self):
+        frame={"id":"frame","type":"smart-frame","x":0,"y":0,"w":500,"h":500,"items":[]}
+        apply_operation(self.canvas,operation("layout:frame",0,node_creates=[frame]),"actor-a")
+        apply_operation(self.canvas,operation("layout:expand",1,node_updates=[{"id":"frame","path":["w"],"value":800}]),"actor-b")
+        before=copy.deepcopy(self.canvas)
+        with self.assertRaises(CanvasRealtimeError) as rejected:
+            apply_operation(self.canvas,operation("layout:new",1,node_creates=[{
+                "node":{"id":"new","type":"smart-image","x":300,"y":100,"w":100,"h":100},
+                "placement":{"mode":"exact","gap":64,"intent":{"frameId":"frame"}}}],
+                node_updates=[{"id":"frame","path":["w"],"value":550}]),"actor-a")
+        self.assertEqual(rejected.exception.code,"frame_placement_conflict")
+        self.assertEqual(self.canvas,before)
 
     def setUp(self):
         self.canvas = {

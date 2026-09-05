@@ -987,23 +987,18 @@ async function loadNodePackageLimits(){
     }
     return nodePackageLimitsPromise;
 }
-function insertSmartNodePackageIntoCanvas(imported){
+function insertSmartNodePackageIntoCanvas(imported, placementContext={}){
     const srcNodes = (imported.nodes || []).filter(Boolean);
     const srcConnections = (imported.connections || []).filter(Boolean);
     if(!canvas || !srcNodes.length) throw new Error(tr('canvas.noImportableNodes'));
-    canvasMutation.history({action:'push'});
-    const minX = Math.min(...srcNodes.map(n => Number(n.x || 0)));
-    const minY = Math.min(...srcNodes.map(n => Number(n.y || 0)));
-    const target = window.SmartCanvasModules.viewportSelection.viewport.center();
-    const dx = target.x - minX;
-    const dy = target.y - minY;
+    const target = placementContext.center || window.SmartCanvasModules.viewportSelection.viewport.center();
     const idMap = new Map();
     const newNodes = srcNodes.map(source => {
         const copy = serializableSmartNode(source);
         const oldId = copy.id || uid(copy.type || 'smart');
         copy.id = uid(copy.type || 'smart');
-        copy.x = Number(copy.x || 0) + dx;
-        copy.y = Number(copy.y || 0) + dy;
+        copy.x = Number(copy.x || 0);
+        copy.y = Number(copy.y || 0);
         copy.created_at = copy.created_at || Date.now();
         idMap.set(oldId, copy.id);
         return normalizeLegacySmartNode(copy);
@@ -1021,14 +1016,13 @@ function insertSmartNodePackageIntoCanvas(imported){
     const newConnections = srcConnections
         .map(conn => ({...JSON.parse(JSON.stringify(conn)), from:idMap.get(conn.from), to:idMap.get(conn.to)}))
         .filter(conn => conn.from && conn.to);
-    nodes.push(...newNodes);
-    canvas.connections = [...(canvas.connections || []), ...newConnections];
-    selectedIds = newNodes.length > 1 ? newNodes.map(node => node.id) : [];
-    selectedId = newNodes.length === 1 ? newNodes[0].id : '';
-    selectedImage = {nodeId:'', index:-1};
+    canvasMutation.createBatch({
+        drafts:newNodes,
+        intent:{anchor:{kind:'viewport',x:target.x,y:target.y},relation:'free',arrangement:'rigid',
+            viewport:placementContext.viewport || window.SmartCanvasModules.viewportSelection.viewport.bounds()},
+        connections:newConnections.map(connection=>({...connection,exact:true}))
+    });
     activeComposerSubject = null;
-    render();
-    canvasPersistence.schedule();
     return {nodes:newNodes, connections:newConnections};
 }
 async function inspectSmartNodePackageFile(file){
@@ -1041,12 +1035,14 @@ async function inspectSmartNodePackageFile(file){
 }
 async function commitSmartNodePackageFile(file){
     if(!canvas || !file) throw new Error(tr('smart.openCanvasFirst'));
+    const placementContext={center:window.SmartCanvasModules.viewportSelection.viewport.center(),
+        viewport:window.SmartCanvasModules.viewportSelection.viewport.bounds()};
     const form = new FormData();
     form.append('file',file);
     const response = await fetch('/api/canvas-workflows/import',{method:'POST',body:form});
     if(!response.ok) throw new Error(await responseErrorMessage(response,tr('smart.importNodePackageFailed')));
     const data = await response.json();
-    const inserted = insertSmartNodePackageIntoCanvas(normalizeImportedSmartNodePackage(data));
+    const inserted = insertSmartNodePackageIntoCanvas(normalizeImportedSmartNodePackage(data),placementContext);
     return {
         nodeIds:inserted.nodes.map(node => node.id),
         nodeCount:inserted.nodes.length,
@@ -2367,23 +2363,8 @@ function arrangeSelectedSmartNodes(mode='grid'){
                 height:size?.height || 1
             };
         });
-        const left = Math.min(frameRect.x,...arrangedRects.map(rect => rect.x - 24));
-        const top = Math.min(frameRect.y,...arrangedRects.map(rect => rect.y - 54));
-        const right = Math.max(
-            frameRect.x + frameRect.width,
-            ...arrangedRects.map(rect => rect.x + rect.width + 24)
-        );
-        const bottom = Math.max(
-            frameRect.y + frameRect.height,
-            ...arrangedRects.map(rect => rect.y + rect.height + 24)
-        );
-        frameUpdates.push({
-            id:sharedFrame.id,
-            x:left,
-            y:top,
-            w:right-left,
-            h:bottom-top
-        });
+        frameUpdates.push({id:sharedFrame.id,
+            ...window.SmartCanvasModules.nodeGeometry.expandFrame(frameRect,arrangedRects)});
     }
     if(!canvasMutation.arrange({placements:plan.placements,frameUpdates})) return;
     const labelKey = ({
@@ -5985,7 +5966,7 @@ function pasteNodes(point=null, options={}){
     const clipboard = options.clipboard || availableNodeClipboard();
     if(!canvas || !clipboard?.nodes?.length || isEditableTarget(document.activeElement)) return;
     return canvasMutation.duplicate({
-        mode:'point',
+        mode:point || lastMouseWorld ? 'point' : 'viewport',
         sourceNodes:clipboard.nodes,
         connections:clipboard.connections || [],
         point:point || lastMouseWorld || window.SmartCanvasModules.viewportSelection.viewport.center()
@@ -9648,7 +9629,7 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={
         if(event.button === 0 && event.detail >= 2){
             event.preventDefault();
             event.stopPropagation();
-            requestAnimationFrame(() => beginPromptNodeTextEdit(node.id, event));
+            // Only dblclick starts editing; a deferred start can reset selection.
         }
     });
     editor.addEventListener('click', event => {
@@ -9656,6 +9637,10 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={
         if(editor.isContentEditable || event.detail >= 2) event.stopPropagation();
     });
     editor.addEventListener('dblclick', event => {
+        if(editor.isContentEditable){
+            event.stopPropagation();
+            return;
+        }
         event.preventDefault();
         event.stopPropagation();
         beginPromptNodeTextEdit(node.id, event);
@@ -10221,18 +10206,18 @@ function createReferencedNode({sourceNode, fromPort='out', kind='image', point, 
         relation:isUpstreamInput ? 'upstream' : 'downstream',
         arrangement:'single'
     };
-    const exactOptions = {skipUndo:true,positionMode:'exact',reveal:true};
+    const exactOptions = {skipUndo:true,reveal:true,placement:{
+        anchor:{kind:'point',x:p.x,y:p.y,attachment:isUpstreamInput ? 'right-middle' : 'left-middle'},
+        arrangement:'single'
+    }};
     const placementOptions = {skipUndo:true,placement,reveal:true};
     const createOptions = explicitPoint ? exactOptions : placementOptions;
     let created = null;
     if(kind === 'text'){
         const stablePromptHeight = isUpstreamInput ? 180 : 397;
-        const exactX = explicitPoint
-            ? isUpstreamInput ? p.x - 316 : p.x
-            : p.x - 158;
         created = canvasMutation.create({
             kind:'prompt',
-            data:{x:exactX,y:p.y - stablePromptHeight / 2,w:316,h:stablePromptHeight},
+            data:{w:316,h:stablePromptHeight},
             options:createOptions
         });
         if(!isUpstreamInput){
@@ -10241,15 +10226,7 @@ function createReferencedNode({sourceNode, fromPort='out', kind='image', point, 
         }
         created.w = Math.max(Number(created.w) || 0, 316);
     } else {
-        let imagePoint = p;
-        if(explicitPoint){
-            const emptyLayout = imageLayout([],MEDIA_NODE_DEFAULT_SCALE,{type:'smart-image',images:[]});
-            imagePoint = {
-                x:p.x + (isUpstreamInput ? -1 : 1) * emptyLayout.width / 2,
-                y:p.y
-            };
-        }
-        created = createImageNodeAt(imagePoint, [], {select:true,...createOptions});
+        created = createImageNodeAt(p, [], {select:true,...createOptions});
         if(isUpstreamInput){
             created.uploadMediaKind = kind;
         } else {
@@ -13916,8 +13893,11 @@ function appendImagesToSmartNode(uploaded, targetId='', opts={}){
         });
     }
     if(!node){
-        const center = opts.point || window.SmartCanvasModules.viewportSelection.viewport.center();
-        node = createImageNodeAt(center, images, {skipUndo:true});
+        const center = opts.point || opts.viewportCenter || window.SmartCanvasModules.viewportSelection.viewport.center();
+        node = createImageNodeAt(opts.point || null, images, {skipUndo:true,placement:{
+            anchor:{kind:opts.point ? 'point' : 'viewport',x:center.x,y:center.y},
+            viewport:opts.viewport,relation:'free',arrangement:'single'
+        }});
     }
     applyUpload(node, false);
     selectedId = node.id;
@@ -13928,6 +13908,8 @@ function appendImagesToSmartNode(uploaded, targetId='', opts={}){
     return node;
 }
 async function handleFiles(files, targetId='', opts={}){
+    opts={...opts,viewport:opts.viewport || window.SmartCanvasModules.viewportSelection.viewport.bounds(),
+        viewportCenter:opts.viewportCenter || window.SmartCanvasModules.viewportSelection.viewport.center()};
     try {
         const fileList = [...(files || [])].filter(isSupportedUploadFile).slice(0, SMART_UPLOAD_MAX);
         if(!fileList.length) return null;
@@ -13956,6 +13938,8 @@ async function importSmartLocalImages(paths){
     return files;
 }
 async function handleSmartImageDropPayload(payload, targetId='', opts={}){
+    opts={...opts,viewport:opts.viewport || window.SmartCanvasModules.viewportSelection.viewport.bounds(),
+        viewportCenter:opts.viewportCenter || window.SmartCanvasModules.viewportSelection.viewport.center()};
     try {
         if(payload.type === 'files') await handleFiles(payload.files, targetId, opts);
         else if(payload.type === 'localPaths') {
@@ -15565,7 +15549,7 @@ async function runPromptLLMNode(nodeId, options={}){
             render:false,
             save:false,
             placement:{
-                anchor:{kind:'source',sourceNodeId:node.id},
+                anchor:window.SmartCanvasModules.generationOutput.sourceAnchor({sourceNode:node}),
                 relation:'downstream',
                 arrangement:'single'
             }

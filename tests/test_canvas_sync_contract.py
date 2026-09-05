@@ -894,7 +894,7 @@ class CanvasSyncContractTests(unittest.TestCase):
         }
 
         with self.client.websocket_connect(
-            "/ws/stats?client_id=classic-observer"
+            "/ws/stats?layout_gap=64&client_id=classic-observer"
         ) as observer:
             self.assertEqual(observer.receive_json()["type"], "stats")
             response = self.client.put(
@@ -959,7 +959,7 @@ class CanvasSyncContractTests(unittest.TestCase):
 
     def test_smart_realtime_contract_omits_local_view_state_and_blocks_snapshot(self):
         canvas = self.create_canvas("smart")
-        canvas_path = f"/ws/canvases/{canvas['id']}?client_id=smart-tab-a"
+        canvas_path = f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=smart-tab-a"
         with self.client.websocket_connect(canvas_path) as socket:
             snapshot = receive_canvas_message(socket, "canvas_snapshot")
             self.assertEqual(snapshot["type"], "canvas_snapshot")

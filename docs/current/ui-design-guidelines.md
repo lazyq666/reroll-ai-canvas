@@ -296,6 +296,7 @@ Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 的验收入
 ### Smart Canvas
 
 - Node、Connection、Frame、Selection 与 Viewport 的术语和归属以 [`CONTEXT.md`](../../CONTEXT.md) 为准。
+- Prompt Node 与 Prompt Generation Node 的双击只开启一次行内编辑；延迟事件或在已编辑文本上再次双击，不得重置选区、光标或本次编辑的取消快照。全选后输入、粘贴或中文输入应替换当前选区；点击外部或按 `Ctrl/Cmd+Enter` 保留修改，行内编辑按 `Escape` 恢复进入本次编辑时的内容。已退出的编辑不得被迟到的动画帧回调重新开启。
 - 单选 Smart Group 或具有明确生成身份的 Generation Node 时，Composer 自动打开。普通 Image Node 不触发 Composer，包括上传前的空媒体槽、图片、视频与音频状态；上传中和上传完成重绘可以保持 Selection，但不能打开 Composer 或启用运行按钮。Quick Add 创建的空 Generation Node 只把所选图片 / 视频作为初始模式，Composer 仍可双向切换；只有已实际承载视频或音频、且没有图片媒体的 Generation Node 固定为视频生成。Composer 可见性、运行按钮基础资格和最终 Generation Run 门禁必须使用同一角色资格结果。
 - Composer 展开为大尺寸编辑面板时继续保留底部参数区和运行操作区的布局、间距与圆角，但两区不增加独立背景填充；面板 Surface 应连续透过参数区与操作区，不以展开状态制造额外底栏色块。
 - Composer 外壳的显示与隐藏复用线上 `.open` 状态，以 `var(--ui-motion-duration-normal)` 同时过渡透明度与 `10px` 纵向距离；聚焦展开和收起使用同一 Composer 节点的首尾几何差值连续变形，不重建第二个面板。组件库必须提供真实的显示 / 隐藏与展开 / 收起控制并执行这两套线上动效，不能用 `transform:none` 或固定 `opacity:1` 绕过验收。Reduced Motion 下跳过几何变形，外壳显示 / 隐藏则由中央 Duration Token 近乎即时完成。

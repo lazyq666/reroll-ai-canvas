@@ -494,7 +494,7 @@ class LayeredPsdHttpContractTests(unittest.TestCase):
                         ],
                     }
                     with designer.websocket_connect(
-                        f"/ws/canvases/{canvas_id}?client_id=issue-36-fixture"
+                        f"/ws/canvases/{canvas_id}?layout_gap=64&client_id=issue-36-fixture"
                     ) as socket:
                         snapshot = socket.receive_json()
                         self.assertEqual("canvas_snapshot", snapshot["type"])

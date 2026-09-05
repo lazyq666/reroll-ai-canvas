@@ -87,6 +87,37 @@ class ProviderRouteContractTests(unittest.TestCase):
             calls,
         )
 
+    def test_codex_image_helper_uses_gpt_5_5_for_generation_and_reference_edit(self):
+        process = SimpleNamespace(
+            returncode=0,
+            communicate=mock.AsyncMock(return_value=(b"{}", b"")),
+        )
+        with (
+            mock.patch.multiple(
+                cli_impl,
+                gpt_image_2_skill_executable=mock.Mock(return_value="/fake/gpt-image-2-skill"),
+                gpt_image_2_skill_auth_file=mock.Mock(return_value=""),
+                gpt_image_2_skill_auth_json=mock.Mock(return_value={}),
+                gpt_image_2_skill_api_key=mock.Mock(return_value=""),
+                gpt_image_2_skill_provider_args=mock.Mock(return_value=(["--provider", "codex"], "codex")),
+                parse_gpt_image_2_skill_output=mock.Mock(return_value=({}, [])),
+                codex_postprocess_image_to_requested_size=mock.Mock(side_effect=lambda path, *_: path),
+                codex_output_url_from_path=mock.Mock(return_value="/assets/output/poster.png"),
+            ),
+            mock.patch.object(cli_impl.os.path, "isfile", return_value=True),
+            mock.patch.object(cli_impl.asyncio, "create_subprocess_exec", mock.AsyncMock(return_value=process)) as create_process,
+        ):
+            for reference_count in (0, 5):
+                with self.subTest(reference_count=reference_count):
+                    refs = [f"/fake/reference-{i}.png" for i in range(reference_count)]
+                    asyncio.run(cli_impl.generate_codex_provider_image_via_gpt_image_2_skill(
+                        "illustrated poster", "1152x2048", "gpt-image-2", ref_paths=refs,
+                    ))
+                    args = list(create_process.await_args.args)
+                    self.assertEqual("gpt-5.5", args[args.index("--model") + 1])
+                    self.assertEqual("edit" if refs else "generate", args[args.index("images") + 1])
+                    self.assertEqual(refs, [args[i + 1] for i, arg in enumerate(args) if arg == "--ref-image"])
+
     def test_codex_gpt_image_2_uses_codex_compatible_transparent_pipeline(self):
         process = SimpleNamespace(
             returncode=0,
@@ -157,6 +188,8 @@ class ProviderRouteContractTests(unittest.TestCase):
         codex_source_command = list(create_process.await_args_list[0].args)
         codex_extract_command = list(create_process.await_args_list[1].args)
         openai_command = list(create_process.await_args_list[2].args)
+        self.assertEqual("gpt-5.5", codex_source_command[codex_source_command.index("--model") + 1])
+        self.assertEqual("gpt-image-2", openai_command[openai_command.index("--model") + 1])
         self.assertIn(
             ["images", "generate"],
             [

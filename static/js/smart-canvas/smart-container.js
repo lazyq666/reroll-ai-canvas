@@ -198,41 +198,8 @@ function smartContainerFrameFor(nodeId){
 function smartContainerReconcileFrames(){
     const frames = nodes.filter(smartContainerIsFrame);
     if(!frames.length) return false;
-    const groupOwned = new Set();
-    nodes.filter(smartContainerIsGroup).forEach(group => {
-        (group.items || []).forEach(id => groupOwned.add(id));
-    });
-    const frameRects = new Map(
-        frames.map(frame => [frame.id, nodeRect(frame)])
-    );
-    const nextItems = new Map(frames.map(frame => [frame.id, []]));
-    nodes.forEach(node => {
-        if(groupOwned.has(node.id)) return;
-        const rect = nodeRect(node);
-        const centerX = rect.x + rect.width / 2;
-        const centerY = rect.y + rect.height / 2;
-        const candidates = frames.filter(frame => {
-            if(frame.id === node.id) return false;
-            const frameRect = frameRects.get(frame.id);
-            if(
-                smartContainerIsFrame(node)
-                && frameRect.width * frameRect.height
-                    <= rect.width * rect.height + 1
-            ){
-                return false;
-            }
-            return centerX >= frameRect.x
-                && centerX <= frameRect.x + frameRect.width
-                && centerY >= frameRect.y
-                && centerY <= frameRect.y + frameRect.height;
-        }).sort((left, right) => {
-            const leftRect = frameRects.get(left.id);
-            const rightRect = frameRects.get(right.id);
-            return leftRect.width * leftRect.height
-                - rightRect.width * rightRect.height;
-        });
-        if(candidates[0]) nextItems.get(candidates[0].id).push(node.id);
-    });
+    const nextItems = new Map(window.SmartCanvasModules.nodeGeometry.frameMembership(nodes)
+        .map(frame=>[frame.id,frame.items]));
     let changed = false;
     frames.forEach(frame => {
         const next = nextItems.get(frame.id) || [];

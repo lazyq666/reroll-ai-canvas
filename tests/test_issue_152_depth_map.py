@@ -111,7 +111,7 @@ class Issue152DepthMapHttpTests(unittest.TestCase):
             },
         ]
         with self.client.websocket_connect(
-            f"/ws/canvases/{self.canvas['id']}?client_id=depth-fixture"
+            f"/ws/canvases/{self.canvas['id']}?layout_gap=64&client_id=depth-fixture"
         ) as socket:
             revision = receive_canvas_message(socket, "canvas_snapshot")["revision"]
             socket.send_json(

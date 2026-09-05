@@ -58,7 +58,7 @@ class CanvasTextGenerationRecoveryTests(unittest.TestCase):
                         "text": "",
                     }
                     with client.websocket_connect(
-                        f"/ws/canvases/{canvas['id']}?client_id=text-fixture"
+                        f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=text-fixture"
                     ) as socket:
                         self.assertEqual(
                             receive_canvas_message(socket, "canvas_snapshot")["revision"],

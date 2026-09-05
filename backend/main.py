@@ -167,7 +167,6 @@ from infinite_canvas.model_capability_workbench import (
 )
 from infinite_canvas.model_capability_discovery import ModelCapabilityDiscovery
 from infinite_canvas.model_capability_matrix import (
-    ModelCapabilityImportInvalid,
     ModelCapabilityMatrix,
 )
 from infinite_canvas.video_capabilities import VideoCapabilityRegistry
@@ -455,7 +454,16 @@ async def canvas_realtime_endpoint(
     websocket: WebSocket,
     canvas_id: str,
     client_id: str = "",
+    layout_gap: str = "",
 ):
+    from infinite_canvas.canvas_realtime import NODE_GAP
+
+    # Old clients cannot submit the former spacing/Frame policy into a canvas
+    # using the unified contract. This gate changes no stored coordinates.
+    if layout_gap != str(NODE_GAP):
+        await websocket.accept()
+        await websocket.close(code=4410)
+        return
     actor = enrich_current_workspace_user(
         AUTH_SYSTEM.user_for_session(
             websocket.cookies.get(SESSION_COOKIE, "")
@@ -547,7 +555,6 @@ MODEL_CAPABILITY_DISCOVERY = ModelCapabilityDiscovery(
 )
 MODEL_CAPABILITY_MATRIX = ModelCapabilityMatrix(
     inventory=lambda: available_models(include_hidden=True),
-    providers=lambda: load_api_providers(),
     catalog=MODEL_CAPABILITY_CATALOG,
     workbench=MODEL_CAPABILITY_WORKBENCH,
 )
@@ -8259,11 +8266,6 @@ class ModelCapabilityMatrixUpdatePayload(BaseModel):
     )
 
 
-class ModelCapabilityImportRequest(BaseModel):
-    apply: bool = False
-    bundle: Dict[str, Any]
-
-
 def _model_capability_workbench_actor() -> str:
     actor = require_current_user("admin")
     return str(actor.get("id") or actor.get("username") or "")
@@ -8360,31 +8362,6 @@ async def update_model_capability_matrix(
         raise HTTPException(
             status_code=400,
             detail={"code": "model_capability_matrix_invalid"},
-        ) from error
-
-
-@app.post("/api/admin/model-capability-matrix/import")
-async def import_model_capability_matrix(
-    payload: ModelCapabilityImportRequest,
-):
-    actor_id = _model_capability_workbench_actor()
-    try:
-        return _model_capability_workbench_action(
-            lambda: MODEL_CAPABILITY_MATRIX.import_bundle(
-                bundle=payload.bundle,
-                actor_id=actor_id,
-                apply=payload.apply,
-            )
-        )
-    except ModelCapabilityImportInvalid as error:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "model_capability_import_invalid",
-                "reason": error.reason,
-                "model_id": error.model_id,
-                "operation": error.operation,
-            },
         ) from error
 
 

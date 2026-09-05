@@ -1,6 +1,9 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "smart.layoutChangedRetry": { zh: "分区已更新，正在重新确认布局…", en: "The frame changed. Updating the placement…" },
+        "smart.invalidLayoutGeometry": { zh: "节点位置或尺寸无效，无法完成布局。", en: "The node position or size is invalid. Layout could not be completed." },
+        "smart.layoutContractMismatch": { zh: "画布布局版本不一致，请刷新页面后重试。", en: "The canvas layout version has changed. Refresh the page and try again." },
         "smart.title": { zh: "智能画布", en: "Smart Canvas" },
         "smart.frameExport.title": { zh: "下载分区图片", en: "Download frame image" },
         "smart.frameExport.scale": { zh: "导出倍率", en: "Scale" },
