@@ -54,7 +54,7 @@ APPLICATION_UPDATE_RUNTIME_FILES = frozenset(
         "backend/infinite_canvas/media.py",
         "backend/infinite_canvas/model_capabilities.py",
         "backend/infinite_canvas/model_capability_matrix.py",
-        "backend/infinite_canvas/model_capability_refresh.py",
+        "backend/infinite_canvas/model_capability_discovery.py",
         "backend/infinite_canvas/model_capability_workbench.py",
         "backend/infinite_canvas/outbound_security.py",
         "backend/infinite_canvas/providers/__init__.py",

@@ -164,7 +164,6 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         for endpoint in (
             "/api/admin/model-capability-matrix",
             "/api/admin/model-capability-matrix/import",
-            "/api/admin/model-capabilities/refresh",
         ):
             self.assertIn(endpoint, self.workbench_script)
         self.assertNotIn("/api/admin/model-capability-matrix/ai-draft", self.backend)
@@ -172,11 +171,12 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertNotIn("AI 补全能力", self.page)
         self.assertIn("inputTypes.forEach", self.workbench_script)
         self.assertIn("const lookupPrompt =", self.workbench_script)
-        self.assertIn("channel_id: provider.id", self.workbench_script)
-        self.assertIn("model_types: modelTypes", self.workbench_script)
-        self.assertIn("available_operations:", self.workbench_script)
-        self.assertIn("aliases:", self.workbench_script)
-        self.assertIn("schema_version: 1", self.workbench_script)
+        self.assertNotIn("channel_id:", self.workbench_script)
+        self.assertNotIn('id="capability-refresh"', self.page)
+        self.assertIn("model_types: row.types", self.workbench_script)
+        self.assertIn("operation_schemas: contractRefs(row.import_schemas)", self.workbench_script)
+        self.assertIn("service_host:", self.workbench_script)
+        self.assertIn("schema_version: state.matrix.import_schema_version", self.workbench_script)
         self.assertIn("state.validatedImport", self.workbench_script)
         self.assertIn("output_count_maximum", self.workbench_script)
         self.assertIn("aspect_ratios", self.workbench_script)

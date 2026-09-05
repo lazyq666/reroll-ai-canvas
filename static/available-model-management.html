@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-8b0bfbdfd850"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-47812affd5b0"></script>
   <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
   <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
   <script src="/static/js/available-model-management-state.js?v=2026.09.01.5.1788439320"></script>
@@ -22,9 +22,6 @@
         <p class="subtitle" data-i18n="models.subtitle">设置用户看到的模型名称、显示状态、顺序和能力。</p>
       </div>
       <div class="capability-catalog-actions">
-        <ic-button id="capability-refresh" type="button" hierarchy="secondary" size="medium">
-          <ic-icon slot="start" name="search"></ic-icon><span data-i18n="models.checkSources">检查资料</span>
-        </ic-button>
         <ic-button id="capability-import-open" type="button" hierarchy="secondary" size="medium">
           <ic-icon slot="start" name="upload"></ic-icon><span data-i18n="models.importCapabilities">导入能力数据</span>
         </ic-button>
@@ -90,6 +87,10 @@
       <ic-button id="capability-copy-lookup" type="button" hierarchy="secondary">
         <ic-icon slot="start" name="copy"></ic-icon><span data-i18n="models.copyLookupPrompt">复制查找要求</span>
       </ic-button>
+      <details class="capability-source-details">
+        <summary data-i18n="models.viewLookupPrompt">查看查找要求</summary>
+        <ic-textarea id="capability-lookup-preview" rows="12" readonly label="查找要求" data-i18n-label="models.lookupPromptLabel"></ic-textarea>
+      </details>
       <ic-textarea id="capability-import-data" name="capability_import_data" rows="16" resize="vertical" label="能力数据 JSON" data-i18n-label="models.importDataLabel" placeholder="粘贴 ChatGPT 或 Codex 返回的 JSON" data-i18n-placeholder="models.importDataPlaceholder"></ic-textarea>
       <ic-alert id="capability-import-status" tone="neutral" hidden></ic-alert>
     </div>
@@ -98,8 +99,8 @@
     <ic-button id="capability-import-apply" slot="footer" type="button" hierarchy="primary" data-i18n="models.applyImport" disabled>应用数据</ic-button>
   </ic-dialog>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-a7dd55e61123"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-0e81b6afe7d8"></script>
   <script src="/static/js/available-model-management.js?v=asset-b644e0114899" defer></script>
-  <script type="module" src="/static/js/model-capability-workbench.js?v=asset-d509270a7f36" defer></script>
+  <script type="module" src="/static/js/model-capability-workbench.js?v=asset-5d95fe7056d6" defer></script>
 </body>
 </html>

@@ -195,7 +195,6 @@ Workspace 不会改变这个位置。
 <device-cache>/
 ├── media-previews/
 ├── image-processor-results/
-├── model-capability-sources.json
 └── models/
     ├── matting/
     └── image-processors/
@@ -208,9 +207,10 @@ Workspace 不会改变这个位置。
 固定处理器版本、模型摘要和输出参数重建的派生结果；成功交付给画布的深度图会另行物化为
 Workspace Managed Media。`models/image-processors/` 中的 Depth Anything 权重按固定
 revision、字节数和 SHA-256 校验后才发布，模型和临时下载文件不随 Workspace 搬迁。
-`model-capability-sources.json` 只缓存可重新取得的结构化来源响应、ETag、检查时间和去重摘要；
-清理后会在下次周期重新采集。它不保存审核权威，自动产生的 Evidence、Draft 与 Published
-投影仍只写入 Instance State 的 `model-capability-workbench.json`。
+模型拉取取得的能力 Evidence、Draft 与 Published 投影只写入 Instance State 的
+`model-capability-workbench.json`。独立资料采集已移除，不再读写旧的
+`model-capability-sources.json`；既有文件可以作为普通旧缓存清理，不需要迁移，
+也不会影响已保存的资料、审核记录或运行目录。
 
 ## 新旧路径对照
 

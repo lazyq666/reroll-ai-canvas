@@ -7,10 +7,13 @@ translates detailed contracts into a small set of administrator choices.
 from __future__ import annotations
 
 import copy
+import urllib.parse
 import datetime as _datetime
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
+
+from .model_capabilities import ModelCapabilityContext
 
 from .model_capability_workbench import (
     ModelCapabilityWorkbench,
@@ -87,6 +90,99 @@ IMPORT_OPTIONS_BY_OPERATION = {
     ),
     "text.generate": frozenset(),
 }
+
+
+# These are editor candidates, not claims about a model's supported values.
+EDITOR_RESOLUTIONS = {
+    "image": ["auto", "0.5K", "1K", "1.5K", "2K", "4K"],
+    "video": ["480p", "720p", "1080p", "4K"],
+    "text": [],
+}
+EDITOR_ASPECT_RATIOS = {
+    "image": ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9",
+              "1:2", "2:1", "1:3", "3:1", "9:21", "21:9", "1:4", "4:1", "1:8", "8:1"],
+    "video": ["1:1", "3:4", "4:3", "9:16", "16:9", "21:9"],
+    "text": [],
+}
+
+
+def _integer_schema(minimum: int, maximum: int) -> dict[str, Any]:
+    return {"type": "integer", "minimum": minimum, "maximum": maximum}
+
+
+def _object_schema(properties: Mapping[str, Any]) -> dict[str, Any]:
+    return {"type": "object", "properties": dict(properties),
+            "required": list(properties), "additionalProperties": False}
+
+
+def _enum_array(values: Sequence[str]) -> dict[str, Any]:
+    return {"type": "array", "items": {"type": "string", "enum": list(values)},
+            "uniqueItems": True, "maxItems": 40}
+
+
+def _matches_schema(value: Any, schema: Mapping[str, Any]) -> bool:
+    """Validate the same bounded schema supplied to external research tools."""
+    kind = schema.get("type")
+    if "const" in schema and (type(value) is not type(schema["const"]) or value != schema["const"]):
+        return False
+    if "enum" in schema and value not in schema["enum"]:
+        return False
+    if kind == "integer":
+        return type(value) is int and schema["minimum"] <= value <= schema["maximum"]
+    if kind == "boolean":
+        return type(value) is bool
+    if kind == "string":
+        return isinstance(value, str) and bool(value.strip()) and value == value.strip()
+    if kind == "array":
+        return (isinstance(value, list) and schema.get("minItems", 0) <= len(value) <= schema.get("maxItems", 40)
+                and (not schema.get("uniqueItems") or len({str(item) for item in value}) == len(value))
+                and all(_matches_schema(item, schema["items"]) for item in value))
+    if kind == "object":
+        return (isinstance(value, Mapping) and set(value) == set(schema["properties"])
+                and all(_matches_schema(value[key], child) for key, child in schema["properties"].items()))
+    return True
+
+
+def operation_import_schema(operation: Mapping[str, Any]) -> dict[str, Any]:
+    name = operation["operation"]
+    kind = name.split(".")[0]
+    layer = name == "image.layer_decomposition"
+    resolutions = (["auto", "1K", "1.5K", "2K"] if layer else
+                   _unique([*EDITOR_RESOLUTIONS[kind], *operation.get("resolutions", [])]))
+    ratios = [] if layer else _unique([*EDITOR_ASPECT_RATIOS[kind], *operation.get("aspect_ratios", [])])
+    properties = {
+        "operation": {"const": name}, "confirmed": {"const": True},
+        "inputs": _object_schema({key: _integer_schema(0, 100) for key in INPUT_TYPES}),
+        "resolutions": _enum_array(resolutions), "aspect_ratios": _enum_array(ratios),
+        "output_count_maximum": _integer_schema(1, 1 if layer else 100),
+        "options": _enum_array(sorted(IMPORT_OPTIONS_BY_OPERATION[name])),
+        "sources": {"type": "array", "minItems": 1, "maxItems": 20,
+                    "items": _object_schema({
+                        "type": {"type": "string", "enum": sorted(IMPORT_SOURCE_TYPES)},
+                        "url": {"type": "string"}, "title": {"type": "string"}, "excerpt": {"type": "string"}})},
+    }
+    runtime_limits = ModelCapabilityContext()
+    if kind == "text":
+        properties["inputs"]["properties"]["image"] = _integer_schema(0, runtime_limits.text_image_maximum)
+        properties["inputs"]["properties"]["video"] = _integer_schema(0, runtime_limits.text_video_maximum)
+    if kind == "image" and not layer:
+        properties["inputs"] = _object_schema({
+            "text": {"const": 1},
+            "image": _integer_schema(1, runtime_limits.image_reference_maximum) if name == "image.edit" else {"const": 0},
+            **{key: {"const": 0} for key in ("video", "audio", "file")},
+        })
+    if layer:
+        properties["inputs"] = _object_schema({key: {"const": int(key in {"text", "image"})} for key in INPUT_TYPES})
+    if name == "video.generate":
+        bounds = lambda minimum, maximum: _object_schema({key: _integer_schema(minimum, maximum) for key in ("minimum", "maximum")})
+        properties["video"] = _object_schema({
+            "input_total_maximum": _integer_schema(0, 100),
+            "reference_media_duration_seconds": _object_schema({"each": bounds(0, 3600), "combined_total": bounds(0, 3600)}),
+            "audio_only_supported": {"type": "boolean"},
+            "modes": _object_schema({key: {"type": "boolean"} for key in sorted(IMPORT_VIDEO_MODE_FIELDS)}),
+            "output_duration_seconds": bounds(1, 600),
+        })
+    return _object_schema(properties)
 
 
 class ModelCapabilityImportInvalid(ValueError):
@@ -189,14 +285,17 @@ class ModelCapabilityMatrix:
         inventory: Callable[[], Mapping[str, Sequence[Mapping[str, Any]]]],
         catalog: Any,
         workbench: ModelCapabilityWorkbench,
+        providers: Callable[[], Sequence[Mapping[str, Any]]] = lambda: (),
     ) -> None:
         self._inventory = inventory
         self.catalog = catalog
         self.workbench = workbench
+        self._providers = providers
 
     def snapshot(self) -> dict[str, Any]:
         inventory = self._inventory()
         workbench = self.workbench.snapshot()
+        provider_context = {str(item.get("id")): item for item in self._providers()}
         rows: dict[str, dict[str, Any]] = {}
         for model_type in MODEL_TYPES:
             for item in inventory.get(model_type, ()):
@@ -226,6 +325,13 @@ class ModelCapabilityMatrix:
                     "name": _clean(item.get("provider_name"))
                     or _clean(item.get("provider_id")),
                 }
+                context = provider_context.get(provider["id"], {})
+                provider["protocol"] = _clean(context.get("protocol"))
+                try:
+                    host = urllib.parse.urlsplit(_clean(context.get("base_url"))).hostname or ""
+                except ValueError:
+                    host = ""
+                provider["service_host"] = host
                 if provider["id"] and provider not in row["providers"]:
                     row["providers"].append(provider)
                 variant = {
@@ -308,7 +414,10 @@ class ModelCapabilityMatrix:
                 1 for operation in row["operations"] if operation["confirmed"]
             )
             row["operation_count"] = len(row["operations"])
-            row.pop("variants", None)
+            row["import_schemas"] = {
+                operation["operation"]: operation_import_schema(operation)
+                for operation in row["operations"]
+            }
             result_rows.append(row)
         result_rows.sort(key=lambda item: (item["name"].casefold(), item["model_id"]))
         return {
@@ -320,6 +429,8 @@ class ModelCapabilityMatrix:
                 "with_sources": sum(bool(row["evidence_count"]) for row in result_rows),
             },
             "catalog_revision": _clean(self.catalog.revision),
+            "import_schema_version": IMPORT_SCHEMA_VERSION,
+            "editor_candidates": {"resolutions": EDITOR_RESOLUTIONS, "aspect_ratios": EDITOR_ASPECT_RATIOS},
         }
 
     @staticmethod
@@ -665,6 +776,12 @@ class ModelCapabilityMatrix:
                 raise ModelCapabilityImportInvalid(
                     "operations_required", model_id=model_id
                 )
+            image_choices = {item.get("operation"): item for item in imported_operations if isinstance(item, Mapping)}
+            if "image.generate" in image_choices and "image.edit" in image_choices:
+                for field in ("resolutions", "aspect_ratios", "output_count_maximum", "options"):
+                    left, right = image_choices["image.generate"].get(field), image_choices["image.edit"].get(field)
+                    if (sorted(left) if isinstance(left, list) and all(isinstance(v, str) for v in left) else left) != (sorted(right) if isinstance(right, list) and all(isinstance(v, str) for v in right) else right):
+                        raise ModelCapabilityImportInvalid("field_values", model_id=model_id, operation="image.edit")
             available_operations = {
                 operation["operation"] for operation in row["operations"]
             }
@@ -752,6 +869,14 @@ class ModelCapabilityMatrix:
                         model_id=model_id,
                         operation=operation,
                     )
+                if not _matches_schema(imported_operation, row["import_schemas"][operation]):
+                    raise ModelCapabilityImportInvalid("field_values", model_id=model_id, operation=operation)
+                if operation == "video.generate":
+                    profile = imported_operation["video"]
+                    if (profile["audio_only_supported"] and not imported_inputs["audio"]
+                        or profile["modes"][VIDEO_MODE_FIRST_LAST_FRAMES] and imported_inputs["image"] < 2
+                        or profile["modes"][VIDEO_MODE_ALL_AROUND] and not profile["input_total_maximum"]):
+                        raise ModelCapabilityImportInvalid("field_values", model_id=model_id, operation=operation)
                 self._validate_import_video(
                     imported_operation.get("video"),
                     model_id=model_id,
@@ -800,6 +925,43 @@ class ModelCapabilityMatrix:
                         )
                         affected_variants.add((provider_id, model_id))
                 operation_count += 1
+
+        # The image editor displays the common range of generation and editing.
+        # Reject a package whose saved values would immediately disappear there.
+        for imported_model in imported_models:
+            model_id = imported_model["model_id"]
+            choices = [choice for choice in imported_model["operations"]
+                       if choice["operation"] in {"image.generate", "image.edit"}]
+            if not choices:
+                continue
+            projected = []
+            for operation in ("image.generate", "image.edit"):
+                capabilities = []
+                for item in inventory.get("image", ()):
+                    if _clean(item.get("model")) != model_id:
+                        continue
+                    provider_id = _clean(item.get("provider_id"))
+                    base = self.catalog.resolve(provider_id, model_id, operation)
+                    patch = next((record["capability"] for record in records
+                                  if record["provider_id"] == provider_id
+                                  and record["model_id"] == model_id
+                                  and record["operation"] == operation), None)
+                    capabilities.append(_merge(base, patch) if patch else base)
+                projected.append(self._operation_projection(operation, capabilities))
+            relevant = [operation for operation in projected
+                        if operation["confirmed"] or operation["inputs"]["image"] > 0] or projected
+            common = {
+                "resolutions": sorted(set.intersection(*(set(op["resolutions"]) for op in relevant))),
+                "aspect_ratios": sorted(set.intersection(*(set(op["aspect_ratios"]) for op in relevant))),
+                "output_count_maximum": min(op["output_count_maximum"] for op in relevant),
+                "options": sorted(key for key in IMPORT_OPTIONS_BY_OPERATION["image.generate"]
+                                  if all(op["options"].get(key) for op in relevant)),
+            }
+            for choice in choices:
+                if any((sorted(choice[key]) if isinstance(choice[key], list) else choice[key]) != value
+                       for key, value in common.items()):
+                    raise ModelCapabilityImportInvalid("image_profile_conflict", model_id=model_id,
+                                                       operation=choice["operation"])
 
         preview = {
             "schema_version": IMPORT_SCHEMA_VERSION,
@@ -907,6 +1069,7 @@ class ModelCapabilityMatrix:
             if (
                 source_type not in IMPORT_SOURCE_TYPES
                 or not url.startswith(("https://", "http://"))
+                or not urllib.parse.urlsplit(url).hostname
                 or not title
                 or not excerpt
             ):
@@ -1172,6 +1335,14 @@ class ModelCapabilityMatrix:
             aspect_ratios = []
             output_count = 1
         output = candidate["output"]
+        output.setdefault("count", {"minimum": 1, "maximum": 1, "default": 1})
+        if operation.startswith("image."):
+            output.setdefault("resolution_tiers", [])
+            if operation != "image.layer_decomposition":
+                output.setdefault("aspect_ratios", [])
+        if operation == "video.generate":
+            output.setdefault("resolutions", [])
+            output.setdefault("aspect_ratios", [])
         if isinstance(output.get("count"), Mapping):
             output["count"]["maximum"] = output_count
             output["count"]["minimum"] = min(
@@ -1188,6 +1359,14 @@ class ModelCapabilityMatrix:
             output["aspect_ratios"] = aspect_ratios
 
         parameters = candidate["parameters"]
+        if operation.startswith("image.") or operation == "video.generate":
+            resolution_key = "resolution" if operation == "video.generate" else "resolution_tier"
+            parameters.setdefault(resolution_key, {"type": "enum"})
+            if operation != "image.layer_decomposition":
+                parameters.setdefault("aspect_ratio", {"type": "enum"})
+            parameters.setdefault("count", {"type": "integer"})
+        for key in IMPORT_OPTIONS_BY_OPERATION.get(operation, ()):
+            parameters.setdefault(key, {"type": "boolean"})
         for key in RESOLUTION_PARAMETERS:
             contract = parameters.get(key)
             if isinstance(contract, Mapping):

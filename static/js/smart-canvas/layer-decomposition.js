@@ -90,6 +90,11 @@
                     return {
                         ...entry,
                         layerCapability:capability,
+                        // Reviewed APIMart Seedream bbox dialect, not a model-name heuristic.
+                        supportsLayerRegions:entry.model === 'seedream-5-0-pro' && (
+                            entry.provider_id === 'apimart' || entry.protocol === 'apimart'
+                            || /^https:\/\/api\.apimart\.ai(?:\/|$)/i.test(entry.base_url || '')
+                        ),
                         resolutionTiers,
                         defaultResolution
                     };

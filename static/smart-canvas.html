@@ -33,13 +33,13 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-8b0bfbdfd850"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-47812affd5b0"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-1afe72a5408e">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-0f242204b52a">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-a7dd55e61123" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-0e81b6afe7d8" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=2026.09.01.5.1788439320"></script>
 </head>
 <body>
@@ -251,6 +251,16 @@
             <ic-image-edit-mode-toolbar id="imageEditModeToolbar" label="图片编辑模式栏" data-i18n-label="smart.imageEditModes"></ic-image-edit-mode-toolbar>
                 <ic-image-edit-dock id="imageEditWorkbench" class="image-edit-workbench" label="图片工作栏" data-i18n-label="smart.imageEditControls" slot="footer">
                   <div class="image-edit-workbench-tools" slot="tools">
+                    <ic-toolbar id="layerDecompositionEditorTools" class="image-edit-tools image-preview-tools" label="图片预览控制" data-i18n-label="smart.imagePreviewControls" appearance="plain" orientation="horizontal" hidden>
+                        <ic-button id="layerDecompositionPsdDownload" type="button" size="small" hierarchy="quiet"><ic-icon name="download" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.downloadPsd">下载 PSD</span></ic-button>
+                        <ic-button id="layerDecompositionCompareToggle" type="button" size="small" hierarchy="quiet" toggle><ic-icon name="layout-horizontal" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.compareSource">对比原图</span></ic-button>
+                        <span class="image-preview-control-group image-preview-zoom-controls">
+                            <ic-icon-button type="button" size="small" hierarchy="quiet" icon="zoom-out" label="缩小" data-i18n-label="canvas.decrease" onclick="stepImageStudioPreviewZoom(-0.1)"></ic-icon-button>
+                            <ic-image-edit-value id="layerDecompositionZoomLabel" class="image-edit-zoom-label" label="预览缩放比例" data-i18n-label="smart.previewZoomLabel" title="双击重置缩放" data-i18n-title="canvas.resetZoomTitle" ondblclick="resetImageEditZoom()">100%</ic-image-edit-value>
+                            <ic-icon-button type="button" size="small" hierarchy="quiet" icon="zoom-in" label="放大" data-i18n-label="canvas.increase" onclick="stepImageStudioPreviewZoom(0.1)"></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="quiet" icon="fit" label="适应/复位" data-i18n-label="canvas.fit" onclick="resetImageEditZoom()"></ic-icon-button>
+                        </span>
+                    </ic-toolbar>
                     <ic-toolbar id="imagePreviewTools" class="image-edit-tools image-preview-tools" label="图片预览控制" data-i18n-label="smart.imagePreviewControls" appearance="plain" orientation="horizontal" hidden>
                         <div id="imagePreviewActions" class="image-preview-actions image-preview-command-section" hidden>
                             <ic-button id="previewDownloadBtn" type="button" size="small" hierarchy="quiet" onclick="downloadPreviewImage()"><ic-icon name="download" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="canvas.download">下载</span></ic-button>
@@ -443,7 +453,11 @@
                     <div id="imageStudioResolutionNotice" class="image-studio-resolution-notice" role="status" hidden></div>
                     <div id="layerDecompositionEditor" class="layer-decomposition-editor" hidden>
                         <main class="layer-decomposition-editor-canvas" aria-label="图层合成预览" data-i18n-aria-label="smart.layerCompositePreview">
-                            <div id="layerDecompositionEditorComposite" class="layer-decomposition-editor-composite"></div>
+                            <div id="layerDecompositionEditorComposite" class="layer-decomposition-editor-composite">
+                                <div id="layerDecompositionEditorLayers" class="layer-decomposition-editor-layers"></div>
+                                <img id="layerDecompositionCompareImage" class="layer-decomposition-compare-image" alt="原图" data-i18n-alt="smart.compareSource" draggable="false" hidden>
+                                <div id="layerDecompositionCompareHandle" class="preview-compare-handle" role="slider" tabindex="0" aria-label="拖动对比" data-i18n-aria-label="smart.compareDrag" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" hidden></div>
+                            </div>
                         </main>
                         <aside class="layer-decomposition-editor-panel" aria-label="图层" data-i18n-aria-label="smart.layers">
                             <header class="layer-decomposition-editor-panel-header">
@@ -451,12 +465,6 @@
                                 <ic-badge id="layerDecompositionEditorCount" kind="count" tone="neutral">0</ic-badge>
                             </header>
                             <div id="layerDecompositionEditorList" class="layer-decomposition-editor-list" role="list"></div>
-                            <footer class="layer-decomposition-editor-panel-footer">
-                        <ic-button id="layerDecompositionPsdDownload" type="button" size="small" hierarchy="primary">
-                            <ic-icon name="download" size="small" slot="start" aria-hidden="true"></ic-icon>
-                            <span data-i18n="smart.downloadPsd">下载 PSD</span>
-                        </ic-button>
-                            </footer>
                         </aside>
                     </div>
                     <div class="image-edit-stage-inner">
@@ -649,7 +657,7 @@
     <script src="/static/js/smart-canvas/canvas-virtualization.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/image-studio-geometry.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-a7dd55e61123"></script>
+    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-0e81b6afe7d8"></script>
     <script src="/static/js/smart-canvas/canvas-opening.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-7c1867db17eb"></script>
     <script src="/static/js/smart-canvas/viewport-selection.js?v=2026.09.01.5.1788439320"></script>
@@ -657,10 +665,11 @@
     <script src="/static/js/smart-canvas/canvas-mutation.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/smart-container.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas/layered-psd.js?v=asset-cdde351dd750"></script>
-    <script src="/static/js/smart-canvas/image-studio.js?v=asset-4ac832cafbb7"></script>
+    <script src="/static/js/smart-canvas/layered-psd.js?v=asset-81c84eef3b05"></script>
+    <script src="/static/js/smart-canvas/image-studio.js?v=asset-df746811001b"></script>
     <script src="/static/js/smart-canvas/model-capabilities.js?v=2026.09.04.1"></script>
-    <script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-15195460d2dd"></script>
+    <script src="/static/js/smart-canvas/layer-decomposition-draft.js"></script>
+<script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-15195460d2dd"></script>
     <script src="/static/js/smart-canvas/image-capabilities.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/reference-instances.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/video-capabilities.js?v=asset-a05e774ca1b9"></script>
@@ -679,7 +688,7 @@
     <script src="/static/js/smart-canvas/generation-cascade.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-094bd31c388f" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-ac3d6eadb5a1" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
 </body>
 </html>

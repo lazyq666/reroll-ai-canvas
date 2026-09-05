@@ -64,12 +64,11 @@
         root.setTimeout(() => root.URL.revokeObjectURL(href), 0);
     }
 
-    async function download({canvasId='', nodeId=''}={}){
+    async function download({canvasId='', nodeId='', button=null}={}){
         const normalizedCanvasId = String(canvasId || '').trim();
         const normalizedNodeId = String(nodeId || '').trim();
         const exportKey = `${normalizedCanvasId}\n${normalizedNodeId}`;
         if(!normalizedCanvasId || !normalizedNodeId || activeExports.has(exportKey)) return false;
-        const button = root.document.getElementById('layerDecompositionPsdDownload');
         activeExports.add(exportKey);
         busy(button, true);
         try {

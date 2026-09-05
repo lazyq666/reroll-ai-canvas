@@ -107,6 +107,7 @@ let cropAspectRatio = null;
 let imageEditMode = 'crop';
 let imageEditModeTouched = false;
 let layerDecompositionEditNodeId = '';
+let layerDecompositionView = {zoom:1, x:0, y:0, compare:false, position:50};
 let imageResizeScale = 0.5;
 let editDrawState = null;
 let editTextItems = [];
@@ -2091,6 +2092,11 @@ function syncImageEditOverflow(){
     stage.classList.toggle('overflow-y', rect.height + pad > stage.clientHeight);
 }
 function resetImageEditZoom(){
+    if(imageEditMode === 'layer-decomposition'){
+        Object.assign(layerDecompositionView, {zoom:1, x:0, y:0});
+        syncLayerDecompositionView();
+        return;
+    }
     if(imageEditMode === 'preview'){
         if(panoramaState.enabled){
             resetPanoramaView();
@@ -2104,6 +2110,11 @@ function resetImageEditZoom(){
     if(stage){ stage.scrollLeft = 0; stage.scrollTop = 0; }
 }
 function stepImageStudioPreviewZoom(delta){
+    if(imageEditMode === 'layer-decomposition'){
+        layerDecompositionView.zoom = Math.max(0.05, Math.min(8, layerDecompositionView.zoom + Math.sign(Number(delta) || 0) * 0.1));
+        syncLayerDecompositionView();
+        return;
+    }
     if(imageEditMode !== 'preview') return;
     const direction = Math.sign(Number(delta) || 0);
     if(!direction) return;
@@ -2417,6 +2428,107 @@ function openGroupImagePreview(group, startNodeId, startIndex=0){
 function layerDecompositionEditorNode(){
     return nodes.find(node => node.id === layerDecompositionEditNodeId && node.type === 'smart-layer-decomposition') || null;
 }
+function layerDecompositionOriginalImage(){
+    const node = layerDecompositionEditorNode();
+    const source = nodes.find(candidate => candidate.id === (node?.layerDecompositionSourceNodeId || node?.sourceNodeId));
+    const media = source?.images?.[Number(node?.layerDecompositionSourceImageIndex) || 0];
+    return media?.url ? imageForDisplay(media) : null;
+}
+function syncLayerDecompositionView(){
+    const node = layerDecompositionEditorNode();
+    const composite = document.getElementById('layerDecompositionEditorComposite');
+    if(!node || !composite) return;
+    const viewport = composite.parentElement;
+    const manifest = node.layerDecompositionManifest || {};
+    const width = Math.max(1, Number(manifest.canvas_width) || 1);
+    const height = Math.max(1, Number(manifest.canvas_height) || 1);
+    const fit = Math.min(1, viewport.clientWidth / width, viewport.clientHeight / height);
+    const view = layerDecompositionView;
+    composite.style.width = `${width * fit}px`;
+    composite.style.height = `${height * fit}px`;
+    composite.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`;
+    composite.style.setProperty('--compare-pos', `${view.position}%`);
+    document.getElementById('layerDecompositionZoomLabel').textContent = `${Math.round(view.zoom * 100)}%`;
+    const source = layerDecompositionOriginalImage();
+    const toggle = document.getElementById('layerDecompositionCompareToggle');
+    toggle.disabled = !source;
+    if(!source) view.compare = false;
+    setImageStudioToggleState(toggle, view.compare);
+    const image = document.getElementById('layerDecompositionCompareImage');
+    const handle = document.getElementById('layerDecompositionCompareHandle');
+    image.hidden = !view.compare;
+    handle.hidden = !view.compare;
+    handle.setAttribute('aria-valuenow', String(Math.round(view.position)));
+    if(source && view.compare){
+        const url = displayMediaUrl(source);
+        if(image.getAttribute('src') !== url) image.src = url;
+    } else image.removeAttribute('src');
+}
+document.getElementById('layerDecompositionCompareImage')?.addEventListener('error', () => {
+    if(imageEditMode !== 'layer-decomposition' || !layerDecompositionView.compare) return;
+    layerDecompositionView.compare = false;
+    syncLayerDecompositionView();
+    toast(tr('smart.imageLoadFailed'));
+});
+document.getElementById('layerDecompositionCompareToggle')?.addEventListener('click', () => {
+    layerDecompositionView.compare = !layerDecompositionView.compare;
+    syncLayerDecompositionView();
+});
+{
+    const viewport = document.querySelector('.layer-decomposition-editor-canvas');
+    const handle = document.getElementById('layerDecompositionCompareHandle');
+    let gesture = null;
+    const moveCompare = clientX => {
+        const rect = document.getElementById('layerDecompositionEditorComposite').getBoundingClientRect();
+        layerDecompositionView.position = Math.max(0, Math.min(100, (clientX - rect.left) / Math.max(1, rect.width) * 100));
+        syncLayerDecompositionView();
+    };
+    viewport?.addEventListener('pointerdown', event => {
+        if(event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const compare = event.target === handle;
+        if(compare) handle.focus();
+        gesture = {id:event.pointerId, compare, clientX:event.clientX, clientY:event.clientY, x:layerDecompositionView.x, y:layerDecompositionView.y};
+        viewport.setPointerCapture(event.pointerId);
+        viewport.classList.toggle('is-panning', !compare);
+        if(compare) moveCompare(event.clientX);
+    });
+    viewport?.addEventListener('pointermove', event => {
+        if(!gesture || gesture.id !== event.pointerId) return;
+        if(gesture.compare) moveCompare(event.clientX);
+        else {
+            layerDecompositionView.x = gesture.x + event.clientX - gesture.clientX;
+            layerDecompositionView.y = gesture.y + event.clientY - gesture.clientY;
+            syncLayerDecompositionView();
+        }
+    });
+    const endGesture = () => { gesture = null; viewport?.classList.remove('is-panning'); };
+    viewport?.addEventListener('lostpointercapture', endGesture);
+    viewport?.addEventListener('pointerup', event => {
+        if(viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+        endGesture();
+    });
+    viewport?.addEventListener('pointercancel', endGesture);
+    viewport?.addEventListener('wheel', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        layerDecompositionView.zoom = Math.max(0.05, Math.min(8, layerDecompositionView.zoom * imagePreviewWheelZoomFactor(event.deltaY)));
+        syncLayerDecompositionView();
+    }, {passive:false});
+    handle?.addEventListener('keydown', event => {
+        const position = layerDecompositionView.position;
+        const next = {ArrowLeft:position - 5, ArrowRight:position + 5, Home:0, End:100}[event.key];
+        if(next === undefined) return;
+        event.preventDefault();
+        event.stopPropagation();
+        layerDecompositionView.position = Math.max(0, Math.min(100, next));
+        syncLayerDecompositionView();
+    });
+    if(viewport) new ResizeObserver(() => {
+        if(imageEditMode === 'layer-decomposition') syncLayerDecompositionView();
+    }).observe(viewport);
+}
 function layerDecompositionEditorItemStyle(item, canvasWidth, canvasHeight){
     const bbox = Array.isArray(item?.absolute_bbox) ? item.absolute_bbox : [];
     if(item?.role === 'base') return 'left:0;top:0;width:100%;height:100%;z-index:0';
@@ -2440,8 +2552,7 @@ function renderLayerDecompositionEditor(){
         .slice()
         .sort((left,right) => Number(left.z_index) - Number(right.z_index));
     composite.style.aspectRatio = `${canvasWidth} / ${canvasHeight}`;
-    composite.style.height = `min(100%, ${canvasHeight}px)`;
-    composite.innerHTML = items.map(item => {
+    document.getElementById('layerDecompositionEditorLayers').innerHTML = items.map(item => {
         const media = imageForDisplay(item.media);
         return `<div class="layer-decomposition-item${item.hidden ? ' is-hidden' : ''}" style="${layerDecompositionEditorItemStyle(item, canvasWidth, canvasHeight)}" aria-hidden="true"><img src="${escapeAttr(displayMediaUrl(media))}" alt="" draggable="false"></div>`;
     }).join('');
@@ -2460,6 +2571,7 @@ function renderLayerDecompositionEditor(){
         </div>`;
     }).join('');
     if(count) count.textContent = String(items.length);
+    syncLayerDecompositionView();
     refreshIcons();
     return true;
 }
@@ -2483,29 +2595,37 @@ document.getElementById('layerDecompositionEditorList')?.addEventListener('click
     event.stopPropagation();
     applyLayerDecompositionEditorAction(itemId, visibilityId ? 'visibility' : 'delete');
 });
-document.getElementById('layerDecompositionPsdDownload')?.addEventListener('click', () => {
+document.getElementById('layerDecompositionPsdDownload')?.addEventListener('click', event => {
     const node = layerDecompositionEditorNode();
     if(!node) return;
     void imageStudioLayeredPsdModule.download({
         canvasId,
         nodeId:node.id,
+        button:event.currentTarget,
     });
 });
 function resetLayerDecompositionEditorPresentation(){
     imageEditModal?.classList.remove('layer-decomposition-edit-mode');
     document.getElementById('layerDecompositionEditor')?.setAttribute('hidden','');
     layerDecompositionEditNodeId = '';
+    document.getElementById('layerDecompositionEditorTools')?.setAttribute('hidden','');
+    document.getElementById('layerDecompositionCompareImage')?.removeAttribute('src');
 }
 function openLayerDecompositionEditor({nodeId}={}){
     const node = nodes.find(candidate => candidate.id === nodeId && candidate.type === 'smart-layer-decomposition');
     if(!node) return false;
     layerDecompositionEditNodeId = node.id;
+    layerDecompositionView = {zoom:1, x:0, y:0, compare:false, position:50};
+    disposePanoramaPreview();
+    document.getElementById('previewCurrentVideo')?.pause();
+    document.getElementById('layerDecompositionEditorTools')?.removeAttribute('hidden');
     imageEditMode = 'layer-decomposition';
     cropState = null;
     selectedId = node.id;
     selectedIds = [];
     selectedImage = {nodeId:'',index:-1};
     const dialogWasOpen = imageStudioDialogPresented();
+    imageStudioReopenAfterHide = !imageEditModal.classList.contains('open') && dialogWasOpen;
     imageEditModal.classList.remove('image-preview-mode', 'video-preview-mode');
     imageEditModal.classList.add('open', 'layer-decomposition-edit-mode');
     document.getElementById('layerDecompositionEditor')?.removeAttribute('hidden');

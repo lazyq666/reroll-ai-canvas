@@ -23,7 +23,7 @@ class Issue71PromptInteractionTests(unittest.TestCase):
         self.assertIn('id="composerFocusBackdrop"', page)
         self.assertIn("function syncPromptAuthoringHeight", host)
         self.assertIn("function setPromptAuthoringFocused", host)
-        self.assertIn("min-height:120px", style)
+        self.assertIn("height:5rem; min-height:5rem; max-height:12rem", style)
         self.assertIn("max-height:12rem", style)
         self.assertIn("width:min(850px", style)
         self.assertIn("height:min(660px", style)

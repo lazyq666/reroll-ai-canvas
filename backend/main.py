@@ -165,11 +165,7 @@ from infinite_canvas.model_capability_workbench import (
     ModelCapabilityWorkbenchPublication,
     ModelCapabilityWorkbenchValidation,
 )
-from infinite_canvas.model_capability_refresh import (
-    ModelCapabilityRefreshManager,
-    refresh_interval_from_environment,
-    sources_from_environment,
-)
+from infinite_canvas.model_capability_discovery import ModelCapabilityDiscovery
 from infinite_canvas.model_capability_matrix import (
     ModelCapabilityImportInvalid,
     ModelCapabilityMatrix,
@@ -408,11 +404,6 @@ async def startup_event():
         # Discovery must never hold the application startup gate.  The manager
         # keeps the completed snapshot for administrators who sign in later.
         _CLI_UPDATE_TASK = asyncio.create_task(cli_update_manager.check_all())
-    model_capability_refresh = globals().get("MODEL_CAPABILITY_REFRESH")
-    if model_capability_refresh is not None:
-        # Source collection starts beside the application. It never delays the
-        # startup gate and can only create reviewable drafts, never publish.
-        model_capability_refresh.start()
 
 
 @app.on_event("shutdown")
@@ -436,9 +427,6 @@ async def shutdown_event():
             _CLI_UPDATE_TASK.cancel()
             await asyncio.gather(_CLI_UPDATE_TASK, return_exceptions=True)
         _CLI_UPDATE_TASK = None
-        model_capability_refresh = globals().get("MODEL_CAPABILITY_REFRESH")
-        if model_capability_refresh is not None:
-            await model_capability_refresh.stop()
     finally:
         cancel_pending_workspace_open()
         release_workspace_occupation()
@@ -553,15 +541,13 @@ WORKSPACE_CONFIGURED = _CONFIGURED_WORKSPACE is not None
 WORKSPACE_SELECTION_PRESENT = WORKSPACE_STORAGE.has_configuration()
 DEVICE_STATE = DeviceState(DEVICE_STATE_DIR)
 DEVICE_CACHE = DeviceCache(DEVICE_CACHE_DIR)
-MODEL_CAPABILITY_REFRESH = ModelCapabilityRefreshManager(
+MODEL_CAPABILITY_DISCOVERY = ModelCapabilityDiscovery(
     workbench=MODEL_CAPABILITY_WORKBENCH,
     catalog=MODEL_CAPABILITY_CATALOG,
-    sources=sources_from_environment(),
-    cache_path=DEVICE_CACHE.model_capability_sources,
-    interval_seconds=refresh_interval_from_environment(),
 )
 MODEL_CAPABILITY_MATRIX = ModelCapabilityMatrix(
     inventory=lambda: available_models(include_hidden=True),
+    providers=lambda: load_api_providers(),
     catalog=MODEL_CAPABILITY_CATALOG,
     workbench=MODEL_CAPABILITY_WORKBENCH,
 )
@@ -7021,7 +7007,7 @@ async def _attach_fetch_time_capability_review(
     response = dict(result or {})
     discovery = response.pop("_capability_discovery", None)
     try:
-        review = await MODEL_CAPABILITY_REFRESH.collect_model_discovery(
+        review = await MODEL_CAPABILITY_DISCOVERY.collect_model_discovery(
             provider_id=provider_id,
             base_url=base_url,
             protocol=protocol,
@@ -8411,7 +8397,6 @@ async def model_capability_workbench_snapshot():
     return {
         **snapshot,
         "catalog": MODEL_CAPABILITY_CATALOG.status(),
-        "refresh": MODEL_CAPABILITY_REFRESH.status(),
     }
 
 
@@ -8489,19 +8474,6 @@ async def model_capability_catalog_status():
     require_current_user("admin")
     return {
         "catalog": MODEL_CAPABILITY_CATALOG.status(),
-        "refresh": MODEL_CAPABILITY_REFRESH.status(),
-    }
-
-
-@app.post("/api/admin/model-capabilities/refresh")
-async def refresh_model_capability_catalog():
-    require_current_user("admin")
-    result = await MODEL_CAPABILITY_REFRESH.refresh(force=True)
-    if not result.get("ok"):
-        raise HTTPException(status_code=500, detail=result)
-    return {
-        "catalog": MODEL_CAPABILITY_CATALOG.status(),
-        "refresh": result,
     }
 
 

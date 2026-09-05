@@ -80,6 +80,15 @@ const matrix = {
   summary: { models: 3, confirmed: 2, needs_sources: 1, with_sources: 2 },
   catalog_revision: 'catalog-revision-1',
 };
+// Use the production field contract instead of maintaining a second prompt schema.
+const { execFileSync } = require('node:child_process');
+const contractData = JSON.parse(execFileSync(path.join(ROOT, '.venv/bin/python'), ['-c',
+  'import json,sys; from backend.infinite_canvas.model_capability_matrix import operation_import_schema,EDITOR_RESOLUTIONS,EDITOR_ASPECT_RATIOS,IMPORT_SCHEMA_VERSION; rows=json.load(sys.stdin); print(json.dumps({"schemas":[{op["operation"]:operation_import_schema(op) for op in row["operations"]} for row in rows],"editor_candidates":{"resolutions":EDITOR_RESOLUTIONS,"aspect_ratios":EDITOR_ASPECT_RATIOS},"import_schema_version":IMPORT_SCHEMA_VERSION}))'
+], { cwd: ROOT, input: JSON.stringify(matrix.models), encoding: 'utf8' }));
+matrix.editor_candidates = contractData.editor_candidates;
+matrix.import_schema_version = contractData.import_schema_version;
+matrix.models.forEach((row, index) => { row.import_schemas = contractData.schemas[index]; });
+
 const availableModels = {
   image: [{
     id: 'one\0shared-image', model: 'shared-image', name: 'Shared Image',
@@ -126,10 +135,6 @@ function startServer(state) {
           ? { applied: true, preview, published: 2, matrix }
           : { applied: false, preview });
       });
-    }
-    if (url.pathname === '/api/admin/model-capabilities/refresh' && request.method === 'POST') {
-      state.refreshed += 1;
-      return json(response, 200, { refresh: { evidence_created: 0, drafts_created: 0 } });
     }
     const requestPath = url.pathname === '/available-model-management'
       ? '/static/available-model-management.html'
@@ -323,9 +328,7 @@ function startServer(state) {
     assert.deepEqual(appliedVideo.resolutions, ['720p']);
     assert.deepEqual(appliedVideo.aspect_ratios, ['16:9', '9:16']);
 
-    await page.locator('#capability-refresh').click();
-    await page.waitForFunction(() => document.querySelector('#capability-message').textContent.includes('仍有 1 个模型缺少资料'));
-    assert.equal(state.refreshed, 1);
+    assert.equal(await page.locator('#capability-refresh').count(), 0);
 
     await page.locator('#capability-import-open').click();
     await page.waitForFunction(() => document.querySelector('#capability-import-dialog')?.open);
@@ -338,13 +341,14 @@ function startServer(state) {
     });
     await page.locator('#capability-copy-lookup').click();
     const lookupPrompt = await page.evaluate(() => window.__copiedLookupPrompt);
-    assert.ok(lookupPrompt.includes('"channel_id": "one"'));
-    assert.ok(lookupPrompt.includes('"channel_name": "Platform One"'));
-    assert.match(lookupPrompt, /"model_types":\s*\[\s*"image"/);
-    assert.ok(lookupPrompt.includes('"available_operations": ['));
-    assert.ok(lookupPrompt.includes('不要只凭模型名称或类似 3.0 的短 ID 判断模型'));
-    assert.ok(lookupPrompt.includes('"multimodal_all_around": false'));
-    assert.ok(lookupPrompt.includes('只有 video.generate 才能包含示例中的 video 字段'));
+    assert.equal(lookupPrompt.includes('channel_id'), false);
+    assert.ok(lookupPrompt.includes('"configured_name": "Platform One"'));
+    assert.ok(lookupPrompt.includes('"match": {'));
+    assert.ok(lookupPrompt.includes('"operation_schemas": {'));
+    assert.ok(lookupPrompt.includes('"maximum": 100'));
+    assert.ok(lookupPrompt.includes('"0.5K"'));
+    assert.ok(lookupPrompt.includes('match 只用于回填'));
+    assert.ok(lookupPrompt.includes('video.generate 必须完整包含 video'));
     const importBundle = {
       schema_version: 1,
       models: [{

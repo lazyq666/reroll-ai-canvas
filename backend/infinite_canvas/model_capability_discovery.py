@@ -1,9 +1,7 @@
-"""Automatic source refresh for reviewed model capability drafts.
+"""Extract reviewable capability drafts from an explicit model-list fetch.
 
-The refresh layer may collect and cache source material, but it never publishes a
-runtime capability.  A changed source becomes Evidence plus a Draft in the
-administrator workbench; the existing review boundary remains the only path to
-the active catalog.
+Discovery reuses bounded provider responses and CLI help. It never schedules
+source checks, launches a CLI, writes a source cache, or publishes capabilities.
 """
 
 from __future__ import annotations
@@ -13,16 +11,11 @@ import copy
 import datetime as _datetime
 import hashlib
 import json
-import os
-import random
 import re
-import shutil
 import shlex
 import urllib.parse
-import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from threading import RLock
 from typing import Any
 
@@ -32,16 +25,9 @@ from .model_capability_workbench import ModelCapabilityWorkbench
 from .outbound_security import httpx_get_public
 
 
-REFRESH_CACHE_VERSION = 1
-SOURCE_PAYLOAD_VERSION = 1
-DEFAULT_REFRESH_INTERVAL_SECONDS = 24 * 60 * 60
-DEFAULT_BACKOFF_SECONDS = 5 * 60
-MAX_BACKOFF_SECONDS = 6 * 60 * 60
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_SOURCE_RECORDS = 1000
-MAX_CONFIGURED_SOURCES = 20
-MAX_OBSERVED_FINGERPRINTS = 50000
-AUTOMATION_ACTOR = "model-capability-refresh"
+AUTOMATION_ACTOR = "model-capability-discovery"
 APIMART_SEEDREAM_DOCS_URL = (
     "https://docs.apimart.ai/en/api-reference/images/"
     "seedream-5-0-pro/generation"
@@ -97,87 +83,6 @@ def _record_fingerprint(value: Mapping[str, Any]) -> str:
 class CapabilitySourceSnapshot:
     name: str
     records: tuple[Mapping[str, Any], ...]
-    etag: str = ""
-    last_modified: str = ""
-    not_modified: bool = False
-
-
-class JsonUrlCapabilitySource:
-    """Fetch one bounded, schema-shaped capability source over public HTTP."""
-
-    def __init__(
-        self,
-        name: str,
-        url: str,
-        *,
-        fetcher: Callable[
-            [str, Mapping[str, str]],
-            Awaitable[tuple[int, Mapping[str, str], bytes]],
-        ]
-        | None = None,
-    ) -> None:
-        self.name = _clean(name)
-        self.url = _clean(url)
-        if not self.name or not self.url:
-            raise ValueError("capability source name and URL are required")
-        self._fetcher = fetcher or self._fetch
-
-    async def collect(
-        self, cached: Mapping[str, Any] | None = None
-    ) -> CapabilitySourceSnapshot:
-        cached_value = cached if isinstance(cached, Mapping) else {}
-        headers = {"Accept": "application/json"}
-        if _clean(cached_value.get("etag")):
-            headers["If-None-Match"] = _clean(cached_value.get("etag"))
-        if _clean(cached_value.get("last_modified")):
-            headers["If-Modified-Since"] = _clean(cached_value.get("last_modified"))
-        status, response_headers, body = await self._fetcher(self.url, headers)
-        if status == 304:
-            records = cached_value.get("records")
-            if not isinstance(records, list):
-                raise ValueError("capability source returned 304 without a cached snapshot")
-            return CapabilitySourceSnapshot(
-                name=self.name,
-                records=tuple(copy.deepcopy(records)),
-                etag=_clean(cached_value.get("etag")),
-                last_modified=_clean(cached_value.get("last_modified")),
-                not_modified=True,
-            )
-        if status < 200 or status >= 300:
-            raise ValueError(f"capability source returned HTTP {status}")
-        if len(body) > MAX_SOURCE_BYTES:
-            raise ValueError("capability source exceeded the response size limit")
-        try:
-            payload = json.loads(body.decode("utf-8-sig"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise ValueError("capability source returned invalid JSON") from error
-        if not isinstance(payload, Mapping) or payload.get("version") != SOURCE_PAYLOAD_VERSION:
-            raise ValueError("unsupported capability source schema")
-        records = payload.get("records")
-        if not isinstance(records, list) or len(records) > MAX_SOURCE_RECORDS:
-            raise ValueError("capability source records are invalid")
-        if any(not isinstance(record, Mapping) for record in records):
-            raise ValueError("capability source record must be an object")
-        lowered_headers = {str(key).lower(): str(value) for key, value in response_headers.items()}
-        return CapabilitySourceSnapshot(
-            name=self.name,
-            records=tuple(copy.deepcopy(records)),
-            etag=_clean(lowered_headers.get("etag")),
-            last_modified=_clean(lowered_headers.get("last-modified")),
-        )
-
-    @staticmethod
-    async def _fetch(
-        url: str, headers: Mapping[str, str]
-    ) -> tuple[int, Mapping[str, str], bytes]:
-        timeout = httpx.Timeout(connect=10.0, read=20.0, write=10.0, pool=10.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await httpx_get_public(client, url, headers=dict(headers))
-            try:
-                body = await response.aread()
-                return response.status_code, dict(response.headers), body
-            finally:
-                await response.aclose()
 
 
 class ApiMartSeedreamDocsSource:
@@ -222,27 +127,8 @@ class ApiMartSeedreamDocsSource:
         self._fetcher = fetcher or self._fetch
         self._clock = clock
 
-    async def collect(
-        self, cached: Mapping[str, Any] | None = None
-    ) -> CapabilitySourceSnapshot:
-        cached_value = cached if isinstance(cached, Mapping) else {}
-        headers = {"Accept": "text/markdown"}
-        if _clean(cached_value.get("etag")):
-            headers["If-None-Match"] = _clean(cached_value.get("etag"))
-        if _clean(cached_value.get("last_modified")):
-            headers["If-Modified-Since"] = _clean(cached_value.get("last_modified"))
-        status, response_headers, body = await self._fetcher(self.url, headers)
-        if status == 304:
-            records = cached_value.get("records")
-            if not isinstance(records, list):
-                raise ValueError("APIMART docs returned 304 without a cached snapshot")
-            return CapabilitySourceSnapshot(
-                name=self.name,
-                records=tuple(copy.deepcopy(records)),
-                etag=_clean(cached_value.get("etag")),
-                last_modified=_clean(cached_value.get("last_modified")),
-                not_modified=True,
-            )
+    async def collect(self) -> CapabilitySourceSnapshot:
+        status, response_headers, body = await self._fetcher(self.url, {"Accept": "text/markdown"})
         if status < 200 or status >= 300:
             raise ValueError(f"APIMART docs returned HTTP {status}")
         if len(body) > MAX_SOURCE_BYTES:
@@ -270,8 +156,6 @@ class ApiMartSeedreamDocsSource:
         return CapabilitySourceSnapshot(
             name=self.name,
             records=(record,),
-            etag=_clean(lowered_headers.get("etag")),
-            last_modified=_clean(lowered_headers.get("last-modified")),
         )
 
     def _record(self, *, fetched_at: str, applicable_version: str) -> Mapping[str, Any]:
@@ -402,9 +286,7 @@ class GeminiApiCapabilitySource:
         self.name = f"gemini-models-api:{self.provider_id}"
         self._clock = clock
 
-    async def collect(
-        self, _cached: Mapping[str, Any] | None = None
-    ) -> CapabilitySourceSnapshot:
+    async def collect(self) -> CapabilitySourceSnapshot:
         records = []
         fetched_at = _iso(self._clock())
         for item in self.models:
@@ -491,7 +373,6 @@ class GeminiApiCapabilitySource:
         return CapabilitySourceSnapshot(
             name=self.name,
             records=tuple(records),
-            etag=_fingerprint({"models": self.models}),
         )
 
 
@@ -545,9 +426,7 @@ class ApiMartModelsCapabilitySource:
         self.name = f"apimart-models-api:{self.provider_id}"
         self._clock = clock
 
-    async def collect(
-        self, _cached: Mapping[str, Any] | None = None
-    ) -> CapabilitySourceSnapshot:
+    async def collect(self) -> CapabilitySourceSnapshot:
         fetched_at = _iso(self._clock())
         records = []
         for item in self.models:
@@ -647,7 +526,6 @@ class ApiMartModelsCapabilitySource:
         return CapabilitySourceSnapshot(
             name=self.name,
             records=tuple(records),
-            etag=_fingerprint({"models": self.models}),
         )
 
     @classmethod
@@ -711,7 +589,6 @@ class DreaminaCliCapabilitySource:
         *,
         provider_id: str = "jimeng",
         discovery: Mapping[str, Any] | None = None,
-        runner: Callable[[Sequence[str]], Awaitable[tuple[int, str, str]]] | None = None,
         clock: Callable[[], _datetime.datetime] = _utc_now,
     ) -> None:
         self.executable = _clean(executable)
@@ -726,36 +603,17 @@ class DreaminaCliCapabilitySource:
             else f"dreamina-cli:{self.provider_id}"
         )
         self._discovery = copy.deepcopy(dict(discovery or {}))
-        self._runner = runner or self._run
         self._clock = clock
 
-    async def collect(
-        self, _cached: Mapping[str, Any] | None = None
-    ) -> CapabilitySourceSnapshot:
-        if self._discovery:
-            raw_help = self._discovery.get("help_outputs")
-            raw_help = raw_help if isinstance(raw_help, Mapping) else {}
-            help_outputs = {
-                command: _clean(raw_help.get(command))
-                for command in self._HELP_COMMANDS
-                if _clean(raw_help.get(command))
-            }
-            version = self._version(_clean(self._discovery.get("version_output")))
-        else:
-            version_status, version_stdout, version_stderr = await self._runner(
-                (self.executable, "--version")
-            )
-            if version_status != 0:
-                raise ValueError(version_stderr or "Dreamina version check failed")
-            version = self._version(version_stdout)
-            help_outputs = {}
-            for command in self._HELP_COMMANDS:
-                status, stdout, stderr = await self._runner(
-                    (self.executable, command, "-h")
-                )
-                if status != 0:
-                    raise ValueError(stderr or f"Dreamina {command} help failed")
-                help_outputs[command] = stdout
+    async def collect(self) -> CapabilitySourceSnapshot:
+        raw_help = self._discovery.get("help_outputs")
+        raw_help = raw_help if isinstance(raw_help, Mapping) else {}
+        help_outputs = {
+            command: _clean(raw_help.get(command))
+            for command in self._HELP_COMMANDS
+            if _clean(raw_help.get(command))
+        }
+        version = self._version(_clean(self._discovery.get("version_output")))
         records = [
             *self._image_records(help_outputs, version),
             *self._video_records(help_outputs, version),
@@ -765,9 +623,6 @@ class DreaminaCliCapabilitySource:
         return CapabilitySourceSnapshot(
             name=self.name,
             records=tuple(records),
-            etag=_fingerprint(
-                {"version": version, "help": help_outputs}
-            ),
         )
 
     def _image_records(
@@ -1134,111 +989,14 @@ class DreaminaCliCapabilitySource:
             version = match.group(1) if match else "unknown"
         return f"dreamina {version}"
 
-    @staticmethod
-    async def _run(command: Sequence[str]) -> tuple[int, str, str]:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdin=asyncio.subprocess.DEVNULL,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=20)
-        except asyncio.CancelledError:
-            if process.returncode is None:
-                process.kill()
-            await process.communicate()
-            raise
-        except asyncio.TimeoutError:
-            process.kill()
-            await process.communicate()
-            raise ValueError("Dreamina help check timed out")
-        return (
-            int(process.returncode or 0),
-            stdout.decode("utf-8", errors="replace").strip(),
-            stderr.decode("utf-8", errors="replace").strip(),
-        )
 
+class ModelCapabilityDiscovery:
+    """Materialize explicit model-fetch evidence without publishing it."""
 
-class ModelCapabilityRefreshManager:
-    """Collect sources, create reviewable differences, and schedule rechecks."""
-
-    def __init__(
-        self,
-        *,
-        workbench: ModelCapabilityWorkbench,
-        catalog: Any,
-        sources: Sequence[Any],
-        cache_path: str | Path,
-        interval_seconds: int = DEFAULT_REFRESH_INTERVAL_SECONDS,
-        backoff_seconds: int = DEFAULT_BACKOFF_SECONDS,
-        maximum_backoff_seconds: int = MAX_BACKOFF_SECONDS,
-        jitter_ratio: float = 0.2,
-        clock: Callable[[], _datetime.datetime] = _utc_now,
-        random_value: Callable[[], float] = random.random,
-    ) -> None:
+    def __init__(self, *, workbench: ModelCapabilityWorkbench, catalog: Any) -> None:
         self.workbench = workbench
         self.catalog = catalog
-        self.sources = tuple(sources)
-        self.cache_path = Path(cache_path)
-        self.interval_seconds = max(60, int(interval_seconds))
-        self.backoff_seconds = max(1, int(backoff_seconds))
-        self.maximum_backoff_seconds = max(
-            self.backoff_seconds, int(maximum_backoff_seconds)
-        )
-        self.jitter_ratio = min(0.5, max(0.0, float(jitter_ratio)))
-        self._clock = clock
-        self._random = random_value
-        self._active_refresh: asyncio.Task | None = None
-        self._scheduler: asyncio.Task | None = None
-        self._stop_event: asyncio.Event | None = None
         self._materialize_lock = RLock()
-        self._status: dict[str, Any] = {
-            "enabled": bool(self.sources),
-            "checking": False,
-            "source_count": len(self.sources),
-            "last_started_at": None,
-            "last_success_at": None,
-            "next_check_at": None,
-            "consecutive_failures": 0,
-            "last_error": None,
-            "drafts_created": 0,
-            "evidence_created": 0,
-            "sources": [],
-        }
-
-    def status(self) -> dict[str, Any]:
-        return copy.deepcopy(self._status)
-
-    def start(self) -> asyncio.Task | None:
-        if self._scheduler is not None and not self._scheduler.done():
-            return self._scheduler
-        self._stop_event = asyncio.Event()
-        self._scheduler = asyncio.create_task(self._run_scheduler())
-        return self._scheduler
-
-    async def stop(self) -> None:
-        if self._stop_event is not None:
-            self._stop_event.set()
-        tasks = [
-            task
-            for task in (self._scheduler, self._active_refresh)
-            if task is not None and not task.done()
-        ]
-        for task in tasks:
-            task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        self._scheduler = None
-        self._active_refresh = None
-        self._stop_event = None
-
-    async def refresh(self, *, force: bool = False) -> dict[str, Any]:
-        active = self._active_refresh
-        if active is None or active.done():
-            active = asyncio.create_task(self._refresh_once(force=force))
-            self._active_refresh = active
-        return await asyncio.shield(active)
 
     async def collect_model_discovery(
         self,
@@ -1354,124 +1112,6 @@ class ModelCapabilityRefreshManager:
             "errors": errors,
         }
 
-    async def _run_scheduler(self) -> None:
-        while self._stop_event is not None and not self._stop_event.is_set():
-            try:
-                await self.refresh()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                pass
-            delay = self._next_delay()
-            self._status["next_check_at"] = _iso(
-                self._clock() + _datetime.timedelta(seconds=delay)
-            )
-            try:
-                await asyncio.wait_for(self._stop_event.wait(), timeout=delay)
-            except asyncio.TimeoutError:
-                continue
-
-    def _next_delay(self) -> float:
-        failures = int(self._status.get("consecutive_failures") or 0)
-        base = self.interval_seconds if failures == 0 else min(
-            self.maximum_backoff_seconds,
-            self.backoff_seconds * (2 ** max(0, failures - 1)),
-        )
-        jitter = base * self.jitter_ratio * ((self._random() * 2) - 1)
-        return max(1.0, base + jitter)
-
-    async def _refresh_once(self, *, force: bool) -> dict[str, Any]:
-        started = self._clock()
-        self._status.update(
-            {"checking": True, "last_started_at": _iso(started), "last_error": None}
-        )
-        cache = self._read_cache()
-        source_cache = cache.setdefault("sources", {})
-        observed = set(cache.setdefault("observed_fingerprints", []))
-        source_statuses: list[dict[str, Any]] = []
-        drafts_created = 0
-        evidence_created = 0
-        errors: list[str] = []
-        try:
-            local_catalog = await asyncio.to_thread(self.catalog.refresh)
-        except asyncio.CancelledError:
-            raise
-        except Exception as error:
-            local_catalog = {"ok": False, "error": str(error)}
-        if not local_catalog.get("ok"):
-            errors.append(_clean(local_catalog.get("error")) or "catalog refresh failed")
-        else:
-            for source in self.sources:
-                source_name = _clean(getattr(source, "name", "")) or "unnamed"
-                try:
-                    snapshot = await source.collect(source_cache.get(source_name))
-                    result = await asyncio.to_thread(
-                        self._materialize,
-                        snapshot,
-                        observed,
-                    )
-                    drafts_created += result["drafts_created"]
-                    evidence_created += result["evidence_created"]
-                    source_cache[source_name] = {
-                        "etag": snapshot.etag,
-                        "last_modified": snapshot.last_modified,
-                        "records": copy.deepcopy(list(snapshot.records)),
-                        "checked_at": _iso(self._clock()),
-                    }
-                    source_statuses.append(
-                        {
-                            "name": source_name,
-                            "ok": True,
-                            "not_modified": snapshot.not_modified,
-                            "record_count": len(snapshot.records),
-                            "error": None,
-                        }
-                    )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as error:
-                    message = f"{source_name}: {error}"
-                    errors.append(message)
-                    source_statuses.append(
-                        {
-                            "name": source_name,
-                            "ok": False,
-                            "not_modified": False,
-                            "record_count": 0,
-                            "error": str(error),
-                        }
-                    )
-        cache["observed_fingerprints"] = sorted(observed)[-MAX_OBSERVED_FINGERPRINTS:]
-        cache["updated_at"] = _iso(self._clock())
-        cache_write_failed = False
-        try:
-            await asyncio.to_thread(self._write_cache, cache)
-        except (OSError, TypeError, ValueError) as error:
-            cache_write_failed = True
-            errors.append(f"cache: {error}")
-        all_failed = bool(self.sources) and not any(item["ok"] for item in source_statuses)
-        failed = not local_catalog.get("ok") or all_failed or cache_write_failed
-        if failed:
-            self._status["consecutive_failures"] = int(
-                self._status.get("consecutive_failures") or 0
-            ) + 1
-        else:
-            self._status["consecutive_failures"] = 0
-            self._status["last_success_at"] = _iso(self._clock())
-        self._status.update(
-            {
-                "checking": False,
-                "last_error": "; ".join(errors) or None,
-                "drafts_created": drafts_created,
-                "evidence_created": evidence_created,
-                "sources": source_statuses,
-            }
-        )
-        delay = self._next_delay()
-        self._status["next_check_at"] = _iso(
-            self._clock() + _datetime.timedelta(seconds=delay)
-        )
-        return {"ok": not failed, "forced": bool(force), **self.status()}
 
     def _materialize(
         self,
@@ -1592,104 +1232,10 @@ class ModelCapabilityRefreshManager:
             "evidence_created": evidence_created,
         }
 
-    def _read_cache(self) -> dict[str, Any]:
-        if not self.cache_path.exists():
-            return {
-                "version": REFRESH_CACHE_VERSION,
-                "updated_at": None,
-                "sources": {},
-                "observed_fingerprints": [],
-            }
-        try:
-            value = json.loads(self.cache_path.read_text(encoding="utf-8-sig"))
-        except (OSError, json.JSONDecodeError):
-            return {
-                "version": REFRESH_CACHE_VERSION,
-                "updated_at": None,
-                "sources": {},
-                "observed_fingerprints": [],
-            }
-        if not isinstance(value, dict) or value.get("version") != REFRESH_CACHE_VERSION:
-            return {
-                "version": REFRESH_CACHE_VERSION,
-                "updated_at": None,
-                "sources": {},
-                "observed_fingerprints": [],
-            }
-        if not isinstance(value.get("sources"), dict):
-            value["sources"] = {}
-        if not isinstance(value.get("observed_fingerprints"), list):
-            value["observed_fingerprints"] = []
-        return value
-
-    def _write_cache(self, value: Mapping[str, Any]) -> None:
-        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.cache_path.with_name(
-            f".{self.cache_path.name}.{uuid.uuid4().hex}.tmp"
-        )
-        try:
-            with temporary.open("x", encoding="utf-8") as output:
-                json.dump(value, output, ensure_ascii=False, indent=2)
-                output.write("\n")
-                output.flush()
-                os.fsync(output.fileno())
-            os.chmod(temporary, 0o600)
-            os.replace(temporary, self.cache_path)
-        finally:
-            try:
-                temporary.unlink()
-            except FileNotFoundError:
-                pass
-
-
-def sources_from_environment() -> tuple[Any, ...]:
-    """Build installed local CLI and optional structured HTTP sources."""
-
-    sources: list[Any] = []
-    apimart_docs_enabled = _clean(
-        os.getenv("INFINITE_CANVAS_MODEL_CAPABILITY_APIMART_DOCS", "1")
-    ).lower() not in {"0", "false", "no", "off"}
-    if apimart_docs_enabled:
-        sources.append(ApiMartSeedreamDocsSource())
-    local_cli_enabled = _clean(
-        os.getenv("INFINITE_CANVAS_MODEL_CAPABILITY_LOCAL_CLI", "1")
-    ).lower() not in {"0", "false", "no", "off"}
-    dreamina = _clean(
-        os.getenv("DREAMINA_BIN") or os.getenv("JIMENG_BIN")
-    ) or _clean(shutil.which("dreamina"))
-    if local_cli_enabled and dreamina:
-        sources.append(DreaminaCliCapabilitySource(dreamina))
-    value = _clean(os.getenv("INFINITE_CANVAS_MODEL_CAPABILITY_SOURCE_URLS"))
-    if not value:
-        return tuple(sources)
-    for index, raw_url in enumerate(value.split(",")[:MAX_CONFIGURED_SOURCES], start=1):
-        url = _clean(raw_url)
-        if url:
-            sources.append(JsonUrlCapabilitySource(f"structured-{index}", url))
-    return tuple(sources)
-
-
-def refresh_interval_from_environment() -> int:
-    value = _clean(os.getenv("INFINITE_CANVAS_MODEL_CAPABILITY_REFRESH_SECONDS"))
-    try:
-        return max(60, int(value or DEFAULT_REFRESH_INTERVAL_SECONDS))
-    except ValueError:
-        return DEFAULT_REFRESH_INTERVAL_SECONDS
-
 
 __all__ = [
-    "APIMART_SEEDREAM_DOCS_URL",
-    "AUTOMATION_ACTOR",
-    "ApiMartModelsCapabilitySource",
-    "ApiMartSeedreamDocsSource",
-    "CapabilitySourceSnapshot",
-    "DEFAULT_REFRESH_INTERVAL_SECONDS",
-    "DreaminaCliCapabilitySource",
-    "GeminiApiCapabilitySource",
-    "JsonUrlCapabilitySource",
-    "ModelCapabilityRefreshManager",
-    "REFRESH_CACHE_VERSION",
-    "SOURCE_PAYLOAD_VERSION",
-    "refresh_interval_from_environment",
-    "sources_from_environment",
+    "APIMART_SEEDREAM_DOCS_URL", "ApiMartModelsCapabilitySource",
+    "ApiMartSeedreamDocsSource", "CapabilitySourceSnapshot",
+    "DreaminaCliCapabilitySource", "GeminiApiCapabilitySource",
+    "ModelCapabilityDiscovery",
 ]

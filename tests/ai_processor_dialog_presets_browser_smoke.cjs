@@ -32,7 +32,7 @@ let browser = null;
             {id:'secondary',name:'Layer Secondary',providerName:'Provider B',resolutionTiers:['auto','1K'],defaultResolution:'1K'},
         ];
         await dialog.show();
-        const resolutions = dialog.querySelector('ic-radio-group[name="layer-resolution"]');
+        const resolutions = dialog.querySelector('ic-segmented-control[name="layer-resolution"]');
         const source = dialog.querySelector('[data-layer-source-stage]').getBoundingClientRect();
         const sourceImage = dialog.querySelector('[data-layer-source]');
         const panel = dialog.querySelector('[data-ai-processor-panel]').getBoundingClientRect();
@@ -42,7 +42,7 @@ let browser = null;
             size:dialog.size,
             selectedModel:dialog.selectedModel,
             resolution:dialog.layerResolution,
-            resolutions:[...resolutions.querySelectorAll('ic-radio')].map(option=>option.value),
+            resolutions:[...resolutions.querySelectorAll('button[data-value]')].map(option=>option.dataset.value),
             resolutionOptionsVisible:resolutions.getBoundingClientRect().height > 0,
             hasGenerationSettingsPicker:Boolean(dialog.querySelector('ic-generation-settings-picker[name="layer-generation-settings"]')),
             sourceObjectFit:getComputedStyle(sourceImage).objectFit,
@@ -98,13 +98,13 @@ let browser = null;
         const prompt = dialog.querySelector('ic-textarea[name="layer-prompt"]');
         prompt.value = 'Keep title separate';
         prompt.dispatchEvent(new Event('input', {bubbles:true,composed:true}));
-        const resolutions = dialog.querySelector('ic-radio-group[name="layer-resolution"]');
+        const resolutions = dialog.querySelector('ic-segmented-control[name="layer-resolution"]');
         const detail = dialog.detail();
         await dialog.hide('accepted');
         return {
             model:detail.modelId,
             resolution:detail.layerResolution,
-            resolutions:[...resolutions.querySelectorAll('ic-radio')].map(option=>option.value),
+            resolutions:[...resolutions.querySelectorAll('button[data-value]')].map(option=>option.dataset.value),
             prompt:detail.prompt,
         };
     });
@@ -116,7 +116,7 @@ let browser = null;
         await dialog.show();
         const state = {
             emptyTitle:dialog.querySelector('[data-ai-processor-empty]')?.getAttribute('title'),
-            resolutionGroupCount:dialog.querySelectorAll('ic-radio-group[name="layer-resolution"]').length,
+            resolutionGroupCount:dialog.querySelectorAll('ic-segmented-control[name="layer-resolution"]').length,
             confirmDisabled:dialog.confirmAction.disabled,
         };
         await dialog.hide('accepted');

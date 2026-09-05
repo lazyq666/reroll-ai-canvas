@@ -82,10 +82,6 @@ class DeviceCache:
     def canvas_list_indexes(self) -> Path:
         return self.directory / "canvas-list-indexes"
 
-    @property
-    def model_capability_sources(self) -> Path:
-        return self.directory / "model-capability-sources.json"
-
     def canvas_list_index(self, workspace_identity: object) -> Path:
         identity = str(workspace_identity or "").strip()
         if not identity:
