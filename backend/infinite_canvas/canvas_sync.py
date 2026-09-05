@@ -39,7 +39,7 @@ from .canvas_store import (
     apply_prompt_template_intent,
 )
 from .realtime_presence import NullRealtimePresence
-from .generation_output import apply_generation_node_changes
+from .generation_output import apply_generation_result_nodes
 from .workspace_storage import WorkspaceStorageError
 
 from .content import WorkspaceContent
@@ -1984,13 +1984,18 @@ class CanvasSync:
                     return CanvasGenerationApplyResult(
                         True, "no_changes", revision
                     )
-                updated_node = apply_generation_node_changes(
+                updated_nodes = apply_generation_result_nodes(
                     node,
                     node_changes,
+                    canvas.get("nodes") or [],
                     run_id=run_id,
                 )
-                node.clear()
-                node.update(updated_node)
+                updates = {item["id"]: item for item in updated_nodes}
+                for candidate in canvas.get("nodes") or []:
+                    if candidate.get("id") in updates:
+                        updated_node = updates[candidate["id"]]
+                        candidate.clear()
+                        candidate.update(updated_node)
                 if log:
                     logs = canvas.get("logs")
                     if not isinstance(logs, list):

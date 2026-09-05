@@ -36,7 +36,7 @@ from .canvas_realtime import (
     apply_operation,
     apply_single_node_position_operation,
 )
-from .generation_output import apply_generation_node_changes
+from .generation_output import apply_generation_result_nodes
 
 
 SCHEMA_VERSION = 1
@@ -2907,16 +2907,20 @@ class SqliteCanvasStore:
         node_changed = bool(node_changes)
         event = None
         if node_changed:
-            updated_node = apply_generation_node_changes(
+            peer_rows = connection.execute(
+                """SELECT payload_json FROM canvas_nodes
+                   WHERE canvas_id = ? AND
+                     (node_id = ? OR json_extract(payload_json, '$.generationBatchId') = ?)""",
+                (row["canvas_id"], node_id, node.get("generationBatchId")),
+            ).fetchall()
+            updated_nodes = apply_generation_result_nodes(
                 node,
                 node_changes,
+                [_json_object(peer["payload_json"]) for peer in peer_rows],
                 run_id=str(intent.payload.get("run_id") or ""),
             )
-            self._upsert_node(
-                connection,
-                str(row["canvas_id"]),
-                updated_node,
-            )
+            for updated_node in updated_nodes:
+                self._upsert_node(connection, str(row["canvas_id"]), updated_node)
             revision += 1
             updated_at = int(self._now_ms())
             connection.execute(

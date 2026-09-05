@@ -868,6 +868,99 @@ class SqliteCanvasStoreContractTests(unittest.TestCase):
             2,
         )
 
+    def test_shared_run_commits_slots_atomically_before_browser_recovery(self):
+        # Exercise durable delivery, then reopen the database as on refresh.
+        for scenario in (
+            "normal", "before_task_saved", "browser_first", "replaced_sibling",
+            "independent_sibling", "deleted_sibling", "fewer", "surplus", "failed",
+        ):
+            with self.subTest(scenario=scenario):
+                database = Path(self.temporary.name) / f"{scenario}.sqlite3"
+                self.store = SqliteCanvasStore(database, workspace_id="workspace-a")
+                document = sample_canvas()
+                document["nodes"] = [
+                    {
+                        "id": node_id,
+                        "type": "smart-image",
+                        "images": [],
+                        "generationOutputNode": True,
+                        "generationOperationId": "generation-operation-1",
+                        "generationBatchId": "shared-batch",
+                        "generationSlotIndex": index,
+                        "generationSlotCount": 2,
+                        "generationInputSnapshot": {"settings": {"count": 2}},
+                        "pending": 1,
+                        "running": True,
+                        "pendingTasks": [{
+                            "taskId": "shared-run",
+                            "generationSlotIndex": index,
+                            "generationSlotCount": 2,
+                        }],
+                    }
+                    for index, node_id in enumerate(["node-a", "slot-b"])
+                ]
+                document["connections"] = []
+                first, second = document["nodes"]
+                outputs = [{"url": "first.png"}, {"url": "second.png"}]
+                expected = [["first.png"], ["second.png"]]
+                if scenario == "before_task_saved":
+                    for node in document["nodes"]:
+                        node.pop("pendingTasks")
+                elif scenario == "browser_first":
+                    second.update(images=[outputs[1]], pending=0, running=False)
+                    second.pop("pendingTasks")
+                elif scenario == "replaced_sibling":
+                    second["generationOperationId"] = "new-operation"
+                    expected[1] = []
+                elif scenario == "independent_sibling":
+                    second["pendingTasks"][0]["taskId"] = "other-run"
+                    expected[1] = []
+                elif scenario == "deleted_sibling":
+                    document["nodes"] = [first]
+                    expected.pop()
+                elif scenario == "fewer":
+                    outputs.pop()
+                    expected[1] = []
+                elif scenario == "surplus":
+                    outputs.append({"url": "third.png"})
+                    expected[1].append("third.png")
+                elif scenario == "failed":
+                    outputs.clear()
+                    expected = [[], []]
+                self.import_canvas(document)
+                result = self.generation(
+                    "effect:shared-run", run_id="shared-run",
+                    node_changes={"images": outputs, "pending": 0, "running": False},
+                )
+                self.assertEqual(result.revision, 8)
+                reloaded = SqliteCanvasStore(database, workspace_id="workspace-a")
+                snapshot = reloaded.read(
+                    "canvas-1", ADMIN, CanvasProjection.public_snapshot(),
+                ).canvas
+                nodes = snapshot["nodes"]
+                self.assertEqual(
+                    [[img["url"] for img in node["images"]] for node in nodes],
+                    expected,
+                )
+                for node in nodes:
+                    if node["id"] == "slot-b" and scenario in (
+                        "replaced_sibling", "independent_sibling",
+                    ):
+                        self.assertEqual(node, second)
+                    else:
+                        self.assertEqual(node["pending"], 0)
+                        self.assertFalse(node["running"])
+                        self.assertNotIn("pendingTasks", node)
+                retry = self.generation(
+                    "effect:shared-run-retry", run_id="shared-run",
+                    node_changes={"images": outputs},
+                )
+                self.assertTrue(retry.duplicate)
+                self.assertEqual(retry.revision, 8)
+                self.assertEqual(reloaded.read(
+                    "canvas-1", ADMIN, CanvasProjection.public_snapshot(),
+                ).canvas, snapshot)
+
     def test_generation_target_guard_records_terminal_discard(self):
         self.import_generation_canvas()
 

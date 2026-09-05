@@ -1430,6 +1430,40 @@ class CanvasGenerationApplyTests(unittest.IsolatedAsyncioTestCase):
             json.loads(self.path.read_text(encoding="utf-8"))["logs"],
         )
 
+    async def test_shared_run_finishes_both_slots_before_single_notification(self):
+        canvas = json.loads(self.path.read_text(encoding="utf-8"))
+        canvas["nodes"] = [
+            {
+                "id": f"node-{index + 1}", "type": "smart-image", "images": [],
+                "generationOperationId": "operation-1", "generationBatchId": "batch-1",
+                "generationSlotIndex": index, "generationSlotCount": 2,
+                "pending": 1, "running": True,
+                "pendingTasks": [{"taskId": "run-1", "generationSlotCount": 2}],
+            }
+            for index in range(2)
+        ]
+        self.path.write_text(json.dumps(canvas), encoding="utf-8")
+        result = await self.sync.apply_generation_result_if_current(
+            "smart-generation", ADMIN, node_id="node-1", operation_id="operation-1",
+            request_index=0, run_id="run-1",
+            node_changes={
+                "images": [{"url": "first.png"}, {"url": "second.png"}],
+                "pending": 0, "running": False,
+            },
+        )
+        self.assertTrue(result.applied)
+        self.assertEqual(result.revision, 4)
+        self.assertEqual(len(self.notifier.persisted_at_notice), 1)
+        saved = self.notifier.persisted_at_notice[0]
+        self.assertEqual(
+            [[item["url"] for item in node["images"]] for node in saved["nodes"]],
+            [["first.png"], ["second.png"]],
+        )
+        for node in saved["nodes"]:
+            self.assertEqual(node["pending"], 0)
+            self.assertFalse(node["running"])
+            self.assertNotIn("pendingTasks", node)
+
     async def test_concurrent_generation_results_accumulate_on_the_same_node(self):
         canvas = json.loads(self.path.read_text(encoding="utf-8"))
         canvas["nodes"][0].update(

@@ -164,6 +164,8 @@ Mention Picker 统一使用公共 `ic-mention-picker`。业务层只负责候选
 
 Mention Picker 媒体 Card 的 Hover Mask 内只显示名称；名称使用 `--ui-color-text-white`、`--ui-font-size-1`（10px）与 `--ui-font-weight-regular`，不得继承提示词模式的字号或 Bold 字重。Smart Canvas 中已经属于当前 Prompt Authoring 的媒体 Card 例外地把该名称替换为当前引用槽位的“媒体类型 + 序号”（如“图片1”“图片2”）。已引用 Card 必须先进入独立的 `.media-leading` 区域，复用 `ic-reference-thumbnail` 的方形封面、Border、圆角与底部通栏 Label 视觉；底部 Label 直接显示同一引用槽位名称，不再显示“已引用”，单卡固定为 `4.0625rem × 4.0625rem`（65px × 65px），按从左到右、再从上到下的行优先顺序排列；不得由 CSS Columns 以从上到下的列优先顺序填充。媒体 Listbox 是唯一的纵向滚动容器，其他 Card 的 Masonry 多列必须放在自然高度的 `.media-columns` 内层；不得让固定高度的 Listbox 自身成为多列容器，以免卡片进入横向隐藏列、滚动条消失或无法反向滚动。
 
+Composer 文本引用缩略图支持与图片相同的左右插入提示和拖拽排序，连接的文本节点、编组文本与本地 TXT 可在文本区域互相重排。文本统一复用 `ic-reference-thumbnail kind="text"`；`draggable="true"` 使文本缩略图可聚焦，本地 TXT 使用 `data-input-remove-local-text-reference` 并通过公共 `ic-remove.detail.localTextReferenceId` 移除。所有文本缩略图按可见顺序连续编号；媒体区域仍保持独立的图片 / 视频 / 音频引用顺序。文本缩略图可以聚焦，用 `Alt + ←/→` 向前 / 向后移动一项，移动后焦点跟随原引用；首尾越界不改变顺序。排序提示提供中英文，切换语言与 Light/Dark 不改写顺序和正文；预览、移除与单项引用状态继续可用。拖动取消或放回原位不保存变更，成功排序进入 Canvas 的保存和撤销/重做流程。最终用户提示词始终以 Composer 正文开头，其余文本严格消费这份可见顺序。
+
 Prompt Composer 内的媒体 `@` Token 不显示素材原始名称，必须显示与当前缩略图槽位一致的“媒体类型 + 序号”（如“图片1”“图片2”）。Token 自身不增加横向 Margin；Composer、Prompt Node 与 Prompt Generation Node 中相邻 Token 的视觉间距只由正文中的一个空格产生。缩略图拖动排序后，已有 Token 只按同一引用实例同步重编号，不改变正文中的位置；从缩略图移除某个引用实例时，Composer 中对应的 Token 也必须一并移除，同 URL 的其他引用实例不受影响。
 
 Workspace Asset Library 使用 X-Large `ic-dialog` 承载 `ic-workspace-asset-library`，产品界面统一称“资产库”，成员动作统一称“添加到资产库”和“从资产库移除”，不得显示“工作区资产库”“发布”或“取消共享”。其信息架构复用 Prompt Library 的双栏模式：左侧带 Small 搜索框、“全部”、共享子文件夹和就地新建/改名/删除，右侧为批量导入 Toolbar 与 Masonry Results，窄屏时 Sidebar 位于 Results 上方。文件夹删除使用危险确认，组内素材保留在“全部”；素材 Card 可拖入文件夹。

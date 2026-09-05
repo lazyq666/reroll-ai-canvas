@@ -1,5 +1,5 @@
-import { IC_ICON_NAMES } from '../icon.js?v=ic-ui-0e81b6afe7d8';
-import { activeOverlayScope } from '../overlay-layer.js?v=ic-ui-0e81b6afe7d8';
+import { IC_ICON_NAMES } from '../icon.js?v=ic-ui-1d9b8d84e857';
+import { activeOverlayScope } from '../overlay-layer.js?v=ic-ui-1d9b8d84e857';
 import { IcButton } from './button.js';
 import { ICON_BUTTON_STYLES } from './styles.js';
 

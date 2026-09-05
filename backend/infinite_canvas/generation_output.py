@@ -89,4 +89,52 @@ def apply_generation_node_changes(
     return updated
 
 
-__all__ = ["apply_generation_node_changes"]
+def apply_generation_result_nodes(
+    node: Mapping[str, Any],
+    node_changes: Mapping[str, Any],
+    peers: list[Mapping[str, Any]],
+    *,
+    run_id: str,
+) -> list[Dict[str, Any]]:
+    """Project a shared Run onto its existing slots before merging each Node.
+
+    The submitted task records identify shared Runs. Before those records are
+    saved, the pre-submission input snapshot supplies the frozen output count.
+    Independent per-slot Runs retain the ordinary single-target merge.
+    """
+    task = next(
+        (task for task in (node.get("pendingTasks") or [])
+         if isinstance(task, Mapping) and task.get("taskId") == run_id),
+        None,
+    )
+    snapshot = node.get("generationInputSnapshot") or {}
+    settings = snapshot.get("settings", {}) if isinstance(snapshot, Mapping) else {}
+    count = (
+        task.get("generationSlotCount") if task is not None
+        else settings.get("count") if isinstance(settings, Mapping) else None
+    )
+    outputs = node_changes.get("images")
+    if (not isinstance(count, int) or isinstance(count, bool) or not 2 <= count <= 8
+            or not node.get("generationBatchId") or not isinstance(outputs, list)):
+        return [apply_generation_node_changes(node, node_changes, run_id=run_id)]
+
+    updated = []
+    for candidate in peers:
+        index = candidate.get("generationSlotIndex")
+        tasks = candidate.get("pendingTasks") or []
+        if (candidate.get("generationBatchId") != node.get("generationBatchId")
+                or candidate.get("generationOperationId") != node.get("generationOperationId")
+                or candidate.get("generationSlotCount") != count
+                or not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < count
+                or (tasks and not any(isinstance(task, Mapping) and task.get("taskId") == run_id for task in tasks))):
+            continue
+        # Surplus outputs belong only to the final slot, which may split them.
+        changes = {
+            **node_changes,
+            "images": outputs[index:] if index == count - 1 else outputs[index:index + 1],
+        }
+        updated.append(apply_generation_node_changes(candidate, changes, run_id=run_id))
+    return updated
+
+
+__all__ = ["apply_generation_node_changes", "apply_generation_result_nodes"]

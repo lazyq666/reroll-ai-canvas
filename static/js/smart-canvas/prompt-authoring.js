@@ -192,6 +192,14 @@ function promptAuthoringLocalTextValidation(refs){
     if(totalBytes > 2 * 1024 * 1024) errors.push(promptAuthoringText('smart.localTextTooLarge'));
     return errors;
 }
+function promptAuthoringOrderedTextInputs(node, textRefs, localTextRefs, context=null){
+    // Preview and submission consume the same ordered entries, including group
+    // text and TXT snapshots. Media keeps its own relative order in inputRefOrder.
+    return promptAuthoringMigrationOrderRefs(node, [
+        ...textRefs.map(ref => ({key:`text|${ref.id}`, nodeId:ref.id, text:textForNode(ref, context).trim()})),
+        ...localTextRefs.map(ref => ({key:inputRefKey(ref), inputInstanceId:ref.inputInstanceId, text:String(ref.textSnapshot || '').trim()}))
+    ], entry => entry.key);
+}
 function promptAuthoringJoinUnique(parts){
     const seen = new Set();
     return (parts || []).map(value => String(value || '').trim()).filter(value => {
@@ -299,12 +307,10 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
     });
     body = promptAuthoringNormalizeMigrationPrompt(body);
     const textRefs = promptAuthoringTextReferences(node, context);
-    const groupPrompt = promptAuthoringContainerModule.isGroup(node) ? textForNode(node, context).trim() : '';
-    const inputPrompt = promptAuthoringInputText(node, textRefs, context);
     const localTextRefs = promptAuthoringLocalTextReferences(node);
-    const localTextPrompt = localTextRefs.map(ref => String(ref.textSnapshot || '').trim()).filter(Boolean).join('\n\n');
+    const textInputs = promptAuthoringOrderedTextInputs(node, textRefs, localTextRefs, context);
     const validationErrors = promptAuthoringLocalTextValidation(localTextRefs);
-    body = promptAuthoringJoinUnique([groupPrompt, inputPrompt, localTextPrompt, body]);
+    body = promptAuthoringJoinUnique([body, ...textInputs.map(entry => entry.text)]);
     if(!body && sourceSettings?.engine === 'runninghub') body = rhDefaultPromptSuggestion();
     const displayPrompt = originalPrompt || body;
     const resolvedRefs = refs.map((img, index) => ({
@@ -331,6 +337,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
             refs:resolvedRefs,
             textRefs:textRefs.map(ref => ({...ref})),
             localTextRefs,
+            textInputs,
             validationErrors,
             mentioned:true
         };
@@ -341,6 +348,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
         refs:resolvedRefs,
         textRefs:textRefs.map(ref => ({...ref})),
         localTextRefs,
+        textInputs,
         validationErrors,
         mentioned:false
     };
@@ -466,7 +474,7 @@ function promptAuthoringMigrationConnectedRefs(canvas, node){
         ))
     ];
 }
-function promptAuthoringMigrationTextPrompt(canvas, node){
+function promptAuthoringMigrationTextInputs(canvas, node){
     const nodeMap = new Map((canvas?.nodes || []).map(item => [String(item?.id || ''), item]));
     const sourceIds = (canvas?.connections || [])
         .filter(connection => (
@@ -477,16 +485,11 @@ function promptAuthoringMigrationTextPrompt(canvas, node){
     if(!sourceIds.length && Array.isArray(node?.inputNodeIds)){
         sourceIds.push(...node.inputNodeIds.map(value => String(value || '')));
     }
-    const seen = new Set();
-    return sourceIds.map(id => nodeMap.get(id)).map(source => {
-        if(source?.type !== 'smart-prompt') return '';
-        return promptAuthoringNormalizeMigrationPrompt(source?.text);
-    }).filter(text => {
-        if(!text || seen.has(text)) return false;
-        seen.add(text);
-        return true;
-    }).join('\n\n');
+    return [...new Set(sourceIds)].map(id => nodeMap.get(id))
+        .filter(source => source?.type === 'smart-prompt')
+        .map(source => ({key:`text|${source.id}`,text:promptAuthoringNormalizeMigrationPrompt(source.text)}));
 }
+
 function promptAuthoringMigrationDraftText(node, inputText=''){
     const inputPrompt = promptAuthoringNormalizeMigrationPrompt(inputText);
     return promptAuthoringNormalizeMigrationPrompt(
@@ -494,25 +497,20 @@ function promptAuthoringMigrationDraftText(node, inputText=''){
     );
 }
 function promptAuthoringMigrationPrompt(canvas, node, inputSnapshot={}){
-    const inputPrompt = promptAuthoringMigrationTextPrompt(canvas, node);
+    const textInputs = promptAuthoringMigrationTextInputs(canvas, node);
+    const inputPrompt = promptAuthoringJoinUnique(textInputs.map(entry => entry.text));
     const draftPrompt = promptAuthoringMigrationDraftText(node, inputPrompt);
-    const localTextPrompt = (Array.isArray(node?.localTextRefs) ? node.localTextRefs : [])
-        .map(ref => promptAuthoringNormalizeMigrationPrompt(ref?.textSnapshot))
-        .filter(Boolean)
-        .join('\n\n');
-    if(inputPrompt){
-        const seen = new Set();
-        return [inputPrompt, localTextPrompt, draftPrompt].filter(value => {
-            const text = promptAuthoringNormalizeMigrationPrompt(value);
-            if(!text || seen.has(text)) return false;
-            seen.add(text);
-            return true;
-        }).join('\n\n');
-    }
+    const ordered = promptAuthoringMigrationOrderRefs(node, [
+        ...textInputs,
+        ...(Array.isArray(node?.localTextRefs) ? node.localTextRefs : []).map(ref => ({
+            key:promptAuthoringMigrationRefKey(ref),
+            text:promptAuthoringNormalizeMigrationPrompt(ref?.textSnapshot)
+        }))
+    ], entry => entry.key);
+    const prompt = promptAuthoringJoinUnique([draftPrompt, ...ordered.map(entry => entry.text)]);
+    if(inputPrompt) return prompt;
     return promptAuthoringNormalizeMigrationPrompt(
-        node?.runModelPrompt
-        || inputSnapshot.prompt
-        || [localTextPrompt, draftPrompt].filter(Boolean).join('\n\n')
+        node?.runModelPrompt || inputSnapshot.prompt || prompt
     );
 }
 function promptAuthoringMigrationCriticalSettings(settingsValue={}){
