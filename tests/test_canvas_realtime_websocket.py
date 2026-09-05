@@ -54,10 +54,15 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                     path = f"/ws/canvases/{canvas['id']}"
                     contexts = []
                     sockets = []
+                    for legacy_path in (path, path + "?layout_gap=48"):
+                        with client.websocket_connect(legacy_path) as legacy:
+                            with self.assertRaises(WebSocketDisconnect) as incompatible:
+                                legacy.receive_json()
+                        self.assertEqual(incompatible.exception.code, 4410)
                     try:
                         for index in range(20):
                             context = client.websocket_connect(
-                                f"{path}?client_id=tab-{index}"
+                                f"{path}?layout_gap=64&client_id=tab-{index}"
                             )
                             socket = context.__enter__()
                             contexts.append(context)
@@ -68,7 +73,7 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                             )
 
                         with client.websocket_connect(
-                            f"{path}?client_id=tab-twenty-one"
+                            f"{path}?layout_gap=64&client_id=tab-twenty-one"
                         ) as twenty_first:
                             with self.assertRaises(
                                 WebSocketDisconnect
@@ -84,7 +89,7 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                         sockets.pop(0)
                         first_context.__exit__(None, None, None)
                         with client.websocket_connect(
-                            f"{path}?client_id=tab-reconnected"
+                            f"{path}?layout_gap=64&client_id=tab-reconnected"
                         ) as reconnected:
                             self.assertEqual(
                                 reconnected.receive_json()["type"],
@@ -156,13 +161,13 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                     guest_headers = {"cookie": f"{main.SESSION_COOKIE}={guest_cookie}"}
                     with self.assertRaises(WebSocketDisconnect) as denied:
                         with client.websocket_connect(
-                            f"{path}?client_id=guest-a",
+                            f"{path}?layout_gap=64&client_id=guest-a",
                             headers=guest_headers,
                         ):
                             pass
                     self.assertEqual(denied.exception.code, 4404)
                     with client.websocket_connect(
-                        f"{path}?client_id=admin-a",
+                        f"{path}?layout_gap=64&client_id=admin-a",
                         headers=admin_headers,
                     ) as admin_socket:
                         self.assertEqual(admin_socket.receive_json()["type"], "canvas_snapshot")
@@ -175,7 +180,7 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                         self.assertNotIn("role", admin_presence["members"][0])
 
                         with client.websocket_connect(
-                            f"{path}?client_id=designer-a",
+                            f"{path}?layout_gap=64&client_id=designer-a",
                             headers=designer_headers,
                         ) as designer_socket:
                             self.assertEqual(designer_socket.receive_json()["type"], "canvas_snapshot")
@@ -204,7 +209,7 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                             self.assertNotIn("revision", resynced)
 
                             with client.websocket_connect(
-                                f"{path}?client_id=admin-b",
+                                f"{path}?layout_gap=64&client_id=admin-b",
                                 headers=admin_headers,
                             ) as second_admin:
                                 self.assertEqual(second_admin.receive_json()["type"], "canvas_snapshot")
@@ -277,11 +282,11 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                     ).json()["canvas"]
                     path = f"/ws/canvases/{canvas['id']}"
                     with client.websocket_connect(
-                        f"{path}?client_id=tab-a"
+                        f"{path}?layout_gap=64&client_id=tab-a"
                     ) as first:
                         first_snapshot = first.receive_json()
                         with client.websocket_connect(
-                            f"{path}?client_id=tab-b"
+                            f"{path}?layout_gap=64&client_id=tab-b"
                         ) as second:
                             second_snapshot = second.receive_json()
                             self.assertEqual(

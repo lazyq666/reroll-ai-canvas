@@ -18,7 +18,7 @@
 
     if (!geometry?.createSession) throw new Error('Node Geometry Module failed to load');
 
-    const BATCH_GAP = 48;
+    const GAP = geometry.nodeGap;
     const FATAL_DIAGNOSTICS = new Set([
         'invalid-node-position',
         'invalid-node-dimensions',
@@ -115,7 +115,11 @@
     function collection(measuredDrafts, arrangement) {
         const visible = [];
         const interaction = [];
-        let primaryAxisCursor = 0;
+        const horizontal = arrangement === 'horizontal-batch';
+        const linear = ['horizontal-batch','vertical-batch'].includes(arrangement)
+            ? geometry.layoutOffsets(measuredDrafts.map(({measurement}) =>
+                horizontal ? measurement.footprint.width : measurement.footprint.height
+            )).values : [];
         let rigidMinX = 0;
         let rigidMinY = 0;
         if (arrangement === 'rigid' && measuredDrafts.length) {
@@ -127,11 +131,9 @@
             let x = 0;
             let y = 0;
             if (arrangement === 'vertical-batch') {
-                y = primaryAxisCursor;
-                primaryAxisCursor += footprint.height + BATCH_GAP;
+                y = linear[index];
             } else if (arrangement === 'horizontal-batch') {
-                x = primaryAxisCursor;
-                primaryAxisCursor += footprint.width + BATCH_GAP;
+                x = linear[index];
             } else if (arrangement === 'rigid') {
                 x = number(node.x) - rigidMinX;
                 y = number(node.y) - rigidMinY;
@@ -146,282 +148,188 @@
             };
             visible.push(visibleRect);
             interaction.push(interactionRect);
-            return {id:String(node.id),index,x,y,visibleRect,interactionRect};
+            return {id:String(node.id),x,y};
         });
         const visibleBounds = boundsOf(visible);
         const interactionBounds = boundsOf(interaction);
         return {members,visibleBounds,interactionBounds};
     }
 
-    function containingFrame(measuredSnapshot, intent) {
-        const requestedId = String(intent?.frameId || '');
-        const sourceId = String(intent?.anchor?.sourceNodeId || '');
-        const sourceIds = intent?.anchor?.sourceNodeIds || [sourceId];
-        const frames = measuredSnapshot.filter(({measurement}) => measurement.spatialContainer);
-        return frames.find(({node}) => String(node.id) === requestedId)
-            || frames.find(({node}) => Array.isArray(node.items) && sourceIds.length && sourceIds.every(id => node.items.includes(id)))
-            || null;
+    function containingFrame(measured, intent) {
+        const frames = measured.filter(item => item.measurement.spatialContainer);
+        if (Object.prototype.hasOwnProperty.call(intent,'frameId')) {
+            return frames.find(item=>String(item.node.id)===String(intent.frameId)) || null;
+        }
+        const anchor = intent.anchor || {};
+        const ids = anchor.sourceNodeIds || [anchor.sourceNodeId].filter(Boolean);
+        const candidates = frames.filter(({node,measurement}) => anchor.kind==='point'
+            ? contains(measurement.footprint,{x:anchor.x,y:anchor.y,width:0,height:0})
+            : ids.length && ids.every(id=>(node.items || []).includes(id)));
+        candidates.sort((a,b) => {
+            const area = item=>item.measurement.footprint.width*item.measurement.footprint.height;
+            return area(a)-area(b) || (String(a.node.id)<String(b.node.id) ? -1 : 1);
+        });
+        return candidates[0] || null;
     }
 
-    function previousGenerationBatch(measuredSnapshot, measuredDrafts, intent) {
-        const arrangement = String(intent?.arrangement || '');
-        if (!['horizontal-batch','vertical-batch'].includes(arrangement)) return null;
-        const draft = measuredDrafts[0]?.node || {};
-        const sourceNodeId = String(
-            draft.generationBatchSourceNodeId
-            || intent?.anchor?.sourceNodeId
-            || ''
-        );
-        const layout = arrangement === 'vertical-batch' ? 'vertical' : 'horizontal';
-        if (!sourceNodeId) return null;
+    function previousGenerationBatch(measured, drafts, intent) {
+        if (!['horizontal-batch','vertical-batch'].includes(intent.arrangement)) return null;
+        const sourceId = String(drafts[0]?.node.generationBatchSourceNodeId || intent.anchor?.sourceNodeId || '');
+        const layout = intent.arrangement==='horizontal-batch' ? 'horizontal' : 'vertical';
         const batches = new Map();
-        measuredSnapshot.forEach(item => {
-            const node = item.node || {};
-            const batchId = String(node.generationBatchId || '');
-            if (
-                !batchId
-                || String(node.generationBatchSourceNodeId || '') !== sourceNodeId
-                || String(node.generationBatchLayout || 'vertical') !== layout
-            ) return;
-            if (!batches.has(batchId)) batches.set(batchId,[]);
-            batches.get(batchId).push(item);
+        measured.forEach(item => {
+            const node = item.node;
+            if (!sourceId || !node.generationBatchId || String(node.generationBatchSourceNodeId)!==sourceId
+                || (node.generationBatchLayout || 'vertical')!==layout) return;
+            if (!batches.has(node.generationBatchId)) batches.set(node.generationBatchId,[]);
+            batches.get(node.generationBatchId).push(item);
         });
-        const ordered = [...batches.entries()].sort((left,rightValue) => {
-            const created = values => Math.max(...values.map(({node}) => number(node.created_at)));
-            return created(rightValue[1]) - created(left[1])
-                || String(rightValue[0]).localeCompare(String(left[0]));
-        });
+        const ordered = [...batches.entries()].sort((a,b)=>
+            Math.max(...b[1].map(item=>number(item.node.created_at)))-Math.max(...a[1].map(item=>number(item.node.created_at)))
+            || (String(a[0])<String(b[0]) ? -1 : String(a[0])>String(b[0]) ? 1 : 0));
         if (!ordered.length) return null;
-        const previousBounds = boundsOf(ordered[0][1].map(({measurement}) =>
-            rect(measurement.footprint)
-        ));
-        return layout === 'horizontal'
-            ? {
-                x:previousBounds.x,
-                y:bottom(previousBounds) + BATCH_GAP,
-                batchDirection:'horizontal'
-            }
-            : {
-                x:right(previousBounds) + BATCH_GAP,
-                y:previousBounds.y,
-                batchDirection:'vertical'
-            };
+        const bounds = boundsOf(ordered[0][1].map(item=>rect(item.measurement.footprint)));
+        return layout==='horizontal'
+            ? {x:bounds.x,y:bottom(bounds)+GAP,horizontal:true}
+            : {x:right(bounds)+GAP,y:bounds.y,horizontal:false};
     }
 
-    function preferredPosition(collectionValue, measuredSnapshot, measuredDrafts, intent) {
-        const previousBatch = previousGenerationBatch(measuredSnapshot, measuredDrafts, intent);
-        if (previousBatch) return previousBatch;
-        const anchor = intent?.anchor || {};
-        const kind = String(anchor.kind || 'viewport');
-        if (kind === 'source') {
-            const sourceIds = anchor.sourceNodeIds || [String(anchor.sourceNodeId || '')];
-            const sources = sourceIds.map(id => measuredSnapshot.find(({node}) => String(node?.id || '') === String(id)));
-            if (!sources.length || sources.some(source => !source?.measurement?.supported)) return null;
-            const rectangles = sources.map(source => rect(source.measurement.footprint));
-            const left = Math.min(...rectangles.map(value => value.x));
-            const top = Math.min(...rectangles.map(value => value.y));
-            const sourceRect = {x:left,y:top,width:Math.max(...rectangles.map(right))-left,height:Math.max(...rectangles.map(bottom))-top};
-            const relation = intent?.relation === 'upstream' ? 'upstream' : 'downstream';
-            return {
-                x:relation === 'upstream'
-                    ? sourceRect.x - 200 - collectionValue.visibleBounds.width
-                    : right(sourceRect) + 200,
-                y:sourceRect.y,
-                sourceRect,
-                relation
-            };
+    function preferredPosition(value, measured, intent) {
+        const anchor = intent.anchor || {};
+        if (anchor.kind==='source') {
+            const ids = anchor.sourceNodeIds || [anchor.sourceNodeId];
+            const sources = ids.map(id=>measured.find(item=>String(item.node.id)===String(id)));
+            if (!sources.length || sources.some(item=>!item?.measurement.supported)) return null;
+            const sourceRect = boundsOf(sources.map(item=>rect(item.measurement.footprint)));
+            const upstream = intent.relation==='upstream';
+            return {x:upstream ? sourceRect.x-GAP-value.visibleBounds.width : right(sourceRect)+GAP,
+                y:intent.alignment==='center'
+                    ? sourceRect.y+(sourceRect.height-value.visibleBounds.height)/2 : sourceRect.y,
+                sourceRect,upstream};
         }
-        const x = number(anchor.x);
-        const y = number(anchor.y);
+        const attachment = anchor.attachment || 'center';
         return {
-            x:x - collectionValue.visibleBounds.width / 2,
-            y:y - collectionValue.visibleBounds.height / 2,
-            point:{x,y}
+            x:number(anchor.x)-(attachment==='left-middle' || attachment==='top-left' ? 0
+                : attachment==='right-middle' ? value.visibleBounds.width : value.visibleBounds.width/2),
+            y:number(anchor.y)-(attachment==='top-left' ? 0 : value.visibleBounds.height/2)
         };
     }
 
-    function candidateKey(candidate) {
-        return `${candidate.x}:${candidate.y}`;
-    }
-
-    function initialCandidates(preferred, collectionValue, obstacles, frameValue) {
-        const xValues = new Set([preferred.x]);
-        const yValues = new Set([preferred.y]);
-        const local = collectionValue.interactionBounds;
+    function search(value, obstacles, preferred, viewport, previousBatch) {
+        const local = value.interactionBounds;
+        const visible = value.visibleBounds;
+        const xs = new Set([preferred.x]);
+        const ys = new Set([preferred.y]);
         obstacles.forEach(obstacle => {
-            xValues.add(right(obstacle) - local.x);
-            xValues.add(obstacle.x - right(local));
-            yValues.add(bottom(obstacle) - local.y);
-            yValues.add(obstacle.y - bottom(local));
+            xs.add(right(obstacle)-local.x); xs.add(obstacle.x-right(local));
+            ys.add(bottom(obstacle)-local.y); ys.add(obstacle.y-bottom(local));
         });
-        if (frameValue) {
-            const frameRect = rect(frameValue.measurement.footprint);
-            xValues.add(frameRect.x - collectionValue.visibleBounds.x);
-            xValues.add(right(frameRect) - right(collectionValue.visibleBounds));
-            yValues.add(frameRect.y - collectionValue.visibleBounds.y);
-            yValues.add(bottom(frameRect) - bottom(collectionValue.visibleBounds));
+        if (viewport) {
+            xs.add(viewport.x); xs.add(right(viewport)-visible.width);
+            ys.add(viewport.y); ys.add(bottom(viewport)-visible.height);
         }
+        if (previousBatch) { xs.add(previousBatch.x); ys.add(previousBatch.y); }
+        if (preferred.sourceRect) ys.add(preferred.sourceRect.y+(preferred.sourceRect.height-visible.height)/2);
+        const distance = candidate=>Math.hypot(candidate.x-preferred.x,candidate.y-preferred.y);
+        const legal = candidate=>Number.isFinite(candidate.x) && Number.isFinite(candidate.y)
+            && (!preferred.sourceRect || (preferred.upstream
+                ? candidate.x+visible.width<=preferred.sourceRect.x-GAP
+                : candidate.x>=right(preferred.sourceRect)+GAP))
+            && !obstacles.some(obstacle=>overlaps(translated(local,candidate.x,candidate.y),obstacle));
         const candidates = [];
-        xValues.forEach(x => yValues.forEach(y => candidates.push({x,y})));
-        return candidates;
-    }
-
-    function score(candidate, preferred) {
-        const dx = candidate.x - preferred.x;
-        const dy = candidate.y - preferred.y;
-        return [
-            dx * dx + dy * dy,
-            Math.abs(dy),
-            Math.abs(dx),
-            candidate.x,
-            candidate.y < preferred.y ? 1 : 0,
-            candidate.y
-        ];
-    }
-
-    function compareCandidates(left, rightValue, preferred) {
-        const leftScore = score(left, preferred);
-        const rightScore = score(rightValue, preferred);
-        for (let index = 0; index < leftScore.length; index += 1) {
-            if (leftScore[index] !== rightScore[index]) return leftScore[index] - rightScore[index];
+        xs.forEach(x=>ys.forEach(y=>{if(legal({x,y})) candidates.push({x,y});}));
+        // The finite scene's obstacle boundaries include its outermost free positions.
+        // Search grows with actual geometry, never with a fixed attempt/overlap fallback.
+        if (!candidates.length) return null;
+        let nearest = Infinity;
+        candidates.forEach(candidate=>{nearest=Math.min(nearest,distance(candidate));});
+        const useViewport = viewport && preferred.sourceRect;
+        const budget = nearest+(useViewport ? GAP : 0);
+        if (useViewport) {
+            // Include partially visible positions at the distance limit when a
+            // viewport edge itself would require more than the permitted G.
+            const onCircle = (delta,axis)=>{
+                if (Math.abs(delta)>budget) return;
+                const reach = Math.sqrt(Math.max(0,budget*budget-delta*delta));
+                [-reach,reach].forEach(offset=>{
+                    const candidate=axis==='x' ? {x:preferred.x+delta,y:preferred.y+offset}
+                        : {x:preferred.x+offset,y:preferred.y+delta};
+                    if(legal(candidate)) candidates.push(candidate);
+                });
+            };
+            xs.forEach(x=>onCircle(x-preferred.x,'x'));
+            ys.forEach(y=>onCircle(y-preferred.y,'y'));
         }
-        return 0;
-    }
-
-    function directionCompatible(candidate, collectionValue, preferred) {
-        if (preferred.batchDirection === 'horizontal') {
-            return candidate.x === preferred.x && candidate.y >= preferred.y;
-        }
-        if (preferred.batchDirection === 'vertical') {
-            return candidate.y === preferred.y && candidate.x >= preferred.x;
-        }
-        if (!preferred.sourceRect) return true;
-        if (preferred.relation === 'upstream') {
-            return candidate.x + collectionValue.visibleBounds.width
-                <= preferred.sourceRect.x - 200;
-        }
-        return candidate.x >= right(preferred.sourceRect) + 200;
-    }
-
-    function frameCompatible(candidate, collectionValue, frames, preferredFrame, preferInside) {
-        const visible = translated(collectionValue.visibleBounds, candidate.x, candidate.y);
-        if (preferredFrame) {
-            const frameRect = rect(preferredFrame.measurement.footprint);
-            if (preferInside && !contains(frameRect, visible)) return false;
-            if (!preferInside && overlaps(frameRect, visible)) return false;
-        }
-        return frames.every(frameValue => {
-            const frameRect = rect(frameValue.measurement.footprint);
-            if (preferredFrame?.node?.id === frameValue.node?.id) return true;
-            return !overlaps(frameRect, visible) || contains(frameRect, visible);
-        });
-    }
-
-    function legal(candidate, collectionValue, obstacles, frames, preferred, preferredFrame, preferInside) {
-        if (!directionCompatible(candidate, collectionValue, preferred)) return false;
-        if (!frameCompatible(candidate, collectionValue, frames, preferredFrame, preferInside)) return false;
-        const interaction = translated(collectionValue.interactionBounds, candidate.x, candidate.y);
-        return !obstacles.some(obstacle => overlaps(interaction, obstacle));
-    }
-
-    function search(collectionValue, obstacles, frames, preferred, preferredFrame, preferInside) {
-        const seen = new Set();
-        const candidates = initialCandidates(preferred, collectionValue, obstacles, preferredFrame);
-        const inspect = values => {
-            const ordered = values
-                .filter(candidate => Number.isFinite(candidate.x) && Number.isFinite(candidate.y))
-                .filter(candidate => {
-                    const key = candidateKey(candidate);
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
-                })
-                .sort((left, rightValue) => compareCandidates(left, rightValue, preferred));
-            return ordered.find(candidate => legal(
-                candidate, collectionValue, obstacles, frames,
-                preferred, preferredFrame, preferInside
-            )) || null;
+        const visibility = candidate=>{
+            if(!useViewport) return 0;
+            const box=translated(visible,candidate.x,candidate.y);
+            return Math.max(0,Math.min(right(box),right(viewport))-Math.max(box.x,viewport.x))
+                *Math.max(0,Math.min(bottom(box),bottom(viewport))-Math.max(box.y,viewport.y))
+                /Math.max(1,box.width*box.height);
         };
-        const initial = inspect(candidates);
-        if (initial) return initial;
-        if (preferInside) return null;
-
-        const stepX = Math.max(1, collectionValue.interactionBounds.width);
-        const stepY = Math.max(1, collectionValue.interactionBounds.height);
-        for (let ring = 1; ; ring += 1) {
-            const ringCandidates = [];
-            for (let offset = -ring; offset <= ring; offset += 1) {
-                ringCandidates.push(
-                    {x:preferred.x + offset * stepX,y:preferred.y - ring * stepY},
-                    {x:preferred.x + offset * stepX,y:preferred.y + ring * stepY},
-                    {x:preferred.x - ring * stepX,y:preferred.y + offset * stepY},
-                    {x:preferred.x + ring * stepX,y:preferred.y + offset * stepY}
-                );
-            }
-            const found = inspect(ringCandidates);
-            if (found) return found;
-        }
+        const aligned = candidate=>!previousBatch ? 0 : Number(previousBatch.horizontal
+            ? candidate.x!==previousBatch.x : candidate.y!==previousBatch.y);
+        return candidates.filter(candidate=>distance(candidate)<=budget+1e-9).sort((a,b)=>
+            visibility(b)-visibility(a) || distance(a)-distance(b) || aligned(a)-aligned(b)
+            || Math.abs(a.y-preferred.y)-Math.abs(b.y-preferred.y) || a.x-b.x || a.y-b.y)[0];
     }
 
-    function plan(request = {}) {
-        const snapshotNodes = Array.isArray(request?.snapshot?.nodes)
-            ? request.snapshot.nodes.filter(Boolean)
-            : [];
-        const drafts = Array.isArray(request?.drafts) ? request.drafts.filter(Boolean) : [];
-        if (!drafts.length) {
-            return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'missing-drafts',nodeId:'',path:'drafts'}]});
+    function plan(request={}) {
+        const anchor=request.intent?.anchor;
+        if(['point','viewport'].includes(anchor?.kind)
+            && (!Number.isFinite(anchor.x) || !Number.isFinite(anchor.y))){
+            return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'invalid-anchor-position'}]});
         }
-        const arrangement = ['single','horizontal-batch','vertical-batch','rigid'].includes(request?.intent?.arrangement)
-            ? request.intent.arrangement
-            : (drafts.length > 1 ? 'rigid' : 'single');
-        const {measuredSnapshot, measuredDrafts} = measureNodes(snapshotNodes, drafts);
-        const diagnostics = diagnosticsFor(measuredSnapshot, measuredDrafts);
-        if (diagnostics.length) {
-            return Object.freeze({ok:false,placements:[],bounds:null,diagnostics});
+        let snapshotNodes = (request.snapshot?.nodes || []).filter(Boolean);
+        const drafts = (request.drafts || []).filter(Boolean);
+        if(!drafts.length) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'missing-drafts'}]});
+        const intent = JSON.parse(JSON.stringify(request.intent || {}));
+        const owners = new Map();
+        snapshotNodes.filter(node=>node.type==='smart-group').forEach(group=>
+            (group.items || []).forEach(id=>owners.set(String(id),String(group.id))));
+        if(intent.anchor?.kind==='source') {
+            const resolve = id=>{
+                const seen=new Set();
+                while(owners.has(String(id)) && !seen.has(String(id))) {
+                    seen.add(String(id)); id=owners.get(String(id));
+                }
+                return String(id);
+            };
+            intent.anchor.sourceNodeIds=[...new Set((intent.anchor.sourceNodeIds
+                || [intent.anchor.sourceNodeId]).filter(Boolean).map(resolve))];
         }
-        const collectionValue = collection(measuredDrafts, arrangement);
-        const preferred = preferredPosition(
-            collectionValue,
-            measuredSnapshot,
-            measuredDrafts,
-            request.intent || {}
-        );
-        if (!preferred) {
-            return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{
-                code:'missing-source-node',
-                nodeId:String(request?.intent?.anchor?.sourceNodeId || ''),
-                path:'intent.anchor.sourceNodeId'
-            }]});
+        snapshotNodes=snapshotNodes.filter(node=>!owners.has(String(node.id)));
+        const arrangement=['single','horizontal-batch','vertical-batch','rigid'].includes(intent.arrangement)
+            ? intent.arrangement : drafts.length>1 ? 'rigid' : 'single';
+        const {measuredSnapshot,measuredDrafts}=measureNodes(snapshotNodes,drafts);
+        const diagnostics=diagnosticsFor(measuredSnapshot,measuredDrafts);
+        if(diagnostics.length) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics});
+        const draftOwned=new Set(drafts.filter(node=>node.type==='smart-group').flatMap(node=>node.items || []));
+        const outerDrafts=measuredDrafts.filter(item=>!draftOwned.has(item.node.id));
+        if(!outerDrafts.length) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'invalid-group-owner'}]});
+        const value=collection(outerDrafts,arrangement);
+        const preferred=preferredPosition(value,measuredSnapshot,intent);
+        if(!preferred) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'missing-source-node'}]});
+        const frame=containingFrame(measuredSnapshot,intent);
+        const obstacles=measuredSnapshot.filter(item=>item.measurement.placementObstacle)
+            .map(item=>rect(item.measurement.interactionFootprint));
+        const viewport=intent.viewport && Number(intent.viewport.width)>0 && Number(intent.viewport.height)>0
+            ? rect(intent.viewport) : null;
+        const chosen=intent.anchor?.kind==='point' ? preferred
+            : search(value,obstacles,preferred,viewport,previousGenerationBatch(measuredSnapshot,measuredDrafts,intent));
+        if(!chosen) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'invalid-node-dimensions'}]});
+        // Do not round away the clearance or the user's exact attachment point.
+        const placements=value.members.map(member=>({id:member.id,x:chosen.x+member.x,y:chosen.y+member.y}));
+        if(arrangement==='rigid' && draftOwned.size){
+            const left=Math.min(...outerDrafts.map(item=>number(item.node.x)));
+            const top=Math.min(...outerDrafts.map(item=>number(item.node.y)));
+            drafts.filter(node=>draftOwned.has(node.id)).forEach(node=>placements.push({
+                id:node.id,x:number(node.x)+chosen.x-left,y:number(node.y)+chosen.y-top
+            }));
         }
-        const obstacles = measuredSnapshot
-            .filter(({measurement}) => measurement.supported && measurement.placementObstacle)
-            .map(({measurement}) => rect(measurement.interactionFootprint));
-        const frames = measuredSnapshot.filter(({measurement}) => measurement.spatialContainer);
-        const preferredFrame = containingFrame(measuredSnapshot, request.intent || {});
-        const inside = preferredFrame
-            ? search(collectionValue, obstacles, frames, preferred, preferredFrame, true)
-            : null;
-        const chosen = inside || search(
-            collectionValue, obstacles, frames, preferred,
-            preferredFrame, false
-        );
-        const placements = collectionValue.members.map(member => ({
-            id:member.id,
-            x:Math.round((chosen.x + member.x) * 1000) / 1000,
-            y:Math.round((chosen.y + member.y) * 1000) / 1000
-        }));
-        const bounds = translated(collectionValue.visibleBounds, chosen.x, chosen.y);
-        return Object.freeze({
-            ok:true,
-            placements,
-            bounds:{
-                x:Math.round(bounds.x * 1000) / 1000,
-                y:Math.round(bounds.y * 1000) / 1000,
-                width:Math.round(bounds.width * 1000) / 1000,
-                height:Math.round(bounds.height * 1000) / 1000
-            },
-            diagnostics:[]
-        });
+        const bounds=translated(value.visibleBounds,chosen.x,chosen.y);
+        const frameUpdates=frame ? [{id:String(frame.node.id),...geometry.expandFrame(rect(frame.measurement.footprint),[bounds])}] : [];
+        return Object.freeze({ok:true,placements,bounds,frameUpdates,frameId:String(frame?.node.id || ''),diagnostics:[]});
     }
 
     return Object.freeze({plan});

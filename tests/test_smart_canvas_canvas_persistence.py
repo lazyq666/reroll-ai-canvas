@@ -71,6 +71,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 Date, JSON, Promise,
             }};
             sandbox.nodes = sandbox.canvas.nodes;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             vm.runInContext(`
@@ -175,6 +177,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 JSON,
             }};
             sandbox.globalThis = sandbox;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             sandbox.cases = {{
@@ -270,6 +274,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 JSON,
             }};
             sandbox.globalThis = sandbox;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             sandbox.before = {{
@@ -324,6 +330,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 JSON,
             }};
             sandbox.globalThis = sandbox;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             vm.runInContext(`
@@ -384,9 +392,11 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
             sandbox.window = sandbox;
             sandbox.SmartCanvasModules = {{
                 canvasMutation:{{
-                    placementMode:({{nodeId}}) => nodeId === 'manual' ? 'exact' : 'auto'
+                    placementIntent:({{nodeId}}) => ({{mode:nodeId === 'manual' ? 'exact' : 'auto',gap:64}})
                 }}
             }};
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(geometrySource, sandbox);
             vm.runInContext(placementSource, sandbox);
@@ -413,7 +423,7 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
             {"id": "manual", "type": "smart-prompt", "x": 400, "y": 0, "w": 316, "h": 180},
         )
 
-    def test_rejected_undo_restore_builds_placement_overrides_for_same_revert(self):
+    def test_undo_requests_authoritative_history_without_placement_overrides(self):
         script = textwrap.dedent(
             f"""
             const fs = require('fs');
@@ -433,6 +443,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(geometrySource, sandbox);
             vm.runInContext(placementSource, sandbox);
@@ -446,22 +458,16 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 connection_adds:[]
             }};
             vm.runInContext(`
-                replanned = canvasPersistenceClone(retryChanges);
-                overrides = canvasPersistencePlacementOverridesForRetry(
-                    replanned,
-                    confirmed
-                );
                 canvasPersistenceRevision = 7;
                 canvasPersistenceStatusValue = 'ready';
                 canvasPersistenceSocket = {{readyState:1,send:value => sent.push(JSON.parse(value))}};
                 canvasPersistenceSendOperation(canvasPersistenceEmptyChanges(), {{
                     operationId:'client-a:undo-retry',
                     revertsOperationId:'client-a:delete-source',
-                    placementOverrides:overrides,
                     optimistic:false
                 }});
             `, sandbox);
-            process.stdout.write(JSON.stringify({{overrides:sandbox.overrides,sent}}));
+            process.stdout.write(JSON.stringify({{sent}}));
             """
         )
         result = subprocess.run(
@@ -469,10 +475,9 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["overrides"], {"restored": {"x": 400, "y": 276}})
         operation_value = payload["sent"][0]["operation"]
         self.assertEqual(operation_value["reverts_operation_id"], "client-a:delete-source")
-        self.assertEqual(operation_value["placement_overrides"], payload["overrides"])
+        self.assertNotIn("placement_overrides", operation_value)
         self.assertNotIn("changes", operation_value)
 
     def test_rejected_created_node_is_replanned_against_confirmed_snapshot(self):
@@ -491,6 +496,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(geometrySource, sandbox);
             vm.runInContext(placementSource, sandbox);
@@ -517,7 +524,7 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(
             payload["node_creates"][0],
-            {"id": "retry", "type": "smart-prompt", "x": 400, "y": 276, "w": 316, "h": 180},
+            {"id": "retry", "type": "smart-prompt", "x": 264, "y": -244, "w": 316, "h": 180},
         )
 
     def test_stale_revision_replan_uses_persisted_generation_batch_layout(self):
@@ -530,7 +537,7 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
             const persistenceSource = fs.readFileSync({json.dumps(str(PERSISTENCE_MODULE))}, 'utf8');
             const sandbox = {{
                 window:{{addEventListener:() => {{}},SmartCanvasModules:{{
-                    canvasMutation:{{placementMode:()=> 'auto'}}
+                    canvasMutation:{{placementIntent:()=> null}}
                 }}}},
                 document:{{addEventListener:() => {{}}}},
                 tr:key => key,
@@ -538,6 +545,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
             }};
             sandbox.globalThis = sandbox;
             sandbox.window = sandbox;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(geometrySource, sandbox);
             vm.runInContext(placementSource, sandbox);
@@ -628,6 +637,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 tr:key => key,
                 JSON,
             }};
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             sandbox.documentValue = {{
@@ -855,6 +866,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 JSON,
                 Promise,
             }};
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             (async () => {{
@@ -1292,6 +1305,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 JSON,
                 Promise,
             }};
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             (async () => {{
@@ -1431,6 +1446,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 tr:key => key,
                 JSON,
             }};
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             sandbox.sharedDocument = {{
@@ -1577,6 +1594,8 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 Promise,
             }};
             sandbox.nodes = sandbox.canvas.nodes;
+            sandbox.window.SmartCanvasModules = sandbox.window.SmartCanvasModules || {{}};
+            sandbox.window.SmartCanvasModules.nodeGeometry = require('./static/js/smart-canvas/node-geometry.js');
             vm.createContext(sandbox);
             vm.runInContext(source, sandbox);
             vm.runInContext(

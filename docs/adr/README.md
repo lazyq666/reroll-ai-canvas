@@ -4,6 +4,10 @@ This directory stores durable, repository-wide architecture decisions for Infini
 
 Create an ADR when a decision constrains future implementation, establishes a system boundary, or chooses between meaningful alternatives. Routine implementation details belong in code, pull requests, or GitHub Issues instead.
 
+## Spatial operation intent
+
+[ADR-0011](0011-placement-intent-belongs-to-canvas-mutation.md) records why initial placement intent belongs to Canvas Mutation and why history restores exact geometry.
+
 ## Naming
 
 Use `NNNN-kebab-case-title.md`, with monotonically increasing four-digit numbers, for example `0001-canvas-mutation-as-write-authority.md`.

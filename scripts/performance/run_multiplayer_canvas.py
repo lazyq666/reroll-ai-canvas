@@ -34,6 +34,8 @@ from typing import Any, Callable
 
 import websockets
 
+LAYOUT_GAP = json.loads((Path(__file__).resolve().parents[2] / "static/js/smart-canvas/layout-constants.json").read_text())["nodeGap"]
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = PROJECT_ROOT / "backend"
@@ -1429,7 +1431,7 @@ async def _run_isolated_heartbeat(
     query_client_id = urllib.parse.quote(client_id, safe="")
     connection = await websockets.connect(
         f"ws://{host}:{port}/ws/canvases/{canvas_id}"
-        f"?client_id={query_client_id}",
+        f"?layout_gap={LAYOUT_GAP}&client_id={query_client_id}",
         additional_headers={"Cookie": cookie_header},
         proxy=None,
         open_timeout=5,
@@ -1765,7 +1767,7 @@ async def _run_mutation_smoke(
         query_client_id = urllib.parse.quote(client_id, safe="")
         return await websockets.connect(
             f"ws://{host}:{port}/ws/canvases/{canvas_id}"
-            f"?client_id={query_client_id}",
+            f"?layout_gap={LAYOUT_GAP}&client_id={query_client_id}",
             additional_headers={"Cookie": _cookie_header(cookie_jar)},
             proxy=None,
             open_timeout=5,
@@ -3075,7 +3077,7 @@ async def _run_mutation_smoke(
         slow_query_client_id = urllib.parse.quote(slow_client_id, safe="")
         slow_connection = await websockets.connect(
             f"ws://{host}:{port}/ws/canvases/{canvas_id}"
-            f"?client_id={slow_query_client_id}",
+            f"?layout_gap={LAYOUT_GAP}&client_id={slow_query_client_id}",
             additional_headers={
                 "Cookie": _cookie_header(client_sessions[0][1])
             },

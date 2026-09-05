@@ -832,6 +832,8 @@ function generationRunUnsupportedReferences(refs, runPlan, runSettings={}){
 async function runGeneration(options={}){
     const node = options.node || window.SmartCanvasModules.viewportSelection.selection.node();
     if(!node) return;
+    options={...options,placementViewport:options.placementViewport
+        || window.SmartCanvasModules?.viewportSelection?.viewport?.bounds?.() || null};
     const nodeEligibility = !options.allowAttachment
         ? (typeof smartNodeGenerationEligibility === 'function'
             ? smartNodeGenerationEligibility(node)
@@ -898,6 +900,7 @@ async function runGeneration(options={}){
         request:{...request, refs:generationRunClone(refs)},
         runSettings,
         options:{
+            placementViewport:options.placementViewport,
             allowAttachment:Boolean(options.allowAttachment),
             createOutput:Boolean(options.createOutput),
             connectSource:options.connectSource,
@@ -916,6 +919,7 @@ async function runGeneration(options={}){
         const inheritSourceConnections = generationRunHasIncomingSourceConnection(node);
         const queuedNode = generationOutputModule.createPending({
             sourceNode:node,
+            placementViewport:options.placementViewport,
             expectedCount:1,
             meta:inheritSourceConnections ? stripRunInputMeta(meta) : meta,
             connectSource:inheritSourceConnections ? options.connectSource : null,
@@ -987,6 +991,7 @@ async function runGeneration(options={}){
     if(useBatchOutputs){
         branchNodes = generationOutputModule.createPendingBatch({
             sourceNode:node,
+            placementViewport:options.placementViewport,
             expectedCount,
             meta:pendingMeta,
             connectSource:parallelConnectSource,
@@ -1001,6 +1006,7 @@ async function runGeneration(options={}){
     } else if(shouldCreateBranchOutput){
         branchNode = generationOutputModule.createPending({
             sourceNode:node,
+            placementViewport:options.placementViewport,
             expectedCount,
             meta:pendingMeta,
             connectSource:parallelConnectSource,

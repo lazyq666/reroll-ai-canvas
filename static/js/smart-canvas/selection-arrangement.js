@@ -5,17 +5,19 @@
  * The host owns selection, Mutation history, rendering and persistence.
  */
 (function installSelectionArrangement(root, factory){
-    const arrangement = factory();
+    const geometry = root.SmartCanvasModules?.nodeGeometry
+        || (typeof require === 'function' ? require('./node-geometry.js') : null);
+    const arrangement = factory(geometry);
     if(typeof module === 'object' && module.exports) module.exports = arrangement;
     root.SmartCanvasModules = root.SmartCanvasModules || {};
     root.SmartCanvasModules.selectionArrangement = arrangement;
-})(typeof globalThis !== 'undefined' ? globalThis : window, function createSelectionArrangement(){
+})(typeof globalThis !== 'undefined' ? globalThis : window, function createSelectionArrangement(geometry){
     'use strict';
 
     const MODES = new Set([
         'grid','horizontal','vertical','tree-vertical','tree-horizontal'
     ]);
-    const MIN_GAP_WORLD = 32;
+    const NODE_GAP = geometry.nodeGap;
 
     function number(value, fallback=0){
         const parsed = Number(value);
@@ -25,13 +27,13 @@
     function compareOriginal(left, right){
         return number(left.y) - number(right.y)
             || number(left.x) - number(right.x)
-            || String(left.id).localeCompare(String(right.id));
+            || (String(left.id)<String(right.id) ? -1 : String(left.id)>String(right.id) ? 1 : 0);
     }
 
     function compareHorizontal(left, right){
         return number(left.x) - number(right.x)
             || number(left.y) - number(right.y)
-            || String(left.id).localeCompare(String(right.id));
+            || (String(left.id)<String(right.id) ? -1 : String(left.id)>String(right.id) ? 1 : 0);
     }
 
     function compareVertical(left, right){
@@ -46,19 +48,6 @@
         return {x:left,y:top,width:right-left,height:bottom-top};
     }
 
-    function equalGap(originalBounds, columnWidths, rowHeights){
-        const columnGaps = Math.max(0,columnWidths.length - 1);
-        const rowGaps = Math.max(0,rowHeights.length - 1);
-        const gapCount = columnGaps + rowGaps;
-        if(!gapCount) return MIN_GAP_WORLD;
-        const occupiedWidth = columnWidths.reduce((total,value) => total + value,0);
-        const occupiedHeight = rowHeights.reduce((total,value) => total + value,0);
-        const totalGap = (columnGaps ? originalBounds.width - occupiedWidth : 0)
-            + (rowGaps ? originalBounds.height - occupiedHeight : 0);
-        const gap = totalGap / gapCount;
-        return Number.isFinite(gap) ? Math.max(MIN_GAP_WORLD,gap) : MIN_GAP_WORLD;
-    }
-
     function axes(items, columnById, rowById){
         const columnCount = Math.max(...items.map(item => columnById.get(item.id))) + 1;
         const rowCount = Math.max(...items.map(item => rowById.get(item.id))) + 1;
@@ -71,16 +60,6 @@
             rowHeights[row] = Math.max(rowHeights[row],number(item.height,1));
         });
         return {columnWidths,rowHeights};
-    }
-
-    function offsets(sizes, gap){
-        const values = [];
-        let cursor = 0;
-        sizes.forEach((size,index) => {
-            values[index] = cursor;
-            cursor += size + (index < sizes.length - 1 ? gap : 0);
-        });
-        return {values,total:cursor};
     }
 
     function groupProjection(allNodes, selectedIds){
@@ -142,7 +121,7 @@
                 const smallestSize = Math.min(...candidates.map(candidate =>
                     number(candidate[sizeKey],1)
                 ));
-                const tolerance = Math.max(MIN_GAP_WORLD / 2,smallestSize / 2);
+                const tolerance = Math.max(16,smallestSize / 2);
                 const startSpread = Math.max(...starts) - Math.min(...starts);
                 const centerSpread = Math.max(...centers) - Math.min(...centers);
                 if(Math.min(startSpread,centerSpread) > tolerance) return;
@@ -561,9 +540,9 @@
         const {columnWidths,rowHeights} = axes(
             items,branchSlots.columnById,branchSlots.rowById
         );
-        const gap = equalGap(originalBounds,columnWidths,rowHeights);
-        const columnOffsets = offsets(columnWidths,gap);
-        const rowOffsets = offsets(rowHeights,gap);
+        const gap = NODE_GAP;
+        const columnOffsets = geometry.layoutOffsets(columnWidths);
+        const rowOffsets = geometry.layoutOffsets(rowHeights);
         const startY = originalBounds.y + originalBounds.height / 2 - rowOffsets.total / 2;
         return {
             placements:items.map(item => {
@@ -627,9 +606,9 @@
         const {columnWidths,rowHeights} = axes(
             items,slots.columnById,slots.rowById
         );
-        const gap = equalGap(originalBounds,columnWidths,rowHeights);
-        const columnOffsets = offsets(columnWidths,gap);
-        const rowOffsets = offsets(rowHeights,gap);
+        const gap = NODE_GAP;
+        const columnOffsets = geometry.layoutOffsets(columnWidths);
+        const rowOffsets = geometry.layoutOffsets(rowHeights);
         const startX = originalBounds.x;
         if(treeMode && !slots.cycleFallback){
             const tree = treePlacements(

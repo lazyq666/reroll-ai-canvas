@@ -176,6 +176,67 @@ class Issue71GenerationOutputTests(unittest.TestCase):
         self.assertEqual(payload["retainedUrl"], "old.png")
         self.assertTrue(payload["allSingle"])
 
+    def test_empty_task_with_two_outputs_keeps_single_image_scale_on_both_nodes(self):
+        payload = self.run_node(
+            """
+            sandbox.MEDIA_NODE_DEFAULT_SCALE = 2;
+            sandbox.MEDIA_GROUP_DEFAULT_SCALE = 0.8;
+            const host = fs.readFileSync('static/js/smart-canvas.js', 'utf8');
+            vm.runInContext(host.slice(
+                host.indexOf('function mediaNodeDefaultScale('),
+                host.indexOf('function createImageNodeAt(')
+            ), sandbox);
+            const cases = [
+                {name:'single-image', kind:'image', count:1, scale:2},
+                {name:'two-images', kind:'image', count:2, scale:2},
+                {name:'missing-scale', kind:'image', count:2},
+                {name:'custom-image-scale', kind:'image', count:2, scale:3.2},
+                {name:'two-videos', kind:'video', count:2, scale:2},
+                {name:'custom-video-scale', kind:'video', count:2, scale:3.2},
+                {name:'unsplit-group', type:'smart-group', kind:'image', count:2, scale:2},
+            ];
+            const results = cases.map(spec => {
+                sandbox.nodes.length = 0;
+                const node = {
+                    id:spec.name, type:spec.type || 'smart-image', images:[],
+                    w:520, h:293, pending:1,
+                    pendingTasks:[{taskId:'run',kind:spec.kind}],
+                };
+                if(spec.scale !== undefined) node.scale = spec.scale;
+                sandbox.nodes.push(node);
+                output.apply({
+                    node, taskId:'run', kind:spec.kind, strategy:'task',
+                    outputs:Array.from({length:spec.count}, (_, index) => ({
+                        url:`output-${index}.png`, kind:spec.kind,
+                        width:2048, height:1152,
+                    })),
+                });
+                return {
+                    name:spec.name,
+                    nodes:sandbox.nodes.map(owner => ({
+                        scale:owner.scale, count:owner.images.length,
+                    })),
+                };
+            });
+            process.stdout.write(JSON.stringify(results));
+            """
+        )
+        expected = {
+            "single-image": [(2, 1)],
+            "two-images": [(2, 1), (2, 1)],
+            "missing-scale": [(2, 1), (2, 1)],
+            "custom-image-scale": [(3.2, 1), (2, 1)],
+            "two-videos": [(0.8, 2)],
+            "custom-video-scale": [(3.2, 2)],
+            "unsplit-group": [(0.8, 2)],
+        }
+        for case in payload:
+            with self.subTest(case=case["name"]):
+                self.assertEqual(
+                    [(node["scale"], node["count"]) for node in case["nodes"]],
+                    expected[case["name"]],
+                )
+
     def test_duplicate_uses_selected_output_and_connected_generation_references(self):
         payload = self.run_node(
             """

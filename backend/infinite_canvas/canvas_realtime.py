@@ -17,8 +17,11 @@ import re
 import time
 import zlib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
+
+NODE_GAP = json.loads((Path(__file__).resolve().parents[2] / "static/js/smart-canvas/layout-constants.json").read_text())["nodeGap"]
 
 REALTIME_META_KEY = "_realtime"
 REALTIME_HISTORY_LIMIT = 200
@@ -848,6 +851,11 @@ def _without_canvas_root(
     return filtered
 
 
+def _is_placement_create(raw: Any) -> bool:
+    return (isinstance(raw, dict) and set(raw) == {"node", "placement"}
+            and isinstance(raw.get("node"), dict) and isinstance(raw.get("placement"), dict))
+
+
 def normalize_changes(value: Any) -> Dict[str, List[Any]]:
     if value is None:
         value = {}
@@ -872,6 +880,24 @@ def normalize_changes(value: Any) -> Dict[str, List[Any]]:
             "mutation_too_large",
             "单次 Mutation 包含过多变更。",
         )
+    for raw in changes["node_creates"]:
+        if not _is_placement_create(raw):
+            continue
+        placement = raw["placement"]
+        if placement.get("mode") not in ("exact", "auto") or placement.get("gap") != NODE_GAP:
+            raise CanvasRealtimeError("layout_contract_mismatch", "smart.layoutContractMismatch")
+        if (set(placement) - {"mode", "gap", "collectionId", "intent"}
+                or ("intent" in placement and not isinstance(placement["intent"], dict))
+                or ("collectionId" in placement and not isinstance(placement["collectionId"], str))):
+            raise CanvasRealtimeError("invalid_layout_geometry", "smart.invalidLayoutGeometry")
+        node = raw["node"]
+        for field in ("x", "y", "w", "h"):
+            if field in ("w", "h") and field not in node:
+                continue
+            value = node.get(field)
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or (field in ("w", "h") and value <= 0)):
+                raise CanvasRealtimeError("invalid_layout_geometry", "smart.invalidLayoutGeometry")
     return changes
 
 
@@ -1034,10 +1060,10 @@ def _placement_rect(node: Dict[str, Any]) -> Tuple[float, float, float, float]:
     width = positive(node.get("w"), default_width)
     height = positive(node.get("h"), default_height)
     return (
-        coordinate(node.get("x")) - 100.0,
-        coordinate(node.get("y")) - 48.0,
-        width + 200.0,
-        height + 96.0,
+        coordinate(node.get("x")) - NODE_GAP / 2,
+        coordinate(node.get("y")) - NODE_GAP / 2,
+        width + NODE_GAP,
+        height + NODE_GAP,
     )
 
 
@@ -1060,23 +1086,30 @@ def _created_nodes_collide(
 ) -> bool:
     created = [_placement_node(raw) for raw in changes["node_creates"]]
     created_ids = {str(node.get("id") or "") for node in created}
-    obstacles = [
-        node
-        for node in canvas.get("nodes", [])
-        if isinstance(node, dict)
-        and str(node.get("id") or "") not in created_ids
-        and str(node.get("id") or "") in competitor_ids
-        and str(node.get("type") or "smart-image")
-        not in _PLACEMENT_NON_OBSTACLE_TYPES
-    ]
-    obstacle_rects = [_placement_rect(node) for node in obstacles]
-    return any(
-        _placement_rects_overlap(_placement_rect(node), obstacle)
-        for node in created
-        if str(node.get("type") or "smart-image")
-        not in _PLACEMENT_NON_OBSTACLE_TYPES
-        for obstacle in obstacle_rects
-    )
+    all_nodes = [*canvas.get("nodes", []), *created]
+    owned = {str(member) for node in all_nodes if isinstance(node, dict)
+             and node.get("type") == "smart-group" for member in node.get("items", [])}
+    obstacles = [_placement_rect(node) for node in canvas.get("nodes", [])
+                 if isinstance(node, dict) and str(node.get("id") or "") not in created_ids | owned
+                 and str(node.get("id") or "") in competitor_ids
+                 and str(node.get("type") or "smart-image") not in _PLACEMENT_NON_OBSTACLE_TYPES]
+    collections = {}
+    for raw in changes["node_creates"]:
+        node = _placement_node(raw)
+        placement = raw.get("placement", {}) if _is_placement_create(raw) else {}
+        if (placement.get("mode") == "exact" or str(node.get("id")) in owned
+                or str(node.get("type") or "smart-image") in _PLACEMENT_NON_OBSTACLE_TYPES):
+            continue
+        key = placement.get("collectionId") or node.get("generationBatchId") or node.get("id")
+        collections.setdefault(str(key), []).append(_placement_rect(node))
+    for members in collections.values():
+        left = min(box[0] for box in members)
+        top = min(box[1] for box in members)
+        bounds = (left, top, max(box[0]+box[2] for box in members)-left,
+                  max(box[1]+box[3] for box in members)-top)
+        if any(_placement_rects_overlap(bounds, obstacle) for obstacle in obstacles):
+            return True
+    return False
 
 
 def _placement_competitor_ids(
@@ -1113,6 +1146,7 @@ def _placement_competitor_ids(
         "images",
         "generationMediaW",
         "generationMediaH",
+        "items",
     }
     for record in history:
         if int(record.get("revision") or 0) <= after_revision:
@@ -1140,51 +1174,6 @@ def _placement_competitor_ids(
     return competitors
 
 
-def _apply_restore_placement_overrides(
-    changes: Dict[str, List[Any]],
-    raw_overrides: Any,
-    revision: int,
-) -> None:
-    if raw_overrides in (None, {}):
-        return
-    if not isinstance(raw_overrides, dict):
-        raise CanvasRealtimeError(
-            "invalid_changes",
-            "恢复位置覆盖必须是 Node ID 到坐标的对象。",
-            revision=revision,
-        )
-    restored = {
-        str(node.get("id") or ""): node
-        for node in (_placement_node(raw) for raw in changes["node_creates"])
-    }
-    if set(map(str, raw_overrides)) - set(restored):
-        raise CanvasRealtimeError(
-            "invalid_changes",
-            "恢复位置覆盖包含非恢复 Node。",
-            revision=revision,
-        )
-    for raw_id, raw_position in raw_overrides.items():
-        if not isinstance(raw_position, dict):
-            raise CanvasRealtimeError(
-                "invalid_changes",
-                "恢复位置覆盖缺少有效坐标。",
-                revision=revision,
-            )
-        try:
-            x = float(raw_position.get("x"))
-            y = float(raw_position.get("y"))
-        except (TypeError, ValueError):
-            x = y = math.nan
-        if not math.isfinite(x) or not math.isfinite(y):
-            raise CanvasRealtimeError(
-                "invalid_changes",
-                "恢复位置覆盖缺少有效坐标。",
-                revision=revision,
-            )
-        restored[str(raw_id)]["x"] = x
-        restored[str(raw_id)]["y"] = y
-
-
 def _normal_changes_have_internal_metadata(
     changes: Dict[str, List[Any]],
 ) -> bool:
@@ -1207,6 +1196,7 @@ def _normal_changes_have_internal_metadata(
         isinstance(raw, dict)
         and not raw.get("id")
         and isinstance(raw.get("node"), dict)
+        and not _is_placement_create(raw)
         for raw in changes["node_creates"]
     ) or any(
         isinstance(raw, dict)
@@ -1804,7 +1794,7 @@ def _apply_changes(
         wrapped = (
             not entry.get("id") and isinstance(entry.get("node"), dict)
         )
-        if wrapped and not restore_versions:
+        if wrapped and not restore_versions and not _is_placement_create(entry):
             raise CanvasRealtimeError(
                 "invalid_changes",
                 "普通 Mutation 不能提交服务端内部恢复元数据。",
@@ -2646,28 +2636,8 @@ def apply_operation(
                 revision=revision,
             )
         changes = normalize_changes(source_record.get("inverse"))
-        _apply_restore_placement_overrides(
-            changes,
-            operation.get("placement_overrides"),
-            revision,
-        )
-        competitor_ids = _placement_competitor_ids(
-            working,
-            state["history"],
-            int(source_record.get("revision") or 0),
-            revision,
-        )
-        if changes["node_creates"] and _created_nodes_collide(
-            working,
-            changes,
-            competitor_ids,
-        ):
-            raise CanvasRealtimeError(
-                "placement_conflict",
-                "恢复位置已被更早确认的 Node 占用；请基于最新 Revision 重新放置。",
-                revision=revision,
-                retry_changes=_public_changes(changes),
-            )
+        # History is an explicit position. Restore exactly, even when newer
+        # geometry overlaps it; lineage/authorization checks still apply below.
     else:
         changes = normalize_changes(operation.get("changes"))
         if _normal_changes_have_internal_metadata(changes):
@@ -2683,6 +2653,15 @@ def apply_operation(
                 base_revision,
                 revision,
             )
+            frame_ids = {
+                str(raw["placement"].get("intent", {}).get("frameId") or "")
+                for raw in changes["node_creates"] if _is_placement_create(raw)
+                and isinstance(raw["placement"].get("intent"), dict)
+            }
+            if frame_ids.intersection(competitor_ids):
+                raise CanvasRealtimeError(
+                    "frame_placement_conflict", "smart.layoutChangedRetry", revision=revision,
+                )
             if _created_nodes_collide(working, changes, competitor_ids):
                 raise CanvasRealtimeError(
                     "placement_conflict",

@@ -9,7 +9,6 @@ const generationOutputPendingModule = window.SmartCanvasModules?.generationPendi
 if(!generationOutputPendingModule) throw new Error('Pending Node Module failed to load');
 const generationOutputMutationModule = window.SmartCanvasModules?.canvasMutation;
 if(!generationOutputMutationModule) throw new Error('Canvas Mutation Module failed to load');
-const GENERATION_OUTPUT_BATCH_GAP = 48;
 const GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION = 2;
 const GENERATION_OUTPUT_INFO_KEYS = Object.freeze([
     'runSettings',
@@ -105,11 +104,9 @@ function generationOutputIncomingConnections(node){
     return incoming;
 }
 function generationOutputIncomingAnchor(sourceNode, incomingConnections=[]){
-    const anchorConnection = incomingConnections.find(connection =>
-        nodes.some(node => node.id === connection.from)
-    );
-    return anchorConnection
-        ? {kind:'source',sourceNodeId:anchorConnection.from}
+    const sourceNodeIds = [...new Set(incomingConnections.map(connection=>connection.from)
+        .filter(id=>id!==sourceNode.id && nodes.some(node=>node.id===id)))];
+    return sourceNodeIds.length ? {kind:'source',sourceNodeIds,sourceNodeId:sourceNodeIds[0]}
         : {kind:'source',sourceNodeId:sourceNode.id};
 }
 function generationOutputCloneIncomingConnections(incomingConnections=[], outputs=[]){
@@ -183,35 +180,14 @@ function generationOutputRepairReferenceKind(node){
 function generationOutputParallelReferenceKind(sourceNode, outputKind='image'){
     return generationOutputReferenceKind(sourceNode, outputKind);
 }
-function generationOutputBatchAnchor(
-    sourceNode,
-    pendingBox,
-    count,
-    reuseSource,
-    incomingConnections=[],
-    batchLayout='horizontal'
-){
-    if(incomingConnections.length){
-        return generationOutputIncomingAnchor(sourceNode, incomingConnections);
-    }
-    if(!reuseSource) return {kind:'source',sourceNodeId:sourceNode.id};
-    const horizontal = batchLayout === 'horizontal';
-    const batchWidth = horizontal
-        ? count * pendingBox.w + Math.max(0,count - 1) * GENERATION_OUTPUT_BATCH_GAP
-        : pendingBox.w;
-    const batchHeight = horizontal
-        ? pendingBox.h
-        : count * pendingBox.h + Math.max(0,count - 1) * GENERATION_OUTPUT_BATCH_GAP;
-    return {
-        kind:'point',
-        x:Number(sourceNode.x || 0) + batchWidth / 2,
-        y:Number(sourceNode.y || 0) + batchHeight / 2
-    };
+function generationOutputBatchAnchor(sourceNode){
+    return generationOutputIncomingAnchor(sourceNode,generationOutputIncomingConnections(sourceNode));
 }
 function generationOutputCreatePendingBatch(sourceNode, expectedCount, meta, options={}){
     if(!sourceNode) return [];
     const count = Math.max(2,Math.min(8,Number(expectedCount) || 1));
     const reuseSource = options.reuseSource === true;
+    const reusedSnapshot = reuseSource ? generationOutputClonePersistentValue(sourceNode) : null;
     const pendingBox = pendingBoxSize(1, {
         sourceNode,
         refs:options.refs || meta?.promptRefs || [],
@@ -281,40 +257,42 @@ function generationOutputCreatePendingBatch(sourceNode, expectedCount, meta, opt
     });
     const connectionTargets = reuseSource ? outputs.slice(1) : outputs;
     const hasParallelConnections = createParallelOutputs && incomingConnections.length > 0;
-    generationOutputMutationModule.createBatch({
-        drafts:outputs,
-        intent:{
-            anchor:generationOutputBatchAnchor(
-                sourceNode,
-                pendingBox,
-                count,
-                reuseSource,
-                incomingConnections,
-                generationBatchLayout
-            ),
-            relation:'downstream',
-            arrangement:`${generationBatchLayout}-batch`
-        },
-        connections:hasParallelConnections
-            ? generationOutputCloneIncomingConnections(
-                incomingConnections,
-                connectionTargets
-            )
-            : options.connectSource === null
-            ? []
-            : outputs.map(output => ({
-                fromId:sourceNode.id,
-                toId:output.id,
-                ...(options.connectSource === false ? {kind:'flow'} : {input:true})
-            })),
-        options:{
-            skipUndo:true,
-            select:false,
-            render:false,
-            save:false,
-            ...(reuseSource ? {existingNodeIds:[sourceNode.id]} : {})
+    try {
+        generationOutputMutationModule.createBatch({
+            drafts:outputs,
+            intent:{
+                ...(options.placementViewport ? {viewport:options.placementViewport} : {}),
+                anchor:generationOutputBatchAnchor(sourceNode),
+                relation:'downstream',
+                arrangement:`${generationBatchLayout}-batch`
+            },
+            connections:hasParallelConnections
+                ? generationOutputCloneIncomingConnections(
+                    incomingConnections,
+                    connectionTargets
+                )
+                : options.connectSource === null
+                ? []
+                : connectionTargets.map(output => ({
+                    fromId:sourceNode.id,
+                    toId:output.id,
+                    ...(options.connectSource === false ? {kind:'flow'} : {input:true})
+                })),
+            options:{
+                skipUndo:true,
+                select:false,
+                render:false,
+                save:false,
+                ...(reuseSource ? {existingNodeIds:[sourceNode.id]} : {})
+            }
+        });
+    } catch(error){
+        if(reusedSnapshot){
+            Object.keys(sourceNode).forEach(key=>delete sourceNode[key]);
+            Object.assign(sourceNode,reusedSnapshot);
         }
-    });
+        throw error;
+    }
     selectedId = sourceNode.id;
     selectedImage = {nodeId:'',index:-1};
     return outputs;
@@ -364,9 +342,8 @@ function generationOutputCreatePending(sourceNode, expectedCount, meta, options=
     if(parallelReferenceKind) output.referenceGenerationKind = parallelReferenceKind;
     output._selectAfterRunId = options.selectOutput ? output.id : sourceNode.id;
     const placement = {
-        anchor:incomingConnections.length
-            ? generationOutputIncomingAnchor(sourceNode, incomingConnections)
-            : {kind:'source',sourceNodeId:sourceNode.id},
+        ...(options.placementViewport ? {viewport:options.placementViewport} : {}),
+        anchor:generationOutputBatchAnchor(sourceNode),
         relation:'downstream',
         arrangement:'single'
     };
@@ -741,7 +718,7 @@ function generationOutputSplitCompletedImages(source, options={}){
     generationOutputMutationModule.createBatch({
         drafts,
         intent:{
-            anchor:{kind:'source',sourceNodeId:source.id},
+            anchor:generationOutputBatchAnchor(source),
             relation:'downstream',
             arrangement:`${batchLayout}-batch`
         },
@@ -1112,6 +1089,10 @@ function generationOutputCompleteTask(node, taskId, outputs, kind='image'){
     }
     if(!node.pending && generationOutputPendingModule.tasks(node).length === 0){
         delete node.generationBatchAutoSelectedOutputId;
+        delete node.w;
+        delete node.h;
+        // Choose the scale from the final single-image or unsplit media contents.
+        generationOutputSplitCompletedImages(node);
         node.title = generationOutputTitle(kind, node.images.length);
         if(node.images.length > 1
             && (
@@ -1123,9 +1104,6 @@ function generationOutputCompleteTask(node, taskId, outputs, kind='image'){
         } else {
             node.scale = mediaNodeDefaultScale(node);
         }
-        delete node.w;
-        delete node.h;
-        generationOutputSplitCompletedImages(node);
     }
     generationOutputPreserveMediaDisplaySize(node,mediaDisplaySize);
     return additions;
@@ -1202,6 +1180,9 @@ function generationOutputApply(options={}){
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.generationOutput = Object.freeze({
+    sourceAnchor({sourceNode}={}){
+        return generationOutputBatchAnchor(sourceNode);
+    },
     ensureNodeState({node=null}={}){
         return generationOutputEnsureNodeState(node);
     },
@@ -1233,6 +1214,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
     },
     createPending({
         sourceNode=null,
+        placementViewport=null,
         expectedCount=1,
         meta=null,
         connectSource=true,
@@ -1249,6 +1231,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
             expectedCount,
             meta,
             {
+                placementViewport,
                 connectSource,
                 selectOutput,
                 refs,
@@ -1262,6 +1245,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
     },
     createPendingBatch({
         sourceNode=null,
+        placementViewport=null,
         expectedCount=2,
         meta=null,
         connectSource=true,
@@ -1281,6 +1265,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
             expectedCount,
             meta,
             {
+                placementViewport,
                 connectSource,
                 selectOutput,
                 refs,

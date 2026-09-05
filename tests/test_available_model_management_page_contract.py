@@ -37,7 +37,6 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
             "ic-dialog",
             "ic-icon",
             "ic-tabs",
-            "ic-textarea",
         ):
             self.assertIn(f"<{tag}", self.page)
         self.assertIn("/static/js/infinite-canvas-ui/core.js", self.page)
@@ -153,31 +152,24 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn('/static/js/model-capability-workbench.js', self.page)
         self.assertIn('id="capability-editor-dialog"', self.page)
         self.assertIn('id="capability-operation-editors"', self.page)
-        self.assertIn('id="capability-import-open"', self.page)
-        self.assertIn('id="capability-import-data"', self.page)
+        self.assertNotIn('id="capability-import-open"', self.page)
+        self.assertNotIn('id="capability-import-data"', self.page)
         self.assertNotIn('id="capability-model-rows"', self.page)
         self.assertNotIn('data-i18n="models.modelType"', self.page)
         self.assertNotIn('data-i18n="models.platforms"', self.page)
         self.assertNotIn('id="capability-provider"', self.page)
         self.assertNotIn('Inputs JSON', self.page)
         self.assertNotIn('Parameters JSON', self.page)
-        for endpoint in (
-            "/api/admin/model-capability-matrix",
-            "/api/admin/model-capability-matrix/import",
-        ):
-            self.assertIn(endpoint, self.workbench_script)
+        self.assertIn("/api/admin/model-capability-matrix", self.workbench_script)
+        self.assertNotIn("/api/admin/model-capability-matrix/import", self.workbench_script)
+        self.assertNotIn('id="capability-import-dialog"', self.page)
         self.assertNotIn("/api/admin/model-capability-matrix/ai-draft", self.backend)
         self.assertNotIn("/api/admin/model-capability-drafts/extract", self.backend)
         self.assertNotIn("AI 补全能力", self.page)
         self.assertIn("inputTypes.forEach", self.workbench_script)
-        self.assertIn("const lookupPrompt =", self.workbench_script)
+        self.assertNotIn("const lookupPrompt =", self.workbench_script)
         self.assertNotIn("channel_id:", self.workbench_script)
         self.assertNotIn('id="capability-refresh"', self.page)
-        self.assertIn("model_types: row.types", self.workbench_script)
-        self.assertIn("operation_schemas: contractRefs(row.import_schemas)", self.workbench_script)
-        self.assertIn("service_host:", self.workbench_script)
-        self.assertIn("schema_version: state.matrix.import_schema_version", self.workbench_script)
-        self.assertIn("state.validatedImport", self.workbench_script)
         self.assertIn("output_count_maximum", self.workbench_script)
         self.assertIn("aspect_ratios", self.workbench_script)
         self.assertIn("window.ModelCapabilityEditor = Object.freeze", self.workbench_script)
@@ -203,7 +195,6 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
     def test_capability_workbench_resizes_without_hardcoded_visual_tokens(self):
         self.assertIn(".capability-product-editor { min-width: 0; }", self.style)
         self.assertIn(".capability-choice-grid { grid-template-columns: 1fr; }", self.style)
-        self.assertIn(".capability-catalog-actions > * { flex: 1 1 100%; }", self.style)
 
 
 

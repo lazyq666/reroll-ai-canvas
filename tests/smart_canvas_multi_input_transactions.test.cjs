@@ -47,7 +47,7 @@ test('one ordered mutation creates one target with exact output binding and a si
         {from:'a',to:'target',kind:'input',sourceOutputId:'output-a'},
         {from:'b',to:'target',kind:'input'}
     ]);
-    assert.equal(api.placementMode({nodeId:'target'}),'exact');
+    assert.equal(api.placementIntent({nodeId:'target'}).mode,'exact');
     assert.equal(s.events.filter(event=>event==='save').length,1);
     assert.equal(api.history({action:'undo'}),true);
     assert.deepEqual(clone(s.nodes.map(node=>node.id)),['a','b']);
@@ -79,12 +79,12 @@ test('missing source and failed placement leave all live nodes, connections and 
     assert.deepEqual(s.canvas.connections,[]);
     assert.equal(api.history({action:'undo'}),false);
 });
-test('automatic placement uses the union of sources; a common Frame is a search boundary, not a resized container',()=>{
+test('automatic placement uses the union of sources; a roomy direct Frame retains its size',()=>{
     const a=source('a',100,100), b=source('b',450,120);
     const frame={id:'frame',type:'smart-frame',x:0,y:0,w:1400,h:900,items:['a','b']};
     const s=mutation([a,b,frame]), api=s.SmartCanvasModules.canvasMutation;
     api.connectSources({sourceIds:['a','b'],draft:source('target')});
-    assert.equal(s.nodes.at(-1).x,750);
+    assert.equal(s.nodes.at(-1).x,614);
     assert.equal(s.nodes.at(-1).y,100);
     assert.deepEqual(clone(s.nodes.slice(0,3)),[a,b,frame]);
 });
@@ -116,7 +116,7 @@ test('placement retry retains the union anchor and ordered input block',()=>{
     for(const name of ['node-geometry','node-placement','canvas-persistence']) load(s,name);
     s.batch={node_creates:[source('target')],connection_adds:[{from:'a',to:'target',kind:'input'},{from:'b',to:'target',kind:'input'}]};
     vm.runInContext('canvasPersistenceReplanCreatedNodes(batch,canvas)',s);
-    assert.equal(s.batch.node_creates[0].x,750);
+    assert.equal(s.batch.node_creates[0].x,614);
     assert.deepEqual(s.batch.connection_adds.map(item=>item.from),['a','b']);
 });
 test('production persistence saves one complete batch and reuses server operation IDs for Undo/Redo',()=>{
@@ -134,7 +134,7 @@ test('production persistence saves one complete batch and reuses server operatio
     const changes=s.sent[0].operation.changes;
     assert.equal(changes.node_creates.length,1);
     assert.deepEqual(clone(changes.connection_adds.map(item=>item.from)),['a','b']);
-    assert.deepEqual(clone(changes.node_creates[0].inputNodeIds),['a','b']);
+    assert.deepEqual(clone(changes.node_creates[0].node.inputNodeIds),['a','b']);
     const api=s.SmartCanvasModules.canvasMutation, applier=s.SmartCanvasModules.canvasRealtimeApplier;
     const created=s.sent[0].operation;
     assert.equal(applier.apply({type:'canvas_mutation',canvas_id:'test',operation_id:created.operation_id,revision:1,changes}),true);

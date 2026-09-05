@@ -1,8 +1,8 @@
 # 统一模型能力目录
 
-- **Status**：Implemented（统一运行合同、随模型拉取的资料提取、按 Model ID 聚合的产品能力表和外部研究包导入已实现，等待产品验收后毕业为 Current）
+- **Status**：Implemented（统一运行合同、随模型拉取的资料提取、按 Model ID 聚合的产品能力表已实现；外部研究包导入已移除，等待产品验收后毕业为 Current）
 - **Feature ID**：F08；关联 F05 / F09 / F12
-- **Last verified**：2026-09-05；本次 182 项模型能力、模型详情、API 设置、生成合同、文档与 i18n Python 回归通过；i18n 3431 keys 和 Infinite Canvas UI 指纹检查通过。实际模型页面通过隔离数据验证非法值拒绝、图片生成/编辑交集冲突拒绝、校验后应用、20 张参考图 / 37 张输出及清晰度准确回显、中英文、Light/Dark、键盘取消和 390px 窄屏。未执行真实 Provider 请求或外部 AI 研究，来源真实性仍需人工核对。
+- **Last verified**：2026-09-05；175 项模型能力、发现采集、API、生成合同、页面、文档与 i18n 回归通过；i18n 3385 keys 与资源指纹检查通过。隔离实际页面验证导入入口消失、人工保存并重新打开、中英文切换和键盘取消；历史导入能力可读可手工修改、导入 API 不再注册及编辑器数量上限不变均有回归覆盖。未执行真实 Provider 请求，未修改用户已保存能力。
 - **Applies to**：[Issue #32](https://github.com/lazyq666/reroll-ai-canvas/issues/32)
 - **Related ADRs**：[ADR-0009](../adr/0009-unified-model-capability-catalog.md)
 - **Domain terms**：Provider、Model、Model Profile、Model Discovery Snapshot、Model Capability Matrix、Model Operation、Model Capability、Video Model Capability、First-and-Last-Frame Video、All-around Reference Video、Model Capability State、Model Capability Evidence、Model Capability Draft、Model Capability Review、Model Capability Review State、Model Capability Catalog、Generation Settings、Generation Run
@@ -18,7 +18,7 @@
 - 本版本不显示、采集、保存或返回价格、计费、额度、积分、消耗等数据。
 - 不根据模型名称猜测能力，不把 `unknown` 自动当成已支持。
 - 不在本阶段承诺所有 Provider 都有在线结构化能力接口。
-- API 设置页的首批随拉取采集只覆盖 Dreamina、Gemini API 与 APIMART；其他 Provider 仍走外部研究和人工审核。
+- API 设置页的首批随拉取采集只覆盖 Dreamina、Gemini API 与 APIMART；其他 Provider 仍由管理员人工核对和维护。
 - 不改变 Provider 凭证、账号权限或 Generation History 的既有数据责任。
 
 ## 3. 参与者与权限
@@ -89,14 +89,15 @@
 
 1. **建立字段规范**：先固定统一外层合同及媒体专用字段，未定义字段不能由采集器自行扩展。
 2. **采集 Evidence**：优先复用 Provider 模型拉取产生的 Model Discovery Snapshot；再按 Provider 类型读取官方文档、结构化模型 API、CLI 帮助/版本资料或工作流 Schema，并保存来源地址或命令、取得时间、适用版本、内容摘要和可定位的原文位置。
-3. **外部研究并导入**：只对 Snapshot 未覆盖或仍需确认的字段，由 Administrator 在 ChatGPT、Codex 或其他工具中完成资料搜索，再按固定格式导入。Reroll 不运行 AI；每个确认值必须附官方来源，资料未说明的 Model Operation 必须省略。
+3. **人工补齐**：Snapshot 未覆盖的能力由 Administrator 核对资料，在模型详情中人工录入；不提供 AI 查找提示词或外部研究包导入。
 4. **确定性校验**：提交人工审核前检查 Schema、字段类型、枚举、最小/最大关系、重复身份、资料冲突和禁止字段。
 5. **人工 Review**：Administrator 在模型能力工作台查看证据、编辑表单、保存草稿、提交审核、退回或批准发布。
 6. **原子 Publish**：批准后整体生成新的 Catalog Revision。重新采集只生成与已发布版本的差异草稿，不能直接覆盖当前目录。
 
 当前后端闭环已经实现上述手工流程：Evidence 创建后不可由 Draft 偷换身份；Draft 每个已填写叶子字段必须绑定同一身份的 Evidence 与置信度；只有 `draft/returned → in_review → published` 的合法状态转换可以发布。草稿基于的 Catalog Revision 已过期时返回冲突；运行目录激活失败时回滚 Published 状态并继续使用上一 Revision。
 
-外部研究结果不是能力事实权威。模型列表 API 可能只提供名称，CLI 帮助可能只描述命令，家族级文档也不一定证明某个精确模型的限制；这些情况下相关 Model Operation 不得进入导入包，Model Capability State 保持 `unknown`。审核完成也不自动等于 `supported`。
+模型列表 API 可能只提供名称，CLI 帮助可能只描述命令，家族文档也不一定证明精确模型的限制。资料不足时保持 `unknown`；审核完成不自动等于 `supported`。
+
 
 ### 7.2 状态与时间分离
 
@@ -104,6 +105,7 @@
 - Model Capability Review State 只用于内部工作台，包含草稿、待审核、已发布和已退回，回答“维护流程进行到哪一步”。
 - 生成界面不显示上述状态；仅根据已发布合同渲染控件和校验设置。
 - Evidence 记录 `fetched_at`；Review 记录 `reviewed_at` 和审核人；确认支持时记录 `confirmed_at`；目录生效时记录 `published_at`。
+
 
 ### 7.3 产品能力表
 
@@ -114,55 +116,14 @@
 - Administrator 在详情 Dialog 中使用开关、单选和多选设置可接收素材、数量、清晰度、画幅和附加能力；Dialog 不重复显示类型或平台。图片模型把 `image.generate` 与 `image.edit` 合并为一个产品区块，以“支持参考图”和最大参考图数量表达输入差异，保存时再翻译为内部 Model Operation 合同。画幅直接复用 Composer 的多选画幅控件，生成数量复用 Composer 的数量选择器，分辨率使用与 Composer 一致的分段选项视觉并保留能力范围所需的多选语义。
 - 视频模型把 `video.generate` 投影为一个产品区块：图片、视频、音频与三者合计分别维护最大数量；单个视频/音频与视频/音频合计分别维护时长范围；纯音频输入、首尾帧视频和全能参考视频使用独立开关。输出时长维护范围，清晰度与画幅复用和图片能力一致的选择交互。保存时，矩阵把这些值翻译为 `inputs`、`input_rules`、`output`、`parameters` 与视频专有合同；Composer 根据已保存模式隐藏不支持的参考模式。
 - Provider ID、Inputs / Output / Parameters JSON、逐字段路径、Evidence ID 和 Catalog Revision 不在主界面出现；资料只提供面向产品的完整度与可追溯摘要。
-- 仅保留“导入能力数据”页面工具。查找要求的 `match` 保存精确 Model ID 与显示名称，用于结果回填；`research` 提供名称线索、媒体类型、各路由的协议与脱敏域名，不输出内部 channel ID。自定义名称和短 ID 不是公开身份，研究必须先从官方目录或 CLI 版本映射确认模型，无法确认则跳过。
-- 同一 Model ID 出现在多个渠道时，外部研究应逐渠道核对官方名称与参数差异；Provider 无关的导入包仍只接受一个合并模型，并采用跨渠道安全交集。渠道资料冲突或只有部分渠道明确支持的值不得扩大成共同能力。
-- 导入分为校验预览与应用两步。服务端为当前每个操作生成 JSON Schema，提示词复用并去重这些合同；清晰度、画幅候选与编辑器共用定义，一般数量为 0–100（输出 1–100），图片参考图上限为运行上下文的 20，文本图片/视频上限分别为 8/3；视频参考时长为 0–3600 整数秒、输出时长为 1–600 整数秒。候选不证明能力支持。校验核对身份、完整必填字段、允许枚举、重复项、范围、时长上下界、视频模式依赖及拆层固定限制；非法值不能静默截断、过滤或改写。图片生成与编辑同时导入时，共用参数必须一致；单独导入也必须能够在与现有操作合并后的详情中准确回显，否则要求同时提供一致的两种操作。当前预览仅汇总数量，不提供字段差异视图，应用前仍需核对 JSON 与来源；数据变化后必须重新预览。应用对整个导入包执行一次原子发布，任一记录失败则全部回滚。
+- 外部研究包导入与查找要求已移除；页面只保留模型详情人工维护。编辑器直接读取服务端候选与输入数量限制，不依赖导入 Schema。图片参考图上限为运行上下文的 20，文本图片/视频输入上限分别为 8/3；手工输入输出范围及视频专有合同不变。
+- 历史导入产生的已保存能力及来源、审计元数据继续保留，读取不会迁移或删除；管理员可以在详情中继续修正这些值。
 - Administrator 的“保存并应用”同时表达人工核对与批准。后台为关联 Provider 生成同一模型选择的审计记录，并在一次原子目录激活中整体应用，不能出现跨平台只发布一半的状态。
-
-产品导入包固定使用以下 Provider 无关格式。`model_id` 与 `name` 必须逐字来自工作台生成的当前模型清单；同一 Model ID 不按平台拆分。只写有官方资料明确支持的 Model Operation，`inputs` 五个键表示各类素材的最大数量；`video.generate` 必须额外携带与详情 Dialog 同构的 `video` 对象，包含参考素材合计、单个与合计参考媒体时长、纯音频输入、两种视频模式和输出时长，其他 Operation 必须省略该对象。`sources.type` 只允许 `official_docs`、`structured_api`、`cli_help` 或 `workflow_schema`。本格式禁止价格、计费、额度、积分、Token 消耗和余额数据。
-
-```json
-{
-  "schema_version": 1,
-  "models": [
-    {
-      "model_id": "seedream-5-0-pro",
-      "name": "Seedream 5.0 Pro",
-      "operations": [
-        {
-          "operation": "image.layer_decomposition",
-          "confirmed": true,
-          "inputs": {
-            "text": 1,
-            "image": 1,
-            "video": 0,
-            "audio": 0,
-            "file": 0
-          },
-          "resolutions": ["auto", "1K", "1.5K", "2K"],
-          "aspect_ratios": [],
-          "output_count_maximum": 1,
-          "options": [],
-          "sources": [
-            {
-              "type": "official_docs",
-              "url": "https://example.invalid/official-model-docs",
-              "title": "Layer decomposition",
-              "excerpt": "A short passage that directly supports these values."
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
 
 后端已提供 Administrator-only 接口：
 
 - `GET /api/admin/model-capability-matrix`：读取按 Model ID 合并的现有模型与产品能力选项；
 - `PUT /api/admin/model-capability-matrix`：把一行产品选项原子应用到该模型的所有关联 Provider；
-- `POST /api/admin/model-capability-matrix/import`：校验预览或原子应用一个外部研究包；
 
 - `GET /api/admin/model-capability-workbench`：读取 Evidence、Draft、Review State、Published 投影和当前目录状态；
 - `POST /api/admin/model-capability-evidence`：记录可追溯 Evidence；
@@ -181,7 +142,7 @@
 2. Dreamina、Gemini API、APIMART 的模型拉取旁路采集已接入：复用同一响应或 CLI 帮助，生成 Evidence 和 Draft，并向 API 设置页返回汇总反馈；任何采集失败不影响模型清单。
 3. 独立资料来源、来源缓存和周期调度已移除；Dreamina 解析继续复用模型拉取中已取得的图片/视频帮助内容。
 4. APIMART 官方 Markdown 的端到端 Gate 已通过；适配器缺少任一已审核语义标记时 fail-closed。只提供模型名称的后续来源仍必须保持 Evidence-only，不把名称猜成能力。
-5. 内置 AI 搜索与填表已经移除；产品提供当前模型查找要求、固定格式、粘贴导入、校验预览和原子应用，用于补齐确定性 Model Discovery Snapshot 之外的缺口。
+5. 内置 AI 搜索、复制外部查找要求及能力数据导入均已移除；模型发现快照之外的缺口通过模型详情人工维护。
 
 ## 8. 数据责任
 
@@ -198,7 +159,7 @@
 - 刷新成功产生新 Revision；刷新失败继续返回上一有效能力。
 - 中英文错误文案完整，能力状态不渲染到用户界面，能力模块在媒体专用模块之前加载。
 - 对公开能力合同和资源进行禁止字段回归，确认没有价格或消耗数据。
-- Reroll 不发起 AI 搜索或填表；外部研究包的每个确认操作必须附官方来源，资料缺失时不能导入猜测值。
+- Reroll 不发起 AI 搜索或填表，也不提供外部能力包导入；已保存能力与历史来源继续保留。
 - Review State 与 Model Capability State 分离；已审核但证据不足的记录仍可保持 `unknown`。
 - 重新采集只产生差异草稿；批准发布前不会改变当前 Catalog Revision。
 - Model Profile 已有 Published 值时，重新采集的差异草稿不会预填或覆盖该模型的任何产品能力表编辑项；资料与待审核计数仍可见，其他尚未保存的模型仍可获得首次填写建议。
@@ -242,7 +203,7 @@ API 设置的 CLI 模型选择另以“拉取 → 删除 → 保存 → 重新�
 | 移除前端渲染和保存阶段对 CLI 默认模型的重复注入，并删除 Jimeng 专用列表规范化 helper | Jimeng `4.7` 与 Codex `gpt-image-2` 删除后，界面状态、保存请求和重新加载均保持删除；首次添加 CLI 仍得到默认候选 | 默认注入只属于 `initializeCliProvider` 接口；渲染和保存调用方不再了解默认列表 |
 | 移除后端 `merge_default_api_providers` 中 Jimeng、Codex 与 Antigravity 的两个 CLI 特例循环 | CLI 保存/加载删除回归与旧模型 ID 清理均通过；协议、地址和类别规范化可由既有 `normalize_provider` seam 一次完成 | 删除 merge 层的第二份模型权威，把 CLI 数据规范化集中到一个 seam |
 | 临时清空 Dreamina CLI 帮助读取失败时的内置图片、视频回退清单 | 返回 `source: fallback`，但图片和视频列表都为空，模型发现断言立即失败 | 回退清单承担真实失败恢复职责，保留；它不参与覆盖用户已保存的选择 |
-| 删除新增的持久化 `media_contract.video_profile`，并让 Composer 直接读取既有 `media_contract.commands` | 模型详情的数量、时长、模式保存回显及 Composition 模式选择回归保持通过；运行合同不再保存同一组视频事实的第二份副本 | `video` 只保留为详情接口/导入包的临时产品投影，持久化权威仍是统一合同与视频命令合同 |
+| 删除新增的持久化 `media_contract.video_profile`，并让 Composer 直接读取既有 `media_contract.commands` | 模型详情的数量、时长、模式保存回显及 Composition 模式选择回归保持通过；运行合同不再保存同一组视频事实的第二份副本 | `video` 只保留为详情接口的临时产品投影，持久化权威仍是统一合同与视频命令合同 |
 | 把入口层的“来源工厂 + 公开采集器列表”两步调用压成 `ModelCapabilityDiscovery.collect_model_discovery(...)` | Dreamina、Gemini API、APIMART 和非首批兼容网关边界回归保持通过，模型列表失败隔离不变 | 模型拉取入口只提交发现快照，不再知道来源适配器的选择与构造 |
 | 删除未上线 `video_profile` 的迁移清理、实现细节断言，以及详情编辑器中已不可达的旧图片 Operation 分支 | 154 项相关 Python 回归、模型详情 Chrome smoke 与 API 设置保存/重载 smoke 通过 | 不为未发布结构保留兼容层；图片/视频只走各自单一区块，通用 Operation 编辑器只承担仍可到达的文字模型路径 |
 
@@ -261,10 +222,10 @@ API 设置的 CLI 模型选择另以“拉取 → 删除 → 保存 → 重新�
 2. 扩充视频模型组合样本，比较统一 `input_rules` 与专用校验的判定集合；确认完全等价后再删除专用权威。
 3. 为缺少 Revision 的真实旧页面/长时间驻留页面补充浏览器恢复验证，确保重新加载目录后的重试路径可理解且不重复提交。
 
-### 2026-09-05 资料入口消融与导入合同收口
+### 2026-09-05 资料与导入入口消融
 
-移除“检查资料”、`POST /api/admin/model-capabilities/refresh`、独立周期采集及四项 `INFINITE_CANVAS_MODEL_CAPABILITY_*` 来源/刷新配置。API 拉取的 Dreamina、Gemini API、APIMART 能力提取和人工保存发布继续有效。检查资料产生的差异草稿不能回填已保存模型；本次不新增差异审核 UI。
+独立资料检查、启动/周期采集、来源缓存与独立来源配置已移除，保留 API 设置主动拉取模型时对 Dreamina、Gemini API 与 APIMART 的确定性能力提取。
 
-导入不能表达当前表单之外的上下文 Token、FPS、Seed 或视频模式各自不同的范围。未知值不能补成 `0`、`false`、空数组；资料不足时省略完整操作。格式合法不等于官方事实已验证。数量选择覆盖导入允许的完整整数范围，已保存值在语言切换与重新打开后必须准确回显。
+外部 AI 查找与能力包导入在试用后仍未达到用户预期，因此最终移除整条流程：查找要求、JSON 粘贴、预览/应用、研究上下文、导入 Schema 和对应 API 不再提供。早期文案优化、AI 初始值与人工保护方案已被本决定取代，不是后续恢复需求。
 
-验证状态：本地实现与上述自动化、浏览器验证完成，等待 Review；未提交或推送。页面同时提供可展开的查找要求预览，允许检查实际检索上下文和去重后的字段合同。
+保留模型详情人工维护和跨平台原子保存。移除不清理任何既有 Published、Evidence 或 Draft；回归需验证历史导入数据仍可读取并手工修改、入口与路由不再存在，以及编辑器原有输入数量上限不变。

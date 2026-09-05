@@ -14,13 +14,7 @@ const canvasMutationNodeGeometry = window.SmartCanvasModules?.nodeGeometry;
 if(!canvasMutationNodeGeometry?.createSession){
     throw new Error('Node Geometry Module failed to load');
 }
-const canvasMutationExactNodeIds = new Set();
-
-function canvasMutationPlacement(){
-    const placement = window.SmartCanvasModules?.nodePlacement;
-    if(!placement?.plan) throw new Error('Node Placement Module failed to load');
-    return placement;
-}
+const canvasMutationPlacements = new Map();
 
 const canvasMutationFallbacks = Object.freeze({
     'smart.toastNoUndo':'没有可撤销的操作',
@@ -214,43 +208,39 @@ function canvasMutationApplySelection(node, options={}){
     selectedIds = [];
     selectedImage = {nodeId:'', index:-1};
 }
-function canvasMutationPlacementPlan(drafts=[], intent={}, snapshotNodes=nodes){
-    const ownedNodeIds = new Set();
-    (snapshotNodes || []).forEach(node => {
-        if(node?.type !== 'smart-group') return;
-        (node.items || []).forEach(id => ownedNodeIds.add(String(id)));
-    });
-    const placementNodes = (snapshotNodes || []).filter(node =>
-        !ownedNodeIds.has(String(node?.id || ''))
-    );
-    const plan = canvasMutationPlacement().plan({
-        snapshot:{nodes:placementNodes},
-        drafts,
-        intent
-    });
+function canvasMutationPlanDrafts(drafts=[], intent={}){
+    const context = JSON.parse(JSON.stringify(intent));
+    if(!Object.prototype.hasOwnProperty.call(context,'viewport')) {
+        context.viewport = window.SmartCanvasModules?.viewportSelection?.viewport?.bounds?.() || null;
+    }
+    const planner = window.SmartCanvasModules?.nodePlacement;
+    if(!planner?.plan) throw new Error('Node Placement Module failed to load');
+    const plan = planner.plan({snapshot:{nodes},drafts,intent:context});
     if(!plan?.ok){
         const error = new Error('Canvas Mutation could not place draft Nodes');
         error.diagnostics = plan?.diagnostics || [];
         throw error;
     }
-    return plan;
-}
-function canvasMutationApplyPlacementPlan(drafts=[], plan=null){
-    if(!plan?.ok) return null;
-    const byId = new Map(plan.placements.map(item => [String(item.id),item]));
-    drafts.forEach(draft => {
-        const placement = byId.get(String(draft?.id || ''));
-        if(!placement) return;
-        draft.x = placement.x;
-        draft.y = placement.y;
+    const placement = {mode:context.anchor?.kind==='point' ? 'exact' : 'auto',
+        gap:canvasMutationNodeGeometry.nodeGap,collectionId:String(drafts[0]?.id || ''),
+        intent:{...context,frameId:plan.frameId}};
+    drafts.forEach(node=>canvasMutationPlacements.set(String(node.id),{...placement,frameUpdates:plan.frameUpdates || []}));
+    const positions = new Map(plan.placements.map(position=>[String(position.id),position]));
+    drafts.forEach(draft=>{
+        const position = positions.get(String(draft.id));
+        draft.x = position.x;
+        draft.y = position.y;
     });
     return plan;
 }
-function canvasMutationPlanDrafts(drafts=[], intent={}){
-    return canvasMutationApplyPlacementPlan(
-        drafts,
-        canvasMutationPlacementPlan(drafts, intent)
-    );
+function canvasMutationFinalizePlacement(drafts=[]){
+    const frames = new Map();
+    drafts.forEach(node=>(canvasMutationPlacements.get(String(node.id))?.frameUpdates || []).forEach(update=>frames.set(update.id,update)));
+    frames.forEach(update=>{
+        const frame=nodes.find(node=>node.id===update.id && node.type==='smart-frame');
+        if(frame) Object.assign(frame,update);
+    });
+    window.SmartCanvasModules?.smartContainer?.reconcileFrames?.();
 }
 function canvasMutationStabilizeDraftGeometry(node){
     if(!node?.id) return node;
@@ -428,9 +418,10 @@ function canvasMutationCreate(kind='image', data={}, options={}){
     } else if(options.positionMode !== 'exact'){
         throw new Error('Canvas Mutation create requires placement or exact mode');
     }
-    if(options.positionMode === 'exact') canvasMutationExactNodeIds.add(String(node.id));
+    if(options.positionMode === 'exact') canvasMutationPlacements.set(String(node.id),{mode:'exact',gap:canvasMutationNodeGeometry.nodeGap});
     if(!options.skipUndo) canvasMutationHistory('push');
     nodes.push(node);
+    canvasMutationFinalizePlacement([node]);
     canvasMutationApplySelection(node, options);
     if(options.render !== false){
         render({syncVirtualization:false,nodeIds:[node.id]});
@@ -450,18 +441,19 @@ function canvasMutationCreateBatch({drafts=[],intent={},connections=[],options={
     if(existingDrafts.some(node => !nodes.some(candidate => candidate.id === node.id))){
         throw new Error('Canvas Mutation existing batch Node is missing');
     }
-    if(existingNodeIds.size){
-        const placementSnapshot = nodes.filter(
-            node => !existingNodeIds.has(String(node?.id || ''))
-        );
-        const plan = canvasMutationPlacementPlan(staged, intent, placementSnapshot);
-        if(!options.skipUndo) canvasMutationHistory('push');
-        canvasMutationApplyPlacementPlan(staged, plan);
-    } else {
-        canvasMutationPlanDrafts(staged, intent);
-        if(!options.skipUndo) canvasMutationHistory('push');
-    }
-    nodes.push(...staged.filter(node => !existingNodeIds.has(String(node?.id || ''))));
+    const added = staged.filter(node=>!existingNodeIds.has(String(node.id)));
+    const availableIds=new Set([...nodes,...added].map(node=>node.id));
+    if(new Set(staged.map(node=>node.id)).size!==staged.length
+        || added.some(node=>!node.id || nodes.some(existing=>existing.id===node.id))
+        || connections.some(connection=>{
+            const from=connection.fromId || connection.from, to=connection.toId || connection.to;
+            return !availableIds.has(from) || !availableIds.has(to) || from===to;
+        })) throw new Error('Canvas Mutation batch contains invalid identities or connections');
+    // A reused result keeps its identity and coordinates, and remains an obstacle.
+    if(added.length) canvasMutationPlanDrafts(added,intent);
+    if(!options.skipUndo) canvasMutationHistory('push');
+    nodes.push(...added);
+    canvasMutationFinalizePlacement(added);
     (connections || []).forEach(connection => {
         if(connection?.exact) canvasMutationConnectExact(connection);
         else canvasMutationConnect(connection);
@@ -538,7 +530,7 @@ function canvasMutationArrange({placements=[],frameUpdates=[],options={}}={}){
     if(options.save !== false) canvasMutationPersistenceModule.schedule();
     return true;
 }
-function canvasMutationCloneNode(node, dx=0, dy=0){
+function canvasMutationCloneNode(node){
     const copy = JSON.parse(JSON.stringify(node));
     copy.id = uid(
         node.type === 'smart-prompt'
@@ -553,8 +545,8 @@ function canvasMutationCloneNode(node, dx=0, dy=0){
                         ? 'frame'
                         : 'smart'
     );
-    copy.x = (Number(node.x) || 0) + dx;
-    copy.y = (Number(node.y) || 0) + dy;
+    copy.x = Number(node.x) || 0;
+    copy.y = Number(node.y) || 0;
     clearSmartNodeTransientRunState(copy, {clearRunHistory:true});
     const generationOutputModule = window.SmartCanvasModules?.generationOutput;
     if(isSmartImageNode(node) && node.generationOutputNode && generationOutputModule?.prepareDuplicate){
@@ -586,22 +578,10 @@ function canvasMutationDuplicate(options={}){
     if(!sourceNodes.length) return {nodes:[],anchor:null};
     const idMap = new Map();
     const copies = sourceNodes.map(node => {
-        const copy = canvasMutationCloneNode(node, 0, 0);
+        const copy = canvasMutationCloneNode(node);
         idMap.set(node.id, copy.id);
         return copy;
     });
-    if(mode === 'point' || mode === 'offset'){
-        const bounds = canvasMutationBounds(sourceNodes);
-        const point = mode === 'point'
-            ? options.point || lastMouseWorld || window.SmartCanvasModules.viewportSelection.viewport.center()
-            : {x:bounds.x + bounds.width / 2,y:bounds.y + bounds.height / 2};
-        canvasMutationPlanDrafts(copies,{
-            anchor:{kind:'point',x:point.x,y:point.y},
-            relation:'free',
-            arrangement:'rigid'
-        });
-    }
-    if(!options.skipUndo) canvasMutationHistory('push');
     const preserveExternal = Boolean(options.preserveConnections);
     const sourceIds = new Set(sourceNodes.map(node => node.id));
     const existingNodeIds = new Set(nodes.map(node => node.id));
@@ -651,6 +631,23 @@ function canvasMutationDuplicate(options={}){
                 : (idMap.get(copy.sourceNodeId) || '');
         }
     });
+    if(mode === 'offset'){
+        canvasMutationPlanDrafts(copies,{
+            anchor:{kind:'source',sourceNodeIds:sourceNodes.map(node=>node.id)},
+            alignment:'center',
+            relation:'downstream',
+            arrangement:'rigid'
+        });
+    } else if(['point','viewport'].includes(mode)){
+        const explicitPoint = mode === 'point' ? options.point || lastMouseWorld : null;
+        const point = explicitPoint || options.point || window.SmartCanvasModules.viewportSelection.viewport.center();
+        canvasMutationPlanDrafts(copies,{
+            anchor:{kind:explicitPoint ? 'point' : 'viewport',x:point.x,y:point.y},
+            relation:'free',
+            arrangement:'rigid'
+        });
+    }
+    if(!options.skipUndo) canvasMutationHistory('push');
     const newConnections = sourceConnections.map(connection => {
         const from = idMap.get(connection.from)
             || (preserveExternal ? connection.from : '');
@@ -683,6 +680,7 @@ function canvasMutationDuplicate(options={}){
     });
     canvas.connections = nextConnections;
     nodes.push(...copies);
+    canvasMutationFinalizePlacement(copies);
     newConnections.forEach(connection => {
         if((connection.kind || 'flow') !== 'input') return;
         const target = copies.find(copy => copy.id === connection.to)
@@ -734,7 +732,7 @@ function canvasMutationRemove(nodeIds=[], options={}){
         }
     });
     nodes = nodes.filter(node => !deleteIds.has(node.id));
-    deleteIds.forEach(nodeId => canvasMutationExactNodeIds.delete(String(nodeId)));
+    deleteIds.forEach(nodeId => canvasMutationPlacements.delete(String(nodeId)));
     if(canvas){
         canvas.connections = (canvas.connections || []).filter(connection =>
             !deleteIds.has(connection.from)
@@ -897,20 +895,16 @@ function canvasMutationConnectSources({sourceIds=[],targetId='',draft=null,point
     });
     // Plan everything before changing live nodes; failed placement leaves no partial graph.
     if(draft){
-        if(point){
-            const rect = nodeRect(draft);
-            draft.x = point.x;
-            draft.y = point.y - rect.height / 2;
-        } else {
-            canvasMutationPlanDrafts([draft],{
-                anchor:{kind:'source',sourceNodeIds:sourceIds},relation:'downstream',arrangement:'single'
-            });
-        }
+        canvasMutationPlanDrafts([draft],{
+            anchor:point ? {kind:'point',x:point.x,y:point.y,attachment:'left-middle'}
+                : {kind:'source',sourceNodeIds:sourceIds},
+            relation:'downstream',arrangement:'single'
+        });
     }
     canvasMutationHistory('capture');
     if(draft){
         nodes.push(draft);
-        if(point) canvasMutationExactNodeIds.add(String(draft.id));
+        canvasMutationFinalizePlacement([draft]);
     }
     target.inputNodeIds = [...new Set([...(target.inputNodeIds || []),...missing.map(node => node.id)])];
     canvas.connections = [...(canvas.connections || []),...connections];
@@ -1012,9 +1006,13 @@ const canvasMutationApi = {
         return canvasMutationDisconnect(options);
     }
 };
-Object.defineProperty(canvasMutationApi,'placementMode',{
+Object.defineProperty(canvasMutationApi,'placementIntent',{
     enumerable:false,
-    value:({nodeId=''}={}) =>
-        canvasMutationExactNodeIds.has(String(nodeId)) ? 'exact' : 'auto'
+    value:({nodeId=''}={}) => {
+        const placement=canvasMutationPlacements.get(String(nodeId));
+        if(!placement) return null;
+        const {frameUpdates,...intent}=placement;
+        return JSON.parse(JSON.stringify(intent));
+    }
 });
 window.SmartCanvasModules.canvasMutation = Object.freeze(canvasMutationApi);

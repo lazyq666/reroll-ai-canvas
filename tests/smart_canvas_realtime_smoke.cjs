@@ -86,7 +86,7 @@ const sharedProjection = value => ({
             new Promise((resolve, reject) => {
                 const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const socket = new WebSocket(
-                    `${protocol}//${location.host}/ws/canvases/${encodeURIComponent(id)}?client_id=capacity-sixth`,
+                    `${protocol}//${location.host}/ws/canvases/${encodeURIComponent(id)}?layout_gap=64&client_id=capacity-sixth`,
                 );
                 const timer = setTimeout(
                     () => reject(new Error('Sixth client capacity check timed out')),

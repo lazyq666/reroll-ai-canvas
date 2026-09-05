@@ -237,7 +237,7 @@ class SmartCanvasContextMenuNavigationTests(unittest.TestCase):
         run_body = self.script[run_start:run_end]
         self.assertIn("textGenerationOutput:true", run_body)
         self.assertIn("textGenerationPending:true", run_body)
-        self.assertIn("anchor:{kind:'source',sourceNodeId:node.id}", run_body)
+        self.assertIn("generationOutput.sourceAnchor({sourceNode:node})", run_body)
         self.assertIn("relation:'downstream'", run_body)
         self.assertIn("arrangement:'single'", run_body)
         self.assertIn("reveal:true", run_body)

@@ -89,7 +89,7 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
         )
         self.assertEqual(
             result["prompt"]["interactionFootprint"],
-            {"x": -90, "y": -28, "width": 516, "height": 276},
+            {"x": -22, "y": -12, "width": 380, "height": 244},
         )
         self.assertEqual(result["splitter"]["layout"]["width"], 316)
         self.assertEqual(result["splitter"]["layout"]["height"], 240)
@@ -205,7 +205,7 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
             """
         )
 
-        self.assertEqual(result["browserInterface"], ["createSession"])
+        self.assertEqual(result["browserInterface"], ["createSession", "nodeGap", "layoutOffsets", "expandFrame", "frameMembership"])
         self.assertTrue(result["sameResult"])
 
     def test_direct_node_session_measures_single_image_with_complete_geometry(self):
@@ -389,7 +389,7 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
         )
         self.assertEqual(
             result["interactionFootprint"],
-            {"x": -90, "y": -28, "width": 504, "height": 340},
+            {"x": -22, "y": -12, "width": 368, "height": 308},
         )
 
     def test_multi_image_geometry_matches_the_production_aspect_aware_grid(self):

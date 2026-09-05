@@ -71,7 +71,7 @@ class SmartCanvasNodePlacementArchitectureTests(unittest.TestCase):
     def test_automatic_entrypoints_delegate_semantic_intent_to_canvas_mutation(self):
         self.assertIn("canvasMutationPlanDrafts([node], options.placement)", self.mutation)
         self.assertIn("options.positionMode !== 'exact'", self.mutation)
-        self.assertIn("canvasMutationPlanDrafts(staged, intent)", self.mutation)
+        self.assertIn("canvasMutationPlanDrafts(added,intent)", self.mutation)
         self.assertIn("generationOutputMutationModule.createBatch({", self.output)
         self.assertIn("arrangement:`${generationBatchLayout}-batch`", self.output)
         self.assertIn("arrangement:'single'", self.host)
@@ -108,13 +108,13 @@ class SmartCanvasNodePlacementArchitectureTests(unittest.TestCase):
         reference_creation = self.host[reference_start:reference_end]
         self.assertIn("anchor:{kind:'source',sourceNodeId:sourceNode.id}", reference_creation)
         self.assertIn("const createOptions = explicitPoint ? exactOptions : placementOptions", reference_creation)
-        self.assertIn("createImageNodeAt(imagePoint, [], {select:true,...createOptions})", reference_creation)
+        self.assertIn("createImageNodeAt(p, [], {select:true,...createOptions})", reference_creation)
         self.assertIn(
             "created.y = p.y - Number(created.h || promptNodeLayoutSize(created).height) / 2;",
             reference_creation,
         )
-        self.assertIn("isUpstreamInput ? p.x - 316 : p.x", reference_creation)
-        self.assertIn("(isUpstreamInput ? -1 : 1) * emptyLayout.width / 2", reference_creation)
+        self.assertIn("attachment:isUpstreamInput ? 'right-middle' : 'left-middle'", reference_creation)
+        self.assertNotIn("emptyLayout.width / 2", reference_creation)
 
         menu_start = self.host.index("function createNodeFromMenu(")
         menu_end = self.host.index("\nfunction smartCanvasChromeTarget(", menu_start)

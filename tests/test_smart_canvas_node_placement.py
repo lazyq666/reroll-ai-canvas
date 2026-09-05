@@ -52,8 +52,8 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
         )
         self.assertEqual(result["point"]["placements"][0], {"id": "draft", "x": 842, "y": 410})
         self.assertEqual(result["viewport"]["placements"][0], {"id": "draft", "x": 142, "y": 110})
-        self.assertEqual(result["downstream"]["placements"][0], {"id": "draft", "x": 400, "y": 0})
-        self.assertEqual(result["upstream"]["placements"][0], {"id": "draft", "x": -516, "y": 0})
+        self.assertEqual(result["downstream"]["placements"][0], {"id": "draft", "x": 264, "y": 0})
+        self.assertEqual(result["upstream"]["placements"][0], {"id": "draft", "x": -380, "y": 0})
 
     def test_point_anchor_wins_over_flow_direction_and_ignores_annotations(self):
         result = run_placement(
@@ -121,17 +121,17 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
         self.assertTrue(result["plan"]["ok"])
         placed = result["plan"]["placements"][0]
         candidate = {
-            "x": placed["x"] - 100,
-            "y": placed["y"] - 48,
-            "right": placed["x"] + 300,
-            "bottom": placed["y"] + 148,
+            "x": placed["x"] - 32,
+            "y": placed["y"] - 32,
+            "right": placed["x"] + 232,
+            "bottom": placed["y"] + 132,
         }
         for node in result["nodes"]:
             obstacle = {
-                "x": node["x"] - 100,
-                "y": node["y"] - 48,
-                "right": node["x"] + 300,
-                "bottom": node["y"] + 148,
+                "x": node["x"] - 32,
+                "y": node["y"] - 32,
+                "right": node["x"] + 232,
+                "bottom": node["y"] + 132,
             }
             self.assertFalse(
                 candidate["x"] < obstacle["right"]
@@ -167,10 +167,10 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(
             result["placements"][0],
-            {"id": "draft", "x": 604, "y": 100},
+            {"id": "draft", "x": 468, "y": 100},
         )
 
-    def test_vertical_batch_is_atomic_stable_and_uses_48_gap(self):
+    def test_vertical_batch_is_atomic_stable_and_uses_64_gap(self):
         result = run_placement(
             """
             const drafts = Array.from({length:3}, (_,index) => ({
@@ -178,21 +178,21 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
             }));
             return placement.plan({
                 snapshot:{nodes:[]},drafts,
-                intent:{anchor:{kind:'point',x:50,y:123},arrangement:'vertical-batch'}
+                intent:{anchor:{kind:'point',x:50,y:171},arrangement:'vertical-batch'}
             });
             """
         )
         self.assertEqual(
             result["placements"],
             [
-                {"id": "draft-0", "x": 0, "y": 0},
-                {"id": "draft-1", "x": 0, "y": 98},
-                {"id": "draft-2", "x": 0, "y": 196},
+                {"id": "draft-0", "x": 0, "y": 32},
+                {"id": "draft-1", "x": 0, "y": 146},
+                {"id": "draft-2", "x": 0, "y": 260},
             ],
         )
-        self.assertEqual(result["bounds"], {"x": 0, "y": 0, "width": 100, "height": 246})
+        self.assertEqual(result["bounds"], {"x": 0, "y": 32, "width": 100, "height": 278})
 
-    def test_horizontal_batch_is_atomic_stable_and_uses_48_gap(self):
+    def test_horizontal_batch_is_atomic_stable_and_uses_64_gap(self):
         result = run_placement(
             """
             const drafts = Array.from({length:3}, (_,index) => ({
@@ -200,21 +200,21 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
             }));
             return placement.plan({
                 snapshot:{nodes:[]},drafts,
-                intent:{anchor:{kind:'point',x:198,y:25},arrangement:'horizontal-batch'}
+                intent:{anchor:{kind:'point',x:246,y:25},arrangement:'horizontal-batch'}
             });
             """
         )
         self.assertEqual(
             result["placements"],
             [
-                {"id": "draft-0", "x": 0, "y": 0},
-                {"id": "draft-1", "x": 148, "y": 0},
-                {"id": "draft-2", "x": 296, "y": 0},
+                {"id": "draft-0", "x": 32, "y": 0},
+                {"id": "draft-1", "x": 196, "y": 0},
+                {"id": "draft-2", "x": 360, "y": 0},
             ],
         )
-        self.assertEqual(result["bounds"], {"x": 0, "y": 0, "width": 396, "height": 50})
+        self.assertEqual(result["bounds"], {"x": 32, "y": 0, "width": 428, "height": 50})
 
-    def test_same_source_batches_continue_as_aligned_rows_or_columns(self):
+    def test_same_source_batches_may_break_old_alignment_to_stay_near_source(self):
         result = run_placement(
             """
             const source = {id:'source',type:'smart-image',x:0,y:0,w:100,h:100,images:[]};
@@ -246,13 +246,13 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
             """
         )
         horizontal = result["horizontal"]["placements"]
-        self.assertEqual(horizontal[0]["x"], 300)
+        self.assertEqual(horizontal[0]["x"], 164)
         self.assertEqual(horizontal[0]["y"], horizontal[1]["y"])
-        self.assertGreater(horizontal[0]["y"], 50)
+        self.assertEqual(abs(horizontal[0]["y"]), 114)
         vertical = result["vertical"]["placements"]
-        self.assertEqual(vertical[0]["y"], 0)
+        self.assertLessEqual(abs(vertical[0]["y"]), 244)
         self.assertEqual(vertical[0]["x"], vertical[1]["x"])
-        self.assertGreater(vertical[0]["x"], 400)
+        self.assertGreaterEqual(vertical[0]["x"], 164)
 
     def test_rigid_collection_preserves_relative_coordinates_and_internal_overlap(self):
         result = run_placement(
@@ -271,7 +271,7 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
         self.assertEqual(b["x"] - a["x"], 100)
         self.assertEqual(b["y"] - a["y"], 40)
 
-    def test_frame_prefers_all_inside_then_moves_the_whole_set_outside(self):
+    def test_frame_expands_after_placement_without_constraining_the_search(self):
         result = run_placement(
             """
             const roomy = [
@@ -295,7 +295,8 @@ class SmartCanvasNodePlacementTests(unittest.TestCase):
         )
         self.assertLessEqual(result["inside"]["bounds"]["x"] + 100, 1000)
         outside = result["outside"]["bounds"]
-        self.assertTrue(outside["x"] >= 700 or outside["x"] + outside["width"] <= 0)
+        self.assertEqual(outside["x"], 664)
+        self.assertEqual(result["outside"]["frameUpdates"], [{"id":"frame","x":0,"y":0,"w":788,"h":388}])
 
     def test_invalid_geometry_fails_explicitly_and_equal_inputs_are_deterministic(self):
         result = run_placement(

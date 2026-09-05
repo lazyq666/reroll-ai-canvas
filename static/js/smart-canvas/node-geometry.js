@@ -26,7 +26,8 @@
     const MEDIA_GROUP_GAP = 8;
     const MEDIA_NAME_ROW_HEIGHT = 20;
     const MINIMUM_NODE_SIZE = 48;
-    const INTERACTION_INSET = Object.freeze({left:100,right:100,top:48,bottom:48});
+    // 4rem at the canvas 16px baseline; world geometry is independent of DOM font size.
+    const NODE_GAP = 64; // Generated from layout-constants.json
     const PROMPT_WIDTH = 316;
     const PROMPT_COLLAPSED_HEIGHT = 180;
     const PROMPT_GENERATION_HEIGHT = 270;
@@ -514,10 +515,10 @@
         const placementObstacle = !['smart-frame','smart-text','smart-brush'].includes(type);
         const interactionFootprint = placementObstacle
             ? {
-                x:x - INTERACTION_INSET.left,
-                y:y - INTERACTION_INSET.top,
-                width:layout.width + INTERACTION_INSET.left + INTERACTION_INSET.right,
-                height:layout.height + INTERACTION_INSET.top + INTERACTION_INSET.bottom
+                x:x - NODE_GAP/2,
+                y:y - NODE_GAP/2,
+                width:layout.width + NODE_GAP,
+                height:layout.height + NODE_GAP
             }
             : {...footprint};
         return deepFreeze({
@@ -582,5 +583,45 @@
         });
     }
 
-    return Object.freeze({createSession});
+    function layoutOffsets(sizes) {
+        let total = 0;
+        const values = sizes.map((size,index) => {
+            const offset = total;
+            total += size + (index < sizes.length - 1 ? NODE_GAP : 0);
+            return offset;
+        });
+        return {values,total};
+    }
+
+    function expandFrame(frame, footprints) {
+        if (!frame || !footprints.length) return null;
+        const x = Math.min(frame.x, ...footprints.map(item => item.x - 24));
+        const y = Math.min(frame.y, ...footprints.map(item => item.y - 54));
+        const right = Math.max(frame.x + frame.width, ...footprints.map(item => item.x + item.width + 24));
+        const bottom = Math.max(frame.y + frame.height, ...footprints.map(item => item.y + item.height + 24));
+        return {x,y,w:right-x,h:bottom-y};
+    }
+
+    function frameMembership(nodes) {
+        const session = createSession({nodes});
+        const frames = nodes.filter(node=>node.type==='smart-frame');
+        const owned = new Set(nodes.filter(node=>node.type==='smart-group').flatMap(node=>node.items || []));
+        const boxes = new Map(nodes.map(node=>[node.id,session.measure(node.id).footprint]));
+        const area = box=>box.width*box.height;
+        const items = new Map(frames.map(frame=>[frame.id,[]]));
+        nodes.forEach(node=>{
+            if(owned.has(node.id)) return;
+            const box=boxes.get(node.id), x=box.x+box.width/2, y=box.y+box.height/2;
+            const candidates=frames.filter(frame=>{
+                const outer=boxes.get(frame.id);
+                return frame.id!==node.id && (node.type!=='smart-frame' || area(outer)>area(box))
+                    && x>=outer.x && x<=outer.x+outer.width && y>=outer.y && y<=outer.y+outer.height;
+            }).sort((a,b)=>area(boxes.get(a.id))-area(boxes.get(b.id))
+                || (String(a.id)<String(b.id) ? -1 : String(a.id)>String(b.id) ? 1 : 0));
+            if(candidates.length) items.get(candidates[0].id).push(node.id);
+        });
+        return frames.map(frame=>({id:frame.id,items:items.get(frame.id)}));
+    }
+
+    return Object.freeze({createSession,nodeGap:NODE_GAP,layoutOffsets,expandFrame,frameMembership});
 });

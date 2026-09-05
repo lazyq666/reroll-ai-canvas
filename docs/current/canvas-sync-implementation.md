@@ -88,3 +88,13 @@ Workspace content、Connection Manager 和 Auth System adapter 完成。
 - `tests/canvas_updated_time_browser_smoke.cjs` 使用真实 Chromium 验证 Classic/Smart
   打开、Node Selection、Prompt 滚动、Viewport 保存与未形成编辑的 Pointer 手势不产生
   Canvas 写入；个人 View State 仍可独立保存。
+
+## 统一空间布局提交合同
+
+Smart Canvas WebSocket 查询参数 `layout_gap` 必须等于当前代码常量；缺失或不匹配时关闭码为 4410，客户端提示刷新。G 由 `static/js/smart-canvas/layout-constants.json` 发布，前后端共同使用，不写入 Canvas Settings。内部服务端写入仍沿用可信 Canvas Intent，不要求伪造浏览器布局元数据。
+
+正常创建支持 `node_creates: [{node, placement}]`。`placement` 包含 `mode`（`exact` / `auto`）、`gap`、可选 `collectionId` 及冻结的 `intent`（来源、视口、原直接 Frame）。允许的封装不授权提交任何 lineage 元数据；元数据不成为共享 Node 属性或广播相机。客户端将其与本地待同步操作一起保存，重载再生成差异时继续保留明确位置语义。
+
+自动初始创建与较新节点的矩形安全区冲突才返回 `placement_conflict`，整个新增集合按最新障碍重算。明确创建接受重叠。两者的直接 Frame 在期间改变时返回 `frame_placement_conflict`：重试合并 Frame 扩容并重新投影成员，明确坐标保持。布局版本不符返回 `layout_contract_mismatch`，非法几何返回 `invalid_layout_geometry`。
+
+Undo/Redo 使用可信 inverse 精确恢复历史位置及相应 Frame 变化，重叠不触发重新避让；旧 `placement_overrides` 不再改变恢复坐标。既有权限、节点身份、lineage 及保护后续修改的检查继续生效。详情和验收见[节点定位合同](smart-canvas-node-auto-placement.md#6-失败协作与恢复)及 [Issue #40](https://github.com/lazyq666/reroll-ai-canvas/issues/40)。

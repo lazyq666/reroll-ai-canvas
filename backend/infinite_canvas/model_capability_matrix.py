@@ -7,8 +7,6 @@ translates detailed contracts into a small set of administrator choices.
 from __future__ import annotations
 
 import copy
-import urllib.parse
-import datetime as _datetime
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
@@ -17,7 +15,6 @@ from .model_capabilities import ModelCapabilityContext
 
 from .model_capability_workbench import (
     ModelCapabilityWorkbench,
-    ModelCapabilityWorkbenchValidation,
 )
 
 
@@ -42,40 +39,7 @@ EDITABLE_CAPABILITY_FIELDS = (
 RESOLUTION_PARAMETERS = ("resolution_tier", "resolution")
 VIDEO_MODE_FIRST_LAST_FRAMES = "first_last_frames"
 VIDEO_MODE_ALL_AROUND = "multimodal_all_around"
-IMPORT_SCHEMA_VERSION = 1
-IMPORT_SOURCE_TYPES = frozenset(
-    {"official_docs", "structured_api", "cli_help", "workflow_schema"}
-)
-IMPORT_BUNDLE_FIELDS = frozenset({"schema_version", "models"})
-IMPORT_MODEL_FIELDS = frozenset({"model_id", "name", "operations"})
-IMPORT_OPERATION_FIELDS = frozenset(
-    {
-        "operation",
-        "confirmed",
-        "inputs",
-        "resolutions",
-        "aspect_ratios",
-        "output_count_maximum",
-        "options",
-        "sources",
-    }
-)
-IMPORT_VIDEO_FIELDS = frozenset(
-    {
-        "input_total_maximum",
-        "reference_media_duration_seconds",
-        "audio_only_supported",
-        "modes",
-        "output_duration_seconds",
-    }
-)
-IMPORT_VIDEO_DURATION_FIELDS = frozenset({"each", "combined_total"})
-IMPORT_BOUNDS_FIELDS = frozenset({"minimum", "maximum"})
-IMPORT_VIDEO_MODE_FIELDS = frozenset(
-    {VIDEO_MODE_FIRST_LAST_FRAMES, VIDEO_MODE_ALL_AROUND}
-)
-IMPORT_SOURCE_FIELDS = frozenset({"type", "url", "title", "excerpt"})
-IMPORT_OPTIONS_BY_OPERATION = {
+EDITABLE_OPTIONS_BY_OPERATION = {
     "image.generate": frozenset({"transparent_png", "prompt_enhancement"}),
     "image.edit": frozenset({"transparent_png", "prompt_enhancement"}),
     "image.layer_decomposition": frozenset(),
@@ -106,95 +70,12 @@ EDITOR_ASPECT_RATIOS = {
 }
 
 
-def _integer_schema(minimum: int, maximum: int) -> dict[str, Any]:
-    return {"type": "integer", "minimum": minimum, "maximum": maximum}
-
-
-def _object_schema(properties: Mapping[str, Any]) -> dict[str, Any]:
-    return {"type": "object", "properties": dict(properties),
-            "required": list(properties), "additionalProperties": False}
-
-
-def _enum_array(values: Sequence[str]) -> dict[str, Any]:
-    return {"type": "array", "items": {"type": "string", "enum": list(values)},
-            "uniqueItems": True, "maxItems": 40}
-
-
-def _matches_schema(value: Any, schema: Mapping[str, Any]) -> bool:
-    """Validate the same bounded schema supplied to external research tools."""
-    kind = schema.get("type")
-    if "const" in schema and (type(value) is not type(schema["const"]) or value != schema["const"]):
-        return False
-    if "enum" in schema and value not in schema["enum"]:
-        return False
-    if kind == "integer":
-        return type(value) is int and schema["minimum"] <= value <= schema["maximum"]
-    if kind == "boolean":
-        return type(value) is bool
-    if kind == "string":
-        return isinstance(value, str) and bool(value.strip()) and value == value.strip()
-    if kind == "array":
-        return (isinstance(value, list) and schema.get("minItems", 0) <= len(value) <= schema.get("maxItems", 40)
-                and (not schema.get("uniqueItems") or len({str(item) for item in value}) == len(value))
-                and all(_matches_schema(item, schema["items"]) for item in value))
-    if kind == "object":
-        return (isinstance(value, Mapping) and set(value) == set(schema["properties"])
-                and all(_matches_schema(value[key], child) for key, child in schema["properties"].items()))
-    return True
-
-
-def operation_import_schema(operation: Mapping[str, Any]) -> dict[str, Any]:
-    name = operation["operation"]
-    kind = name.split(".")[0]
-    layer = name == "image.layer_decomposition"
-    resolutions = (["auto", "1K", "1.5K", "2K"] if layer else
-                   _unique([*EDITOR_RESOLUTIONS[kind], *operation.get("resolutions", [])]))
-    ratios = [] if layer else _unique([*EDITOR_ASPECT_RATIOS[kind], *operation.get("aspect_ratios", [])])
-    properties = {
-        "operation": {"const": name}, "confirmed": {"const": True},
-        "inputs": _object_schema({key: _integer_schema(0, 100) for key in INPUT_TYPES}),
-        "resolutions": _enum_array(resolutions), "aspect_ratios": _enum_array(ratios),
-        "output_count_maximum": _integer_schema(1, 1 if layer else 100),
-        "options": _enum_array(sorted(IMPORT_OPTIONS_BY_OPERATION[name])),
-        "sources": {"type": "array", "minItems": 1, "maxItems": 20,
-                    "items": _object_schema({
-                        "type": {"type": "string", "enum": sorted(IMPORT_SOURCE_TYPES)},
-                        "url": {"type": "string"}, "title": {"type": "string"}, "excerpt": {"type": "string"}})},
+def editor_limits() -> dict[str, Any]:
+    context = ModelCapabilityContext()
+    return {
+        "image_reference_maximum": context.image_reference_maximum,
+        "text_inputs": {"image": context.text_image_maximum, "video": context.text_video_maximum},
     }
-    runtime_limits = ModelCapabilityContext()
-    if kind == "text":
-        properties["inputs"]["properties"]["image"] = _integer_schema(0, runtime_limits.text_image_maximum)
-        properties["inputs"]["properties"]["video"] = _integer_schema(0, runtime_limits.text_video_maximum)
-    if kind == "image" and not layer:
-        properties["inputs"] = _object_schema({
-            "text": {"const": 1},
-            "image": _integer_schema(1, runtime_limits.image_reference_maximum) if name == "image.edit" else {"const": 0},
-            **{key: {"const": 0} for key in ("video", "audio", "file")},
-        })
-    if layer:
-        properties["inputs"] = _object_schema({key: {"const": int(key in {"text", "image"})} for key in INPUT_TYPES})
-    if name == "video.generate":
-        bounds = lambda minimum, maximum: _object_schema({key: _integer_schema(minimum, maximum) for key in ("minimum", "maximum")})
-        properties["video"] = _object_schema({
-            "input_total_maximum": _integer_schema(0, 100),
-            "reference_media_duration_seconds": _object_schema({"each": bounds(0, 3600), "combined_total": bounds(0, 3600)}),
-            "audio_only_supported": {"type": "boolean"},
-            "modes": _object_schema({key: {"type": "boolean"} for key in sorted(IMPORT_VIDEO_MODE_FIELDS)}),
-            "output_duration_seconds": bounds(1, 600),
-        })
-    return _object_schema(properties)
-
-
-class ModelCapabilityImportInvalid(ValueError):
-    """An external capability package cannot be safely applied."""
-
-    def __init__(
-        self, reason: str, *, model_id: str = "", operation: str = ""
-    ) -> None:
-        super().__init__(reason)
-        self.reason = reason
-        self.model_id = model_id
-        self.operation = operation
 
 
 def _clean(value: object) -> str:
@@ -285,17 +166,14 @@ class ModelCapabilityMatrix:
         inventory: Callable[[], Mapping[str, Sequence[Mapping[str, Any]]]],
         catalog: Any,
         workbench: ModelCapabilityWorkbench,
-        providers: Callable[[], Sequence[Mapping[str, Any]]] = lambda: (),
     ) -> None:
         self._inventory = inventory
         self.catalog = catalog
         self.workbench = workbench
-        self._providers = providers
 
     def snapshot(self) -> dict[str, Any]:
         inventory = self._inventory()
         workbench = self.workbench.snapshot()
-        provider_context = {str(item.get("id")): item for item in self._providers()}
         rows: dict[str, dict[str, Any]] = {}
         for model_type in MODEL_TYPES:
             for item in inventory.get(model_type, ()):
@@ -325,13 +203,6 @@ class ModelCapabilityMatrix:
                     "name": _clean(item.get("provider_name"))
                     or _clean(item.get("provider_id")),
                 }
-                context = provider_context.get(provider["id"], {})
-                provider["protocol"] = _clean(context.get("protocol"))
-                try:
-                    host = urllib.parse.urlsplit(_clean(context.get("base_url"))).hostname or ""
-                except ValueError:
-                    host = ""
-                provider["service_host"] = host
                 if provider["id"] and provider not in row["providers"]:
                     row["providers"].append(provider)
                 variant = {
@@ -414,10 +285,6 @@ class ModelCapabilityMatrix:
                 1 for operation in row["operations"] if operation["confirmed"]
             )
             row["operation_count"] = len(row["operations"])
-            row["import_schemas"] = {
-                operation["operation"]: operation_import_schema(operation)
-                for operation in row["operations"]
-            }
             result_rows.append(row)
         result_rows.sort(key=lambda item: (item["name"].casefold(), item["model_id"]))
         return {
@@ -429,7 +296,7 @@ class ModelCapabilityMatrix:
                 "with_sources": sum(bool(row["evidence_count"]) for row in result_rows),
             },
             "catalog_revision": _clean(self.catalog.revision),
-            "import_schema_version": IMPORT_SCHEMA_VERSION,
+            "editor_limits": editor_limits(),
             "editor_candidates": {"resolutions": EDITOR_RESOLUTIONS, "aspect_ratios": EDITOR_ASPECT_RATIOS},
         }
 
@@ -708,386 +575,6 @@ class ModelCapabilityMatrix:
             activate=self.catalog.refresh,
         )
 
-    def import_bundle(
-        self,
-        *,
-        bundle: Mapping[str, Any],
-        actor_id: str,
-        apply: bool = False,
-    ) -> dict[str, Any]:
-        """Validate or atomically apply one provider-independent import package."""
-
-        schema_version = bundle.get("schema_version")
-        if (
-            set(bundle) != set(IMPORT_BUNDLE_FIELDS)
-            or isinstance(schema_version, bool)
-            or schema_version != IMPORT_SCHEMA_VERSION
-        ):
-            raise ModelCapabilityImportInvalid("schema_version")
-        imported_models = bundle.get("models")
-        if (
-            not isinstance(imported_models, list)
-            or not imported_models
-            or len(imported_models) > 100
-        ):
-            raise ModelCapabilityImportInvalid("models_required")
-        current = self.snapshot()
-        current_rows = {row["model_id"]: row for row in current["models"]}
-        inventory = self._inventory()
-        timestamp = _datetime.datetime.now(_datetime.timezone.utc).isoformat()
-        seen_models: set[str] = set()
-        records: list[dict[str, Any]] = []
-        affected_variants: set[tuple[str, str]] = set()
-        operation_count = 0
-
-        for imported_model in imported_models:
-            if (
-                not isinstance(imported_model, Mapping)
-                or set(imported_model) != set(IMPORT_MODEL_FIELDS)
-            ):
-                raise ModelCapabilityImportInvalid("model_format")
-            model_id = _clean(imported_model.get("model_id"))
-            if not model_id or model_id in seen_models:
-                raise ModelCapabilityImportInvalid(
-                    "duplicate_model", model_id=model_id
-                )
-            seen_models.add(model_id)
-            row = current_rows.get(model_id)
-            if row is None:
-                raise ModelCapabilityImportInvalid(
-                    "model_not_found", model_id=model_id
-                )
-            name = _clean(imported_model.get("name"))
-            known_names = {
-                _clean(value).casefold()
-                for value in row.get("names", [])
-                if _clean(value)
-            }
-            if not name or name.casefold() not in known_names:
-                raise ModelCapabilityImportInvalid(
-                    "name_mismatch", model_id=model_id
-                )
-            imported_operations = imported_model.get("operations")
-            if (
-                not isinstance(imported_operations, list)
-                or not imported_operations
-                or len(imported_operations) > 5
-            ):
-                raise ModelCapabilityImportInvalid(
-                    "operations_required", model_id=model_id
-                )
-            image_choices = {item.get("operation"): item for item in imported_operations if isinstance(item, Mapping)}
-            if "image.generate" in image_choices and "image.edit" in image_choices:
-                for field in ("resolutions", "aspect_ratios", "output_count_maximum", "options"):
-                    left, right = image_choices["image.generate"].get(field), image_choices["image.edit"].get(field)
-                    if (sorted(left) if isinstance(left, list) and all(isinstance(v, str) for v in left) else left) != (sorted(right) if isinstance(right, list) and all(isinstance(v, str) for v in right) else right):
-                        raise ModelCapabilityImportInvalid("field_values", model_id=model_id, operation="image.edit")
-            available_operations = {
-                operation["operation"] for operation in row["operations"]
-            }
-            seen_operations: set[str] = set()
-            for imported_operation in imported_operations:
-                imported_operation_fields = (
-                    set(imported_operation)
-                    if isinstance(imported_operation, Mapping)
-                    else set()
-                )
-                if (
-                    not isinstance(imported_operation, Mapping)
-                    or imported_operation_fields
-                    not in (
-                        set(IMPORT_OPERATION_FIELDS),
-                        set(IMPORT_OPERATION_FIELDS | {"video"}),
-                    )
-                ):
-                    raise ModelCapabilityImportInvalid(
-                        "operation_format", model_id=model_id
-                    )
-                operation = _clean(imported_operation.get("operation"))
-                if not operation or operation in seen_operations:
-                    raise ModelCapabilityImportInvalid(
-                        "duplicate_operation",
-                        model_id=model_id,
-                        operation=operation,
-                    )
-                seen_operations.add(operation)
-                if operation not in available_operations:
-                    raise ModelCapabilityImportInvalid(
-                        "operation_not_available",
-                        model_id=model_id,
-                        operation=operation,
-                    )
-                if imported_operation.get("confirmed") is not True:
-                    raise ModelCapabilityImportInvalid(
-                        "operation_not_confirmed",
-                        model_id=model_id,
-                        operation=operation,
-                    )
-                imported_inputs = imported_operation.get("inputs")
-                if not isinstance(imported_inputs, Mapping) or set(imported_inputs) != set(
-                    INPUT_TYPES
-                ):
-                    raise ModelCapabilityImportInvalid(
-                        "inputs_incomplete",
-                        model_id=model_id,
-                        operation=operation,
-                    )
-                if any(
-                    isinstance(value, bool)
-                    or not isinstance(value, int)
-                    or value < 0
-                    or value > 100
-                    for value in imported_inputs.values()
-                ):
-                    raise ModelCapabilityImportInvalid(
-                        "inputs_incomplete",
-                        model_id=model_id,
-                        operation=operation,
-                    )
-                output_count = imported_operation.get("output_count_maximum")
-                sequence_fields = (
-                    imported_operation.get("resolutions"),
-                    imported_operation.get("aspect_ratios"),
-                    imported_operation.get("options"),
-                )
-                if (
-                    isinstance(output_count, bool)
-                    or not isinstance(output_count, int)
-                    or not 1 <= output_count <= 100
-                    or any(
-                        not isinstance(values, list)
-                        or len(values) > 40
-                        or any(not isinstance(value, str) or not value.strip() for value in values)
-                        for values in sequence_fields
-                    )
-                    or not set(imported_operation.get("options") or []).issubset(
-                        IMPORT_OPTIONS_BY_OPERATION.get(operation, frozenset())
-                    )
-                ):
-                    raise ModelCapabilityImportInvalid(
-                        "operation_format",
-                        model_id=model_id,
-                        operation=operation,
-                    )
-                if not _matches_schema(imported_operation, row["import_schemas"][operation]):
-                    raise ModelCapabilityImportInvalid("field_values", model_id=model_id, operation=operation)
-                if operation == "video.generate":
-                    profile = imported_operation["video"]
-                    if (profile["audio_only_supported"] and not imported_inputs["audio"]
-                        or profile["modes"][VIDEO_MODE_FIRST_LAST_FRAMES] and imported_inputs["image"] < 2
-                        or profile["modes"][VIDEO_MODE_ALL_AROUND] and not profile["input_total_maximum"]):
-                        raise ModelCapabilityImportInvalid("field_values", model_id=model_id, operation=operation)
-                self._validate_import_video(
-                    imported_operation.get("video"),
-                    model_id=model_id,
-                    operation=operation,
-                )
-                evidence = self._import_evidence(
-                    imported_operation.get("sources"),
-                    model_id=model_id,
-                    operation=operation,
-                    fetched_at=timestamp,
-                )
-                for model_type in MODEL_TYPES:
-                    if operation not in OPERATIONS_BY_TYPE.get(model_type, ()):
-                        continue
-                    for item in inventory.get(model_type, ()):
-                        if _clean(item.get("model")) != model_id:
-                            continue
-                        provider_id = _clean(item.get("provider_id"))
-                        base = self.catalog.resolve(provider_id, model_id, operation)
-                        try:
-                            for evidence_item in evidence:
-                                self.workbench.validate_evidence(
-                                    provider_id=provider_id,
-                                    model_id=model_id,
-                                    operation=operation,
-                                    actor_id=actor_id,
-                                    **evidence_item,
-                                )
-                        except ModelCapabilityWorkbenchValidation as error:
-                            raise ModelCapabilityImportInvalid(
-                                "source_format",
-                                model_id=model_id,
-                                operation=operation,
-                            ) from error
-                        records.append(
-                            {
-                                "provider_id": provider_id,
-                                "model_id": model_id,
-                                "model_name": name,
-                                "operation": operation,
-                                "capability": self._apply_choice(
-                                    base, imported_operation
-                                ),
-                                "evidence": evidence,
-                            }
-                        )
-                        affected_variants.add((provider_id, model_id))
-                operation_count += 1
-
-        # The image editor displays the common range of generation and editing.
-        # Reject a package whose saved values would immediately disappear there.
-        for imported_model in imported_models:
-            model_id = imported_model["model_id"]
-            choices = [choice for choice in imported_model["operations"]
-                       if choice["operation"] in {"image.generate", "image.edit"}]
-            if not choices:
-                continue
-            projected = []
-            for operation in ("image.generate", "image.edit"):
-                capabilities = []
-                for item in inventory.get("image", ()):
-                    if _clean(item.get("model")) != model_id:
-                        continue
-                    provider_id = _clean(item.get("provider_id"))
-                    base = self.catalog.resolve(provider_id, model_id, operation)
-                    patch = next((record["capability"] for record in records
-                                  if record["provider_id"] == provider_id
-                                  and record["model_id"] == model_id
-                                  and record["operation"] == operation), None)
-                    capabilities.append(_merge(base, patch) if patch else base)
-                projected.append(self._operation_projection(operation, capabilities))
-            relevant = [operation for operation in projected
-                        if operation["confirmed"] or operation["inputs"]["image"] > 0] or projected
-            common = {
-                "resolutions": sorted(set.intersection(*(set(op["resolutions"]) for op in relevant))),
-                "aspect_ratios": sorted(set.intersection(*(set(op["aspect_ratios"]) for op in relevant))),
-                "output_count_maximum": min(op["output_count_maximum"] for op in relevant),
-                "options": sorted(key for key in IMPORT_OPTIONS_BY_OPERATION["image.generate"]
-                                  if all(op["options"].get(key) for op in relevant)),
-            }
-            for choice in choices:
-                if any((sorted(choice[key]) if isinstance(choice[key], list) else choice[key]) != value
-                       for key, value in common.items()):
-                    raise ModelCapabilityImportInvalid("image_profile_conflict", model_id=model_id,
-                                                       operation=choice["operation"])
-
-        preview = {
-            "schema_version": IMPORT_SCHEMA_VERSION,
-            "models": len(seen_models),
-            "operations": operation_count,
-            "platform_variants": len(affected_variants),
-            "models_unchanged": max(0, len(current_rows) - len(seen_models)),
-            "model_ids": sorted(seen_models),
-        }
-        if not apply:
-            return {"applied": False, "preview": preview}
-        publication = self.workbench.publish_manual_capabilities(
-            records=records,
-            model_name="",
-            active_catalog_revision=current["catalog_revision"],
-            actor_id=actor_id,
-            activate=self.catalog.refresh,
-        )
-        return {
-            "applied": True,
-            "preview": preview,
-            "published": publication["published"],
-            "catalog": publication["catalog"],
-            "matrix": self.snapshot(),
-        }
-
-    @staticmethod
-    def _validate_import_video(
-        profile: object, *, model_id: str, operation: str
-    ) -> None:
-        if profile is None:
-            return
-        invalid = ModelCapabilityImportInvalid(
-            "operation_format", model_id=model_id, operation=operation
-        )
-        if (
-            operation != "video.generate"
-            or not isinstance(profile, Mapping)
-            or set(profile) != set(IMPORT_VIDEO_FIELDS)
-        ):
-            raise invalid
-        total_maximum = profile.get("input_total_maximum")
-        if (
-            isinstance(total_maximum, bool)
-            or not isinstance(total_maximum, int)
-            or not 0 <= total_maximum <= 100
-            or not isinstance(profile.get("audio_only_supported"), bool)
-        ):
-            raise invalid
-        reference_duration = profile.get("reference_media_duration_seconds")
-        modes = profile.get("modes")
-        if (
-            not isinstance(reference_duration, Mapping)
-            or set(reference_duration) != set(IMPORT_VIDEO_DURATION_FIELDS)
-            or not isinstance(modes, Mapping)
-            or set(modes) != set(IMPORT_VIDEO_MODE_FIELDS)
-            or any(not isinstance(value, bool) for value in modes.values())
-        ):
-            raise invalid
-        bounds = [
-            reference_duration.get("each"),
-            reference_duration.get("combined_total"),
-            profile.get("output_duration_seconds"),
-        ]
-        for index, value in enumerate(bounds):
-            minimum_allowed, maximum_allowed = ((0, 3600) if index < 2 else (1, 600))
-            if not isinstance(value, Mapping) or set(value) != set(IMPORT_BOUNDS_FIELDS):
-                raise invalid
-            minimum = value.get("minimum")
-            maximum = value.get("maximum")
-            if (
-                isinstance(minimum, bool)
-                or isinstance(maximum, bool)
-                or not isinstance(minimum, int)
-                or not isinstance(maximum, int)
-                or not minimum_allowed <= minimum <= maximum <= maximum_allowed
-            ):
-                raise invalid
-
-    @staticmethod
-    def _import_evidence(
-        sources: object,
-        *,
-        model_id: str,
-        operation: str,
-        fetched_at: str,
-    ) -> list[dict[str, str]]:
-        if not isinstance(sources, list) or not sources or len(sources) > 20:
-            raise ModelCapabilityImportInvalid(
-                "sources_required", model_id=model_id, operation=operation
-            )
-        result: list[dict[str, str]] = []
-        for source in sources:
-            if (
-                not isinstance(source, Mapping)
-                or set(source) != set(IMPORT_SOURCE_FIELDS)
-            ):
-                raise ModelCapabilityImportInvalid(
-                    "source_format", model_id=model_id, operation=operation
-                )
-            source_type = _clean(source.get("type"))
-            url = _clean(source.get("url"))
-            title = _clean(source.get("title"))
-            excerpt = _clean(source.get("excerpt"))
-            if (
-                source_type not in IMPORT_SOURCE_TYPES
-                or not url.startswith(("https://", "http://"))
-                or not urllib.parse.urlsplit(url).hostname
-                or not title
-                or not excerpt
-            ):
-                raise ModelCapabilityImportInvalid(
-                    "source_format", model_id=model_id, operation=operation
-                )
-            result.append(
-                {
-                    "source_type": source_type,
-                    "source_locator": url,
-                    "fetched_at": fetched_at,
-                    "applicable_version": model_id,
-                    "content_location": title,
-                    "excerpt": excerpt,
-                }
-            )
-        return result
-
     @staticmethod
     def _apply_video_choice(
         candidate: dict[str, Any], choice: Mapping[str, Any]
@@ -1365,7 +852,7 @@ class ModelCapabilityMatrix:
             if operation != "image.layer_decomposition":
                 parameters.setdefault("aspect_ratio", {"type": "enum"})
             parameters.setdefault("count", {"type": "integer"})
-        for key in IMPORT_OPTIONS_BY_OPERATION.get(operation, ()):
+        for key in EDITABLE_OPTIONS_BY_OPERATION.get(operation, ()):
             parameters.setdefault(key, {"type": "boolean"})
         for key in RESOLUTION_PARAMETERS:
             contract = parameters.get(key)
@@ -1409,7 +896,7 @@ class ModelCapabilityMatrix:
                 composer_options = (
                     composer_options if isinstance(composer_options, dict) else {}
                 )
-                for key in IMPORT_OPTIONS_BY_OPERATION["video.generate"]:
+                for key in EDITABLE_OPTIONS_BY_OPERATION["video.generate"]:
                     composer_options[key] = (
                         "user_toggle" if key in selected_options else "unsupported"
                     )
@@ -1419,9 +906,7 @@ class ModelCapabilityMatrix:
         return candidate
 
 __all__ = [
-    "IMPORT_SCHEMA_VERSION",
     "INPUT_TYPES",
     "MODEL_TYPES",
-    "ModelCapabilityImportInvalid",
     "ModelCapabilityMatrix",
 ]

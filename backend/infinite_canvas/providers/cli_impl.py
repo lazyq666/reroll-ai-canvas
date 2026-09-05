@@ -1693,7 +1693,7 @@ def gpt_image_2_skill_model_arg(model="", provider="openai"):
     provider = str(provider or "").strip().lower()
     if provider == "codex":
         if not value or low.startswith("$imagegen") or low.startswith("gpt-image"):
-            return "gpt-5.4"
+            return "gpt-5.5"
         return value
     if not value or low.startswith("$imagegen"):
         return "gpt-image-2"

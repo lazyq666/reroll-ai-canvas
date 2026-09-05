@@ -592,6 +592,7 @@ window.SmartCanvasModules.viewportSelection = Object.freeze({
         screenToWorld:smartViewportSelectionScreenToWorld,
         state:smartViewportSelectionState,
         center:smartViewportSelectionCenter,
+        bounds:smartViewportSelectionMinimapViewport,
         reveal:smartViewportSelectionReveal,
         centerOn:smartViewportSelectionCenterOn,
         fitAll:smartViewportSelectionFitAll,

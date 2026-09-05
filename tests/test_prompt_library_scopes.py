@@ -482,7 +482,7 @@ class PromptLibraryScopeIntegrationTests(unittest.TestCase):
                 ).json()["revision"]
 
                 with client.websocket_connect(
-                    f"/ws/canvases/{canvas['id']}?client_id=prompt-editor"
+                    f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=prompt-editor"
                 ) as socket:
                     receive_canvas_message(socket, "canvas_snapshot")
                     socket.send_json(
@@ -545,9 +545,9 @@ class PromptLibraryScopeIntegrationTests(unittest.TestCase):
                             return message
 
                 with client.websocket_connect(
-                    f"/ws/canvases/{canvas['id']}?client_id=collaborator"
+                    f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=collaborator"
                 ) as collaborator, client.websocket_connect(
-                    f"/ws/canvases/{canvas['id']}?client_id=stale-creator"
+                    f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=stale-creator"
                 ) as stale_creator:
                     collaborator.receive_json()
                     stale_creator.receive_json()
@@ -696,7 +696,7 @@ class PromptLibraryScopeIntegrationTests(unittest.TestCase):
                 item = created["item"]
 
                 with client.websocket_connect(
-                    f"/ws/canvases/{canvas['id']}?client_id=collaborator"
+                    f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=collaborator"
                 ) as socket:
                     snapshot = receive_canvas_message(socket, "canvas_snapshot")
                     socket.send_json(

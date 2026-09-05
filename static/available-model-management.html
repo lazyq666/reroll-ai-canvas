@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-47812affd5b0"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-957504837aa8"></script>
   <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
   <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
   <script src="/static/js/available-model-management-state.js?v=2026.09.01.5.1788439320"></script>
   <title data-i18n="models.pageTitle">可用模型管理 · Reroll</title>
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.09.01.5.1788439320">
-  <link rel="stylesheet" href="/static/css/available-model-management.css?v=asset-29ba82171a4c">
+  <link rel="stylesheet" href="/static/css/available-model-management.css?v=asset-cce25a097878">
   <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
 </head>
 <body>
@@ -20,11 +20,6 @@
       <div>
         <h1 data-i18n="models.title">可用模型管理</h1>
         <p class="subtitle" data-i18n="models.subtitle">设置用户看到的模型名称、显示状态、顺序和能力。</p>
-      </div>
-      <div class="capability-catalog-actions">
-        <ic-button id="capability-import-open" type="button" hierarchy="secondary" size="medium">
-          <ic-icon slot="start" name="upload"></ic-icon><span data-i18n="models.importCapabilities">导入能力数据</span>
-        </ic-button>
       </div>
     </header>
 
@@ -76,31 +71,8 @@
     <ic-button id="capability-apply" slot="footer" type="button" hierarchy="primary"><span data-i18n="models.saveAndApply">保存并应用</span></ic-button>
   </ic-dialog>
 
-  <ic-dialog id="capability-import-dialog" class="capability-import-dialog" label="导入模型能力" data-i18n-label="models.importDialogTitle" size="large" dismiss-policy="explicit">
-    <div class="capability-import-body">
-      <p data-i18n="models.importDialogIntro">先复制查找要求，在 ChatGPT 或 Codex 中完成资料搜索；再把返回的 JSON 粘贴到这里。</p>
-      <ol class="capability-import-steps">
-        <li data-i18n="models.importStepCopy">复制包含当前模型和固定格式的查找要求。</li>
-        <li data-i18n="models.importStepResearch">让 AI 只查官方资料，并按要求返回 JSON。</li>
-        <li data-i18n="models.importStepPaste">粘贴结果，先校验预览，再应用。</li>
-      </ol>
-      <ic-button id="capability-copy-lookup" type="button" hierarchy="secondary">
-        <ic-icon slot="start" name="copy"></ic-icon><span data-i18n="models.copyLookupPrompt">复制查找要求</span>
-      </ic-button>
-      <details class="capability-source-details">
-        <summary data-i18n="models.viewLookupPrompt">查看查找要求</summary>
-        <ic-textarea id="capability-lookup-preview" rows="12" readonly label="查找要求" data-i18n-label="models.lookupPromptLabel"></ic-textarea>
-      </details>
-      <ic-textarea id="capability-import-data" name="capability_import_data" rows="16" resize="vertical" label="能力数据 JSON" data-i18n-label="models.importDataLabel" placeholder="粘贴 ChatGPT 或 Codex 返回的 JSON" data-i18n-placeholder="models.importDataPlaceholder"></ic-textarea>
-      <ic-alert id="capability-import-status" tone="neutral" hidden></ic-alert>
-    </div>
-    <ic-button id="capability-import-cancel" slot="footer" type="button" hierarchy="secondary" data-i18n="models.cancel">取消</ic-button>
-    <ic-button id="capability-import-preview" slot="footer" type="button" hierarchy="secondary" data-i18n="models.validateImport">校验数据</ic-button>
-    <ic-button id="capability-import-apply" slot="footer" type="button" hierarchy="primary" data-i18n="models.applyImport" disabled>应用数据</ic-button>
-  </ic-dialog>
-
   <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-0e81b6afe7d8"></script>
   <script src="/static/js/available-model-management.js?v=asset-b644e0114899" defer></script>
-  <script type="module" src="/static/js/model-capability-workbench.js?v=asset-5d95fe7056d6" defer></script>
+  <script type="module" src="/static/js/model-capability-workbench.js?v=asset-bbf12aba5787" defer></script>
 </body>
 </html>

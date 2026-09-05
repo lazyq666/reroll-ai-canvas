@@ -53,7 +53,7 @@ class CanvasGenerationIdempotencyTests(unittest.TestCase):
                         "generationOperationId": operation_id,
                     }
                     with client.websocket_connect(
-                        f"/ws/canvases/{canvas['id']}?client_id=generation-fixture"
+                        f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=generation-fixture"
                     ) as socket:
                         self.assertEqual(
                             receive_canvas_message(socket, "canvas_snapshot")["revision"],
@@ -127,7 +127,7 @@ class CanvasGenerationIdempotencyTests(unittest.TestCase):
                     self.assertEqual(conflict.status_code, 409)
 
                     with client.websocket_connect(
-                        f"/ws/canvases/{canvas['id']}?client_id=generation-cleanup"
+                        f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=generation-cleanup"
                     ) as socket:
                         self.assertEqual(
                             receive_canvas_message(socket, "canvas_snapshot")["revision"],
