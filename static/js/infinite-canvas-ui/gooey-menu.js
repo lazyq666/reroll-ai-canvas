@@ -170,7 +170,7 @@ export function animateGooeyMenu(host, phase) {
       if (invoker) invoker.style.setProperty('opacity', String(fade*invokerAlpha), invokerOpacityPriority);
     }
     if (seedDuration) silhouette.setAttribute('fill', seedProgress < 1
-      ? `color-mix(in srgb, ${styles.getPropertyValue('--ui-palette-blue-400').trim()} ${(1-seedProgress)*100}%, ${fill})` : fill);
+      ? `color-mix(in srgb, ${styles.getPropertyValue('--ui-color-border-connection-draft').trim()} ${(1-seedProgress)*100}%, ${fill})` : fill);
     closeButton.style.transform = `translate(${dx}px,${dy}px) scale(${scale})`;
     closeIcon.style.transform = fromPoint ? 'none' : `rotate(${phase === 'enter' ? -45*(1-clamp(elapsed/250,0,1)) : -45*clamp(elapsed/250,0,1)}deg)`;
     targets.forEach((target,index) => {

@@ -1,4 +1,4 @@
-import { paintGenerationOrb } from './generation-orb.js?v=ic-ui-97464d704c3f';
+import { paintGenerationOrb } from './generation-orb.js?v=ic-ui-91bec942d352';
 
 const PENDING_KINDS = new Set(['image', 'video', 'text']);
 const PENDING_STATES = new Set(['queued', 'generating']);

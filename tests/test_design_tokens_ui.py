@@ -531,8 +531,12 @@ class DesignTokensUiRegressionTests(unittest.TestCase):
                 match = re.search(r"--ui-color-([a-z0-9-]+)\s*:", line)
                 blue_consumers.append(match.group(1) if match else line.strip())
         self.assertEqual(
-            ["text-link", "text-caret", "minimap-media"],
+            ["text-link", "text-caret", "border-connection-draft", "minimap-media"],
             blue_consumers,
+        )
+        self.assertIn(
+            "--ui-color-border-connection-draft: var(--ui-palette-blue-400);",
+            tokens,
         )
 
         self.assertIn(

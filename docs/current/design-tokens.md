@@ -60,6 +60,8 @@ persistent toggle state continues to use Selected colors and `aria-pressed`.
 
 `--ui-color-border-connections` is the default Smart Canvas Connection role. It resolves to `gray-400` in Light and `gray-500` in Dark; Hover, Selected, and running cascade Connections continue to use their dedicated state colors.
 
+`--ui-color-border-connection-draft` owns the temporary Connection color (`blue-400` in both themes). The Quick Add drop animation consumes the same role as its source line so the liquid circle grows from a continuous color. Shared components never read palette primitives directly.
+
 Surface uses `surface-canvas`, `surface`, `surface-subtle`, and
 `surface-floating`; it has no global Hover, Pressed, Disabled, or Selected
 states. A non-clickable Table may use `surface-subtle` as a component-owned row
@@ -79,7 +81,8 @@ semantic color; it renders with the neutral Surface, Text, Icon, and Border
 families. Success, Warning, and Danger remain color intents. Only Danger has
 Action combinations until another intent has a demonstrated interactive need.
 
-Blue is restricted to `text-link`, `text-caret`, and `border-selected`.
+Blue is used by `text-link`, `text-caret`, `minimap-media`, and the temporary
+`border-connection-draft` role; `border-selected` uses neutral colors.
 The former Accent family is removed.
 
 Input and Textarea placeholder copy, including placeholder copy simulated by an

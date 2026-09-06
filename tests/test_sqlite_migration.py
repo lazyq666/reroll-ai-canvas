@@ -633,7 +633,7 @@ class SqliteMigrationPreparationTests(unittest.TestCase):
             if node["id"] == "result-with-prompt-input"
         )
         self.assertEqual(
-            "迁移当下的上游文本\n\n原结果 Node 的冻结文本",
+            "原结果 Node 的冻结文本\n\n迁移当下的上游文本",
             result["generationInputSnapshot"]["prompt"],
         )
 

@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -34,7 +35,49 @@ class Issue161MediaComposerEligibilityTests(unittest.TestCase):
             self.host.index("function syncRunButtonState("):
             self.host.index("function canvasImageDragPayload", self.host.index("function syncRunButtonState("))
         ]
-        self.assertIn("runBtn.disabled = !isSmartRunnableNode(node)", button)
+        result = subprocess.run(
+            ["node", "-e", """
+const assert = require('node:assert/strict');
+const runBtn = {dataset:{}};
+const settings = {engine:'api',apiKind:'image'};
+let composerSubmission = null;
+let invalidReferences = false;
+const isApiLikeEngine = () => true;
+const isSmartRunnableNode = node => Boolean(node.runnable);
+const generationRun = {status:({node}) => ({loopRunning:Boolean(node.loop)})};
+const smartVideoComposerState = () => ({state:{}});
+const window = {SmartCanvasModules:{videoCapabilities:{validateReferences:() => ({valid:!invalidReferences})}}};
+const tr = key => key;
+""" + button + """
+syncRunButtonState({runnable:false});
+assert.equal(runBtn.disabled, true, 'ordinary media cannot submit');
+syncRunButtonState({runnable:true});
+assert.equal(runBtn.disabled, false, 'eligible idle node can submit');
+syncRunButtonState({runnable:true,running:true});
+assert.equal(runBtn.disabled, false, 'running generation permits a parallel run');
+syncRunButtonState({runnable:true,loop:true});
+assert.equal(runBtn.disabled, true, 'running loop remains single-instance');
+composerSubmission = {};
+syncRunButtonState({runnable:true});
+assert.equal(runBtn.disabled, true, 'unaccepted submission blocks duplicate requests');
+assert.equal(runBtn.loading, true);
+assert.equal(runBtn.label, 'smart.generationSubmitting');
+composerSubmission = null;
+settings.apiKind = 'video';
+invalidReferences = true;
+syncRunButtonState({runnable:true});
+assert.equal(runBtn.disabled, true, 'invalid video references remain blocked');
+invalidReferences = false;
+syncRunButtonState({runnable:true});
+assert.equal(runBtn.disabled, false);
+assert.equal(runBtn.loading, false);
+assert.equal(runBtn.label, 'smart.run');
+"""],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
 
         gate = self.run_source[
             self.run_source.index("async function runGeneration("):

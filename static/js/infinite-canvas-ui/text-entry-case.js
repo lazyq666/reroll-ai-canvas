@@ -1,4 +1,4 @@
-import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-97464d704c3f';
+import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-91bec942d352';
 
 const params = new URLSearchParams(location.search);
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light';

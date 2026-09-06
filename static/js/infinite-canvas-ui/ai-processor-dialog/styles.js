@@ -183,7 +183,7 @@ export function ensureAiProcessorDialogStyles() {
     ic-ai-processor-dialog [data-layer-mode] { inline-size: 100%; flex: none; }
     ic-ai-processor-dialog [data-layer-mode] > button { flex: 1 1 0; min-inline-size: 0; white-space: normal; display: flex; align-items: center; justify-content: center; gap: var(--ui-space-2); }
     ic-ai-processor-dialog [data-layer-canvas] { display: block; flex: none; position: relative; min-width: 0; min-height: 0; background: transparent; overflow: visible; }
-    ic-ai-processor-dialog [data-layer-canvas]:focus-visible { outline: 2px solid var(--ui-color-border-primary); outline-offset: 6px; }
+    ic-ai-processor-dialog [data-layer-canvas]:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-ring-offset); }
     ic-ai-processor-dialog [data-layer-canvas] > img { position: absolute; inset: 0; pointer-events: none; }
     ic-ai-processor-dialog [data-layer-canvas] > [data-layer-draw] { position: absolute; inset: 0; }
     ic-ai-processor-dialog cropper-selection { position: absolute; outline: 1px solid white; box-shadow: 0 0 0 1px #0008; }

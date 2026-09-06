@@ -291,7 +291,7 @@ class InfiniteCanvasUiMentionPickerTests(unittest.TestCase):
         )
         presentation = self.smart_canvas_js[presentation_start:presentation_end]
         self.assertIn("composer?.classList.contains('focused')", presentation)
-        self.assertIn("editor?.closest?.('.prompt-node-focus-surface')", presentation)
+        self.assertIn("editor?.closest?.('.prompt-node-focus-surface, .text-composer-expanded')", presentation)
         self.assertIn("{anchor:editor, placement:'overlay-block-end'}", presentation)
         self.assertIn(
             "{anchor:promptQuickPickerContainer(editor), placement:'block-start'}",

@@ -47,6 +47,7 @@ the change:
 ```bash
 .venv/bin/python -m compileall -q backend scripts tests
 .venv/bin/python scripts/audit_public_tree.py
+.venv/bin/python scripts/audit_public_history.py HEAD
 .venv/bin/python scripts/verify_webawesome_vendor.py
 .venv/bin/python -m unittest tests.test_documentation_knowledge_map
 .venv/bin/python -m unittest discover -s tests

@@ -235,12 +235,14 @@ class SmartCanvasContextMenuNavigationTests(unittest.TestCase):
         run_start = self.script.index("async function runPromptLLMNode")
         run_end = self.script.index("function ungroupNode", run_start)
         run_body = self.script[run_start:run_end]
-        self.assertIn("textGenerationOutput:true", run_body)
-        self.assertIn("textGenerationPending:true", run_body)
+        self.assertIn("outputNode.textGenerationOutput = true", run_body)
+        self.assertIn("outputNode.textGenerationPending = true", run_body)
+        self.assertIn("let outputNode = node", run_body)
+        self.assertIn("if(!reuseSource)", run_body)
         self.assertIn("generationOutput.sourceAnchor({sourceNode:node})", run_body)
         self.assertIn("relation:'downstream'", run_body)
         self.assertIn("arrangement:'single'", run_body)
-        self.assertIn("reveal:true", run_body)
+        self.assertIn("options:{select:false,reveal:false", run_body)
         self.assertNotIn("data:{w:", run_body)
 
     def test_reverse_prompt_node_declares_stable_source_placement(self):
@@ -323,9 +325,11 @@ let selectedImage = {{nodeId:'', index:-1}};
         self.assertIn("customElements.whenDefined('ic-ai-processor-dialog')", self.script)
         self.assertIn("document.createElement('ic-ai-processor-dialog')", self.script)
         self.assertIn("addEventListener('ic-confirm'", self.script)
-        self.assertIn("addEventListener('ic-cancel'", self.script)
+        self.assertIn("addEventListener('ic-after-hide'", self.script)
+        self.assertIn("if(!aiProcessorDialog.pending) aiProcessorDialogContext=null", self.script)
         component = (ROOT / "static/js/infinite-canvas-ui/ai-processor-dialog.js").read_text(encoding="utf-8")
         self.assertIn("name.includes('反推')", component)
+        self.assertIn("await this.hide('cancel')", component)
 
     def test_inactive_prompt_generation_editor_uses_node_context_menu(self):
         self.assertIn(
