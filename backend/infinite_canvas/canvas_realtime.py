@@ -1100,6 +1100,12 @@ def _created_nodes_collide(
         if (placement.get("mode") == "exact" or str(node.get("id")) in owned
                 or str(node.get("type") or "smart-image") in _PLACEMENT_NON_OBSTACLE_TYPES):
             continue
+        if placement.get("intent", {}).get("arrangement") in ("horizontal-batch", "vertical-batch"):
+            # Wrapped batches can surround a fixed first result. The empty
+            # corner of their bounding box is not an occupied Node footprint.
+            if any(_placement_rects_overlap(_placement_rect(node), obstacle) for obstacle in obstacles):
+                return True
+            continue
         key = placement.get("collectionId") or node.get("generationBatchId") or node.get("id")
         collections.setdefault(str(key), []).append(_placement_rect(node))
     for members in collections.values():

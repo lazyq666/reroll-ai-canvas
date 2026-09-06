@@ -104,8 +104,12 @@ async function generationProviderWaitComfyTask(taskId){
         await generationProviderSleep(1600);
     }
 }
-async function generationProviderRunComfyTask(payload){
+async function generationProviderRunComfyTask(payload, context={}){
     const task = await generationProviderCreateComfyTask(payload);
+    if(!task.task_id) throw new Error(tr('smart.errRunFailed'));
+    await context.onAccepted?.(generationProviderPending([{
+        taskId:task.task_id, status:String(task.status || ''), kind:'image'
+    }]));
     return generationProviderWaitComfyTask(task.task_id);
 }
 async function generationProviderComfyName(ref){
@@ -140,7 +144,7 @@ async function generationProviderSubmitComfy(prompt, refs, runSettings, context=
             type:'zimage',
             client_id:smartClientId,
             ...generationProviderRunIdentity(context)
-        });
+        }, context);
         return generationProviderCompleted(data, mediaKindForUrls(resultMediaUrls(data), 'image'));
     }
     if(mode === 'enhance'){
@@ -152,7 +156,7 @@ async function generationProviderSubmitComfy(prompt, refs, runSettings, context=
             params:{"15":{image:inputName},"204":{value:Number(runSettings.enhanceStrength ?? 0.5)}},
             client_id:smartClientId,
             ...generationProviderRunIdentity(context)
-        });
+        }, context);
         return generationProviderCompleted(data, mediaKindForUrls(resultMediaUrls(data), 'image'));
     }
     if(mode === 'edit'){
@@ -166,7 +170,7 @@ async function generationProviderSubmitComfy(prompt, refs, runSettings, context=
             params:{"168":{text:prompt},"158":{noise_seed:Math.floor(Math.random()*1000000)},"278":{image:names[0] || ""},"270":{image:names[1] || ""},"292":{image:names[2] || ""},"313":{value:Boolean(names[1])},"314":{value:Boolean(names[2])}},
             client_id:smartClientId,
             ...generationProviderRunIdentity(context)
-        });
+        }, context);
         return generationProviderCompleted(data, mediaKindForUrls(resultMediaUrls(data), 'image'));
     }
     const workflowName = String(runSettings.comfyWorkflow || '').trim();
@@ -203,7 +207,7 @@ async function generationProviderSubmitComfy(prompt, refs, runSettings, context=
         type:'workflow-custom',
         client_id:smartClientId,
         ...generationProviderRunIdentity(context)
-    });
+    }, context);
     const outputs = resultMediaUrls(result);
     const fallbackKind = result.videos?.length ? 'video' : result.audios?.length ? 'audio' : result.texts?.length ? 'text' : 'image';
     return generationProviderCompleted(outputs, mediaKindForUrls(outputs, fallbackKind));
@@ -297,6 +301,7 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
     });
     const tasks = [{
         taskId:submitted.task_id,
+        status:String(submitted.status || ''),
         actorId:submitted.actor_id || '',
         kind:'image',
         providerId:payload.provider_id,
@@ -340,6 +345,7 @@ async function generationProviderSubmitRunningHub(prompt, refs, runSettings, con
         return data.data || data;
     });
     if(!submit.taskId) throw new Error(tr('smart.rhNoTaskId'));
+    await context.onAccepted?.(generationProviderPending([{taskId:submit.taskId, kind:'image'}]));
     const useWallet = runSettings.rhPayment === 'wallet';
     for(let index = 0; index < 720; index++){
         await generationProviderSleep(2500);
@@ -513,6 +519,7 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
         if(result?.task_id){
             return generationProviderPending([{
                 taskId:result.task_id,
+                status:String(result.status || ''),
                 actorId:result.actor_id || '',
                 kind:'video',
                 providerId:runSettings.videoProvider,
@@ -605,7 +612,8 @@ async function generationProviderSubmitModelscope(prompt, refs, runSettings, con
     };
     return generationProviderCompleted((await Promise.all(Array.from({length:count}, submit))).filter(Boolean), 'image');
 }
-async function submitGenerationProvider({prompt='', refs=[], settings:runSettings={}, context={}}={}){
+async function submitGenerationProvider({prompt='', refs=[], settings:runSettings={}, context={}, onAccepted=null}={}){
+    context = {...context, onAccepted};
     if(runSettings.engine === 'comfy') return generationProviderSubmitComfy(prompt, refs, runSettings, context);
     if(runSettings.engine === 'runninghub' && runningHubSelectedModel(runSettings)){
         return generationProviderSubmitApiImage(prompt, refs, runningHubModelApiSettings(runSettings), context);

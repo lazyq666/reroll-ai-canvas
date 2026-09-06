@@ -63,6 +63,14 @@ flowchart TD
 
 ## 4. 前端：从用户操作到任务提交
 
+### Composer 提交反馈
+
+Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期进入 Primary Icon Button Loading 并阻止重复点击，任务接收后立即恢复。`generationRun.run()` 将调用方的 `onAccepted` / `onQueued` 传递到单次与多图运行；回调不进入持久化意图。回执必须通过目标 Node 和 operation ID 检查，单次运行只通知一次。ComfyUI 与 RunningHub 工作流在获得任务编号时通知接收，随后继续既有结果等待；只返回最终结果的同步接口在结果返回时结束提交期。
+
+确认接收后收起当前 Composer 展开会话并保留输入；重新打开或切换对象后的编辑会话不受旧回执影响。服务端任务状态明确为 `queued` 时提示“已加入队列”，其他未完成回执提示“生成任务已提交”，同步完成提示“生成已完成”。离线或同步失败的本地暂存提示“已保存，联网后提交”，不冒充远端排队。校验和提交失败保留展开并恢复按钮，现有持续失败 Alert 与新提交的接收 Toast 可以同时存在。界面规则以 [UI 指南](ui-design-guidelines.md) 为准。
+
+验收：`tests/composer_submission_feedback_browser_smoke.cjs` 覆盖真实页面提交、失败重试、离线、空输入、三图、Keyboard、Light/Dark 与中英文切换；`tests/composer_submission_feedback.test.cjs` 覆盖迟到回执/完成、目标失效以及 ComfyUI/RunningHub 轮询前接收通知。
+
 ### 4.1 解析输入和设置
 
 `runGeneration()` 是 Smart Canvas 的主要生成入口。它会：
@@ -78,7 +86,7 @@ flowchart TD
 
 如果 Provider 实际返回的图片数多于提交时冻结的输出槽位数，前端也会在结果收尾时立即拆成独立 Generation Output Node，并为它们补上同次输出集合的身份与布局。结果收尾不得给保留在原节点的单张图片套用多图集合的缩略图缩放；原节点保持普通 Image Node 的显示尺度或已有的用户尺寸调整；未保存缩放值时，拆分后的单图也使用普通 Image Node 的默认尺度。新增结果使用普通 Image Node 的默认尺度。每个拆分结果继承原节点的入向 Connection；已通过 `sourceOutputId` 指定某张结果的出向 Connection，则随对应结果迁移。旧结果画廊在加载迁移时遵循同一连接规则，避免刷新后只有保留在原节点的图片仍与上游相连。已经被旧迁移保存为独立节点、但只有一个节点保留上游连接的批次，会按同一运行快照和连续创建时间做一次受限修复；不满足唯一匹配条件时不猜测节点关系。
 
-一次运行的多个独立输出组成一个空间集合。Canvas Settings 保存横向或纵向布局，默认横向；创建 Pending 时冻结 `generationBatchLayout`，不按后来的设置改排。新增结果统一以实际输入父节点整体为来源，无外部父节点才用执行节点；横向成行或纵向成列，内部与外部间距共用 G = 4rem（64 世界单位）。跨次续行、续列只是软偏好，允许为了接近父节点及改善视口而打破旧起点对齐。空生成节点复用为第一项时保持身份及坐标，只规划新增结果。恢复和 Undo/Redo 保留已知位置；自动初始创建的并发竞争才重算新增集合。历史 `generationBatch*` 字段不改变领域中 Generation Batch 的定义。完整空间合同见[节点定位与自动避让](smart-canvas-node-auto-placement.md#4-生成结果与刚性集合)。
+一次运行的多个独立输出组成一个空间集合。Canvas Settings 保存横向或纵向布局，默认横向；创建 Pending 时冻结 `generationBatchLayout`，不按后来的设置改排。普通生成的新结果以实际输入父节点整体为来源，无外部父节点才用执行节点；“再次生成”则以点击节点为布局来源，旧结果不动、不复用，新结果从该节点右侧 G 开始，原参数和输入连接不变；横向放不下时换行，纵向放不下时换列，内部与外部间距共用 G = 4rem（64 世界单位）。跨次续行、续列只是软偏好，允许为了接近父节点及改善视口而打破旧起点对齐。空生成节点复用为第一项时保持身份及坐标，以其为固定首槽继续排列新增结果；容量使用发起时视口和稳定尺寸，输入关系不变。恢复和 Undo/Redo 保留已知位置；自动初始创建的并发竞争才重算新增集合。历史 `generationBatch*` 字段不改变领域中 Generation Batch 的定义。完整空间合同见[节点定位与自动避让](smart-canvas-node-auto-placement.md#4-生成结果与刚性集合)。
 
 Smart Canvas 用 Node 角色判断 Prompt Authoring 与 Generation Run 的基础资格。单选 Smart Group 或具有明确生成身份的 Generation Node 时 Composer 自动打开；这里包括生成中、生成失败和已完成的 Generation Output Node。普通 Image Node 不具备该资格，无论它是尚未上传的空媒体槽、图片、视频还是音频，也无论媒体来自上传、粘贴、拖入或导入。上传进行中和上传完成后的重绘可以保持当前 Selection，但不得因此打开 Composer 或启用 Generation Run。Frame、Text Annotation 等其他不支持角色、多选普通 Node 或清空 Selection 时 Composer 同样关闭。
 
@@ -256,6 +264,12 @@ Provider Runtime 根据 Provider 配置、协议和模型能力选择适配器�
 
 视频适配器包括即梦 CLI、RunningHub 和通用 HTTP；文字适配器包括 Codex CLI、
 Gemini CLI 和通用 HTTP/流式 HTTP；ComfyUI 与专用工作流进入 Workflow Registry。
+
+Dreamina CLI 的每次调用使用新子进程，并复用运行 Reroll 的系统用户登录环境。
+API 设置中的 CLI 状态检查执行版本查询和 `user_credit`，不提交生成任务；查询成功
+不等同于本次生成的权限检查一定通过。CLI 明确返回 `current account is not allowed
+to use dreamina_cli` 时，后端保留原文并返回 HTTP 403，前端以权限拒绝解释；没有远端
+任务标识时不进入恢复查询，也不自动重提。CLI 其他未识别的非零退出仍返回 HTTP 502。
 
 所有适配器最终返回四种统一结果之一：
 

@@ -235,13 +235,15 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 
 Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 / F13 的图片分辨率与宽高比双 Badge。布局、固定画幅对比图标、比例识别容差、尺寸恢复及可访问说明统一由 [UI 设计与交互指南](current/ui-design-guidelines.md)定义；`image-metadata.js` 只负责尺寸与比例计算，页面负责显示，公共 `ic-icon` 负责图标。回归入口为 [比例与尺寸来源测试](../tests/smart_canvas_image_metadata.test.cjs)和[真实页面、双语及日志验收](../tests/issue_21_image_metadata_browser_app.cjs)。
 
-F05 的[统一节点定位、排列间距与 Frame 扩容规格](active/2026-09-05-smart-canvas-unified-spatial-layout-spec.md)已在当前分支实施：明确落点与历史恢复接受重叠，唯一代码常量 G = 4rem（64 世界单位），固定间距整理、实际父节点与视口评分、原直接 Frame 单次扩容及空间归属。创建副本复用生成图片 / 视频的相对来源自动放置，以原对象整体右侧 G、垂直居中为初始偏好，并共用避让、视口及竞争重试。定位、整理与 Canvas Sync Current 已对齐；自动化及隔离真实页面验证见 Spec，产品体验复核与合并由 [Issue #40](https://github.com/lazyq666/reroll-ai-canvas/issues/40) 跟踪。
+F05 的[统一节点定位、排列间距与 Frame 扩容规格](active/2026-09-05-smart-canvas-unified-spatial-layout-spec.md)已在当前分支实施：明确落点与历史恢复接受重叠，唯一代码常量 G = 4rem（64 世界单位），固定间距整理、实际父节点与视口评分、原直接 Frame 单次扩容及空间归属。生成多图放不下时自动换行 / 换列，复用首项固定并作为排列起点。创建副本复用生成图片 / 视频的相对来源自动放置，以原对象整体右侧 G、垂直居中为初始偏好，并共用避让、视口及竞争重试。定位、整理与 Canvas Sync Current 已对齐；自动化及隔离真实页面验证见 Spec，产品体验复核与合并由 [Issue #40](https://github.com/lazyq666/reroll-ai-canvas/issues/40) 跟踪。
 
 空间实现中 `node-geometry.js` 提供共享 G、线性偏移及纯 Frame 计算，`node-placement.js` 负责整组选位，`selection-arrangement.js` 保留排序与拓扑职责；Mutation 应用事务，Persistence 保存本次位置意图并重试。WebSocket 通过 `layout_gap` 协商版本，操作与 Node 数据的边界见 [ADR-0011](adr/0011-placement-intent-belongs-to-canvas-mutation.md)。
 
 F05 的[灯光参考编辑器](current/smart-canvas-lighting-reference.md)已经毕业为 Current：它从 Image Node 浮动工具栏进入，以 Lighting Intent 确定性生成中英文 Prompt，通过一次 Canvas Mutation 创建下游图片 Generation Node、填充 Composer，并把参数保存在来源与新 Node 上供后续微调；不导出媒体或 JSON，也不创建 Generation Run。
 
 Issue #22 的[多选快速连线与提示词生成快捷入口](active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md)正在实施：公共选区 Quick Add、多选与提示词工具栏、按视觉顺序接入一个新建或已有生成节点及整体撤销已落地并通过隔离生产页面检查。状态为 `drift`：D22-01 的服务端语义前置条件尚待协议扩展决定，完整双端协作及人工验收 Gate 未完成；不能据此宣称 Issue 完成或将 Active 毕业为 Current。
+
+Issue [#47](https://github.com/lazyq666/reroll-ai-canvas/issues/47) 的[提示词生成专属 Composer 规格](active/2026-09-06-smart-canvas-prompt-generation-composer-spec.md)为 F05 / F07 提供 Draft：保留原入口及 Prompt Generation Node 身份，将完整编辑与运行控件移入独立文字 Composer；与媒体草稿和模型隔离，保留独立下游 Prompt 结果、连续运行及反推提示词 Dialog，并定义协作、恢复与 A01–A23 验收。尚未实现，不覆盖 Current。
 
 Issue #28 的[Smart Group 可逆编组与成员还原](active/2026-09-04-smart-group-reversible-containment-spec.md)已本地实现并进入 Review：组内紧凑排列只属于派生的 Group Presentation，既有 Node 作为 Smart Group Node Member 保留身份、创作状态、Connection 与 Node Rest Geometry；直接媒体具有稳定成员身份，并在离开编组时才创建新 Image Node。跨类型成员顺序、唯一所有权、拖出/解组、复制重映射、空间与分享投影及 Realtime 权威校验已有自动化覆盖；真实双端协作、Keyboard / Focus、Reduced Motion 与发布前人工 Gate 尚未完成，因此规格仍保持 Active。
 

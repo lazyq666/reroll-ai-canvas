@@ -549,7 +549,8 @@ body.smart-media-reorder-drag,body.smart-media-reorder-drag * { cursor:grabbing 
 .connection-layer { position:absolute; left:0; top:0; width:6000px; height:4000px; pointer-events:none; z-index:1; overflow:visible; }
 .connection-layer path { transition:stroke-opacity var(--ui-motion-duration-fast) var(--ui-motion-ease-standard); }
 .connection-layer .conn-line,.connection-layer .conn-end { pointer-events:none; }
-.connection-layer .connection-materialization.is-pointer-hover .conn-line { stroke:var(--ui-color-border-focus); stroke-width:2.5; }
+.connection-layer .connection-materialization.is-pointer-hover .conn-line,
+.connection-layer .connection-materialization.connection-related .conn-line { stroke:var(--ui-color-border-focus); stroke-width:2.5; }
 .connection-layer .conn-selected { stroke:var(--ui-color-border-selected); stroke-width:2.5; opacity:1; }
 .connection-layer .connection-selected .conn-end { fill:var(--ui-color-border-selected); opacity:1; }
 .connection-layer .conn-hit { pointer-events:stroke; cursor:pointer; }
@@ -567,15 +568,27 @@ body.smart-media-reorder-drag,body.smart-media-reorder-drag * { cursor:grabbing 
 .connection-erase-trail.fading { opacity:0; }
 .connection-erase-trail-glow { stroke:var(--ui-color-text-primary); stroke-width:13; stroke-linecap:round; stroke-linejoin:round; }
 .connection-erase-trail-line { stroke:var(--ui-color-text-primary); stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:7 5; }
-.connection-layer .conn-pending { stroke-dasharray:5 4; animation:dash-flow-pending .9s linear infinite; }
+.connection-layer .port-drag-temp.conn-pending { stroke-dasharray:5 4; animation:dash-flow-pending .9s linear infinite; }
 .connection-layer .conn-cascade { filter:none; }
 .connection-layer .conn-cascade-wait { stroke-dasharray:7 6; opacity:.58; }
-.connection-layer .conn-cascade-active { stroke-dasharray:7 6; animation:dash-flow .9s linear infinite; opacity:1; }
-.connection-layer.conn-reduce-motion .conn-pending,
-.connection-layer.conn-reduce-motion .conn-cascade-active { animation:none; stroke-dashoffset:0; }
+.connection-layer .conn-cascade-active { opacity:1; }
 .connection-layer .conn-cascade-done { stroke-dasharray:none; opacity:1; }
 .connection-layer .conn-history { stroke-dasharray:6 5; }
-@keyframes dash-flow { to { stroke-dashoffset:-13; } }
+.connection-layer .connection-materialization.connection-running .conn-line { stroke:var(--ui-palette-blue-400); stroke-width:2; stroke-dasharray:none; opacity:.68; }
+.connection-layer .connection-running .conn-end { fill:var(--ui-palette-blue-400); }
+.connection-layer .conn-ribbon { fill:none; stroke:var(--ui-palette-blue-400); stroke-linecap:round; stroke-dasharray:.22 .78; animation:connection-ribbon-flow 2.8s linear infinite; pointer-events:none; }
+.connection-layer .conn-ribbon-glow { stroke-width:10; opacity:.2; filter:blur(3px); }
+.connection-layer .conn-ribbon-core { stroke-width:3; }
+.connection-layer .connection-materialization:has(.conn-erasing-mark) .conn-ribbon { display:none; }
+.connection-layer.conn-reduce-motion .conn-ribbon { display:none; }
+.connection-layer.conn-reduce-motion .port-drag-temp { animation:none; }
+html[data-ui-motion="reduced"] .connection-layer .conn-ribbon { display:none; }
+html[data-ui-motion="reduced"] .connection-layer .port-drag-temp { animation:none; }
+@media(prefers-reduced-motion:reduce) {
+    .connection-layer .conn-ribbon { display:none; }
+    .connection-layer .port-drag-temp { animation:none; }
+}
+@keyframes connection-ribbon-flow { from { stroke-dashoffset:0; } to { stroke-dashoffset:-1; } }
 @keyframes dash-flow-pending { to { stroke-dashoffset:-9; } }
 .image-node { z-index:2; }
 .image-node.smart-frame-node { z-index:auto; }

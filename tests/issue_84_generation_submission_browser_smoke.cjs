@@ -152,6 +152,12 @@ async function runScenario(context, baseUrl, reload) {
     node.running = false;
     node.x = 260;
     node.y = 220;
+    // Keep this submission fixture independent of generated-image placement.
+    // The image phase has already verified its outputs; they must not cover
+    // the text phase's pointer target.
+    nodes.filter(candidate => candidate.id !== node.id).forEach(candidate => {
+      candidate.x += 5000;
+    });
     viewport.x = 0;
     viewport.y = 0;
     viewport.scale = 1;
@@ -163,7 +169,7 @@ async function runScenario(context, baseUrl, reload) {
       model: 'gpt-4o-mini',
       name: 'GPT-4o mini',
     }];
-    render({ syncVirtualization: false, nodeIds: [node.id] });
+    render({ syncVirtualization: false });
   });
   await page.waitForFunction(() => {
     const button = document.querySelector('.image-node[data-id="tree-a"] .prompt-node-run');

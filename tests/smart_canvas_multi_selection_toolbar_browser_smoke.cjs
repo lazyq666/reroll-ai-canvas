@@ -72,46 +72,27 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
             label:'多选节点操作',
             nativeButtonCount:0,
             buttonCount:7,
-            layouts:['grid', 'horizontal', 'vertical', 'tree-vertical', 'tree-horizontal'],
+            layouts:['grid', 'horizontal', 'vertical', 'tree-horizontal'],
             actions:['generate', 'download', 'publish-workspace-assets'],
             labels:['生成图片/视频', '宫格', '水平', '垂直', '树状', '下载', '添加到资产库'],
-            icons:['online-generate', 'layout-grid', 'layout-horizontal', 'layout-vertical', 'layout-tree', 'expand', 'download', 'collection'],
+            icons:['online-generate', 'layout-grid', 'layout-horizontal', 'layout-vertical', 'layout-tree', 'download', 'collection'],
             disabled:[true, false, false, false, false, false, false],
         });
 
-        const treeTrigger = page.locator('#smartNodeFloatingPortal [data-smart-tree-layout-trigger]');
-        await treeTrigger.focus();
-        await treeTrigger.press('Enter');
-        await page.waitForFunction(() => document.querySelector('[data-smart-tree-layout-menu]')?.hasAttribute('open'));
-        const treeMenu = await page.locator('[data-smart-tree-layout-menu]').evaluate(menu => ({
-            label:menu.getAttribute('label'),
-            values:[...menu.querySelectorAll('ic-menu-item')].map(item => item.getAttribute('value')),
-            labels:[...menu.querySelectorAll('ic-menu-item')].map(item => item.getAttribute('label')),
-            focused:document.activeElement?.getAttribute('value'),
-        }));
-        assert.deepEqual(treeMenu, {
-            label:'树状整理',
-            values:['tree-vertical', 'tree-horizontal'],
-            labels:['分支纵排', '分支横排'],
-            focused:'tree-vertical',
-        });
-        await page.keyboard.press('Escape');
-        await page.waitForFunction(() => !document.querySelector('[data-smart-tree-layout-menu]')?.hasAttribute('open'));
+        const treeButton = page.locator('#smartNodeFloatingPortal [data-smart-multi-layout="tree-horizontal"]');
+        assert.equal(await treeButton.evaluate(button => button.parentElement.localName), 'ic-smart-node-toolbar');
+        assert.equal(await page.locator('[data-smart-tree-layout-menu], [data-smart-multi-layout="tree-vertical"]').count(), 0);
+        await treeButton.focus();
+        await treeButton.press('Enter');
         assert.deepEqual(await page.evaluate(() => selectedIds.slice()), ['multi-a', 'multi-b']);
         await page.evaluate(() => window.StudioI18n.set('en'));
         await page.waitForFunction(() => (
-            document.querySelector('[data-smart-tree-layout-trigger]')?.textContent.trim() === 'tree'
+            document.querySelector('[data-smart-multi-layout="tree-horizontal"]')?.textContent.trim() === 'Tree'
         ));
-        assert.deepEqual(await page.locator('[data-smart-tree-layout-menu]').evaluate(menu => ({
-            label:menu.getAttribute('label'),
-            labels:[...menu.querySelectorAll('ic-menu-item')].map(item => item.getAttribute('label')),
-        })), {
-            label:'Tree arrangement',
-            labels:['Vertical branches', 'Horizontal branches'],
-        });
+        assert.equal(await treeButton.getAttribute('title'), 'Tree');
         await page.evaluate(() => window.StudioI18n.set('zh'));
         await page.waitForFunction(() => (
-            document.querySelector('[data-smart-tree-layout-trigger]')?.textContent.trim() === '树状'
+            document.querySelector('[data-smart-multi-layout="tree-horizontal"]')?.textContent.trim() === '树状'
         ));
         await page.waitForTimeout(250);
 

@@ -358,6 +358,22 @@ class CanvasRealtimeTests(unittest.TestCase):
         self.assertTrue(apply_operation(self.canvas,op,"actor-a").duplicate)
         self.assertEqual(self.node("exact")["x"],2000)
 
+    def test_wrapped_generation_allows_a_fixed_node_in_its_empty_corner_but_rejects_actual_collision(self):
+        seed={"id":"seed","type":"smart-image","x":2000,"y":2000,"w":100,"h":100}
+        apply_operation(self.canvas,operation("wrap:seed",0,node_creates=[seed]),"actor-b")
+        def batch(overlap=False):
+            return [{"node":{**seed,"id":str(index),"x":x,"y":y},
+                     "placement":{"mode":"auto","gap":64,"collectionId":"wrapped",
+                                  "intent":{"arrangement":"horizontal-batch","fixedNodeId":"seed"}}}
+                    for index,(x,y) in enumerate([(2000 if overlap else 2164,2000),(2000,2164),(2164,2164)])]
+        before=copy.deepcopy(self.canvas)
+        with self.assertRaises(CanvasRealtimeError) as rejected:
+            apply_operation(self.canvas,operation("wrap:overlap",0,node_creates=batch(True)),"actor-a")
+        self.assertEqual(rejected.exception.code,"placement_conflict")
+        self.assertEqual(self.canvas,before)
+        apply_operation(self.canvas,operation("wrap:valid",0,node_creates=batch()),"actor-a")
+        self.assertEqual((self.node("seed")["x"],self.node("seed")["y"]),(2000,2000))
+
     def test_auto_clearance_is_64_on_both_axes(self):
         for dx,dy,allowed in [(164,0,True),(163,0,False),(0,164,True),(0,163,False)]:
             with self.subTest(dx=dx,dy=dy):

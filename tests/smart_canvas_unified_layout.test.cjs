@@ -172,7 +172,7 @@ test('automatic retry uses frozen viewport and keeps a reused seed fixed',()=>{
     assert.ok(n.x>=164 && n.y<550);
     assert.equal(s.pending.node_creates[0].placement.intent.viewport.x,0);
 });
-test('generation resolves all actual parents and reuses the first node without moving it',()=>{
+test('generation retains actual input parents but arranges new results around the reused first node',()=>{
     const s=mutation([source('p'),source('q',300),{...source('seed',900,700),images:[],referenceGenerationKind:'image'}]);
     s.canvas.connections=[{from:'p',to:'seed',kind:'input'},{from:'q',to:'seed',kind:'input'}];
     Object.assign(s,{pendingBoxSize:()=>({w:100,h:100}),MEDIA_NODE_DEFAULT_SCALE:2,nowMs:()=>100,
@@ -183,7 +183,7 @@ test('generation resolves all actual parents and reuses the first node without m
     const outputs=s.SmartCanvasModules.generationOutput.createPendingBatch({sourceNode:seed,expectedCount:3,reuseSource:true});
     assert.equal(outputs[0],seed);
     assert.deepEqual([seed.x,seed.y],[900,700]);
-    assert.deepEqual([outputs[1].x,outputs[1].y],[464,0]);
+    assert.deepEqual([outputs[1].x,outputs[1].y],[1064,700]);
     assert.equal(outputs[2].x-outputs[1].x-outputs[1].w,64);
     assert.deepEqual(clone(s.SmartCanvasModules.canvasMutation.placementIntent({nodeId:outputs[1].id}).intent.anchor.sourceNodeIds),['p','q']);
 });
@@ -293,4 +293,93 @@ test('duplicate retries around a concurrent result using the original source, no
     assert.ok(moved.x>=164);
     assert.ok(Math.abs(moved.x-winner.x)>=164 || Math.abs(moved.y-winner.y)>=164);
     assert.deepEqual([winner.x,winner.y],[copy.x,copy.y]);
+});
+
+test('four generated images stay near a fixed first result and remain visible when a two-row layout fits',()=>{
+    for(const batchLayout of ['horizontal','vertical']){
+    const s=mutation([{...source('p',0,100),w:300,h:300},
+        {...source('seed',364,100),w:400,h:300,images:[],referenceGenerationKind:'image'}]);
+    s.canvas.connections=[{from:'p',to:'seed',kind:'input'}];
+    Object.assign(s,{pendingBoxSize:()=>({w:400,h:300}),MEDIA_NODE_DEFAULT_SCALE:2,nowMs:()=>100,
+        attachRunMeta:()=>{},uid:(()=>{let i=0;return p=>p+'-'+(++i);})()});
+    s.SmartCanvasModules.generationPending={};load(s,'generation-output');
+    const seed=s.nodes[1],viewport={x:0,y:0,width:1300,height:800};
+    const outputs=s.SmartCanvasModules.generationOutput.createPendingBatch({sourceNode:seed,
+        expectedCount:4,reuseSource:true,batchLayout,placementViewport:viewport});
+    assert.deepEqual([seed.x,seed.y],[364,100]);
+    assert.equal(outputs.length,4);
+    assert.deepEqual(clone(outputs.map(n=>[n.x,n.y])),batchLayout==='horizontal'
+        ? [[364,100],[828,100],[364,464],[828,464]]
+        : [[364,100],[364,464],[828,100],[828,464]]);
+    assert.equal(s.SmartCanvasModules.canvasMutation.placementIntent({nodeId:outputs[1].id}).intent.fixedNodeId,'seed');
+    for(const node of outputs)assert.ok(node.x>=0 && node.y>=0 && node.x+node.w<=viewport.width && node.y+node.h<=viewport.height,
+        `output outside viewport: ${JSON.stringify({x:node.x,y:node.y,w:node.w,h:node.h})}`);
+    }
+});
+
+test('fresh generated batches wrap in either direction',()=>{
+    const snapshot=[{...source('p',0,100),w:300,h:300}];
+    const drafts=Array.from({length:4},(_,i)=>({...source('new'+i),w:400,h:300}));
+    const viewport={x:0,y:0,width:1300,height:800};
+    for(const arrangement of ['horizontal-batch','vertical-batch']){
+        const result=plan(snapshot,drafts,{...downstream,arrangement,viewport});
+        assert.equal(result.ok,true);
+        for(const n of result.placements) assert.ok(n.x+400<=1300 && n.y+300<=800);
+    }
+});
+test('the fixed result owns frame expansion and stays fixed during a concurrent retry',()=>{
+    const before={nodes:[source('p',-300,100),source('seed',100,100),
+        {id:'frame',type:'smart-frame',x:50,y:40,w:180,h:180,items:['seed']}],connections:[]};
+    const intent={...downstream,arrangement:'horizontal-batch',fixedNodeId:'seed',viewport:{x:0,y:0,width:600,height:500}};
+    const first=plan(before.nodes,[source('new')],intent);
+    assert.equal(first.frameId,'frame');
+    assert.ok(first.frameUpdates[0].w>180);
+    const s=context([]);for(const name of ['node-geometry','node-placement','canvas-persistence'])load(s,name);
+    s.before={...before,nodes:[...before.nodes,source('winner',first.placements[0].x,first.placements[0].y)]};
+    s.pending={node_creates:[{node:{...source('new'),...first.placements[0]},placement:{mode:'auto',gap:64,
+        collectionId:'new',intent:{...intent,frameId:'frame'}}}]};
+    const result=vm.runInContext(`(()=>{canvasPersistenceReplanCreatedNodes(pending,before);return canvasPersistenceApplyChanges(before,pending);})()`,s);
+    const seed=result.nodes.find(n=>n.id==='seed'),n=result.nodes.find(n=>n.id==='new'),w=result.nodes.find(n=>n.id==='winner');
+    assert.deepEqual([seed.x,seed.y],[100,100]);
+    assert.ok(Math.abs(n.x-w.x)>=164 || Math.abs(n.y-w.y)>=164);
+});
+
+test('fully visible wrapped slots are not displaced by floating-point visibility scores',()=>{
+    const sized=(id,x=0,y=0)=>({...source(id,x,y),w:440,h:440});
+    const result=plan([{...source('p',0,100),w:300,h:300},sized('seed',364,100)],
+        [sized('b'),sized('c'),sized('d')],{...downstream,arrangement:'horizontal-batch',fixedNodeId:'seed',
+            viewport:{x:0,y:0,width:1338,height:1144}});
+    assert.deepEqual(result.placements.map(n=>[n.x,n.y]),[[868,100],[364,604],[868,604]]);
+});
+
+test('Generate again places new image/video results beside the clicked node while retaining inputs',async()=>{
+    for(const [kind,count] of [['image',1],['image',4],['video',1]]){
+        const s=mutation([source('p'),source('q',200),source('clicked',600,200)]);
+        s.canvas.connections=[{from:'p',to:'clicked',kind:'input'},{from:'q',to:'clicked',kind:'input'}];
+        const before=clone(s.nodes);
+        Object.assign(s,{pendingBoxSize:()=>({w:100,h:100}),MEDIA_NODE_DEFAULT_SCALE:2,nowMs:()=>100,
+            attachRunMeta:()=>{},uid:(()=>{let i=0;return p=>p+'-'+(++i);})(),
+            smartNodeHasRegenerationSnapshot:()=>true,isApiLikeEngine:()=>true,escapeHtml:s=>s,
+            stripRunInputMeta:clone,smartRunSnapshot:()=>({})});
+        Object.assign(s.SmartCanvasModules,{
+            generationPending:{},promptAuthoring:{},generationProvider:{},smartContainer:{},
+            generationSettings:{forRun:()=>({settings:{engine:'api',apiKind:kind},expectedCount:count})},
+            viewportSelection:{viewport:{bounds:()=>({x:0,y:0,width:1100,height:800})}}
+        });
+        load(s,'generation-output');
+        s.SmartCanvasModules.generationOutput={...s.SmartCanvasModules.generationOutput,submissionSnapshot:()=>({})};
+        load(s,'generation-run');
+        vm.runInContext(`submitAndSettleGenerationProvider=async()=>({deferred:true});
+            submitAndSettleGenerationProviderBatch=async()=>({deferred:true});`,s);
+        await vm.runInContext("regenerateGenerationRun('clicked')",s);
+        const outputs=s.nodes.filter(n=>!before.some(old=>old.id===n.id));
+        assert.equal(outputs.length,count);
+        assert.deepEqual(clone(s.nodes.slice(0,3)),before);
+        assert.deepEqual([outputs[0].x,outputs[0].y],[764,200]);
+        for(const n of outputs){
+            assert.ok(n.x>=764 && n.x+n.w<=1100 && n.y+n.h<=800);
+            assert.equal(s.SmartCanvasModules.canvasMutation.placementIntent({nodeId:n.id}).intent.anchor.sourceNodeId,'clicked');
+            assert.deepEqual(s.canvas.connections.filter(c=>c.to===n.id).map(c=>c.from).sort(),['p','q']);
+        }
+    }
 });

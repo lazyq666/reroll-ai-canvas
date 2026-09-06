@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '../../..');
 const files = [
     'static/js/i18n-core.js',
     'static/js/i18n/common.js',
+    'static/js/i18n/showcase.js',
     'static/js/i18n/auth.js',
     'static/js/i18n/workspace.js',
     'static/js/i18n/model-management.js',

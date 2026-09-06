@@ -9,6 +9,7 @@
         {category:'reference_upload_rejected', retryability:'modify_then_retry', statuses:[], signals:['reference_upload_rejected','apimart 上传失败(413)']},
         {category:'reference_upload_failed', retryability:'retry_later', statuses:[], signals:['reference_upload_failed']},
         {category:'provider_account_restricted', retryability:'retry_later', statuses:[], signals:['provider account is temporarily restricted','account temporarily restricted']},
+        {category:'provider_permission_denied', retryability:'modify_then_retry', statuses:[], signals:['dreamina_cli_permission_denied','current account is not allowed to use dreamina_cli','当前账号没有 dreamina_cli 使用权限']},
         {category:'credential_missing', retryability:'modify_then_retry', statuses:[], signals:['api key is not configured','api key not configured','missing api key','未配置 api key']},
         {category:'credential_invalid', retryability:'modify_then_retry', statuses:[401], signals:['invalid api key','incorrect api key','unauthorized api key','authentication failed']},
         {category:'quota_insufficient', retryability:'modify_then_retry', statuses:[], signals:['insufficient quota','quota exceeded','insufficient balance','balance insufficient','credits insufficient']},
