@@ -157,8 +157,6 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
         await page.waitForFunction(() => (
             document.querySelector('.image-node[data-id="issue-88-prompt"] [data-prompt-character-count]')
                 ?.dataset.characterCount === '5'
-            && document.querySelector('.image-node[data-id="issue-88-generation"] [data-prompt-character-count]')
-                ?.dataset.characterCount === '6'
         ));
 
         const nodeCounterAlignment = await page.evaluate(() => {
@@ -175,7 +173,6 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
             };
             return {
                 prompt:measure('issue-88-prompt', '.prompt-node-text'),
-                generation:measure('issue-88-generation', '.prompt-llm-instruction'),
             };
         });
         Object.entries(nodeCounterAlignment).forEach(([kind, alignment]) => {
@@ -255,21 +252,22 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
         const generationExpandAction = await selectPromptNode('issue-88-generation');
         assert.equal(await generationExpandAction.locator('ic-icon').getAttribute('name'), 'focus-editor');
         await generationExpandAction.getByRole('button').press('Enter');
-        const instruction = page.locator('#promptNodeFocusSurface .prompt-llm-instruction');
+        const instruction = page.locator('#textComposerDialog .prompt-llm-instruction');
         await page.waitForFunction(() => {
-            const editor = document.querySelector('#promptNodeFocusSurface .prompt-llm-instruction');
+            const editor = document.querySelector('#textComposerDialog .prompt-llm-instruction');
             return editor?.isContentEditable && document.activeElement === editor;
         });
+        await page.waitForFunction(() => document.getElementById('textComposerDialog')?.dataset.motionState === 'open');
         await instruction.fill('全屏编辑后的生成指令');
         await page.waitForFunction(() => (
-            document.querySelector('#promptNodeFocusSurface [data-prompt-character-count]')
+            document.querySelector('#textComposerDialog [data-prompt-character-count]')
                 ?.dataset.characterCount === '10'
         ));
         await instruction.press('Escape');
-        await page.waitForFunction(() => !document.getElementById('promptNodeFocusSurface')?.hasAttribute('open'));
+        await page.waitForFunction(() => !document.getElementById('textComposerDialog')?.open);
         assert.deepEqual(await page.evaluate(() => ({
             stored:nodes.find(node => node.id === 'issue-88-generation')?.llmInstruction,
-            visible:document.querySelector('.image-node[data-id="issue-88-generation"] .prompt-llm-instruction')?.textContent,
+            visible:document.querySelector('#textPromptInput')?.textContent,
             backdrop:document.getElementById('composerFocusBackdrop').classList.contains('open'),
         })), {
             stored:'全屏编辑后的生成指令',

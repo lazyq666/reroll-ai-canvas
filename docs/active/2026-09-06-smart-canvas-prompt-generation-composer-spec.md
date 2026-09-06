@@ -1,11 +1,11 @@
 # Smart Canvas 提示词生成专属 Composer
 
-- **Status**：Draft（需求展开与实现基线核对完成，尚未批准或实现）
+- **Status**：Implemented（2026-09-06；本地实现与确定性回归完成，真实 Provider、双客户端及触摸设备 Gate 待验收）
 - **Feature ID**：F07；关联 F05 / F06 / F08 / F09 / F13
 - **Owners**：产品 / UI / 交互 / 前端 / 后端 / 测试
-- **Last verified**：2026-09-06；已读取 Issue 正文、相关 Current / ADR 与当前工作树实现及测试；不代表目标行为已通过验收
+- **Last verified**：2026-09-06；191 项相关单元/后端测试、真实页面文字 Composer、普通文本展开、媒体提交及文字失败日志回归；完整 Gate 见 §15.5
 - **Applies to**：[Issue #47](https://github.com/lazyq666/reroll-ai-canvas/issues/47)，目标发布版本在实施时确定
-- **Supersedes**：无；本 Draft 不覆盖 Current。批准并交付后，替换 Prompt Generation Node 的节点内编辑与展开呈现，保留其领域身份与生成链路
+- **Supersedes**：无；本 Active 在验收前不覆盖 Current。批准并交付后，替换 Prompt Generation Node 的节点内编辑与展开呈现，保留其领域身份与生成链路
 - **Superseded by**：无
 - **Related ADRs**：[Workspace 数据边界](../adr/0001-workspace-data-boundary.md)、[UI 家族所有权](../adr/0002-ui-family-module-ownership.md)、[生成发布权威](../adr/0005-global-generation-publication-authority.md)、[统一模型能力目录](../adr/0009-unified-model-capability-catalog.md)
 - **Domain terms**：Smart Canvas、Prompt Authoring、Prompt Generation Node、Prompt Node、Connection、Reference Input Instance、Generation Settings、Generation Run、Generation Output、Pending Node、Canvas Mutation、Canvas Sync
@@ -14,9 +14,9 @@
 
 创作者通过原有入口创建或选中提示词生成节点后，在节点下方打开专属 Composer，完成查看引用、编写生成要求、选择文字模型和运行。它沿用图片 / 视频 Composer 的浮动布局、引用缩略图、提示词库、快捷选择器及展开编辑体验，但有独立的编辑目标、草稿和文字模型设置，不能切换为图片或视频生成。
 
-画布上的 Prompt Generation Node 继续承担保存指令与设置、连接上游输入、关联下游结果的职责。节点主体变为简洁摘要，不再放置完整编辑器、模型选择器和运行按钮。每次生成仍创建独立的下游 Prompt Node；用户可以编辑生成文本，再接入图片、视频或其他既有链路。
+画布上的 Prompt Generation Node 继续承担保存指令与设置、连接上游输入、关联下游结果的职责。节点主体采用 Generation Node 的文本生成呈现状态，不再放置完整编辑器、模型选择器和运行按钮。每次生成仍创建独立的下游 Prompt Node；用户可以编辑生成文本，再接入图片、视频或其他既有链路。
 
-Issue 明确的要求只有三项：提示词生成采用专属 Composer；与图片 / 视频生成区隔；功能入口保持不变且交互参考媒体 Composer。保留节点作为锚点、结果交付方式、具体布局与状态处理是本规格据现有产品提出的设计决定，不能视为用户已逐项批准。
+Issue 明确的要求只有三项：提示词生成采用专属 Composer；与图片 / 视频生成区隔；功能入口保持不变且交互参考媒体 Composer。用户在 2026-09-06 进一步确认：Generation Node 增加文本生成呈现状态；文字 Composer 无重复标题行，底部仅保留模型、展开和生成，有引用才显示引用区；据此完善规格并开始开发。
 
 ## 2. Problem Statement
 
@@ -95,25 +95,26 @@ Issue 明确的要求只有三项：提示词生成采用专属 Composer；与�
 
 点击空白或切换到其他节点时，先收集当前编辑并交给 Canvas Sync，再隐藏或切换 Composer。进入多选时关闭两类 Composer，保留多选工具栏。关闭、取消选择及离开展开模式都不等于清空草稿或取消已经接受的 Run。
 
-### 6.2 普通 Composer 与节点摘要
+### 6.2 精简 Composer 与文本生成状态
 
-桌面 Composer 锚定选中节点下方，采用媒体 Composer 同一宽度、边距、视口跟随和避让规则；普通态最大宽度为现有 48rem，窄于可用空间时收缩。容器内从上到下为：
+Generation Node 在呈现层增加文本生成状态，复用图片 / 视频 Generation Node 外壳、空态、运行和失败反馈；保留 `smart-prompt + llmEnabled` 的持久身份。来源节点不是生成文本结果，结果继续交付到独立普通 Prompt Node。
 
-1. **身份行**：“提示词生成 / Generate prompt”和既有展开编辑动作。身份文字固定，不提供图片 / 视频切换。
-2. **输入区**：媒体参考缩略图；上游引用文字以只读摘要呈现，可展开查看完整内容，不能误认为本节点可编辑指令。
-3. **指令区**：多行指令编辑器及独立字符计数行；保持选区、粘贴、Mention 与模板快捷插入能力。
-4. **操作行**：现有引用 / 提示词库入口、文字模型选择器和 Large Primary 运行图标按钮。所有动作都有可访问名称。
+文字 Composer 锚定节点下方，沿用媒体 Composer 的定位和视口跟随。普通态最大宽度 36rem，按可用视口收缩；宽度不随每次输入抖动，输入高度随内容增长至可滚动上限。展开态采用公共 Dialog 并保持同一编辑器。
 
-不显示图片 / 视频模式切换、画幅、分辨率、视频时长、帧率、首尾帧或图片输出数量。文字模型选择器按现有目录显示名称与 Provider 标识，不将媒体当前模型用作文字默认值。
+1. **可选输入区**：有媒体引用才显示缩略图，有上游文字才显示可展开的只读摘要；没有引用时不占空行。不把上游文字复制为指令。
+2. **指令区**：多行编辑器，支持 `@` 引用及 `/` 模板插入，下面为独立字符计数行。
+3. **操作行**：左侧文字模型选择器，右侧展开及 Large Primary 生成按钮。只有模型参数，不新增设置面板。
 
-节点主体保留标题、图标、连接端口、指令只读摘要和运行 / 失败状态。摘要采用本节点指令的前三行并省略溢出；完整指令在 Composer 中查看。空指令显示本地化空状态；有上游文字时可表达“使用上游文字”，不把上游全文复制为草稿。参考详情和编辑控件只保留一份，移出主体后不留下不可用按钮。
+Composer 不重复显示“提示词生成”标题行，不提供图片 / 视频 / 文字切换，不显示媒体参数、引用添加按钮或模板按钮。用途由关联 Node 与可访问名称表达；引用与模板从既有输入快捷交互使用，既有节点工具栏的提示词库入口仍保留。
 
-旧节点的显式位置与尺寸保留，不因首次打开 Composer 自动压缩、移动或触发 Frame 扩容。新建节点采用公共 Node 几何规则下的摘要布局，删除旧内嵌编辑器专用的固定大高度依赖。Composer 不参与 Node 碰撞、选区包围盒、Frame 包含关系或 Node Package 几何。
+节点主体使用统一生成图标、文本生成身份及简短状态说明，指令只在 Composer 编辑。空态、运行中和失败态与媒体 Generation Node 一致，失败仍能查看日志。输入区、模型和运行控件不在 Node 内重复挂载。
+
+旧节点显式位置与尺寸保持，首次打开不压缩或移动节点。新建文本生成节点采用紧凑的公共生成几何，取消旧内嵌编辑器的大高度依赖。Composer 不参与 Node 碰撞、选区包围盒或 Frame 扩容。
 
 ### 6.3 展开编辑
 
 - 普通态与展开态是同一份草稿的两个布局，不创建第二份编辑状态或第二个可提交目标。
-- 展开沿用媒体 Composer 的专注编辑交互，并满足公共模态层级、焦点限制和返回焦点规则；背景 Canvas 不接收输入。
+- 展开使用 Large `ic-dialog`，将同一个 Composer DOM 移入公共模态层，满足焦点限制和返回焦点规则；背景 Canvas 不接收输入。
 - 上游文字、参考缩略图、指令、模型和运行操作在展开态仍可访问。长文本只在内容区滚动，运行操作保持可达。
 - 收起恢复原节点的普通 Composer、草稿、光标和滚动位置；触发节点已删除时焦点返回 Canvas。
 - 模型列表、`@` / `/` 选择器归属活动编辑表面；不得在后台保留另一套可交互浮层。
@@ -134,11 +135,11 @@ Composer 展示状态与后台 Run 状态正交：`running` 不等于编辑器�
 | success | 对应下游普通 Prompt Node 显示完整可编辑结果 | 复制、连接、编辑结果或返回来源继续生成 |
 | failed | 持续失败反馈、原因、重试及查看日志 | 修改输入后运行，或明确重试失败快照；保留其他成功输出 |
 | offline / recovering | 未同步或正在恢复反馈 | 继续本地编辑；同步与任务身份未确认前禁止新提交 |
-| deleted / forbidden | 目标不存在或权限已变化的明确反馈 | 关闭失效编辑目标；本地未确认内容可复制，不重建被删除 Node |
+| deleted / forbidden | 目标删除或权限变化后关闭文字 Composer | 保留既有 Canvas Sync 恢复边界，不重建被删除 Node；冲突草稿只在当前页面会话暂存 |
 
 ### 6.5 Pointer、键盘、触摸与焦点
 
-- 普通态 Tab 依视觉顺序遍历可交互引用、上游展开、指令、模板 / 引用入口、模型和运行；展开切换按钮可由键盘到达。
+- 普通态 Tab 依视觉顺序遍历可交互引用、上游展开、指令、模型、展开和运行。
 - Enter 在正文换行；Ctrl / Cmd + Enter 显式生成，与媒体 Composer 对齐。输入法合成期间不得提交，按键连发不得创建重复 Run。
 - 选择器打开时方向键、Enter、Escape 优先由选择器消费。没有子浮层时，Escape 收起展开态；普通态 Escape 退出编辑焦点并保留草稿，不撤销全部文字。再次取消节点选择遵循 Canvas 既有快捷键。
 - 指令编辑器内的复制、粘贴、全选、撤销、重做、Delete / Backspace、Space 属于文本；不能触发 Node 复制、删除、画布平移或播放。
@@ -152,7 +153,7 @@ Composer 展示状态与后台 Run 状态正交：`running` 不等于编辑器�
 
 | 用途 | 中文 | English |
 | --- | --- | --- |
-| Composer 标题 / 运行可访问名称 | 提示词生成 / 生成提示词 | Generate prompt |
+| Composer 可访问名称 / 运行可访问名称 | 提示词生成 / 生成提示词 | Generate prompt |
 | 指令占位 | 描述你想生成的提示词，可结合上游文字和参考素材 | Describe the prompt you want to generate using the connected text and references. |
 | 节点空摘要 | 添加生成要求 | Add instructions |
 | 仅有上游文字的摘要 | 使用上游文字 | Uses connected text |
@@ -195,7 +196,7 @@ Composer 展示状态与后台 Run 状态正交：`running` 不等于编辑器�
 ### 7.4 输出、选择与运行中编辑
 
 - R16：每次 Run 的下游结果是独立普通 Prompt Node，带来源 Connection。完成只更新对应输出目标，不覆盖来源指令、其他结果或当前 Composer 草稿；空返回按失败处理。
-- R17：提交时显示并揭示本次 Pending Node。若用户仍在来源 Composer 内编辑，保持来源 Selection 与焦点；如果提交后用户主动切换或编辑其他对象，完成 / 失败回调不得强制选回来源或输出。结果通过其状态与既有通知呈现，用户主动选择即可进入编辑。
+- R17：提交时在来源下游创建并渲染本次 Pending Node，不自动移动视口。保持来源 Selection 与编辑焦点；如果提交后用户主动切换或编辑其他对象，完成 / 失败回调不得强制选回来源或输出。结果通过其状态与既有通知呈现，用户主动选择即可进入编辑。
 - R18：同源两个 Run 乱序完成，各交付自己的结果；来源运行指示在全部运行结束后才复位。某次失败不清除其他任务、成功结果或下一版草稿。
 - R19：失败遵守[持续反馈合同](../current/smart-canvas-generation-failure-feedback.md)，必须可查看日志。重试此任务使用失败 Run 的冻结输入并经当前能力和权限重检；Composer 运行使用当前草稿。两者均是显式的新 Run，不隐式重放过期输入。
 
@@ -212,7 +213,7 @@ flowchart LR
     O --> D["既有下游创作链路"]
 ```
 
-本地会话至少以 Workspace 身份、Canvas ID、Node ID 和文字用途绑定目标，并保存编辑基线及未确认改动。打开状态、选区、IME、滚动位置、展开状态和异步加载代次由会话拥有；不是 Node 字段，也不以全局媒体 `settings` 为权威。
+本地会话在当前 Workspace 页面实例内，以 Canvas ID、Node ID 和文字用途绑定目标，并保存编辑基线及未确认改动。打开状态、选区、IME、滚动位置、展开状态和异步加载代次由会话拥有；不是 Node 字段，也不以全局媒体 `settings` 为权威。
 
 异步返回必须核对会话代次和目标身份。关闭、切换 Canvas、删除 Node 或退出登录后，旧模型加载、模板选择和运行回调不得写入新会话。
 
@@ -238,7 +239,7 @@ flowchart LR
 ### 9.2 协作、撤销与删除
 
 - 使用现有 Canvas Mutation / Sync 提交字段级变更，不能因为迁移 UI 而用整张快照覆盖协作者修改。
-- 协作者只移动 Node 或修改其他字段时保留本地文字与光标；同一指令或模型产生不可自动合并的冲突时保留本地草稿，显示现有冲突处理入口并禁止含歧义输入的提交。不得将两个版本拼接后直接发送给 Provider。
+- 协作者只移动 Node 或修改其他字段时保留本地文字与光标；同一指令出现远端变更时保留本地草稿，显示“使用已保存版本 / 保留我的修改”并禁止含歧义输入的提交；模型选择即时进入 Canvas Mutation，沿用 Canvas Sync 的字段级对账。不得将两个版本拼接后直接发送给 Provider。
 - 新节点及来源 Connection 维持原有一次撤销 / 重做语义；文字编辑时先由编辑器处理撤销，焦点离开后遵循 Canvas 历史。打开或收起 Composer 不产生 Undo 项。
 - 删除来源关闭其 Composer；删除输出或撤销目标后，迟到交付遵循 Target Guard，不能复活 Node。删除不等同于远端取消或退款；已接受 Run 沿用后台历史与恢复策略。
 - 重做可恢复创作结构，但不能因恢复 `running` 等旧展示字段重新提交付费任务。
@@ -283,7 +284,7 @@ flowchart LR
 ## 14. Implementation decisions
 
 1. **独立用途，共享基础交互**：分别定义文字 / 媒体的目标资格与状态适配，统一协调活动 Composer、定位、展开、快捷选择器和焦点返回。避免把文字业务分支散落在所有图片 / 视频设置函数中。
-2. **指令只有一个权威**：文字适配层读取并更新现有 Node 字段；节点摘要只是投影。媒体 `promptDraft*` / `runSettings` 不作为文字临时容器。
+2. **指令只有一个权威**：文字适配层读取并更新现有 Node 字段；节点生成外观只是投影。媒体 `promptDraft*` / `runSettings` 不作为文字临时容器。
 3. **执行只保留一个入口**：Composer、右键运行、反推提示词和 Cascade 复用既有文字执行接缝；在异步校验前冻结全部请求内容。不要因 UI 迁移复制后台恢复逻辑。
 4. **选择与任务解耦**：以用户是否已改变选择或进入编辑来决定是否允许运行回调调整视图，避免旧回调抢走新会话。此规则作为本功能的目标变化明确验收。
 5. **必要的旧控件退役**：移除 Prompt Generation Node 的节点内编辑器、模型、运行及重复全屏编辑绑定；普通 Prompt Node 编辑保留。旧选择器测试需迁移到新公共交互接缝，不能为测试继续隐藏挂载旧控件。
@@ -302,7 +303,7 @@ flowchart LR
 | A01 | Quick Add 点击及拖线到空白；页面 | 位置与来源连线保持，创建后打开文字 Composer 并聚焦；运行前零生成请求 |
 | A02 | 输入侧 / 普通提示词 / 输出 Prompt / 标注 / 多选；页面 | 不误开文字 Composer，不改变普通编辑和多选资格 |
 | A03 | 文字 A → 图片 → 视频 → 文字 B → A；页面 + 保存刷新 | 只显示一个 Composer，各自草稿、模型、引用完整恢复，媒体模式值不串用 |
-| A04 | 旧 Node / 新 Node；页面 + Canvas 内容 | 主体为摘要，完整控件只有一份；旧坐标尺寸不变，无首次读取自动 Mutation |
+| A04 | 旧 Node / 新 Node；页面 + Canvas 内容 | 主体为文本生成状态，完整控件只有一份，底部仅模型 / 展开 / 生成；旧坐标尺寸不变，无首次读取自动 Mutation |
 | A05 | `@` / `/` / 模板库 / 缩略图；页面 + 请求 | 内容插入当前指令，顺序与删除生效，模板为普通文本，标签不继承视频首尾帧语义 |
 | A06 | 中文 IME、多行、Emoji、粘贴和计数；页面 | 不误提交，计数排除引用和上游文字，编辑快捷键不影响 Canvas |
 | A07 | 普通 / 展开 / 收起；页面 | 同一草稿、光标与滚动位置保持；焦点受控且正确返回，无重复编辑器 |
@@ -330,7 +331,7 @@ flowchart LR
 - [媒体草稿恢复](../../tests/issue_191_composer_prompt_restore_browser_smoke.cjs)、[反推提示词 Dialog](../../tests/smart_canvas_reverse_prompt_dialog_browser_smoke.cjs)、[Canvas 持久化](../../tests/test_smart_canvas_canvas_persistence.py)。
 - [Generation Run 生命周期](../../tests/test_generation_run_lifecycle.py)、[能力 API](../../tests/test_model_capability_api.py)、[文档知识地图](../../tests/test_documentation_knowledge_map.py)。
 
-这些是实施时需检查并适配的现有测试，不代表本 Draft 已执行它们或可不修改选择器直接通过。新增场景应命名为 Issue #47 的公共行为测试，并与旧测试去重。
+文字节点运行、运行中连续生成及旧缩略图布局脚本现为 Issue #47 页面套件的兼容入口；其唯一场景（模型选择、冻结快照、并行计数、长指令不压缩缩略图）已合并到新套件。普通 Prompt 展开与快捷选择器保留独立回归。
 
 ### 15.4 人工与真实环境 Gate
 
@@ -342,9 +343,16 @@ flowchart LR
 | 双客户端 | 一端持续编辑，另一端移动 / 编辑 / 删除相同节点 | 无丢稿、无抢焦点、冲突可处理 |
 | 真实文字 Provider | 一次纯文字、一次目录确认支持的带图输入，验证结果及刷新恢复 | 记录模型、能力 Revision、Run 和结果；确定性替身不能代替 |
 
-### 15.5 本次规格交付验证
+### 15.5 实施验证与待验收 Gate
 
-2026-09-06：`python3.12 -m unittest tests.test_documentation_knowledge_map` 的 7 项测试通过；本规格全部本地文件链接存在，19 节结构与 A01–A23 编号完整，`git diff --check` 通过。系统默认 Python 3.9 无法解析现有测试的 `Path | None` 注解，因此使用已安装的 Python 3.12，未修改测试。功能实现、浏览器、双客户端及真实 Provider Gate 均未执行，保持待实施状态。
+2026-09-06 本地交付：
+
+- `.venv/bin/python -m unittest` 执行 17 个相关模块，共 191 项通过，覆盖 Canvas Mutation / Sync、文字恢复、Generation Run、能力 API、节点几何/身份、计数、快捷选择器、失败反馈和文档地图。
+- `node tests/issue_47_text_composer_browser_smoke.cjs` 自动启动隔离 HTTP / WebSocket 画布：验证单一编辑器、A/B 草稿、显式清空、同字段冲突、展开编辑、`@` 引用及移除、`/` 模板、长文缩略图、双语/主题/窄屏、重复提交保护、模型切换与两任务乱序完成、空结果失败和原快照重试。Provider 生命周期使用受控替身；Canvas 保存使用测试服务器。
+- 普通 Prompt / 文本生成展开、文字快捷选择器、媒体 Composer 提交反馈、文字失败详情四个独立页面脚本通过。失败详情检查同一失败只写一份日志。
+- 已人工查看真实页面的中文 Light 与英文 Dark / 390px 窄屏布局。内部 UI 资源指纹、i18n 和文档链接通过仓库检查后随代码交付。
+
+仍需独立验收：真实文字 Provider 的纯文本/带图及刷新恢复；真实双客户端同字段冲突/删除/撤权；移动设备 IME 与软键盘；100 节点切换的 P95 性能采样；A15–A20 的完整真实后台组合。现有后端单元测试与确定性页面替身不视为这些 Gate 的替代证据。因此本规格保持 Active / Implemented，不标为 Current，Issue 进入 Review 而非 Done。
 
 ## 16. Rollout, migration and rollback
 
@@ -353,7 +361,7 @@ flowchart LR
 - 回退应用后，旧节点仍可读取指令与模型；已有后台文字任务继续由原恢复链路识别。发布前以新旧应用实际读写同一份隔离备份验证，不能仅凭字段名相同判定兼容。
 - 新旧标签页混用须验证至少草稿字段、任务身份与结果无损；旧标签页若不满足当前能力 Revision 合同，沿用更新提示，不能绕过校验。
 - 本文保持 Active，全部所需 Gate 通过后才毕业为 Current。届时对齐 UI 指南中的 Prompt Generation 主体 / 展开行为、生成链路中的选择与重试说明，以及 F05 / F07 的项目地图引用。
-- 本次只有规格产出，不修改 Issue 的实现状态、不关闭 Issue、不创建发布版本。实施后的 Issue / PR 应记录测试与未完成 Gate；任何 push 前按仓库规则同步版本并验证更新源。
+- 本次完成本地实现，Issue 保持 Open 并进入 Review。实施后的 Issue / PR 应记录测试与未完成 Gate；任何 push 前按仓库规则同步版本并验证更新源。
 
 ## 17. Traceability
 
@@ -364,17 +372,21 @@ flowchart LR
 | UI authority | [UI 设计与交互指南](../current/ui-design-guidelines.md)、[Design Tokens](../current/design-tokens.md) |
 | 当前生成与协作 | [Generation Pipeline](../current/generation-pipeline.md)、[Canvas Sync](../current/canvas-sync-implementation.md)、[失败反馈](../current/smart-canvas-generation-failure-feedback.md) |
 | 相邻规格 | [Issue #22：多选与快捷入口](2026-09-03-smart-canvas-multi-input-quick-add-spec.md)、[统一模型能力目录](2026-09-04-model-capability-catalog.md)、[提示词库范围](2026-08-21-prompt-library-common-and-canvas-scope.md) |
-| UI 实现接缝 | [页面](../../static/smart-canvas.html)、[页面协调与文字执行](../../static/js/smart-canvas.js)：`promptNodeBodyHtml`、`bindPromptNodeControls`、`updateComposer`、`createReferencedNode`、`createAndRunReversePromptNode`、`runPromptLLMNode` |
+| UI 实现接缝 | [专属文字 Composer](../../static/js/smart-canvas/prompt-generation-composer.js)、[页面](../../static/smart-canvas.html)、[页面协调与文字执行](../../static/js/smart-canvas.js)：`promptNodeBodyHtml`、`bindPromptNodeControls`、`updateComposer`、`createReferencedNode`、`createAndRunReversePromptNode`、`runPromptLLMNode` |
 | 领域 / 编辑接缝 | [Node Kinds](../../static/js/smart-canvas/node-kinds.js)、[Prompt Authoring](../../static/js/smart-canvas/prompt-authoring.js)、[Canvas Mutation](../../static/js/smart-canvas/canvas-mutation.js)、[Canvas Persistence](../../static/js/smart-canvas/canvas-persistence.js) |
 | 执行接缝 | [Generation Run](../../static/js/smart-canvas/generation-run.js)、[Recovery](../../static/js/smart-canvas/generation-recovery.js)、[Output](../../static/js/smart-canvas/generation-output.js)、[后端路由](../../backend/main.py) |
 | 验证 | 第 15 节 A01–A23 与人工 Gate；所有目标行为仍待实施验证 |
 
 ## 18. Open questions
 
-无阻塞规格交付的未决问题。本 Draft 采用以下可评审默认值：保留节点作为锚点；结果继续新建下游普通 Prompt Node；反推提示词保留 Dialog；运行时保护当前编辑焦点；不新增文字专属参数。若产品评审改变任一项，必须同步修改入口、状态、兼容与验收章节，不能仅在实现说明中另定规则。
+无阻塞实施的未决问题。用户已确认文本生成呈现与精简 Composer，以下决定继续适用：保留节点作为锚点；结果继续新建下游普通 Prompt Node；反推提示词保留 Dialog；运行时保护当前编辑焦点；不新增文字专属参数。若产品评审改变任一项，必须同步修改入口、状态、兼容与验收章节，不能仅在实现说明中另定规则。
 
 ## 19. Change log
 
 | Date | Status | Change | Evidence / decision |
 | --- | --- | --- | --- |
 | 2026-09-06 | Draft | 从 Issue #47 展开专属 Composer、身份隔离、入口兼容、并发生成与失败恢复合同；建立 A01–A23 验收 | Issue 原文、Current / ADR、当前工作树代码及代表性测试核对；未实施功能 |
+
+| 2026-09-06 | Implementing | 确认 Generation Node 文本状态、无标题的精简文字 Composer，开始开发 | 用户明确授权；Issue In Progress |
+
+| 2026-09-06 | Implemented | 独立文字 Composer、文本生成外观、引用/模板、提交快照、并行输出、冲突与失败重试 | 191 项单元/后端检查与页面回归；真实环境 Gate 见 §15.5 |

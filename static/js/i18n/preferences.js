@@ -1,6 +1,20 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "preferences.cleanupTitle": { zh: "清理未使用文件", en: "Clean up unused files" },
+        "preferences.cleanupNote": { zh: "扫描不再被工作区内容和历史引用的文件。最近上传或使用的文件会暂时保留；清理后无法恢复。", en: "Find files no longer referenced by workspace content or history. Recently uploaded or used files are temporarily kept. Cleanup permanently deletes files." },
+        "preferences.cleanupScan": { zh: "扫描文件", en: "Scan files" },
+        "preferences.cleanupConfirm": { zh: "清理文件", en: "Clean up files" },
+        "preferences.cleanupScanning": { zh: "正在检查文件引用…", en: "Checking file references…" },
+        "preferences.cleanupCleaning": { zh: "正在复核并清理文件…", en: "Rechecking and cleaning up files…" },
+        "preferences.cleanupSummary": { zh: "可清理 {count} 个文件，释放 {size}。", en: "Unused files: {count}. Space to free up: {size}." },
+        "preferences.cleanupEmpty": { zh: "没有可清理的未使用文件。", en: "No unused files to clean up." },
+        "preferences.cleanupDone": { zh: "已清理 {count} 个文件，释放 {size}。", en: "Files removed: {count}. Space freed: {size}." },
+        "preferences.cleanupRemaining": { zh: "有 {count} 个文件已被使用、发生变化或无法删除，已保留，可重新扫描。", en: "Files kept: {count}. They are in use, have changed, or could not be deleted. You can scan again." },
+        "preferences.cleanupBusy": { zh: "正在生成或保存内容，请完成后重新扫描。", en: "Content is being generated or saved. Scan again when it finishes." },
+        "preferences.cleanupExpired": { zh: "扫描结果已失效，请重新扫描。", en: "This scan has expired. Please scan again." },
+        "preferences.cleanupUnreadable": { zh: "无法完整检查工作区引用，未清理文件。请检查工作区数据后重试。", en: "Workspace references could not be fully checked. No files were removed. Check the workspace data and try again." },
+        "preferences.cleanupFailed": { zh: "无法完成操作，请重新扫描以确认当前状态。", en: "The operation could not be completed. Scan again to check the current state." },
         "preferences.operationFailed": { zh: "操作失败", en: "Operation failed" },
         "preferences.noRecord": { zh: "暂无记录", en: "No record" },
         "preferences.move": { zh: "搬家到新位置", en: "Move to a new location" },

@@ -316,7 +316,6 @@ class LegacyGenerationPublication:
                     kept.append(item)
             if deleted:
                 self._write_atomic(path, kept, indent=4)
-        self._delete_output_files(deleted)
         return tuple(deleted)
 
     @staticmethod
@@ -344,22 +343,6 @@ class LegacyGenerationPublication:
             if normalized and normalized not in urls:
                 urls.append(normalized)
         return tuple(urls)
-
-    def _delete_output_files(self, records: list[Mapping[str, Any]]) -> None:
-        resolver = self._ports.output_file_from_url
-        if not callable(resolver):
-            return
-        for record in records:
-            images = record.get("images")
-            for value in self._output_urls(
-                {"images": images if isinstance(images, list) else []}
-            ):
-                file_path = resolver(value)
-                if file_path and os.path.exists(file_path):
-                    try:
-                        os.remove(file_path)
-                    except OSError:
-                        pass
 
     def legacy_pending_receipts(self) -> dict[str, tuple[str, ...]]:
         with self._journal_lock:
@@ -540,19 +523,6 @@ class SqliteGenerationPublication:
             history_id=history_id,
             timestamp=timestamp,
         )
-        resolver = self._output_file_from_url
-        if callable(resolver):
-            for record in deleted:
-                images = record.get("images")
-                for value in LegacyGenerationPublication._output_urls(
-                    {"images": images if isinstance(images, list) else []}
-                ):
-                    file_path = resolver(value)
-                    if file_path and os.path.exists(file_path):
-                        try:
-                            os.remove(file_path)
-                        except OSError:
-                            pass
         return deleted
 
     async def recover_pending(self, *, limit: int = 1000) -> dict[str, Any]:

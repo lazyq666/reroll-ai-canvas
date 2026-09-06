@@ -190,6 +190,9 @@ from infinite_canvas.generation_runs import (
     generation_run_control,
 )
 from infinite_canvas.media import WorkspaceMediaService
+from infinite_canvas.media_cleanup import (
+    MediaCleanupError, MediaCleanupGate, MediaCleanupTraffic, WorkspaceMediaCleanup,
+)
 from infinite_canvas.asset_library import (
     ASSET_LIBRARY_PAGE_LIMIT,
     AssetLibraryBatchError,
@@ -293,6 +296,12 @@ class QuietAccessLogFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(QuietAccessLogFilter())
 
 app = FastAPI()
+MEDIA_CLEANUP = WorkspaceMediaCleanup()
+MEDIA_CLEANUP_GATE = MediaCleanupGate()
+app.add_middleware(
+    MediaCleanupTraffic, gate=MEDIA_CLEANUP_GATE,
+    lease=lambda value: MEDIA_CLEANUP.lease(value),
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -495,12 +504,13 @@ async def canvas_realtime_endpoint(
                 )
             )
             try:
-                await CANVAS_SYNC.receive_realtime(
-                    session,
-                    actor,
-                    message,
-                    raw_size=len(raw.encode("utf-8")),
-                )
+                async with MEDIA_CLEANUP_GATE.activity():
+                    await CANVAS_SYNC.receive_realtime(
+                        session,
+                        actor,
+                        message,
+                        raw_size=len(raw.encode("utf-8")),
+                    )
             except CanvasSyncError:
                 await websocket.close(code=4403)
                 return
@@ -1352,6 +1362,7 @@ def current_workspace_media(
     return WorkspaceMediaService(
         WORKSPACE_SERVICE.current(),
         max_bytes=max_bytes,
+        lease=MEDIA_CLEANUP.lease,
     )
 
 
@@ -5011,6 +5022,49 @@ def _workspace_storage_response(paths=None, **extra):
 async def get_workspace_storage_settings(request: Request):
     require_current_user("admin")
     return _workspace_storage_response(restart_required=False)
+
+
+class MediaCleanupConfirmation(BaseModel):
+    scan_id: str = Field(min_length=32, max_length=32)
+
+
+async def _workspace_media_cleanup(scan_id: str = ""):
+    actor = require_current_user("admin")
+    try:
+        async with MEDIA_CLEANUP_GATE.exclusive():
+            if active_generation_run_count():
+                raise MediaCleanupError("busy")
+            root = WORKSPACE_SERVICE.current().managed_media.parent
+            sqlite_authority = WORKSPACE_STORAGE_COMPOSITION.mode == "sqlite"
+            arguments = (root, str(actor["id"]))
+            operation = MEDIA_CLEANUP.scan
+            if scan_id:
+                operation = MEDIA_CLEANUP.confirm
+                arguments += (scan_id,)
+            work = asyncio.create_task(asyncio.to_thread(
+                operation, *arguments, sqlite_authority=sqlite_authority,
+            ))
+            try:
+                return await asyncio.shield(work)
+            except asyncio.CancelledError:
+                # Never reopen admission while a disconnected client's worker
+                # is still reading references or removing approved files.
+                await work
+                raise
+    except MediaCleanupError as exc:
+        raise HTTPException(status_code=409, detail={
+            "code": f"media_cleanup_{exc.code}",
+        }) from exc
+
+
+@app.post("/api/workspace-storage-settings/cleanup/scan")
+async def scan_unused_workspace_media():
+    return await _workspace_media_cleanup()
+
+
+@app.post("/api/workspace-storage-settings/cleanup/confirm")
+async def clean_unused_workspace_media(req: MediaCleanupConfirmation):
+    return await _workspace_media_cleanup(req.scan_id)
 
 
 @app.post("/api/workspace-storage-settings/select-directory")

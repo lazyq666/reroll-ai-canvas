@@ -1,6 +1,17 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "smart.textComposer.retry": { zh: "重试此任务", en: "Retry this task" },
+        "smart.textComposer.conflict": { zh: "此指令已在其他位置更新，请选择保留哪个版本", en: "These instructions were updated elsewhere. Choose which version to keep." },
+        "smart.textComposer.useSaved": { zh: "使用已保存版本", en: "Use saved version" },
+        "smart.textComposer.keepLocal": { zh: "保留我的修改", en: "Keep my edits" },
+        "smart.textComposer.uncertain": { zh: "正在确认上次提交，请先恢复任务状态", en: "The last submission is unconfirmed. Recover its status before submitting again." },
+        "smart.textComposer.run": { zh: "生成提示词", en: "Generate prompt" },
+        "smart.textComposer.submitting": { zh: "正在提交…", en: "Submitting…" },
+        "smart.textComposer.placeholder": { zh: "描述你想生成的提示词，输入 @ 引用素材或 / 插入模板…", en: "Describe the prompt you want to generate. Use @ for references or / for templates…" },
+        "smart.textComposer.nodeHint": { zh: "选中节点以编写生成要求", en: "Select this node to add instructions" },
+        "smart.textComposer.noModels": { zh: "暂无可用的文字模型", en: "No text models available." },
+        "smart.textComposer.modelUnavailable": { zh: "当前文字模型不可用，请重新选择", en: "This text model is unavailable. Choose another model." },
         "smart.layoutChangedRetry": { zh: "分区已更新，正在重新确认布局…", en: "The frame changed. Updating the placement…" },
         "smart.invalidLayoutGeometry": { zh: "节点位置或尺寸无效，无法完成布局。", en: "The node position or size is invalid. Layout could not be completed." },
         "smart.layoutContractMismatch": { zh: "画布布局版本不一致，请刷新页面后重试。", en: "The canvas layout version has changed. Refresh the page and try again." },

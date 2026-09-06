@@ -1,4 +1,4 @@
-import { ANCHORED_OVERLAY_MOTION_STYLES, IcPopover, menuPopoverContractState } from './menu-popover.js?v=ic-ui-1d9b8d84e857';
+import { ANCHORED_OVERLAY_MOTION_STYLES, IcPopover, menuPopoverContractState } from './menu-popover.js?v=ic-ui-0c139016a392';
 
 const CONSEQUENCES = new Set(['neutral', 'destructive']);
 let confirmPopoverId = 0;

@@ -185,7 +185,8 @@ class SmartCanvasReferenceInstanceTests(unittest.TestCase):
                 'smart.addReference':'添加', 'smart.collapseReference':'收起'
             };
             const sandbox = {
-                window:{SmartCanvasModules:{}}, settings, inputThumbsRow,
+                window:{SmartCanvasModules:{viewportSelection:{selection:{node:()=>({id:'video-target'})}}}}, settings, inputThumbsRow,
+                nodeKinds:{isPromptGeneration:node=>node?.type==='smart-prompt' && Boolean(node.llmEnabled)},
                 mentionInsertMode:'token',
                 promptAuthoring:{resolve:()=>({refs,textRefs:[]})},
                 syncComposerMentionTokenLabels:()=>false,
@@ -264,6 +265,8 @@ class SmartCanvasReferenceInstanceTests(unittest.TestCase):
             };
             const sandbox = {
                 settings:{engine:'api',apiKind:'image',videoUseFrameRoles:false},
+                window:{SmartCanvasModules:{viewportSelection:{selection:{node:()=>activeNode}}}},
+                nodeKinds:{isPromptGeneration:node=>node?.type==='smart-prompt' && Boolean(node.llmEnabled)},
                 promptInput,
                 Node:{TEXT_NODE:3},
                 activeComposerNode:()=>activeNode,

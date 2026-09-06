@@ -54,10 +54,11 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
     def test_prompt_node_uses_a_rich_editor_for_at_and_slash(self):
         self.assertIn('class="prompt-node-text prompt-node-control"', self.script)
         self.assertIn(
-            'class="prompt-node-control prompt-llm-instruction"', self.script
+            'class="prompt-llm-instruction"',
+            (ROOT / 'static/js/smart-canvas/prompt-generation-composer.js').read_text()
         )
         self.assertIn('contenteditable="false"', self.script)
-        self.assertIn("maybeOpenMentionPicker(editor, node", self.script)
+        self.assertIn("maybeOpenMentionPicker(editor, liveNode()", self.script)
         self.assertIn("handlePromptQuickPickerKeydown(event, editor)", self.script)
         self.assertIn("promptNodeEditorHtml(node)", self.script)
         self.assertIn("promptLlmInstructionEditorHtml(node)", self.script)

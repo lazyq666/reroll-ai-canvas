@@ -119,6 +119,17 @@ MANUAL_BOOTSTRAP = r"""
       {from:'loop-1',to:'orphan',kind:'input'}
     ];
   }
+  if(fixture === 'issue-47-text-composer') {
+    manualCanvas.id = 'issue-47-text-composer';
+    manualCanvas.title = 'Text Composer acceptance';
+    manualCanvas.nodes = [
+      {id:'text-a',type:'smart-prompt',llmEnabled:true,title:'Text A',llmInstruction:'写一段海报提示词',llmProvider:'manual-mock',llmModel:'mock-text-1',x:180,y:150,w:316,h:180},
+      {id:'text-b',type:'smart-prompt',llmEnabled:true,title:'Text B',llmInstruction:'第二个节点的指令',llmProvider:'manual-mock',llmModel:'mock-text-2',x:720,y:150,w:316,h:180},
+      {id:'media-a',type:'smart-image',referenceGenerationKind:'image',title:'Image',images:[],promptDraftText:'Media draft',promptDraftHtml:'Media draft',runSettings:{engine:'api',apiKind:'image',provider_id:'manual-mock',model:'mock-image-1',count:1},x:180,y:660,w:260,h:180},
+      {id:'prompt-a',type:'smart-prompt',title:'Prompt',text:'上游内容',x:1100,y:150,w:316,h:180}
+    ];
+    manualCanvas.connections = [];
+  }
   class ManualWebSocket {
     static CONNECTING = 0;
     static OPEN = 1;
@@ -282,6 +293,7 @@ class ManualHandler(SimpleHTTPRequestHandler):
                     "name": "手动测试生成",
                     "enabled": True,
                     "image_models": ["mock-image-1"],
+                    "chat_models": ["mock-text-1", "mock-text-2"],
                 }],
                 "available_models": {
                     "image": [{
@@ -292,7 +304,8 @@ class ManualHandler(SimpleHTTPRequestHandler):
                         "name": "Mock Image 1",
                     }],
                     "video": [],
-                    "text": [],
+                    "text": [{"id": "manual-text-1", "provider_id": "manual-mock", "provider_name": "Manual", "model": "mock-text-1", "name": "Mock Text 1"},
+                             {"id": "manual-text-2", "provider_id": "manual-mock", "provider_name": "Manual", "model": "mock-text-2", "name": "Mock Text 2"}],
                 },
                 "comfy_instances": [],
             })

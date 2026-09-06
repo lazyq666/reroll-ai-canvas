@@ -89,13 +89,13 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
         created = payload["created"]
         self.assertEqual(
             {key: created[key] for key in ("x", "y", "w", "h")},
-            {"x": 264, "y": 0, "w": 316, "h": 323},
+            {"x": 264, "y": 0, "w": 316, "h": 180},
         )
         self.assertTrue(created["llmEnabled"])
         self.assertEqual(created["llmInputMedia"][0]["url"], "source.png")
         self.assertEqual(
             payload["reveal"]["bounds"],
-            {"x": 264, "y": 0, "width": 316, "height": 323},
+            {"x": 264, "y": 0, "width": 316, "height": 180},
         )
 
     def test_auto_batch_plans_and_commits_nodes_and_connections_atomically(self):

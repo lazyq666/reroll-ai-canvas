@@ -99,9 +99,11 @@ class WorkspaceMediaService:
         workspace: Workspace,
         *,
         max_bytes: int = 500 * 1024 * 1024,
+        lease=None,
     ) -> None:
         self._workspace = workspace
         self._max_bytes = max(1, int(max_bytes))
+        self._lease = lease
 
     @property
     def directory(self) -> Path:
@@ -155,6 +157,8 @@ class WorkspaceMediaService:
             except FileNotFoundError:
                 pass
         relative_path = f"input/imported/{filename}"
+        if self._lease is not None:
+            self._lease(relative_path)
         return ManagedMediaImport(
             media_id=digest,
             url=f"/assets/{relative_path}",

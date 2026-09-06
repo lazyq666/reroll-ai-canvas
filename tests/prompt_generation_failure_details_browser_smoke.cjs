@@ -26,6 +26,7 @@ function json(response, payload, status=200){
 function testSource(requestPath, source){
   if(requestPath.endsWith('/canvas-persistence.js')){
     return source
+      .replace(/function canvasPersistenceEditable\(\)\{[\s\S]*?\n\}/, 'function canvasPersistenceEditable(){ return true; }')
       .replace(
         /schedule\(\{delay=450\}=\{\}\)\{\s*return canvasPersistenceSchedule\(delay\);\s*\}/,
         'schedule(){ return null; }',
@@ -51,6 +52,10 @@ function startServer(){
     const server = http.createServer((request, response) => {
       const requestUrl = new URL(request.url, 'http://127.0.0.1');
       const requestPath = decodeURIComponent(requestUrl.pathname);
+      if(requestPath === '/api/model-capabilities'){
+        json(response, {provider_id:'openai',model_id:'gpt-4o-mini',operation:'text.generate',capability_schema_version:1,catalog_revision:'failure-fixture-1',support_state:'supported',inputs:{text:{minimum:1,maximum:1},image:{minimum:0,maximum:8},video:{minimum:0,maximum:0}},output:{kind:'text'},parameters:{history:{type:'array',minimum:0,maximum:30}}});
+        return;
+      }
       if(request.method === 'POST' && requestPath === '/api/canvas-llm-tasks'){
         json(response, {task_id:TASK_ID, status:'queued', actor_id:'browser-test-user'});
         return;
@@ -142,6 +147,7 @@ function startServer(){
       && customElements.get('ic-alert')
     ));
     await page.evaluate(({canvasId, promptText}) => {
+      availableModels.text=[{id:'openai|gpt-4o-mini',provider_id:'openai',model:'gpt-4o-mini',name:'GPT-4o mini'}];
       const promptNode = {
         id:'prompt-source-node',
         type:'smart-prompt',
