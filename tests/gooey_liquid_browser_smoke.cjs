@@ -63,7 +63,7 @@ const theme=process.env.GOOEY_THEME||'dark';
   assert.equal(await page.evaluate(()=>liquidRequests),requests,'Settled liquid schedules no animation frames');
   await page.locator('[data-reference-generate-menu] [part="close"]').click();
   const closing=[];
-  for(const ms of [0,40,100,210,250,400,700]){
+  for(const ms of [0,40,100,135,250,400,450]){
    closing.push(await page.evaluate(ms=>{
     stepLiquid(ms);
     const menu=document.querySelector('[data-reference-generate-menu]'),svg=menu.shadowRoot.querySelector('.gooey-silhouette');
@@ -76,7 +76,8 @@ const theme=process.env.GOOEY_THEME||'dark';
   assert(closing.slice(0,-1).every(f=>!f.open&&f.inert),'Closing liquid cannot accept a command');
   assert(closing.slice(0,-1).every(f=>f.nudge===f.mainNudge),'The entire liquid and main button recoil together');
   assert(closing.some(f=>f.nudge>4.9),'Closing retains the reference 5px anticipation');
-  assert(closing.slice(0,-1).every(f=>f.opacity===''),'The liquid stays visible while merging');
+  assert(closing.slice(0,4).every(f=>f.opacity==='1'),'The liquid stays visible before handing back the click trigger');
+  assert(Number(closing[5].opacity)>0 && Number(closing[5].opacity)<1,'The merged click center crossfades into its original trigger');
   assert(closing[4].centers.every(c=>c[0]===closing[4].centers[0][0]&&c[1]===closing[4].centers[0][1]),'All circles have merged at 250ms');
   assert.equal(closing.at(-1).svg,false,'Closing releases the silhouette');
   console.log(JSON.stringify({opening:frames.map(({ms,neck})=>({ms,neck})),closing:closing.map(({ms,nudge,svg})=>({ms,nudge,svg})),idleFrames:0}));

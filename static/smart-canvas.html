@@ -33,13 +33,13 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-c4b0d6dce764"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-467a84cb1a7b"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
     <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-d869888ba65b">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-56c693e4e18f" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-97464d704c3f" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=2026.09.01.5.1788439320"></script>
 </head>
 <body>
@@ -96,19 +96,19 @@
         <ic-tooltip id="inputTextPreviewTooltip" class="input-text-preview-tooltip" content="引用文本预览" data-i18n-content="smart.referencedTextPreview" placement="block-start"></ic-tooltip>
         <ic-menu id="referenceGenerateMenu" class="reference-generate-menu" label="引用该节点生成" data-i18n-label="smart.referenceGenerate" trigger="context" selection="command" size="small" variant="reference-generate" close-label="收起快捷添加" data-i18n-close-label="smart.quickAdd.close" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
             <span class="reference-generate-label" role="presentation" aria-hidden="true" data-i18n="smart.referenceGenerate">引用该节点生成</span>
-            <ic-menu-item kind="command" value="text" icon="text" hint="添加文本节点" data-i18n-hint="smart.quickAdd.textHint" label="文本" data-i18n-label="smart.kindText"></ic-menu-item>
-            <ic-menu-item kind="command" value="image" icon="image" hint="添加图片节点" data-i18n-hint="smart.quickAdd.imageHint" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
-            <ic-menu-item kind="command" value="video" icon="video" hint="添加视频节点" data-i18n-hint="smart.quickAdd.videoHint" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
+            <ic-menu-item kind="command" value="text" icon="text" hint="生成文本" data-i18n-hint="smart.quickAdd.textHint" label="文本" data-i18n-label="smart.kindText"></ic-menu-item>
+            <ic-menu-item kind="command" value="image" icon="image" hint="生成图片" data-i18n-hint="smart.quickAdd.imageHint" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
+            <ic-menu-item kind="command" value="video" icon="video" hint="生成视频" data-i18n-hint="smart.quickAdd.videoHint" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
         </ic-menu>
         <ic-menu id="multiReferenceGenerateMenu" class="reference-generate-menu" label="引用所选节点生成" data-i18n-label="smart.multiInput.menu" trigger="context" selection="command" size="small" variant="reference-generate" close-label="收起快捷添加" data-i18n-close-label="smart.quickAdd.close" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
-            <ic-menu-item kind="command" value="image" icon="image" hint="添加图片节点" data-i18n-hint="smart.quickAdd.imageHint" label="图片生成" data-i18n-label="smart.referenceImageNode"></ic-menu-item>
-            <ic-menu-item kind="command" value="video" icon="video" hint="添加视频节点" data-i18n-hint="smart.quickAdd.videoHint" label="视频生成" data-i18n-label="smart.referenceVideoNode"></ic-menu-item>
+            <ic-menu-item kind="command" value="image" icon="image" hint="生成图片" data-i18n-hint="smart.quickAdd.imageHint" label="图片生成" data-i18n-label="smart.referenceImageNode"></ic-menu-item>
+            <ic-menu-item kind="command" value="video" icon="video" hint="生成视频" data-i18n-hint="smart.quickAdd.videoHint" label="视频生成" data-i18n-label="smart.referenceVideoNode"></ic-menu-item>
         </ic-menu>
         <ic-menu id="upstreamInputMenu" class="reference-generate-menu upstream-input-menu" label="添加上游输入" data-i18n-label="smart.addUpstreamInput" trigger="context" selection="command" size="small" variant="reference-generate" close-label="收起快捷添加" data-i18n-close-label="smart.quickAdd.close" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
             <span class="reference-generate-label" role="presentation" aria-hidden="true" data-i18n="smart.addUpstreamInput">添加上游输入</span>
-            <ic-menu-item kind="command" value="text" icon="text" hint="添加文本节点" data-i18n-hint="smart.quickAdd.textHint" label="文本" data-i18n-label="smart.kindText"></ic-menu-item>
-            <ic-menu-item kind="command" value="image" icon="image" hint="添加图片节点" data-i18n-hint="smart.quickAdd.imageHint" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
-            <ic-menu-item kind="command" value="video" icon="video" hint="添加视频节点" data-i18n-hint="smart.quickAdd.videoHint" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
+            <ic-menu-item kind="command" value="text" icon="text" hint="生成文本" data-i18n-hint="smart.quickAdd.textHint" label="文本" data-i18n-label="smart.kindText"></ic-menu-item>
+            <ic-menu-item kind="command" value="image" icon="image" hint="生成图片" data-i18n-hint="smart.quickAdd.imageHint" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
+            <ic-menu-item kind="command" value="video" icon="video" hint="生成视频" data-i18n-hint="smart.quickAdd.videoHint" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
         </ic-menu>
         <svg id="smartAnnotationPreview" class="smart-annotation-preview" aria-hidden="true"></svg>
         <div id="smartAnnotationCursor" class="smart-annotation-cursor" aria-hidden="true" hidden>
@@ -658,7 +658,7 @@
     <script src="/static/js/smart-canvas/canvas-virtualization.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/image-studio-geometry.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-56c693e4e18f"></script>
+    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-97464d704c3f"></script>
     <script src="/static/js/smart-canvas/canvas-opening.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-fa1ab77b8006"></script>
     <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-5371070c8d3c"></script>

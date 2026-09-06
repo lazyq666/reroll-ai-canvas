@@ -1,2 +1,2 @@
 // Stable Text Entry family entry. Callers should not depend on the internal file layout.
-export { IcFormField, IcInput, IcTextarea } from './text-entry/index.js?v=ic-ui-56c693e4e18f';
+export { IcFormField, IcInput, IcTextarea } from './text-entry/index.js?v=ic-ui-97464d704c3f';

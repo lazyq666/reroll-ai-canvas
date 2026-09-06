@@ -66,6 +66,11 @@ export function animateGooeyMenu(host, phase) {
   const items = [...host.querySelectorAll('ic-menu-item')];
   if (!box.width || !box.height || !items.length) return;
   const fromPoint = Boolean(host._anchorPoint);
+  const returning = phase === 'exit' && !fromPoint;
+  const invoker = returning ? host._invoker : null;
+  const invokerOpacity = invoker?.style.getPropertyValue('opacity') || '';
+  const invokerOpacityPriority = invoker?.style.getPropertyPriority('opacity') || '';
+  const invokerAlpha = invoker ? Number(getComputedStyle(invoker).opacity) : 1;
   const seedDuration = phase === 'enter' && fromPoint ? 120 : 0;
   const closeButton = surface.querySelector('.quick-add-close');
   const close = closeButton.getBoundingClientRect();
@@ -96,9 +101,9 @@ export function animateGooeyMenu(host, phase) {
   surface.dataset.liquid = '';
   surface.dataset.gooey = phase;
   items.forEach(item => item.shadowRoot.querySelector('ic-tooltip')?.hide());
-  // Reference PlusMenu: 550ms bouncy / 40ms stagger; 250ms snappy close
-  // with a 5px, 700ms anticipation on the whole liquid layer and main button.
-  const duration = phase === 'enter' ? seedDuration + 550 + (items.length-1)*40 : 700;
+  // Keep the liquid merge, then hand the click center back to its real button.
+  // A dropped center has no destination: it fades with the merging choices.
+  const duration = phase === 'enter' ? seedDuration + 550 + (items.length-1)*40 : fromPoint ? 250 : 450;
   let frame = 0, start, resolve, completed = false;
   const finished = new Promise(done => { resolve = done; });
   const environment = new MutationObserver(() => cleanup());
@@ -106,7 +111,12 @@ export function animateGooeyMenu(host, phase) {
     items.forEach(item => item.style.removeProperty('transform'));
     icons.forEach(icon => { icon?.style.removeProperty('opacity'); icon?.style.removeProperty('filter'); });
     closeButton.style.removeProperty('transform');
+    closeButton.style.removeProperty('opacity');
     closeIcon.style.removeProperty('transform');
+    if (invoker) {
+      if (invokerOpacity) invoker.style.setProperty('opacity', invokerOpacity, invokerOpacityPriority);
+      else invoker.style.removeProperty('opacity');
+    }
   };
   const cleanup = () => {
     cancelAnimationFrame(frame); environment.disconnect();
@@ -142,13 +152,26 @@ export function animateGooeyMenu(host, phase) {
     const seedProgress = seedDuration ? snappy(clamp(elapsed/seedDuration,0,1)) : 1;
     const seedScale = .08 + .92*seedProgress;
     const spreadElapsed = Math.max(0,elapsed-seedDuration);
-    const nudgeTime = clamp(elapsed/700,0,1);
+    const nudgeTime = clamp(elapsed/duration,0,1);
     const nudge = phase === 'enter' ? 0 : nudgeTime < .3
       ? 5*snappy(nudgeTime/.3) : 5*(1-snappy((nudgeTime-.3)/.7));
-    svg.style.transform = `translateY(${nudge}px) scale(${seedScale})`;
+    const handoff = returning ? snappy(clamp((elapsed-180)/270,0,1)) : 0;
+    // Focus return and magnetic positioning can move the real Quick Add during
+    // close. Read its current painted bounds instead of ending at a stale anchor.
+    const destination = invoker?.isConnected ? (invoker.button || invoker).getBoundingClientRect() : close;
+    const scale = seedScale * (1+(destination.width/close.width-1)*handoff);
+    const dx = (destination.left+destination.width/2-box.left-x)*handoff;
+    const dy = nudge*(1-handoff)+(destination.top+destination.height/2-box.top-y)*handoff;
+    const fade = phase === 'exit' ? fromPoint ? clamp(elapsed/250,0,1) : clamp((elapsed-250)/200,0,1) : 0;
+    svg.style.transform = `translate(${dx}px,${dy}px) scale(${scale})`;
+    if (phase === 'exit') {
+      svg.style.opacity = String(1-fade);
+      closeButton.style.opacity = String(1-fade);
+      if (invoker) invoker.style.setProperty('opacity', String(fade*invokerAlpha), invokerOpacityPriority);
+    }
     if (seedDuration) silhouette.setAttribute('fill', seedProgress < 1
       ? `color-mix(in srgb, ${styles.getPropertyValue('--ui-palette-blue-400').trim()} ${(1-seedProgress)*100}%, ${fill})` : fill);
-    closeButton.style.transform = `translateY(${nudge}px) scale(${seedScale})`;
+    closeButton.style.transform = `translate(${dx}px,${dy}px) scale(${scale})`;
     closeIcon.style.transform = fromPoint ? 'none' : `rotate(${phase === 'enter' ? -45*(1-clamp(elapsed/250,0,1)) : -45*clamp(elapsed/250,0,1)}deg)`;
     targets.forEach((target,index) => {
       const progress = phase === 'enter'

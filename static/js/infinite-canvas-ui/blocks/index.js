@@ -1,4 +1,4 @@
-import { ensureBlockStyles } from './styles.js?v=ic-ui-56c693e4e18f';
+import { ensureBlockStyles } from './styles.js?v=ic-ui-97464d704c3f';
 
 ensureBlockStyles();
 

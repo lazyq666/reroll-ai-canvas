@@ -86,11 +86,20 @@ const orbPixels = page => page.evaluate(() => [...document.querySelectorAll('ic-
     const imageChoice=page.locator('#referenceGenerateMenu ic-menu-item[value="image"] button');
     await imageChoice.hover();
     await page.locator('#referenceGenerateMenu ic-menu-item[value="image"] ic-tooltip[open]').waitFor();
-    assert.equal(await page.locator('#referenceGenerateMenu ic-menu-item[value="image"] ic-tooltip').getAttribute('content'),'添加图片节点');
+    assert.equal(await page.locator('#referenceGenerateMenu ic-menu-item[value="image"] ic-tooltip').getAttribute('content'),'生成图片');
     await page.evaluate(()=>StudioI18n.set('en'));
     assert.equal(await page.locator('#referenceGenerateMenu [part="close"]').getAttribute('aria-label'),'Close quick add');
     await imageChoice.hover();
-    assert.equal(await page.locator('#referenceGenerateMenu ic-menu-item[value="image"] ic-tooltip').getAttribute('content'),'Add an image node');
+    assert.equal(await page.locator('#referenceGenerateMenu ic-menu-item[value="image"] ic-tooltip').getAttribute('content'),'Generate image');
+    for (const [language,hints] of [['en',['Generate text','Generate image','Generate video']],['zh',['生成文本','生成图片','生成视频']]]) {
+      await page.evaluate(language=>StudioI18n.set(language),language);
+      for (const [index,kind] of ['text','image','video'].entries()) {
+        const choice=page.locator(`#referenceGenerateMenu ic-menu-item[value="${kind}"]`);
+        await choice.locator('button').hover();
+        await choice.locator('ic-tooltip[open]').waitFor();
+        assert.equal(await choice.locator('ic-tooltip').getAttribute('content'),hints[index]);
+      }
+    }
     await page.evaluate(()=>StudioI18n.set('zh'));
     await page.locator('#referenceGenerateMenu ic-menu-item[value="text"] button').focus();
     await page.keyboard.press('Home');
