@@ -66,7 +66,8 @@ assert.equal(imageNameBadgeHtml({}), '');
 assert.equal(imageNameBadgeHtml({url:'/note.txt',kind:'text',name:'note.txt'}).includes('已导入'),false);
 console.log(JSON.stringify({cases:pairs.length,legacy:true,mixed:true,filename:true,languageSwitch:true}));
 '''
-        result = subprocess.run(['node', '-e', code], cwd=ROOT, text=True, capture_output=True)
+        # The full translation fixture exceeds Linux's per-argument size limit.
+        result = subprocess.run(['node'], input=code, cwd=ROOT, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(json.loads(result.stdout)['cases'], 6)
 
