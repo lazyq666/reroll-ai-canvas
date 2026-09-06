@@ -450,7 +450,11 @@ function canvasMutationCreateBatch({drafts=[],intent={},connections=[],options={
             return !availableIds.has(from) || !availableIds.has(to) || from===to;
         })) throw new Error('Canvas Mutation batch contains invalid identities or connections');
     // A reused result keeps its identity and coordinates, and remains an obstacle.
-    if(added.length) canvasMutationPlanDrafts(added,intent);
+    if(added.length) canvasMutationPlanDrafts(added,{
+        ...intent,
+        ...(existingDrafts.length && ['horizontal-batch','vertical-batch'].includes(intent.arrangement)
+            ? {fixedNodeId:existingDrafts[0].id} : {})
+    });
     if(!options.skipUndo) canvasMutationHistory('push');
     nodes.push(...added);
     canvasMutationFinalizePlacement(added);

@@ -263,6 +263,7 @@
         const visibility = candidate=>{
             if(!useViewport) return 0;
             const box=translated(visible,candidate.x,candidate.y);
+            if(contains(viewport,box)) return 1;
             return Math.max(0,Math.min(right(box),right(viewport))-Math.max(box.x,viewport.x))
                 *Math.max(0,Math.min(bottom(box),bottom(viewport))-Math.max(box.y,viewport.y))
                 /Math.max(1,box.width*box.height);
@@ -272,6 +273,41 @@
         return candidates.filter(candidate=>distance(candidate)<=budget+1e-9).sort((a,b)=>
             visibility(b)-visibility(a) || distance(a)-distance(b) || aligned(a)-aligned(b)
             || Math.abs(a.y-preferred.y)-Math.abs(b.y-preferred.y) || a.x-b.x || a.y-b.y)[0];
+    }
+
+    function wrappedBatch(measuredDrafts, arrangement, origin, viewport, obstacles, preferred, fixed) {
+        const horizontal = arrangement==='horizontal-batch';
+        const sizes = measuredDrafts.map(item=>rect(item.measurement.footprint));
+        if(fixed) sizes.push(rect(fixed.measurement.footprint));
+        const width = Math.max(...sizes.map(box=>box.width));
+        const height = Math.max(...sizes.map(box=>box.height));
+        const count = measuredDrafts.length+(fixed ? 1 : 0);
+        const available = viewport
+            ? horizontal ? right(viewport)-origin.x : bottom(viewport)-origin.y
+            : Infinity;
+        const span = Math.max(1,Math.min(count,Math.floor((available+GAP)/((horizontal ? width : height)+GAP))));
+        const occupied = [...obstacles];
+        const placements = [];
+        const footprints = [];
+        for(const [index,item] of measuredDrafts.entries()) {
+            const slot = index+(fixed ? 1 : 0);
+            const major = slot%span, minor = Math.floor(slot/span);
+            const value = collection([item],'single');
+            const target = {
+                ...preferred,
+                x:origin.x+(horizontal ? major : minor)*(width+GAP),
+                y:origin.y+(horizontal ? minor : major)*(height+GAP),
+                // A reused first result is the layout anchor, even if the user
+                // placed it away from its inputs. It remains a real obstacle.
+                ...(fixed ? {sourceRect:{x:origin.x-GAP,y:origin.y,width:0,height},upstream:false} : {})
+            };
+            const chosen = search(value,occupied,target,viewport,null);
+            if(!chosen) return null;
+            placements.push({id:String(item.node.id),x:chosen.x,y:chosen.y});
+            footprints.push(translated(value.visibleBounds,chosen.x,chosen.y));
+            occupied.push(translated(value.interactionBounds,chosen.x,chosen.y));
+        }
+        return {placements,bounds:boundsOf(footprints)};
     }
 
     function plan(request={}) {
@@ -310,11 +346,28 @@
         const value=collection(outerDrafts,arrangement);
         const preferred=preferredPosition(value,measuredSnapshot,intent);
         if(!preferred) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'missing-source-node'}]});
-        const frame=containingFrame(measuredSnapshot,intent);
+        const fixed = intent.fixedNodeId
+            ? measuredSnapshot.find(item=>String(item.node.id)===String(intent.fixedNodeId)) : null;
+        if(intent.fixedNodeId && !fixed) {
+            return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'missing-source-node'}]});
+        }
+        const frame=containingFrame(measuredSnapshot,fixed
+            ? {...intent,anchor:{kind:'source',sourceNodeId:fixed.node.id}} : intent);
         const obstacles=measuredSnapshot.filter(item=>item.measurement.placementObstacle)
             .map(item=>rect(item.measurement.interactionFootprint));
         const viewport=intent.viewport && Number(intent.viewport.width)>0 && Number(intent.viewport.height)>0
             ? rect(intent.viewport) : null;
+        const batch = ['horizontal-batch','vertical-batch'].includes(arrangement);
+        const origin = fixed ? rect(fixed.measurement.footprint) : preferred;
+        const needsWrap = viewport && (arrangement==='horizontal-batch'
+            ? origin.x+value.visibleBounds.width>right(viewport)
+            : origin.y+value.visibleBounds.height>bottom(viewport));
+        if(batch && intent.anchor?.kind!=='point' && (fixed || needsWrap)) {
+            const result=wrappedBatch(outerDrafts,arrangement,origin,viewport,obstacles,preferred,fixed);
+            if(!result) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'invalid-node-dimensions'}]});
+            const frameUpdates=frame ? [{id:String(frame.node.id),...geometry.expandFrame(rect(frame.measurement.footprint),[result.bounds])}] : [];
+            return Object.freeze({ok:true,...result,frameUpdates,frameId:String(frame?.node.id || ''),diagnostics:[]});
+        }
         const chosen=intent.anchor?.kind==='point' ? preferred
             : search(value,obstacles,preferred,viewport,previousGenerationBatch(measuredSnapshot,measuredDrafts,intent));
         if(!chosen) return Object.freeze({ok:false,placements:[],bounds:null,diagnostics:[{code:'invalid-node-dimensions'}]});

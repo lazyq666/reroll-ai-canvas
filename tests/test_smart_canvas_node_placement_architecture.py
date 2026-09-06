@@ -71,7 +71,7 @@ class SmartCanvasNodePlacementArchitectureTests(unittest.TestCase):
     def test_automatic_entrypoints_delegate_semantic_intent_to_canvas_mutation(self):
         self.assertIn("canvasMutationPlanDrafts([node], options.placement)", self.mutation)
         self.assertIn("options.positionMode !== 'exact'", self.mutation)
-        self.assertIn("canvasMutationPlanDrafts(added,intent)", self.mutation)
+        self.assertIn("canvasMutationPlanDrafts(added,{", self.mutation)
         self.assertIn("generationOutputMutationModule.createBatch({", self.output)
         self.assertIn("arrangement:`${generationBatchLayout}-batch`", self.output)
         self.assertIn("arrangement:'single'", self.host)

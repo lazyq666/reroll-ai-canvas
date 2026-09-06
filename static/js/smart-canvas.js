@@ -1438,7 +1438,7 @@ function applyTheme(theme){
     refreshSmartCanvasSettings();
 }
 function toast(text, options={}){
-    if(generationFailureAlertStates.size && !options.persistent) return;
+    if(generationFailureAlertStates.size && !options.persistent && !options.submission) return;
     if(options.persistent){
         if(!generationFailureAlertQueue) return;
         const detailLogId = String(options.detailLogId || '');
@@ -1478,12 +1478,13 @@ function toast(text, options={}){
     const notify = () => {
         const Toast = customElements.get('ic-toast');
         if(typeof Toast?.notify !== 'function') return false;
-        Toast.notify(String(text || ''), {
+        const notification = Toast.notify(String(text || ''), {
             tone:options.tone || 'neutral',
             duration:options.duration ?? ((options.tone || 'neutral') === 'danger' ? 0 : 1800),
             actionLabel:options.actionLabel || '',
             onAction:options.onAction
         });
+        if(options.i18nKey) notification.dataset.i18n = options.i18nKey;
         return true;
     };
     if(!notify()) customElements.whenDefined('ic-toast').then(notify);
@@ -2374,9 +2375,9 @@ function arrangeSelectedSmartNodes(mode='grid'){
     const labelKey = ({
         horizontal:'smart.layoutHorizontal',
         vertical:'smart.layoutVertical',
-        tree:'smart.layoutTreeVertical',
-        'tree-vertical':'smart.layoutTreeVertical',
-        'tree-horizontal':'smart.layoutTreeHorizontal'
+        tree:'smart.layoutTree',
+        'tree-vertical':'smart.layoutTree',
+        'tree-horizontal':'smart.layoutTree'
     })[mode] || 'smart.layoutGrid';
     const label = tr(labelKey);
     toast(trf('smart.layoutDone', {layout: label}));
@@ -5765,6 +5766,42 @@ function recoverStuckLoopOutputsFromLogs(){
     });
     return changed;
 }
+let composerSubmission = null;
+async function submitComposerGeneration(){
+    if(composerSubmission || runBtn.disabled) return false;
+    const node = activeComposerNode();
+    if(!node) return false;
+    const submission = {nodeId:node.id, focusRevision:composerFocusRevision};
+    composerSubmission = submission;
+    syncRunButtonState();
+    const finish = () => {
+        if(composerSubmission !== submission) return;
+        composerSubmission = null;
+        syncRunButtonState();
+    };
+    const notifyAccepted = ({node:target, submission:receipt}) => {
+        if(composerSubmission !== submission) return;
+        finish();
+        if(composerFocusRevision === submission.focusRevision
+            && [submission.nodeId, target?.id].includes(activeComposerNode()?.id)){
+            setPromptAuthoringFocused(false);
+        }
+        const queued = receipt.state === 'queued' || (receipt.tasks?.length
+            && receipt.tasks.every(task => task.status === 'queued'));
+        const key = receipt.state === 'local-queued' ? 'smart.generationSavedOffline'
+            : receipt.state === 'completed' ? 'smart.generationCompleted'
+            : queued ? 'smart.generationQueued' : 'smart.generationSubmitted';
+        toast(tr(key), {tone:'success', duration:4000, submission:true, i18nKey:key});
+    };
+    try {
+        return await generationRun.run({nodeId:node.id, onAccepted:notifyAccepted, onQueued:notifyAccepted});
+    } catch(error){
+        toast(error?.message || tr('smart.errRunFailed'), {tone:'danger'});
+        return false;
+    } finally {
+        finish();
+    }
+}
 function syncRunButtonState(node=window.SmartCanvasModules.viewportSelection.selection.node()){
     if(!runBtn) return;
     // 单次生成中的节点仍允许再次提交；新的运行会创建并列输出节点。
@@ -5775,7 +5812,10 @@ function syncRunButtonState(node=window.SmartCanvasModules.viewportSelection.sel
     const invalidVideoReferences = videoState
         ? window.SmartCanvasModules.videoCapabilities.validateReferences(videoState).valid === false
         : false;
-    runBtn.disabled = !isSmartRunnableNode(node)
+    runBtn.loading = Boolean(composerSubmission);
+    runBtn.dataset.i18nLabel = composerSubmission ? 'smart.generationSubmitting' : 'smart.run';
+    runBtn.label = tr(runBtn.dataset.i18nLabel);
+    runBtn.disabled = Boolean(composerSubmission) || !isSmartRunnableNode(node)
         || generationRun.status({node}).loopRunning
         || invalidVideoReferences;
 }
@@ -5993,6 +6033,7 @@ function connectionLayerController(){
             connections:canvas?.connections || [],
             selectedConnectionKey,
             selectedConnectionPoint,
+            selectedNodeIds:window.SmartCanvasModules.viewportSelection.selection.ids(),
             pinnedNodeIds:smartCanvasPinnedNodeIds(),
             interaction:canvasInteraction.active()
         }),
@@ -8583,13 +8624,9 @@ function smartMultiSelectionToolbarHtml(ids=[]){
         <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-layout="vertical" title="${escapeAttr(tr('smart.layoutVertical'))}">
             <ic-icon slot="start" name="layout-vertical" size="x-small"></ic-icon>${escapeHtml(tr('smart.layoutVertical'))}
         </ic-button>
-        <ic-menu data-smart-tree-layout-menu="1" size="small" trigger="dropdown" selection="command" placement="block-end" alignment="end" label="${escapeAttr(tr('smart.layoutTreeMenu'))}">
-            <ic-button slot="trigger" type="button" size="xs" hierarchy="quiet" data-smart-tree-layout-trigger="1" title="${escapeAttr(tr('smart.layoutTreeMenu'))}" aria-haspopup="menu" aria-expanded="false">
-                <ic-icon slot="start" name="layout-tree" size="x-small"></ic-icon>${escapeHtml(tr('smart.layoutTree'))}<ic-icon slot="end" name="expand" size="x-small"></ic-icon>
-            </ic-button>
-            <ic-menu-item kind="command" value="tree-vertical" data-smart-multi-layout="tree-vertical" icon="layout-vertical" label="${escapeAttr(tr('smart.layoutTreeVertical'))}"></ic-menu-item>
-            <ic-menu-item kind="command" value="tree-horizontal" data-smart-multi-layout="tree-horizontal" icon="layout-horizontal" label="${escapeAttr(tr('smart.layoutTreeHorizontal'))}"></ic-menu-item>
-        </ic-menu>
+        <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-layout="tree-horizontal" title="${escapeAttr(tr('smart.layoutTree'))}">
+            <ic-icon slot="start" name="layout-tree" size="x-small"></ic-icon>${escapeHtml(tr('smart.layoutTree'))}
+        </ic-button>
         <ic-button type="button" size="xs" hierarchy="quiet" data-smart-multi-action="download" title="${escapeAttr(tr('smart.downloadSelection'))}" ${mediaCount ? '' : 'disabled'}>
             <ic-icon slot="start" name="download" size="x-small"></ic-icon>${escapeHtml(tr('smart.contextDownload'))}
         </ic-button>
@@ -8707,8 +8744,7 @@ function bindSmartNodeFloatingPortal(){
         const frameAction = event.target.closest('[data-smart-frame-action]');
         const multiAction = event.target.closest('[data-smart-multi-action]');
         const multiLayout = event.target.closest('[data-smart-multi-layout]');
-        const treeLayoutTrigger = event.target.closest('[data-smart-tree-layout-trigger]');
-        const button = nodeAction || groupAction || frameAction || multiAction || multiLayout || treeLayoutTrigger;
+        const button = nodeAction || groupAction || frameAction || multiAction || multiLayout;
         event.preventDefault();
         event.stopPropagation();
         if(!button || button.disabled) return;
@@ -8722,10 +8758,6 @@ function bindSmartNodeFloatingPortal(){
         else if(frameAction) runSmartFrameToolbarAction(button.dataset.nodeId || '', button.dataset.smartFrameAction);
         else if(multiLayout){
             arrangeSelectedSmartNodes(multiLayout.dataset.smartMultiLayout || 'grid');
-        } else if(treeLayoutTrigger){
-            const menu = treeLayoutTrigger.closest('[data-smart-tree-layout-menu]');
-            if(menu?.hasAttribute('open')) menu.hide('trigger');
-            else menu?.show(treeLayoutTrigger);
         } else if(multiAction?.dataset.smartMultiAction === 'generate'){
             smartMultiInputFromToolbar(window.SmartCanvasModules.viewportSelection.selection.ids());
         } else if(multiAction?.dataset.smartMultiAction === 'download'){
@@ -9545,8 +9577,8 @@ function ensurePortDragPathElement(){
     if(!path){
         path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('class', 'port-drag-temp conn-pending');
-        path.setAttribute('stroke', 'rgba(100,116,139,0.92)');
-        path.setAttribute('stroke-width', '1.9');
+        path.setAttribute('stroke', 'var(--ui-palette-blue-400)');
+        path.setAttribute('stroke-width', '2.5');
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke-linecap', 'round');
         svg.appendChild(path);
@@ -10137,6 +10169,7 @@ function openReferenceGenerateMenu(drag, event, options={}){
         clientX,
         clientY,
         trigger:options.trigger || null,
+        explicitPoint:drag.moved === true,
         menu
     };
     options.trigger?.closest('.image-node')?.classList.add('reference-menu-source');
@@ -10287,7 +10320,7 @@ function createReferencedNodeFromMenu(kind){
         fromPort:isUpstreamInput ? 'in' : 'out',
         kind,
         point:state.point,
-        explicitPoint:!state.trigger
+        explicitPoint:state.explicitPoint
     });
 }
 function createReferencedNodeFromToolbar(node, kind='image'){
@@ -12873,6 +12906,7 @@ function syncPromptAuthoringHeight(){
         ? 'auto'
         : 'hidden';
 }
+let composerFocusRevision = 0;
 let composerFocusTransitionFrame = 0;
 let composerFocusTransitionTimer = 0;
 function finishComposerFocusTransition(){
@@ -12982,6 +13016,7 @@ function setPromptNodeFocused(nodeId, focused){
 function setPromptAuthoringFocused(focused){
     const active = Boolean(focused && composer?.classList.contains('open'));
     const stateChanged = active !== composer?.classList.contains('focused');
+    if(stateChanged) composerFocusRevision++;
     finishComposerFocusTransition();
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
     const fromRect = stateChanged && !reduceMotion ? composer?.getBoundingClientRect() : null;
@@ -15847,6 +15882,44 @@ shell.addEventListener('mousedown', event => {
     refreshConnectionLayer();
 }, true);
 shell.addEventListener('mousedown', beginSmartTemporaryPanPointer, true);
+function smartShiftSelectionNode(event){
+    const selectionOverlay = event.target === smartMultiSelectionBox;
+    if(event.button !== 0 || !event.shiftKey || zoomPreviewState
+        || smartEffectiveTool() !== 'pointer'
+        || (!selectionOverlay && smartCanvasChromeTarget(event.target))) return null;
+    if(selectionOverlay && (smartMultiSelectionBox.isResizeEvent(event)
+        || smartMultiSelectionBox.isQuickAddEvent(event))) return null;
+    if(event.composedPath().some(target => target?.matches?.(
+        'button,ic-button,ic-icon-button,input,textarea,select,[contenteditable="true"],'
+        + 'video,audio,.node-port,.node-resize-handle'
+    ))) return null;
+    const target = selectionOverlay
+        ? document.elementsFromPoint(event.clientX, event.clientY).find(element => element.closest('.image-node'))
+        : event.target;
+    const nodeId = target?.closest('.image-node')?.dataset.id;
+    return nodes.find(node => node.id === nodeId) || null;
+}
+shell.addEventListener('mousedown', event => {
+    if(!smartShiftSelectionNode(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+}, true);
+shell.addEventListener('click', event => {
+    const node = smartShiftSelectionNode(event);
+    if(!node) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const ids = window.SmartCanvasModules.viewportSelection.selection.ids();
+    if(!ids.includes(node.id)) ids.push(node.id);
+    smartPlaybackPauseForSelection();
+    selectedId = ids.length === 1 ? ids[0] : '';
+    selectedIds = ids.length > 1 ? ids : [];
+    selectedImage = {nodeId:'', index:-1};
+    selectedConnectionKey = '';
+    selectedConnectionPoint = null;
+    generationRun.noteManualSelection();
+    render();
+}, true);
 shell.addEventListener('click', event => {
     if(smartCanvasChromeTarget(event.target)) return;
     if(smartEffectiveTool() !== 'hand' && !didPan) return;
@@ -16636,7 +16709,7 @@ if(apiKindToggle){
         canvasPersistence.schedule();
     };
 }
-runBtn.onclick = () => generationRun.run();
+runBtn.onclick = submitComposerGeneration;
 fileInput?.addEventListener('ic-change', event => {
     const groupPoint = pendingGroupUploadPoint;
     const files = [...(event.detail?.acceptedFiles || [])];

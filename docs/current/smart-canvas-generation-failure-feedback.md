@@ -38,6 +38,7 @@ Modal 内任意区域的 `contextmenu` 事件不得冒泡打开 Canvas 的创建
 | 类别 | 用户说明 | 推荐下一步 |
 | --- | --- | --- |
 | authentication | 账号、密钥或登录状态不可用 | 前往设置检查连接 |
+| provider permission | 平台明确拒绝当前账号的生成权限 | 核对运行设备上的 CLI 账号和生成权限；已开通时携带诊断联系平台 |
 | quota / balance | 额度、余额或套餐限制 | 检查账户后重试 |
 | rate limit / concurrency | 请求过多或平台并发已满 | 稍后重试 |
 | moderation / policy | 输入或结果被平台策略拒绝 | 调整 Prompt 或素材 |
@@ -48,6 +49,8 @@ Modal 内任意区域的 `contextmenu` 事件不得冒泡打开 Canvas 的创建
 | unknown | 尚未分类 | 复制诊断并重试 |
 
 APIMART 等平台返回“账户限制”时，不能自行推断为余额不足；只有原始响应明确指向余额、额度或套餐时才使用对应类别。
+
+Dreamina CLI 返回 `current account is not allowed to use dreamina_cli` 或对应中文原文时，使用 `provider_permission_denied`，不能显示“平台内部错误，稍后重试”。这一语义也优先于历史记录中包装的 HTTP 502；新请求以 HTTP 403 保留权限拒绝原文。登录或积分查询成功只证明对应查询可用，不能证明生成接口的账号资格。没有任务或计费证据时不推断扣费、退款或可恢复状态。
 
 CLI helper 返回结构化错误时，`error.message` 与经过脱敏的 `error.detail` 都必须进入 Generation Run 诊断；不能把带上游参数说明的 HTTP 400 收缩成只有 `HTTP 400`。失败 Alert 的“查看详情”同时保存当前日志 ID 和稳定的 Generation Run ID；若日志持久化或协作对账后 ID 发生变化，应按 Generation Run ID 找到对应记录并聚焦。
 

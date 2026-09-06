@@ -3611,7 +3611,16 @@ async def run_jimeng_cli(args, timeout=120, raw_text=False):
     out_text, clean_err_text = jimeng_decode_cli_output(stdout, stderr)
     if proc.returncode != 0:
         message = clean_err_text or out_text or f"exit={proc.returncode}"
-        raise HTTPException(status_code=502, detail=f"即梦 CLI 调用失败：{message[:1000]}")
+        # CLI account eligibility is distinct from login/credit availability.
+        # Preserve its refusal instead of suggesting a transient provider outage.
+        permission_denied = any(signal in message.lower() for signal in (
+            "current account is not allowed to use dreamina_cli",
+            "当前账号没有 dreamina_cli 使用权限",
+        ))
+        raise HTTPException(
+            status_code=403 if permission_denied else 502,
+            detail=f"即梦 CLI 调用失败：{message[:1000]}",
+        )
     # 帮助等纯文本输出不应被 JSON 提取吞掉（如 [0.5, 8] 会被误判为结果）
     if raw_text:
         return {"_stdout": out_text, "_stderr": clean_err_text}

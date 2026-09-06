@@ -262,7 +262,7 @@ function generationOutputCreatePendingBatch(sourceNode, expectedCount, meta, opt
             drafts:outputs,
             intent:{
                 ...(options.placementViewport ? {viewport:options.placementViewport} : {}),
-                anchor:generationOutputBatchAnchor(sourceNode),
+                anchor:options.placementAnchor || generationOutputBatchAnchor(sourceNode),
                 relation:'downstream',
                 arrangement:`${generationBatchLayout}-batch`
             },
@@ -343,7 +343,7 @@ function generationOutputCreatePending(sourceNode, expectedCount, meta, options=
     output._selectAfterRunId = options.selectOutput ? output.id : sourceNode.id;
     const placement = {
         ...(options.placementViewport ? {viewport:options.placementViewport} : {}),
-        anchor:generationOutputBatchAnchor(sourceNode),
+        anchor:options.placementAnchor || generationOutputBatchAnchor(sourceNode),
         relation:'downstream',
         arrangement:'single'
     };
@@ -1214,6 +1214,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
     },
     createPending({
         sourceNode=null,
+        placementAnchor=null,
         placementViewport=null,
         expectedCount=1,
         meta=null,
@@ -1231,6 +1232,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
             expectedCount,
             meta,
             {
+                placementAnchor,
                 placementViewport,
                 connectSource,
                 selectOutput,
@@ -1245,6 +1247,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
     },
     createPendingBatch({
         sourceNode=null,
+        placementAnchor=null,
         placementViewport=null,
         expectedCount=2,
         meta=null,
@@ -1265,6 +1268,7 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
             expectedCount,
             meta,
             {
+                placementAnchor,
                 placementViewport,
                 connectSource,
                 selectOutput,

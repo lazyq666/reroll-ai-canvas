@@ -82,6 +82,49 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertEqual(payload["category"], "connection_interrupted")
         self.assertEqual(payload["retryability"], "retry_later")
 
+    def test_dreamina_permission_denial_is_actionable_in_new_and_saved_runs(self):
+        values = self.run_module("""
+            const technicalError = '即梦 CLI 调用失败：当前账号没有 dreamina_cli 使用权限: current account is not allowed to use dreamina_cli';
+            const cases = [
+                {providerId:'jimeng', httpStatus:502, technicalError},
+                {providerId:'jimeng', httpStatus:403, technicalError},
+                {providerId:'jimeng', errorCode:'dreamina_cli_permission_denied'},
+            ];
+            process.stdout.write(JSON.stringify(cases.map(value => feedback.classify(value))));
+        """)
+        for value in values:
+            self.assertEqual('provider_permission_denied', value['category'])
+            self.assertEqual('modify_then_retry', value['retryability'])
+            self.assertEqual({}, value['billingEvidence'])
+
+    def test_dreamina_permission_feedback_switches_language_for_saved_error(self):
+        values = self.run_module("""
+            const storage = new Map();
+            sandbox.localStorage = {getItem:key => storage.get(key), setItem:(key,value) => storage.set(key,value)};
+            sandbox.document = {querySelectorAll:() => [], addEventListener(){}, documentElement:{setAttribute(){}}};
+            sandbox.CustomEvent = function(type, init){ return {type,...init}; };
+            sandbox.window.dispatchEvent = () => {};
+            for(const file of ['static/js/i18n-core.js','static/js/i18n/smart-canvas.js']){
+                vm.runInContext(fs.readFileSync(file,'utf8'),sandbox);
+            }
+            const i18n = sandbox.window.StudioI18n;
+            const saved = feedback.classify({providerId:'jimeng', httpStatus:502,
+                technicalError:'current account is not allowed to use dreamina_cli'});
+            const values = ['zh','en','zh'].map(lang => {
+                i18n.set(lang);
+                return feedback.localize(saved,i18n.t);
+            });
+            process.stdout.write(JSON.stringify(values));
+        """)
+        self.assertEqual('生成权限被拒绝', values[0]['title'])
+        self.assertEqual('Generation access denied', values[1]['title'])
+        self.assertEqual(values[0], values[2])
+        self.assertIn('API 设置', values[0]['action'])
+        self.assertIn('API settings', values[1]['action'])
+        for value in values:
+            for field in ['title', 'description', 'action']:
+                self.assertNotIn('smart.error.', value[field])
+
     def test_apimart_chinese_unavailable_size_is_not_reported_as_unknown(self):
         payload = self.run_module(
             """

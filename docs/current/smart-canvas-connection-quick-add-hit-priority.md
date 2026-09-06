@@ -43,6 +43,11 @@ stateDiagram-v2
 
 ## Connection 与 Frame
 
+- 普通（`flow`）与输入（`input`）Connection 共用基础视觉：1.5 线宽、中性连线色、82% 不透明度；关系类型的数据语义保留，运行、选中等状态可覆盖基础表现。
+- 从端口拖出的临时连线使用 `--ui-palette-blue-400`、2.5 线宽，保留现有流动虚线反馈。
+- 生成中的连线使用蓝色完整实线，叠加 2.8 秒循环的宽幅流光。流光始终沿 `Connection.from` → `Connection.to`（父 → 子）运行，不随选中端或节点左右位置反转；普通 Pending 和级联 active 使用同一表现，wait 不播放流光。
+- 选中 Node 后，其直接父子连线在非运行、非等待状态下复用 Connection hover 的焦点色和 2.5 线宽。多选取直接关联的并集，不递归追踪整条链路；取消选择恢复原样，不额外选中 Connection 或显示剪刀。生成结束时移除流光，再根据当前选择显示静态关联高亮。
+- 系统或应用启用减少动态效果时隐藏流光，保留静态生成线；级联活跃连线或 Pending 节点数量超过 24 时同样停用流光，避免大量动画叠加。擦除标记优先于流光。
 - Connection 的可见 Stroke 与命中 Stroke 可以不同宽，但用户点击视觉上明显远离线条的空白不能选中 Connection。
 - 选中 Connection 后才显示剪刀/删除 affordance；触发后只删除该 Connection，不改变两端 Node。
 - Connection 层的透明空白必须穿透，不能阻止 Node、Frame 或 Canvas 接收事件。
@@ -52,6 +57,12 @@ stateDiagram-v2
 
 ## 验收
 
+- Light/Dark 下普通与输入连线的基础透明度一致；端口拖拽预览显示蓝色、2.5 线宽，取消拖拽后临时线消失。
+- 父节点放在子节点右侧时，生成流光仍沿父 → 子运行；选择任一端、移动节点和局部刷新不反转方向。
+- 连续滚动和缩放时，仍在视口中挂载的生成连线保留动画实例及播放进度，刷新不得让流光反复从头播放。
+- 普通 Pending 与级联 active 显示流光，wait、done 和空闲状态不显示；停止或结束生成后不残留动画。
+- 单选、多选、切换和取消选择正确更新直接关联高亮，样式与真实 hover 相同；关联高亮不显示剪刀，单独选中 Connection 仍可断开。
+- Light/Dark、系统及应用减少动态效果、擦除和大量并发下，连线保持可见且可操作。
 - hover 反馈、光标和最终动作始终指向同一个命中对象。
 - 快速进出热区没有闪烁、残留按钮或错误菜单。
 - 两个热区重叠时结果稳定，不随渲染顺序随机变化。
@@ -60,4 +71,4 @@ stateDiagram-v2
 - Zoom、Pan、虚拟化、远端 Mutation 与重渲染后规则不变。
 - 详细模式不渲染 Frame 或 Smart Group 导航 Badge；远景模式的两类 Badge 均可在首次按下时直接拖动对应容器。
 
-代表性测试：`tests/test_smart_canvas_canvas_interaction.py`、`tests/smart_canvas_hit_priority_browser_smoke.cjs`、`tests/test_issue_172_container_navigation_badge.py`、`tests/issue_172_container_navigation_badge_browser_smoke.cjs`。
+代表性测试：`tests/smart_canvas_connection_states_browser_smoke.cjs`、`tests/test_smart_canvas_canvas_interaction.py`、`tests/smart_canvas_hit_priority_browser_smoke.cjs`、`tests/test_issue_172_container_navigation_badge.py`、`tests/issue_172_container_navigation_badge_browser_smoke.cjs`。

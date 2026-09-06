@@ -1,5 +1,5 @@
 (function(){
-    const VERSION = 'i18n-2dce65638a00';
+    const VERSION = 'i18n-8b99713091b8';
     const scripts = [
         '/static/js/i18n-core.js',
         '/static/js/i18n/common.js',

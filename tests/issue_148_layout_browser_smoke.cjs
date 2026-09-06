@@ -36,7 +36,7 @@ async function installSelection(page) {
         script.remove();
     }, tinyPng);
     await page.waitForFunction(() => (
-        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 5
+        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 4
     ));
 }
 
@@ -69,7 +69,7 @@ async function installGridSelection(page) {
         script.remove();
     }, tinyPng);
     await page.waitForFunction(() => (
-        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 5
+        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 4
     ));
 }
 
@@ -108,7 +108,7 @@ async function installCrossBatchBranchSelection(page) {
         script.remove();
     }, tinyPng);
     await page.waitForFunction(() => (
-        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 5
+        document.querySelectorAll('#smartNodeFloatingPortal [data-smart-multi-layout]').length === 4
     ));
 }
 
@@ -198,7 +198,6 @@ async function exactQuickAdd(page, fromPort, kind, point) {
             {mode:'grid',disabled:false},
             {mode:'horizontal',disabled:false},
             {mode:'vertical',disabled:false},
-            {mode:'tree-vertical',disabled:false},
             {mode:'tree-horizontal',disabled:false},
         ]);
 
@@ -225,30 +224,9 @@ async function exactQuickAdd(page, fromPort, kind, point) {
         );
 
         await installSelection(page);
-        const treeTrigger = page.locator('[data-smart-tree-layout-trigger]');
-        await treeTrigger.focus();
-        await treeTrigger.press('Enter');
-        await page.waitForFunction(() => document.querySelector('[data-smart-tree-layout-menu]')?.hasAttribute('open'));
-        await page.keyboard.press('Enter');
-        await page.waitForFunction(() => {
-            const byId = Object.fromEntries(nodes.map(node => [node.id,node]));
-            return byId.a.x === byId.b.x
-                && byId.c.x > byId.a.x
-                && byId.d.x > byId.c.x;
-        });
-        const tree = await page.evaluate(() => Object.fromEntries(nodes.map(node => {
-            const rect = nodeRect(node);
-            return [node.id,{
-                x:node.x,
-                centerY:node.y + rect.height / 2
-            }];
-        })));
-        assert.ok(Math.abs(tree.c.centerY - (tree.a.centerY + tree.b.centerY) / 2) <= 1);
-        assert.ok(Math.abs(tree.d.centerY - tree.c.centerY) <= 1);
-
-        await installSelection(page);
-        await treeTrigger.click();
-        await page.locator('[data-smart-multi-layout="tree-horizontal"]').click();
+        const treeButton = page.locator('[data-smart-multi-layout="tree-horizontal"]');
+        await treeButton.focus();
+        await treeButton.press('Enter');
         await page.waitForFunction(() => {
             const byId = Object.fromEntries(nodes.map(node => [node.id,node]));
             return byId.a.x === byId.b.x
@@ -273,7 +251,6 @@ async function exactQuickAdd(page, fromPort, kind, point) {
         assert.ok(horizontalTree.a.centerY > horizontalTree.b.centerY);
 
         await installCrossBatchBranchSelection(page);
-        await treeTrigger.click();
         await page.locator('[data-smart-multi-layout="tree-horizontal"]').click();
         await page.waitForFunction(() => {
             const byId = Object.fromEntries(nodes.map(node => [node.id,node]));
@@ -323,7 +300,7 @@ async function exactQuickAdd(page, fromPort, kind, point) {
         }
 
         assert.deepEqual(runtimeErrors, []);
-        console.log(JSON.stringify({passed:true,entries,grid,horizontal,tree,horizontalTree,crossBatchTree,theme,quickAdd,screenshots:['/tmp/issue-148-light.png','/tmp/issue-148-dark.png']}, null, 2));
+        console.log(JSON.stringify({passed:true,entries,grid,horizontal,horizontalTree,crossBatchTree,theme,quickAdd,screenshots:['/tmp/issue-148-light.png','/tmp/issue-148-dark.png']}, null, 2));
     } finally {
         await browser.close();
     }

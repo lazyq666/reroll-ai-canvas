@@ -184,8 +184,10 @@ function createSmartConnectionLayerModule(dependencies={}){
                 key,
                 runView.connectionStates?.[index]
             ])),
-            reduceMotion:Number(runView.activeConnectionCount || 0) > 24,
+            reduceMotion:Number(runView.activeConnectionCount || 0) > 24
+                || nodes.filter(node => node.pending).length > 24,
             pinnedNodeIds:new Set(snapshot.pinnedNodeIds || []),
+            selectedNodeIds:new Set(snapshot.selectedNodeIds || []),
             interaction:snapshot.interaction || null
         };
     }
@@ -247,8 +249,14 @@ function createSmartConnectionLayerModule(dependencies={}){
             || Boolean(cascadeState)
             || isInsertPreview
         );
-        const isPending = !isCascade && item.targets.some(
+        const isPending = !isHistory && !cascadeState && item.targets.some(
             target => nodeById.get(target)?.pending
+        );
+        const isRunning = isPending || cascadeState === 'active';
+        const isRelated = !isRunning && (!cascadeState || cascadeState === 'done') && (
+            view.selectedNodeIds.has(item.from)
+            || view.selectedNodeIds.has(item.toId)
+            || item.targets.some(target => view.selectedNodeIds.has(target))
         );
         const isSelected = view.snapshot.selectedConnectionKey === item.key;
         const selectedPoint = isSelected
@@ -257,11 +265,13 @@ function createSmartConnectionLayerModule(dependencies={}){
             : null;
         return {
             isSelected,
+            isRunning,
+            isRelated,
             lineClass:[
                 isPending ? 'conn-pending' : '',
                 isCascade ? 'conn-cascade' : '',
                 isCascade && cascadeState === 'done' ? 'conn-cascade-done' : '',
-                isCascade && cascadeState && cascadeState !== 'done'
+                isCascade && cascadeState === 'wait'
                     ? 'conn-cascade-wait'
                     : '',
                 isCascade && cascadeState === 'active' ? 'conn-cascade-active' : '',
@@ -276,7 +286,7 @@ function createSmartConnectionLayerModule(dependencies={}){
                 ? '.9'
                 : isHistory
                     ? '.58'
-                    : item.kind === 'input' ? '.82' : '.72',
+                    : '.82',
             controlX:selectedPoint?.x ?? (geometry.fx + geometry.tx) / 2,
             controlY:selectedPoint?.y ?? (geometry.fy + geometry.ty) / 2
         };
@@ -340,6 +350,24 @@ function createSmartConnectionLayerModule(dependencies={}){
         group.appendChild(control);
         return control;
     }
+    function smartConnectionLayerSyncRibbon(group,presentation,geometry){
+        if(!presentation.isRunning){
+            group.querySelectorAll(':scope > .conn-ribbon').forEach(path => path.remove());
+            return;
+        }
+        for(const kind of ['glow','core']){
+            let path = group.querySelector(`:scope > .conn-ribbon-${kind}`);
+            if(!path){
+                path = smartConnectionLayerCreateSvgElement('path');
+                path.setAttribute('class',`conn-ribbon conn-ribbon-${kind}`);
+                path.setAttribute('pathLength','1');
+                group.insertBefore(path,group.querySelector(':scope > .conn-hit'));
+            }
+            // Geometry always starts at Connection.from and ends at Connection.to.
+            // Selection never reverses the generation flow.
+            path.setAttribute('d',geometry.curve);
+        }
+    }
     function smartConnectionLayerMaterialize(svg,item,view){
         const geometry = smartConnectionLayerGeometry(item,view);
         const existing = elementByKey.get(item.key) || null;
@@ -351,10 +379,9 @@ function createSmartConnectionLayerModule(dependencies={}){
         }
         const presentation = smartConnectionLayerPresentation(item,view,geometry);
         const group = existing || smartConnectionLayerEnsureMaterialization(svg,item);
-        group.setAttribute(
-            'class',
-            `connection-materialization ${presentation.isSelected ? 'connection-selected' : ''}`
-        );
+        group.classList.toggle('connection-selected',presentation.isSelected);
+        group.classList.toggle('connection-running',presentation.isRunning);
+        group.classList.toggle('connection-related',presentation.isRelated);
         const dataIndex = item.indices.join(',');
         const line = group.querySelector(':scope > .conn-line');
         const hit = group.querySelector(':scope > .conn-hit');
@@ -370,6 +397,7 @@ function createSmartConnectionLayerModule(dependencies={}){
         end.setAttribute('cx',String(geometry.tx));
         end.setAttribute('cy',String(geometry.ty));
         end.setAttribute('fill',presentation.color);
+        smartConnectionLayerSyncRibbon(group,presentation,geometry);
         if(presentation.isSelected){
             const control = smartConnectionLayerEnsureCutControl(group);
             control.dataset.connIndex = dataIndex;
@@ -398,8 +426,9 @@ function createSmartConnectionLayerModule(dependencies={}){
         const desiredKeys = new Set();
         view.items.forEach(item => {
             desiredKeys.add(item.key);
-            const group = smartConnectionLayerMaterialize(svg,item,view);
-            if(group) svg.appendChild(group);
+            // New groups mount in EnsureMaterialization. Reinserting an existing
+            // group restarts its CSS animations even when its identity survives.
+            smartConnectionLayerMaterialize(svg,item,view);
         });
         elementByKey.forEach((group,key) => {
             if(desiredKeys.has(key)) return;
@@ -415,6 +444,7 @@ function createSmartConnectionLayerModule(dependencies={}){
         const current = smartConnectionLayerSnapshot();
         lastView.snapshot = current;
         lastView.pinnedNodeIds = new Set(current.pinnedNodeIds || []);
+        lastView.selectedNodeIds = new Set(current.selectedNodeIds || []);
         lastView.interaction = current.interaction || null;
         const svg = smartConnectionLayerEnsureSvg(lastView.reduceMotion);
         const keys = new Set();

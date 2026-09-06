@@ -241,7 +241,7 @@ class SmartCanvasMutationModuleTests(unittest.TestCase):
             payload["created"],
             [
                 {"id": "seed", "x": 400, "y": 20},
-                {"id": "sibling", "x": 264, "y": -94},
+                {"id": "sibling", "x": 400, "y": 134},
             ],
         )
         self.assertEqual(payload["nodeIds"], ["source", "seed", "sibling"])

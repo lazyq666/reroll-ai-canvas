@@ -284,7 +284,8 @@ class SmartCanvasInteractionOptimizationTests(unittest.TestCase):
         self.assertNotIn("document.createElement('template')", source)
         self.assertNotIn("querySelectorAll('.conn-hit,.conn-cut')", source)
         self.assertIn(
-            ".connection-layer .connection-materialization.is-pointer-hover .conn-line "
+            ".connection-layer .connection-materialization.is-pointer-hover .conn-line,\n"
+            ".connection-layer .connection-materialization.connection-related .conn-line "
             "{ stroke:var(--ui-color-border-focus); stroke-width:2.5; }",
             self.style,
         )
@@ -600,14 +601,15 @@ class SmartCanvasInteractionOptimizationTests(unittest.TestCase):
         self.assertIn("function arrangeSelectedSmartNodes", self.host)
         self.assertIn("smartContainer.frameFor(node.id)", self.host)
 
-    def test_multi_selection_exposes_directional_tree_menu(self):
+    def test_multi_selection_exposes_direct_horizontal_tree_action(self):
         start = self.host.index("function smartMultiSelectionToolbarHtml")
         end = self.host.index("\nfunction positionSmartNodeFloatingPortal", start)
         toolbar = self.host[start:end]
-        for mode in ("grid", "horizontal", "vertical", "tree-vertical", "tree-horizontal"):
+        for mode in ("grid", "horizontal", "vertical", "tree-horizontal"):
             self.assertIn(f'data-smart-multi-layout="{mode}"', toolbar)
-        self.assertIn('data-smart-tree-layout-trigger="1"', toolbar)
-        self.assertIn('data-smart-tree-layout-menu="1"', toolbar)
+        self.assertNotIn('data-smart-tree-layout-trigger', toolbar)
+        self.assertNotIn('data-smart-tree-layout-menu', toolbar)
+        self.assertNotIn('tree-vertical', toolbar)
         self.assertNotIn('data-smart-multi-action="arrange"', toolbar)
         self.assertNotIn("smart-multi-layout-tooltip", toolbar)
 

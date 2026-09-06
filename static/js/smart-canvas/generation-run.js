@@ -378,6 +378,24 @@ async function settleGenerationProviderResult(node, submission, options={}){
         submissionSnapshot:options.submissionSnapshot || null
     });
 }
+function generationSubmissionAcceptance(targets, operationId, options={}){
+    const targetIds = targets.map(target => target.id);
+    let accepted = false;
+    return async submission => {
+        const liveTargets = targetIds.map(id => nodes.find(item => item.id === id));
+        if(liveTargets.some(target => !target || target.generationOperationId !== operationId)){
+            const error = new Error(tr('smart.runReplaced'));
+            error.generationDiscarded = true;
+            throw error;
+        }
+        if(!submission || !['completed','pending','queued'].includes(submission.state)){
+            throw new Error(tr('smart.errRunFailed'));
+        }
+        if(accepted) return;
+        accepted = true;
+        await options.onAccepted?.({node:liveTargets[0],submission});
+    };
+}
 async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings=null, options={}){
     const settingsSnapshot = generationSettingsModule.snapshot(runSettings);
     const generationOperationId = [
@@ -402,7 +420,9 @@ async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings
         error.generationSyncPending = true;
         throw error;
     }
+    const accept = generationSubmissionAcceptance([node], generationOperationId, options);
     const submission = await generationProviderModule.submit({
+        onAccepted:accept,
         prompt,
         refs:refs || [],
         settings:settingsSnapshot,
@@ -419,7 +439,7 @@ async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings
         error.generationDiscarded = true;
         throw error;
     }
-    await options.onAccepted?.({node:currentNode,submission});
+    await accept(submission);
     return settleGenerationProviderResult(currentNode, submission, options);
 }
 async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, runSettings=null, options={}){
@@ -453,7 +473,9 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
         error.generationSyncPending = true;
         throw error;
     }
+    const accept = generationSubmissionAcceptance(slots, generationOperationId, options);
     const submission = await generationProviderModule.submit({
+        onAccepted:accept,
         prompt,
         refs:refs || [],
         settings:settingsSnapshot,
@@ -473,6 +495,10 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
         error.generationDiscarded = true;
         throw error;
     }
+    if(!submission || !['completed','pending'].includes(submission.state)){
+        throw new Error(tr('smart.errRunFailed'));
+    }
+    await accept(submission);
     if(submission.state === 'completed'){
         const outputs = resultMediaUrls(submission.outputs || []);
         return {
@@ -914,8 +940,13 @@ async function runGeneration(options={}){
         meta.promptText = editablePrompt;
     }
     const logKind = runPlan.outputKind;
+    const queueLocally = async target => {
+        const queued = generationRunQueueIntent(target, queuedIntent);
+        if(queued) await options.onQueued?.({node:target, submission:{state:'local-queued'}});
+        return queued;
+    };
     if(!generationRunOnline()){
-        if(!sourceInFlight) return generationRunQueueIntent(node, queuedIntent);
+        if(!sourceInFlight) return queueLocally(node);
         const inheritSourceConnections = generationRunHasIncomingSourceConnection(node);
         const queuedNode = generationOutputModule.createPending({
             sourceNode:node,
@@ -932,7 +963,7 @@ async function runGeneration(options={}){
         queuedNode.pending = 0;
         queuedNode.running = false;
         delete queuedNode.runStartedAt;
-        return generationRunQueueIntent(queuedNode, queuedIntent);
+        return queueLocally(queuedNode);
     }
     const runLog = smartRunSnapshot(node, prompt, refs, logKind, runSettings);
     generationSettingsModule.remember(runSettings, {node});
@@ -1044,6 +1075,10 @@ async function runGeneration(options={}){
     }
     render();
     let submissionAccepted = false;
+    const onAccepted = async detail => {
+        submissionAccepted = true;
+        await options.onAccepted?.(detail);
+    };
     try {
         const result = useBatchOutputs
             ? await submitAndSettleGenerationProviderBatch(
@@ -1051,15 +1086,12 @@ async function runGeneration(options={}){
                 prompt,
                 refs,
                 runSettings,
-                {logContext:{run:runLog,runLogStart}}
+                {logContext:{run:runLog,runLogStart}, onAccepted}
             )
             : await submitAndSettleGenerationProvider(pendingNode, prompt, refs, runSettings, {
                 logContext:{run:runLog, runLogStart},
                 submissionSnapshot,
-                onAccepted:async detail => {
-                    submissionAccepted = true;
-                    await options.onAccepted?.(detail);
-                }
+                onAccepted
             });
         if(result.deferred){
             delete pendingNode._runMetaTargetId;
@@ -1176,7 +1208,7 @@ async function runGeneration(options={}){
                 }
                 selectedId = node.id;
             }
-            generationRunQueueIntent(node, queuedIntent);
+            await queueLocally(node);
             return;
         }
         if(useBatchOutputs){
@@ -1313,9 +1345,11 @@ async function regenerateGenerationRun(nodeId){
         source
     );
     const outputParent = inheritSourceConnections ? source : anchor;
+    const placementAnchor = {kind:'source',sourceNodeId:source.id};
     const batchNodes = useBatchOutputs
         ? generationOutputModule.createPendingBatch({
             sourceNode:outputParent,
+            placementAnchor,
             expectedCount,
             meta:batchMeta,
             connectSource:true,
@@ -1328,6 +1362,7 @@ async function regenerateGenerationRun(nodeId){
     if(useBatchOutputs) generationRunContainerModule.reconcileFrames?.();
     const pending = batchNodes[0] || generationOutputModule.createPending({
         sourceNode:outputParent,
+        placementAnchor,
         expectedCount,
         meta,
         connectSource:true,
@@ -1445,7 +1480,7 @@ async function regenerateGenerationRun(nodeId){
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.generationRun = Object.freeze({
-    run({nodeId='', mode='single'}={}){
+    run({nodeId='', mode='single', onAccepted=null, onQueued=null}={}){
         const node = nodeId ? nodes.find(item => item.id === nodeId) : window.SmartCanvasModules.viewportSelection.selection.node();
         if(mode === 'loop'){
             if(!generationRunOnline()){
@@ -1459,7 +1494,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             selectedIds = [];
             selectedImage = {nodeId:'', index:-1};
         }
-        return runGeneration({node});
+        return runGeneration({node, onAccepted, onQueued});
     },
     processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},onAccepted=null,throwOnSubmissionFailure=true}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
