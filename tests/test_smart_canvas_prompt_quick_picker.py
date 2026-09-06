@@ -54,7 +54,7 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
     def test_prompt_node_uses_a_rich_editor_for_at_and_slash(self):
         self.assertIn('class="prompt-node-text prompt-node-control"', self.script)
         self.assertIn(
-            'class="prompt-llm-instruction"',
+            "editor.classList.add('prompt-llm-instruction','composer-prompt-input')",
             (ROOT / 'static/js/smart-canvas/prompt-generation-composer.js').read_text()
         )
         self.assertIn('contenteditable="false"', self.script)
@@ -62,7 +62,6 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
         self.assertIn("handlePromptQuickPickerKeydown(event, editor)", self.script)
         self.assertIn("promptNodeEditorHtml(node)", self.script)
         self.assertIn("promptLlmInstructionEditorHtml(node)", self.script)
-        self.assertIn("syncPromptLlmInstructionEditor(node, editor)", self.script)
         self.assertIn("llmInstructionHtml:String(data.llmInstructionHtml || '')", self.mutation)
 
     def test_typed_query_fuzzy_filters_references_and_templates(self):
@@ -521,7 +520,6 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
                 promptQuickEditor:()=>promptInput,
                 promptQuickTargetNode:()=>node,
                 consumePromptTrigger:()=>{},
-                syncPromptLlmInstructionEditor:()=>{},
                 syncPromptNodeEditor:()=>{},
                 addManualReferenceToNode:()=>({
                     added:false,

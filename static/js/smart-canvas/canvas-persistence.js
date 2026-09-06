@@ -773,6 +773,11 @@ function canvasPersistenceAssignDocument(
 }
 function canvasPersistenceEditableElementActive(){
     const active = document.activeElement;
+    // The persistent text Composer reconciles its draft without replacing the
+    // editor. Its focus must not hold acknowledgements needed by submission.
+    if(window.SmartCanvasModules?.promptGenerationComposer?.owns?.(active)){
+        return false;
+    }
     if(typeof isEditableTarget === 'function' && isEditableTarget(active)){
         return true;
     }

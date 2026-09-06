@@ -161,7 +161,7 @@ static/
 │   ├── multi-input.js          多来源资格、Group 归一化、稳定视觉顺序和目标连接规划
 │   ├── multi-input-controller.js 选择快照、公共 Quick Add 与一次性 Mutation 的页面协调
 │   ├── model-capabilities.js 统一能力查询、缓存、Revision 与提交前校验
-│   ├── prompt-generation-composer.js 独立文字 Composer 的草稿会话、引用、模型、展开与提交协调
+│   ├── prompt-generation-composer.js 独立文字 Composer 的指令保存、冲突草稿、引用、模型、展开与提交协调
 │   ├── image-capabilities.js 图片 Composer 的能力投影与设置协调
 │   ├── video-capabilities.js 视频 Composer 的命令与参考输入协调
 │   └── connection-layer.js     Connection 索引、SVG 增量物化与事件委托
@@ -248,7 +248,7 @@ F05 的[灯光参考编辑器](current/smart-canvas-lighting-reference.md)已经
 
 Issue #22 的[多选快速连线与提示词生成快捷入口](active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md)正在实施：公共选区 Quick Add、多选与提示词工具栏、按视觉顺序接入一个新建或已有生成节点及整体撤销已落地并通过隔离生产页面检查。状态为 `drift`：D22-01 的服务端语义前置条件尚待协议扩展决定，完整双端协作及人工验收 Gate 未完成；不能据此宣称 Issue 完成或将 Active 毕业为 Current。
 
-Issue [#47](https://github.com/lazyq666/reroll-ai-canvas/issues/47) 的[提示词生成专属 Composer 规格](active/2026-09-06-smart-canvas-prompt-generation-composer-spec.md)为 F05 / F07 提供 Implemented 规格：保留原入口及 Prompt Generation Node 身份，将完整编辑与运行控件移入独立文字 Composer；与媒体草稿和模型隔离，保留独立下游 Prompt 结果、连续运行及反推提示词 Dialog，并定义协作、恢复与 A01–A23 验收。本地实现与确定性页面回归已完成；真实 Provider、双客户端、移动 IME 与性能 Gate 见规格 §15.5，暂不升级为 Current。
+Issue [#47](https://github.com/lazyq666/reroll-ai-canvas/issues/47) 的[提示词生成专属 Composer 规格](active/2026-09-06-smart-canvas-prompt-generation-composer-spec.md)为 F05 / F07 提供 Implemented 规格：保留原入口及 Prompt Generation Node 身份，将完整编辑与运行控件移入独立文字 Composer；与媒体草稿和模型隔离，首次原位替换为普通 Prompt 结果，运行中追加任务使用并列目标；复用媒体 Composer 模板与尺寸，保留反推提示词 Dialog，并定义协作、恢复与 A01–A23 验收。本地实现与确定性页面回归已完成；真实 Provider、双客户端、移动 IME 与性能 Gate 见规格 §15.5，暂不升级为 Current。
 
 Issue #28 的[Smart Group 可逆编组与成员还原](active/2026-09-04-smart-group-reversible-containment-spec.md)已本地实现并进入 Review：组内紧凑排列只属于派生的 Group Presentation，既有 Node 作为 Smart Group Node Member 保留身份、创作状态、Connection 与 Node Rest Geometry；直接媒体具有稳定成员身份，并在离开编组时才创建新 Image Node。跨类型成员顺序、唯一所有权、拖出/解组、复制重映射、空间与分享投影及 Realtime 权威校验已有自动化覆盖；真实双端协作、Keyboard / Focus、Reduced Motion 与发布前人工 Gate 尚未完成，因此规格仍保持 Active。
 

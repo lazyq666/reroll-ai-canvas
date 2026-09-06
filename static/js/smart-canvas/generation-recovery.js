@@ -595,6 +595,8 @@ async function generationRecoveryResumeNodeOnce(
                 const generatedText = String(result?.text || '').trim();
                 if(!generatedText) throw new Error(tr('smart.noTextReturned'));
                 currentNode.text = generatedText;
+                currentNode.textHtml = '';
+                currentNode.llmEnabled = false;
                 delete currentNode.textGenerationPending;
                 generationRecoveryApply(currentNode, {
                     type:'task-succeeded',

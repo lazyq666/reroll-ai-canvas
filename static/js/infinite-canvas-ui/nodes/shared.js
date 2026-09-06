@@ -32,7 +32,6 @@ const STATE_CLASSES = Object.freeze({
   detail: 'canvas-lod-node-detail',
   empty: 'empty-node',
   referenceGeneration: 'reference-generation-node',
-  textGeneration: 'text-generation-node',
   mediaGroup: 'group-node',
   history: 'history-group-node',
   compact: 'smart-group-member-node',

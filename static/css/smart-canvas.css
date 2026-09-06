@@ -227,21 +227,11 @@ body.smart-node-drag .image-wrap:hover .image-metadata-badges { opacity:0 !impor
 .prompt-node-text[contenteditable="false"] { color:var(--ui-color-text-primary); cursor:move; user-select:none; caret-color:transparent; }
 .prompt-node-text.is-editing { cursor:text; user-select:text; caret-color:auto; }
 .prompt-node-text:empty::before { content:attr(data-placeholder); color:var(--ui-color-text-placeholder); pointer-events:none; }
-.prompt-node-card > .prompt-editor-shell > .prompt-node-text, .prompt-node-card.prompt-node-composer > .prompt-editor-shell > .prompt-llm-instruction { padding-right:calc(var(--ui-space-2) + var(--ui-space-3)); }
-.prompt-node-card:not(.prompt-node-composer) > .prompt-editor-shell > .prompt-character-count { padding-right:calc(var(--ui-space-2) + var(--ui-space-3)); }
+.prompt-node-card > .prompt-editor-shell > .prompt-node-text { padding-right:calc(var(--ui-space-2) + var(--ui-space-3)); }
+.prompt-node-card > .prompt-editor-shell > .prompt-character-count { padding-right:calc(var(--ui-space-2) + var(--ui-space-3)); }
 .prompt-node-text[contenteditable="true"][data-keyboard-focus]:focus { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); background:transparent; box-shadow:var(--ui-shadow-none); }
 .prompt-text-generation-card { padding:var(--ui-space-0); gap:var(--ui-space-0); justify-content:stretch; overflow:visible; }
 .prompt-text-generation-card ic-generation-pending { flex:1 1 auto; width:100%; height:100%; min-height:120px; }
-.prompt-node-composer { gap:var(--ui-space-2); }
-.prompt-node-composer .prompt-llm-instruction { display:block; height:100%; min-height:88px; width:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:break-word; padding:var(--ui-space-2); border:var(--ui-border-width-none); border-radius:var(--ui-radius-none); background:transparent; color:var(--ui-color-text-primary); outline:none; box-shadow:var(--ui-shadow-none); font-size:var(--ui-font-size-2); line-height:var(--ui-line-height-code); }
-.prompt-node-card.prompt-node-composer > .prompt-editor-shell > .prompt-llm-instruction { padding-inline:var(--ui-space-0) var(--ui-space-2); }
-.prompt-node-composer .prompt-llm-instruction[contenteditable="false"] { cursor:move; user-select:none; caret-color:transparent; }
-.prompt-node-composer .prompt-llm-instruction.is-editing { cursor:text; user-select:text; caret-color:auto; }
-.prompt-node-composer .prompt-llm-instruction:empty::before { content:attr(data-placeholder); color:var(--ui-color-text-placeholder); pointer-events:none; }
-.theme-dark .prompt-node-composer .prompt-llm-instruction { background:transparent; border-color:transparent; }
-.prompt-node-composer .prompt-llm-instruction[contenteditable="true"][data-keyboard-focus]:focus { border-color:transparent; background:transparent; outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); box-shadow:var(--ui-shadow-none); }
-.prompt-composer-footer { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--ui-space-1); align-items:center; }
-.prompt-composer-footer .prompt-llm-model { min-width:0; max-width:100%; }
 .splitter-node-card { width:100%; height:100%; min-height:0; display:flex; flex-direction:column; gap:var(--ui-space-2); }
 .splitter-node-head { display:flex; align-items:center; gap:var(--ui-space-2); }
 .splitter-node-label { color:var(--ui-color-text-tertiary); font-size:var(--ui-font-size-1); font-weight:var(--ui-font-weight-bold); white-space:nowrap; }
@@ -775,7 +765,7 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .composer.focused .input-thumbs-row { min-height:0; overflow:hidden; }
 .composer.focused .prompt-row { min-height:0; height:100%; align-self:stretch; display:grid; overflow:hidden; }
 .composer.focused .prompt-row { height:100% !important; max-height:none; min-height:0; }
-.composer.focused #promptInput { height:100% !important; max-height:none; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+.composer.focused .composer-prompt-input { height:100% !important; max-height:none; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
 .composer.focused .param-row,.composer.focused .composer-actions { min-height:var(--ui-control-height-l); align-self:stretch; margin-bottom:-10px; padding:var(--ui-space-2) var(--ui-space-3); }
 .composer.focused .param-row { margin-left:-10px; border:var(--ui-border-width-none); border-radius:var(--ui-radius-none) var(--ui-radius-none) var(--ui-radius-none) var(--ui-radius-m); }
 .composer.focused .composer-actions { margin-right:-10px; border:var(--ui-border-width-none); border-radius:var(--ui-radius-none) var(--ui-radius-none) var(--ui-radius-m) var(--ui-radius-none); align-items:center; }
@@ -799,7 +789,7 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .prompt-row { position:relative; width:100%; height:5rem; min-height:5rem; max-height:12rem; min-width:0; }
 .composer-card .prompt-row { grid-area:prompt; }
 .prompt-row { position:relative; }
-#promptInput { height:100%; min-height:0; max-height:none; padding:var(--ui-space-0) var(--ui-space-2); }
+.composer-prompt-input { height:100%; min-height:0; max-height:none; padding:var(--ui-space-0) var(--ui-space-2); }
 .composer-template-btn { flex:0 0 auto; }
 .composer-template-btn::part(base) { color:var(--ui-color-text-primary); box-shadow:var(--ui-shadow-none); }
 .composer-template-btn:hover::part(base) { color:var(--ui-color-text-secondary); background:var(--ui-color-action-tertiary-hover); }
@@ -1856,26 +1846,14 @@ ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected)::before
     content:none;
 }
 
-/* Text generation has its own draft and compact authoring surface. */
-.text-generation-composer[hidden] { display:none; }
-.text-generation-composer { width:36rem; }
-.text-composer-card { grid-template-areas:"refs refs" "upstream upstream" "prompt prompt" "model actions" "error error"; max-height:calc(100dvh - 28px); overflow-y:auto; overscroll-behavior:contain; }
-.text-composer-refs { grid-area:refs; min-width:0; }
-.text-composer-refs[hidden], .text-composer-upstream[hidden], .text-composer-error[hidden] { display:none; }
-.text-composer-upstream { grid-area:upstream; min-width:0; color:var(--ui-color-text-secondary); font-size:var(--ui-font-size-2); }
+/* Text authoring consumes the same Composer card, prompt row and actions. */
+.text-generation-composer[hidden], .text-composer-upstream[hidden], .text-composer-error[hidden], .text-composer-conflict[hidden] { display:none; }
+.text-composer-inputs { grid-area:thumbs; min-width:0; }
+.text-composer-upstream { color:var(--ui-color-text-secondary); font-size:var(--ui-font-size-2); }
 .text-composer-upstream summary { cursor:pointer; }
 .text-composer-upstream > div { white-space:pre-wrap; max-height:8rem; overflow:auto; overscroll-behavior:contain; padding-block:var(--ui-space-2); }
-.text-composer-card > .prompt-editor-shell { grid-area:prompt; min-height:7rem; }
-.text-composer-card .prompt-llm-instruction { display:block; min-height:5rem; max-height:16rem; overflow:auto; overscroll-behavior:contain; padding:var(--ui-space-2); white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--ui-font-size-2); line-height:var(--ui-line-height-code); color:var(--ui-color-text-primary); cursor:text; }
-.text-composer-card .prompt-llm-instruction:empty::before { content:attr(data-placeholder); color:var(--ui-color-text-placeholder); pointer-events:none; }
-.text-composer-model { grid-area:model; min-width:0; align-self:center; }
-.text-composer-model ic-select { width:100%; max-width:22rem; }
-.text-composer-actions { grid-area:actions; display:flex; align-items:center; gap:var(--ui-space-1); }
-.text-composer-error { grid-area:error; }
-.text-generation-composer.text-composer-expanded { position:relative; inset:auto !important; width:100% !important; transform:none; }
-.text-composer-expanded .text-composer-card { min-height:min(28rem,60dvh); max-height:65dvh; border:0; }
-.text-composer-expanded .prompt-editor-shell { min-height:15rem; }
-.text-composer-expanded .prompt-llm-instruction { min-height:13rem; max-height:40dvh; }
-.text-composer-card { grid-template-areas:"refs refs" "upstream upstream" "prompt prompt" "model actions" "error error" "conflict conflict"; }
-.text-composer-conflict { grid-area:conflict; display:flex; gap:var(--ui-space-2); flex-wrap:wrap; }
-.text-composer-conflict[hidden] { display:none; }
+.text-composer-model { min-width:0; }
+.text-composer-model ic-select { width:100%; }
+.text-generation-composer.text-composer-expanded { position:relative !important; inset:auto !important; width:100% !important; height:min(660px,70dvh); translate:none; transform:none; }
+.text-composer-error:not([hidden]), .text-composer-conflict:not([hidden]) { margin-top:var(--ui-space-2); }
+.text-composer-conflict { display:flex; gap:var(--ui-space-2); flex-wrap:wrap; }

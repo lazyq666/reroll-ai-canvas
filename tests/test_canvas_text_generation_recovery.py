@@ -53,6 +53,10 @@ class CanvasTextGenerationRecoveryTests(unittest.TestCase):
                         "type": "smart-prompt",
                         "generationOperationId": operation_id,
                         "textGenerationOutput": True,
+                        "llmEnabled": True,
+                        "llmInstruction": "Original instruction",
+                        "textHtml": "stale HTML",
+                        "x": 120, "y": 240, "w": 316, "h": 180,
                         "textGenerationPending": True,
                         "running": True,
                         "text": "",
@@ -123,8 +127,27 @@ class CanvasTextGenerationRecoveryTests(unittest.TestCase):
                     )
                     self.assertEqual(changes["text"], "Recovered text")
                     self.assertFalse(changes["textGenerationPending"])
+                    self.assertFalse(changes["llmEnabled"])
+                    self.assertEqual(changes["textHtml"], "")
                     self.assertFalse(changes["running"])
                     self.assertEqual(changes["pending"], 0)
+                    guard = main.CanvasGenerationTargetGuard(
+                        canvas_sync=main.CANVAS_SYNC,
+                        actor_by_id=lambda user_id: main.enrich_current_workspace_user(main.AUTH_SYSTEM.get_user(user_id)),
+                    )
+                    self.assertTrue(client.portal.call(
+                        guard.apply_if_current, stored.id, actor_id, stored.target,
+                        {"text": "Recovered text"},
+                    ))
+                    reopened = client.get(f"/api/canvases/{canvas['id']}").json()["canvas"]
+                    self.assertEqual(len(reopened["nodes"]), 1)
+                    result_node = reopened["nodes"][0]
+                    self.assertEqual(result_node["id"], output_node["id"])
+                    self.assertEqual(result_node["text"], "Recovered text")
+                    self.assertFalse(result_node["llmEnabled"])
+                    self.assertEqual(result_node["textHtml"], "")
+                    self.assertEqual(result_node["llmInstruction"], "Original instruction")
+                    self.assertEqual([result_node[key] for key in ("x", "y", "w", "h")], [120, 240, 316, 180])
             finally:
                 for coroutine in scheduled:
                     coroutine.close()
