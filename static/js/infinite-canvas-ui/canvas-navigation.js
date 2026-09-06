@@ -1,1 +1,1 @@
-export { IcSmartMinimap, projectSmartMinimapScene } from './canvas-navigation/index.js?v=ic-ui-1d9b8d84e857';
+export { IcSmartMinimap, projectSmartMinimapScene } from './canvas-navigation/index.js?v=ic-ui-56c693e4e18f';

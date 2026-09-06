@@ -55,11 +55,11 @@ function startServer() {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const continuity = elements.map(element => {
         const badge = element.shadowRoot.querySelector('ic-badge.generation-pending-badge');
-        const spinner = badge?.shadowRoot?.querySelector('.spinner');
+        const spinner = badge?.querySelector('canvas[slot="indicator"]');
         element.setAttribute('elapsed', '12s');
         return {
           badge:badge === element.shadowRoot.querySelector('ic-badge.generation-pending-badge'),
-          spinner:spinner === badge?.shadowRoot?.querySelector('.spinner'),
+          spinner:spinner === badge?.querySelector('canvas[slot="indicator"]'),
         };
       });
       elements.forEach((element, index) => element.setAttribute('elapsed', `${index + 6}s`));
@@ -76,8 +76,10 @@ function startServer() {
             text:badge?.textContent.trim() || '',
             ready:badge?.dataset.icContractStatus === 'ready',
             loading:badge?.hasAttribute('loading') === true,
-            spinner:Boolean(badge?.shadowRoot?.querySelector('.spinner')),
+            spinner:Boolean(badge?.querySelector('canvas[slot="indicator"]')),
+            orbSize:badge?.querySelector('canvas[slot="indicator"]')?.getBoundingClientRect().width,
             outside:Boolean(badgeRect && surfaceRect && badgeRect.bottom <= surfaceRect.top + 1),
+            sampleClear:element.closest('.generation-pending-sample').querySelector('span').getBoundingClientRect().bottom < badgeRect.top,
             legacyStatusAbsent:!element.shadowRoot.querySelector('.status'),
           };
         }),
@@ -95,7 +97,8 @@ function startServer() {
       '8s 正在生成文本',
     ]);
     assert.equal(report.items.every(item => item.ready && item.loading && item.spinner), true);
-    assert.equal(report.items.every(item => item.outside && item.legacyStatusAbsent), true);
+    assert.equal(report.items.every(item => item.orbSize === 20), true);
+    assert.equal(report.items.every(item => item.outside && item.sampleClear && item.legacyStatusAbsent), true);
     process.stdout.write(`${JSON.stringify(report)}\n`);
   } finally {
     await browser.close();

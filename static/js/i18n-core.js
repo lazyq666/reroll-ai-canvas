@@ -60,6 +60,7 @@
             ['data-i18n-button-label', 'button-label'],
             ['data-i18n-upload-button-label', 'upload-button-label'],
             ['data-i18n-hint', 'hint'],
+            ['data-i18n-close-label', 'close-label'],
             ['data-i18n-content', 'content'],
             ['data-i18n-empty-label', 'empty-label'],
             ['data-i18n-adaptive-label', 'adaptive-label'],

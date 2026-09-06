@@ -1,5 +1,7 @@
-import { activeOverlayScope, closeTopLayer, openTopLayer } from './overlay-layer.js?v=ic-ui-1d9b8d84e857';
-import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=ic-ui-1d9b8d84e857';
+import { activeOverlayScope, closeTopLayer, openTopLayer } from './overlay-layer.js?v=ic-ui-56c693e4e18f';
+import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=ic-ui-56c693e4e18f';
+
+import { connectGenerationOrb, disconnectGenerationOrb } from './generation-orb.js?v=ic-ui-56c693e4e18f';
 
 const TONES = new Set(['neutral', 'info', 'success', 'warning', 'danger']);
 const BADGE_KINDS = new Set(['label', 'count', 'status']);
@@ -146,18 +148,22 @@ export class IcAlert extends IcFeedbackElement {
 }
 
 export class IcBadge extends IcFeedbackElement {
-  static observedAttributes = ['tone', 'kind', 'size', 'loading'];
+  static observedAttributes = ['tone', 'kind', 'size', 'loading', 'loading-animation'];
+
+  disconnectedCallback() { disconnectGenerationOrb(this); }
 
   validateContract() {
     const kind = this.getAttribute('kind') || 'label';
     const size = this.getAttribute('size') || 'medium';
-    return validTone(this) || (!BADGE_KINDS.has(kind) ? 'kind must be label, count, or status' : '') || (!BADGE_SIZES.has(size) ? 'size must be small, medium, or large' : '') || (this.hasAttribute('loading') && kind !== 'status' ? 'loading badge is only valid for status kind' : '') || (!hasText(this) ? 'badge content is required' : '');
+    return (!['spinner', 'orb'].includes(this.getAttribute('loading-animation') || 'spinner') ? 'loading-animation must be spinner or orb' : '') || validTone(this) || (!BADGE_KINDS.has(kind) ? 'kind must be label, count, or status' : '') || (!BADGE_SIZES.has(size) ? 'size must be small, medium, or large' : '') || (this.hasAttribute('loading') && kind !== 'status' ? 'loading badge is only valid for status kind' : '') || (!hasText(this) ? 'badge content is required' : '');
   }
 
   render() {
     const reason = this.validateContract();
     const kind = this.getAttribute('kind') || 'label';
+    disconnectGenerationOrb(this);
     const loading = this.hasAttribute('loading');
+    const orb = this.getAttribute('loading-animation') === 'orb';
     contractState(this, reason);
     if (kind === 'status') this.setAttribute('role', 'status'); else this.removeAttribute('role');
     this.shadowRoot.innerHTML = `<style>${sharedStyles}
@@ -174,11 +180,18 @@ export class IcBadge extends IcFeedbackElement {
       :host([tone="success"]) .dot { color:var(--ui-color-text-success, var(--ui-color-text-primary)); }
       :host([tone="warning"]) .dot { color:var(--ui-color-text-warning, var(--ui-color-text-primary)); }
       :host([tone="danger"]) .dot { color:var(--ui-color-text-danger); }
+      .generation-status-orb { display:block; width:20px; height:20px; flex:none; pointer-events:none; }
       .spinner { width:var(--ic-badge-indicator-size); height:var(--ic-badge-indicator-size); flex:none; border:var(--ui-border-width-thin) solid currentColor; border-inline-end-color:transparent; border-radius:var(--ui-radius-pill); animation:ic-badge-spin var(--ic-badge-spin-duration, calc(var(--ui-motion-duration-slow) * 4)) var(--ui-motion-ease-linear) infinite; }
       @keyframes ic-badge-spin { to { transform:rotate(360deg); } }
       @media (prefers-reduced-motion:reduce) { .spinner { animation:none; } }
       :host-context([data-ui-motion="reduced"]) .spinner { animation:none; }
-    </style><span class="badge" part="base">${kind === 'status' ? (loading ? '<span class="spinner" aria-hidden="true"></span>' : `<span class="dot" aria-hidden="true">${symbolFor(toneOf(this))}</span>`) : ''}<slot></slot></span>`;
+    </style><span class="badge" part="base">${kind === 'status' ? (loading ? `<slot name="indicator">${orb ? '<canvas class="generation-status-orb" width="40" height="40" aria-hidden="true"></canvas>' : '<span class="spinner" aria-hidden="true"></span>'}</slot>` : `<span class="dot" aria-hidden="true">${symbolFor(toneOf(this))}</span>`) : ''}<slot></slot></span>`;
+    if (loading && orb && !connectGenerationOrb(this, this.shadowRoot.querySelector('.generation-status-orb'))) {
+      const fallback = document.createElement('span');
+      fallback.className = 'spinner';
+      fallback.setAttribute('aria-hidden', 'true');
+      this.shadowRoot.querySelector('.generation-status-orb').replaceWith(fallback);
+    }
   }
 }
 

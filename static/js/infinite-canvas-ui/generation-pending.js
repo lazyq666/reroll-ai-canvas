@@ -1,3 +1,5 @@
+import { paintGenerationOrb } from './generation-orb.js?v=ic-ui-56c693e4e18f';
+
 const PENDING_KINDS = new Set(['image', 'video', 'text']);
 const PENDING_STATES = new Set(['queued', 'generating']);
 const TARGET_FRAME_MS = 1000 / 24;
@@ -14,6 +16,11 @@ const HALFTONE = Object.freeze({
 const halftoneInstances = new Set();
 const halftoneIntersections = new WeakMap();
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+let halftoneReducedMotion = reducedMotion?.matches;
+function handleHalftoneMotionChange() {
+  halftoneReducedMotion = reducedMotion?.matches;
+  handleHalftoneEnvironmentChange();
+}
 let halftoneIntersectionObserver = null;
 let halftoneEnvironmentObserver = null;
 let halftoneAnimationFrame = 0;
@@ -62,7 +69,7 @@ function halftoneMotionAllowed(instance) {
   return !document.hidden
     && halftoneIntersections.get(instance) !== false
     && !instance.reducedMotionRequested()
-    && !reducedMotion?.matches;
+    && !halftoneReducedMotion;
 }
 
 function anyHalftoneRunning() {
@@ -120,7 +127,8 @@ function setupHalftoneEnvironment() {
     attributeFilter: ['data-ui-theme', 'data-ui-motion'],
   });
   document.addEventListener('visibilitychange', syncHalftoneMotion);
-  reducedMotion?.addEventListener?.('change', syncHalftoneMotion);
+  halftoneReducedMotion = reducedMotion?.matches;
+  reducedMotion?.addEventListener?.('change', handleHalftoneMotionChange);
 }
 
 function teardownHalftoneEnvironment() {
@@ -130,7 +138,7 @@ function teardownHalftoneEnvironment() {
   halftoneEnvironmentObserver?.disconnect();
   halftoneEnvironmentObserver = null;
   document.removeEventListener('visibilitychange', syncHalftoneMotion);
-  reducedMotion?.removeEventListener?.('change', syncHalftoneMotion);
+  reducedMotion?.removeEventListener?.('change', handleHalftoneMotionChange);
   if (halftoneAnimationFrame) cancelAnimationFrame(halftoneAnimationFrame);
   halftoneAnimationFrame = 0;
   halftoneLastFrameTime = 0;
@@ -152,6 +160,7 @@ export class IcGenerationPending extends HTMLElement {
   connectedCallback() {
     if (!this.shadowRoot.hasChildNodes()) this.render();
     else this.syncPresentation();
+    this.setupOrb();
     this.setupHalftone();
   }
 
@@ -219,7 +228,30 @@ export class IcGenerationPending extends HTMLElement {
     this.drawHalftone(halftoneAnimationTime);
   }
 
+  setupOrb() {
+    const badge = this.shadowRoot.querySelector('.generation-pending-badge');
+    const canvas = this.shadowRoot.querySelector('.generation-pending-orb') || document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return; // Keep the badge's ordinary loading indicator.
+    canvas.className = 'generation-pending-orb';
+    canvas.slot = 'indicator';
+    canvas.setAttribute('aria-hidden', 'true');
+    canvas.width = 40;
+    canvas.height = 40;
+    this._orbCanvas = canvas;
+    this._orbContext = ctx;
+    badge.prepend(canvas);
+  }
+
+  drawOrb(time) {
+    if (!this._orbContext) return;
+    const staticFrame = this.reducedMotionRequested() || halftoneReducedMotion;
+    paintGenerationOrb(this._orbCanvas, staticFrame ? 0.6 : time / HALFTONE.speed,
+      document.documentElement.dataset.uiTheme === 'dark');
+  }
+
   drawHalftone(time) {
+    this.drawOrb(time);
     if (!this._halftoneContext || !this._halftoneWidth || !this._halftoneHeight) return;
     const background = getComputedStyle(this._halftoneSurface).backgroundColor;
     const dotColor = getComputedStyle(this._halftoneCanvas).color;
@@ -254,10 +286,11 @@ export class IcGenerationPending extends HTMLElement {
 
   syncHalftoneMotionState() {
     if (!this._halftoneCanvas) return;
-    const state = this.reducedMotionRequested() || reducedMotion?.matches
+    const state = this.reducedMotionRequested() || halftoneReducedMotion
       ? 'static'
       : (halftoneMotionAllowed(this) ? 'running' : 'paused');
     this._halftoneCanvas.dataset.motionState = state;
+    if (this._orbCanvas) this._orbCanvas.dataset.motionState = state;
   }
 
   validateContract() {
@@ -320,10 +353,11 @@ export class IcGenerationPending extends HTMLElement {
     }
     const badge = this.shadowRoot.querySelector('.generation-pending-badge');
     if (badge) {
-      badge.textContent = pendingBadgeText(elapsed, label, description);
+      badge.querySelector('.badge-copy').textContent = pendingBadgeText(elapsed, label, description);
       badge.toggleAttribute('loading', true);
     }
     this.syncCells(count);
+    if (!halftoneMotionAllowed(this)) this.drawOrb(halftoneAnimationTime);
   }
 
   render() {
@@ -336,8 +370,10 @@ export class IcGenerationPending extends HTMLElement {
       <style>
         :host { --ic-generation-pending-radius:var(--ic-canvas-node-radius, var(--ui-radius-m)); --ic-badge-spin-duration:calc(var(--ui-motion-duration-slow) * 4); position:relative; box-sizing:border-box; display:block; inline-size:100%; block-size:100%; min-inline-size:0; min-block-size:0; overflow:visible; color:var(--ui-color-text-primary); font-family:var(--ui-font-sans); }
         *, *::before, *::after { box-sizing:border-box; }
-        .generation-pending-badge { position:absolute; inset-block-start:-20px; inset-inline-start:0; z-index:3; max-inline-size:100%; font-variant-numeric:tabular-nums; pointer-events:none; }
+        .generation-pending-badge { position:absolute; inset-block-start:-24px; inset-inline-start:0; z-index:3; max-inline-size:100%; font-variant-numeric:tabular-nums; pointer-events:none; }
         .generation-pending-badge::part(base) { min-block-size:14px; padding:var(--ui-space-0); overflow:hidden; color:var(--ui-color-text-secondary); background:transparent; box-shadow:none; font-size:var(--ui-font-size-2); font-weight:var(--ui-font-weight-regular); text-overflow:ellipsis; white-space:nowrap; }
+        .generation-pending-orb { display:block; width:20px; height:20px; flex:none; pointer-events:none; }
+        .badge-copy { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .pending { position:relative; contain:layout paint style; inline-size:100%; block-size:100%; min-block-size:7.5rem; overflow:hidden; border-radius:var(--ic-generation-pending-radius); background:var(--ui-color-surface); }
         .grid { inline-size:100%; block-size:100%; display:grid; grid-template-columns:repeat(var(--pending-columns), minmax(0, 1fr)); grid-template-rows:repeat(var(--pending-rows), minmax(0, 1fr)); gap:var(--ui-space-2); padding:var(--pending-grid-padding); }
         .pending-cell { min-inline-size:0; min-block-size:0; overflow:hidden; border-radius:var(--ic-generation-pending-radius); }
@@ -345,7 +381,7 @@ export class IcGenerationPending extends HTMLElement {
         .pending[data-state="queued"] .grid { opacity:.72; }
         :host([data-ic-contract-status="invalid"]) { opacity:.55; }
       </style>
-      <ic-badge class="generation-pending-badge" part="status badge" kind="status" tone="info" loading aria-hidden="true">${escapePendingHtml(badgeText)}</ic-badge>
+      <ic-badge class="generation-pending-badge" part="status badge" kind="status" tone="info" loading aria-hidden="true"><span class="badge-copy">${escapePendingHtml(badgeText)}</span></ic-badge>
       <div class="pending" part="base">
         <div class="grid" part="grid"></div>
         ${pendingHalftoneMarkup()}

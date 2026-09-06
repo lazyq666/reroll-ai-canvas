@@ -1,4 +1,4 @@
-import './core.js?v=ic-ui-1d9b8d84e857';
+import './core.js?v=ic-ui-56c693e4e18f';
 
 // Throwaway benchmark answering: which Pending animation is cheapest with 10 visible instances?
 const INSTANCE_COUNT = 10;

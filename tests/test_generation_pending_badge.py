@@ -23,7 +23,6 @@ class GenerationPendingBadgeTests(unittest.TestCase):
         self.assertIn("'description', 'elapsed'", self.component)
         self.assertIn('class="generation-pending-badge"', self.component)
         self.assertIn('kind="status" tone="info" loading', self.component)
-        self.assertIn("inset-block-start:-20px", self.component)
         self.assertNotIn('class="status"', self.component)
 
     def test_smart_canvas_passes_elapsed_time_through_the_public_interface(self):
