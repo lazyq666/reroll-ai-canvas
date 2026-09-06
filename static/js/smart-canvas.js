@@ -119,7 +119,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1d9b8d84e857')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-0c139016a392')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -1850,6 +1850,7 @@ function composerInputMediaLabel(img, mediaCounters={}){
     const kind = mediaKindForItem(img);
     const count = (mediaCounters[kind] = (mediaCounters[kind] || 0) + 1);
     const frameRoleLabel = isApiLikeEngine(settings.engine)
+        && !nodeKinds.isPromptGeneration(window.SmartCanvasModules.viewportSelection.selection.node())
         && settings.apiKind === 'video'
         && settings.videoUseFrameRoles
         && kind === 'image'
@@ -1968,7 +1969,7 @@ function promptNodeUpstreamPromptText(node, ctx=smartLoopContext){
 }
 function promptNodeLLMInputText(node, ctx=smartLoopContext){
     const upstream = promptNodeUpstreamPromptText(node, ctx).trim();
-    const instruction = String(node?.llmInstruction || '').trim() || promptNodePromptItems(node).join('\n\n').trim();
+    const instruction = String(node?.llmInstruction ?? node?.text ?? '').trim();
     return [upstream, instruction].filter(Boolean).join('\n\n');
 }
 function promptNodeExpandedHeight(node){
@@ -7591,6 +7592,19 @@ function structuredPromptEditorHtml(storedHtml='', fallbackText=''){
         if(item.classList.contains('prompt-template-token')){
             return escapeHtml(item.dataset.promptText || '');
         }
+        if(item.classList.contains('mention-image-token')){
+            const token = document.createElement('span');
+            token.className = 'mention-image-token';
+            token.contentEditable = 'false';
+            for(const key of ['url','kind','name','nodeId','imageIndex','outputId','inputInstanceId','assetUris']){
+                if(item.dataset[key]) token.dataset[key] = item.dataset[key];
+            }
+            const label = document.createElement('span');
+            label.className = 'mention-token-label';
+            label.textContent = item.dataset.name || item.textContent || '';
+            token.append(label);
+            return token.outerHTML;
+        }
         if(item.tagName === 'BR') return '<br>';
         const children = [...item.childNodes].map(serialize).join('');
         return ['DIV','P'].includes(item.tagName) ? `<div>${children}</div>` : children;
@@ -7603,7 +7617,7 @@ function promptNodeEditorHtml(node){
 function promptLlmInstructionEditorHtml(node){
     return structuredPromptEditorHtml(
         node?.llmInstructionHtml,
-        node?.llmInstruction || node?.text || ''
+        node?.llmInstruction ?? node?.text ?? ''
     );
 }
 function syncPromptNodeEditor(node, editor){
@@ -7617,11 +7631,17 @@ function syncPromptNodeEditor(node, editor){
 function syncPromptLlmInstructionEditor(node, editor){
     if(!node || !editor) return;
     const rawHtml = String(editor.innerHTML || '');
-    node.llmInstructionHtml = /^(?:<br>|<div><br><\/div>)$/i.test(rawHtml.trim())
-        ? ''
-        : rawHtml;
-    node.llmInstruction = promptAuthoring.plainText(editor);
-    canvasPersistence.schedule();
+    const html = /^(?:<br>|<div><br><\/div>)$/i.test(rawHtml.trim()) ? '' : rawHtml;
+    const text = promptAuthoring.plainText(editor);
+    if(node.llmInstructionHtml === html && node.llmInstruction === text) return;
+    if(window.SmartCanvasModules.promptGenerationComposer?.owns(editor)){
+        if(!canvasPersistence.editable()) return;
+        window.SmartCanvasModules.promptGenerationComposer.persist(node,html,text);
+    }else{
+        node.llmInstructionHtml = html;
+        node.llmInstruction = text;
+        canvasPersistence.schedule();
+    }
 }
 let promptCharacterCountId = 0;
 function syncPromptCharacterCount(editor){
@@ -7712,9 +7732,10 @@ function composerRunButtonHtml({className='',disabled=false}={}){
 function promptNodeModelSelectHtml(node){
     const entries = smartModelCatalog('text');
     const current = smartCatalogEntry('text', node?.llmProvider || '', node?.llmModel || '');
-    const options = entries.length
+    let options = entries.length
         ? entries.map(entry => `<option value="${escapeAttr(entry.id)}" ${smartModelVendorOptionAttributes(entry.model, entry.provider_id, entry.provider_name)} ${entry.id === current?.id ? 'selected' : ''}>${escapeHtml(entry.name || entry.model || tr('smart.model'))}</option>`).join('')
         : `<option value="__no_model__" selected disabled>${escapeHtml(tr('smart.model'))}</option>`;
+    if(!current && entries.length) options = `<option value="__unavailable__" selected disabled>${escapeHtml(node?.llmModel || tr('smart.textComposer.modelUnavailable'))}</option>` + options;
     return `<ic-select class="prompt-node-control prompt-llm-model catalog-model-select" name="prompt-llm-model-${escapeAttr(node?.id || 'node')}" aria-label="${escapeAttr(tr('smart.model'))}" hierarchy="quiet" placement="top" data-component-variant="model-picker" data-legal-combination="model-picker-vertical-manual-label"${entries.length ? '' : ' disabled'}>
         ${options}
         <span slot="start" aria-hidden="true">${smartModelVendorIconMarkup(current?.model || '', current?.provider_id || '', current?.provider_name || '')}</span>
@@ -7729,29 +7750,17 @@ function promptEditorShellHtml(editorHtml=''){
 }
 function promptNodeBodyHtml(node){
     if(generationNodeHasFailedRun(node)) return generationFailureTargetHtml(node);
-    const textEntry = smartCatalogEntry('text', node.llmProvider || '', node.llmModel || '');
-    node.llmProvider = textEntry?.provider_id || resolveChatProviderId(node.llmProvider || '');
-    node.llmModel = textEntry?.model || resolveChatModel(node.llmModel || '', node.llmProvider);
     if(node.textGenerationPending){
         return `<div class="prompt-node-card prompt-text-generation-card">
             ${generationPendingNodeHtml({kind:'text',state:'generating',count:1,label:tr('smart.textGenerating'),elapsed:generationPendingNodeElapsed(node)})}
         </div>`;
     }
     if(node.llmEnabled){
-        const inputThumbs = promptNodeInputThumbsHtml(node);
-        const upstreamPromptItems = promptNodeUpstreamPromptItems(node);
-        const upstreamPromptHtml = upstreamPromptItems.length ? `<div class="prompt-node-upstream">
-            <div class="prompt-node-section-title">${escapeHtml(tr('smart.referencedText'))}</div>
-            <div class="prompt-node-upstream-list">${upstreamPromptItems.map((item, index) => `<div class="prompt-node-segment"><span>${index + 1}</span><p>${escapeHtml(item)}</p></div>`).join('')}</div>
-        </div>` : '';
-        return `<div class="prompt-node-card prompt-node-composer">
-            ${inputThumbs}
-            ${upstreamPromptHtml}
-            ${promptEditorShellHtml(`<ic-prompt-composer class="prompt-node-control prompt-llm-instruction" contenteditable="false" spellcheck="false" data-node-id="${escapeAttr(node.id)}" data-placeholder="${escapeAttr(tr('smart.promptLlmInstructionPlaceholder'))}" aria-label="${escapeAttr(tr('smart.promptLlmInstructionPlaceholder'))}">${promptLlmInstructionEditorHtml(node)}</ic-prompt-composer>`)}
-            <div class="prompt-composer-footer">
-                ${promptNodeModelSelectHtml(node)}
-                ${composerRunButtonHtml({className:'prompt-node-run prompt-node-control'})}
-            </div>
+        if(node.running) return generationPendingNodeHtml({kind:'text',state:'generating',count:1,label:tr('smart.textGenerating'),elapsed:generationPendingNodeElapsed(node)});
+        return `<div class="reference-generation-target" data-reference-generation-target="text">
+            <span class="upload-node-main"><i data-lucide="zap" aria-hidden="true"></i></span>
+            <span class="upload-node-title">${escapeHtml(tr('smart.promptGenerationNode'))}</span>
+            <span class="upload-node-sub">${escapeHtml(tr('smart.textComposer.nodeHint'))}</span>
         </div>`;
     }
     const inputThumbs = promptNodeInputThumbsHtml(node);
@@ -8057,6 +8066,7 @@ function generationFailureTargetHtml(node){
         <span class="upload-node-title">${escapeHtml(tr('smart.errRunFailed'))}</span>
         <span class="upload-node-sub">${escapeHtml(generationNodeFailureReason(node))}</span>
         <ic-button type="button" size="small" hierarchy="secondary" data-view-generation-log="1">${escapeHtml(tr('smart.viewLogs'))}</ic-button>
+        ${node.textGenerationOutput && node.sourceNodeId && node.generationInputSnapshot ? `<ic-button size="small" hierarchy="primary" data-retry-text-generation="1">${escapeHtml(tr('smart.textComposer.retry'))}</ic-button>` : ''}
     </div>`;
 }
 function nodeBodyHtml(node, layout){
@@ -9268,7 +9278,7 @@ function render(options={}){
         const failureFeedback = !isFailed && node.generationRunFeedback?.failedCount
             ? trf('smart.runFeedback', {success: Number(node.generationRunFeedback.successfulCount || 0), failed: Number(node.generationRunFeedback.failedCount || 0), reason: feedbackReason ? ` · ${escapeHtml(feedbackReason)}` : ''})
             : '';
-        const hint = nodeFarMode ? '' : failureFeedback || (isFailed || isEmpty || isAnnotation || isFrame ? '' : isSmartGroup ? tr('smart.groupHint') : isMattingJob ? (node.mattingJob.status === 'failed' ? tr('smart.retryOriginalImage') : escapeHtml(tr('smart.hintPending'))) : isPending ? escapeHtml(tr('smart.hintPending')) : (imgs.length > 1 ? escapeHtml(tr('smart.hintMulti')) : imgs.length ? escapeHtml(tr('smart.hintSingle')) : generationKind ? escapeHtml(tr('smart.referenceGenerationHint')) : escapeHtml(tr('smart.hintEmpty'))));
+        const hint = nodeFarMode || nodeKinds.isPromptGeneration(node) ? '' : failureFeedback || (isFailed || isEmpty || isAnnotation || isFrame ? '' : isSmartGroup ? tr('smart.groupHint') : isMattingJob ? (node.mattingJob.status === 'failed' ? tr('smart.retryOriginalImage') : escapeHtml(tr('smart.hintPending'))) : isPending ? escapeHtml(tr('smart.hintPending')) : (imgs.length > 1 ? escapeHtml(tr('smart.hintMulti')) : imgs.length ? escapeHtml(tr('smart.hintSingle')) : generationKind ? escapeHtml(tr('smart.referenceGenerationHint')) : escapeHtml(tr('smart.hintEmpty'))));
         const showQuickAdd = !nodeFarMode && !isAnnotation && !isFrame && !isCompactMember && !isLayerDecomposition;
         const html = smartCanvasNodeComponentFamily().render({
             id:node.id,
@@ -9281,7 +9291,8 @@ function render(options={}){
             states:{
                 far:nodeFarMode,
                 empty:isEmpty,
-                referenceGeneration:Boolean(generationKind),
+                referenceGeneration:Boolean(generationKind) || nodeKinds.isPromptGeneration(node),
+                textGeneration:nodeKinds.isPromptGeneration(node),
                 mediaGroup:isGroup,
                 history:isHistory,
                 compact:isCompactMember,
@@ -9612,6 +9623,7 @@ function beginSmartNodePortDrag(nodeId, portType, event, options={}){
 function beginPromptNodeTextEdit(nodeId, pointer=null){
     const node = nodes.find(item => item.id === nodeId && item.type === 'smart-prompt');
     if(!node || node.textGenerationPending) return false;
+    if(nodeKinds.isPromptGeneration(node)) return window.SmartCanvasModules.promptGenerationComposer?.focus(node) || false;
     const selector = node.llmEnabled ? '.prompt-llm-instruction' : '.prompt-node-text';
     const text = promptNodeFocusSurface?.querySelector(`.image-node[data-id="${CSS.escape(node.id)}"] ${selector}`)
         || world.querySelector(`.image-node[data-id="${CSS.escape(node.id)}"] ${selector}`);
@@ -9637,11 +9649,14 @@ function bindPromptNodeInputThumbs(el, node){
     bindInputThumbsDrag(node, refs, manualRefKeys, {root,onRefresh});
     bindInputThumbReferenceActions(root, node, {onRefresh});
 }
-function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={}){
+function bindPromptNodeRichEditor(container, node, editor, {instruction=false,permanent=false}={}){
     if(!editor) return;
+    if(permanent && editor.dataset.textComposerBound){ editor.dataset.nodeId = node.id; return; }
+    if(permanent) editor.dataset.textComposerBound = '1';
+    const liveNode = () => permanent ? nodes.find(item => item.id === editor.dataset.nodeId) : node;
     bindPromptCharacterCount(editor);
     const sync = () => instruction
-        ? syncPromptLlmInstructionEditor(node, editor)
+        ? syncPromptLlmInstructionEditor(liveNode(), editor)
         : syncPromptNodeEditor(node, editor);
     const restore = () => {
         if(instruction){
@@ -9683,7 +9698,7 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={
     });
     editor.oninput = event => {
         sync();
-        maybeOpenMentionPicker(editor, node, {
+        maybeOpenMentionPicker(editor, liveNode(), {
             allowOpen:promptAuthoring.quickOpenIntent(event)
         });
     };
@@ -9693,7 +9708,7 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={
     editor.addEventListener('compositionend', event => {
         promptQuickComposing = false;
         sync();
-        maybeOpenMentionPicker(editor, node, {
+        maybeOpenMentionPicker(editor, liveNode(), {
             allowOpen:promptAuthoring.quickOpenIntent({
                 data:event.data,
                 inputType:'insertText'
@@ -9703,19 +9718,21 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={
     editor.onkeydown = event => {
         if(handlePromptQuickPickerKeydown(event, editor)) return;
         if(event.key === 'Escape'){
+            if(permanent) return;
             if(focusedPromptNodeId === node.id && container.closest('.prompt-node-focus-surface')) return;
             event.preventDefault();
             event.stopPropagation();
-            restore();
+            if(!permanent) restore();
             editor.blur();
         } else if((event.ctrlKey || event.metaKey) && event.key === 'Enter'){
             event.preventDefault();
-            editor.blur();
+            if(permanent && !event.isComposing && !promptQuickComposing && !event.repeat) window.SmartCanvasModules.promptGenerationComposer.submit(editor.dataset.nodeId);
+            else if(!permanent) editor.blur();
         }
     };
     editor.onkeyup = event => {
         if(event.key === 'ArrowDown' || event.key === 'ArrowUp') return;
-        if(editor.isContentEditable) maybeOpenMentionPicker(editor, node);
+        if(editor.isContentEditable) maybeOpenMentionPicker(editor, liveNode());
     };
     editor.onmouseup = () => {
         if(editor.isContentEditable) saveMentionRange(editor);
@@ -9724,6 +9741,7 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={
         if(editor.isContentEditable) saveMentionRange(editor);
     };
     editor.onblur = () => {
+        if(permanent) return;
         if(promptQuickTargetEl === editor) closeMentionPicker();
         editor.contentEditable = 'false';
         editor.classList.remove('is-editing');
@@ -10251,7 +10269,7 @@ function createReferencedNode({sourceNode, fromPort='out', kind='image', point, 
     const createOptions = explicitPoint ? exactOptions : placementOptions;
     let created = null;
     if(kind === 'text'){
-        const stablePromptHeight = isUpstreamInput ? 180 : 397;
+        const stablePromptHeight = 180;
         created = canvasMutation.create({
             kind:'prompt',
             data:{w:316,h:stablePromptHeight},
@@ -11143,6 +11161,11 @@ function bindNodeEvents(){
             window.SmartCanvasModules.viewportSelection.selection.refresh();
             updateComposer();
             promptInput?.focus?.({preventScroll:true});
+        });
+        el.querySelector('[data-retry-text-generation]')?.addEventListener('click', e => {
+            e.preventDefault(); e.stopPropagation();
+            const target = nodes.find(item => item.id === id);
+            if(target) window.SmartCanvasModules.promptGenerationComposer.submit(target.sourceNodeId,{snapshot:target.generationInputSnapshot});
         });
         el.querySelector('[data-view-generation-log]')?.addEventListener('click', e => {
             e.preventDefault();
@@ -12531,7 +12554,7 @@ async function runSmartContextMenuAction(action, state){
     }
     if(action === 'copy-prompt'){ await copySmartText(node.llmEnabled ? (node.llmInstruction || '') : (node.text || ''), tr('smart.textCopied')); return; }
     if(action === 'save-prompt-preset'){ savePromptNodeAsPreset(node); return; }
-    if(action === 'run-prompt'){ runPromptLLMNode(node.id); return; }
+    if(action === 'run-prompt'){ window.SmartCanvasModules.promptGenerationComposer.submit(node.id); return; }
     if(action === 'run-loop'){ generationRun.run({nodeId:node.id, mode:'loop'}); return; }
     if(action === 'stop-loop'){ generationRun.stop({loopId:node.id}); return; }
     if(action === 'rename-frame'){ beginSmartFrameTitleEdit(node.id); return; }
@@ -12810,32 +12833,33 @@ function loadPromptDraft(subject){
         delete promptInput.dataset.restoredGenerationSnapshotFor;
     }
 }
-function positionComposerForNode(node){
+function positionComposerForNode(node, surface=composer, maxWidth=48){
     if(!node) return;
     const rect = smartContainer.presentation(node) || nodeRect(node);
     const gap = 14;
     const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const cardW = Math.max(0, Math.min(48 * rootFontSize, shell.clientWidth - 28));
+    const cardW = Math.max(0, Math.min(maxWidth * rootFontSize, shell.clientWidth - 28));
     const nodeLeft = viewport.x + rect.x * viewport.scale;
     const nodeTop = viewport.y + rect.y * viewport.scale;
     const nodeRight = nodeLeft + rect.width * viewport.scale;
     const nodeBottom = nodeTop + rect.height * viewport.scale;
     const isVisible = nodeRight > 0 && nodeLeft < shell.clientWidth && nodeBottom > 0 && nodeTop < shell.clientHeight;
     if(!isVisible){
-        composer.style.visibility = smartComposerEditingSessionActive()
+        surface.style.visibility = smartComposerEditingSessionActive()
             ? 'visible'
             : 'hidden';
         return;
     }
-    composer.style.visibility = 'visible';
+    surface.style.visibility = 'visible';
     const anchorX = nodeLeft + rect.width * viewport.scale / 2;
     const minLeft = 14;
     const maxLeft = Math.max(minLeft, shell.clientWidth - cardW - 14);
-    composer.style.width = `${cardW}px`;
-    composer.style.left = `${Math.max(minLeft, Math.min(maxLeft, anchorX - cardW / 2))}px`;
-    composer.style.top = `${nodeBottom + gap}px`;
+    surface.style.width = `${cardW}px`;
+    surface.style.left = `${Math.max(minLeft, Math.min(maxLeft, anchorX - cardW / 2))}px`;
+    surface.style.top = `${nodeBottom + gap}px`;
 }
 function positionCanvasFloatingOverlays(){
+    window.SmartCanvasModules.promptGenerationComposer?.position();
     const ids = window.SmartCanvasModules.viewportSelection.selection.ids();
     const node = window.SmartCanvasModules.viewportSelection.selection.node();
     if(node && composer?.classList.contains('open')) positionComposerForNode(node);
@@ -12973,6 +12997,8 @@ function renderPromptNodeFocusDialog(node){
     return dialog;
 }
 function setPromptNodeFocused(nodeId, focused){
+    const textNode = nodes.find(item => item.id === nodeId && nodeKinds.isPromptGeneration(item));
+    if(focused && textNode){ window.SmartCanvasModules.promptGenerationComposer?.expand(textNode); return true; }
     const previousNodeId = focusedPromptNodeId;
     const node = nodes.find(item => item.id === nodeId && nodeKinds.isPromptFamily(item));
     const active = Boolean(focused && node && !node.textGenerationPending);
@@ -13059,10 +13085,13 @@ function updateComposer({skipDynamicParamsRefresh=false}={}){
     }
     composerUpdateSeq++;
     const node = window.SmartCanvasModules.viewportSelection.selection.node();
+    window.SmartCanvasModules.promptGenerationComposer?.update(node);
+    composer.inert = !isSmartRunnableNode(node);
     syncRunButtonState(node);
     if(generationRun.status().silentSelection && !activeComposerSubject){
         hideInputTextPreviewTooltip();
         composer.classList.remove('open');
+        if(composer.classList.contains('focused')) setPromptAuthoringFocused(false);
         activeComposerSubject = null;
         lastComposerNodeId = '';
         lastComposerModeConstraint = '';
@@ -13074,6 +13103,7 @@ function updateComposer({skipDynamicParamsRefresh=false}={}){
         hideInputTextPreviewTooltip();
         savePromptDraftForCurrent();
         composer.classList.remove('open');
+        if(composer.classList.contains('focused')) setPromptAuthoringFocused(false);
         activeComposerSubject = null;
         lastComposerNodeId = '';
         lastComposerModeConstraint = '';
@@ -13127,8 +13157,8 @@ function composerOwnsPromptEditor(node){
         && activeComposerNode()?.id === node.id
     );
 }
-function syncComposerMentionTokenLabels(node, refs=[]){
-    if(!composerOwnsPromptEditor(node)) return false;
+function syncComposerMentionTokenLabels(node, refs=[], editor=promptInput){
+    if(editor === promptInput && !composerOwnsPromptEditor(node)) return false;
     const mediaCounters = {image:0, video:0, audio:0, text:0, file:0};
     const labelsByKey = new Map();
     (refs || []).forEach(ref => {
@@ -13137,7 +13167,7 @@ function syncComposerMentionTokenLabels(node, refs=[]){
         if(key) labelsByKey.set(key, label);
     });
     let changed = false;
-    promptInput.querySelectorAll('.mention-image-token').forEach(token => {
+    editor.querySelectorAll('.mention-image-token').forEach(token => {
         const label = labelsByKey.get(inputRefKey(composerMentionTokenReference(token)));
         if(!label) return;
         const labelElement = composerMentionTokenLabelElement(token);
@@ -13151,13 +13181,15 @@ function syncComposerMentionTokenLabels(node, refs=[]){
         }
         labelElement?.classList?.add('mention-token-label');
     });
-    if(changed) savePromptDraftForCurrent();
+    if(changed && editor === promptInput) savePromptDraftForCurrent();
     return changed;
 }
 function removeComposerMentionTokensForReference(node, key){
-    if(!key || !composerOwnsPromptEditor(node)) return false;
+    const textEditor = window.SmartCanvasModules.promptGenerationComposer?.editorFor(node);
+    const editor = textEditor || promptInput;
+    if(!key || (!textEditor && !composerOwnsPromptEditor(node))) return false;
     let changed = false;
-    promptInput.querySelectorAll('.mention-image-token').forEach(token => {
+    editor.querySelectorAll('.mention-image-token').forEach(token => {
         if(inputRefKey(composerMentionTokenReference(token)) !== key) return;
         const next = token.nextSibling;
         token.remove();
@@ -13168,11 +13200,16 @@ function removeComposerMentionTokensForReference(node, key){
     });
     if(changed){
         delete promptInput.dataset.restoredGenerationSnapshotFor;
-        savePromptDraftForCurrent();
+        if(textEditor) syncPromptLlmInstructionEditor(node,textEditor);
+        else savePromptDraftForCurrent();
     }
     return changed;
 }
 function renderInputThumbsRow(node){
+    if(nodeKinds.isPromptGeneration(node)){
+        window.SmartCanvasModules.promptGenerationComposer?.refresh();
+        return;
+    }
     if(!inputThumbsRow) return;
     syncJimengModelPillForRefs();
     syncJimengVideoModelPillForRefs();
@@ -15418,12 +15455,12 @@ function promptQuickPickerContainer(editor=promptQuickEditor()){
     if(editor === promptInput){
         return promptInput?.closest?.('.composer-card') || promptInput?.closest?.('.prompt-row');
     }
-    return editor?.closest?.('.image-node') || editor?.closest?.('.prompt-node-card') || editor;
+    return editor?.closest?.('.text-generation-composer') || editor?.closest?.('.image-node') || editor?.closest?.('.prompt-node-card') || editor;
 }
 function promptQuickPickerPresentation(editor=promptQuickEditor()){
     const fullscreen = editor === promptInput
         ? composer?.classList.contains('focused')
-        : Boolean(editor?.closest?.('.prompt-node-focus-surface'));
+        : Boolean(editor?.closest?.('.prompt-node-focus-surface, .text-composer-expanded'));
     if(fullscreen){
         return {anchor:editor, placement:'overlay-block-end'};
     }
@@ -15519,14 +15556,18 @@ function finishPromptNodeRun(nodeId){
     if(node) node.running = count > 0;
 }
 async function runPromptLLMNode(nodeId, options={}){
-    const node = nodes.find(n => n.id === nodeId);
-    if(!node || node.type !== 'smart-prompt') return;
-    const message = promptNodeLLMInputText(node).trim();
+    let node = nodes.find(n => n.id === nodeId);
+    if(!node || node.type !== 'smart-prompt' || !canvasPersistence.editable()) return;
+    const sourceCanvasId = canvasId;
+    const systemEnabled = options.snapshot ? Boolean(options.snapshot.systemEnabled) : Boolean(node.llmSystemEnabled);
+    const sourceId = node.id;
+    const message = String(options.snapshot?.prompt ?? promptNodeLLMInputText(node)).trim();
     if(!message){ toast(tr('smart.promptLlmNeedText')); return; }
-    const systemPrompt = (node.llmSystemPrompt || '').trim();
-    const provider = resolveChatProviderId(node.llmProvider || '');
-    const model = resolveChatModel(node.llmModel || '', provider);
-    const mediaRefs = promptNodeInputMediaForLLM(node);
+    const systemPrompt = String(options.snapshot?.systemPrompt ?? node.llmSystemPrompt ?? '').trim();
+    const provider = options.snapshot?.settings?.provider_id || node.llmProvider || resolveChatProviderId('');
+    const model = options.snapshot?.settings?.model || node.llmModel || resolveChatModel('', provider);
+    if(!smartCatalogEntry('text', provider, model)) throw new Error(tr('smart.textComposer.modelUnavailable'));
+    const mediaRefs = (options.snapshot?.refs || promptNodeInputMediaForLLM(node)).map(ref => ({...ref}));
     const images = imageRefsOnly(mediaRefs).map(img => img.url).filter(Boolean);
     const videos = videoRefsOnly(mediaRefs).map(video => video.url).filter(Boolean);
     const modelCapabilityModule = window.SmartCanvasModules.modelCapabilities;
@@ -15537,13 +15578,15 @@ async function runPromptLLMNode(nodeId, options={}){
         inputs:{text:1,image:images.length,video:videos.length},
         parameters:{
             history:[],
-            ...(node.llmSystemEnabled ? {system_prompt:systemPrompt || 'You are a helpful prompt assistant.'} : {})
+            ...(systemEnabled ? {system_prompt:systemPrompt || 'You are a helpful prompt assistant.'} : {})
         },
         catalogRevision:textCapability?.catalog_revision || ''
     });
     if(textCapabilityValidation && !textCapabilityValidation.valid){
         throw new Error(modelCapabilityModule.validationMessage(textCapabilityValidation, tr('smart.errRunFailed')));
     }
+    if(!nodes.some(item => item.id === sourceId) || !canvasPersistence.editable() || canvasId !== sourceCanvasId) return null;
+    node = nodes.find(item => item.id === sourceId);
     const runLog = smartRunSnapshot(node, message, mediaRefs, 'text', {
         engine:'api',
         provider_id:provider,
@@ -15560,8 +15603,8 @@ async function runPromptLLMNode(nodeId, options={}){
             textGenerationPending:true
         },
         options:{
-            select:true,
-            reveal:true,
+            select:false,
+            reveal:false,
             skipUndo:true,
             render:false,
             save:false,
@@ -15572,6 +15615,8 @@ async function runPromptLLMNode(nodeId, options={}){
             }
         }
     });
+    outputNode.sourceNodeId = sourceId;
+    outputNode.generationInputSnapshot = {prompt:message,refs:mediaRefs,settings:{engine:'api',apiKind:'text',provider_id:provider,model,count:1},systemEnabled,systemPrompt,catalogRevision:textCapability?.catalog_revision || ''};
     outputNode.running = true;
     outputNode.runStartedAt = nowMs();
     outputNode.generationOperationId = [
@@ -15590,20 +15635,20 @@ async function runPromptLLMNode(nodeId, options={}){
     });
     node.llmEnabled = true;
     beginPromptNodeRun(node);
-    node.llmProvider = provider;
-    node.llmModel = model;
     node.lastGeneratedNodeId = outputNode.id;
-    selectedId = outputNode.id;
-    selectedIds = [];
-    selectedImage = {nodeId:'', index:-1};
     render();
     canvasPersistence.schedule();
     let submissionAccepted = false;
+    let submissionAttempted = false;
+    let definiteRejection = false;
     try {
         await canvasPersistence.save();
         if(!await canvasPersistence.synced({timeout:5000})){
             throw new Error(tr('smart.syncIncompleteGeneration'));
         }
+        if(!nodes.some(item => item.id === outputNode.id)) return null;
+        if(!nodes.some(item => item.id === sourceId) || !canvasPersistence.editable() || canvasId !== sourceCanvasId) throw new Error(tr('smart.syncIncompleteGeneration'));
+        submissionAttempted = true;
         const submission = await fetch('/api/canvas-llm-tasks', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
@@ -15615,7 +15660,7 @@ async function runPromptLLMNode(nodeId, options={}){
                 model,
                 provider,
                 ms_model: provider === 'modelscope' ? model : '',
-                system_prompt:node.llmSystemEnabled ? (systemPrompt || 'You are a helpful prompt assistant.') : '',
+                system_prompt:systemEnabled ? (systemPrompt || 'You are a helpful prompt assistant.') : '',
                 catalog_revision:textCapability?.catalog_revision || '',
                 canvas_id:canvasId,
                 node_id:outputNode.id,
@@ -15623,7 +15668,7 @@ async function runPromptLLMNode(nodeId, options={}){
                 generation_request_index:0
             })
         }).then(async r => {
-            if(!r.ok) throw new Error(await r.text());
+            if(!r.ok){ definiteRejection = r.status >= 400 && r.status < 500; throw new Error(await smartResponseErrorMessage(r,tr('smart.promptLlmFailed'))); }
             return r.json();
         });
         submissionAccepted = true;
@@ -15648,28 +15693,37 @@ async function runPromptLLMNode(nodeId, options={}){
             logContext:{run:runLog,runLogStart}
         });
         outputNode = nodes.find(item => item.id === outputNode.id) || null;
-        if(!outputNode || !String(outputNode.text || '').trim()){
+        if(!outputNode) return null;
+        if(!String(outputNode.text || '').trim()){
             throw new Error(tr('smart.noTextReturned'));
         }
-        selectedId = outputNode.id;
-        selectedIds = [];
-        selectedImage = {nodeId:'', index:-1};
     } catch(e) {
         const failedOutputId = outputNode?.id || '';
         const liveOutput = nodes.find(item => item.id === failedOutputId);
-        if(liveOutput){
-            canvasMutation.remove({
-                nodeIds:[liveOutput.id],
-                options:{skipUndo:true,render:false,save:false}
-            });
+        const unknownSubmission = submissionAttempted && !submissionAccepted && !definiteRejection;
+        if(liveOutput && !unknownSubmission){
+            if(!submissionAccepted){
+                canvasMutation.remove({nodeIds:[liveOutput.id],options:{skipUndo:true,render:false,save:false}});
+            }else{
+                liveOutput.running = false;
+                delete liveOutput.textGenerationPending;
+                liveOutput.generationFailed = true;
+                liveOutput.generationFailureReason = e.message || tr('smart.promptLlmFailed');
+            }
         }
-        if(node.lastGeneratedNodeId === failedOutputId) delete node.lastGeneratedNodeId;
-        selectedId = node.id;
-        selectedIds = [];
-        selectedImage = {nodeId:'', index:-1};
-        outputNode = null;
-        toast((e.message || tr('smart.promptLlmFailed')).slice(0, 160));
+        if(!unknownSubmission && !submissionAccepted && node.lastGeneratedNodeId === failedOutputId) delete node.lastGeneratedNodeId;
+        if(unknownSubmission){
+            if(liveOutput) liveOutput.textSubmissionUnknown = true;
+            // Keep the known output identity: a lost response is not proof of rejection.
+            void generationRun.restoreActive().then(() => generationRecovery.resume());
+        }
+        const entry = unknownSubmission ? null : e.smartGenerationLogged
+            ? (canvas?.logs || []).find(log => log.generationRunId === runLog.generationRunId)
+            : addSmartGenerationLog({run:{...runLog,nodeId:failedOutputId},outputs:[],runMs:nowMs()-runLogStart,error:e.message || tr('smart.promptLlmFailed'),status:'failed'});
+        if(liveOutput && submissionAccepted) liveOutput.generationLogId = entry?.id || liveOutput.generationLogId || '';
+        if(!e.smartGenerationLogged) toast(e.message || tr('smart.promptLlmFailed'),{persistent:true,heading:tr('smart.promptLlmFailed'),detailLogId:entry?.id || '',detailRunId:runLog.generationRunId || ''});
         if(e&&typeof e==='object') e.aiProcessorToastShown=true;
+        outputNode = null;
         if(options.throwOnSubmissionFailure && !submissionAccepted) throw e;
     } finally {
         finishPromptNodeRun(node.id);

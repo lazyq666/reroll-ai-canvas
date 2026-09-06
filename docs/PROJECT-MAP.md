@@ -96,6 +96,10 @@ flowchart TB
 
 权威决定见 [Workspace 数据边界 ADR](adr/0001-workspace-data-boundary.md)，具体路径和迁移见[存储路径与旧数据迁移](current/storage-layout-and-migration.md)。
 
+管理员通过数据存储位置的[未使用文件清理](current/workspace-media-cleanup.md)手动释放
+无引用媒体；`media_cleanup.py` 负责引用扫描和复核，HTTP/Realtime 入口协调保存与清理，
+记录删除不直接删除原文件，见 [ADR-0012](adr/0012-manual-workspace-media-cleanup.md)。
+
 ## 代码责任地图
 
 ```text
@@ -157,6 +161,7 @@ static/
 │   ├── multi-input.js          多来源资格、Group 归一化、稳定视觉顺序和目标连接规划
 │   ├── multi-input-controller.js 选择快照、公共 Quick Add 与一次性 Mutation 的页面协调
 │   ├── model-capabilities.js 统一能力查询、缓存、Revision 与提交前校验
+│   ├── prompt-generation-composer.js 独立文字 Composer 的草稿会话、引用、模型、展开与提交协调
 │   ├── image-capabilities.js 图片 Composer 的能力投影与设置协调
 │   ├── video-capabilities.js 视频 Composer 的命令与参考输入协调
 │   └── connection-layer.js     Connection 索引、SVG 增量物化与事件委托
@@ -226,7 +231,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 | F07 | Prompt Authoring 与 Prompt Library | `active` | [提示词库的通用与当前画布范围](active/2026-08-21-prompt-library-common-and-canvas-scope.md)已实现；[ADR-0007](adr/0007-prompt-library-directory-owns-cover-media.md)与 Issue #225 将权威 JSON、封面和可回退旧布局迁移收拢到 `data/prompt-libraries/`；Issue #113 完成 Modal/Sidebar/Card 交互，Issue #117 以共享 Canvas Commit Lane、事务内语义 intent、模板版本保护及 HTTP/WebSocket Revision 去重修复当前画布保存竞态；Issue #124 对齐范围命名、范围计数、组件库小号搜索组合与空范围表现；人工验收与真实旧 Workspace 向前兼容使用已完成，仍等待发布前备份回退演练，Prompt/Prompt Generation 身份与完整状态仍需统一 |
 | F08 | Provider、Model 与 Generation Settings | `active` | [统一 CLI 版本检查与提醒](active/2026-09-04-cli-update-management.md)已实现启动异步检查、三适配器与管理员只读提醒，不提供 CLI 升级能力，真实平台响应仍待发布前 Gate；[统一模型能力目录](active/2026-09-04-model-capability-catalog.md)已用同一 Revision 约束图片、视频和文字，完成可用模型行内功能 Tag、按 Model ID 打开的模型详情 Dialog，以及随模型拉取执行的 Dreamina、Gemini API、APIMART 资料提取与差异草稿；独立来源检查、周期采集、来源缓存与外部能力数据导入已移除；Reroll 不内置 AI 搜索或填表；[图片输出能力](current/smart-canvas-image-output-capabilities.md)、[API Settings Package](current/api-settings-package.md)已有 Current；能力目录已实现但尚待合并后毕业为 Current |
 | F09 | Generation Run、Recovery、Output 与 Cascade | `current` | [Generation Pipeline](current/generation-pipeline.md)、[ADR-0005](adr/0005-global-generation-publication-authority.md)；图片、视频与文字使用后台 task ID，Smart Canvas 通过画布级 active Run 接口恢复刷新时缺失的 Pending Node；包含确定性本地图片处理、进度持久化、无远端编号重启重跑与 `image-processor` Managed Media 发布，以及 APIMart Seedream 5.0 Pro 智能分层的同 task ID 恢复、Manifest、Managed Media 校验、专用 Layer Decomposition Node 交付与当前图层状态 PSD 导出；SQLite authority 下 Global History、Run lifecycle 与 Publication Receipt 同库且不接触三个 legacy JSON |
-| F10 | Managed Media、Workspace Asset Library、Image Studio 与 Smart Matting | `partial` | [工作区资产库与本地引用](current/workspace-asset-library.md)、[Smart Matting 性能与容量](current/smart-matting-performance.md)、[ADR-0004](adr/0004-workspace-asset-library-publication-boundary.md)已定义发布目录、权限、TXT、生成校验与本机并行容量；Managed Media 垃圾回收、Image Studio 与 Smart Matting 的统一生命周期仍是后续缺口 |
+| F10 | Managed Media、Workspace Asset Library、Image Studio 与 Smart Matting | `partial` | [工作区资产库与本地引用](current/workspace-asset-library.md)、[手动媒体清理](current/workspace-media-cleanup.md)、[Smart Matting 性能与容量](current/smart-matting-performance.md)、[ADR-0004](adr/0004-workspace-asset-library-publication-boundary.md)已定义发布、引用保护和回收边界；Image Studio 与 Smart Matting 的统一生命周期仍是后续缺口 |
 | F11 | Batch Generation 与专用工作台 | `partial` | [结果画廊模型身份](current/batch-generation-result-gallery-model-identity.md)已统一为常驻 Provider 图标与生成时冻结的模型名称，并覆盖 Light/Dark、旧数据 fallback、下载与预览回归；`batch_generation.py` 和工作台测试覆盖其他现有行为，仍缺共享/特有行为总规格 |
 | F12 | Workflow、RunningHub、ModelScope 与 ComfyUI | `partial` | Workflow 身份、导入导出、安全和恢复形态需统一 |
 | F13 | UI 设计、主题与可访问组件 | `current` | [UI 设计与交互指南](current/ui-design-guidelines.md)、[Design Tokens](current/design-tokens.md)、管理员 `/ui-component-library#design-tokens` 全局颜色 Token 工作台与 `/ui-component-library#smart-canvas-dock` 智能画布工具栏 Block |
@@ -243,7 +248,7 @@ F05 的[灯光参考编辑器](current/smart-canvas-lighting-reference.md)已经
 
 Issue #22 的[多选快速连线与提示词生成快捷入口](active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md)正在实施：公共选区 Quick Add、多选与提示词工具栏、按视觉顺序接入一个新建或已有生成节点及整体撤销已落地并通过隔离生产页面检查。状态为 `drift`：D22-01 的服务端语义前置条件尚待协议扩展决定，完整双端协作及人工验收 Gate 未完成；不能据此宣称 Issue 完成或将 Active 毕业为 Current。
 
-Issue [#47](https://github.com/lazyq666/reroll-ai-canvas/issues/47) 的[提示词生成专属 Composer 规格](active/2026-09-06-smart-canvas-prompt-generation-composer-spec.md)为 F05 / F07 提供 Draft：保留原入口及 Prompt Generation Node 身份，将完整编辑与运行控件移入独立文字 Composer；与媒体草稿和模型隔离，保留独立下游 Prompt 结果、连续运行及反推提示词 Dialog，并定义协作、恢复与 A01–A23 验收。尚未实现，不覆盖 Current。
+Issue [#47](https://github.com/lazyq666/reroll-ai-canvas/issues/47) 的[提示词生成专属 Composer 规格](active/2026-09-06-smart-canvas-prompt-generation-composer-spec.md)为 F05 / F07 提供 Implemented 规格：保留原入口及 Prompt Generation Node 身份，将完整编辑与运行控件移入独立文字 Composer；与媒体草稿和模型隔离，保留独立下游 Prompt 结果、连续运行及反推提示词 Dialog，并定义协作、恢复与 A01–A23 验收。本地实现与确定性页面回归已完成；真实 Provider、双客户端、移动 IME 与性能 Gate 见规格 §15.5，暂不升级为 Current。
 
 Issue #28 的[Smart Group 可逆编组与成员还原](active/2026-09-04-smart-group-reversible-containment-spec.md)已本地实现并进入 Review：组内紧凑排列只属于派生的 Group Presentation，既有 Node 作为 Smart Group Node Member 保留身份、创作状态、Connection 与 Node Rest Geometry；直接媒体具有稳定成员身份，并在离开编组时才创建新 Image Node。跨类型成员顺序、唯一所有权、拖出/解组、复制重映射、空间与分享投影及 Realtime 权威校验已有自动化覆盖；真实双端协作、Keyboard / Focus、Reduced Motion 与发布前人工 Gate 尚未完成，因此规格仍保持 Active。
 

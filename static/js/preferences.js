@@ -12,6 +12,10 @@
         summary: null,
         message: "",
         error: "",
+        cleanup: null,
+        cleanupBusy: "",
+        cleanupError: "",
+        cleanupResult: null,
     };
 
     function escapeHtml(value = "") {
@@ -148,13 +152,16 @@
             dialog.className = "preferences-dialog";
             dialog.setAttribute("size", "medium");
             dialog.setAttribute("dismiss-policy", "explicit");
+            dialog.addEventListener('ic-hide', event => {
+                if (state.cleanupBusy) event.preventDefault();
+            });
             dialog.addEventListener("ic-after-hide", () => {
                 if (state.open) closePreferencesModal();
             });
             document.body.appendChild(dialog);
         }
         dialog.setAttribute("label", tr("preferences.title"));
-        const busy = state.loading || state.saving;
+        const busy = state.loading || state.saving || Boolean(state.cleanupBusy);
         const selectedDirectory = state.selected.workspace_directory || "";
         const confirmLabel =
             state.intent === "move"
@@ -171,6 +178,23 @@
                         <div class="preferences-active-paths">
                             <span id="workspaceDirectory">${escapeHtml(state.active.workspace_directory || tr("preferences.loading"))}</span>
                         </div>
+                    </section>
+                    <section class="preferences-section" aria-label="${tr('preferences.cleanupTitle')}">
+                        <h3>${tr('preferences.cleanupTitle')}</h3>
+                        <p class="preferences-note">${tr('preferences.cleanupNote')}</p>
+                        <div role="status" aria-live="polite">
+                            ${state.cleanupBusy ? `<p>${tr('preferences.cleanup' + state.cleanupBusy)}</p>` : ''}
+                            ${state.cleanup && !state.cleanupBusy ? `<p>${state.cleanup.file_count
+                                ? tf('preferences.cleanupSummary', {count:state.cleanup.file_count, size:formatBytes(state.cleanup.total_bytes)})
+                                : tr('preferences.cleanupEmpty')}</p>` : ''}
+                            ${state.cleanupResult ? `<p>${tf('preferences.cleanupDone', {count:state.cleanupResult.file_count, size:formatBytes(state.cleanupResult.total_bytes)})}</p>
+                                ${state.cleanupResult.skipped_count || state.cleanupResult.failed_count ? `<p>${tf('preferences.cleanupRemaining', {count:state.cleanupResult.skipped_count + state.cleanupResult.failed_count})}</p>` : ''}` : ''}
+                            ${state.cleanupError ? `<ic-alert tone="danger">${tr('preferences.' + state.cleanupError)}</ic-alert>` : ''}
+                        </div>
+                        <ic-toolbar appearance="plain" label="${tr('preferences.cleanupTitle')}">
+                            <ic-button hierarchy="secondary" data-cleanup-scan ${busy ? 'disabled' : ''}>${tr('preferences.cleanupScan')}</ic-button>
+                            ${state.cleanup?.file_count ? `<ic-button hierarchy="primary" data-cleanup-confirm ${busy ? 'disabled' : ''}>${tr('preferences.cleanupConfirm')}</ic-button>` : ''}
+                        </ic-toolbar>
                     </section>
                     <section class="preferences-section preferences-operation-section">
                         <h3>${tr("preferences.chooseAction")}</h3>
@@ -204,7 +228,7 @@
                         ${state.message ? `<ic-alert class="preferences-message" tone="info">${escapeHtml(state.message)}</ic-alert>` : ""}
                     </section>
                 </div>
-                <ic-button slot="footer" hierarchy="secondary" type="button" data-preferences-close>${state.summary ? tr("preferences.exitNoChanges") : tr("common.close")}</ic-button>
+                <ic-button slot="footer" hierarchy="secondary" type="button" data-preferences-close ${state.cleanupBusy ? 'disabled' : ''}>${state.summary ? tr("preferences.exitNoChanges") : tr("common.close")}</ic-button>
                     ${
                         state.summary
                             ? `<ic-button slot="footer" hierarchy="primary" type="button" data-preferences-confirm ${busy || !state.summary.can_continue ? "disabled" : ""}>${confirmLabel}</ic-button>`
@@ -231,6 +255,48 @@
         } finally {
             state.loading = false;
             render();
+        }
+    }
+
+    async function cleanupMedia(confirm = false) {
+        if (state.cleanupBusy || state.loading || state.saving) return;
+        const scanId = state.cleanup?.scan_id;
+        if (confirm && !scanId) return;
+        state.cleanupBusy = confirm ? 'Cleaning' : 'Scanning';
+        state.cleanupError = '';
+        state.cleanupResult = null;
+        state.cleanup = null;
+        render();
+        try {
+            const response = await fetch('/api/workspace-storage-settings/cleanup/' + (confirm ? 'confirm' : 'scan'), {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify(confirm ? {scan_id:scanId} : {}),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const errors = {
+                    media_cleanup_busy:'cleanupBusy',
+                    media_cleanup_expired:'cleanupExpired',
+                    media_cleanup_unreadable:'cleanupUnreadable',
+                };
+                state.cleanupError = errors[data.detail?.code] || 'cleanupFailed';
+            } else if (confirm) {
+                state.cleanupResult = data;
+            } else {
+                state.cleanup = data;
+            }
+        } catch (_) {
+            state.cleanupError = 'cleanupFailed';
+        } finally {
+            state.cleanupBusy = '';
+            render();
+            const nextAction = document.querySelector('[data-cleanup-confirm]') || document.querySelector('[data-cleanup-scan]');
+            if (nextAction) {
+                await customElements.whenDefined('ic-button');
+                await nextAction.updateComplete;
+                if (nextAction.isConnected) nextAction.focus();
+            }
         }
     }
 
@@ -362,12 +428,16 @@
     }
 
     function closePreferencesModal() {
+        if (state.cleanupBusy) return;
         state.open = false;
         state.intent = "";
         state.selected = {};
         state.summary = null;
         state.message = "";
         state.error = "";
+        state.cleanup = null;
+        state.cleanupError = '';
+        state.cleanupResult = null;
         render();
     }
 
@@ -382,6 +452,8 @@
     document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof Element)) return;
+        if (target.closest('[data-cleanup-scan]')) { cleanupMedia(); return; }
+        if (target.closest('[data-cleanup-confirm]')) { cleanupMedia(true); return; }
         if (target.closest("[data-preferences-close]")) {
             closePreferencesModal();
             return;

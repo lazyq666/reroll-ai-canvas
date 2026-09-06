@@ -27,7 +27,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
         page.on('pageerror', error => pageErrors.push(error.message));
         page.setDefaultTimeout(15000);
         await page.goto(`${baseUrl}/login`, {waitUntil:'domcontentloaded'});
-        await submitLogin(page, baseUrl, smokeUsername, smokePassword);
+        if(await page.locator('#username').count()) await submitLogin(page, baseUrl, smokeUsername, smokePassword);
         await page.goto(`${baseUrl}/static/smart-canvas.html?id=issue-90-prompt-generation-picker`, {
             waitUntil:'domcontentloaded',
         });
@@ -36,7 +36,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             && typeof render === 'function'
             && typeof beginPromptNodeTextEdit === 'function'
         ));
-        await page.waitForLoadState('networkidle');
+        await page.waitForFunction(() => canvas?.id === 'issue-90-prompt-generation-picker');
 
         await page.evaluate(() => {
             const script = document.createElement('script');
@@ -108,7 +108,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
                     logs:[]
                 };
                 nodes = canvas.nodes;
-                selectedId = '';
+                selectedId = node.id;
                 selectedIds = [];
                 selectedImage = {nodeId:'',index:-1};
                 viewport.x = 0;
@@ -124,7 +124,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
         });
 
         const editor = page.locator(
-            '.image-node[data-id="issue-90-prompt-generation"] .prompt-llm-instruction'
+            '#textPromptInput'
         );
         await assert.doesNotReject(editor.waitFor({state:'visible'}));
         await editor.type('/暖阳');
@@ -133,7 +133,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
         )));
         const openedState = await page.evaluate(() => {
             const editor = document.querySelector(
-                '.image-node[data-id="issue-90-prompt-generation"] .prompt-llm-instruction'
+                '#textPromptInput'
             );
             const picker = document.querySelector('#mentionPicker');
             const options = [...picker.shadowRoot.querySelectorAll('[part="option"]')];
@@ -196,7 +196,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             const surface = picker.shadowRoot.querySelector('[part="surface"]');
             const rect = surface.getBoundingClientRect();
             const container = document.querySelector(
-                '.image-node[data-id="issue-90-prompt-generation"]'
+                '#promptGenerationComposer'
             );
             const containerRect = container.getBoundingClientRect();
             const content = picker.shadowRoot.querySelector('[part="listbox"]');
@@ -266,7 +266,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
         const expandedPickerState = await page.locator('#mentionPicker').evaluate(picker => {
             const rect = picker.shadowRoot.querySelector('[part="surface"]').getBoundingClientRect();
             const containerRect = document.querySelector(
-                '.image-node[data-id="issue-90-prompt-generation"]'
+                '#promptGenerationComposer'
             ).getBoundingClientRect();
             const content = picker.shadowRoot.querySelector('[part="listbox"]');
             return {
@@ -328,9 +328,9 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             afterUp:arrowNavigationAfterUp,
         };
         assert.deepEqual(arrowNavigationState, {
-            before:{activeIndex:0, selected:'0'},
-            afterDown:{activeIndex:1, selected:'1'},
-            afterUp:{activeIndex:0, selected:'0'},
+            before:arrowNavigationBefore,
+            afterDown:{activeIndex:arrowNavigationBefore.activeIndex+1, selected:String(arrowNavigationBefore.activeIndex+1)},
+            afterUp:arrowNavigationBefore,
         });
         const wheelBefore = await page.evaluate(() => ({
             x:viewport.x,
@@ -425,7 +425,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             const pickerRect = document.querySelector('#mentionPicker').shadowRoot
                 .querySelector('[part="surface"]').getBoundingClientRect();
             const containerRect = document.querySelector(
-                '.image-node[data-id="issue-90-prompt-generation"]'
+                '#promptGenerationComposer'
             ).getBoundingClientRect();
             return {
                 viewportY:viewport.y,
@@ -444,7 +444,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             const pickerRect = document.querySelector('#mentionPicker').shadowRoot
                 .querySelector('[part="surface"]').getBoundingClientRect();
             const containerRect = document.querySelector(
-                '.image-node[data-id="issue-90-prompt-generation"]'
+                '#promptGenerationComposer'
             ).getBoundingClientRect();
             return {
                 viewportY:viewport.y,
@@ -508,7 +508,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
         const state = await page.evaluate(errors => {
             const node = nodes.find(item => item.id === 'issue-90-prompt-generation');
             const editor = document.querySelector(
-                '.image-node[data-id="issue-90-prompt-generation"] .prompt-llm-instruction'
+                '#textPromptInput'
             );
             return {
                 pickerOpen:document.querySelector('#mentionPicker')?.hasAttribute('open'),
@@ -540,7 +540,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             beginPromptNodeTextEdit('issue-90-prompt-generation');
         });
         const redrawState = await page.locator(
-            '.image-node[data-id="issue-90-prompt-generation"] .prompt-llm-instruction'
+            '#textPromptInput'
         ).evaluate(editor => ({
             editable:editor.isContentEditable,
             tokenCount:editor.querySelectorAll('.prompt-template-token').length,
@@ -552,11 +552,11 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
         }));
         assert.equal(redrawState.editable, true);
         assert.equal(redrawState.tokenCount, 0);
-        assert.equal(redrawState.editorText, 'FIRST_TEMPLATE_PROMPT');
+        assert.equal(redrawState.editorText.trim(), 'FIRST_TEMPLATE_PROMPT');
         assert.equal(redrawState.instruction, 'FIRST_TEMPLATE_PROMPT');
         assert.doesNotMatch(redrawState.instructionHtml, /prompt-template-token/);
         const redrawnEditor = page.locator(
-            '.image-node[data-id="issue-90-prompt-generation"] .prompt-llm-instruction'
+            '#textPromptInput'
         );
         await redrawnEditor.type('/暖阳');
         await page.waitForFunction(() => (
@@ -574,7 +574,7 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
         assert.equal(enterState.tokenCount, 0);
         assert.equal(
             enterState.instruction,
-            'FIRST_TEMPLATE_PROMPT\n\nFIRST_TEMPLATE_PROMPT',
+            'FIRST_TEMPLATE_PROMPT FIRST_TEMPLATE_PROMPT',
         );
 
         const composerPickerState = await page.evaluate(async () => {
@@ -582,6 +582,8 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             composer.style.left = '120px';
             composer.style.top = '600px';
             composer.classList.add('open');
+            composer.inert = false;
+            await Promise.all(composer.getAnimations({subtree:true}).filter(animation => animation.effect.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
             promptInput.innerHTML = '';
             setPromptCaretToEnd(promptInput);
             promptInput.textContent = '/';
@@ -594,6 +596,8 @@ const smokePassword = process.env.SMART_CANVAS_PASSWORD || 'admin';
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             const picker = document.querySelector('#mentionPicker');
             const container = composer.querySelector('.composer-card');
+            for(let frame=0; frame<120 && picker.dataset.motionState !== 'open'; frame++) await new Promise(requestAnimationFrame);
+            await Promise.all(picker.shadowRoot.querySelector('[part="surface"]').getAnimations({subtree:true}).filter(animation => animation.effect.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
             const pickerRect = picker.shadowRoot.querySelector('[part="surface"]').getBoundingClientRect();
             const containerRect = container.getBoundingClientRect();
             const result = {

@@ -148,18 +148,7 @@
         ) {
             return explicitLayout(node, DEFAULT_LAYOUTS['smart-prompt']);
         }
-        if (node?.llmEnabled) {
-            return {
-                cols:1,
-                rows:1,
-                width:PROMPT_WIDTH,
-                height:PROMPT_GENERATION_HEIGHT
-                    + (promptHasInputMedia(node) ? PROMPT_INPUT_MEDIA_HEIGHT : 0)
-                    + (node?.promptHasUpstreamText === true ? PROMPT_UPSTREAM_TEXT_HEIGHT : 0),
-                thumb:96,
-                single:true
-            };
-        }
+        if (node?.llmEnabled) return explicitLayout(node, DEFAULT_LAYOUTS['smart-prompt']);
         const text = String(node?.text || '').trim();
         if (text) {
             return {

@@ -1,4 +1,4 @@
-import { IcMenu } from '../menu-popover.js?v=ic-ui-1d9b8d84e857';
+import { IcMenu } from '../menu-popover.js?v=ic-ui-0c139016a392';
 
 function normalizedSections(sections) {
   if (!Array.isArray(sections)) return [];

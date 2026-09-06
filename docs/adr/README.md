@@ -10,6 +10,9 @@ Create an ADR when a decision constrains future implementation, establishes a sy
 
 ## Naming
 
+[ADR-0012](0012-manual-workspace-media-cleanup.md) defines manual reclamation of
+unreferenced Workspace media and separates record deletion from physical deletion.
+
 Use `NNNN-kebab-case-title.md`, with monotonically increasing four-digit numbers, for example `0001-canvas-mutation-as-write-authority.md`.
 
 ## Lifecycle

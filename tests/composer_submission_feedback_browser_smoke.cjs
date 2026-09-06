@@ -56,7 +56,7 @@ async function stopManualServer(child) {
 }
 
 
-async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', failure=false, offline=false, keyboard=false, theme='light', empty=false, priorAlert=false}={}) {
+async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', failure=false, offline=false, keyboard=false, theme='light', empty=false, priorAlert=false, expanded=true}={}) {
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   const shouldRetry = failure;
@@ -97,15 +97,17 @@ async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', 
       if(priorAlert) toast('Earlier generation failed', {persistent:true,tone:'danger'});
       if(offline) generationRunOnline = () => false;
     }, {count,lang,theme,offline,empty,priorAlert});
-    await page.locator('#composerFocusToggle').click();
-    await page.waitForFunction(() => composer.classList.contains('focused'));
+    if(expanded){
+      await page.locator('#composerFocusToggle').click();
+      await page.waitForFunction(() => composer.classList.contains('focused'));
+    }
     if(keyboard) {
       await page.locator('#runBtn').focus();
       await page.keyboard.press('Enter');
     } else await page.locator('#runBtn').click();
     if(empty){
       await page.waitForFunction(() => !runBtn.loading);
-      assert.equal(await page.evaluate(() => composer.classList.contains('focused')), true);
+      assert.equal(await page.evaluate(() => composer.classList.contains('focused')), expanded);
       assert.equal(requests,0);
       return;
     }
@@ -113,7 +115,10 @@ async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', 
       await page.waitForFunction(() => nodes.some(node => node.generationOperationId));
       const busy = await page.evaluate(() => ({loading:runBtn.loading, focused:composer.classList.contains('focused'), label:runBtn.label}));
       assert.equal(busy.loading, true, 'Composer must show primary icon button loading during submission');
-      assert.equal(busy.focused, true, 'Do not collapse before acceptance');
+      assert.equal(busy.focused, expanded, 'Do not change editing mode before acceptance');
+      assert.equal(await page.locator('#runBtn').isVisible(),true,'Submitting button must remain visible in normal mode');
+      const buttonBox = await page.locator('#runBtn').boundingBox();
+      assert.ok(buttonBox && buttonBox.y >= 0 && buttonBox.y + buttonBox.height <= page.viewportSize().height, `Submitting button left the viewport: ${JSON.stringify(buttonBox)}`);
       assert.equal(busy.label, lang === 'zh' ? '正在提交…' : 'Submitting…');
       assert.equal(await page.evaluate(async () => {
         await runBtn.updateComplete;
@@ -131,7 +136,7 @@ async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', 
     }
     await page.waitForFunction(() => !runBtn.loading);
     if(failure){
-      assert.equal(await page.evaluate(() => composer.classList.contains('focused')), true);
+      assert.equal(await page.evaluate(() => composer.classList.contains('focused')), expanded);
       assert.equal(await page.locator('ic-toast[data-i18n="smart.generationQueued"]').count(), 0);
       assert.ok(await page.evaluate(() => promptInput.textContent.includes('Preserve my composer prompt')));
       failure=false;
@@ -166,6 +171,7 @@ async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', 
     browser = await chromium.launch({headless:true,executablePath:browserExecutable});
     const context = await browser.newContext({viewport:{width:1440,height:1000}});
     for(const options of [
+      {expanded:false}, {expanded:false,count:3}, {expanded:false,failure:true},
       {}, {count:3,lang:'en',theme:'dark',keyboard:true}, {status:'running'},
       {failure:true}, {count:3,failure:true}, {offline:true}, {empty:true}, {priorAlert:true},
     ]) await scenario(context,server.url,options);

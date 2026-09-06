@@ -92,7 +92,7 @@ Smart Canvas 用 Node 角色判断 Prompt Authoring 与 Generation Run 的基础
 
 Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切换能力：通过 Quick Add 选择“视频”只决定初始 Generation Settings，不锁定后续模式；用户切回图片时，空闲空节点同步更新自身的生成类型。只有已经承载视频或音频、且没有图片媒体的 Generation Node 固定为视频生成。Generation Output 在创建、批量拆分和结果收尾时都必须保存与输出模式一致的明确生成身份；旧 Canvas 中已有可靠 Generation Output 证据但缺失该身份的节点，在加载规范化时按 `outputKind` 等结果证据补齐。普通媒体 Node 即使保存过旧 Prompt 草稿或 Generation Settings，也不会仅凭这些兼容数据恢复 Composer 资格；数据不迁移、不删除。Composer 可见性、运行按钮的基础资格和 `runGeneration()` 最终门禁消费同一角色资格，其他参考输入、Model Capability、Provider、权限和同步校验继续叠加。
 
-节点已有单次 Generation Run 正在运行或排队时，生成按钮仍保持可用；再次提交会创建新的并列 Pending Node，并复制原节点的入向输入关系，不覆盖正在执行的目标节点。Prompt Generation Node 同样允许在文字任务生成中修改指令、切换文字模型并再次点击“运行”；每次点击冻结当下的指令、模型和引用内容，创建独立的文字 Pending Node。源节点用并行任务计数维持运行状态，只有最后一项文字任务结束后才退出运行中状态。运行中的循环仍保持单实例，不能重复启动。
+节点已有单次 Generation Run 正在运行或排队时，生成按钮仍保持可用；再次提交会创建新的并列 Pending Node，并复制原节点的入向输入关系，不覆盖正在执行的目标节点。Prompt Generation Node 同样允许在文字任务生成中修改指令、切换文字模型并再次点击“运行”；每次点击冻结当下的指令、模型和引用内容，创建独立的文字 Pending Node。源节点用并行任务计数维持运行状态，只有最后一项文字任务结束后才退出运行中状态。 文字生成使用独立 Composer；同次提交在服务器接受前禁止重复触发，接受后可提交新快照。提交与完成均保持用户当前 Selection / 编辑焦点，输出在来源下游独立落点。失败快照保存在对应输出，重试时重新校验原输入与模型；当前 Composer 的新草稿不被覆盖。提交响应未知时保留原 Operation / 目标并调用既有恢复，状态明确前不以新身份自动重试。运行中的循环仍保持单实例，不能重复启动。
 
 选中正在运行或排队的可生成节点时，节点悬浮菜单提供“创建副本”和“再次生成”。“再次生成”从 `generationInputSnapshot` 读取冻结的提示词、参考素材和 Generation Settings；Prompt Authoring 中之后发生的编辑不改变这份运行快照。
 
@@ -474,6 +474,11 @@ lifecycle 和 Publication Receipt 各自只有一个权威。这些都是用户�
 Managed Media，删除 Device Cache 只会导致下次使用时重新下载或推理。
 
 ## 13. 当前边界与维护注意事项
+
+删除 Global Generation History 只解除该条记录的引用，JSON 和 SQLite 适配器都不直接
+删除媒体文件。原文件统一由[工作区手动媒体清理](workspace-media-cleanup.md)复核后回收；
+仍被其他 Canvas、有效撤销历史、资产库或生成历史引用的文件保留。活动生成和待交付
+或待发布的持久结果阻止清理，避免引用从运行转移到历史/Canvas 时发生遗漏。
 
 - 当前协作和 Generation Runs 按单个 Uvicorn Worker 设计，不支持多 Worker 共同消费任务。
 - 图片和文字主要使用后台任务；视频与部分专用工作流仍保留 inline 或前端轮询路径。

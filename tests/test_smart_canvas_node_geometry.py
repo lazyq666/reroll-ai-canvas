@@ -53,7 +53,7 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
 
         self.assertEqual(
             result["reverse-prompt"],
-            {"x": 0, "y": 0, "width": 316, "height": 323},
+            {"x": 0, "y": 0, "width": 316, "height": 180},
         )
         self.assertEqual(
             result["context-prompt"],

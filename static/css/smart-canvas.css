@@ -1855,3 +1855,27 @@ ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected)::before
 .smart-group-node .thumb-item.image-selected::after {
     content:none;
 }
+
+/* Text generation has its own draft and compact authoring surface. */
+.text-generation-composer[hidden] { display:none; }
+.text-generation-composer { width:36rem; }
+.text-composer-card { grid-template-areas:"refs refs" "upstream upstream" "prompt prompt" "model actions" "error error"; max-height:calc(100dvh - 28px); overflow-y:auto; overscroll-behavior:contain; }
+.text-composer-refs { grid-area:refs; min-width:0; }
+.text-composer-refs[hidden], .text-composer-upstream[hidden], .text-composer-error[hidden] { display:none; }
+.text-composer-upstream { grid-area:upstream; min-width:0; color:var(--ui-color-text-secondary); font-size:var(--ui-font-size-2); }
+.text-composer-upstream summary { cursor:pointer; }
+.text-composer-upstream > div { white-space:pre-wrap; max-height:8rem; overflow:auto; overscroll-behavior:contain; padding-block:var(--ui-space-2); }
+.text-composer-card > .prompt-editor-shell { grid-area:prompt; min-height:7rem; }
+.text-composer-card .prompt-llm-instruction { display:block; min-height:5rem; max-height:16rem; overflow:auto; overscroll-behavior:contain; padding:var(--ui-space-2); white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--ui-font-size-2); line-height:var(--ui-line-height-code); color:var(--ui-color-text-primary); cursor:text; }
+.text-composer-card .prompt-llm-instruction:empty::before { content:attr(data-placeholder); color:var(--ui-color-text-placeholder); pointer-events:none; }
+.text-composer-model { grid-area:model; min-width:0; align-self:center; }
+.text-composer-model ic-select { width:100%; max-width:22rem; }
+.text-composer-actions { grid-area:actions; display:flex; align-items:center; gap:var(--ui-space-1); }
+.text-composer-error { grid-area:error; }
+.text-generation-composer.text-composer-expanded { position:relative; inset:auto !important; width:100% !important; transform:none; }
+.text-composer-expanded .text-composer-card { min-height:min(28rem,60dvh); max-height:65dvh; border:0; }
+.text-composer-expanded .prompt-editor-shell { min-height:15rem; }
+.text-composer-expanded .prompt-llm-instruction { min-height:13rem; max-height:40dvh; }
+.text-composer-card { grid-template-areas:"refs refs" "upstream upstream" "prompt prompt" "model actions" "error error" "conflict conflict"; }
+.text-composer-conflict { grid-area:conflict; display:flex; gap:var(--ui-space-2); flex-wrap:wrap; }
+.text-composer-conflict[hidden] { display:none; }
