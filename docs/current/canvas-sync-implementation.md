@@ -26,6 +26,9 @@
   Group 与安全 Undo 规则。
 - 同一 Smart Canvas 的持久化与通知按同一顺序完成；重复 operation
   只返回原确认，不重复修改或广播。
+- 专属文字 Composer 保持焦点时继续处理保存确认与实时合并，快捷键提交不要求
+  先离开编辑器；Composer 保留正在编辑的 DOM、草稿和光标，并显式处理同字段冲突。
+  拖动等活动画布手势仍按既有合并保护执行。
 - 每一次实际 REST 或 WebSocket 写入都会从持久层重新读取并检查当前权限。
 - Canvas Selection、Viewport、当前工具、pointer、drag/resize/frame/brush
   preview 不进入共享 Mutation，也不会出现在 Smart Canvas 共享快照中。

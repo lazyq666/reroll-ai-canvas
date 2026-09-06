@@ -79,7 +79,7 @@ class Issue129PromptCharacterCountTests(unittest.TestCase):
         self.assertIn("promptEditorShellHtml(`<ic-prompt-composer", self.host)
         self.assertEqual(1, self.host.count("promptEditorShellHtml(`<ic-prompt-composer"))
         text_composer = (ROOT / "static/js/smart-canvas/prompt-generation-composer.js").read_text()
-        self.assertIn("promptEditorShellHtml('<ic-prompt-composer", text_composer)
+        self.assertIn("shellTemplate.content.firstElementChild.cloneNode(true)", text_composer)
         self.assertIn("bindPromptCharacterCount(promptInput)", self.host)
         self.assertIn("bindPromptCharacterCount(editor)", self.host)
         self.assertIn('class="prompt-row prompt-editor-shell"', self.composer_case)
@@ -94,7 +94,7 @@ class Issue129PromptCharacterCountTests(unittest.TestCase):
         self.assertIn("color:var(--ui-color-text-tertiary)", self.styles)
         self.assertIn("font-weight:var(--ui-font-weight-regular)", self.styles)
         self.assertIn(
-            ".prompt-node-card:not(.prompt-node-composer) > .prompt-editor-shell > .prompt-character-count { padding-right:calc(var(--ui-space-2) + var(--ui-space-3)); }",
+            ".prompt-node-card > .prompt-editor-shell > .prompt-character-count { padding-right:calc(var(--ui-space-2) + var(--ui-space-3)); }",
             self.styles,
         )
         counter_rule = self.styles[

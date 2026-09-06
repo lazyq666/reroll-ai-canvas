@@ -39,7 +39,7 @@
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-0c139016a392" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-1d9b8d84e857" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=2026.09.01.5.1788439320"></script>
 </head>
 <body>
@@ -69,12 +69,13 @@
         <ic-canvas-multi-selection id="smartMultiSelectionBox" class="smart-multi-selection-box" label="整体缩放" data-i18n-label="smart.scaleSelection" aria-hidden="true"></ic-canvas-multi-selection>
         <ic-smart-node-context-menu id="smartNodeContextMenu" label="节点操作" data-i18n-label="smart.nodeActions" data-legal-combination="context-command-iconless"></ic-smart-node-context-menu>
         <div id="composerFocusBackdrop" class="composer-focus-backdrop" aria-hidden="true"></div>
-        <div id="composer" class="composer">
+        <div id="composer" class="composer"></div>
+        <template id="composerCardTemplate">
                 <div class="composer-card">
                     <div id="inputThumbsRow" class="input-thumbs-row"></div>
                     <ic-icon-button id="composerFocusToggle" class="composer-focus-toggle" type="button" size="s" hierarchy="quiet" icon="focus-editor" label="展开" data-i18n-label="smart.focusEdit" tooltip-placement="block-start" data-action-combination="quiet-icon-action" aria-expanded="false"></ic-icon-button>
                     <div class="prompt-row prompt-editor-shell">
-                        <ic-prompt-composer id="promptInput" contenteditable="true" aria-label="提示词编辑器" aria-describedby="promptCharacterCount" data-i18n-aria-label="smart.promptEditor" data-i18n-placeholder="smart.promptPlaceholder" data-placeholder="描述你想生成的图片、视频或文本，输入 @ 引用素材，或从提示词库开始…"></ic-prompt-composer>
+                        <ic-prompt-composer id="promptInput" class="composer-prompt-input" contenteditable="true" aria-label="提示词编辑器" aria-describedby="promptCharacterCount" data-i18n-aria-label="smart.promptEditor" data-i18n-placeholder="smart.promptPlaceholder" data-placeholder="描述你想生成的图片、视频或文本，输入 @ 引用素材，或从提示词库开始…"></ic-prompt-composer>
                         <span id="promptCharacterCount" class="prompt-character-count" data-prompt-character-count>0</span>
                     </div>
                     <div class="param-row">
@@ -90,7 +91,7 @@
                         <ic-icon-button id="runBtn" class="run-btn" type="button" size="large" hierarchy="primary" icon="submit" label="运行" data-i18n-label="smart.run" tooltip-placement="block-start" data-action-combination="primary-icon-action"></ic-icon-button>
                     </div>
                 </div>
-        </div>
+        </template>
         <ic-mention-picker id="mentionPicker" label="提示建议" data-i18n-label="smart.mentionSuggestions" empty-label="没有匹配项" data-i18n-empty-label="smart.noMatches"></ic-mention-picker>
         <ic-tooltip id="inputTextPreviewTooltip" class="input-text-preview-tooltip" content="引用文本预览" data-i18n-content="smart.referencedTextPreview" placement="block-start"></ic-tooltip>
         <ic-menu id="referenceGenerateMenu" class="reference-generate-menu" label="引用该节点生成" data-i18n-label="smart.referenceGenerate" trigger="context" selection="command" size="small" variant="reference-generate" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
@@ -657,7 +658,7 @@
     <script src="/static/js/smart-canvas/canvas-virtualization.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/image-studio-geometry.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-0c139016a392"></script>
+    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-1d9b8d84e857"></script>
     <script src="/static/js/smart-canvas/canvas-opening.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-fa1ab77b8006"></script>
     <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-5371070c8d3c"></script>

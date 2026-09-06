@@ -29,6 +29,7 @@ let smartCanvasDockPosition = (() => {
 const shell = document.getElementById('shell');
 const world = document.getElementById('world');
 const composer = document.getElementById('composer');
+composer.append(document.getElementById('composerCardTemplate').content.cloneNode(true));
 const composerFocusBackdrop = document.getElementById('composerFocusBackdrop');
 const composerFocusToggle = document.getElementById('composerFocusToggle');
 const promptNodeFocusSurface = document.getElementById('promptNodeFocusSurface');
@@ -119,7 +120,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-0c139016a392')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1d9b8d84e857')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -7628,21 +7629,6 @@ function syncPromptNodeEditor(node, editor){
     refreshAllSplitterNodePreviews();
     canvasPersistence.schedule();
 }
-function syncPromptLlmInstructionEditor(node, editor){
-    if(!node || !editor) return;
-    const rawHtml = String(editor.innerHTML || '');
-    const html = /^(?:<br>|<div><br><\/div>)$/i.test(rawHtml.trim()) ? '' : rawHtml;
-    const text = promptAuthoring.plainText(editor);
-    if(node.llmInstructionHtml === html && node.llmInstruction === text) return;
-    if(window.SmartCanvasModules.promptGenerationComposer?.owns(editor)){
-        if(!canvasPersistence.editable()) return;
-        window.SmartCanvasModules.promptGenerationComposer.persist(node,html,text);
-    }else{
-        node.llmInstructionHtml = html;
-        node.llmInstruction = text;
-        canvasPersistence.schedule();
-    }
-}
 let promptCharacterCountId = 0;
 function syncPromptCharacterCount(editor){
     const counter = editor?.closest?.('.prompt-editor-shell')
@@ -9292,7 +9278,6 @@ function render(options={}){
                 far:nodeFarMode,
                 empty:isEmpty,
                 referenceGeneration:Boolean(generationKind) || nodeKinds.isPromptGeneration(node),
-                textGeneration:nodeKinds.isPromptGeneration(node),
                 mediaGroup:isGroup,
                 history:isHistory,
                 compact:isCompactMember,
@@ -9624,15 +9609,12 @@ function beginPromptNodeTextEdit(nodeId, pointer=null){
     const node = nodes.find(item => item.id === nodeId && item.type === 'smart-prompt');
     if(!node || node.textGenerationPending) return false;
     if(nodeKinds.isPromptGeneration(node)) return window.SmartCanvasModules.promptGenerationComposer?.focus(node) || false;
-    const selector = node.llmEnabled ? '.prompt-llm-instruction' : '.prompt-node-text';
-    const text = promptNodeFocusSurface?.querySelector(`.image-node[data-id="${CSS.escape(node.id)}"] ${selector}`)
-        || world.querySelector(`.image-node[data-id="${CSS.escape(node.id)}"] ${selector}`);
+    const text = promptNodeFocusSurface?.querySelector(`.image-node[data-id="${CSS.escape(node.id)}"] .prompt-node-text`)
+        || world.querySelector(`.image-node[data-id="${CSS.escape(node.id)}"] .prompt-node-text`);
     if(!text) return false;
     canvasVirtualization.pin(node.id,'inline-editor');
-    text._editStartHtml = String(
-        node.llmEnabled ? (node.llmInstructionHtml || '') : (node.textHtml || '')
-    );
-    text._editStartText = String(node.llmEnabled ? (node.llmInstruction || '') : (node.text || ''));
+    text._editStartHtml = String(node.textHtml || '');
+    text._editStartText = String(node.text || '');
     text.contentEditable = 'true';
     text.classList.add('is-editing');
     text.focus({preventScroll:true});
@@ -9649,26 +9631,20 @@ function bindPromptNodeInputThumbs(el, node){
     bindInputThumbsDrag(node, refs, manualRefKeys, {root,onRefresh});
     bindInputThumbReferenceActions(root, node, {onRefresh});
 }
-function bindPromptNodeRichEditor(container, node, editor, {instruction=false,permanent=false}={}){
+function bindPromptNodeRichEditor(container, node, editor, {instruction=false}={}){
     if(!editor) return;
-    if(permanent && editor.dataset.textComposerBound){ editor.dataset.nodeId = node.id; return; }
-    if(permanent) editor.dataset.textComposerBound = '1';
-    const liveNode = () => permanent ? nodes.find(item => item.id === editor.dataset.nodeId) : node;
+    if(instruction && editor.dataset.textComposerBound){ editor.dataset.nodeId = node.id; return; }
+    if(instruction) editor.dataset.textComposerBound = '1';
+    const liveNode = () => instruction ? nodes.find(item => item.id === editor.dataset.nodeId) : node;
     bindPromptCharacterCount(editor);
     const sync = () => instruction
-        ? syncPromptLlmInstructionEditor(liveNode(), editor)
+        ? window.SmartCanvasModules.promptGenerationComposer.persist()
         : syncPromptNodeEditor(node, editor);
     const restore = () => {
-        if(instruction){
-            node.llmInstructionHtml = editor._editStartHtml || '';
-            node.llmInstruction = editor._editStartText || '';
-            editor.innerHTML = promptLlmInstructionEditorHtml(node);
-        } else {
-            node.textHtml = editor._editStartHtml || '';
-            node.text = editor._editStartText || '';
-            editor.innerHTML = promptNodeEditorHtml(node);
-            refreshAllSplitterNodePreviews();
-        }
+        node.textHtml = editor._editStartHtml || '';
+        node.text = editor._editStartText || '';
+        editor.innerHTML = promptNodeEditorHtml(node);
+        refreshAllSplitterNodePreviews();
         canvasPersistence.schedule();
     };
     bindScrollableText(editor);
@@ -9718,16 +9694,16 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false,pe
     editor.onkeydown = event => {
         if(handlePromptQuickPickerKeydown(event, editor)) return;
         if(event.key === 'Escape'){
-            if(permanent) return;
+            if(instruction) return;
             if(focusedPromptNodeId === node.id && container.closest('.prompt-node-focus-surface')) return;
             event.preventDefault();
             event.stopPropagation();
-            if(!permanent) restore();
+            restore();
             editor.blur();
         } else if((event.ctrlKey || event.metaKey) && event.key === 'Enter'){
             event.preventDefault();
-            if(permanent && !event.isComposing && !promptQuickComposing && !event.repeat) window.SmartCanvasModules.promptGenerationComposer.submit(editor.dataset.nodeId);
-            else if(!permanent) editor.blur();
+            if(instruction && !event.isComposing && !promptQuickComposing && !event.repeat) window.SmartCanvasModules.promptGenerationComposer.submit(editor.dataset.nodeId);
+            else if(!instruction) editor.blur();
         }
     };
     editor.onkeyup = event => {
@@ -9741,7 +9717,7 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false,pe
         if(editor.isContentEditable) saveMentionRange(editor);
     };
     editor.onblur = () => {
-        if(permanent) return;
+        if(instruction) return;
         if(promptQuickTargetEl === editor) closeMentionPicker();
         editor.contentEditable = 'false';
         editor.classList.remove('is-editing');
@@ -9749,30 +9725,9 @@ function bindPromptNodeRichEditor(container, node, editor, {instruction=false,pe
     };
 }
 function bindPromptNodeControls(el, node){
-    el.querySelectorAll('.prompt-node-control:not(.prompt-node-text):not(.prompt-llm-instruction):not(.prompt-node-input-thumbs)').forEach(control => {
-        control.addEventListener('mousedown', e => e.stopPropagation());
-        control.addEventListener('click', e => e.stopPropagation());
-        control.addEventListener('dblclick', e => e.stopPropagation());
-    });
     bindPromptNodeInputThumbs(el, node);
     const textEl = el.querySelector('.prompt-node-text');
     bindPromptNodeRichEditor(el, node, textEl);
-    const modelEl = el.querySelector('.prompt-llm-model');
-    if(modelEl) modelEl.onclick = e => e.stopPropagation();
-    if(modelEl) modelEl.onchange = e => {
-        e.stopPropagation();
-        void modelEl.hide();
-        const entry = smartModelCatalog('text').find(item => item.id === modelEl.value);
-        if(!entry) return;
-        node.llmProvider = entry.provider_id;
-        node.llmModel = entry.model;
-        render();
-        canvasPersistence.schedule();
-    };
-    const instructionEl = el.querySelector('.prompt-llm-instruction');
-    bindPromptNodeRichEditor(el, node, instructionEl, {instruction:true});
-    const runEl = el.querySelector('.prompt-node-run');
-    if(runEl) runEl.onclick = e => { e.preventDefault(); e.stopPropagation(); runPromptLLMNode(node.id); };
 }
 function bindSplitterNodeControls(el, node){
     const separatorEl = el.querySelector('.splitter-node-separator');
@@ -11165,7 +11120,7 @@ function bindNodeEvents(){
         el.querySelector('[data-retry-text-generation]')?.addEventListener('click', e => {
             e.preventDefault(); e.stopPropagation();
             const target = nodes.find(item => item.id === id);
-            if(target) window.SmartCanvasModules.promptGenerationComposer.submit(target.sourceNodeId,{snapshot:target.generationInputSnapshot});
+            if(target) window.SmartCanvasModules.promptGenerationComposer.submit(target.id,{snapshot:target.generationInputSnapshot});
         });
         el.querySelector('[data-view-generation-log]')?.addEventListener('click', e => {
             e.preventDefault();
@@ -13200,7 +13155,7 @@ function removeComposerMentionTokensForReference(node, key){
     });
     if(changed){
         delete promptInput.dataset.restoredGenerationSnapshotFor;
-        if(textEditor) syncPromptLlmInstructionEditor(node,textEditor);
+        if(textEditor) window.SmartCanvasModules.promptGenerationComposer.persist();
         else savePromptDraftForCurrent();
     }
     return changed;
@@ -15131,7 +15086,7 @@ function insertPromptTemplateText(template){
         delete promptInput.dataset.preserveDraftOnce;
         savePromptDraftForCurrent();
     } else if(node?.llmEnabled && editor.classList.contains('prompt-llm-instruction')){
-        syncPromptLlmInstructionEditor(node, editor);
+        window.SmartCanvasModules.promptGenerationComposer.persist();
     } else {
         syncPromptNodeEditor(node, editor);
     }
@@ -15313,7 +15268,7 @@ function selectMentionReference(item){
     if(!manualMode) consumePromptTrigger('@');
     if(editor !== promptInput){
         if(node?.llmEnabled && editor.classList.contains('prompt-llm-instruction')){
-            syncPromptLlmInstructionEditor(node, editor);
+            window.SmartCanvasModules.promptGenerationComposer.persist();
         } else {
             syncPromptNodeEditor(node, editor);
         }
@@ -15326,7 +15281,7 @@ function selectMentionReference(item){
         insertMentionToken(result.ref, editor);
         if(editor !== promptInput){
             if(node?.llmEnabled && editor.classList.contains('prompt-llm-instruction')){
-                syncPromptLlmInstructionEditor(node, editor);
+                window.SmartCanvasModules.promptGenerationComposer.persist();
             } else {
                 syncPromptNodeEditor(node, editor);
             }
@@ -15542,19 +15497,6 @@ function insertMentionToken(img, editor=promptQuickEditor()){
     editor.focus();
     renderInputThumbsRow(window.SmartCanvasModules.viewportSelection.selection.node());
 }
-const promptNodeActiveRunCounts = new Map();
-function beginPromptNodeRun(node){
-    const count = (promptNodeActiveRunCounts.get(node.id) || 0) + 1;
-    promptNodeActiveRunCounts.set(node.id, count);
-    node.running = true;
-}
-function finishPromptNodeRun(nodeId){
-    const count = Math.max(0, (promptNodeActiveRunCounts.get(nodeId) || 0) - 1);
-    if(count) promptNodeActiveRunCounts.set(nodeId, count);
-    else promptNodeActiveRunCounts.delete(nodeId);
-    const node = nodes.find(item => item.id === nodeId);
-    if(node) node.running = count > 0;
-}
 async function runPromptLLMNode(nodeId, options={}){
     let node = nodes.find(n => n.id === nodeId);
     if(!node || node.type !== 'smart-prompt' || !canvasPersistence.editable()) return;
@@ -15595,26 +15537,30 @@ async function runPromptLLMNode(nodeId, options={}){
     });
     const runLogStart = nowMs();
     if(!options.skipUndo) canvasMutation.history({action:'push'});
-    let outputNode = canvasMutation.create({
-        kind:'prompt',
-        data:{
-            title:tr('smart.kindText'),
-            textGenerationOutput:true,
-            textGenerationPending:true
-        },
-        options:{
-            select:false,
-            reveal:false,
-            skipUndo:true,
-            render:false,
-            save:false,
-            placement:{
+    const reuseSource = !node.running && !node.textGenerationPending && !node.pendingTasks?.length;
+    let outputNode = node;
+    if(!reuseSource){
+        outputNode = canvasMutation.create({
+            kind:'prompt',
+            data:{title:tr('smart.promptGenerationNode'),llmEnabled:true,llmInstruction:node.llmInstruction ?? node.text ?? '',llmInstructionHtml:node.llmInstructionHtml || '',llmProvider:provider,llmModel:model,llmInputMedia:mediaRefs},
+            options:{select:false,reveal:false,skipUndo:true,render:false,save:false,placement:{
                 anchor:window.SmartCanvasModules.generationOutput.sourceAnchor({sourceNode:node}),
-                relation:'downstream',
-                arrangement:'single'
-            }
+                relation:'downstream',arrangement:'single'
+            }}
+        });
+        // Parallel runs inherit inputs, as image/video runs do, rather than consuming the pending result.
+        for(const connection of (canvas.connections || []).filter(item => item.to === sourceId)){
+            canvasMutation.connect({fromId:connection.from,toId:outputNode.id,input:connection.input});
         }
-    });
+    }
+    const outputId = outputNode.id;
+    outputNode.llmEnabled = true;
+    outputNode.textGenerationOutput = true;
+    outputNode.textGenerationPending = true;
+    delete outputNode.generationFailed;
+    delete outputNode.generationFailureReason;
+    delete outputNode.generationRunFeedback;
+    delete outputNode.textSubmissionUnknown;
     outputNode.sourceNodeId = sourceId;
     outputNode.generationInputSnapshot = {prompt:message,refs:mediaRefs,settings:{engine:'api',apiKind:'text',provider_id:provider,model,count:1},systemEnabled,systemPrompt,catalogRevision:textCapability?.catalog_revision || ''};
     outputNode.running = true;
@@ -15628,14 +15574,6 @@ async function runPromptLLMNode(nodeId, options={}){
     delete outputNode.runFinishedAt;
     delete outputNode.runElapsedMs;
     outputNode.runTimerHidden = false;
-    canvasMutation.connect({
-        fromId:node.id,
-        toId:outputNode.id,
-        input:true
-    });
-    node.llmEnabled = true;
-    beginPromptNodeRun(node);
-    node.lastGeneratedNodeId = outputNode.id;
     render();
     canvasPersistence.schedule();
     let submissionAccepted = false;
@@ -15687,31 +15625,36 @@ async function runPromptLLMNode(nodeId, options={}){
                     taskId:submission.task_id,
                     kind:'text',
                     actorId:submission.actor_id || '',
-                    sourceNodeId:node.id
+                    sourceNodeId:outputId
                 }]
             },
             logContext:{run:runLog,runLogStart}
         });
         outputNode = nodes.find(item => item.id === outputNode.id) || null;
         if(!outputNode) return null;
-        if(!String(outputNode.text || '').trim()){
+        if(outputNode.textGenerationPending || !String(outputNode.text || '').trim()){
             throw new Error(tr('smart.noTextReturned'));
         }
+        outputNode.llmEnabled = false;
+        outputNode.textHtml = '';
+        delete outputNode.textGenerationPending;
+        delete outputNode.generationFailed;
+        delete outputNode.generationFailureReason;
     } catch(e) {
         const failedOutputId = outputNode?.id || '';
         const liveOutput = nodes.find(item => item.id === failedOutputId);
         const unknownSubmission = submissionAttempted && !submissionAccepted && !definiteRejection;
         if(liveOutput && !unknownSubmission){
-            if(!submissionAccepted){
+            if(!submissionAccepted && !reuseSource){
                 canvasMutation.remove({nodeIds:[liveOutput.id],options:{skipUndo:true,render:false,save:false}});
             }else{
                 liveOutput.running = false;
+                liveOutput.llmEnabled = true;
                 delete liveOutput.textGenerationPending;
                 liveOutput.generationFailed = true;
                 liveOutput.generationFailureReason = e.message || tr('smart.promptLlmFailed');
             }
         }
-        if(!unknownSubmission && !submissionAccepted && node.lastGeneratedNodeId === failedOutputId) delete node.lastGeneratedNodeId;
         if(unknownSubmission){
             if(liveOutput) liveOutput.textSubmissionUnknown = true;
             // Keep the known output identity: a lost response is not proof of rejection.
@@ -15726,7 +15669,8 @@ async function runPromptLLMNode(nodeId, options={}){
         outputNode = null;
         if(options.throwOnSubmissionFailure && !submissionAccepted) throw e;
     } finally {
-        finishPromptNodeRun(node.id);
+        const target = nodes.find(item => item.id === outputId);
+        if(target) target.running = false;
         render();
         canvasPersistence.schedule();
     }

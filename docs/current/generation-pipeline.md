@@ -92,7 +92,7 @@ Smart Canvas 用 Node 角色判断 Prompt Authoring 与 Generation Run 的基础
 
 Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切换能力：通过 Quick Add 选择“视频”只决定初始 Generation Settings，不锁定后续模式；用户切回图片时，空闲空节点同步更新自身的生成类型。只有已经承载视频或音频、且没有图片媒体的 Generation Node 固定为视频生成。Generation Output 在创建、批量拆分和结果收尾时都必须保存与输出模式一致的明确生成身份；旧 Canvas 中已有可靠 Generation Output 证据但缺失该身份的节点，在加载规范化时按 `outputKind` 等结果证据补齐。普通媒体 Node 即使保存过旧 Prompt 草稿或 Generation Settings，也不会仅凭这些兼容数据恢复 Composer 资格；数据不迁移、不删除。Composer 可见性、运行按钮的基础资格和 `runGeneration()` 最终门禁消费同一角色资格，其他参考输入、Model Capability、Provider、权限和同步校验继续叠加。
 
-节点已有单次 Generation Run 正在运行或排队时，生成按钮仍保持可用；再次提交会创建新的并列 Pending Node，并复制原节点的入向输入关系，不覆盖正在执行的目标节点。Prompt Generation Node 同样允许在文字任务生成中修改指令、切换文字模型并再次点击“运行”；每次点击冻结当下的指令、模型和引用内容，创建独立的文字 Pending Node。源节点用并行任务计数维持运行状态，只有最后一项文字任务结束后才退出运行中状态。 文字生成使用独立 Composer；同次提交在服务器接受前禁止重复触发，接受后可提交新快照。提交与完成均保持用户当前 Selection / 编辑焦点，输出在来源下游独立落点。失败快照保存在对应输出，重试时重新校验原输入与模型；当前 Composer 的新草稿不被覆盖。提交响应未知时保留原 Operation / 目标并调用既有恢复，状态明确前不以新身份自动重试。运行中的循环仍保持单实例，不能重复启动。
+节点已有单次 Generation Run 正在运行或排队时，生成按钮仍保持可用；再次提交会创建新的并列 Pending Node，并复制原节点的入向输入关系，不覆盖正在执行的目标节点。Prompt Generation Node 首次提交复用当前节点作为文字 Pending 目标，成功后在同一 ID、位置与连接上转为普通 Prompt Node；后台发布与前端恢复均清除 `llmEnabled` 和旧 `textHtml`，刷新后保持结果身份。专属文字 Composer 在当前节点成功转换后关闭。运行中仍可修改指令、切换文字模型并显式再次提交；此时才创建独立并列目标并复制入向输入关系，各目标分别完成。每次请求冻结指令、模型与引用，服务器接受前禁止同次重复触发。原指令保存在专用字段；失败目标保留，空闲时使用原快照原位重试，重检当前能力/权限。失败和其他目标的完成不抢当前 Selection 或焦点。提交响应未知时保留原 Operation / 目标并调用既有恢复，状态明确前不以新身份自动重试。运行中的循环仍保持单实例，不能重复启动。
 
 选中正在运行或排队的可生成节点时，节点悬浮菜单提供“创建副本”和“再次生成”。“再次生成”从 `generationInputSnapshot` 读取冻结的提示词、参考素材和 Generation Settings；Prompt Authoring 中之后发生的编辑不改变这份运行快照。
 

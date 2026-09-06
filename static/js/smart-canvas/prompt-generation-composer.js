@@ -1,6 +1,7 @@
 /* Dedicated text authoring surface. Node fields remain the only saved draft;
  * this controller owns selection routing, DOM lifetime and the local session. */
 (function initPromptGenerationComposer(global){
+    const shellTemplate = document.getElementById('composerCardTemplate');
     let root, editor, modelHost, refsHost, upstreamHost, run, expand, errorBox, dialog;
     let targetId = '', contextId = '', modelSignature = '', refsSignature = '', upstreamSignature = '';
     let renderedHtml = '', composing = false, expanded = false;
@@ -10,9 +11,8 @@
     let savedRange = null, savedScroll = 0, expansionRevision = 0;
     const version = node => JSON.stringify([node?.llmInstruction ?? node?.text ?? '',node?.llmInstructionHtml || '']);
     const draftKey = () => `${contextId}:${targetId}`;
-    const module = () => global.SmartCanvasModules;
     const current = () => nodes.find(node => node.id === targetId);
-    const eligible = node => module().nodeKinds.isPromptGeneration(node) && !node.textGenerationPending;
+    const eligible = node => global.SmartCanvasModules.nodeKinds.isPromptGeneration(node);
     const owns = element => Boolean(root && element && root.contains(element));
     function ensure(){
         if(root) return;
@@ -20,24 +20,47 @@
         root.id = 'promptGenerationComposer';
         root.className = 'composer text-generation-composer';
         root.hidden = true;
-        root.innerHTML = `<div class="composer-card text-composer-card">
-            <div class="text-composer-refs"></div>
-            <details class="text-composer-upstream" hidden><summary></summary><div></div></details>
-            ${promptEditorShellHtml('<ic-prompt-composer id="textPromptInput" class="prompt-llm-instruction" contenteditable="true" spellcheck="false"></ic-prompt-composer>')}
-            <div class="text-composer-model"></div>
-            <div class="text-composer-actions"><ic-icon-button data-text-expand size="small" hierarchy="quiet" icon="focus-editor"></ic-icon-button>${composerRunButtonHtml({className:'text-composer-run'})}</div>
-            <ic-alert class="text-composer-error" tone="danger" hidden></ic-alert>
-            <div class="text-composer-conflict" hidden><ic-button data-text-conflict="saved" hierarchy="secondary"></ic-button><ic-button data-text-conflict="local" hierarchy="primary"></ic-button></div>
-        </div>`;
+        // Consume the production media Composer shell; only its purpose-specific slots differ.
+        const card = shellTemplate.content.firstElementChild.cloneNode(true);
+        editor = card.querySelector('#promptInput');
+        run = card.querySelector('#runBtn');
+        expand = card.querySelector('#composerFocusToggle');
+        refsHost = card.querySelector('#inputThumbsRow');
+        for(const element of card.querySelectorAll('[id]')) element.removeAttribute('id');
+        for(const element of [editor,run,expand]){
+            for(const attr of [...element.attributes]) if(attr.name.startsWith('data-i18n')) element.removeAttribute(attr.name);
+        }
+        editor.id = 'textPromptInput';
+        editor.classList.add('prompt-llm-instruction','composer-prompt-input');
+        editor.removeAttribute('aria-describedby');
+        run.className = 'text-composer-run run-btn';
+        expand.setAttribute('data-text-expand','');
+        refsHost.classList.add('has-items');
+        refsHost.innerHTML = '';
+        const inputs = document.createElement('div');
+        inputs.className = 'text-composer-inputs';
+        refsHost.replaceWith(inputs);
+        inputs.append(refsHost);
+        upstreamHost = document.createElement('details');
+        upstreamHost.className = 'text-composer-upstream';
+        upstreamHost.hidden = true;
+        upstreamHost.innerHTML = '<summary></summary><div></div>';
+        inputs.append(upstreamHost);
+        modelHost = document.createElement('div');
+        modelHost.className = 'dynamic-params text-composer-model';
+        card.querySelector('.param-row').replaceChildren(modelHost);
+        root.append(card);
+        errorBox = document.createElement('ic-alert');
+        errorBox.className = 'text-composer-error';
+        errorBox.setAttribute('tone','danger');
+        errorBox.hidden = true;
+        root.append(errorBox);
+        conflictActions = document.createElement('div');
+        conflictActions.className = 'text-composer-conflict';
+        conflictActions.hidden = true;
+        conflictActions.innerHTML = '<ic-button data-text-conflict="saved" hierarchy="secondary"></ic-button><ic-button data-text-conflict="local" hierarchy="primary"></ic-button>';
+        root.append(conflictActions);
         shell.append(root);
-        editor = root.querySelector('#textPromptInput');
-        modelHost = root.querySelector('.text-composer-model');
-        refsHost = root.querySelector('.text-composer-refs');
-        upstreamHost = root.querySelector('details');
-        run = root.querySelector('.text-composer-run');
-        expand = root.querySelector('[data-text-expand]');
-        errorBox = root.querySelector('.text-composer-error');
-        conflictActions = root.querySelector('.text-composer-conflict');
         conflictActions.addEventListener('click', event => {
             const choice = event.target.closest('[data-text-conflict]')?.dataset.textConflict;
             if(!choice || !current() || !canvasPersistence.editable()) return;
@@ -45,7 +68,7 @@
             conflict = false;
             drafts.delete(draftKey());
             if(choice === 'saved') editor.innerHTML = promptLlmInstructionEditorHtml(current());
-            else syncPromptLlmInstructionEditor(current(),editor);
+            else persist();
             renderedHtml = editor.innerHTML;
             showError('');
             syncState();
@@ -72,10 +95,28 @@
     }
     function flush(){
         const node = current();
-        if(!node || !root || root.hidden || !canvasPersistence.editable() || composing) return;
-        if(editor.innerHTML !== renderedHtml) syncPromptLlmInstructionEditor(node,editor);
+        if(!eligible(node) || !root || root.hidden || !canvasPersistence.editable() || composing) return;
+        if(editor.innerHTML !== renderedHtml) persist();
         if(conflict) drafts.set(draftKey(),{html:editor.innerHTML,baseline});
         renderedHtml = editor.innerHTML;
+    }
+    function persist(){
+        const node = current();
+        if(!node || !canvasPersistence.editable()) return;
+        const rawHtml = editor.innerHTML;
+        const html = /^(?:<br>|<div><br><\/div>)$/i.test(rawHtml.trim()) ? '' : rawHtml;
+        const text = promptAuthoring.plainText(editor);
+        if(node.llmInstructionHtml === html && node.llmInstruction === text) return;
+        if(version(node) !== baseline || conflict){
+            conflict = true;
+            drafts.set(draftKey(),{html,baseline});
+            syncState();
+            return;
+        }
+        canvasMutation.update({nodeId:node.id,mutate:live => {
+            live.llmInstructionHtml = html; live.llmInstruction = text; live.text = text;
+        },options:{render:false,select:false}});
+        baseline = JSON.stringify([text,html]);
     }
     function syncState(){
         if(!root || root.hidden) return;
@@ -137,7 +178,7 @@
                 editor.innerHTML = draft?.html ?? promptLlmInstructionEditorHtml(node);
                 renderedHtml = editor.innerHTML;
                 // Event handlers resolve the live Node after Canvas Sync replaces objects.
-                bindPromptNodeRichEditor(root,node,editor,{instruction:true,permanent:true});
+                bindPromptNodeRichEditor(root,node,editor,{instruction:true});
                 canvasVirtualization.pin(nextId,'text-composer');
             }
         }
@@ -174,9 +215,14 @@
         const nextRefs = JSON.stringify([lang,refs,node.blockedInputRefs]);
         if(nextRefs !== refsSignature){
             refsSignature = nextRefs;
-            refsHost.innerHTML = promptNodeInputThumbsHtml(node);
-            refsHost.hidden = !refs.length;
-            bindPromptNodeInputThumbs(refsHost,node);
+            const manual = new Set(manualReferenceImagesFor(node).map(inputRefKey));
+            const counters = {image:0,video:0,audio:0,text:0,file:0};
+            const thumbs = refs.map((ref,index) => composerInputMediaThumbHtml(node,ref,index,manual,counters)).join('');
+            const label = escapeAttr(tr('smart.uploadLocalReference'));
+            refsHost.innerHTML = `<div class="input-thumb-list ${refs.length > 1 ? 'is-scrollable' : refs.length ? 'is-single' : 'empty'}">${thumbs}<button class="input-thumb-add" type="button" data-input-add-reference title="${label}" aria-label="${label}"><ic-icon name="upload" aria-hidden="true"></ic-icon></button></div>`;
+            bindSmartPreviewImageFallbacks(refsHost);
+            bindInputThumbsDrag(node,refs,manual,{root:refsHost,onRefresh:() => render()});
+            bindInputThumbReferenceActions(refsHost,node,{onRefresh:() => render()});
         }
         if(syncComposerMentionTokenLabels(node,refs,editor)) renderedHtml = editor.innerHTML;
         const text = promptNodeUpstreamPromptText(node);
@@ -192,7 +238,7 @@
     }
     function position(){
         if(!root || root.hidden || expanded || !current()) return;
-        positionComposerForNode(current(),root,36);
+        positionComposerForNode(current(),root);
         if(smartCanvasDockPosition === 'left'){
             const width = Math.min(parseFloat(root.style.width),shell.clientWidth - 102);
             root.style.width = `${Math.max(0,width)}px`;
@@ -230,7 +276,7 @@
                 document.body.append(dialog);
             }
             dialog.setAttribute('label',tr('smart.promptGenerationNode'));
-            root.classList.add('text-composer-expanded');
+            root.classList.add('text-composer-expanded','focused');
             dialog.append(root);
             await dialog.updateComplete;
             if(revision !== expansionRevision) return;
@@ -245,7 +291,7 @@
     }
     function restore(){
         expanded = false;
-        root.classList.remove('text-composer-expanded');
+        root.classList.remove('text-composer-expanded','focused');
         shell.append(root);
         position();
         syncState();
@@ -285,25 +331,9 @@
         }
     }
     global.SmartCanvasModules = global.SmartCanvasModules || {};
-    global.SmartCanvasModules.promptGenerationComposer = Object.freeze({update,position,focus,flush,owns,submit,
+    global.SmartCanvasModules.promptGenerationComposer = Object.freeze({update,position,focus,owns,submit,persist,
         expand:node => { if(targetId !== node.id) focus(node); return setExpanded(true); },
         refresh:() => { if(targetId) update(current()); },
-        editing:() => Boolean(root && !root.hidden && (owns(document.activeElement) || expanded)),
-        persist(node,html,text){
-            if(node.id !== targetId) return false;
-            if(version(node) !== baseline || conflict){
-                conflict = true;
-                drafts.set(draftKey(),{html,baseline});
-                syncState();
-                return true;
-            }
-            canvasMutation.update({nodeId:node.id,mutate:live => {
-                live.llmInstructionHtml = html; live.llmInstruction = text; live.text = text;
-            },options:{render:false,select:false}});
-            baseline = JSON.stringify([text,html]);
-            return true;
-        },
-        editorFor:node => node?.id === targetId ? editor : null,
-        target:current
+        editorFor:node => node?.id === targetId ? editor : null
     });
 })(window);

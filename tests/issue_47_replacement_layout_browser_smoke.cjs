@@ -67,14 +67,14 @@ async function stopManualServer(child) {
   const measure = async (surface, input) => page.evaluate(({surface,input})=>{
    const card=document.querySelector(surface+' .composer-card').getBoundingClientRect();
    const field=document.querySelector(input).getBoundingClientRect();
-   return {height:field.height,top:field.top-card.top,left:field.left-card.left};
+   return {cardHeight:card.height,cardWidth:card.width,height:field.height,top:field.top-card.top,left:field.left-card.left};
   },{surface,input});
   await select('media-a');
   const media=await measure('#composer','#promptInput');
   await select('text-a');
   const text=await measure('#promptGenerationComposer','#textPromptInput');
   if(process.argv.includes('--layout')){
-   assert.deepEqual(text,media,'Text must reuse the existing Composer editor geometry');
+   for(const key of Object.keys(media)) assert(Math.abs(text[key]-media[key])<0.5, `Shared Composer ${key}: text=${text[key]}, media=${media[key]}`);
   }else{
    const original=await page.evaluate(()=>({id:'text-a',count:nodes.length,x:nodes.find(n=>n.id==='text-a').x,y:nodes.find(n=>n.id==='text-a').y}));
    let request;

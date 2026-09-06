@@ -35,7 +35,6 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
 
     def test_floating_ui_uses_screen_coordinates(self):
         self.assertIn("const nodeLeft = viewport.x + rect.x * viewport.scale", self.script)
-        self.assertIn("composer.style.top = `${nodeBottom + gap}px`", self.script)
         self.assertIn("positionCanvasFloatingOverlays()", self.script)
         self.assertIn(".smart-node-floating-portal.open", self.style)
 
@@ -128,7 +127,6 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
         self.assertLess(composer.index('id="apiKindToggle"'), composer.index('id="dynamicParams"'))
         self.assertIn(".composer { --ctrl-font:10.5px;", self.style)
         self.assertIn("width:48rem", self.style)
-        self.assertIn("Math.min(48 * rootFontSize, shell.clientWidth - 28)", self.script)
         self.assertIn('<ic-icon-button id="composerFocusToggle"', composer)
         self.assertIn('size="s"', composer)
         self.assertIn('label="展开"', composer)
@@ -144,7 +142,7 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
             self.style,
         )
         self.assertIn(
-            ".composer.focused #promptInput { height:100% !important; max-height:none; min-height:0; overflow-y:auto; overscroll-behavior:contain; }",
+            ".composer.focused .composer-prompt-input { height:100% !important; max-height:none; min-height:0; overflow-y:auto; overscroll-behavior:contain; }",
             self.style,
         )
         self.assertIn(
@@ -487,41 +485,8 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
             self.style,
         )
 
-    def test_reference_text_node_creates_a_timed_pending_output_before_fetch(self):
-        body_start = self.script.index("function promptNodeBodyHtml")
-        body_end = self.script.index("function splitterNodeBodyHtml", body_start)
-        body = self.script[body_start:body_end]
-        run_start = self.script.index("async function runPromptLLMNode")
-        run_end = self.script.index("function ungroupNode", run_start)
-        run = self.script[run_start:run_end]
-        self.assertIn("if(node.llmEnabled)", body)
-        self.assertIn('class="prompt-node-card prompt-node-composer"', body)
-        self.assertIn("promptNodeModelSelectHtml(node)", body)
-        self.assertIn("composerRunButtonHtml({className:'prompt-node-run prompt-node-control'})", body)
-        self.assertNotIn("disabled:Boolean(node.running)", body)
-        self.assertIn("kind:'prompt'", run)
-        self.assertLess(
-            run.index("outputNode = canvasMutation.create"),
-            run.index("await fetch"),
-        )
-        self.assertIn("textGenerationPending:true", run)
-        self.assertIn("outputNode.runStartedAt = nowMs()", run)
-        self.assertIn("outputNode.generationOperationId", run)
-        self.assertIn("beginPromptNodeRun(node)", run)
-        self.assertIn("finishPromptNodeRun(node.id)", run)
-        self.assertNotIn("node.type !== 'smart-prompt' || node.running", run)
-        self.assertIn("await canvasPersistence.save()", run)
-        self.assertIn("await canvasPersistence.synced({timeout:5000})", run)
-        self.assertIn("fetch('/api/canvas-llm-tasks'", run)
-        self.assertIn("generation_operation_id:outputNode.generationOperationId", run)
-        self.assertIn("await recovery.settle", run)
-        self.assertIn("kind:'text'", run)
-        self.assertIn("tr('smart.textGenerating')", body)
-        self.assertNotIn("fetch('/api/canvas-llm'", run)
-        self.assertIn("fromId:node.id", run)
-        self.assertIn("toId:outputNode.id", run)
-        self.assertNotIn("node.text = (result.text", run)
-        self.assertIn("n.textGenerationOutput", self.script)
+    # Text pending, in-place delivery and geometry are exercised through the
+    # production page in issue_47_{text_composer,replacement_layout}_browser_smoke.cjs.
 
     def test_prompt_composer_merges_connected_media_into_input_thumbnails(self):
         start = self.script.index("function promptNodeInputMediaForLLM")

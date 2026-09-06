@@ -114,7 +114,7 @@ async function stopManualServer(child) {
   await page.keyboard.insertText('长指令'.repeat(300));
   const referenceLayout=await root.evaluate(el=>{
    const thumb=el.querySelector('ic-reference-thumbnail').getBoundingClientRect();
-   const row=el.querySelector('.prompt-node-input-thumbs').getBoundingClientRect();
+   const row=el.querySelector('.input-thumbs-row').getBoundingClientRect();
    const input=el.querySelector('#textPromptInput');
    return {thumb:thumb.height,row:row.height,scrolls:input.scrollHeight>input.clientHeight};
   });
@@ -134,6 +134,7 @@ async function stopManualServer(child) {
   assert.equal(await root.locator('.text-composer-run').getAttribute('label'),'Generate prompt');
   assert.equal(await editor.innerText(),'编写时保持光标');
   await page.evaluate(()=>applyTheme('dark'));
+  await page.waitForTimeout(350); // Theme color transitions must settle before visual evidence.
   await page.screenshot({path:'/tmp/issue-47-text-dark.png'});
   await page.setViewportSize({width:390,height:844});
   await page.evaluate(()=>positionCanvasFloatingOverlays());
@@ -153,15 +154,20 @@ async function stopManualServer(child) {
    window.SmartCanvasModules.generationRecovery={...window.SmartCanvasModules.generationRecovery,
     settle:({node})=>new Promise(resolve=>window.__textSettlers.push({node,resolve}))};
   });
-  await editor.fill('Run A');await root.locator('.text-composer-run').click();
+  await editor.fill('Run A');await editor.press('Control+Enter');
   await page.waitForFunction(()=>document.querySelector('.text-composer-run').disabled);
   await editor.press('Control+Enter');
   for(let i=0;i<100 && !requests.length;i++) await page.waitForTimeout(50);
   await page.waitForTimeout(100);assert.equal(requests.length,1);
+  assert.equal(await page.locator('#world [data-id="text-a"] ic-generation-pending').count(),1);
   await editor.fill('Run B');releaseFirst();
   await page.waitForFunction(()=>window.__textSettlers.length===1 && !document.querySelector('.text-composer-run').disabled);
   assert.equal(requests[0].message,'Run A');
+  assert.equal(requests[0].node_id,'text-a');
   await root.locator('ic-select').evaluate(el=>{void el.show();});
+  await page.waitForFunction(()=>document.querySelector('#promptGenerationComposer ic-select')?.open);
+  await page.evaluate(()=>render());
+  assert.equal(await root.locator('ic-select').evaluate(el=>el.open),true,'Canvas updates must keep the model menu open');
   await root.locator('wa-option').nth(1).click();
   await root.locator('.text-composer-run').click();
   await page.waitForFunction(()=>window.__textSettlers.length===2);
@@ -177,10 +183,14 @@ async function stopManualServer(child) {
   assert.equal(await editor.evaluate(el=>document.activeElement===el),true);
   await page.evaluate(()=>{let s=window.__textSettlers[0];s.node.text='Output A';delete s.node.textGenerationPending;s.resolve();});
   await page.waitForFunction(()=>!nodes.find(n=>n.id==='text-a').running);
-  // An accepted empty result keeps its own failed target and original retry snapshot.
+  assert.equal(await root.isVisible(),false);
+  assert.equal(await page.evaluate(()=>nodes.find(n=>n.id==='text-a').llmEnabled),false);
+  assert.equal(await page.evaluate(()=>nodes.find(n=>n.id==='text-a').text),'Output A');
+  await select('text-b');
+  // An accepted empty result retains the original target; retry replaces it in place.
   await editor.fill('Retry snapshot');await root.locator('.text-composer-run').click();
   await page.waitForFunction(()=>window.__textSettlers.length===3);
-  await page.evaluate(()=>{const s=window.__textSettlers[2];delete s.node.textGenerationPending;s.resolve();});
+  await page.evaluate(()=>{const s=window.__textSettlers[2];s.node.text='';delete s.node.textGenerationPending;s.resolve();});
   await page.waitForFunction(()=>window.__textSettlers[2].node.generationFailed);
   await editor.fill('Do not overwrite this new draft');
   const failedId=await page.evaluate(()=>window.__textSettlers[2].node.id);
@@ -192,13 +202,15 @@ async function stopManualServer(child) {
   await page.waitForFunction(()=>window.__textSettlers.length===4);
   assert.equal(requests[3].message,'Retry snapshot');
   assert.equal(requests[3].model,'mock-text-2');
-  assert.notEqual(requests[2].node_id,requests[3].node_id);
+  assert.equal(requests[2].node_id,'text-b');
+  assert.equal(requests[3].node_id,'text-b');
   await page.evaluate(()=>{const s=window.__textSettlers[3];s.node.text='Retried output';delete s.node.textGenerationPending;s.resolve();});
   await page.waitForFunction(()=>!nodes.find(n=>n.id==='text-a').running);
-  assert.equal(await page.evaluate(()=>nodes.find(n=>n.id==='text-a').llmInstruction),'Do not overwrite this new draft');
+  await page.waitForFunction(()=>nodes.find(n=>n.id==='text-b').llmEnabled===false);
+  assert.equal(await page.evaluate(()=>nodes.find(n=>n.id==='text-b').llmInstruction),'Do not overwrite this new draft');
   assert.equal(await page.evaluate(()=>nodes.filter(n=>n.text==='Output A'||n.text==='Output B').length),2);
   await page.evaluate(()=>{viewport.x=0;viewport.y=0;window.SmartCanvasModules.viewportSelection.viewport.apply({persist:false});});
-  await select('text-b');assert.equal(await editor.innerText(),'B 的新内容');
+  assert.equal(await page.evaluate(()=>nodes.find(n=>n.id==='text-b').text),'Retried output');
   await select('media-a');
   assert.equal(await root.isVisible(),false);
   assert.equal(await page.locator('#composer').evaluate(el=>el.classList.contains('open')),true);

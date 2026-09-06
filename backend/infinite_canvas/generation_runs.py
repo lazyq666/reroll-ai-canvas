@@ -831,6 +831,8 @@ def _generation_node_changes(value: Any) -> dict[str, Any]:
         ]
     if isinstance(result.get("text"), str):
         changes["text"] = result["text"]
+        changes["textHtml"] = ""
+        changes["llmEnabled"] = False
         changes["textGenerationPending"] = False
     if changes:
         changes.update({"pending": 0, "running": False})
