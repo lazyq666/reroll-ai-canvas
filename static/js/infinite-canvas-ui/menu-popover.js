@@ -1,10 +1,12 @@
-import { closeTopLayer, openTopLayer } from './overlay-layer.js?v=ic-ui-1d9b8d84e857';
+import { closeTopLayer, openTopLayer } from './overlay-layer.js?v=ic-ui-56c693e4e18f';
 import {
   ANCHORED_OVERLAY_MOTION_STYLES,
   nextOverlayPaint as nextPaint,
   setOverlayInteraction as setSurfaceInteraction,
   waitForOverlayMotion as waitForSurfaceMotion,
-} from './overlay-motion.js?v=ic-ui-1d9b8d84e857';
+} from './overlay-motion.js?v=ic-ui-56c693e4e18f';
+
+import { animateGooeyMenu, positionGooeyMenu, syncGooeyInvoker, GOOEY_MENU_STYLES } from './gooey-menu.js?v=ic-ui-56c693e4e18f';
 
 const MENU_TRIGGERS = new Set(['dropdown', 'context']);
 const MENU_SELECTIONS = new Set(['command', 'single', 'multiple']);
@@ -51,6 +53,7 @@ class IcAnchoredOverlay extends HTMLElement {
     this.render();
     this.syncSurfaceLayer();
     this._onDocumentPointer = event => {
+      if (this.getAttribute('variant') === 'reference-generate' && event.composedPath().includes(this._invoker)) return;
       const explicitPopover = this.localName === 'ic-popover' && this.getAttribute('dismiss-policy') === 'explicit';
       if (this.hasAttribute('open') && !explicitPopover && !this.contains(event.target) && !event.composedPath().includes(this)) this.hide('outside');
     };
@@ -59,6 +62,8 @@ class IcAnchoredOverlay extends HTMLElement {
     document.addEventListener('keydown', this._onDocumentKey);
   }
   disconnectedCallback() {
+    this._cancelGooey?.();
+    syncGooeyInvoker(this, false);
     this._motionGeneration += 1;
     closeTopLayer(this.surface);
     document.removeEventListener('pointerdown', this._onDocumentPointer);
@@ -69,6 +74,7 @@ class IcAnchoredOverlay extends HTMLElement {
   attributeChangedCallback(name) {
     if (!this.isConnected) return;
     if (name !== 'open') {
+      this._cancelGooey?.();
       closeTopLayer(this.surface);
       this.render();
       setSurfaceInteraction(this.surface, this.dataset.motionState !== 'exiting');
@@ -88,6 +94,7 @@ class IcAnchoredOverlay extends HTMLElement {
   syncSurfaceLayer() {
     if (this.hasAttribute('open') || this.dataset.motionState === 'exiting') openTopLayer(this.surface, 'popover');
     else closeTopLayer(this.surface);
+    syncGooeyInvoker(this, this.hasAttribute('open'));
   }
   validatePositionContract() {
     const placement = this.getAttribute('placement') || 'block-end';
@@ -97,11 +104,13 @@ class IcAnchoredOverlay extends HTMLElement {
     return '';
   }
   positionSurface() {
+    this._cancelGooey?.();
     const surface = this.surface;
     if (!surface || !this.hasAttribute('open') || !this._invoker?.isConnected) return;
     const anchor = this._anchorPoint
       ? { left: this._anchorPoint.x, right: this._anchorPoint.x, top: this._anchorPoint.y, bottom: this._anchorPoint.y, width: 0, height: 0 }
       : this._invoker.getBoundingClientRect();
+    if (positionGooeyMenu(this, anchor)) return;
     const overlay = surface.getBoundingClientRect();
     const styles = getComputedStyle(this);
     const gap = Number.parseFloat(styles.getPropertyValue('--ui-space-2')) || 8;
@@ -163,7 +172,7 @@ class IcAnchoredOverlay extends HTMLElement {
       await nextPaint();
       if (generation !== this._motionGeneration || !this.hasAttribute('open')) return;
       this.dataset.motionState = 'open';
-      await waitForSurfaceMotion(this.surface);
+      await Promise.all([waitForSurfaceMotion(this.surface), animateGooeyMenu(this, 'enter')]);
       if (generation !== this._motionGeneration || !this.hasAttribute('open')) return;
       this.dispatchEvent(new CustomEvent('ic-after-show', { bubbles: true, composed: true }));
     });
@@ -172,6 +181,8 @@ class IcAnchoredOverlay extends HTMLElement {
     if (!this.hasAttribute('open')) return;
     const generation = ++this._motionGeneration;
     this.dataset.motionState = 'exiting';
+    this.querySelectorAll('ic-menu-item').forEach(item => item.shadowRoot?.querySelector('ic-tooltip')?.hide());
+    const effect = animateGooeyMenu(this, 'exit');
     setSurfaceInteraction(this.surface, false);
     this.removeAttribute('open');
     window.removeEventListener('resize', this._onViewportChange);
@@ -181,7 +192,7 @@ class IcAnchoredOverlay extends HTMLElement {
     this._invoker?.focus?.();
     this._anchorPoint = null;
     queueMicrotask(async () => {
-      await waitForSurfaceMotion(this.surface);
+      await Promise.all([waitForSurfaceMotion(this.surface), effect]);
       if (generation !== this._motionGeneration || this.hasAttribute('open') || this.dataset.motionState !== 'exiting') return;
       this.dataset.motionState = 'closed';
       this.syncSurfaceLayer();
@@ -193,7 +204,7 @@ class IcAnchoredOverlay extends HTMLElement {
 }
 
 export class IcMenuItem extends HTMLElement {
-  static observedAttributes = ['kind', 'label', 'checked', 'disabled', 'tone', 'icon'];
+  static observedAttributes = ['kind', 'label', 'checked', 'disabled', 'tone', 'icon', 'appearance', 'hint'];
   constructor() { super(); this.attachShadow({ mode: 'open' }); this._lastContractError = ''; }
   connectedCallback() { this.render(); }
   attributeChangedCallback() { if (this.isConnected) this.render(); }
@@ -217,12 +228,24 @@ export class IcMenuItem extends HTMLElement {
     const check = kind === 'command' ? '' : `<span class="check" aria-hidden="true">${this.hasAttribute('checked') ? '<span class="checkmark"></span>' : ''}</span>`;
     const leadingIcon = icon ? `<span class="icon" aria-hidden="true"><ic-icon name="${icon}"></ic-icon></span>` : '';
     this.shadowRoot.innerHTML = `<style>:host{display:block;color:var(--ui-color-text-primary);text-align:start}button{box-sizing:border-box;width:100%;min-height:var(--ic-menu-item-control-height,var(--ui-density-control-height));display:flex;align-items:center;justify-content:flex-start;gap:var(--ic-menu-item-gap,var(--ui-density-gap));padding-block:var(--ui-space-1);padding-inline:var(--ui-density-inline-padding);border:0;border-radius:var(--ui-radius-s);background:var(--ui-color-action-tertiary);color:inherit;font:inherit;font-size:var(--ic-menu-item-font-size,var(--ui-density-font-size));text-align:start}button:focus-visible{background:var(--ui-focus-background);outline:var(--ui-focus-ring);outline-offset:var(--ui-focus-ring-offset);box-shadow:var(--ui-focus-ring-shadow)}button:hover:not(:disabled){background:var(--ui-color-action-tertiary-hover)}.check,.icon{display:grid;flex:0 0 var(--ic-menu-item-icon-size,var(--ui-density-icon-size));place-items:center;width:var(--ic-menu-item-icon-size,var(--ui-density-icon-size));height:var(--ic-menu-item-icon-size,var(--ui-density-icon-size));line-height:0}.icon{display:var(--ic-menu-item-icon-display,grid)}.icon ic-icon{--ic-icon-size:var(--ic-menu-item-icon-size,var(--ui-density-icon-size))}.checkmark{box-sizing:border-box;width:calc(var(--ic-menu-item-icon-size,var(--ui-density-icon-size)) * .44);height:calc(var(--ic-menu-item-icon-size,var(--ui-density-icon-size)) * .72);border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg)}.label{display:flex;min-width:0;min-height:var(--ic-menu-item-icon-size,var(--ui-density-icon-size));flex:1 1 auto;align-items:center;overflow-wrap:anywhere;line-height:var(--ui-line-height-tight);text-align:start}:host([tone="danger"]){color:var(--ui-color-text-danger)}:host([disabled]){opacity:1;color:var(--ui-color-text-disabled)}:host([disabled]) button{background:var(--ui-color-action-tertiary-disabled)}</style><button part="base" type="button" ${this.hasAttribute('disabled') ? 'disabled' : ''}>${check}${leadingIcon}<span class="label">${this.getAttribute('label') || ''}</span><slot></slot></button>`;
+    const button = this.shadowRoot.querySelector('button');
+    button.setAttribute('aria-label', this.getAttribute('label') || '');
+    if (this.getAttribute('appearance') === 'icon') {
+      const style = document.createElement('style');
+      style.textContent = `:host{width:44px;height:44px}button{width:44px;height:44px;min-height:44px;padding:0;justify-content:center;border:1px solid var(--ic-quick-add-border,var(--ui-color-border-secondary));border-radius:50%;background:var(--ic-quick-add-background,var(--ui-color-surface-floating));box-shadow:var(--ic-quick-add-shadow,var(--ui-shadow-raised));cursor:pointer}.icon{--ic-menu-item-icon-size:20px}.label{display:none}button:focus-visible{background:var(--ic-quick-add-background,var(--ui-focus-background));outline:var(--ic-quick-add-focus-ring,var(--ui-focus-ring))}button:hover:not(:disabled){background:var(--ic-quick-add-background,var(--ui-color-action-tertiary-hover))}`;
+      const tooltip = document.createElement('ic-tooltip');
+      tooltip.setAttribute('content', this.getAttribute('hint') || this.getAttribute('label'));
+      tooltip.setAttribute('placement', 'block-end');
+      button.slot = 'trigger';
+      tooltip.append(button);
+      this.shadowRoot.append(style, tooltip);
+    }
     this.shadowRoot.querySelector('button')?.addEventListener('click', () => { if (!contractState(this, this.validateContract()) || this.hasAttribute('disabled')) return; this.dispatchEvent(new CustomEvent('ic-select', { bubbles: true, composed: true, detail: { value: this.getAttribute('value'), kind } })); });
   }
 }
 
 export class IcMenu extends IcAnchoredOverlay {
-  static observedAttributes = [...IcAnchoredOverlay.observedAttributes, 'trigger', 'selection', 'size', 'appearance', 'variant'];
+  static observedAttributes = [...IcAnchoredOverlay.observedAttributes, 'trigger', 'selection', 'size', 'appearance', 'variant', 'close-label'];
   constructor() {
     super();
     this.addEventListener('ic-select', event => this.handleSelection(event));
@@ -256,9 +279,28 @@ export class IcMenu extends IcAnchoredOverlay {
   }
   render() {
     contractState(this, this.validateContract());
-    this.shadowRoot.innerHTML = `<style>:host{display:contents}:host([trigger="dropdown"][selection="command"]:not([size="small"])){--ic-menu-item-gap:var(--ui-space-3)}:host([size="small"]){--ic-menu-item-control-height:var(--ui-control-height-s);--ic-menu-item-font-size:var(--ui-font-size-2);--ic-menu-item-icon-size:var(--ui-icon-size-s);--ic-menu-item-gap:var(--ui-space-2);--ic-menu-surface-gap:var(--ui-space-1)}:host([appearance="iconless"]){--ic-menu-item-icon-display:none}[part="surface"]{position:fixed;inset:auto;margin:0;z-index:var(--ui-z-popover);min-width:12rem;max-width:min(22rem,calc(100vw - 2 * var(--ui-space-4)));max-height:min(24rem,calc(100vh - 2 * var(--ui-space-4)));overflow:auto;padding:var(--ic-menu-surface-gap,var(--ui-density-gap));border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary);border-radius:var(--ui-radius-m);background:var(--ui-color-surface);box-shadow:var(--ui-shadow-overlay);color:var(--ui-color-text-primary);text-align:start}:host([variant="reference-generate"]) [part="surface"]{box-sizing:border-box;width:12.75rem;max-width:calc(100vw - 28px);border-radius:var(--ui-radius-m);background:var(--ui-color-surface-floating);backdrop-filter:blur(20px)}:host([variant="reference-generate"]) ::slotted(.reference-generate-label){display:block;padding:var(--ui-space-1) var(--ui-space-2) var(--ui-space-2);color:var(--ui-color-text-tertiary);font-size:var(--ui-font-size-1);line-height:var(--ui-line-height-tight);font-weight:var(--ui-font-weight-regular);letter-spacing:var(--ui-letter-spacing-wide)}::slotted([role="separator"]){display:block;height:var(--ui-border-width-thin);margin:var(--ic-menu-surface-gap,var(--ui-density-gap));background:var(--ui-color-border-secondary)}${ANCHORED_OVERLAY_MOTION_STYLES}</style><slot name="trigger"></slot><div part="surface" role="menu" aria-label="${this.getAttribute('label') || ''}" tabindex="-1" popover="manual"><slot></slot></div>`;
+    this.shadowRoot.innerHTML = `<style>:host{display:contents}:host([trigger="dropdown"][selection="command"]:not([size="small"])){--ic-menu-item-gap:var(--ui-space-3)}:host([size="small"]){--ic-menu-item-control-height:var(--ui-control-height-s);--ic-menu-item-font-size:var(--ui-font-size-2);--ic-menu-item-icon-size:var(--ui-icon-size-s);--ic-menu-item-gap:var(--ui-space-2);--ic-menu-surface-gap:var(--ui-space-1)}:host([appearance="iconless"]){--ic-menu-item-icon-display:none}[part="surface"]{position:fixed;inset:auto;margin:0;z-index:var(--ui-z-popover);min-width:12rem;max-width:min(22rem,calc(100vw - 2 * var(--ui-space-4)));max-height:min(24rem,calc(100vh - 2 * var(--ui-space-4)));overflow:auto;padding:var(--ic-menu-surface-gap,var(--ui-density-gap));border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary);border-radius:var(--ui-radius-m);background:var(--ui-color-surface);box-shadow:var(--ui-shadow-overlay);color:var(--ui-color-text-primary);text-align:start}:host([variant="reference-generate"]) [part="surface"]{box-sizing:border-box;width:12.75rem;max-width:calc(100vw - 28px);border-radius:var(--ui-radius-m);background:var(--ui-color-surface-floating);backdrop-filter:blur(20px)}:host([variant="reference-generate"]) ::slotted(.reference-generate-label){display:block;padding:var(--ui-space-1) var(--ui-space-2) var(--ui-space-2);color:var(--ui-color-text-tertiary);font-size:var(--ui-font-size-1);line-height:var(--ui-line-height-tight);font-weight:var(--ui-font-weight-regular);letter-spacing:var(--ui-letter-spacing-wide)}::slotted([role="separator"]){display:block;height:var(--ui-border-width-thin);margin:var(--ic-menu-surface-gap,var(--ui-density-gap));background:var(--ui-color-border-secondary)}${ANCHORED_OVERLAY_MOTION_STYLES}${GOOEY_MENU_STYLES}</style><slot name="trigger"></slot><div part="surface" role="menu" aria-label="${this.getAttribute('label') || ''}" tabindex="-1" popover="manual"><div class="menu-content"><slot></slot></div></div>`;
+    if (this.getAttribute('variant') === 'reference-generate') {
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'quick-add-close';
+      close.setAttribute('part', 'close');
+      close.setAttribute('role', 'menuitem');
+      close.setAttribute('aria-label', this.getAttribute('close-label') || this.getAttribute('label'));
+      close.innerHTML = '<ic-icon name="close" aria-hidden="true"></ic-icon>';
+      close.addEventListener('click', event => { event.stopPropagation(); this.hide('toggle'); });
+      this.surface.querySelector('.menu-content').append(close);
+    }
+    const syncItems = () => this.querySelectorAll('ic-menu-item').forEach(item => {
+      if (this.getAttribute('variant') === 'reference-generate') {
+        if (item.getAttribute('appearance') !== 'icon') item.setAttribute('appearance', 'icon');
+      }
+      else if (item.getAttribute('appearance') === 'icon') item.removeAttribute('appearance');
+    });
+    syncItems();
+    this.shadowRoot.querySelector('.menu-content slot').addEventListener('slotchange', syncItems);
     const items = () => [...this.querySelectorAll('ic-menu-item:not([disabled])')];
-    this.shadowRoot.querySelector('[part="surface"]')?.addEventListener('keydown', event => { const enabled = items(); const current = enabled.indexOf(document.activeElement); let next = -1; if (event.key === 'ArrowDown') next = current < enabled.length - 1 ? current + 1 : 0; if (event.key === 'ArrowUp') next = current > 0 ? current - 1 : enabled.length - 1; if (event.key === 'Home') next = 0; if (event.key === 'End') next = enabled.length - 1; if (event.key === 'Escape') { event.preventDefault(); this.hide('escape'); return; } if (next >= 0) { event.preventDefault(); enabled[next]?.focus(); } });
+    this.shadowRoot.querySelector('[part="surface"]')?.addEventListener('keydown', event => { const enabled = items(); const current = enabled.indexOf(document.activeElement); let next = -1; if (event.key === 'ArrowDown' || (this.getAttribute('variant') === 'reference-generate' && event.key === 'ArrowRight')) next = current < enabled.length - 1 ? current + 1 : 0; if (event.key === 'ArrowUp' || (this.getAttribute('variant') === 'reference-generate' && event.key === 'ArrowLeft')) next = current > 0 ? current - 1 : enabled.length - 1; if (event.key === 'Home') next = 0; if (event.key === 'End') next = enabled.length - 1; if (event.key === 'Escape') { event.preventDefault(); this.hide('escape'); return; } if (next >= 0) { event.preventDefault(); enabled[next]?.focus(); } });
   }
   focusFirstItem() {
     queueMicrotask(() => {

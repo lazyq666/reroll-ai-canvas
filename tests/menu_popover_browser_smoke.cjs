@@ -132,6 +132,7 @@ async function main() {
       "document.querySelector('[data-menu-popover-matrix]')?.contentDocument?.documentElement?.dataset?.menuPopoverCaseStatus === 'ready'",
       'Reference Generate Menu business variant',
     );
+    await waitFor(cdp, sessionId, `(() => { const menu = document.querySelector('[data-menu-popover-matrix]').contentDocument.querySelector('[data-reference-generate-menu]'); return menu.dataset.motionState === 'open' && !menu.surface.hasAttribute('data-gooey'); })()`, 'Quick Add circles settled');
     const referenceGenerate = await evaluate(cdp, sessionId, `(() => {
       const frame = document.querySelector('[data-menu-popover-matrix]');
       const search = document.querySelector('[data-target-review-search]');
@@ -151,8 +152,10 @@ async function main() {
         variant:menu?.getAttribute('variant') || '',
         open:Boolean(menu?.hasAttribute('open')),
         visible:Boolean(surface && style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0),
-        background:style?.backgroundColor || '',
-        radius:style?.borderRadius || '',
+        background:menu.shadowRoot.querySelector('.gooey-silhouette g') ? frame.contentWindow.getComputedStyle(menu.shadowRoot.querySelector('.gooey-silhouette g')).fill : frame.contentWindow.getComputedStyle(menu.querySelector('ic-menu-item[value="image"]').shadowRoot.querySelector('button')).backgroundColor,
+        radius:frame.contentWindow.getComputedStyle(menu.querySelector('ic-menu-item').shadowRoot.querySelector('button')).borderRadius,
+        headingDisplay:headingStyle?.display || '',
+        buttonCount:menu.querySelectorAll('ic-menu-item[appearance="icon"]').length,
         headingWeight:headingStyle?.fontWeight || '',
         label:menu?.getAttribute('label') || '',
         itemValues:[...menu.querySelectorAll('ic-menu-item')].map(item => item.getAttribute('value')),
@@ -165,7 +168,9 @@ async function main() {
       || referenceGenerate.variant !== 'reference-generate'
       || !referenceGenerate.open
       || !referenceGenerate.visible
-      || referenceGenerate.radius !== '16px'
+      || referenceGenerate.radius !== '50%'
+      || referenceGenerate.headingDisplay !== 'none'
+      || referenceGenerate.buttonCount !== 3
       || referenceGenerate.headingWeight !== '400'
       || referenceGenerate.label !== '引用该节点生成'
       || referenceGenerate.itemValues.join() !== 'text,image,video'
@@ -200,7 +205,7 @@ async function main() {
       const rect = surface.getBoundingClientRect();
       return {
         visible:getComputedStyle(surface).display !== 'none' && rect.width > 0 && rect.height > 0,
-        background:getComputedStyle(surface).backgroundColor,
+        background:menu.shadowRoot.querySelector('.gooey-silhouette g') ? frame.contentWindow.getComputedStyle(menu.shadowRoot.querySelector('.gooey-silhouette g')).fill : frame.contentWindow.getComputedStyle(menu.querySelector('ic-menu-item[value="image"]').shadowRoot.querySelector('button')).backgroundColor,
       };
     })()`);
     if (!referenceGenerateDark.visible || referenceGenerateDark.background === referenceGenerate.background) {

@@ -25,7 +25,7 @@
     .node-runtime-sample ic-badge::part(base) { min-height:var(--ui-control-height-xs); font-size:var(--ui-font-size-1); font-weight:var(--ui-font-weight-bold); }
     .generation-pending-grid, .generation-recovery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--ui-space-3); }
     .generation-pending-sample, .generation-recovery-sample { display:grid; gap:var(--ui-space-2); min-width:0; }
-    .generation-pending-sample { padding-block-start:var(--ui-space-5); }
+    .generation-pending-sample { row-gap:var(--ui-space-8); }
     .generation-pending-sample > span, .generation-recovery-sample > span { color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
     .generation-pending-sample ic-generation-pending, .generation-recovery-sample ic-generation-recovery { height:11rem; }
     ic-progress { width:min(100%, 24rem); }
@@ -55,7 +55,7 @@
       <ic-badge data-legal-combination data-component-name="ic-badge-status-processing" kind="status" tone="info" loading data-copy="processing">进行中</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-status-success" kind="status" tone="success" data-copy="completed">已完成</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-status-warning" kind="status" tone="warning" data-copy="needs-attention">需处理</ic-badge><ic-badge data-legal-combination data-component-name="ic-badge-status-danger" kind="status" tone="danger" data-copy="failed">失败</ic-badge>
     </div></section>
     <section data-component-name="ic-badge-node-runtime-status" data-copy-kind="产品组件"><h2 data-copy="node-runtime-status">节点运行耗时状态 · Node Runtime Status</h2><div class="node-runtime-grid">
-      <div class="node-runtime-sample"><span data-copy="node-runtime-running">运行中的生成节点</span><ic-badge kind="status" tone="info" loading>12s</ic-badge></div>
+      <div class="node-runtime-sample"><span data-copy="node-runtime-running">运行中的生成节点</span><ic-badge kind="status" tone="info" loading loading-animation="orb">12s</ic-badge></div>
       <div class="node-runtime-sample"><span data-copy="node-runtime-complete">已完成的生成节点</span><ic-badge kind="status" tone="neutral">43s</ic-badge></div>
     </div></section>
     <section><h2 data-copy="generation-pending">生成等待节点 · Generation Pending</h2><div class="generation-pending-grid">
@@ -78,6 +78,6 @@
     <section><h2>Busy and Measurable Progress</h2><div class="stack"><ic-loading id="loading-inline" data-legal-combination label="正在准备预览" presentation="inline"></ic-loading><ic-loading id="loading-region" data-legal-combination label="正在载入工作区" presentation="region"></ic-loading><ic-progress id="progress-batch" data-legal-combination label="批量生成" value="6" max="10" value-text="6 / 10"></ic-progress><ic-progress id="progress-upload" label="上传素材" value="72" max="100"></ic-progress></div></section>
     <section><h2>Skeleton · Reduced Motion</h2><div class="skeleton-card" aria-busy="true"><ic-skeleton data-legal-combination shape="circle"></ic-skeleton><div class="skeleton-lines"><ic-skeleton data-legal-combination shape="text"></ic-skeleton><ic-skeleton shape="text"></ic-skeleton></div><ic-skeleton data-legal-combination shape="rectangle"></ic-skeleton><ic-loading id="loading-content" label="正在载入内容"></ic-loading></div></section>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/feedback-progress-case.js?v=ic-ui-1d9b8d84e857"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/feedback-progress-case.js?v=ic-ui-56c693e4e18f"></script>
 </body>
 </html>

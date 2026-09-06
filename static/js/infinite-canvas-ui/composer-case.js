@@ -10,6 +10,7 @@ const promptInput = document.getElementById('promptInput');
 const promptCharacterCount = document.getElementById('promptCharacterCount');
 const templateButton = document.getElementById('composerTemplateBtn');
 const runButton = document.getElementById('runBtn');
+runButton?.setAttribute('effect', 'metal');
 const status = document.querySelector('[data-composer-library-live-status]');
 const visibilityToggle = document.querySelector('[data-composer-visibility-toggle]');
 const referenceToggle = document.querySelector('[data-composer-reference-toggle]');
