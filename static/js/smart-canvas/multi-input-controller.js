@@ -80,10 +80,10 @@ function smartMultiInputOpen(event,snapshot=null,point=null){
     closeCreateMenu();
     closeSmartNodeContextMenu();
     return openReferenceGenerateMenu(
-        {fromId:plan.ids[0],fromPort:'out',multiInput:plan},event,
+        {fromId:plan.ids[0],fromPort:'out',multiInput:plan,moved:Boolean(point)},event,
         {
             trigger,point,
-            clientX:point ? event.clientX : rect.right,
+            clientX:point ? event.clientX : rect.left+rect.width/2,
             clientY:point ? event.clientY : rect.top+rect.height/2
         }
     );

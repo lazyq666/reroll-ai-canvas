@@ -1,6 +1,7 @@
-import { IC_ICON_NAMES } from '../icon.js?v=ic-ui-1d9b8d84e857';
-import { activeOverlayScope } from '../overlay-layer.js?v=ic-ui-1d9b8d84e857';
+import { IC_ICON_NAMES } from '../icon.js?v=ic-ui-56c693e4e18f';
+import { activeOverlayScope } from '../overlay-layer.js?v=ic-ui-56c693e4e18f';
 import { IcButton } from './button.js';
+import { syncMetalEffect, disconnectMetalEffect } from './metal-effect.js';
 import { ICON_BUTTON_STYLES } from './styles.js';
 
 
@@ -23,6 +24,7 @@ export class IcIconButton extends IcButton {
   }
 
   static properties = {
+    effect: { reflect: true },
     icon: { reflect: true },
     label: { reflect: true },
     background: { reflect: true },
@@ -33,6 +35,7 @@ export class IcIconButton extends IcButton {
 
   constructor() {
     super();
+    this.effect = '';
     this.icon = '';
     this.label = '';
     this.background = this.getAttribute('background') || 'auto';
@@ -70,6 +73,7 @@ export class IcIconButton extends IcButton {
   }
 
   disconnectedCallback() {
+    disconnectMetalEffect(this);
     this.hideTooltip();
     super.disconnectedCallback();
   }
@@ -118,6 +122,7 @@ export class IcIconButton extends IcButton {
   validateContract() {
     const baseReason = super.validateContract();
     if (baseReason) return baseReason;
+    if (!['', 'metal'].includes(this.effect)) return 'effect must be empty or metal';
     if (this.ghost) {
       return 'ghost presentation requires ic-button with a visible label';
     }
@@ -151,6 +156,7 @@ export class IcIconButton extends IcButton {
   updated(changedProperties) {
     this.ensureActionIcon();
     super.updated(changedProperties);
+    syncMetalEffect(this);
     this.button.style.removeProperty('border-width');
     const accessibleLabel = this.label.trim();
     if (accessibleLabel) this.button.setAttribute('aria-label', accessibleLabel);

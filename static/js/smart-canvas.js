@@ -120,7 +120,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1d9b8d84e857')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-56c693e4e18f')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -6867,7 +6867,7 @@ function reconcileRunTimePill(oldNodeEl, newNodeEl){
     const newTimer = newNodeEl?.querySelector?.(':scope > [data-run-timer]');
     if(!oldTimer || !newTimer || oldTimer.tagName !== newTimer.tagName) return null;
     const authoredAttributes = [
-        'class', 'kind', 'tone', 'size', 'loading',
+        'class', 'kind', 'tone', 'size', 'loading', 'loading-animation',
         'data-component-name', 'data-run-timer', 'data-run-timer-state',
     ];
     authoredAttributes.forEach(name => {
@@ -8931,7 +8931,7 @@ function runTimePillHtml(node){
     const running = Boolean(node.pending || node.running || node.jimengPending || node.textGenerationPending);
     if(!running && !node.runFinishedAt) return '';
     const cls = running ? '' : ' done';
-    return `<ic-badge class="run-time-pill image-name-badge image-name-badge-outside${cls}" kind="status" tone="${running ? 'info' : 'neutral'}"${running ? ' loading' : ''} data-component-name="ic-badge-node-runtime-status" data-run-timer="${escapeHtml(node.id)}" data-run-timer-state="${running ? 'running' : 'complete'}">${escapeHtml(runTimePillText(node))}</ic-badge>`;
+    return `<ic-badge class="run-time-pill image-name-badge image-name-badge-outside${cls}" kind="status" tone="${running ? 'info' : 'neutral'}"${running ? ' loading loading-animation="orb"' : ''} data-component-name="ic-badge-node-runtime-status" data-run-timer="${escapeHtml(node.id)}" data-run-timer-state="${running ? 'running' : 'complete'}">${escapeHtml(runTimePillText(node))}</ic-badge>`;
 }
 function hideRunTimerForNode(node){
     if(!node || node.runTimerHidden || node.pending || node.running || node.jimengPending || !node.runFinishedAt) return false;
@@ -8962,6 +8962,7 @@ function refreshRunTimerPills(){
         const complete = Boolean(!running && node.runFinishedAt);
         const tone = running ? 'info' : 'neutral';
         if(el.getAttribute('tone') !== tone) el.setAttribute('tone', tone);
+        if(running && el.getAttribute('loading-animation') !== 'orb') el.setAttribute('loading-animation', 'orb');
         if(el.hasAttribute('loading') !== running) el.toggleAttribute('loading', running);
         const timerState = running ? 'running' : 'complete';
         if(el.dataset.runTimerState !== timerState) el.dataset.runTimerState = timerState;
@@ -10147,7 +10148,8 @@ function openReferenceGenerateMenu(drag, event, options={}){
     };
     options.trigger?.closest('.image-node')?.classList.add('reference-menu-source');
     lockSmartNodeQuickAdd(options.trigger, 'menu');
-    menu.showAt(clientX, clientY, options.trigger || shell);
+    if (drag.moved || !options.trigger) menu.showAt(clientX, clientY, options.trigger || shell);
+    else menu.show(options.trigger);
     return true;
 }
 function referenceGeneratePointForNode(node, fromPort='out'){
@@ -10170,15 +10172,10 @@ function openReferenceGenerateMenuFromNode(node, trigger, event, fromPort='out')
     ){
         return false;
     }
-    const isInput = fromPort === 'in';
     const point = referenceGeneratePointForNode(node, fromPort);
     const triggerRect = trigger.getBoundingClientRect();
-    const clientX = Number.isFinite(Number(event.clientX))
-        ? Number(event.clientX)
-        : isInput ? triggerRect.left : triggerRect.right;
-    const clientY = Number.isFinite(Number(event.clientY))
-        ? Number(event.clientY)
-        : triggerRect.top + triggerRect.height / 2;
+    const clientX = triggerRect.left + triggerRect.width / 2;
+    const clientY = triggerRect.top + triggerRect.height / 2;
     closeCreateMenu();
     closeSmartNodeContextMenu();
     canvasMutation.history({action:'capture'});
@@ -16217,6 +16214,10 @@ window.onmouseup = e => {
     }
     if(portDragState){
         const drag = portDragState;
+        if (drag.moved) {
+            drag.currentWorld = window.SmartCanvasModules.viewportSelection.viewport.screenToWorld(e);
+            updatePortDragVisual();
+        }
         portDragState = null;
         shell.classList.remove('port-dragging');
         if(drag.sourceTrigger && drag.moved){
