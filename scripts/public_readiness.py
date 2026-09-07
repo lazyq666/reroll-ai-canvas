@@ -121,6 +121,7 @@ def execute(argv, root, env, timeout, shutdown_grace=5):
                         count = {key: int(value[key]) for key in ('tests', 'skipped', 'failures', 'errors')}
                         allowed_reasons = {'controlled performance environment required', 'browser runs in dedicated required group', 'POSIX environment required', 'other optional test; inspect its declared reason'}
                         count['skip_categories'] = {key: int(number) for key, number in value.get('skip_categories', {}).items() if key in allowed_reasons}
+                        count['failed_tests'] = [name for name in value.get('failed_tests', []) if isinstance(name, str) and re.fullmatch(r'[A-Za-z_][\w.]*', name)]
                         counts.append(count)
                     except (ValueError, KeyError, TypeError):
                         code = 1
@@ -266,6 +267,7 @@ def snapshot(source, ref, base, output):
                 if result['result'] != 'success':
                     report['result'] = 'failure'
                 reports.append(report)
+                output.write_text(json.dumps({'schema_version': SCHEMA, **expected, 'result': 'in_progress', 'groups': reports}, indent=2) + '\n')
                 print(f"{group}: {report['result']}", flush=True)
     report = {'schema_version': SCHEMA, **expected, 'local_changes_excluded': dirty, 'groups': reports,
               'result': 'success' if aggregate(reports, expected) else 'failure'}

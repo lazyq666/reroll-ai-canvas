@@ -2,6 +2,7 @@
 import json
 from collections import Counter
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -40,6 +41,7 @@ def main():
         for _, reason in result.skipped)
     print('READINESS_COUNTS=' + json.dumps({'tests': result.testsRun, 'skipped': len(result.skipped),
                                           'skip_categories': dict(skip_categories),
+                                          'failed_tests': [test.id() for test, _ in result.failures + result.errors if re.fullmatch(r'[A-Za-z_][\w.]*', test.id())],
                                           'failures': len(result.failures), 'errors': len(result.errors)}))
     return 0 if successful(result, browser) else 1
 
