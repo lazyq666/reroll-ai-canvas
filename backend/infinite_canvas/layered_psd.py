@@ -313,7 +313,9 @@ def _composite_data(image: Image.Image) -> bytes:
 
 
 def _build_psd(width: int, height: int, layers: list[_Layer]) -> bytes:
-    ordered = sorted(layers, key=lambda item: item.z_index, reverse=True)
+    # PSD records run bottom-to-top, opposite to the editor's visible list.
+    # Use the same stacking order as the composite so editable layers match it.
+    ordered = sorted(layers, key=lambda item: item.z_index)
     encoded = [(layer, _layer_channel_data(layer.image)) for layer in ordered]
     records = b"".join(_layer_record(layer, channels) for layer, channels in encoded)
     channel_data = b"".join(data for _layer, channels in encoded for _channel_id, data in channels)

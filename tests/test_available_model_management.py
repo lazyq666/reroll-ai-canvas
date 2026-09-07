@@ -1,3 +1,5 @@
+import asyncio
+import copy
 import json
 import tempfile
 import unittest
@@ -145,6 +147,20 @@ class AvailableModelManagementTests(unittest.TestCase):
             target = main.available_models(providers)["image"][0]
             with self.assertRaisesRegex(main.HTTPException, "模型名称不能为空"):
                 main.save_available_model_names({target["id"]: "   "})
+
+    def test_stale_api_settings_save_preserves_new_model_display_name(self):
+        providers = copy.deepcopy(self.providers)
+        stale_payload = [main.ApiProviderPayload(**item) for item in providers]
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            main, "available_models_file", return_value=str(Path(tmp) / "models.json")
+        ), patch.object(main, "load_api_providers", side_effect=lambda: copy.deepcopy(providers)), patch.object(
+            main, "save_api_providers", side_effect=lambda saved: providers.__setitem__(slice(None), copy.deepcopy(saved))
+        ):
+            target = main.available_models(providers)["image"][0]
+            main.save_available_model_names({target["id"]: "团队主力生图"})
+            asyncio.run(main.save_providers(stale_payload))
+            actual = next(item for item in main.available_models()["image"] if item["id"] == target["id"])
+            self.assertEqual("团队主力生图", actual["name"])
 
     def test_models_are_visible_by_default_and_hidden_models_stay_manageable(self):
         providers = json.loads(json.dumps(self.providers))

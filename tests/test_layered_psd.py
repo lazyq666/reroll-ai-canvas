@@ -119,6 +119,67 @@ def _parse_layer_records(data: bytes) -> tuple[dict, list[dict]]:
 
 
 class LayeredPsdContractTests(unittest.TestCase):
+    def test_export_layer_stack_matches_editor_and_merged_preview(self):
+        # Deliberately unsorted items: array position must not override z_index.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            items = []
+            for name, z_index, color, role, hidden in (
+                ("Foreground", 8, (255, 0, 0, 128), "layer", False),
+                ("Hidden", 12, (0, 255, 0, 255), "layer", True),
+                ("Base", -1, (0, 0, 255, 255), "base", False),
+            ):
+                url = self._save(root / f"{name}.png", Image.new("RGBA", (2, 2), color))
+                items.append({
+                    "id": name, "role": role, "z_index": z_index, "hidden": hidden,
+                    "absolute_bbox": [0, 0, 2, 2], "media": {"url": url, "name": name},
+                })
+            result = build_layer_decomposition_psd(
+                {"nodes": [{
+                    "id": "stack", "type": "smart-layer-decomposition",
+                    "layerDecompositionManifest": {
+                        "manifest_version": 1, "canvas_width": 2, "canvas_height": 2,
+                    },
+                    "layerDecompositionItems": items,
+                }]},
+                "stack", resolve_media=lambda url: root / Path(url).name,
+            )
+
+        _, records = _parse_layer_records(result.content)
+        # PSD stores bottom-to-top; the editor lists that stack top-to-bottom.
+        self.assertEqual(["Hidden", "Foreground", "Base"], [r["name"] for r in reversed(records)])
+        self.assertEqual([False, False, True], [bool(r["flags"] & 0x02) for r in records])
+        with Image.open(BytesIO(result.content)) as decoded:
+            merged = decoded.convert("RGBA")
+        recomposed = Image.new("RGBA", merged.size)
+        for record in records:
+            if record["flags"] & 0x02:
+                continue
+            channels = []
+            for data in record["channel_data"]:
+                self.assertEqual(1, struct.unpack_from(">H", data)[0])
+                lengths = struct.unpack_from(">2H", data, 2)
+                offset = 6
+                pixels = bytearray()
+                for length in lengths:
+                    row = data[offset:offset + length]
+                    offset += length
+                    index = 0
+                    while index < len(row):
+                        control = row[index]
+                        index += 1
+                        if control < 128:
+                            count = control + 1
+                            pixels.extend(row[index:index + count])
+                            index += count
+                        elif control > 128:
+                            pixels.extend(row[index:index + 1] * (257 - control))
+                            index += 1
+                channels.append(Image.frombytes("L", (2, 2), bytes(pixels)))
+            recomposed.alpha_composite(Image.merge("RGBA", channels))
+        self.assertEqual((128, 0, 127, 255), recomposed.getpixel((0, 0)))
+        self.assertEqual(merged.tobytes(), recomposed.tobytes())
+
     def test_export_preserves_pixels_across_literal_packet_boundary(self):
         # A neutral textured strip followed by a flat background. A two-byte
         # repeat straddles the 128-byte literal limit on alternating rows.
@@ -274,10 +335,10 @@ class LayeredPsdContractTests(unittest.TestCase):
             },
             header,
         )
-        # PSD records are topmost first; the deleted manifest-only layer is absent.
-        self.assertEqual(["Title ✨", "人物（前景）", "合成底图"], [r["name"] for r in records])
-        self.assertEqual([(0, 0, 2, 1), (1, 1, 3, 3), (0, 0, 4, 3)], [r["bounds"] for r in records])
-        self.assertEqual([True, False, False], [bool(r["flags"] & 0x02) for r in records])
+        # PSD records are bottommost first; the deleted manifest-only layer is absent.
+        self.assertEqual(["合成底图", "人物（前景）", "Title ✨"], [r["name"] for r in records])
+        self.assertEqual([(0, 0, 4, 3), (1, 1, 3, 3), (0, 0, 2, 1)], [r["bounds"] for r in records])
+        self.assertEqual([False, False, True], [bool(r["flags"] & 0x02) for r in records])
         self.assertTrue(all([channel[0] for channel in record["channels"]] == [0, 1, 2, -1] for record in records))
         self.assertEqual("海报-最终版.psd", result.filename)
         with Image.open(BytesIO(result.content)) as composite:
@@ -526,7 +587,7 @@ class LayeredPsdHttpContractTests(unittest.TestCase):
                     self.assertIn("%E8%A7%92%E8%89%B2%E5%88%86%E5%B1%82.psd", exported.headers["content-disposition"])
                     header, records = _parse_layer_records(exported.content)
                     self.assertEqual((3, 2), (header["width"], header["height"]))
-                    self.assertEqual(["人物", "底图"], [record["name"] for record in records])
+                    self.assertEqual(["底图", "人物"], [record["name"] for record in records])
 
                 with TestClient(main.app) as administrator:
                     self._login(administrator, "administrator", "admin-password")
