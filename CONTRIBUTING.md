@@ -77,7 +77,11 @@ file is a declaration, not evidence that GitHub enforces it. Read effective rule
 with `python3.12 scripts/readiness_rules.py`; drift or missing permissions leave
 release verification incomplete.
 
-Prepare a complete commit, including the incremented VERSION/update-notes pair.
+Prepare the release metadata before committing with
+`python3.12 scripts/readiness_version.py --prepare YYYY.MM.DD.N`, using the
+current Asia/Shanghai date and a sequence greater than every published version.
+This updates VERSION, update notes and the paired share-page cache references;
+snapshot verification never generates or repairs these files.
 The candidate publisher runs isolated snapshot checks and pushes only that commit
 to a PR reference without changing your local branch or worktree:
 

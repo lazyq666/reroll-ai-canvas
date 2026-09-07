@@ -111,6 +111,8 @@ class SnapshotTests(unittest.TestCase):
         self.commit()
         (self.root / 'node_modules').mkdir()
         (self.root / 'node_modules/cache').write_text('cache')
+        (self.root / '__pycache__').mkdir()
+        (self.root / '__pycache__/迁移数据.cpython-312.pyc').write_bytes(b'cache')
         self.assertFalse(readiness.source_changed(self.root))
         (self.root / 'lost.generated.py').write_text('unexpected source')
         self.assertTrue(readiness.source_changed(self.root))
@@ -252,6 +254,17 @@ class SnapshotTests(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 publisher.publish(self.root, candidate, 'publication', 'codex/fixture', Path(self.temp.name) / 'publish.json')
         self.assertEqual(publisher.remote_refs(self.root, 'publication', 'codex/fixture')['refs/heads/codex/fixture'], competitor)
+
+    def test_release_preparation_updates_existing_share_cache_contract(self):
+        (self.root / 'static').mkdir()
+        (self.root / 'VERSION').write_text('2026.09.07.1\n')
+        (self.root / 'static/update-notes.json').write_text('{"version":"2026.09.07.1"}')
+        (self.root / 'static/share.html').write_text('<link href="/static/css/canvas-share.css?v=old"><script src="/static/js/canvas-share.js?v=old"></script>')
+        versions.prepare(self.root, '2026.09.07.2')
+        self.assertEqual(json.loads((self.root / 'static/update-notes.json').read_text())['version'], '2026.09.07.2')
+        self.assertEqual((self.root / 'static/share.html').read_text().count('?v=2026.09.07.2.'), 2)
+        with self.assertRaises(ValueError):
+            versions.prepare(self.root, '2026.09.07.2')
 
     def test_release_pair_and_monotonic_base(self):
         (self.root / 'static').mkdir()

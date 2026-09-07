@@ -139,7 +139,7 @@ def require_history(root, ref='HEAD', check_links=True):
     objects = git(root, 'rev-list', '--objects', '--missing=print', ref)
     if any(line.startswith('?') for line in objects.splitlines()):
         raise ReadinessError('candidate objects are missing; hydrate the partial clone before validation')
-    entries = git(root, 'ls-tree', '-r', ref).splitlines()
+    entries = list(filter(None, git(root, 'ls-tree', '-rz', ref).split('\0')))
     if any(line.startswith('160000 ') for line in entries):
         raise ReadinessError('gitlinks are not supported')
     for line in entries:
@@ -153,7 +153,7 @@ def source_changed(root):
     if git(root, 'diff', 'HEAD', '--'):
         return True
     # --others without exclude-standard deliberately includes ignored source.
-    extra = git(root, 'ls-files', '--others').splitlines()
+    extra = filter(None, git(root, 'ls-files', '--others', '-z').split('\0'))
     return any(not (name.startswith('node_modules/') or
                     ('__pycache__' in Path(name).parts and name.endswith('.pyc')))
                for name in extra)
