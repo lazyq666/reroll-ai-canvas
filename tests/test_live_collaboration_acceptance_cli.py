@@ -18,6 +18,23 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "performance" / "run_live_collaboration_acceptance.py"
 
 
+def acceptance_command(clock_step_ns=1_000_000):
+    # Exercise the real CLI and sockets, but give its latency measurement a
+    # deterministic clock. Hosted-runner load is not a functional regression.
+    # Keep real clocks for networking, timeouts, and controlled performance runs.
+    bootstrap = """
+import importlib.util, itertools, sys, types
+spec = importlib.util.spec_from_file_location("acceptance_cli", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.time = types.SimpleNamespace(**vars(module.time))
+module.time.perf_counter_ns = itertools.count(step=int(sys.argv[2])).__next__
+sys.argv = [sys.argv[1], *sys.argv[3:]]
+raise SystemExit(module.main())
+"""
+    return [sys.executable, "-c", bootstrap, str(SCRIPT), str(clock_step_ns)]
+
+
 class LiveCollaborationAcceptanceCliTests(unittest.TestCase):
     def test_existing_service_runs_robot_mutations_without_generation_and_cleans_exact_objects(self):
         state = {
@@ -283,8 +300,7 @@ class LiveCollaborationAcceptanceCliTests(unittest.TestCase):
                 )
                 completed = subprocess.run(
                     [
-                        sys.executable,
-                        str(SCRIPT),
+                        *acceptance_command(),
                         "--base-url",
                         f"http://127.0.0.1:{port}",
                         "--admin-username",
@@ -436,8 +452,7 @@ class LiveCollaborationAcceptanceCliTests(unittest.TestCase):
                 }
                 reused = subprocess.run(
                     [
-                        sys.executable,
-                        str(SCRIPT),
+                        *acceptance_command(),
                         "--base-url",
                         f"http://127.0.0.1:{port}",
                         "--admin-username",
@@ -499,6 +514,37 @@ class LiveCollaborationAcceptanceCliTests(unittest.TestCase):
                 state["applications"] = {}
                 state["accounts"] = {}
                 state["deleted_accounts"] = []
+                for step_ns, reason in (
+                    (400_000_000, "robot_ack_p99_gate_failed"),
+                    (600_000_000, "robot_ack_p95_gate_failed"),
+                ):
+                    with self.subTest(latency_failure=reason):
+                        slow = subprocess.run(
+                            [
+                                *acceptance_command(step_ns),
+                                "--base-url", f"http://127.0.0.1:{port}",
+                                "--admin-username", "admin",
+                                "--canvas-id", "existing-canvas-1",
+                                "--robot-count", "1",
+                                "--robot-rounds", "2",
+                                "--round-interval-seconds", "0.01",
+                                "--ack-p99-gate-ms", "300",
+                                "--start-immediately",
+                                "--report-root", str(report_root),
+                            ],
+                            cwd=ROOT, text=True, capture_output=True,
+                            env=environment, timeout=20, check=False,
+                        )
+                        self.assertEqual(1, slow.returncode, slow.stderr)
+                        slow_directory = Path(json.loads(slow.stdout)["report_directory"])
+                        slow_summary = json.loads(
+                            (slow_directory / "summary.json").read_text(encoding="utf-8")
+                        )
+                        self.assertEqual([reason], slow_summary["reasons"])
+                        self.assertEqual(2, slow_summary["robot_mutation_count"])
+                        self.assertTrue(slow_summary["final_node_projection_consistent"])
+                        self.assertFalse(slow_summary["ack_latency_gate_passed"])
+
                 state["revision"] = 2000
                 state["forced_fatal_closes"] = 1
                 state["canvas"] = {
@@ -511,8 +557,7 @@ class LiveCollaborationAcceptanceCliTests(unittest.TestCase):
                 }
                 failed = subprocess.run(
                     [
-                        sys.executable,
-                        str(SCRIPT),
+                        *acceptance_command(),
                         "--base-url",
                         f"http://127.0.0.1:{port}",
                         "--admin-username",
