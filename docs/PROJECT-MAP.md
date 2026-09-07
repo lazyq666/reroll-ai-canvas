@@ -235,7 +235,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 | F11 | Batch Generation 与专用工作台 | `partial` | [结果画廊模型身份](current/batch-generation-result-gallery-model-identity.md)已统一为常驻 Provider 图标与生成时冻结的模型名称，并覆盖 Light/Dark、旧数据 fallback、下载与预览回归；`batch_generation.py` 和工作台测试覆盖其他现有行为，仍缺共享/特有行为总规格 |
 | F12 | Workflow、RunningHub、ModelScope 与 ComfyUI | `partial` | Workflow 身份、导入导出、安全和恢复形态需统一 |
 | F13 | UI 设计、主题与可访问组件 | `current` | [UI 设计与交互指南](current/ui-design-guidelines.md)、[Design Tokens](current/design-tokens.md)、管理员 `/ui-component-library#design-tokens` 全局颜色 Token 工作台与 `/ui-component-library#smart-canvas-dock` 智能画布工具栏 Block |
-| F14 | 更新、回退、配置迁移与发布维护 | `partial` | `launcher.py`、更新路由和维护脚本；[Public readiness 提交快照验收与 main 合入门槛](active/2026-09-07-public-readiness-delivery-gates-spec.md)为 Draft，定义固定提交验收、Linux 必需检查与独立任务，尚未实施；其余发布维护总规格仍待补齐 |
+| F14 | 更新、回退、配置迁移与发布维护 | `partial` | `launcher.py`、更新路由和维护脚本；[Public readiness 提交快照验收与 main 合入门槛](active/2026-09-07-public-readiness-delivery-gates-spec.md)为 In Progress，实施固定提交验收、Linux 必需检查、独立任务与依赖治理，远端启用待验收；其余发布维护总规格仍待补齐 |
 | F15 | 产品知识地图与功能规格体系 | `current` | 本页、[知识库入口](README.md)和[规格模板](FEATURE-SPEC-TEMPLATE.md) |
 
 Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 / F13 的图片分辨率与宽高比双 Badge。布局、固定画幅对比图标、比例识别容差、尺寸恢复及可访问说明统一由 [UI 设计与交互指南](current/ui-design-guidelines.md)定义；`image-metadata.js` 只负责尺寸与比例计算，页面负责显示，公共 `ic-icon` 负责图标。回归入口为 [比例与尺寸来源测试](../tests/smart_canvas_image_metadata.test.cjs)和[真实页面、双语及日志验收](../tests/issue_21_image_metadata_browser_app.cjs)。

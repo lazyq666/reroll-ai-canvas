@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "groups": {
+    "public-audit": [
+      {
+        "id": "tree",
+        "argv": [
+          "{python}",
+          "scripts/audit_public_tree.py"
+        ]
+      },
+      {
+        "id": "history",
+        "argv": [
+          "{python}",
+          "scripts/audit_public_history.py",
+          "HEAD"
+        ]
+      },
+      {
+        "id": "uv",
+        "argv": [
+          "{tools_python}",
+          "-m",
+          "pip",
+          "install",
+          "uv==0.10.0",
+          "pip-audit==2.9.0"
+        ]
+      },
+      {
+        "id": "vulnerabilities",
+        "needs": [
+          "uv"
+        ],
+        "argv": [
+          "{tools_python}",
+          "-m",
+          "pip_audit",
+          "--disable-pip",
+          "-r",
+          "requirements.lock.txt"
+        ]
+      },
+      {
+        "id": "install",
+        "needs": [
+          "uv"
+        ],
+        "argv": [
+          "{uv}",
+          "pip",
+          "sync",
+          "--python",
+          "{python}",
+          "--require-hashes",
+          "requirements.lock.txt"
+        ]
+      },
+      {
+        "id": "dependency-check",
+        "needs": [
+          "install"
+        ],
+        "argv": [
+          "{uv}",
+          "pip",
+          "check",
+          "--python",
+          "{python}"
+        ]
+      },
+      {
+        "id": "lock-consistency",
+        "needs": [
+          "uv"
+        ],
+        "argv": [
+          "{python}",
+          "scripts/readiness_dependencies.py",
+          "--uv",
+          "{uv}"
+        ]
+      },
+      {
+        "id": "imports",
+        "needs": [
+          "install"
+        ],
+        "argv": [
+          "{python}",
+          "-c",
+          "import fastapi, pydantic, pydantic_core; from pydantic import BaseModel; type('Probe', (BaseModel,), {'__annotations__': {'value': int}})(value=1)"
+        ]
+      }
+    ],
+    "python-tests": [
+      {
+        "id": "uv",
+        "argv": [
+          "{tools_python}",
+          "-m",
+          "pip",
+          "install",
+          "uv==0.10.0"
+        ]
+      },
+      {
+        "id": "install",
+        "needs": [
+          "uv"
+        ],
+        "argv": [
+          "{uv}",
+          "pip",
+          "sync",
+          "--python",
+          "{python}",
+          "--require-hashes",
+          "requirements.lock.txt"
+        ]
+      },
+      {
+        "id": "compile",
+        "argv": [
+          "{python}",
+          "-m",
+          "compileall",
+          "-q",
+          "backend",
+          "scripts",
+          "tests"
+        ]
+      },
+      {
+        "id": "python-suite",
+        "needs": [
+          "install"
+        ],
+        "argv": [
+          "{python}",
+          "scripts/readiness_tests.py",
+          "discover"
+        ]
+      }
+    ],
+    "node-tests": [
+      {
+        "id": "npm-ci",
+        "argv": [
+          "npm",
+          "ci"
+        ]
+      },
+      {
+        "id": "node-contracts",
+        "needs": [
+          "npm-ci"
+        ],
+        "argv": [
+          "{python}",
+          "scripts/readiness_node.py"
+        ]
+      }
+    ],
+    "browser-core": [
+      {
+        "id": "npm-ci",
+        "argv": [
+          "npm",
+          "ci"
+        ]
+      },
+      {
+        "id": "chromium-install",
+        "needs": [
+          "npm-ci"
+        ],
+        "argv": [
+          "npx",
+          "--no-install",
+          "playwright",
+          "install",
+          "--with-deps",
+          "chromium"
+        ]
+      },
+      {
+        "id": "browser-contract",
+        "needs": [
+          "chromium-install"
+        ],
+        "argv": [
+          "{python}",
+          "scripts/readiness_tests.py",
+          "browser"
+        ]
+      }
+    ],
+    "repository-contracts": [
+      {
+        "id": "uv",
+        "argv": [
+          "{tools_python}",
+          "-m",
+          "pip",
+          "install",
+          "uv==0.10.0"
+        ]
+      },
+      {
+        "id": "install",
+        "needs": [
+          "uv"
+        ],
+        "argv": [
+          "{uv}",
+          "pip",
+          "sync",
+          "--python",
+          "{python}",
+          "--require-hashes",
+          "requirements.lock.txt"
+        ]
+      },
+      {
+        "id": "vendor",
+        "argv": [
+          "{python}",
+          "scripts/verify_webawesome_vendor.py"
+        ]
+      },
+      {
+        "id": "knowledge-map",
+        "argv": [
+          "{python}",
+          "scripts/readiness_tests.py",
+          "tests.test_documentation_knowledge_map"
+        ]
+      },
+      {
+        "id": "i18n",
+        "argv": [
+          "node",
+          "static/js/i18n/validate-i18n.js"
+        ]
+      },
+      {
+        "id": "cache-versions",
+        "argv": [
+          "{python}",
+          "scripts/readiness_tests.py",
+          "tests.test_i18n_cache_versions",
+          "tests.test_infinite_canvas_ui_asset_version",
+          "tests.test_update_sources"
+        ],
+        "needs": [
+          "install"
+        ]
+      },
+      {
+        "id": "ui-version",
+        "argv": [
+          "{python}",
+          "scripts/sync_infinite_canvas_ui_version.py",
+          "--check"
+        ]
+      },
+      {
+        "id": "release-version",
+        "argv": [
+          "{python}",
+          "scripts/readiness_version.py",
+          "--base",
+          "{base}"
+        ]
+      }
+    ]
+  }
+}

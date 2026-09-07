@@ -114,6 +114,6 @@ flowchart LR
 
 ## 当前计划在哪里
 
-F14 的 [Public readiness 提交快照验收与 main 合入门槛](active/2026-09-07-public-readiness-delivery-gates-spec.md)处于 Draft：先定义发布验收和远端合入规则，尚未启用新机制。
+F14 的 [Public readiness 提交快照验收与 main 合入门槛](active/2026-09-07-public-readiness-delivery-gates-spec.md)处于 In Progress：正在实施固定提交验收与独立检查，远端合入规则待实际验收后启用。
 
 需求、Bug、调查和开发任务统一进入公开 GitHub Issues；维护者可在私有项目看板中按 `Todo → In Progress → Review → Done` 管理。`docs/active/` 只保存需要长期评审的功能规格，不保存任务板镜像、跨电脑分支指令或临时聊天交接。

@@ -4,10 +4,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      pydantic-runtime:
+        patterns:
+          - pydantic
+          - pydantic-core
     open-pull-requests-limit: 5
-    labels:
-      - dependencies
-      - security
     commit-message:
       prefix: deps
   - package-ecosystem: github-actions
@@ -15,8 +17,5 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
-    labels:
-      - dependencies
-      - security
     commit-message:
       prefix: ci

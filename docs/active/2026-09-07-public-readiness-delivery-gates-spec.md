@@ -1,13 +1,13 @@
 # Public readiness：提交快照验收与 main 合入门槛
 
-- **Status**：Draft（本轮只制定规格；尚未实施或启用远端规则）
+- **Status**：In Progress（用户已要求进入开发；远端启用须通过分阶段验收）
 - **Feature ID**：F14
-- **Tracking Issue**：[Issue #59](https://github.com/lazyq666/reroll-ai-canvas/issues/59)（实施 Todo；规格待评审）
+- **Tracking Issue**：[Issue #59](https://github.com/lazyq666/reroll-ai-canvas/issues/59)（实施 In Progress）
 - **Owners**：仓库维护者 / 开发 / 测试与发布
-- **Last verified**：2026-09-07（故障对照实验与 GitHub 配置只读核查；目标行为未验收）
+- **Last verified**：2026-09-07（完整本地快照、隔离仓库正反向验收；生产启用仍待验证）
 - **Applies to**：`lazyq666/reroll-ai-canvas` 的 Public readiness 与 main 发布流程
 - **Supersedes / Superseded by**：无
-- **Related ADRs**：暂无对应发布治理 ADR；实施时将 §14 的持久决策提炼为 Proposed ADR，并在启用规则前核定
+- **Related ADRs**：[ADR-0013](../adr/0013-public-readiness-gates.md)（Proposed）
 - **Domain terms**：不新增产品领域概念；Workspace、Instance State、Device State 的现有边界不变
 
 ## 1. 一页摘要
@@ -105,6 +105,14 @@
 **A6 内容变化使结果失效。** 添加遗漏文件、更新 VERSION、重生成资源或修改工作流后产生新提交，必须重新验收。报告不得用未提交目录的结果背书已提交候选。
 
 **A7 版本规则保持有效。** 遵守现有“每次向项目远端 push 前更新 VERSION”的规则，同时同步 `static/update-notes.json`，使用 Asia/Shanghai 日期和递增序号。发布辅助入口读取远端 main 及目标引用的版本，候选必须更高；远端发生竞争更新时阻断并重新生成提交。PR 检查候选版本高于其 main 基线；main 的 push 检查与事件的旧 main 比较，不能与自身比较。基线无法获取时不能跳过。CI 验证配对和递增关系，但不声称能观察未经过受控入口的每一次任意分支 push。
+
+### D. 依赖升级治理与仓库边界
+
+**D1 兼容组合。** [PR #1](https://github.com/lazyq666/reroll-ai-canvas/pull/1) 单独升级 pydantic-core 导致与 pydantic 不兼容。这属于依赖兼容错误，不是漏洞结论。Dependabot 将 pydantic 与 pydantic-core 分组；每次更新直接依赖或传递依赖均以固定 uv 版本重解锁文件，检查声明与锁文件一致、干净安装后的依赖关系及关键模块导入，再执行全部必需组。分组本身不能保证兼容，检查失败须修复组合，不能跳过测试。
+
+**D2 标签。** 常规版本更新不标为 security。配置仅使用已存在的标签；首期删除不存在的 dependencies/security 标签配置，使用 GitHub 默认行为，避免自动化元数据故障。
+
+**D3 范围。** 本机制只管理上方 Applies to 的公开仓库。其他旧私有仓库的生命周期与通知另行处理；本任务不归档、改写历史或更改其设置，也不把其日志或身份信息放入公开文档。失败的 PR 检查是有用的阻断证据，目标不是零失败通知。
 
 ### B. main 合入门槛
 
@@ -211,6 +219,8 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 | A17 | Mac 快照成功、Linux 存在真实平台差异 | Linux PR Gate 阻断；修复后两侧均通过 |
 | A18 | 合并最终提交的 push 检查失败 | Issue 不关闭、发布不标记完成；修复/回退仍走 PR |
 | A19 | 没有任何产品文件变化，仅执行快照验收 | 原目录的受跟踪改动、暂存内容和未跟踪内容均保持原样 |
+| A20 | 单独升级不兼容的传递依赖；声明与锁不一致 | 依赖一致性或运行导入检查失败；兼容组合重解锁并重验后成功 |
+| A21 | 常规 Dependabot 更新；来自范围外仓库的通知 | 不引用不存在标签、不将兼容失败当漏洞；不改动范围外仓库 |
 
 故意失败、取消、配置漂移与拒绝推送实验先在隔离的验收仓库执行，不向公开 main 写入坏代码或真实隐私记录。模拟仓库应复制实际 workflow、预期 Ruleset 和执行者权限；生产侧仍必须回读规则并完成一个真实绿色 PR 及 main 后验，不能仅凭模拟实验毕业。拒绝推送测试先在隔离仓库进行，因为规则配置错误时尝试可能成功。
 
@@ -218,7 +228,15 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 
 维护者从 PR 页面可识别每组失败、当前被测提交与是否允许合入；能按文档独立完成一次候选验收、失败修复和重验。回归覆盖现有 public audit、documentation knowledge map、i18n、资源版本、更新源、Node contracts、core browser、Linux 参数边界。
 
-**本轮验证记录**：只有 Spec 文档及链接检查；A01–A19 为后续实施的验收清单，尚未执行。上一轮故障对照实验不等于新验收工具或远端规则已实现。
+**实施中验证记录**：27 项交付行为回归已通过，覆盖真实临时 Git 仓库、删除文件后的祖先历史审计、gitlink 拒绝、源码写回、嵌套进程超时清理、空证据、版本与推送竞争。真实依赖解析器拒绝声明/锁冲突和不兼容的 Pydantic 组合。固定候选 `b76cfe6` 的 Mac 全套快照成功：Python 2,109 项（40 项有依据的跳过，浏览器由独立组执行）、Node 8 个入口、浏览器 12 项，以及审计和仓库合同全部成功。
+
+隔离仓库 [PR #6](https://github.com/lazyq666/reroll-readiness-acceptance/pull/6) 的五组与总门槛通过，并在启用规则后由维护者独立合并。真实 API 已拒绝未经 PR 的直接推送、禁用 hook 后的直接推送、失败 PR、取消及整条 workflow 跳过后的合并。文档改动产生完整检查；同一提交在 Mac 成功而在 Linux 命中合成平台断言时，远端拒绝合并。规则关闭、strict 关闭、名称或来源变化、增加 bypass 均被只读对照识别，实验后恢复预期配置。
+
+[首次 main 后验](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34103227113) 暴露了已有协作验收测试的间歇失败，其余四组完成。[隔离诊断](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34106385785) 确认全部 18 次操作、9 次恢复和最终投影正确，只有实测 p99 373.429ms 超过功能测试写死的 300ms。功能回归现在仅替换验收脚本的延迟测量时钟，真实网络、超时和生产性能入口保持真实时钟；同时注入 400ms / 600ms，验证 p99 / p95 超限仍失败。[修复 PR #9](https://github.com/lazyq666/reroll-readiness-acceptance/pull/9) 与 [main 后验](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34107404475) 均全绿；原失败记录保留，A18 已按 PR 恢复路径完成。
+
+[平台修复 PR #11](https://github.com/lazyq666/reroll-readiness-acceptance/pull/11) 的同一提交 `a32d1b1` 在 Mac 全套快照与 Linux Gate 均成功。main 前进后，[PR #12](https://github.com/lazyq666/reroll-readiness-acceptance/pull/12) 保持 MERGEABLE、原六项检查全绿，但状态变为 BEHIND，合并 API 以缺少当前 `Public readiness gate` 返回 405；这将旧基线拒绝与文件冲突区分开。规则回读成功。生产候选 `39df95c` 的本地五组快照也已成功，包含 2,111 项 Python 回归。隔离验收已完成，生产 PR、规则启用及最终 main 验证仍待完成，不据此宣称 F14 完成。
+
+[生产 PR #61 首轮](https://github.com/lazyq666/reroll-ai-canvas/actions/runs/34108520066) 实际使用了已前进到 `9b04603` 的 main。该基线已将备份入口移到可用模型管理，但四项旧合同仍引用 API 设置页的位置，导致 1 failure / 3 errors；协作计时修复和其他四组检查通过。已依照 Current API Settings Package 将测试同步到新入口、可换行的顶部操作区，并以工作流弹窗自身的关闭标签确定范围。保留加密导入／导出、模型与能力刷新及旧入口不再出现的断言。新候选须重新完成全部验收。
 
 ## 16. Rollout, migration and rollback
 
@@ -230,7 +248,7 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 
 回退优先通过 PR 修复工作流或恢复上一版可用实现，不删除测试或永久关闭保护。平台故障只形成待恢复状态。确需紧急更改规则时，由维护者显式决定，记录原配置、原因、操作人和恢复步骤；恢复后必须回读并重验。此异常路径不预设常驻 bypass，也不授权自动改写历史。
 
-本阶段不创建分支、不推送、不修改远端 Ruleset；Spec 评审完成后进入实施。
+用户于 2026-09-07 要求进入实施；按上述阶段推进，负向远端实验使用独立验收仓库。
 
 ## 17. Traceability
 
