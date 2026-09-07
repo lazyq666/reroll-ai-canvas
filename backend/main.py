@@ -8360,7 +8360,6 @@ class ModelCapabilityMatrixOperationPayload(BaseModel):
 
 class ModelCapabilityMatrixUpdatePayload(BaseModel):
     model_id: str
-    name: str = ""
     operations: List[ModelCapabilityMatrixOperationPayload] = Field(
         default_factory=list, min_length=1, max_length=5
     )
@@ -8452,7 +8451,6 @@ async def update_model_capability_matrix(
         result = _model_capability_workbench_action(
             lambda: MODEL_CAPABILITY_MATRIX.apply(
                 model_id=payload.model_id,
-                name=payload.name,
                 operations=[item.model_dump() for item in payload.operations],
                 actor_id=actor_id,
             )

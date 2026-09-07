@@ -106,3 +106,21 @@ html.theme-dark .model-vendor-icon img[data-monochrome="true"] { filter: invert(
   .page-header { display: grid; }
   .type-tabs > button { padding-inline: var(--ui-space-1); }
 }
+
+.model-backup { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ui-space-4); margin-bottom: var(--ui-space-6); padding: var(--ui-space-4); border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius: var(--ui-radius-m); }
+.model-backup > div:first-child { flex: 1 1 22rem; min-width: 0; }
+.model-backup h2 { margin: 0 0 var(--ui-space-1); font: var(--ui-text-title-3); }
+.model-backup p { margin: 0; color: var(--ui-color-text-tertiary); font: var(--ui-text-caption); }
+.model-backup-actions { display: flex; flex-wrap: wrap; gap: var(--ui-space-2); }
+#backup-message { flex-basis: 100%; }
+#apiImportConfirmation [data-confirmation-copy] { white-space: pre-line; }
+.api-transfer-modal, .api-transfer-password-body { display: grid; gap: var(--ui-space-4); }
+#apiTransferDescription { color: var(--ui-color-text-secondary); }
+@media (max-width: 45rem) {
+  .model-backup-actions { width: 100%; }
+  .model-backup-actions > ic-button { flex: 1; }
+}
+#capability-editor-message {
+  flex-basis: 100%;
+  inline-size: 100%;
+}

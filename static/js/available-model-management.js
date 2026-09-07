@@ -227,6 +227,237 @@
     });
     return state.inFlight;
   };
+  const setBackupMessage = (text, tone = 'neutral') => {
+    const alert = document.getElementById('backup-message');
+    alert.textContent = text;
+    alert.setAttribute('tone', tone);
+    alert.hidden = !text;
+  };
+  const showBackupError = (text) => {
+    const alert = document.getElementById('api-transfer-error');
+    alert.textContent = text;
+    alert.hidden = !text;
+  };
+  let backupBusy = false;
+  const runBackup = async (action) => {
+    if (backupBusy) return;
+    backupBusy = true;
+    const buttons = ['export-model-settings', 'import-model-settings'].map(id => document.getElementById(id));
+    buttons.forEach(button => { if (button) button.disabled = true; });
+    try {
+      if (state.inFlight && !await state.inFlight) return;
+      if (!await commitChanges()) return;
+      setBackupMessage('');
+      await action();
+    } finally {
+      backupBusy = false;
+      buttons.forEach(button => { if (button) button.disabled = false; });
+    }
+  };
+  function apiSettingsImportInput(){
+      return document.getElementById('apiSettingsImportInput');
+  }
+  let apiTransferPasswordResolve = null;
+  let apiTransferCopy = null;
+  let apiImportSummary = null;
+  function backupPreviewDescription(summary){
+      return tf('api.backupPreview', {
+          added:summary.added, updated:summary.updated, models:summary.models,
+          names:summary.providers.join(', ')
+      }) + '\n\n' + tr(summary.version === 1 ? 'api.confirmLegacyPackageImport' : 'api.confirmPackageImport');
+  }
+  function refreshApiTransferCopy(){
+      if(apiTransferCopy){
+          const titleKey = apiTransferCopy.confirmPassword ? 'api.exportPackageTitle' : 'api.importPackageTitle';
+          const dialog = document.getElementById('apiTransferDialog');
+          dialog.setAttribute('data-i18n-label', titleKey);
+          dialog.label = tr(titleKey);
+          const title = document.getElementById('apiTransferTitle');
+          title.setAttribute('data-i18n', titleKey);
+          title.textContent = tr(titleKey);
+          document.getElementById('apiTransferDescription').textContent = apiTransferCopy.confirmPassword
+              ? tr('api.exportPackageDesc') : tf('api.importPackageDesc', {file:apiTransferCopy.fileName});
+      }
+      if(apiImportSummary){
+          const dialog = document.getElementById('apiImportConfirmation');
+          dialog.description = backupPreviewDescription(apiImportSummary);
+          dialog.querySelector('[data-confirmation-copy]').textContent = dialog.description;
+      }
+  }
+  async function closeApiTransferPassword(value=null){
+      const dialog = document.getElementById('apiTransferDialog');
+      const password = document.getElementById('apiTransferPassword');
+      const confirmation = document.getElementById('apiTransferPasswordConfirm');
+      if(password) password.value = '';
+      if(confirmation) confirmation.value = '';
+      const resolve = apiTransferPasswordResolve;
+      apiTransferPasswordResolve = null;
+      apiTransferCopy = null;
+      // The next step may open a confirmation dialog; finish closing this one first.
+      if(dialog?.open) await dialog.hide(value === null ? 'cancel' : 'submit');
+      if(resolve) resolve(value);
+  }
+  function submitApiTransferPassword(event){
+      event?.preventDefault?.();
+      const password = document.getElementById('apiTransferPassword')?.value || '';
+      const confirmation = document.getElementById('apiTransferPasswordConfirm')?.value || '';
+      if(password.length < 8){
+          showBackupError(tr('api.passwordMin'));
+          return;
+      }
+      if(password.length > 256){
+          showBackupError(tr('api.passwordMax'));
+          return;
+      }
+      if(apiTransferCopy?.confirmPassword && password !== confirmation){
+          showBackupError(tr('api.passwordMismatch'));
+          return;
+      }
+      closeApiTransferPassword(password);
+  }
+  function requestApiTransferPassword({confirmPassword=false, fileName=''}={}){
+      if(apiTransferPasswordResolve) closeApiTransferPassword(null);
+      const dialog = document.getElementById('apiTransferDialog');
+      const password = document.getElementById('apiTransferPassword');
+      const confirmation = document.getElementById('apiTransferPasswordConfirm');
+      const confirmationField = document.getElementById('apiTransferConfirmField');
+      if(!dialog || !password || !confirmation) return Promise.resolve(null);
+      showBackupError('');
+      apiTransferCopy = {confirmPassword, fileName};
+      refreshApiTransferCopy();
+      confirmationField.hidden = !confirmPassword;
+      password.value = '';
+      confirmation.value = '';
+      dialog.show();
+      return new Promise(resolve => {
+          apiTransferPasswordResolve = resolve;
+      });
+  }
+  async function encryptedApiError(res, fallback){
+      const data = await res.json().catch(() => ({}));
+      const message = data.detail || data.message || fallback;
+      return typeof message === 'string' && message.startsWith('api.') ? tr(message) : message;
+  }
+  async function exportEncryptedApiSettings(){
+      const password = await requestApiTransferPassword({
+          confirmPassword:true
+      });
+      if(password === null) return;
+      setBackupMessage(tr('api.generatingPackage'));
+      try {
+          const res = await fetch('/api/providers/export-encrypted', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({password})
+          });
+          if(!res.ok) throw new Error(await encryptedApiError(res, tr('api.exportFailed')));
+          const blob = await res.blob();
+          const disposition = res.headers.get('Content-Disposition') || '';
+          const match = disposition.match(/filename="?([^";]+)"?/i);
+          const filename = match?.[1] || `infinite-canvas-api-settings-${Date.now()}.icapi`;
+          const href = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = href;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(href), 1000);
+          setBackupMessage(tr('api.packageExported'), 'success');
+      } catch(err){
+          setBackupMessage(err.message || tr('api.packageExportFailed'), 'danger');
+      }
+  }
+  function chooseEncryptedApiSettings(){
+      const input = apiSettingsImportInput();
+      if(!input) return;
+      input.clear({silent:true});
+      input.open();
+  }
+  function requestApiImportConfirmation(summary){
+      const dialog = document.getElementById('apiImportConfirmation');
+      apiImportSummary = summary;
+      refreshApiTransferCopy();
+      return new Promise(resolve => {
+          let settled = false;
+          const finish = async accepted => {
+              if(settled) return;
+              settled = true;
+              dialog.removeEventListener('ic-confirm', onConfirm);
+              dialog.removeEventListener('ic-cancel', onCancel);
+              if(accepted) await dialog.hide('confirm');
+              apiImportSummary = null;
+              resolve(accepted);
+          };
+          const onConfirm = () => { void finish(true); };
+          const onCancel = () => { void finish(false); };
+          dialog.addEventListener('ic-confirm', onConfirm);
+          dialog.addEventListener('ic-cancel', onCancel);
+          dialog.show();
+      });
+  }
+  async function importEncryptedApiSettings(file){
+      if(!file) return;
+      const password = await requestApiTransferPassword({
+          fileName:file.name,
+          confirmPassword:false
+      });
+      if(password === null) return;
+      const form = new FormData();
+      form.append('file', file, file.name);
+      form.append('password', password);
+      setBackupMessage(tr('api.importingPackage'));
+      try {
+          form.append('preview', 'true');
+          const previewResponse = await fetch('/api/providers/import-encrypted', {method:'POST', body:form});
+          if(!previewResponse.ok) throw new Error(await encryptedApiError(previewResponse, tr('api.importFailed')));
+          const summary = await previewResponse.json();
+          if(!await requestApiImportConfirmation(summary)){ setBackupMessage(''); return; }
+          form.set('preview', 'false');
+          const res = await fetch('/api/providers/import-encrypted', {
+              method:'POST',
+              body:form
+          });
+          const data = await res.json().catch(() => ({}));
+          if(!res.ok){
+              const message = data.detail || data.message || tr('api.importFailed');
+              throw new Error(typeof message === 'string' && message.startsWith('api.') ? tr(message) : message);
+          }
+          const addedNames = (data.added || []).map(item => item.name || item.id).filter(Boolean);
+          const updatedNames = (data.updated || []).map(item => item.name || item.id).filter(Boolean);
+          refreshModels();
+          try { parent.postMessage({type:'providers-changed'}, location.origin); } catch (_) {}
+          try {
+              const channel = new BroadcastChannel('studio-api');
+              channel.postMessage({type:'providers-changed'});
+              channel.close();
+          } catch (_) {}
+          await window.ModelCapabilityEditor?.refresh();
+          const addedText = addedNames.length
+              ? tf('api.addedProviders', {count: addedNames.length, names: addedNames.join(', ')})
+              : tr('api.noProvidersAdded');
+          const updatedText = updatedNames.length
+              ? tf('api.updatedProviders', {count: updatedNames.length, names: updatedNames.join(', ')})
+              : '';
+          setBackupMessage([addedText, updatedText].filter(Boolean).join(tr('api.messageSeparator')), 'success');
+      } catch(err){
+          setBackupMessage(err.message || tr('api.packageImportFailed'), 'danger');
+      }
+  }
+  document.getElementById('export-model-settings')?.addEventListener('click', () => runBackup(exportEncryptedApiSettings));
+  document.getElementById('import-model-settings')?.addEventListener('click', chooseEncryptedApiSettings);
+  apiSettingsImportInput()?.addEventListener('ic-change', event => {
+    const file = event.detail?.acceptedFiles?.[0];
+    if(file) void runBackup(() => importEncryptedApiSettings(file));
+  });
+  document.getElementById('api-transfer-form')?.addEventListener('submit', submitApiTransferPassword);
+  document.getElementById('api-transfer-submit')?.addEventListener('click', submitApiTransferPassword);
+  document.getElementById('api-transfer-cancel')?.addEventListener('click', () => closeApiTransferPassword());
+  document.getElementById('apiTransferDialog')?.addEventListener('ic-after-hide', () => {
+    if(apiTransferPasswordResolve) void closeApiTransferPassword(null);
+  });
+  window.addEventListener('studio-lang-change', refreshApiTransferCopy);
+
   const move = (from, to) => {
     syncVisibleModelNames();
     const models = state.models[state.active];

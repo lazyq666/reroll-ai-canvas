@@ -94,6 +94,70 @@ def inventory():
 
 
 class ModelCapabilityMatrixTests(unittest.TestCase):
+    def test_model_save_accepts_revision_and_actor_containing_fee(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model-capability-workbench.json"
+            catalog = FakeCatalog()
+            catalog.revision = "6fee0d2be118020afff0de09"
+            matrix = ModelCapabilityMatrix(
+                inventory=inventory, catalog=catalog,
+                workbench=ModelCapabilityWorkbench(path),
+            )
+            ratios = ["1:1", "5:4", "4:5", "3:1", "1:3"]
+            matrix.apply(model_id="same-model",
+                         actor_id="1234fee0-1234-4567-8901-123456789abc",
+                         operations=[{
+                             "operation": "image.generate", "confirmed": True,
+                             "inputs": {"text": 1}, "resolutions": ["1K", "2K", "4K"],
+                             "aspect_ratios": ratios, "output_count_maximum": 1,
+                             "options": [],
+                         }])
+            saved = ModelCapabilityWorkbench(path).snapshot()["published"]["capabilities"]
+            self.assertEqual(len(saved), 2)
+            for record in saved:
+                self.assertEqual(record["capability"]["output"]["aspect_ratios"], ratios)
+            self.assertEqual(catalog.activations, 1)
+
+    def test_image_ratios_persist_with_commercial_words_in_display_name(self):
+        resource_paths = tuple(ROOT / 'resources' / name for name in (
+            'image-model-capabilities.json', 'video-model-capabilities.json',
+            'text-model-capabilities.json',
+        ))
+        for name in ('GPT Image 2 - 官方渠道（4 倍价格）', 'GPT Image 2 - low cost'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'workbench.json'
+                def make_matrix():
+                    return ModelCapabilityMatrix(
+                        inventory=lambda: {'image': [{
+                            'model': 'gpt-image-2-official', 'provider_id': 'apimart',
+                            'name': name,
+                        }], 'video': [], 'text': []},
+                        catalog=ModelCapabilityCatalog(
+                            image_registry=ImageCapabilityRegistry(resource_paths[0]),
+                            video_registry=VideoCapabilityRegistry(resource_paths[1]),
+                            text_path=resource_paths[2], revision_paths=resource_paths,
+                            published_path=path,
+                        ),
+                        workbench=ModelCapabilityWorkbench(path),
+                    )
+                matrix = make_matrix()
+                operations = matrix.snapshot()['models'][0]['operations']
+                ratios = ['5:4', '4:5', '3:1', '1:3']
+                for operation in operations:
+                    operation['options'] = [key for key, enabled in operation['options'].items() if enabled]
+                    if operation['operation'] != 'image.layer_decomposition':
+                        operation['aspect_ratios'] = sorted(set(operation['aspect_ratios'] + ratios))
+                matrix.apply(model_id='gpt-image-2-official',
+                             actor_id='admin-test', operations=operations)
+                reopened = make_matrix().snapshot()['models'][0]
+                self.assertEqual(reopened['name'], name)
+                for operation in reopened['operations']:
+                    if operation['operation'] != 'image.layer_decomposition':
+                        self.assertTrue(set(ratios).issubset(operation['aspect_ratios']))
+                evidence = ModelCapabilityWorkbench(path).snapshot()['evidence']
+                self.assertTrue(evidence)
+                self.assertTrue(all(name not in item['excerpt'] for item in evidence))
+
     @staticmethod
     def video_inventory():
         return {
@@ -391,7 +455,6 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             operation = matrix.snapshot()["models"][0]["operations"][0]
             matrix.apply(
                 model_id="seedance2.5",
-                name="Seedance 2.5",
                 actor_id="admin-1",
                 operations=[
                     {
@@ -427,7 +490,6 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             )
             matrix.apply(
                 model_id="shared-video",
-                name="Shared Video",
                 actor_id="admin-1",
                 operations=[
                     {
@@ -530,7 +592,6 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             )
             result = matrix.apply(
                 model_id="same-model",
-                name="Same Model",
                 actor_id="admin-1",
                 operations=[
                     {
@@ -577,7 +638,6 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             )
             matrix.apply(
                 model_id="same-model",
-                name="Same Model",
                 actor_id="admin-1",
                 operations=[
                     {
@@ -688,7 +748,6 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             with self.assertRaises(ModelCapabilityWorkbenchPublication):
                 matrix.apply(
                     model_id="same-model",
-                    name="Same Model",
                     actor_id="admin-1",
                     operations=[
                         {
@@ -727,7 +786,7 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
                       "inputs": {"text": 1, "image": 0, "video": 0, "audio": 0, "file": 0},
                       "resolutions": ["1K", "2K"], "aspect_ratios": ["1:1"],
                       "output_count_maximum": 37, "options": ["prompt_enhancement"]}
-            matrix.apply(model_id="same-model", name="Same Model", operations=[choice], actor_id="admin")
+            matrix.apply(model_id="same-model", operations=[choice], actor_id="admin")
             legacy = workbench.snapshot()
             for item in legacy["published"]["capabilities"]:
                 item["maintenance_origin"] = "external_import"
@@ -741,7 +800,7 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
             self.assertTrue(operation["options"]["prompt_enhancement"])
             self.assertEqual(before, path.read_bytes())
             choice["output_count_maximum"] = 1
-            matrix.apply(model_id="same-model", name="Same Model", operations=[choice], actor_id="admin")
+            matrix.apply(model_id="same-model", operations=[choice], actor_id="admin")
             self.assertEqual(1, matrix.snapshot()["models"][0]["operations"][0]["output_count_maximum"])
             self.assertEqual(legacy["evidence"], workbench.snapshot()["evidence"][:len(legacy["evidence"])])
 

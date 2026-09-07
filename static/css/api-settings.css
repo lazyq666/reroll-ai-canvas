@@ -33,8 +33,6 @@ button { font-family:inherit; cursor:pointer; border:var(--ui-border-width-none)
     line-height:var(--ui-line-height-code);
     font-weight:var(--ui-font-weight-bold);
 }
-.api-transfer-group { display:flex; flex-direction:column; gap:var(--ui-space-2); margin-top:var(--ui-space-4); padding-top:var(--ui-space-3); border-top:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
-.api-transfer-group .cli-quick-note { margin-top:var(--ui-space-0); line-height:var(--ui-line-height-body); }
 /* Content */
 .content { display:flex; flex-direction:column; gap:var(--ui-space-4); min-width:0; }
 .content-head { display:flex; align-items:end; justify-content:space-between; gap:var(--ui-space-4); flex-wrap:wrap; padding:var(--ui-space-4) var(--ui-space-6); background:var(--ui-color-surface-floating); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); }
@@ -3116,14 +3114,6 @@ html:not(.studio-theme-dark) body:not(.theme-dark) .rh-card-title-field input {
     min-width:92px !important;
 }
 
-.api-transfer-modal {
-    max-width:460px;
-}
-.api-transfer-password-body {
-    display:grid;
-    gap:var(--ui-space-3);
-    padding:var(--ui-space-4);
-}
 @media (max-width:780px) {
     .provider-onboarding-card .onboarding-rh-source-group,
 .provider-onboarding-card .onboarding-rh-row-field,

@@ -11,7 +11,7 @@
   <title data-i18n="models.pageTitle">可用模型管理 · Reroll</title>
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-e8ecf3c8b713">
-  <link rel="stylesheet" href="/static/css/available-model-management.css?v=asset-8ea2d406a689">
+  <link rel="stylesheet" href="/static/css/available-model-management.css?v=asset-f62953a78d53">
   <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
 </head>
 <body>
@@ -22,6 +22,19 @@
         <p class="subtitle" data-i18n="models.subtitle">设置用户看到的模型名称、显示状态、顺序和能力。</p>
       </div>
     </header>
+
+    <section class="model-backup" aria-labelledby="model-backup-title">
+      <div>
+        <h2 id="model-backup-title" data-i18n="api.settingsMigration">API 与模型备份</h2>
+        <p data-i18n="api.transferScope">包含所有平台的模型、命名、排序、显隐、能力详情及 API 密钥。CLI 登录需在目标设备重新完成。</p>
+      </div>
+      <div class="model-backup-actions">
+        <ic-button id="export-model-settings" type="button" hierarchy="secondary"><ic-icon slot="start" name="download"></ic-icon><span data-i18n="api.exportEncrypted">导出加密包</span></ic-button>
+        <ic-button id="import-model-settings" type="button" hierarchy="secondary"><ic-icon slot="start" name="upload"></ic-icon><span data-i18n="api.importEncrypted">导入加密包</span></ic-button>
+      </div>
+      <ic-file-input id="apiSettingsImportInput" name="api_settings_package" label="导入 API 与模型备份" data-i18n-label="api.importEncryptedPackage" accept=".icapi,application/vnd.infinite-canvas.api-settings" hidden></ic-file-input>
+      <ic-alert id="backup-message" tone="neutral" hidden></ic-alert>
+    </section>
 
     <ic-alert id="page-message" tone="neutral" hidden></ic-alert>
     <ic-alert id="capability-message" tone="neutral" hidden></ic-alert>
@@ -67,12 +80,32 @@
         <p id="capability-editor-source-summary"></p>
       </details>
     </section>
+    <ic-alert id="capability-editor-message" slot="footer" tone="danger" hidden></ic-alert>
     <ic-button id="capability-editor-close" slot="footer" type="button" hierarchy="secondary" data-i18n="models.cancel">取消</ic-button>
     <ic-button id="capability-apply" slot="footer" type="button" hierarchy="primary"><span data-i18n="models.saveAndApply">保存并应用</span></ic-button>
   </ic-dialog>
 
+    <ic-dialog id="apiTransferDialog" class="api-transfer-dialog" label="API 设置加密包" data-i18n-label="api.encryptedPackage" size="small" dismiss-policy="explicit">
+        <form class="api-transfer-modal" id="api-transfer-form">
+            <div id="apiTransferTitle" class="visually-hidden" data-i18n="api.encryptedPackage">API 设置加密包</div>
+            <div id="apiTransferDescription"></div>
+            <ic-alert id="api-transfer-error" tone="danger" hidden></ic-alert>
+            <div class="api-transfer-password-body">
+                <ic-form-field label="加密密码" data-i18n-label="api.encryptionPassword" required>
+                    <ic-input id="apiTransferPassword" slot="control" name="transfer_password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></ic-input>
+                </ic-form-field>
+                <ic-form-field id="apiTransferConfirmField" label="再次输入密码" data-i18n-label="api.passwordAgain">
+                    <ic-input id="apiTransferPasswordConfirm" slot="control" name="transfer_password_confirm" type="password" minlength="8" maxlength="256" autocomplete="new-password"></ic-input>
+                </ic-form-field>
+            </div>
+        </form>
+        <ic-button slot="footer" type="button" hierarchy="secondary" id="api-transfer-cancel" data-i18n="common.cancel">取消</ic-button>
+        <ic-button slot="footer" type="button" hierarchy="primary" id="api-transfer-submit" data-i18n="api.continue">继续</ic-button>
+    </ic-dialog>
+
+    <ic-confirmation-dialog id="apiImportConfirmation" label="确认导入备份" data-i18n-label="api.confirmImportTitle" description="按平台 ID 更新或新增配置，包内平台的模型、显示名称、排序、显隐、能力详情和已有密钥将覆盖当前值。其他平台保留，CLI 登录状态不变。" data-i18n-description="api.confirmPackageImport" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确认导入" data-i18n-confirm-label="api.confirmImportAction" consequence="neutral"><p data-confirmation-copy data-i18n="api.confirmPackageImport">按平台 ID 更新或新增配置，包内平台的模型、显示名称、排序、显隐、能力详情和已有密钥将覆盖当前值。其他平台保留，CLI 登录状态不变。</p></ic-confirmation-dialog>
   <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-a6b547953ad6"></script>
-  <script src="/static/js/available-model-management.js?v=asset-cccf250184bd" defer></script>
-  <script type="module" src="/static/js/model-capability-workbench.js?v=asset-bbf12aba5787" defer></script>
+  <script src="/static/js/available-model-management.js?v=asset-8e40edc2dc3b" defer></script>
+  <script type="module" src="/static/js/model-capability-workbench.js?v=asset-1f6c676e0e27" defer></script>
 </body>
 </html>

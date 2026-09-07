@@ -32,28 +32,6 @@ SUPPORTED_OPERATIONS = frozenset(
     }
 )
 SUPPORT_STATES = frozenset({"supported", "unknown"})
-_FORBIDDEN_FIELD_FRAGMENTS = (
-    "price",
-    "pricing",
-    "billing",
-    "charge",
-    "credit",
-    "cost",
-    "currency",
-    "fee",
-    "quota_balance",
-    "usage",
-    "consumption",
-    "价格",
-    "计价",
-    "计费",
-    "消耗",
-    "积分",
-    "费用",
-    "金额",
-    "货币",
-    "余额",
-)
 
 
 def _clean(value: Any) -> str:
@@ -89,21 +67,19 @@ def _count_bounds(values: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _assert_no_forbidden_fields(value: Any, *, path: str = "catalog") -> None:
+def _validate_support_states(value: Any, *, path: str = "catalog") -> None:
     if isinstance(value, Mapping):
         for key, child in value.items():
             field = _clean(key)
             lowered = field.lower()
-            if any(fragment in lowered for fragment in _FORBIDDEN_FIELD_FRAGMENTS):
-                raise ValueError(f"unsupported catalog field: {path}.{field}")
             if lowered == "support_state" and _clean(child) not in SUPPORT_STATES:
                 raise ValueError(
                     f"unsupported capability state: {path}.{field}={child}"
                 )
-            _assert_no_forbidden_fields(child, path=f"{path}.{field}")
+            _validate_support_states(child, path=f"{path}.{field}")
     elif isinstance(value, list):
         for index, child in enumerate(value):
-            _assert_no_forbidden_fields(child, path=f"{path}[{index}]")
+            _validate_support_states(child, path=f"{path}[{index}]")
 
 
 @dataclass(frozen=True)
@@ -171,7 +147,7 @@ class ModelCapabilityCatalog:
                     raise ValueError(f"catalog source must be an object: {path}")
                 if not isinstance(value.get("version"), int):
                     raise ValueError(f"catalog source version is missing: {path}")
-                _assert_no_forbidden_fields(value, path=path.name)
+                _validate_support_states(value, path=path.name)
                 payloads[path] = value
                 digest_payload.append(
                     {"path": path.name, "payload": value}
@@ -209,7 +185,7 @@ class ModelCapabilityCatalog:
                     capability = record.get("capability")
                     if not isinstance(capability, Mapping):
                         raise ValueError("published model capability patch is invalid")
-                    _assert_no_forbidden_fields(
+                    _validate_support_states(
                         capability,
                         path="workbench.published.capability",
                     )

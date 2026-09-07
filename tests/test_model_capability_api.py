@@ -505,6 +505,8 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(2, result["result"]["published"])
         matrix.apply.assert_called_once()
         called = matrix.apply.call_args.kwargs
+        self.assertNotIn("name", called)
+        self.assertNotIn("name", payload.model_dump())
         self.assertEqual("shared-model", called["model_id"])
         self.assertEqual("admin-1", called["actor_id"])
         self.assertEqual(["2K"], called["operations"][0]["resolutions"])

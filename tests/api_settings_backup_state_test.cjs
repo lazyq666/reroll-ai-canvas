@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../static/js/api-settings.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../static/js/available-model-management.js'), 'utf8');
 const closeFunction = source.slice(source.indexOf('async function closeApiTransferPassword('), source.indexOf('function submitApiTransferPassword('));
 const submitFunction = source.slice(source.indexOf('function submitApiTransferPassword('), source.indexOf('function requestApiTransferPassword('));
 
@@ -53,7 +53,7 @@ const submitFunction = source.slice(source.indexOf('function submitApiTransferPa
       document: {getElementById: id => ({value: id === 'apiTransferPassword' ? password : confirmation})},
       apiTransferCopy: {confirmPassword},
       tr: key => key,
-      showError: value => { error = value; },
+      showBackupError: value => { error = value; },
       closeApiTransferPassword: value => { submitted = value; },
     });
     vm.runInContext(submitFunction, scope);

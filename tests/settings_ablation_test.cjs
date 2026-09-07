@@ -20,7 +20,7 @@ const variants = [
   },
   {
     name: 'remove dialog closing wait', test: 'api_settings_backup_state_test.cjs',
-    file: 'api-settings.js',
+    file: 'available-model-management.js',
     before: "await dialog.hide(value === null ? 'cancel' : 'submit');",
     after: "dialog.hide(value === null ? 'cancel' : 'submit');", failure: 'true !== false',
   },

@@ -78,7 +78,7 @@ class CompleteApiSettingsBackupTests(unittest.TestCase):
                           and r["model_id"] == "image-a" and r["operation"] == "image.generate")
         configured["capability"]["inputs"]["image"]["maximum"] = 50
         self.workbench.publish_manual_capabilities(
-            records=[configured], model_name="团队主力", actor_id="test-admin",
+            records=[configured], actor_id="test-admin",
             active_catalog_revision=self.catalog.revision, activate=self.catalog.refresh,
         )
         package = self.export()
