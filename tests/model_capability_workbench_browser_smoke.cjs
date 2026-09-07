@@ -162,6 +162,8 @@ function startServer(state) {
     await page.waitForFunction(() => document.querySelectorAll('#model-list .model-capability-tags ic-badge').length === 2);
 
     const desktop = await page.evaluate(() => ({
+      columns: document.querySelectorAll('#model-list thead th').length,
+      tagsInName: document.querySelectorAll('#model-list .model-name-cell .model-capability-tags ic-badge').length,
       rows: document.querySelectorAll('#model-list .model-row').length,
       tags: [...document.querySelectorAll('#model-list .model-capability-tags ic-badge')].map(tag => tag.textContent.trim()),
       hasCapabilityTab: Boolean(document.querySelector('#management-sections, #capability-workbench-view')),
@@ -174,6 +176,8 @@ function startServer(state) {
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     }));
     assert.equal(desktop.rows, 1);
+    assert.equal(desktop.columns, 5);
+    assert.equal(desktop.tagsInName, 2);
     assert.deepEqual(desktop.tags, ['拆分图层', '透明 PNG']);
     assert.equal(desktop.hasCapabilityTab, false);
     assert.equal(desktop.providerId, 'one');

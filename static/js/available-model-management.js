@@ -64,9 +64,6 @@
       badge.setAttribute('tone', 'neutral');
       container.appendChild(badge);
     });
-    if (!container.childElementCount) {
-      container.appendChild(element('span', 'model-capability-empty', tr('models.noFeatureTags')));
-    }
     return container;
   };
   const iconButton = (icon, label, className, disabled, action) => {
@@ -265,11 +262,9 @@
     const head = element('thead');
     const headerRow = element('tr');
     [
-      tr('models.icon'),
       tr('models.modelNaming'),
       tr('models.modelId'),
       tr('models.providerId'),
-      tr('models.features'),
       tr('models.visibility'),
       tr('models.operations'),
     ].forEach((label) => {
@@ -290,18 +285,13 @@
       row.setAttribute('aria-label', tf('models.dragModel', { name: displayName }));
       row.title = tr('models.dragToOrder');
 
-      const iconCell = element('td', 'model-icon-cell');
-      iconCell.appendChild(modelVendorIcon(model));
-
       const nameCell = element('td', 'model-name-cell');
       const identity = element('div', 'model-identity');
-      identity.appendChild(modelNameInput(model));
-      nameCell.appendChild(identity);
+      identity.append(modelVendorIcon(model), modelNameInput(model));
+      nameCell.append(identity, capabilityTags(model.model));
 
       const modelIdCell = element('td', 'model-id', model.model);
       const providerIdCell = element('td', 'provider-id', model.provider_id);
-      const capabilityCell = element('td', 'model-capability-cell');
-      capabilityCell.appendChild(capabilityTags(model.model));
       const visibilityCell = element('td', 'model-visibility-cell');
       visibilityCell.appendChild(visibilityCheckbox(model, state.active));
 
@@ -315,7 +305,7 @@
         modelDetailsButton(model),
       );
       actionCell.appendChild(actions);
-      row.append(iconCell, nameCell, modelIdCell, providerIdCell, capabilityCell, visibilityCell, actionCell);
+      row.append(nameCell, modelIdCell, providerIdCell, visibilityCell, actionCell);
       row.addEventListener('dragstart', (event) => {
         if (event.target.closest?.('ic-input')) {
           event.preventDefault();

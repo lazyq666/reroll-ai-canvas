@@ -83,6 +83,16 @@ function waitForPreview(server) {
     });
     await page.waitForFunction(() => typeof pickerState !== 'undefined'
       && Object.prototype.hasOwnProperty.call(pickerState.selected, '4.7'));
+    assert.equal(await page.locator('#pickerList thead th').count(), 3);
+    assert.equal(await page.locator('#pickerSummary').count(), 0);
+    const search = page.locator('#pickerFilter').locator('input');
+    await search.fill('4.7');
+    assert.equal(await page.locator('#pickerList tbody ic-checkbox').count(), 1);
+    await page.locator('#pickerList tbody ic-checkbox').click();
+    assert.match(await page.locator('#pickerCategoryTabs [data-cat="image"]').textContent(), /8\/9/);
+    await search.fill('no-model-matches-this-query');
+    assert.equal(await page.locator('#pickerList ic-empty-state').count(), 1);
+    await search.fill('');
     const capabilityFeedback = await page.evaluate(() => ({
       zh: modelCapabilityReviewNote({
         ok: true,
@@ -102,6 +112,9 @@ function waitForPreview(server) {
     }));
     assert.match(capabilityFeedback.zh, /已提取 24 项能力资料，新增 3 个待审核建议/);
     assert.match(capabilityFeedback.en, /Extracted 24 capability records and added 3 review drafts/);
+    assert.deepEqual(await page.locator('#pickerList thead th').allTextContents(), ['Model', 'Model ID', 'Type']);
+    assert.match(await page.locator('#pickerCategoryTabs [data-cat="image"]').textContent(), /Image 8\/9/);
+    assert.match(await page.locator('#pickerCount').textContent(), /models.*shown/);
     await page.evaluate(() => StudioI18n.set('zh'));
     await page.evaluate(() => {
       pickerState.selected['4.7'] = false;

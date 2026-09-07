@@ -243,7 +243,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertEqual(self.page.count('class="sidebar-cli-action"'), 4)
         self.assertRegex(
             self.page,
-            r'<ic-heading[^>]+data-i18n="api.settingsMigration"[^>]*>API 设置迁移</ic-heading>',
+            r'<ic-heading[^>]+data-i18n="api.settingsMigration"[^>]*>API 与模型备份</ic-heading>',
         )
         self.assertIn('class="api-transfer-actions"', self.page)
         self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", self.style)
@@ -459,7 +459,9 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
             dialog,
             r'<ic-table id="pickerList"[^>]+label="上游模型清单"[^>]+row-selection="multiple"',
         )
-        self.assertRegex(dialog, r'<ic-toolbar id="pickerSummary"[^>]+class="model-selection-summary"[^>]+appearance="plain"')
+        self.assertNotIn('id="pickerSummary"', dialog)
+        self.assertNotIn("api.modelSeries", dialog)
+        self.assertNotIn("providerModelBadge", self.script)
         self.assertNotRegex(dialog, r'class="[^"]*(?:picker-toolbar|picker-body|picker-summary|picker-cat-tab)')
         picker_start = self.script.index('function renderModelPicker(event)')
         picker = self.script[picker_start:self.script.index('function selectPickerCat(cat)', picker_start)]
@@ -490,7 +492,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertNotIn('background: rgba(', picker_styles)
         self.assertNotIn('.model-picker-dialog::part(dialog)', self.style)
         self.assertIn('.model-picker-dialog::part(header) { padding-block-start: var(--ui-space-8); }', self.style)
-        self.assertRegex(self.style, r'\.model-picker-dialog::part\(body\) \{[^}]+grid-template-rows: auto minmax\(0, 1fr\) auto;[^}]+padding-block: var\(--ui-space-4\);[^}]+overflow: hidden;')
+        self.assertRegex(self.style, r'\.model-picker-dialog::part\(body\) \{[^}]+grid-template-rows: auto minmax\(0, 1fr\);[^}]+padding-block: var\(--ui-space-4\);[^}]+overflow: hidden;')
         self.assertIn('.model-picker-dialog::part(footer) { padding-block-end: var(--ui-space-8); }', self.style)
         self.assertIn('.model-picker-dialog .model-selection-table { min-block-size: 0; }', self.style)
 
