@@ -20,11 +20,11 @@
     </script>
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-e8ecf3c8b713">
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-467a84cb1a7b"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-3090d73e21db"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
     <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.5.1788439320">
-    <link rel="stylesheet" href="/static/css/api-settings.css?v=2026.09.01.5.1788439320">
-    <link rel="stylesheet" href="/static/css/api-settings-t18.css?v=2026.09.01.5.1788439320">
+    <link rel="stylesheet" href="/static/css/api-settings.css?v=asset-31cf24b5ae05">
+    <link rel="stylesheet" href="/static/css/api-settings-t18.css?v=asset-3a3b1e087d25">
     <link rel="stylesheet" href="/static/css/api-settings-t19.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/cli-updates.css?v=2026.09.04.3">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
@@ -366,16 +366,9 @@
         </ic-toolbar>
         <ic-table id="pickerList" class="model-selection-table" label="上游模型清单" data-i18n-label="api.upstreamModels" row-selection="multiple" data-ui-density="small">
             <table><caption class="visually-hidden" data-i18n="api.upstreamModels">从上游拉取的模型清单</caption>
-            <thead><tr><th scope="col" data-i18n="api.modelName">模型</th><th scope="col" data-i18n="api.modelId">模型 ID</th><th scope="col" data-i18n="api.modelType">类型</th><th scope="col" data-i18n="api.modelSeries">系列</th></tr></thead>
-            <tbody><tr><td colspan="4"><ic-empty-state title="无匹配" label="无匹配" data-i18n="api.noMatches">按名称搜索模型…</ic-empty-state></td></tr></tbody></table>
+            <thead><tr><th scope="col" data-i18n="api.modelName">模型</th><th scope="col" data-i18n="api.modelId">模型 ID</th><th scope="col" data-i18n="api.modelType">类型</th></tr></thead>
+            <tbody><tr><td colspan="3"><ic-empty-state title="无匹配" label="无匹配" data-i18n="api.noMatches">按名称搜索模型…</ic-empty-state></td></tr></tbody></table>
         </ic-table>
-        <ic-toolbar id="pickerSummary" class="model-selection-summary" appearance="plain" label="待应用模型汇总" data-i18n-label="api.selectionSummary">
-            <span data-i18n="api.willApply">将应用：</span>
-            <ic-badge id="sumImage" kind="count" tone="neutral" data-i18n="api.imageSummaryZero">生图 0</ic-badge>
-            <ic-badge id="sumChat" kind="count" tone="neutral" data-i18n="api.chatSummaryZero">聊天 0</ic-badge>
-            <ic-badge id="sumVideo" kind="count" tone="neutral" data-i18n="api.videoSummaryZero">视频 0</ic-badge>
-            <ic-badge id="sumUnsel" kind="count" tone="neutral" data-i18n="api.unselectedSummaryZero">未选 0</ic-badge>
-        </ic-toolbar>
         <ic-button slot="footer" type="button" hierarchy="secondary" onclick="closeModelPicker()" data-i18n="common.cancel">取消</ic-button>
         <ic-button slot="footer" type="button" hierarchy="primary" onclick="applyModelPicker()" data-i18n="api.applyModels">应用到模型列表</ic-button>
     </ic-dialog>
@@ -490,6 +483,6 @@
     <ic-confirmation-dialog id="apiActionConfirmation" label="确认操作" data-i18n-label="api.confirmActionTitle" description="确认执行此操作。" data-i18n-description="api.confirmActionDescription" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确定" data-i18n-confirm-label="common.confirm" consequence="destructive"><p data-confirmation-copy data-i18n="api.confirmActionDescription">确认执行此操作。</p></ic-confirmation-dialog>
 
     <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-a6b547953ad6"></script>
-    <script src="/static/js/api-settings.js?v=2026.09.01.5.1788439320" defer></script>
+    <script src="/static/js/api-settings.js?v=asset-8a84bf3f3f65" defer></script>
 </body>
 </html>

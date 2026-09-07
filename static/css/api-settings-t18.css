@@ -326,7 +326,7 @@ body.show-provider-onboarding .api-settings-page .provider-settings-card { displ
 .api-settings-page .layout .model-protocol-select { min-width: 8rem; }
 body.show-ms .api-settings-page .layout .ms-lora-block { display: block; }
 .model-picker-dialog::part(header) { padding-block-start: var(--ui-space-8); }
-.model-picker-dialog::part(body) { box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: var(--ui-space-4); min-block-size: 0; padding-block: var(--ui-space-4); overflow: hidden; }
+.model-picker-dialog::part(body) { box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--ui-space-4); min-block-size: 0; padding-block: var(--ui-space-4); overflow: hidden; }
 .model-picker-dialog::part(footer) { padding-block-end: var(--ui-space-8); }
 .model-picker-dialog .model-selection-heading { display: grid; gap: var(--ui-space-1); }
 .model-picker-dialog .model-selection-count { color: var(--ui-color-text-tertiary); font: var(--ui-text-body-compact); }
@@ -340,7 +340,6 @@ body.show-ms .api-settings-page .layout .ms-lora-block { display: block; }
 .model-picker-dialog .model-selection-table td[colspan] { padding: var(--ui-space-6); }
 .model-picker-dialog .model-picker-id { color: var(--ui-color-text-tertiary); font: var(--ui-text-code); overflow-wrap: anywhere; }
 .api-settings-page .provider-guide-link { min-width: 0; }
-.model-picker-dialog .model-selection-summary { flex-wrap: wrap; gap: var(--ui-space-2); }
 .api-transfer-dialog .api-transfer-modal,
 .api-transfer-dialog .api-transfer-password-body { display: grid; gap: var(--ui-space-4); }
 .visually-hidden {

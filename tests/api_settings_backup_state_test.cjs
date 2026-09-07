@@ -5,6 +5,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../static/js/api-settings.js'), 'utf8');
 const closeFunction = source.slice(source.indexOf('async function closeApiTransferPassword('), source.indexOf('function submitApiTransferPassword('));
+const submitFunction = source.slice(source.indexOf('function submitApiTransferPassword('), source.indexOf('function requestApiTransferPassword('));
 
 (async () => {
   for (const result of ['test-password', null]) {
@@ -22,7 +23,6 @@ const closeFunction = source.slice(source.indexOf('async function closeApiTransf
     };
     const scope = vm.createContext({
       document: {getElementById: id => elements[id]},
-      apiTransferNeedsConfirmation: true,
       apiTransferCopy: {},
       apiTransferPasswordResolve: value => {
         // Opening the next dialog while this one is open would be rejected.
@@ -40,5 +40,26 @@ const closeFunction = source.slice(source.indexOf('async function closeApiTransf
     await closing;
     assert.equal(resolved, true);
   }
-  console.log('API backup dialog sequencing: 2 passed');
+  for (const [confirmPassword, password, confirmation, expectedError] of [
+    [true, 'test-password', 'different-password', 'api.passwordMismatch'],
+    [true, 'test-password', 'test-password', null],
+    [false, 'test-password', '', null],
+    [false, 'short', '', 'api.passwordMin'],
+    [false, 'a'.repeat(257), '', 'api.passwordMax'],
+  ]) {
+    let error = null;
+    let submitted = null;
+    const scope = vm.createContext({
+      document: {getElementById: id => ({value: id === 'apiTransferPassword' ? password : confirmation})},
+      apiTransferCopy: {confirmPassword},
+      tr: key => key,
+      showError: value => { error = value; },
+      closeApiTransferPassword: value => { submitted = value; },
+    });
+    vm.runInContext(submitFunction, scope);
+    scope.submitApiTransferPassword();
+    assert.equal(error, expectedError);
+    assert.equal(submitted, expectedError ? null : password);
+  }
+  console.log('API backup dialog: 2 sequencing and 5 password validation cases passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -78,8 +78,8 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
     def test_dynamic_rows_share_vendor_icon_rules_with_model_pickers(self):
         self.assertIn('/static/js/model-vendor-icons.js', self.page)
         self.assertIn("window.ModelVendorIcons?.markup(", self.script)
-        self.assertIn("iconCell.appendChild(modelVendorIcon(model))", self.script)
-        self.assertIn("identity.appendChild(modelNameInput(model))", self.script)
+        self.assertIn("identity.append(modelVendorIcon(model), modelNameInput(model))", self.script)
+        self.assertIn("nameCell.append(identity, capabilityTags(model.model))", self.script)
         self.assertIn("midjourney: { label: 'Midjourney', src: '/static/images/providers/midjourney.svg'", self.vendor_icons)
         self.assertIn("if (/mid[-_ ]?journey/.test(value)) return 'midjourney';", self.vendor_icons)
         self.assertIn(".model-vendor-icon { width: 18px;", self.style)
@@ -100,7 +100,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn("state.orderDirty = true", self.script)
         self.assertIn("const namesApplied = [...submittedNames].every", self.script)
         self.assertIn("throw new Error(tr('models.saveNotApplied'))", self.script)
-        for key in ("models.icon", "models.modelNaming", "models.modelId", "models.providerId", "models.features", "models.visibility", "models.operations"):
+        for key in ("models.modelNaming", "models.modelId", "models.providerId", "models.visibility", "models.operations"):
             self.assertIn(key, self.script)
         self.assertNotIn("input.setAttribute('required'", self.script)
         self.assertIn("parent.postMessage({ type: 'models-changed' }", self.script)

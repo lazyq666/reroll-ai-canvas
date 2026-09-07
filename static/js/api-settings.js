@@ -2914,22 +2914,6 @@ function modelDisplayName(model, item){
 function modelVendorIconMarkup(model, item = provider()){
     return window.ModelVendorIcons?.markup(model, item?.id, item?.name) || '';
 }
-function providerModelBadge(model, label){
-    const text = `${model || ''} ${label || ''}`.toLowerCase();
-    if(text.includes('gpt-image')) return 'G';
-    if(text.includes('nano')) return 'N';
-    if(text.includes('qwen')) return 'Q';
-    if(text.includes('seedream')) return 'S';
-    if(text.includes('seedance')) return 'SD';
-    if(text.includes('wan') || text.includes('万相')) return 'W';
-    if(text.includes('jimeng') || text.includes('即梦')) return 'J';
-    if(text.includes('luma')) return 'L';
-    if(text.includes('vidu')) return 'V';
-    if(text.includes('alibaba') || text.includes('阿里')) return 'A';
-    if(text.includes('bytedance') || text.includes('字节')) return 'B';
-    return 'RH';
-}
-
 function modelCapabilityReviewNote(review){
     if(!review || !Number(review.source_count || 0)) return '';
     const values = {
@@ -3066,13 +3050,11 @@ function renderModelPicker(event){
     const rows = list.map((id, index) => {
         const checked = pickerState.selected[id];
         const label = modelDisplayName(id, item);
-        const badge = providerModelBadge(id, label);
         return `
             <tr>
                 <td><span class="model-picker-name">${modelVendorIconMarkup(id, item)}<ic-checkbox label="${escapeAttr(label || id)}" ${checked ? 'checked' : ''} onchange="setPickerRowSelectionByIndex(${index}, event)"></ic-checkbox></span></td>
                 <td class="model-picker-id" title="${escapeAttr(id)}">${escapeHtml(id)}</td>
                 <td><ic-badge kind="label" tone="neutral">${escapeHtml(categoryLabels[pickerState.category[id]])}</ic-badge></td>
-                <td><ic-badge kind="label" tone="neutral">${escapeHtml(badge)}</ic-badge></td>
             </tr>
         `;
     }).join('');
@@ -3083,29 +3065,10 @@ function renderModelPicker(event){
                 <th scope="col">${escapeHtml(tr('api.modelName'))}</th>
                 <th scope="col">${escapeHtml(tr('api.modelId'))}</th>
                 <th scope="col">${escapeHtml(tr('api.modelType'))}</th>
-                <th scope="col">${escapeHtml(tr('api.modelSeries'))}</th>
             </tr></thead>
-            <tbody>${rows || `<tr><td colspan="4"><ic-empty-state title="${escapeAttr(tr('api.noMatches'))}" label="${escapeAttr(tr('api.noMatches'))}">${escapeHtml(tr('api.searchModels'))}</ic-empty-state></td></tr>`}</tbody>
+            <tbody>${rows || `<tr><td colspan="3"><ic-empty-state title="${escapeAttr(tr('api.noMatches'))}" label="${escapeAttr(tr('api.noMatches'))}">${escapeHtml(tr('api.searchModels'))}</ic-empty-state></td></tr>`}</tbody>
         </table>
     `;
-    // 底部汇总
-    const sumImage = document.getElementById('sumImage');
-    const sumChat = document.getElementById('sumChat');
-    const sumVideo = document.getElementById('sumVideo');
-    const sumUnsel = document.getElementById('sumUnsel');
-    if(sumImage){ sumImage.textContent = trf('api.imageSummary', {count:selecteds.image}); sumImage.setAttribute('tone', selecteds.image ? 'success' : 'neutral'); }
-    if(sumChat){ sumChat.textContent = trf('api.chatSummary', {count:selecteds.chat}); sumChat.setAttribute('tone', selecteds.chat ? 'success' : 'neutral'); }
-    if(sumVideo){ sumVideo.textContent = trf('api.videoSummary', {count:selecteds.video}); sumVideo.setAttribute('tone', selecteds.video ? 'success' : 'neutral'); }
-    if(sumUnsel){ sumUnsel.textContent = trf('api.unselectedSummary', {count:totals.all - selecteds.all}); }
-}
-function togglePickerRow(id){
-    pickerState.selected[id] = !pickerState.selected[id];
-    renderModelPicker();
-}
-function togglePickerRowByIndex(index){
-    const id = pickerVisibleIds[index];
-    if(typeof id !== 'string') return;
-    togglePickerRow(id);
 }
 function setPickerRowSelectionByIndex(index, event){
     const id = pickerVisibleIds[index];
@@ -3552,7 +3515,6 @@ function apiSettingsImportInput(){
     return document.getElementById('apiSettingsImportInput');
 }
 let apiTransferPasswordResolve = null;
-let apiTransferNeedsConfirmation = false;
 let apiTransferCopy = null;
 let apiImportSummary = null;
 function backupPreviewDescription(summary){
@@ -3587,7 +3549,6 @@ async function closeApiTransferPassword(value=null){
     if(confirmation) confirmation.value = '';
     const resolve = apiTransferPasswordResolve;
     apiTransferPasswordResolve = null;
-    apiTransferNeedsConfirmation = false;
     apiTransferCopy = null;
     // The next step may open a confirmation dialog; finish closing this one first.
     if(dialog?.open) await dialog.hide(value === null ? 'cancel' : 'submit');
@@ -3605,26 +3566,22 @@ function submitApiTransferPassword(event){
         showError(tr('api.passwordMax'));
         return;
     }
-    if(apiTransferNeedsConfirmation && password !== confirmation){
+    if(apiTransferCopy?.confirmPassword && password !== confirmation){
         showError(tr('api.passwordMismatch'));
         return;
     }
     closeApiTransferPassword(password);
 }
-function requestApiTransferPassword({title, description, confirmPassword=false, fileName=''}={}){
+function requestApiTransferPassword({confirmPassword=false, fileName=''}={}){
     if(apiTransferPasswordResolve) closeApiTransferPassword(null);
     const dialog = document.getElementById('apiTransferDialog');
     const password = document.getElementById('apiTransferPassword');
     const confirmation = document.getElementById('apiTransferPasswordConfirm');
     const confirmationField = document.getElementById('apiTransferConfirmField');
     if(!dialog || !password || !confirmation) return Promise.resolve(null);
-    document.getElementById('apiTransferTitle').textContent = title || tr('api.encryptedPackage');
-    dialog.label = title || tr('api.encryptedPackage');
-    document.getElementById('apiTransferDescription').textContent = description || '';
-    apiTransferNeedsConfirmation = Boolean(confirmPassword);
     apiTransferCopy = {confirmPassword, fileName};
     refreshApiTransferCopy();
-    confirmationField.hidden = !apiTransferNeedsConfirmation;
+    confirmationField.hidden = !confirmPassword;
     password.value = '';
     confirmation.value = '';
     dialog.show();
@@ -3641,8 +3598,6 @@ async function exportEncryptedApiSettings(){
     if(autoSaveState.inFlight && !await autoSaveState.inFlight) return;
     if(!await commitAutoSave()) return;
     const password = await requestApiTransferPassword({
-        title:tr('api.exportPackageTitle'),
-        description:tr('api.exportPackageDesc'),
         confirmPassword:true
     });
     if(password === null) return;
@@ -3690,8 +3645,6 @@ function requestApiImportConfirmation(summary){
 async function importEncryptedApiSettings(file){
     if(!file) return;
     const password = await requestApiTransferPassword({
-        title:tr('api.importPackageTitle'),
-        description:trf('api.importPackageDesc', {file: file.name}),
         fileName:file.name,
         confirmPassword:false
     });
@@ -3900,6 +3853,7 @@ document.addEventListener('mousedown', event => {
 window.addEventListener('studio-lang-change', () => {
     renderEditor();
     refreshApiTransferCopy();
+    if(document.getElementById('modelPickerOverlay')?.open) renderModelPicker();
 });
 window.onload = () => {
     if(window.StudioTheme) window.StudioTheme.apply();
