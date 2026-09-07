@@ -117,11 +117,12 @@ class CanvasManagementI18nTests(unittest.TestCase):
         self.assertIn("tr('smart.kindImage')", scripts)
         self.assertIn("tr('smart.messageSeparator')", scripts)
 
-    def test_api_sidebar_uses_a_single_column_for_long_english_actions(self):
-        styles = (ROOT / "static/css/api-settings-t18.css").read_text(encoding="utf-8")
-        block = styles[styles.index(".api-settings-page .layout .api-transfer-actions") :]
+    def test_model_backup_actions_wrap_for_long_english_copy(self):
+        styles = (ROOT / "static/css/available-model-management.css").read_text(encoding="utf-8")
+        block = styles[styles.index(".model-backup-actions {") :]
         block = block[: block.index("}")]
-        self.assertIn("grid-template-columns: minmax(0, 1fr);", block)
+        self.assertIn("display: flex;", block)
+        self.assertIn("flex-wrap: wrap;", block)
 
     def test_management_english_copy_uses_action_oriented_sentence_case(self):
         resources = "\n".join(

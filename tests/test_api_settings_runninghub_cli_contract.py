@@ -150,7 +150,7 @@ class ApiSettingsRunningHubCliContractTests(unittest.TestCase):
 
     def test_workflow_dialog_surfaces_are_composed_from_public_components(self):
         start = self.page.index('<ic-dialog id="rhWorkflowEditorOverlay"')
-        end = self.page.index('<ic-dialog id="apiTransferDialog"', start)
+        end = self.page.index('</ic-dialog>', start) + len('</ic-dialog>')
         dialog = self.page[start:end]
         self.assertRegex(dialog, r'<span id="rhWorkflowEditorSub"[^>]*>[^<]+</span>')
         self.assertRegex(dialog, r'<section class="rh-workflow-editor-side"[^>]+aria-label=')

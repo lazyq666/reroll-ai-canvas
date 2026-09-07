@@ -236,6 +236,8 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 
 [平台修复 PR #11](https://github.com/lazyq666/reroll-readiness-acceptance/pull/11) 的同一提交 `a32d1b1` 在 Mac 全套快照与 Linux Gate 均成功。main 前进后，[PR #12](https://github.com/lazyq666/reroll-readiness-acceptance/pull/12) 保持 MERGEABLE、原六项检查全绿，但状态变为 BEHIND，合并 API 以缺少当前 `Public readiness gate` 返回 405；这将旧基线拒绝与文件冲突区分开。规则回读成功。生产候选 `39df95c` 的本地五组快照也已成功，包含 2,111 项 Python 回归。隔离验收已完成，生产 PR、规则启用及最终 main 验证仍待完成，不据此宣称 F14 完成。
 
+[生产 PR #61 首轮](https://github.com/lazyq666/reroll-ai-canvas/actions/runs/34108520066) 实际使用了已前进到 `9b04603` 的 main。该基线已将备份入口移到可用模型管理，但四项旧合同仍引用 API 设置页的位置，导致 1 failure / 3 errors；协作计时修复和其他四组检查通过。已依照 Current API Settings Package 将测试同步到新入口、可换行的顶部操作区，并以工作流弹窗自身的关闭标签确定范围。保留加密导入／导出、模型与能力刷新及旧入口不再出现的断言。新候选须重新完成全部验收。
+
 ## 16. Rollout, migration and rollback
 
 1. **补齐当前基线**：只合入与失败有关的完整修复，核实已提交源码通过。不要把其他未完成任务一起发布。

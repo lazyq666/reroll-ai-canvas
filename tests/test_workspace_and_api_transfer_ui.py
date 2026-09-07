@@ -35,11 +35,11 @@ class WorkspaceAndApiTransferUiTests(unittest.TestCase):
             r"/static/js/preferences\.js\?v=[^\"']+",
         )
 
-    def test_api_settings_exposes_encrypted_export_and_import(self):
-        page = (ROOT / "static/api-settings.html").read_text(
+    def test_model_management_exposes_encrypted_export_and_import(self):
+        page = (ROOT / "static/available-model-management.html").read_text(
             encoding="utf-8"
         )
-        script = (ROOT / "static/js/api-settings.js").read_text(
+        script = (ROOT / "static/js/available-model-management.js").read_text(
             encoding="utf-8"
         )
         self.assertIn("导出加密包", page)
@@ -47,10 +47,11 @@ class WorkspaceAndApiTransferUiTests(unittest.TestCase):
         self.assertIn("/api/providers/export-encrypted", script)
         self.assertIn("/api/providers/import-encrypted", script)
         self.assertIn("FormData", script)
-        self.assertIn("{cache:'no-store'}", script)
+        self.assertIn("cache: 'no-store'", script)
         self.assertIn("tr('api.noProvidersAdded')", script)
-        self.assertIn("trf('api.updatedProviders'", script)
-        self.assertIn("providers = data.providers", script)
+        self.assertIn("tf('api.updatedProviders'", script)
+        self.assertIn("refreshModels();", script)
+        self.assertIn("await window.ModelCapabilityEditor?.refresh();", script)
         self.assertRegex(
             page,
             r'<ic-input[^>]+id="apiTransferPassword"[^>]+type="password"',
@@ -59,14 +60,18 @@ class WorkspaceAndApiTransferUiTests(unittest.TestCase):
         self.assertNotIn("window.prompt", script)
         self.assertRegex(
             page,
-            r"/static/js/api-settings\.js\?v=[^\"']+",
+            r"/static/js/available-model-management\.js\?v=[^\"']+",
         )
+        api_page = (ROOT / "static/api-settings.html").read_text(encoding="utf-8")
+        self.assertNotIn('id="apiTransferDialog"', api_page)
+        self.assertNotIn('data-i18n="api.exportEncrypted"', api_page)
+        self.assertNotIn('data-i18n="api.importEncrypted"', api_page)
 
-    def test_light_api_transfer_buttons_use_on_action_contrast(self):
-        page = (ROOT / "static/api-settings.html").read_text(
+    def test_model_backup_buttons_use_public_secondary_actions(self):
+        page = (ROOT / "static/available-model-management.html").read_text(
             encoding="utf-8"
         )
-        transfer_actions = page.split('<div class="api-transfer-actions">', 1)[1].split('</div>', 1)[0]
+        transfer_actions = page.split('<div class="model-backup-actions">', 1)[1].split('</div>', 1)[0]
         self.assertEqual(transfer_actions.count('<ic-button'), 2)
         self.assertEqual(transfer_actions.count('hierarchy="secondary"'), 2)
 
