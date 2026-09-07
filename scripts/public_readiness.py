@@ -24,6 +24,10 @@ GROUPS = ('public-audit', 'python-tests', 'node-tests', 'browser-core', 'reposit
 SCHEMA = 1
 
 
+class ReadinessError(ValueError):
+    """A bounded, public-safe operational failure explanation."""
+
+
 def git(root, *args):
     return subprocess.check_output(['git', '-C', str(root), *args], text=True, stderr=subprocess.PIPE).strip()
 
@@ -64,7 +68,28 @@ def clean_environment(scratch):
     return env
 
 
-def execute(argv, root, env, timeout):
+def stop_process(process, grace=5):
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        process.wait(timeout=grace)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait()
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def interrupted(signum, frame):
+    raise KeyboardInterrupt
+
+
+def execute(argv, root, env, timeout, shutdown_grace=5):
     start = time.monotonic()
     # Raw output exists only in a temporary file. Public artifacts retain bounded,
     # structured counts, never excerpts from privacy scans or application logs.
@@ -75,9 +100,10 @@ def execute(argv, root, env, timeout):
             try:
                 code = process.wait(timeout=max(0.01, timeout))
             except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait()
+                stop_process(process, shutdown_grace)
                 code = 124
+            finally:
+                stop_process(process, shutdown_grace)
             output.seek(0)
             counts = []
             browser_version = None
@@ -89,7 +115,10 @@ def execute(argv, root, env, timeout):
                 if line.startswith(b'READINESS_COUNTS='):
                     try:
                         value = json.loads(line.split(b'=', 1)[1])
-                        counts.append({key: int(value[key]) for key in ('tests', 'skipped', 'failures', 'errors')})
+                        count = {key: int(value[key]) for key in ('tests', 'skipped', 'failures', 'errors')}
+                        allowed_reasons = {'controlled performance environment required', 'browser runs in dedicated required group', 'POSIX environment required', 'other optional test; inspect its declared reason'}
+                        count['skip_categories'] = {key: int(number) for key, number in value.get('skip_categories', {}).items() if key in allowed_reasons}
+                        counts.append(count)
                     except (ValueError, KeyError, TypeError):
                         code = 1
         except OSError:
@@ -98,20 +127,22 @@ def execute(argv, root, env, timeout):
             'duration_seconds': round(time.monotonic() - start, 3), 'counts': counts, 'browser_version': browser_version}
 
 
-def require_history(root):
+def require_history(root, ref='HEAD', check_links=True):
     if git(root, 'rev-parse', '--is-shallow-repository') != 'false':
-        raise ValueError('complete candidate history is required')
+        raise ReadinessError('complete candidate history is required')
     # Force traversal, including trees/blobs, so missing promisor objects cannot
     # silently masquerade as a complete offline snapshot.
-    git(root, 'rev-list', '--objects', '--missing=error', 'HEAD')
-    entries = git(root, 'ls-tree', '-r', 'HEAD').splitlines()
+    objects = git(root, 'rev-list', '--objects', '--missing=print', ref)
+    if any(line.startswith('?') for line in objects.splitlines()):
+        raise ReadinessError('candidate objects are missing; hydrate the partial clone before validation')
+    entries = git(root, 'ls-tree', '-r', ref).splitlines()
     if any(line.startswith('160000 ') for line in entries):
-        raise ValueError('gitlinks are not supported')
+        raise ReadinessError('gitlinks are not supported')
     for line in entries:
-        if line.startswith('120000 '):
+        if check_links and line.startswith('120000 '):
             link = root / line.split('\t', 1)[1]
             if not link.resolve().is_relative_to(root.resolve()):
-                raise ValueError('source symlink escapes the snapshot')
+                raise ReadinessError('source symlink escapes the snapshot')
 
 
 def source_changed(root):
@@ -130,13 +161,13 @@ def run_group(root, group, base, head=None, timeout=1800):
     report.update(identity(root, base, head))
     require_history(root)
     if source_changed(root):
-        raise ValueError('group requires a clean disposable checkout')
+        raise ReadinessError('group requires a clean disposable checkout')
     manifest = json.loads((root / 'scripts/readiness/manifest.json').read_text())
     if manifest.get('schema_version') != SCHEMA or set(manifest['groups']) != set(GROUPS):
-        raise ValueError('invalid required group inventory')
+        raise ReadinessError('invalid required group inventory')
     entries = manifest['groups'][group]
     if not entries or len({item['id'] for item in entries}) != len(entries):
-        raise ValueError('empty or duplicate command inventory')
+        raise ReadinessError('empty or duplicate command inventory')
     with tempfile.TemporaryDirectory(prefix='readiness-state-') as temp:
         scratch = Path(temp)
         env = clean_environment(scratch)
@@ -150,6 +181,7 @@ def run_group(root, group, base, head=None, timeout=1800):
         report['environment'] = {'python': platform.python_version(), 'os': platform.system(),
                                  'node': subprocess.check_output(['node', '--version'], env=env, text=True).strip()}
         results = {}
+        ever_changed = False
         for entry in entries:
             check = {'id': entry['id'], 'argv': entry['argv']}
             if any(results.get(key) != 'success' for key in entry.get('needs', [])):
@@ -159,6 +191,9 @@ def run_group(root, group, base, head=None, timeout=1800):
                         for arg in entry['argv']]
                 check.update(execute(argv, root, env, timeout - (time.monotonic() - started)))
                 check['category'] = ('preparation' if entry['id'] in ('uv', 'install', 'npm-ci', 'chromium-install') else 'validation')
+            if source_changed(root):
+                ever_changed = True
+                check.update(result='failure', reason='check changed candidate source')
             results[entry['id']] = check['result']
             report['checks'].append(check)
             print(f"{group}/{entry['id']}: {check['result']}", flush=True)
@@ -166,7 +201,7 @@ def run_group(root, group, base, head=None, timeout=1800):
             probe = execute(['node', '-e', "const {chromium}=require('playwright'); (async()=>{const b=await chromium.launch({headless:true,args:process.platform==='linux'?['--no-sandbox']:[]}); console.log('READINESS_BROWSER='+b.version());await b.close()})().catch(()=>process.exit(1))"], root, env, 30)
             report['checks'].append({'id': 'browser-runtime', **probe})
             report['environment']['browser'] = probe['browser_version']
-        changed = source_changed(root)
+        changed = ever_changed or source_changed(root)
         report['source_unchanged'] = not changed
         report['result'] = ('success' if not changed and all(c['result'] == 'success' for c in report['checks']) else 'failure')
     report['duration_seconds'] = round(time.monotonic() - started, 3)
@@ -176,7 +211,7 @@ def run_group(root, group, base, head=None, timeout=1800):
 @contextlib.contextmanager
 def materialize(source, sha, base=None, head=None):
     """Separate object database/index/config. Never share source working files."""
-    require_history(source)
+    require_history(source, sha, check_links=False)
     with tempfile.TemporaryDirectory(prefix='readiness-snapshot-') as temp:
         root = Path(temp) / 'source'
         root.mkdir()
@@ -202,7 +237,7 @@ def aggregate(reports, expected, needs=None):
 
 def snapshot(source, ref, base, output):
     if output.resolve().is_relative_to(source.resolve()):
-        raise ValueError('write reports outside the development tree')
+        raise ReadinessError('write reports outside the development tree')
     sha = git(source, 'rev-parse', f'{ref}^{{commit}}')
     base = git(source, 'rev-parse', f'{base}^{{commit}}')
     expected = {'candidate_sha': sha, 'tree_sha': git(source, 'rev-parse', f'{sha}^{{tree}}'),
@@ -218,7 +253,7 @@ def snapshot(source, ref, base, output):
                 command = [sys.executable, str(root / 'scripts/public_readiness.py'), 'group', group,
                            '--base', base, '--output', str(target)]
                 env = clean_environment(Path(temp) / 'state')
-                result = execute(command, root, env, 1800)
+                result = execute(command, root, env, 1800, shutdown_grace=15)
                 report = json.loads(target.read_text()) if target.exists() else {'group': group, 'result': 'failure', 'reason': 'runner did not produce evidence'}
                 if result['result'] != 'success':
                     report['result'] = 'failure'
@@ -248,6 +283,8 @@ def main():
     gate.add_argument('--base', required=True)
     gate.add_argument('--head')
     args = parser.parse_args()
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     root = Path.cwd()
     try:
         if args.command == 'snapshot':
@@ -261,10 +298,16 @@ def main():
             report = {'result': 'success' if passed else 'failure'}
         print('Public readiness: ' + report['result'])
         return int(report['result'] != 'success')
-    except (ValueError, OSError, subprocess.SubprocessError, KeyError) as error:
+    except (ValueError, OSError, subprocess.SubprocessError, KeyError, KeyboardInterrupt) as error:
         # Error types are safe to publish; raw exception values can include paths
         # or private audit output. Missing reports intentionally fail the gate.
-        print(f'Public readiness failed ({type(error).__name__}); no complete evidence', file=sys.stderr)
+        failure = {'schema_version': SCHEMA, 'result': 'failure', 'reason': str(error) if isinstance(error, ReadinessError) else type(error).__name__}
+        if args.command == 'group':
+            failure['group'] = args.group
+            args.output.write_text(json.dumps(failure, indent=2) + '\n')
+        elif args.command == 'snapshot':
+            args.output.write_text(json.dumps(failure, indent=2) + '\n')
+        print('Public readiness failed: ' + failure['reason'] + '; no complete evidence', file=sys.stderr)
         return 1
 
 

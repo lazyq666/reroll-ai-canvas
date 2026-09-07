@@ -1,8 +1,12 @@
 """Behavioral delivery tests: real Git snapshots and child processes, no network."""
 import copy
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import importlib.util
 import json
 import os
+import signal
+import time
 from pathlib import Path
 import shutil
 import subprocess
@@ -25,6 +29,8 @@ readiness = load('public_readiness')
 rules = load('readiness_rules')
 versions = load('readiness_version')
 test_runner = load('readiness_tests')
+with patch.dict(sys.modules, {'public_readiness': readiness, 'readiness_version': versions}):
+    publisher = load('readiness_publish')
 
 
 class SnapshotTests(unittest.TestCase):
@@ -142,6 +148,96 @@ class SnapshotTests(unittest.TestCase):
             self.assertEqual(report['result'], 'failure')
             self.assertFalse(report['source_unchanged'])
         self.assertEqual((self.root / 'source.py').read_text(), 'value = 0\n')
+
+    def test_uncommitted_symlink_cannot_influence_candidate(self):
+        (self.root / 'link').symlink_to('source.py')
+        sha = self.commit()
+        (self.root / 'link').unlink()
+        (self.root / 'link').symlink_to(Path(self.temp.name))
+        with readiness.materialize(self.root, sha) as candidate:
+            self.assertEqual((candidate / 'link').read_text(), 'value = 0\n')
+
+    def test_later_restore_cannot_hide_earlier_source_write(self):
+        sha = self.fixture_runner({'node-tests': [
+            {'id': 'write', 'argv': ['{python}', '-c', "open('source.py','w').write('changed')"]},
+            {'id': 'restore', 'argv': ['git', 'checkout', '--', 'source.py']}]})
+        with readiness.materialize(self.root, sha, self.base) as candidate:
+            report = readiness.run_group(candidate, 'node-tests', self.base)
+            self.assertFalse(readiness.source_changed(candidate))
+            self.assertFalse(report['source_unchanged'])
+            self.assertEqual(report['checks'][0]['result'], 'failure')
+            self.assertEqual(report['result'], 'failure')
+
+    def test_nested_timeout_stops_child_and_cleans_temporary_state(self):
+        script = Path(self.temp.name) / 'nested.py'
+        marker = Path(self.temp.name) / 'child.json'
+        child_code = f"import os,time,json; open({str(marker)!r}, 'w').write(json.dumps([os.getpid(), STATE])); time.sleep(60)"
+        script.write_text(
+            'import sys, signal, tempfile, json, pathlib\n'
+            + f'sys.path.insert(0, {str(ROOT / "scripts")!r})\n'
+            + 'import public_readiness as r\n'
+            + 'signal.signal(signal.SIGTERM, r.interrupted)\n'
+            + 'with tempfile.TemporaryDirectory() as state:\n'
+            + ' root = pathlib.Path(state)\n'
+            + f' code = {child_code!r}.replace("STATE", repr(state))\n'
+            + ' r.execute([sys.executable,"-c",code],root,r.clean_environment(root/"env"),60)\n')
+        result = readiness.execute([sys.executable, str(script)], self.root,
+                                   readiness.clean_environment(Path(self.temp.name) / 'outer'), 2, shutdown_grace=15)
+        self.assertEqual(result['exit_code'], 124)
+        pid, state = json.loads(marker.read_text())
+        self.assertFalse(Path(state).exists())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+
+    def publication_fixture(self):
+        day = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y.%m.%d')
+        (self.root / 'static').mkdir()
+        (self.root / 'VERSION').write_text(day + '.1\n')
+        (self.root / 'static/update-notes.json').write_text(json.dumps({'version': day + '.1'}))
+        base = self.commit()
+        remote = Path(self.temp.name) / 'remote.git'
+        subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True)
+        self.git('remote', 'add', 'publication', str(remote))
+        self.git('push', '-q', 'publication', f'{base}:refs/heads/main')
+        (self.root / 'VERSION').write_text(day + '.2\n')
+        (self.root / 'static/update-notes.json').write_text(json.dumps({'version': day + '.2'}))
+        candidate = self.commit()
+        (self.root / 'VERSION').write_text(day + '.3\n')
+        (self.root / 'static/update-notes.json').write_text(json.dumps({'version': day + '.3'}))
+        competitor = self.commit()
+        return candidate, competitor
+
+    def test_publisher_blocks_main_and_version_reuse(self):
+        candidate, _ = self.publication_fixture()
+        report = Path(self.temp.name) / 'publish.json'
+        with self.assertRaises(ValueError):
+            publisher.publish(self.root, candidate, 'publication', 'main', report)
+        with patch.object(publisher, 'snapshot', return_value={'result':'success'}):
+            publisher.publish(self.root, candidate, 'publication', 'codex/fixture', report)
+            with self.assertRaises(ValueError):
+                publisher.publish(self.root, candidate, 'publication', 'codex/fixture', report)
+
+    def test_main_advancing_during_validation_blocks_publication(self):
+        candidate, competitor = self.publication_fixture()
+        def advance(*args):
+            self.git('push', '-q', 'publication', f'{competitor}:refs/heads/main')
+            return {'result':'success'}
+        with patch.object(publisher, 'snapshot', side_effect=advance):
+            with self.assertRaisesRegex(ValueError, 'advanced'):
+                publisher.publish(self.root, candidate, 'publication', 'codex/fixture', Path(self.temp.name) / 'publish.json')
+        self.assertNotIn('refs/heads/codex/fixture', publisher.remote_refs(self.root, 'publication', 'codex/fixture'))
+
+    def test_destination_race_is_rejected_by_real_git_lease(self):
+        candidate, competitor = self.publication_fixture()
+        original_git = readiness.git
+        def race(root, *args):
+            if args[0] == 'push':
+                original_git(root, 'push', '-q', 'publication', f'{competitor}:refs/heads/codex/fixture')
+            return original_git(root, *args)
+        with patch.object(publisher, 'snapshot', return_value={'result':'success'}), patch.object(publisher, 'git', side_effect=race):
+            with self.assertRaises(subprocess.CalledProcessError):
+                publisher.publish(self.root, candidate, 'publication', 'codex/fixture', Path(self.temp.name) / 'publish.json')
+        self.assertEqual(publisher.remote_refs(self.root, 'publication', 'codex/fixture')['refs/heads/codex/fixture'], competitor)
 
     def test_release_pair_and_monotonic_base(self):
         (self.root / 'static').mkdir()

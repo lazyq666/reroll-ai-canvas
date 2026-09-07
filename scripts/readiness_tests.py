@@ -1,5 +1,6 @@
 """Run unittest with machine-readable counts; an empty/skipped group is failure."""
 import json
+from collections import Counter
 import os
 from pathlib import Path
 import subprocess
@@ -31,7 +32,14 @@ def main():
     loader = unittest.TestLoader()
     suite = loader.discover('tests', top_level_dir='.') if targets == ['discover'] else loader.loadTestsFromNames(targets)
     result = unittest.TextTestRunner(verbosity=1).run(suite)
+    skip_categories = Counter(
+        'controlled performance environment required' if 'performance' in reason.lower() else
+        'browser runs in dedicated required group' if 'IC_RUN_BROWSER_TESTS' in reason else
+        'POSIX environment required' if 'POSIX' in reason else
+        'other optional test; inspect its declared reason'
+        for _, reason in result.skipped)
     print('READINESS_COUNTS=' + json.dumps({'tests': result.testsRun, 'skipped': len(result.skipped),
+                                          'skip_categories': dict(skip_categories),
                                           'failures': len(result.failures), 'errors': len(result.errors)}))
     return 0 if successful(result, browser) else 1
 
