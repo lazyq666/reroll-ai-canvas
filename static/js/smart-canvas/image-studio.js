@@ -1610,31 +1610,16 @@ function setGridCustomLinePos(index, point){
         ? Math.max(0.001, Math.min(0.999, point.y / Math.max(1, canvasEl.height)))
         : Math.max(0.001, Math.min(0.999, point.x / Math.max(1, canvasEl.width)));
 }
-const MASK_BRUSH_ALPHA = 115;
-const MASK_BRUSH_COLOR = `rgba(255,255,255,${MASK_BRUSH_ALPHA / 255})`;
+// Store mask coverage at full opacity; CSS applies preview opacity to the layer
+// so overlapping strokes stay uniform without reading back pixels on each move.
+const MASK_BRUSH_COLOR = '#ffffff';
 function editBrushSize(){ return Number(document.getElementById(imageEditMode === 'mask' ? 'maskBrushSize' : 'paintBrushSize')?.value || 20); }
 function brushColor(){ return document.getElementById('paintBrushColor')?.value || '#ff2d55'; }
 function setupDrawStyle(ctx){
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = editBrushSize();
     ctx.strokeStyle = imageEditMode === 'mask' ? MASK_BRUSH_COLOR : brushColor();
     ctx.fillStyle = imageEditMode === 'mask' ? MASK_BRUSH_COLOR : brushColor();
-    ctx.globalCompositeOperation = imageEditMode === 'mask' ? 'copy' : 'source-over';
-}
-function normalizeMaskPreviewCanvas(canvasEl=editDrawCanvas()){
-    if(imageEditMode !== 'mask' || !canvasEl?.width || !canvasEl?.height) return;
-    const ctx = canvasEl.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
-    const data = imageData.data;
-    let changed = false;
-    for(let i = 0; i < data.length; i += 4){
-        if(data[i + 3] <= 0) continue;
-        data[i] = 255;
-        data[i + 1] = 255;
-        data[i + 2] = 255;
-        if(data[i + 3] > MASK_BRUSH_ALPHA) data[i + 3] = MASK_BRUSH_ALPHA;
-        changed = true;
-    }
-    if(changed) ctx.putImageData(imageData, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
 }
 function strokeFreeDrawPoint(point){
     if(!editDrawState) return;
