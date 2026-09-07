@@ -68,3 +68,40 @@ and authoritative documentation.
 
 Keep pull requests focused, describe security and data-boundary effects, list
 the exact verification performed, and identify every remaining gate.
+
+## Public readiness rollout and dependency upgrades
+
+The [F14 specification](docs/active/2026-09-07-public-readiness-delivery-gates-spec.md)
+tracks activation of the new release gates. During rollout, the local ruleset
+file is a declaration, not evidence that GitHub enforces it. Read effective rules
+with `python3.12 scripts/readiness_rules.py`; drift or missing permissions leave
+release verification incomplete.
+
+Prepare a complete commit, including the incremented VERSION/update-notes pair.
+The candidate publisher runs isolated snapshot checks and pushes only that commit
+to a PR reference without changing your local branch or worktree:
+
+```bash
+python3.12 scripts/readiness_publish.py HEAD --branch codex/my-change --report /tmp/readiness.json
+```
+
+If remote main or the destination advances, update the release version, commit
+and revalidate. main moving during the final network push can leave the PR branch
+published with an incomplete result; GitHub's strict PR gate enforces freshness
+at merge time. Keep the Issue open until the final main check succeeds. Changes
+to workflow, inventory or expected rules must be identified in the PR description.
+
+Dependabot groups Pydantic and pydantic-core because their runtime versions are
+coupled. Grouping alone is not compatibility proof. For any direct or transitive
+Python update, regenerate the lock using uv 0.10.0, review the diff, and pass the
+installation consistency, import and full readiness checks:
+
+```bash
+uv pip compile requirements.txt --generate-hashes --python-version 3.12 --output-file requirements.lock.txt
+```
+
+Use `--upgrade-package` for the intended compatible packages when regenerating;
+retain unrelated pins. Routine dependency updates are not automatically labeled
+as security findings. Missing or incompatible dependencies fail distinctly from
+vulnerability audit findings. This governance applies only to this public
+repository; other repositories' lifecycle and notifications are separate work.

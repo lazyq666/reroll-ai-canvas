@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -30,10 +32,19 @@ class PublicReadinessAuditTests(unittest.TestCase):
 
         self.assertIn("runs-on: ubuntu-latest", workflow)
         self.assertIn("fetch-depth: 0", workflow)
-        self.assertIn('IC_SKIP_PERFORMANCE_TESTS: "1"', workflow)
-        self.assertIn('IC_BROWSER_NO_SANDBOX: "1"', workflow)
-        self.assertIn("Run deterministic Python test suite", workflow)
-        self.assertIn("python scripts/audit_public_history.py HEAD", workflow)
+        spec = importlib.util.spec_from_file_location("readiness_environment", ROOT / "scripts/public_readiness.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        clean_environment = module.clean_environment
+        with tempfile.TemporaryDirectory() as state:
+            self.assertEqual(clean_environment(Path(state))['IC_SKIP_PERFORMANCE_TESTS'], '1')
+        manifest = json.loads((ROOT / 'scripts/readiness/manifest.json').read_text())['groups']
+        self.assertIn(['{python}', 'scripts/audit_public_history.py', 'HEAD'],
+                      [item['argv'] for item in manifest['public-audit']])
+        self.assertIn(['{python}', 'scripts/readiness_tests.py', 'discover'],
+                      [item['argv'] for item in manifest['python-tests']])
+        runner = (ROOT / 'scripts/readiness_tests.py').read_text()
+        self.assertIn("os.environ['IC_BROWSER_NO_SANDBOX'] = '1'", runner)
 
     def test_core_browser_launcher_keeps_no_sandbox_opt_in(self):
         launcher = (ROOT / "tests" / "ic_core_browser_smoke.cjs").read_text(

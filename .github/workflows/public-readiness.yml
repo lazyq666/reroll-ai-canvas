@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Previous main commit to compare the release version against
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -13,72 +18,223 @@ concurrency:
   group: public-readiness-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base_sha }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
 jobs:
-  verify:
+  public-audit:
+    name: public-audit
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out source
+      - name: Check out the tested merge or push commit with complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-
+          persist-credentials: false
       - name: Set up Python 3.12
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements.lock.txt
-
       - name: Set up Node.js 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
-          cache: npm
-
-      - name: Install locked Node.js test dependencies
-        run: npm ci
-
-      - name: Install browser used by the core UI contract
-        run: npx --no-install playwright install --with-deps chromium
-
-      - name: Install locked dependencies
+      - name: Run shared public-audit inventory
+        run: python scripts/public_readiness.py group public-audit --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/public-audit.json"
+      - name: Preserve metadata even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: readiness-public-audit-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/public-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Show result summary
+        if: always()
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv==0.10.0
-          uvx --from pip-audit==2.9.0 pip-audit --disable-pip -r requirements.lock.txt
-          uv pip sync requirements.lock.txt --system
+          if test -f "$RUNNER_TEMP/public-audit.json"; then
+            echo '### public-audit' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/public-audit.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - name: Compile Python sources
-        run: python -m compileall -q backend scripts tests
-
-      - name: Audit tracked public tree
-        run: python scripts/audit_public_tree.py
-
-      - name: Audit public Git history
-        run: python scripts/audit_public_history.py HEAD
-
-      - name: Verify vendored Web Awesome release
-        run: python scripts/verify_webawesome_vendor.py
-
-      - name: Verify documentation knowledge map
-        run: python -m unittest tests.test_documentation_knowledge_map
-
-      - name: Run JavaScript state and contract tests
-        run: npm test
-
-      - name: Run core browser contract
-        env:
-          IC_RUN_BROWSER_TESTS: "1"
-          # The raw Chromium process on GitHub's hosted Linux runner cannot use its sandbox.
-          IC_BROWSER_NO_SANDBOX: "1"
+  python-tests:
+    name: python-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the tested merge or push commit with complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Run shared python-tests inventory
+        run: python scripts/public_readiness.py group python-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/python-tests.json"
+      - name: Preserve metadata even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: readiness-python-tests-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/python-tests.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Show result summary
+        if: always()
         run: |
-          IC_BROWSER_BIN="$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")"
-          export IC_BROWSER_BIN
-          python -m unittest tests.test_infinite_canvas_ui_core
+          if test -f "$RUNNER_TEMP/python-tests.json"; then
+            echo '### python-tests' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/python-tests.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - name: Run deterministic Python test suite
+  node-tests:
+    name: node-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the tested merge or push commit with complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Run shared node-tests inventory
+        run: python scripts/public_readiness.py group node-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/node-tests.json"
+      - name: Preserve metadata even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: readiness-node-tests-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/node-tests.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Show result summary
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/node-tests.json"; then
+            echo '### node-tests' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/node-tests.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  browser-core:
+    name: browser-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the tested merge or push commit with complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Run shared browser-core inventory
+        run: python scripts/public_readiness.py group browser-core --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/browser-core.json"
+      - name: Preserve metadata even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: readiness-browser-core-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/browser-core.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Show result summary
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/browser-core.json"; then
+            echo '### browser-core' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/browser-core.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  repository-contracts:
+    name: repository-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the tested merge or push commit with complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Run shared repository-contracts inventory
+        run: python scripts/public_readiness.py group repository-contracts --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/repository-contracts.json"
+      - name: Preserve metadata even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: readiness-repository-contracts-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/repository-contracts.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Show result summary
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/repository-contracts.json"; then
+            echo '### repository-contracts' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/repository-contracts.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  readiness-gate:
+    name: Public readiness gate
+    needs: [public-audit, python-tests, node-tests, browser-core, repository-contracts]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the tested merge or push commit with complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Download this attempt's evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: readiness-*-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/readiness-reports
+      - name: Require every group and matching candidate evidence
         env:
-          # Shared hosted runners are not a controlled performance environment.
-          IC_SKIP_PERFORMANCE_TESTS: "1"
-        run: python -m unittest discover
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python scripts/public_readiness.py gate --reports "$RUNNER_TEMP/readiness-reports" --needs "$NEEDS_JSON" --base "$BASE_SHA" --head "$HEAD_SHA"
