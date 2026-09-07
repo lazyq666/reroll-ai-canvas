@@ -1,6 +1,6 @@
 # ADR-0013: 固定提交与远端 Public readiness 门槛
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-07
 
 ## Context
@@ -22,9 +22,9 @@ main 使用空 bypass 的 active Ruleset，要求 PR、最新基线和绑定 Git
 
 ## Consequences
 
-共享清单和真实子进程测试需要持续维护；每组独立安装增加 Actions 用量。main 前进需重验；平台故障保持未完成状态。规则启用与生产 PR/main 验证完成前，本 ADR 保持 Proposed，规格不毕业。
+共享清单和真实子进程测试需要持续维护；每组独立安装增加 Actions 用量。main 前进需重验；平台故障保持未完成状态。生产规则已启用并回读核对；PR #61 与合并后的 main 已通过全部检查。今后的发布仍须完成最终 main 验证与规则回读。
 
 ## References
 
 - [Issue #59](https://github.com/lazyq666/reroll-ai-canvas/issues/59)
-- [F14 specification](../active/2026-09-07-public-readiness-delivery-gates-spec.md)
+- [Public readiness 当前合同](../current/public-readiness.md)

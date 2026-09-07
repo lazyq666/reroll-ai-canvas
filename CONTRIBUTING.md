@@ -69,13 +69,13 @@ and authoritative documentation.
 Keep pull requests focused, describe security and data-boundary effects, list
 the exact verification performed, and identify every remaining gate.
 
-## Public readiness rollout and dependency upgrades
+## Public readiness and dependency upgrades
 
-The [F14 specification](docs/active/2026-09-07-public-readiness-delivery-gates-spec.md)
-tracks activation of the new release gates. During rollout, the local ruleset
-file is a declaration, not evidence that GitHub enforces it. Read effective rules
-with `python3.12 scripts/readiness_rules.py`; drift or missing permissions leave
-release verification incomplete.
+Follow the [Public readiness contract](docs/current/public-readiness.md).
+The active main rules require a current, successful PR gate from GitHub Actions.
+Read effective rules with `python3.12 scripts/readiness_rules.py` after activation,
+after rule changes and before completing a release; drift or missing permissions
+leave release verification incomplete.
 
 Prepare the release metadata before committing with
 `python3.12 scripts/readiness_version.py --prepare YYYY.MM.DD.N`, using the

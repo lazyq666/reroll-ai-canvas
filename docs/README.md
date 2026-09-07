@@ -33,6 +33,7 @@
 
 ## 当前参考
 
+- [Public readiness 发布验收与 main 合入](current/public-readiness.md)
 - [公开项目身份与兼容边界](current/public-project-identity.md)
 - [本机与局域网访问](current/local-network-access.md)
 - [ModelScope 镜像发布维护](current/ModelScope镜像发布维护.md)
@@ -113,7 +114,5 @@ flowchart LR
 - 发现文档与代码不一致时标记 `drift`，通过最高外部测试接缝确认现状，再由承诺负责人决定目标行为。
 
 ## 当前计划在哪里
-
-F14 的 [Public readiness 提交快照验收与 main 合入门槛](active/2026-09-07-public-readiness-delivery-gates-spec.md)处于 In Progress：正在实施固定提交验收与独立检查，远端合入规则待实际验收后启用。
 
 需求、Bug、调查和开发任务统一进入公开 GitHub Issues；维护者可在私有项目看板中按 `Todo → In Progress → Review → Done` 管理。`docs/active/` 只保存需要长期评审的功能规格，不保存任务板镜像、跨电脑分支指令或临时聊天交接。
