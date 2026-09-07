@@ -45,7 +45,7 @@ jobs:
         run: python scripts/public_readiness.py group public-audit --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/public-audit.json"
       - name: Preserve metadata even after failure
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: readiness-public-audit-${{ github.run_attempt }}
           path: ${{ runner.temp }}/public-audit.json
@@ -83,7 +83,7 @@ jobs:
         run: python scripts/public_readiness.py group python-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/python-tests.json"
       - name: Preserve metadata even after failure
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: readiness-python-tests-${{ github.run_attempt }}
           path: ${{ runner.temp }}/python-tests.json
@@ -121,7 +121,7 @@ jobs:
         run: python scripts/public_readiness.py group node-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/node-tests.json"
       - name: Preserve metadata even after failure
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: readiness-node-tests-${{ github.run_attempt }}
           path: ${{ runner.temp }}/node-tests.json
@@ -159,7 +159,7 @@ jobs:
         run: python scripts/public_readiness.py group browser-core --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/browser-core.json"
       - name: Preserve metadata even after failure
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: readiness-browser-core-${{ github.run_attempt }}
           path: ${{ runner.temp }}/browser-core.json
@@ -197,7 +197,7 @@ jobs:
         run: python scripts/public_readiness.py group repository-contracts --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/repository-contracts.json"
       - name: Preserve metadata even after failure
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: readiness-repository-contracts-${{ github.run_attempt }}
           path: ${{ runner.temp }}/repository-contracts.json
