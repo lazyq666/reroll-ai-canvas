@@ -77,6 +77,8 @@ must include all jobs so the final gate has evidence from the same attempt. Empt
 the deterministic suite retains its documented optional gates. Functional
 collaboration regressions use controlled measurement inputs to test latency
 limits; live networking, timeouts and the separate performance gates use real clocks.
+On macOS, the core browser uses a mock keychain like Playwright so an isolated
+home directory does not stall navigation while initializing system credentials.
 
 Local failure-injection tests run without GitHub or dependency downloads:
 

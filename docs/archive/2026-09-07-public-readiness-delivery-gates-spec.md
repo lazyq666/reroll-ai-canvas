@@ -276,5 +276,6 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 | Date | Status | Change | Evidence/decision |
 | --- | --- | --- | --- |
 | 2026-09-07 | Draft | 定义快照验收、main 合入限制、独立任务和 A01–A19 验收 | 故障提交对照、历史日志、远端配置核查；尚未实施 |
-
 | 2026-09-07 | Archived | 生产规则已启用并回读无漂移，PR #61 按规则合并，稳定合同毕业为 Current | [PR #61](https://github.com/lazyq666/reroll-ai-canvas/pull/61)、[main 六项成功](https://github.com/lazyq666/reroll-ai-canvas/actions/runs/34111965273)；最终候选 Mac 五组成功，Python 2,116 项、Node 8 个入口、浏览器 12 项 |
+
+文档毕业候选的 Mac 重验发现 Chromium 在隔离 HOME 下停在 Page.navigate：缩短路径、移除代理、直连与关闭浏览器沙箱均未恢复；普通环境通过。使用已安装 Playwright 的 `--use-mock-keychain` 启动开关后，清洁环境的全部交互检查通过。修复仅应用于 Mac 测试浏览器，原失败报告保留；完整候选须再次验证。

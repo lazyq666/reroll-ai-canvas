@@ -335,6 +335,9 @@ async function main() {
     [
       '--headless=new',
       '--disable-gpu',
+      // Match Playwright's macOS automation setup: isolated HOME must not wait
+      // for the user's login keychain before navigating the local test page.
+      ...(process.platform === 'darwin' ? ['--use-mock-keychain'] : []),
       ...(NO_SANDBOX ? ['--no-sandbox'] : []),
       '--no-first-run',
       '--no-default-browser-check',

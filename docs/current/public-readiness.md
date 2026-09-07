@@ -36,6 +36,8 @@ python3.12 scripts/readiness_publish.py HEAD --branch codex/my-change --report /
 
 功能回归使用可控计时输入验证延迟超限的成功／失败路径；真实网络、超时和性能工具保留真实时钟。共享 CI 机器的偶发耗时不能代替受控环境中的性能验收。
 
+macOS 本地 Chromium 合同使用模拟钥匙串，避免隔离用户目录时等待系统凭据初始化；浏览器配置仍是临时的，不读取用户登录钥匙串。这与 Playwright 的自动化启动配置一致，页面和交互断言保持完整执行。
+
 PR 检查使用 GitHub 试合并提交，并记录 head/base/checkout/tree；main push 验证最终提交并与旧 main 版本比较。Python 3.12、Node 24、锁定 Chromium 是 Linux 执行环境。`Public readiness gate` 只接受当前运行尝试、当前候选和完整五组的 success；失败、取消、跳过、缺组、空测试或过期证据不能通过。重新运行时选择全部 jobs，单独重跑失败组不会复用旧尝试的报告。报告保留 14 天。
 
 main 的 active Ruleset 要求 PR、最新 main 基线，以及 GitHub Actions（App 15368）的唯一 `Public readiness gate`；禁止删除和强推，bypass 为空，人工必需批准数为 0。维护者可以独立合并绿色且最新的 PR。本地 hook 不承担远端权限约束。
