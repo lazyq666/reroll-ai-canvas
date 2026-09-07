@@ -17,6 +17,21 @@ def successful(result, require_no_skips=False):
             and (not require_no_skips or not result.skipped))
 
 
+def failure_locations(result):
+    locations = []
+    for test, trace in result.failures + result.errors:
+        if not re.fullmatch(r'[A-Za-z_][\w.]*', test.id()):
+            continue
+        frames = []
+        for filename, line in re.findall(r'File "([^"]+)", line (\d+)', trace):
+            path = Path(filename).resolve()
+            if path.is_relative_to(ROOT) and path.is_file():
+                frames.append({'test': test.id(), 'file': path.relative_to(ROOT).as_posix(), 'line': int(line)})
+        if frames:
+            locations.append(frames[-1])
+    return locations
+
+
 def main():
     targets = sys.argv[1:]
     browser = targets == ['browser']
@@ -41,6 +56,7 @@ def main():
         for _, reason in result.skipped)
     print('READINESS_COUNTS=' + json.dumps({'tests': result.testsRun, 'skipped': len(result.skipped),
                                           'skip_categories': dict(skip_categories),
+                                          'failure_locations': failure_locations(result),
                                           'failed_tests': [test.id() for test, _ in result.failures + result.errors if re.fullmatch(r'[A-Za-z_][\w.]*', test.id())],
                                           'failures': len(result.failures), 'errors': len(result.errors)}))
     return 0 if successful(result, browser) else 1

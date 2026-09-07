@@ -90,14 +90,28 @@ class SnapshotTests(unittest.TestCase):
                 for key in ('PYTHONPATH', 'NODE_PATH', 'IC_DATA_DIR', 'VIRTUAL_ENV'):
                     self.assertNotIn(key, env)
 
-    def test_deleted_ancestor_content_remains_available(self):
-        (self.root / 'historical-fixture.txt').write_text('synthetic historical marker\n')
+    def test_deleted_ancestor_content_still_fails_real_history_audit(self):
+        (self.root / 'scripts').mkdir()
+        for name in ('audit_public_tree.py', 'audit_public_history.py'):
+            shutil.copy(ROOT / 'scripts' / name, self.root / 'scripts' / name)
+        (self.root / '.scratch').mkdir()
+        (self.root / '.scratch/synthetic.txt').write_text('synthetic historical marker\n')
         ancestor = self.commit()
-        (self.root / 'historical-fixture.txt').unlink()
+        (self.root / '.scratch/synthetic.txt').unlink()
         current = self.commit()
         with readiness.materialize(self.root, current) as candidate:
-            self.assertIn('synthetic historical marker', readiness.git(candidate, 'show', f'{ancestor}:historical-fixture.txt'))
-            self.assertGreater(len(readiness.git(candidate, 'rev-list', 'HEAD').splitlines()), 1)
+            self.assertFalse((candidate / '.scratch/synthetic.txt').exists())
+            result = self.command(candidate, "import subprocess,sys; result=subprocess.run([sys.executable,'scripts/audit_public_history.py','HEAD'],capture_output=True,text=True); assert result.returncode == 1 and 'forbidden historical surface' in result.stderr")
+            self.assertEqual(result['result'], 'success')
+            self.assertIn('synthetic historical marker', readiness.git(candidate, 'show', f'{ancestor}:.scratch/synthetic.txt'))
+
+    def test_gitlink_candidate_is_rejected(self):
+        self.git('update-index', '--add', '--cacheinfo', f'160000,{self.base},submodule')
+        self.git('commit', '-qm', 'Synthetic gitlink')
+        sha = self.git('rev-parse', 'HEAD')
+        with self.assertRaisesRegex(ValueError, 'gitlinks'):
+            with readiness.materialize(self.root, sha):
+                self.fail('unsupported gitlink materialized')
 
     def test_shallow_history_is_rejected(self):
         clone = Path(self.temp.name) / 'shallow'
@@ -310,6 +324,19 @@ class GateTests(unittest.TestCase):
         for checks in ([], [{'result': 'skipped'}], [{'result': 'failure'}]):
             self.reports[0]['checks'] = checks
             self.assertFalse(readiness.aggregate(self.reports, self.expected, self.needs))
+
+    def test_failure_location_keeps_only_public_relative_source(self):
+        class Probe(unittest.TestCase):
+            def id(self):
+                return 'tests.synthetic.Probe.runTest'
+            def runTest(self):
+                self.fail('synthetic failure')
+        result = unittest.TestResult()
+        Probe().run(result)
+        locations = test_runner.failure_locations(result)
+        self.assertEqual(locations[0]['file'], 'tests/test_readiness_delivery.py')
+        self.assertGreater(locations[0]['line'], 0)
+        self.assertNotIn(str(ROOT), json.dumps(locations))
 
     def test_missing_chromium_fails_before_test_discovery(self):
         with patch.object(sys, 'argv', ['readiness_tests.py', 'browser']), patch.object(test_runner.subprocess, 'check_output', return_value='/nonexistent-readiness-chromium'):
