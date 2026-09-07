@@ -54,7 +54,7 @@ persistent toggle state continues to use Selected colors and `aria-pressed`.
 | `icon-*` | Independently colored icons; paired icons inherit text `currentColor` |
 | `border-*` | Borders, separators, Focus, selection outlines, and Canvas grid |
 
-`--ui-color-border-segmented-control` is the Segmented Control container Border role. It resolves to `--ui-palette-gray-100` in both themes; the selected Item uses the shared `--ui-color-border-secondary` role instead.
+Segmented Control uses `--ui-color-border-secondary` for both its container Border and selected Item outline. The selected Item background uses `--ui-color-surface-segmented`, resolving to `--ui-palette-gray-0` in Light and `--ui-palette-gray-600` in Dark.
 
 `--ui-color-border-nodes` is the default outer-shell Border role shared by concrete Smart Canvas Nodes. It resolves to `gray-300` in Light and `gray-700` in Dark. Ordinary Node Hover retains this Border and expresses elevation through Shadow; Selected Nodes switch to the shared Focus Border. Frame keeps its semantic frame color, while Text Annotation and Brush Stroke have no concrete outer-shell Border.
 
@@ -63,7 +63,7 @@ persistent toggle state continues to use Selected colors and `aria-pressed`.
 `--ui-color-border-connection-draft` owns the temporary Connection color (`blue-400` in both themes). The Quick Add drop animation consumes the same role as its source line so the liquid circle grows from a continuous color. Shared components never read palette primitives directly.
 
 Surface uses `surface-canvas`, `surface`, `surface-subtle`, and
-`surface-floating`; it has no global Hover, Pressed, Disabled, or Selected
+`surface-floating`, plus the component-specific `surface-segmented`; it has no global Hover, Pressed, Disabled, or Selected
 states. A non-clickable Table may use `surface-subtle` as a component-owned row
 locator on Hover without turning Surface into an interactive family. Slider
 Thumbs compose `surface` with `border-primary`; there is no global Control Thumb

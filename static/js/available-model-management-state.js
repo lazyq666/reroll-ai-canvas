@@ -10,12 +10,17 @@
     return true;
   },
   applySavedModelsInPlace(models, savedModels) {
+    let changed = false;
     Object.entries(models || {}).forEach(([kind, entries]) => {
-      const savedById = new Map((savedModels?.[kind] || []).map((entry) => [entry.id, entry]));
-      entries.forEach((current) => {
-        const saved = savedById.get(current.id);
-        if (saved) Object.assign(current, saved);
+      const currentById = new Map(entries.map((entry) => [entry.id, entry]));
+      const next = (savedModels?.[kind] || []).map((saved) => {
+        const current = currentById.get(saved.id);
+        if (current) Object.assign(current, saved);
+        return current || saved;
       });
+      changed ||= entries.length !== next.length || entries.some((entry, index) => entry.id !== next[index]?.id);
+      entries.splice(0, entries.length, ...next);
     });
+    return changed;
   },
 }));

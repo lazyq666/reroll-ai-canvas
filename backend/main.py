@@ -166,6 +166,7 @@ from infinite_canvas.model_capability_workbench import (
     ModelCapabilityWorkbenchValidation,
 )
 from infinite_canvas.model_capability_discovery import ModelCapabilityDiscovery
+from infinite_canvas.model_settings_backup import ModelSettingsBackup
 from infinite_canvas.model_capability_matrix import (
     ModelCapabilityMatrix,
 )
@@ -2527,40 +2528,41 @@ def save_available_model_names(names: Dict[str, str]) -> None:
     """Persist administrator-defined display names without changing provider model IDs."""
     if not isinstance(names, dict) or not names:
         return
-    providers = load_api_providers()
-    inventory = available_models(providers, include_hidden=True)
-    entries_by_id = {
-        entry["id"]: entry
-        for entries in inventory.values()
-        for entry in entries
-    }
-    providers_by_id = {
-        str(provider.get("id") or "").strip(): provider
-        for provider in providers
-        if isinstance(provider, dict)
-    }
-    changed = False
-    for entry_id, raw_name in names.items():
-        entry = entries_by_id.get(str(entry_id or "").strip())
-        if not entry:
-            continue
-        display_name = re.sub(r"\s+", " ", str(raw_name or "").strip())[:160]
-        if not display_name:
-            raise HTTPException(status_code=400, detail="模型名称不能为空")
-        provider = providers_by_id.get(entry["provider_id"])
-        if not provider:
-            continue
-        model_names = provider.get("model_names")
-        if not isinstance(model_names, dict):
-            model_names = {}
-            provider["model_names"] = model_names
-        model_id = entry["model"]
-        if model_names.get(model_id) == display_name:
-            continue
-        model_names[model_id] = display_name
-        changed = True
-    if changed:
-        save_api_providers(providers)
+    with GLOBAL_CONFIG_LOCK:
+        providers = load_api_providers()
+        inventory = available_models(providers, include_hidden=True)
+        entries_by_id = {
+            entry["id"]: entry
+            for entries in inventory.values()
+            for entry in entries
+        }
+        providers_by_id = {
+            str(provider.get("id") or "").strip(): provider
+            for provider in providers
+            if isinstance(provider, dict)
+        }
+        changed = False
+        for entry_id, raw_name in names.items():
+            entry = entries_by_id.get(str(entry_id or "").strip())
+            if not entry:
+                continue
+            display_name = re.sub(r"\s+", " ", str(raw_name or "").strip())[:160]
+            if not display_name:
+                raise HTTPException(status_code=400, detail="模型名称不能为空")
+            provider = providers_by_id.get(entry["provider_id"])
+            if not provider:
+                continue
+            model_names = provider.get("model_names")
+            if not isinstance(model_names, dict):
+                model_names = {}
+                provider["model_names"] = model_names
+            model_id = entry["model"]
+            if model_names.get(model_id) == display_name:
+                continue
+            model_names[model_id] = display_name
+            changed = True
+        if changed:
+            save_api_providers(providers)
 
 def get_primary_provider_id(providers=None):
     """返回当前首选 provider 的 id；优先 primary=True 的，否则取第一个非 modelscope 的，再次取第一个。"""
@@ -6853,76 +6855,111 @@ async def save_design_tokens(payload: DesignTokenSavePayload):
 @app.put("/api/admin/available-models")
 async def update_available_models(payload: AvailableModelOrderPayload):
     require_current_user("admin")
-    save_available_model_names(payload.names)
-    models = save_available_model_order(
-        payload.dict(exclude={"names", "visible"}),
-        payload.visible,
-    )
+    with GLOBAL_CONFIG_LOCK:
+        save_available_model_names(payload.names)
+        models = save_available_model_order(
+            payload.dict(exclude={"names", "visible"}),
+            payload.visible,
+        )
     return {"models": models}
 
 @app.put("/api/providers")
 async def save_providers(payload: List[ApiProviderPayload]):
-    providers = []
-    env_updates = {}
-    # 收集每个 item 的 primary 字段
-    raw_primary_flags = [bool(getattr(item, "primary", False)) for item in payload]
-    for item in payload:
-        provider = normalize_provider(item.dict(exclude={"api_key"}))
-        if provider["id"] == "runninghub":
-            provider = preserve_runninghub_hidden_overrides(provider)
-            prune_runninghub_workflow_store_for_provider(provider)
-        if any(existing["id"] == provider["id"] for existing in providers):
-            raise HTTPException(status_code=400, detail=f"API 平台 ID 重复：{provider['id']}")
-        providers.append(provider)
-        key_env = provider_key_env(provider["id"])
-        if item.clear_key:
-            env_updates[key_env] = ""
-        elif item.api_key is not None and item.api_key.strip():
-            env_updates[key_env] = item.api_key.strip()
-        if provider["id"] == "runninghub":
-            wallet_env = runninghub_wallet_key_env()
-            if item.clear_wallet_key:
-                env_updates[wallet_env] = ""
-            elif item.wallet_api_key is not None and item.wallet_api_key.strip():
-                env_updates[wallet_env] = item.wallet_api_key.strip()
-        if provider["id"] == "volcengine":
-            ak_env = volcengine_access_key_env()
-            sk_env = volcengine_secret_key_env()
-            if item.clear_volcengine_access_key_id:
-                env_updates[ak_env] = ""
-            elif item.volcengine_access_key_id is not None and item.volcengine_access_key_id.strip():
-                env_updates[ak_env] = item.volcengine_access_key_id.strip()
-            if item.clear_volcengine_secret_access_key:
-                env_updates[sk_env] = ""
-            elif item.volcengine_secret_access_key is not None and item.volcengine_secret_access_key.strip():
-                env_updates[sk_env] = item.volcengine_secret_access_key.strip()
-        if provider["id"] == "comfly":
-            env_updates["COMFLY_BASE_URL"] = provider["base_url"]
-        if provider["id"] == "runninghub":
-            provider["protocol"] = "runninghub"
-        if provider["id"] == "volcengine":
-            provider["protocol"] = "volcengine"
-    if not providers:
-        raise HTTPException(status_code=400, detail="至少保留一个 API 平台")
-    # 强制最多一个 primary（取最后被标记的；都没标记则保持原样不强制）
-    primary_indices = [i for i, flag in enumerate(raw_primary_flags) if flag]
-    if primary_indices:
-        winner = primary_indices[-1]
-        for i, p in enumerate(providers):
-            p["primary"] = (i == winner)
-    save_api_providers(providers)
-    if env_updates:
-        update_env_values(env_updates)
-        reload_env_globals()   # 立即将最新 env 值同步回模块全局变量，无需重启
-    return {"providers": [public_provider(p) for p in providers]}
+    with GLOBAL_CONFIG_LOCK:
+        # Display names are edited through available-models. An older API settings
+        # page must not overwrite those names while saving connection/model lists.
+        current_names = {
+            p["id"]: normalize_model_name_map(p.get("model_names"))
+            for p in load_api_providers()
+        }
+        providers = []
+        env_updates = {}
+        # 收集每个 item 的 primary 字段
+        raw_primary_flags = [bool(getattr(item, "primary", False)) for item in payload]
+        for item in payload:
+            provider = normalize_provider(item.dict(exclude={"api_key"}))
+            provider["model_names"] = {
+                **provider.get("model_names", {}),
+                **current_names.get(provider["id"], {}),
+            }
+            if provider["id"] == "runninghub":
+                provider = preserve_runninghub_hidden_overrides(provider)
+                prune_runninghub_workflow_store_for_provider(provider)
+            if any(existing["id"] == provider["id"] for existing in providers):
+                raise HTTPException(status_code=400, detail=f"API 平台 ID 重复：{provider['id']}")
+            providers.append(provider)
+            key_env = provider_key_env(provider["id"])
+            if item.clear_key:
+                env_updates[key_env] = ""
+            elif item.api_key is not None and item.api_key.strip():
+                env_updates[key_env] = item.api_key.strip()
+            if provider["id"] == "runninghub":
+                wallet_env = runninghub_wallet_key_env()
+                if item.clear_wallet_key:
+                    env_updates[wallet_env] = ""
+                elif item.wallet_api_key is not None and item.wallet_api_key.strip():
+                    env_updates[wallet_env] = item.wallet_api_key.strip()
+            if provider["id"] == "volcengine":
+                ak_env = volcengine_access_key_env()
+                sk_env = volcengine_secret_key_env()
+                if item.clear_volcengine_access_key_id:
+                    env_updates[ak_env] = ""
+                elif item.volcengine_access_key_id is not None and item.volcengine_access_key_id.strip():
+                    env_updates[ak_env] = item.volcengine_access_key_id.strip()
+                if item.clear_volcengine_secret_access_key:
+                    env_updates[sk_env] = ""
+                elif item.volcengine_secret_access_key is not None and item.volcengine_secret_access_key.strip():
+                    env_updates[sk_env] = item.volcengine_secret_access_key.strip()
+            if provider["id"] == "comfly":
+                env_updates["COMFLY_BASE_URL"] = provider["base_url"]
+            if provider["id"] == "runninghub":
+                provider["protocol"] = "runninghub"
+            if provider["id"] == "volcengine":
+                provider["protocol"] = "volcengine"
+        if not providers:
+            raise HTTPException(status_code=400, detail="至少保留一个 API 平台")
+        # 强制最多一个 primary（取最后被标记的；都没标记则保持原样不强制）
+        primary_indices = [i for i, flag in enumerate(raw_primary_flags) if flag]
+        if primary_indices:
+            winner = primary_indices[-1]
+            for i, p in enumerate(providers):
+                p["primary"] = (i == winner)
+        save_api_providers(providers)
+        if env_updates:
+            update_env_values(env_updates)
+            reload_env_globals()   # 立即将最新 env 值同步回模块全局变量，无需重启
+        return {"providers": [public_provider(p) for p in providers]}
 
 
 class ApiSettingsEncryptedExportPayload(BaseModel):
     password: str = Field(min_length=8, max_length=256)
 
 
+def save_imported_model_settings(settings):
+    # Restore the whole snapshot, including models on disabled providers.
+    path = Path(available_models_file())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 @functools.lru_cache(maxsize=1)
 def _configured_api_settings_package():
+    capabilities = ModelSettingsBackup(
+        MODEL_CAPABILITY_CATALOG, MODEL_CAPABILITY_WORKBENCH,
+        lambda provider, model: ModelCapabilityContext(
+            protocol=provider.get("protocol", ""), base_url=provider.get("base_url", ""),
+            image_request_mode=effective_image_request_mode(provider, model),
+            discovered_image=provider_image_capability_data(provider, model),
+            default_image_resolution=provider.get("default_image_resolution", ""),
+            image_reference_maximum=ONLINE_IMAGE_REFERENCE_MAX,
+            text_image_maximum=8, text_video_maximum=3, text_history_maximum=MAX_HISTORY_MESSAGES,
+        ),
+    )
     return ApiSettingsPackage(
         _ApiSettingsStorageAdapter(
             mutation_lock=GLOBAL_CONFIG_LOCK,
@@ -6949,8 +6986,15 @@ def _configured_api_settings_package():
                 available_models_file(),
                 runninghub_workflow_file(),
                 API_ENV_FILE,
+                str(MODEL_CAPABILITY_WORKBENCH.path),
             ),
             environment=os.environ,
+            export_capabilities=capabilities.export,
+            validate_capabilities=capabilities.validate,
+            import_capabilities=capabilities.restore,
+            refresh_capabilities=capabilities.refresh,
+            save_model_settings=save_imported_model_settings,
+            capability_lock=MODEL_CAPABILITY_WORKBENCH.backup_lock(),
         )
     )
 
@@ -6964,6 +7008,7 @@ async def export_encrypted_api_settings(
         package = await asyncio.to_thread(
             settings_package.export_encrypted,
             payload.password,
+            complete=True,
         )
     except ApiSettingsTransferError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -6986,12 +7031,13 @@ async def export_encrypted_api_settings(
 async def import_encrypted_api_settings(
     file: UploadFile = File(...),
     password: str = Form(...),
+    preview: bool = Form(False),
 ):
     try:
         package = await file.read(MAX_PACKAGE_BYTES + 1)
         settings_package = _configured_api_settings_package()
         return await asyncio.to_thread(
-            settings_package.import_encrypted,
+            settings_package.preview_encrypted if preview is True else settings_package.import_encrypted,
             package,
             password,
         )
@@ -7916,7 +7962,7 @@ async def create_canvas_image_task(payload: OnlineImageRequest):
 async def get_canvas_image_task(task_id: str):
     actor = require_current_user("admin", "designer")
     try:
-        run = _GENERATION_RUNS.get(
+        run = await _GENERATION_RUNS.query(
             task_id,
             owner=str(actor.get("id") or ""),
         )
@@ -7982,7 +8028,7 @@ async def create_canvas_layer_decomposition_task(
 async def get_canvas_layer_decomposition_task(task_id: str):
     actor = require_current_user("admin", "designer")
     try:
-        run = _GENERATION_RUNS.get(
+        run = await _GENERATION_RUNS.query(
             task_id,
             owner=str(actor.get("id") or ""),
         )
@@ -8039,7 +8085,7 @@ async def create_canvas_comfy_task(payload: GenerateRequest):
 async def get_canvas_comfy_task(task_id: str):
     actor = require_current_user("admin", "designer")
     try:
-        run = _GENERATION_RUNS.get(
+        run = await _GENERATION_RUNS.query(
             task_id,
             owner=str(actor.get("id") or ""),
         )
@@ -8680,7 +8726,7 @@ async def create_canvas_video_task(payload: CanvasVideoRequest):
 async def get_canvas_video_task(task_id: str):
     actor = require_current_user("admin", "designer")
     try:
-        run = _GENERATION_RUNS.get(
+        run = await _GENERATION_RUNS.query(
             task_id,
             owner=str(actor.get("id") or ""),
         )
@@ -8847,7 +8893,7 @@ async def get_canvas_llm_task(task_id: str):
     actor = require_current_user("admin", "designer")
     owner = str(actor.get("id") or "")
     try:
-        run = _GENERATION_RUNS.get(task_id, owner=owner)
+        run = await _GENERATION_RUNS.query(task_id, owner=owner)
         if run.status not in {
             "succeeded",
             "failed",

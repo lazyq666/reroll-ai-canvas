@@ -51,10 +51,10 @@
                         </div>
                     </div>
                     <div class="api-transfer-group">
-                        <ic-heading class="side-section-title" level="3" data-i18n="api.settingsMigration" data-legal-combination="h3-title">API 设置迁移</ic-heading>
-                        <div class="api-transfer-note" data-i18n="api.transferScope">仅包含 ModelScope、RunningHub、火山引擎和非 CLI 自定义平台。</div>
+                        <ic-heading class="side-section-title" level="3" data-i18n="api.settingsMigration" data-legal-combination="h3-title">API 与模型备份</ic-heading>
+                        <div class="api-transfer-note" data-i18n="api.transferScope">包含所有平台的模型、命名、排序、显隐、能力详情及 API 密钥。CLI 登录需在目标设备重新完成。</div>
                         <div class="api-transfer-actions"><ic-button class="sidebar-action" type="button" hierarchy="secondary" onclick="exportEncryptedApiSettings()"><ic-icon slot="start" name="download"></ic-icon><span data-i18n="api.exportEncrypted">导出加密包</span></ic-button>
-                        <ic-button class="sidebar-action" type="button" hierarchy="secondary" onclick="chooseEncryptedApiSettings()"><ic-icon slot="start" name="upload"></ic-icon><span data-i18n="api.importEncrypted">导入加密包</span></ic-button></div><ic-file-input id="apiSettingsImportInput" name="api_settings_package" label="导入 API 设置加密包" data-i18n-label="api.importEncryptedPackage" accept=".icapi,application/vnd.infinite-canvas.api-settings" hidden></ic-file-input>
+                        <ic-button class="sidebar-action" type="button" hierarchy="secondary" onclick="chooseEncryptedApiSettings()"><ic-icon slot="start" name="upload"></ic-icon><span data-i18n="api.importEncrypted">导入加密包</span></ic-button></div><ic-file-input id="apiSettingsImportInput" name="api_settings_package" label="导入 API 与模型备份" data-i18n-label="api.importEncryptedPackage" accept=".icapi,application/vnd.infinite-canvas.api-settings" hidden></ic-file-input>
                     </div>
                     </nav>
                 </ic-card>
@@ -486,10 +486,10 @@
         <ic-button slot="footer" type="button" hierarchy="primary" onclick="submitApiTransferPassword(event)" data-i18n="api.continue">继续</ic-button>
     </ic-dialog>
 
-    <ic-confirmation-dialog id="apiImportConfirmation" label="确认导入 API 设置" data-i18n-label="api.confirmImportTitle" description="导入会按平台 ID 合并非 CLI 平台，并更新包内已有密钥。CLI 平台不会改变。是否继续？" data-i18n-description="api.confirmPackageImport" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确认导入" data-i18n-confirm-label="api.confirmImportAction" consequence="neutral"><p data-confirmation-copy data-i18n="api.confirmPackageImport">导入会按平台 ID 合并非 CLI 平台，并更新包内已有密钥。CLI 平台不会改变。是否继续？</p></ic-confirmation-dialog>
+    <ic-confirmation-dialog id="apiImportConfirmation" label="确认导入备份" data-i18n-label="api.confirmImportTitle" description="按平台 ID 更新或新增配置，包内平台的模型、显示名称、排序、显隐、能力详情和已有密钥将覆盖当前值。其他平台保留，CLI 登录状态不变。" data-i18n-description="api.confirmPackageImport" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确认导入" data-i18n-confirm-label="api.confirmImportAction" consequence="neutral"><p data-confirmation-copy data-i18n="api.confirmPackageImport">按平台 ID 更新或新增配置，包内平台的模型、显示名称、排序、显隐、能力详情和已有密钥将覆盖当前值。其他平台保留，CLI 登录状态不变。</p></ic-confirmation-dialog>
     <ic-confirmation-dialog id="apiActionConfirmation" label="确认操作" data-i18n-label="api.confirmActionTitle" description="确认执行此操作。" data-i18n-description="api.confirmActionDescription" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确定" data-i18n-confirm-label="common.confirm" consequence="destructive"><p data-confirmation-copy data-i18n="api.confirmActionDescription">确认执行此操作。</p></ic-confirmation-dialog>
 
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-91bec942d352"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-a6b547953ad6"></script>
     <script src="/static/js/api-settings.js?v=2026.09.01.5.1788439320" defer></script>
 </body>
 </html>

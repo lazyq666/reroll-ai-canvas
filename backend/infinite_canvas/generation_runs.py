@@ -94,6 +94,8 @@ class GenerationRunLifecycleProjectionError(RuntimeError):
 
 
 class GenerationRunLifecycleStore(Protocol):
+    async def load(self, run_id: str) -> GenerationRunState | None: ...
+
     async def persist(
         self,
         value: Mapping[str, Any],
@@ -2473,6 +2475,40 @@ class GenerationRuns:
                 run.snapshot(),
                 result=published,
             )
+
+    async def query(
+        self,
+        run_id: str,
+        *,
+        owner: str = "",
+    ) -> GenerationRunSnapshot:
+        """Read a Run, including terminal Runs omitted from startup recovery."""
+        run_id = str(run_id or "")
+        with self._lock:
+            self._load_locked()
+            if run_id in self._runs:
+                return self.get(run_id, owner=owner)
+            lifecycle_store = self._lifecycle_store
+            if self._path() is not None or lifecycle_store is None:
+                raise GenerationRunNotFound("Generation Run 不存在")
+
+        # The lifecycle adapter runs SQLite I/O on the bounded store executor,
+        # outside the runtime lock and the event loop. Querying never executes
+        # the Provider or replays publication effects.
+        state = await lifecycle_store.load(run_id)
+        with self._lock:
+            # Another query/recovery may have populated a newer runtime state
+            # while the database read was in flight; never overwrite it.
+            if run_id not in self._runs:
+                if state is None:
+                    raise GenerationRunNotFound("Generation Run 不存在")
+                run = _Run.from_stored(_lifecycle_run_value(state))
+                self._require_owner(run, owner)
+                self._runs[run.id] = run
+                if run.key:
+                    self._keys.setdefault((run.owner, run.key), run.id)
+                self._index_remote_refs_locked(run)
+            return self.get(run_id, owner=owner)
 
     def get(
         self,

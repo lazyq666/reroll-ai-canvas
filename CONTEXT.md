@@ -393,5 +393,5 @@ _Avoid_: Workspace Data, Instance State, Device Cache
 _Avoid_: Managed Media, Device State, Workspace Data
 
 **API Settings Package（API 设置包）**:
-用于在设备之间转移非 CLI Provider 设置和秘密、但不转移 Account 或其他设备配置的加密产物。
+用于备份和跨设备转移 Provider 连接、秘密及完整 Model 配置的加密产物；包括 CLI 的共享模型设置，但不转移 CLI 登录状态、Account 或其他设备配置。
 _Avoid_: Raw Environment Backup, CLI Session Backup, Workspace Export

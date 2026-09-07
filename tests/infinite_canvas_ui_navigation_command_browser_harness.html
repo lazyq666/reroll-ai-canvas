@@ -56,7 +56,7 @@
     <button data-value="one">One</button>
   </ic-tabs>
   <script type="module">
-    import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-91bec942d352';
+    import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-a6b547953ad6';
 
     await Promise.all([
       'ic-tabs',
@@ -118,10 +118,10 @@
       && segments.children[1].getAttribute('aria-checked') === 'true';
     const lightSelectedStyle = getComputedStyle(segments.children[1]);
     checks.segmentedLightContrast = lightSelectedStyle.backgroundColor
-      === resolveColorToken('--ui-color-surface');
+      === resolveColorToken('--ui-color-surface-segmented');
     checks.segmentedSizeSelectedSurface = [...document.querySelectorAll('#segmentSizes ic-segmented-control')]
       .every(control => getComputedStyle(control.children[0]).backgroundColor
-        === resolveColorToken('--ui-color-surface'));
+        === resolveColorToken('--ui-color-surface-segmented'));
     const segmentedSizeSpecs = [
       ['small', '--ui-control-height-s', '--ui-font-size-1', '--ui-space-2'],
       ['medium', '--ui-control-height-m', '--ui-font-size-2', '10px'],
@@ -138,7 +138,7 @@
         && optionStyle.paddingLeft === expectedPadding
         && optionStyle.paddingRight === expectedPadding;
     });
-    checks.segmentedBorders = getComputedStyle(segments).borderColor === resolveColorToken('--ui-color-border-segmented-control')
+    checks.segmentedBorders = getComputedStyle(segments).borderColor === resolveColorToken('--ui-color-border-secondary')
       && lightSelectedStyle.borderColor === 'rgba(0, 0, 0, 0)'
       && lightSelectedStyle.outlineColor === resolveColorToken('--ui-color-border-secondary')
       && lightSelectedStyle.outlineStyle === 'solid'
@@ -147,7 +147,8 @@
     await new Promise(resolve => setTimeout(resolve, 250));
     const darkSelectedStyle = getComputedStyle(segments.children[1]);
     checks.segmentedDarkContrast = darkSelectedStyle.backgroundColor
-      === resolveColorToken('--ui-color-surface');
+      === resolveColorToken('--ui-color-surface-segmented');
+    checks.segmentedDarkBorder = getComputedStyle(segments).borderColor === resolveColorToken('--ui-color-border-secondary');
     const darkSelectedTabStyle = getComputedStyle(tabs.children[1]);
     checks.tabsDarkContrast = darkSelectedTabStyle.backgroundColor === resolveColorToken('--ui-color-action-secondary-selected')
       && darkSelectedTabStyle.color === resolveColorToken('--ui-color-text-primary');
@@ -159,7 +160,7 @@
     await new Promise(resolve => setTimeout(resolve, 260));
     const iconSelectedStyle = getComputedStyle(iconSegments.children[1]);
     checks.segmentedIconLabelSelected = iconSelectedStyle.backgroundColor
-      === resolveColorToken('--ui-color-surface');
+      === resolveColorToken('--ui-color-surface-segmented');
 
     const first = document.querySelector('#first');
     first.focus();

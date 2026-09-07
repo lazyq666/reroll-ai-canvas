@@ -322,6 +322,15 @@ class ModelCapabilityCatalog:
                 )
             return self._apply_published_capability(capability, active_context)
 
+    def backup_contract(self, provider_id, model_id, operation, *, context=None):
+        """Snapshot configured limits before this device narrows them at runtime."""
+        with self._lock:
+            resolved = self.resolve(provider_id, model_id, operation, context=context)
+            configured = self._published_capabilities.get((
+                _clean(provider_id).lower(), _clean(model_id), _clean(operation).lower()
+            ))
+            return self._merge_capability(resolved, configured) if configured else resolved
+
     def _apply_published_capability(
         self,
         capability: Mapping[str, Any],

@@ -434,6 +434,11 @@ SQLite authority 启动时还会领取未完成的 Publication Receipt：History
 Notification 以稳定 effect ID 发送并标记完成。已完成回执不会再次领取；没有 durable Run 或
 无法重建输出的 pending 项不会由迁移工具静默导入。
 
+启动恢复只载入待处理的 Run；图片、智能分层、视频、ComfyUI 和文字任务按原 task ID 查询时，
+若内存中没有该 Run，则通过异步生命周期存储回查当前 Workspace 的 SQLite，并校验任务所有者。
+因此，任务已完成但浏览器尚未收到结果时重启，重新打开页面仍可取得已保存的最终状态和结果。
+这种读取不重新调用 Provider，也不重复发布已完成的结果；未知任务和其他账号的任务仍返回 404。
+
 前端只允许任务所有者主动轮询自己的 Pending/Queued 任务；其他协作者可以从活跃 Run 投影
 看到等待状态，但仍只通过 Canvas Revision 和实时同步接收最终结果。
 
@@ -501,6 +506,7 @@ Managed Media，删除 Device Cache 只会导致下次使用时重新下载或�
 | 历史 Workspace 停服迁移、故障恢复、幂等、归档与回滚 | `tests/test_offline_sqlite_migration.py`、`tests/test_sqlite_migration.py` |
 | Provider 选择和统一返回合同 | `tests/test_provider_registry.py`、`tests/test_provider_fake_matrix.py` |
 | 远端检查点和查询恢复 | `tests/test_remote_generation_contracts.py`、`tests/test_generation_recovery_routes.py` |
+| 重启后终态任务查询、原上游任务恢复、账号隔离与并发回查 | `tests/test_generation_task_restart_queries.py` |
 | Gemini CLI 会话/图片名隔离、429 透传、独立目录、并发和清理 | `tests/test_antigravity_cli.py` |
 | Smart Canvas 批量输出、方向快照与真实页面设置 | `tests/test_smart_canvas_generation_batch.py`、`tests/test_smart_canvas_node_placement.py`、`tests/issue_148_layout_browser_smoke.cjs` |
 | 生成中节点再次提交与悬浮菜单（含 Prompt Generation Node 并行文字输出） | `tests/test_issue_115_inflight_generation.py`、`tests/issue_115_inflight_generation_browser_smoke.cjs`、`tests/issue_115_prompt_generation_inflight_browser_smoke.cjs` |

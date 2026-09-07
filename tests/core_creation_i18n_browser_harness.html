@@ -28,17 +28,24 @@
     <button type="button" data-page="available-model-management" aria-pressed="false">Models</button>
     <button type="button" data-lang="zh-CN" aria-pressed="true">中文</button>
     <button type="button" data-lang="en" aria-pressed="false">English</button>
+    <button type="button" data-theme="light">Light</button>
+    <button type="button" data-theme="dark">Dark</button>
   </header>
   <iframe id="preview" title="Core creation page preview" src="/static/zimage.html"></iframe>
   <script>
     const preview = document.querySelector('#preview');
     let language = 'zh-CN';
+    let theme = 'light';
 
     function sendLanguage() {
       preview.contentWindow?.postMessage({ type: 'studio-lang', lang: language }, location.origin);
+      preview.contentWindow?.postMessage({ type: 'studio-theme', theme }, location.origin);
     }
 
     preview.addEventListener('load', sendLanguage);
+    document.querySelectorAll('[data-theme]').forEach(button => {
+      button.addEventListener('click', () => { theme = button.dataset.theme; sendLanguage(); });
+    });
     document.querySelectorAll('[data-page]').forEach(button => {
       button.addEventListener('click', () => {
         document.querySelectorAll('[data-page]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));

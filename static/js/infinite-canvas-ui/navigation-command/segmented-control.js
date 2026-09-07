@@ -26,7 +26,7 @@ export class IcSegmentedControl extends IcComposite {
         align-items: center;
         gap: var(--ui-space-1);
         padding: var(--ui-space-1);
-        border: var(--ui-border-width-thin) solid var(--ui-color-border-segmented-control);
+        border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
         border-radius: 10px;
         background: var(--ui-color-surface-subtle);
         --ic-navigation-state-duration: var(--ui-motion-duration-fast);
@@ -65,14 +65,14 @@ export class IcSegmentedControl extends IcComposite {
       ::slotted([role="radio"][aria-checked="true"]) {
         outline: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
         outline-offset: 0;
-        background: var(--ui-color-surface);
+        background: var(--ui-color-surface-segmented);
         color: var(--ui-color-text-primary);
         font-weight: var(--ui-font-weight-medium);
         box-shadow: var(--ui-shadow-raised);
       }
       :host([data-legal-combination="single-label"])::slotted([role="radio"][aria-checked="true"]),
       :host([data-legal-combination="single-icon-label"])::slotted([role="radio"][aria-checked="true"]) {
-        background: var(--ui-color-surface);
+        background: var(--ui-color-surface-segmented);
         color: var(--ui-color-text-primary);
       }
       ::slotted([role="radio"]:disabled) {

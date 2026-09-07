@@ -82,3 +82,7 @@ Smart Canvas 使用同一目录渲染合法设置并在提交前预检；服务�
 - `static/js/smart-canvas/model-capabilities.js`
 - `tests/test_model_capabilities.py`
 - `tests/test_model_capability_api.py`
+
+## 2026-09-07：配置备份的能力恢复
+
+用户要求在现有 API 设置导入／导出入口完整备份模型配置。API Settings Package v2 携带配置模型的能力基线与已发布选择，按稳定 Provider、Model、Operation 校验，通过既有 Workbench 原子发布，并与平台、密钥和模型显隐共同回滚。此操作恢复 Reroll 备份，不恢复已移除的外部 AI 研究包／能力数据导入入口。未发布草稿与历史审计不迁移；目标保留自身历史，并记录一次恢复操作。保存能力配置时保留原始上限，运行时仍受目标设备限制。备份不改变安装级能力目录的归属。

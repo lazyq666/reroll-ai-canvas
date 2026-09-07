@@ -172,7 +172,7 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 `INFINITE_CANVAS_INSTANCE_STATE_DIR` 显式覆盖，主要用于测试和受控管理；选择或搬动
 Workspace 不会改变这个位置。
 
-`model-capability-workbench.json` 保存安装级 Administrator 共用的 Model Capability Evidence、Draft、Review State 与 Published 投影。它以版本化 JSON 原子替换；只有 Published 能力投影参与运行目录 Revision，Evidence、草稿和退回记录不会改变生成合同。该文件不包含 Provider 凭证，也不随 Workspace 搬迁或 Device Cache 清理。 历史外部导入产生的 Published、Evidence、Draft 和 `maintenance_origin` 元数据继续保留；移除导入功能不会清除或迁移已保存能力。旧数据仍参与目录解析，后续可在模型详情中人工修改。
+`model-capability-workbench.json` 保存安装级 Administrator 共用的 Model Capability Evidence、Draft、Review State 与 Published 投影。它以版本化 JSON 原子替换；只有 Published 能力投影参与运行目录 Revision，Evidence、草稿和退回记录不会改变生成合同。该文件不包含 Provider 凭证，也不随 Workspace 搬迁或 Device Cache 清理。 历史外部导入产生的 Published、Evidence、Draft 和 `maintenance_origin` 元数据继续保留；移除导入功能不会清除或迁移已保存能力。旧数据仍参与目录解析，后续可在模型详情中人工修改。 API 与模型备份会导出配置模型的能力基线与已发布配置，跨设备恢复时与平台及密钥一起回滚；不复制整个安装状态或审核历史，详情见 [API Settings Package](api-settings-package.md)。
 
 ### Device State
 

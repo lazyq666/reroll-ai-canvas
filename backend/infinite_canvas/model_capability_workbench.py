@@ -121,6 +121,10 @@ class ModelCapabilityWorkbench:
         with self._lock:
             return copy.deepcopy(self._read())
 
+    def backup_lock(self):
+        """Coordinate a settings backup with concurrent capability edits."""
+        return self._lock
+
     def record_evidence(
         self,
         *,

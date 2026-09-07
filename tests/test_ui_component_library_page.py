@@ -433,7 +433,7 @@ class UiComponentLibraryPageTests(unittest.TestCase):
         )
         self.assertTrue(selected_segment_rules)
         self.assertTrue(all(
-            "background:var(--ui-color-surface)" in re.sub(r"\s+", "", rules)
+            "background:var(--ui-color-surface-segmented)" in re.sub(r"\s+", "", rules)
             for rules in selected_segment_rules
         ))
 
@@ -507,7 +507,7 @@ class UiComponentLibraryPageTests(unittest.TestCase):
         self.assertNotIn('data-component-name="ic-segmented-control-single-label"', self.navigation_command_case)
         self.assertNotIn('data-component-name="ic-segmented-control-single-icon-label"', self.navigation_command_case)
         segmented_source = re.sub(r"\s+", "", self.navigation_command)
-        self.assertIn("border:var(--ui-border-width-thin)solidvar(--ui-color-border-segmented-control)", segmented_source)
+        self.assertIn("border:var(--ui-border-width-thin)solidvar(--ui-color-border-secondary)", segmented_source)
         self.assertIn("border-radius:10px", segmented_source)
         self.assertIn("border-radius:var(--ui-radius-s)", segmented_source)
         self.assertIn(
@@ -516,7 +516,7 @@ class UiComponentLibraryPageTests(unittest.TestCase):
         )
         self.assertIn('outline-offset:0', segmented_source)
         self.assertIn(
-            "--ui-color-border-segmented-control: var(--ui-palette-gray-100);",
+            "--ui-color-surface-segmented: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-600));",
             self.design_tokens,
         )
         for size, height, font_size, padding in (

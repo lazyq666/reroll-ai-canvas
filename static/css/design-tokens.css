@@ -96,6 +96,7 @@
     /* Surface 只表达静态 UI 容器；可交互容器使用 Action */
     --ui-color-surface-canvas: light-dark(var(--ui-palette-gray-50), var(--ui-palette-gray-1000));
     --ui-color-surface: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-800));
+    --ui-color-surface-segmented: light-dark(var(--ui-palette-gray-0), var(--ui-palette-gray-600));
     --ui-color-surface-subtle: light-dark(var(--ui-palette-gray-50), var(--ui-palette-gray-950));
     --ui-color-surface-floating: light-dark(
         color-mix(in srgb, var(--ui-palette-gray-0) 92%, var(--ui-palette-transparent)),
@@ -132,7 +133,6 @@
     --ui-color-border-connections: light-dark(var(--ui-palette-gray-400), var(--ui-palette-gray-500));
     --ui-color-border-connection-draft: var(--ui-palette-blue-400);
     --ui-color-border-tertiary: light-dark(var(--ui-palette-gray-50), var(--ui-palette-gray-800));
-    --ui-color-border-segmented-control: var(--ui-palette-gray-100);
     --ui-color-border-disabled: light-dark(var(--ui-palette-gray-200), var(--ui-palette-gray-800));
     --ui-color-border-focus: light-dark(var(--ui-palette-gray-500), var(--ui-palette-gray-400));
     --ui-color-border-selected: light-dark(var(--ui-palette-gray-800), var(--ui-palette-gray-100));

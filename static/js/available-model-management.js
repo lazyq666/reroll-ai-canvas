@@ -18,6 +18,8 @@
     revision: 0,
     queued: false,
     inFlight: null,
+    refreshQueued: false,
+    refreshInFlight: null,
   };
   const list = document.getElementById('model-list');
   const title = document.getElementById('catalog-title');
@@ -164,7 +166,7 @@
     .flat()
     .find((model) => model.id === modelId)?.name;
   const applySavedModelsInPlace = (savedModels) => {
-    stateTools.applySavedModelsInPlace(state.models, savedModels);
+    if (stateTools.applySavedModelsInPlace(state.models, savedModels)) render();
   };
   const commitChanges = () => {
     syncVisibleModelNames();
@@ -189,14 +191,18 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(saveBody()),
         });
+        if (!Object.keys(labels).every((kind) => Array.isArray(payload.models?.[kind]))) {
+          throw new Error(tr('models.saveNotApplied'));
+        }
         const namesApplied = [...submittedNames].every(([modelId, name]) => (
-          String(returnedName(payload.models, modelId) || '').trim() === String(name || '').trim()
+          returnedName(payload.models, modelId) === undefined
+          || String(returnedName(payload.models, modelId) || '').trim() === String(name || '').trim()
         ));
         if (!namesApplied) throw new Error(tr('models.saveNotApplied'));
         const visibilityApplied = [...submittedVisibility].every(([key, expected]) => {
           const [kind, modelId] = key.split('\0');
           const returned = (payload.models?.[kind] || []).find((model) => model.id === modelId);
-          return returned && (returned.visible !== false) === expected;
+          return !returned || (returned.visible !== false) === expected;
         });
         if (!visibilityApplied) throw new Error(tr('models.saveNotApplied'));
 
@@ -218,7 +224,10 @@
     })().catch((reason) => {
       setMessage(reason.message || tr('models.saveFailed'), true);
       return false;
-    }).finally(() => { state.inFlight = null; });
+    }).finally(() => {
+      state.inFlight = null;
+      if (state.refreshQueued) refreshModels();
+    });
     return state.inFlight;
   };
   const move = (from, to) => {
@@ -350,17 +359,52 @@
     ]));
     render();
   });
-  request('/api/admin/available-models')
-    .then((payload) => { state.models = payload.models || state.models; render(); })
-    .catch((reason) => setMessage(reason.message || tr('models.loadFailed'), true));
+  const hasPendingEdits = () => state.inFlight || state.dirtyNames.size || state.orderDirty || state.visibilityDirty;
+  let refreshTimer = null;
+  const refreshModels = () => {
+    state.refreshQueued = true;
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      if (state.refreshInFlight || hasPendingEdits()) return;
+      state.refreshInFlight = (async () => {
+        while (state.refreshQueued && !hasPendingEdits()) {
+          state.refreshQueued = false;
+          const revision = state.revision;
+          const payload = await request('/api/admin/available-models');
+          if (state.refreshQueued || revision !== state.revision || hasPendingEdits()) {
+            state.refreshQueued = true;
+            continue;
+          }
+          state.models = payload.models || state.models;
+          render();
+          setMessage('');
+        }
+      })().catch((reason) => {
+        state.refreshQueued = false;
+        setMessage(reason.message || tr('models.loadFailed'), true);
+      }).finally(() => { state.refreshInFlight = null; });
+    }, 0);
+  };
+  const receiveModelChange = (event) => {
+    if (['providers-changed', 'models-changed'].includes(event.data?.type)) refreshModels();
+  };
+  window.addEventListener('message', (event) => {
+    if (event.origin === window.location.origin) receiveModelChange(event);
+  });
+  try {
+    const channel = new BroadcastChannel('studio-api');
+    channel.onmessage = receiveModelChange;
+  } catch (_) {}
+  window.addEventListener('focus', refreshModels);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshModels();
+  });
+  refreshModels();
   window.addEventListener('studio-lang-change', () => {
     syncVisibleModelNames();
     render();
     if (!message.hidden) {
-      setMessage('');
-      request('/api/admin/available-models')
-        .then((payload) => { state.models = payload.models ?? state.models; render(); })
-        .catch((reason) => setMessage(reason.message || tr('models.loadFailed'), true));
+      refreshModels();
     }
   });
 })();

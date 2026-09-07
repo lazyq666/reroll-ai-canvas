@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import os
 import re
 import uuid
 from dataclasses import dataclass
+from contextlib import nullcontext
 from typing import (
     Any,
     Callable,
@@ -22,6 +24,8 @@ from typing import (
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+
+from .generation_settings import _split_provider
 
 
 PACKAGE_FORMAT = "infinite-canvas-api-settings"
@@ -80,6 +84,12 @@ class _ApiSettingsStorageAdapter:
     public_providers: Optional[Callable[[], List[Dict[str, Any]]]] = None
     transaction_paths: Optional[Callable[[], Sequence[str]]] = None
     environment: Optional[MutableMapping[str, str]] = None
+    export_capabilities: Optional[Callable[[List[Dict[str, Any]]], list]] = None
+    validate_capabilities: Optional[Callable[[object, List[Dict[str, Any]]], list]] = None
+    import_capabilities: Optional[Callable[[list], None]] = None
+    refresh_capabilities: Optional[Callable[[], None]] = None
+    save_model_settings: Optional[Callable[[dict], None]] = None
+    capability_lock: Any = None
 
 
 class ApiSettingsPackage:
@@ -88,8 +98,8 @@ class ApiSettingsPackage:
     def __init__(self, adapter: _ApiSettingsStorageAdapter):
         self._adapter = adapter
 
-    def export_encrypted(self, password: str) -> bytes:
-        return _export_package(self._adapter, password)
+    def export_encrypted(self, password: str, *, complete: bool = False) -> bytes:
+        return _export_package(self._adapter, password, complete=complete)
 
     def import_encrypted(
         self,
@@ -101,6 +111,30 @@ class ApiSettingsPackage:
             package,
             password,
         )
+
+    def preview_encrypted(self, package: bytes, password: str) -> Dict[str, Any]:
+        payload = _decrypt_payload(package, password)
+        adapter = self._adapter
+        with adapter.mutation_lock, (adapter.capability_lock or nullcontext()):
+            imported = _normalize_imported_settings(adapter, payload)
+            current = adapter.load_providers()
+            if payload["version"] == 2:
+                _validate_complete_order(payload, imported)
+                _required_adapter_dependency(adapter.validate_capabilities, "validate_capabilities")(
+                    payload.get("capabilities"), imported
+                )
+                _merge_complete_providers(current, imported)
+            else:
+                imported = _without_local_cli_collisions(current, imported)
+            if not imported:
+                raise ApiSettingsTransferError("api.emptyBackup")
+            _imported_env_updates(_exportable_providers(imported), payload.get("secrets"))
+            current_ids = {p["id"] for p in current}
+            return {"version": payload["version"], "providers": [p["name"] for p in imported],
+                    "added": sum(p["id"] not in current_ids for p in imported),
+                    "updated": sum(p["id"] in current_ids for p in imported),
+                    "models": sum(len(p.get(field, [])) for p in imported
+                                  for field in ("image_models", "video_models", "chat_models"))}
 
 
 def _exportable_provider(provider: Dict[str, Any]) -> bool:
@@ -174,15 +208,18 @@ def _secrets_for_export(
 def _export_package(
     adapter: _ApiSettingsStorageAdapter,
     password: str,
+    *, complete: bool = False,
 ) -> bytes:
     """Collect and encrypt one complete, internally consistent settings package."""
 
-    with adapter.mutation_lock:
-        providers = _exportable_providers(adapter.load_providers())
+    with adapter.mutation_lock, (adapter.capability_lock or nullcontext()):
+        all_providers = adapter.load_providers()
+        providers = (_complete_providers(all_providers) if complete
+                     else _exportable_providers(all_providers))
         provider_ids = {provider["id"] for provider in providers}
         payload = {
             "schema": "infinite-canvas.api-settings",
-            "version": 1,
+            "version": 2 if complete else 1,
             "app_version": adapter.current_app_version(),
             "exported_at": adapter.now_ms(),
             "providers": providers,
@@ -192,8 +229,18 @@ def _export_package(
                 if "runninghub" in provider_ids
                 else {}
             ),
-            "secrets": _secrets_for_export(adapter, providers),
+            "secrets": _secrets_for_export(adapter, _exportable_providers(providers)),
         }
+        if complete:
+            inventory = _complete_inventory(adapter, providers)
+            payload["model_order"] = {
+                kind: [{"provider_id": e["provider_id"], "model": e["model"],
+                        "visible": e.get("visible", True)} for e in entries]
+                for kind, entries in inventory.items()
+            }
+            payload["capabilities"] = _required_adapter_dependency(
+                adapter.export_capabilities, "export_capabilities"
+            )(providers)
     return _encrypt_payload(payload, password)
 
 
@@ -206,12 +253,92 @@ def _required_adapter_dependency(
     return value
 
 
+def _complete_providers(providers):
+    # CLI model choices travel; CLI connections, executable paths and sessions do not.
+    result = [copy.deepcopy(p) if _exportable_provider(p) else _split_provider(p)[0]
+              for p in providers]
+    for provider in result:
+        provider.setdefault("model_names", {})
+        for field in ("image_models", "video_models", "chat_models"):
+            provider.setdefault(field, [])
+    return result
+
+
+def _complete_inventory(adapter, providers):
+    # Disabled providers still belong in a backup.
+    return adapter.available_models([{**p, "enabled": True} for p in providers])
+
+
+def _merge_complete_providers(current, imported):
+    current_by_id = {p["id"]: p for p in current}
+    for provider in imported:
+        previous = current_by_id.get(provider["id"])
+        if previous and previous.get("protocol") != provider.get("protocol"):
+            raise ApiSettingsTransferError("api.backupProtocolConflict")
+    imported_by_id = {p["id"]: p for p in imported}
+    merged = []
+    for previous in current:
+        incoming = imported_by_id.get(previous["id"])
+        if incoming is None:
+            merged.append(previous)
+        elif not _exportable_provider(incoming):
+            merged.append({**previous, **incoming})
+        else:
+            merged.append(incoming)
+    merged.extend(p for p in imported if p["id"] not in current_by_id)
+    primary = next((p["id"] for p in reversed(imported) if p.get("primary")), None)
+    if primary:
+        for provider in merged:
+            provider["primary"] = provider["id"] == primary
+    return merged
+
+
+def _validate_complete_order(payload, imported):
+    fields = {"image": "image_models", "video": "video_models", "text": "chat_models"}
+    order = payload.get("model_order")
+    if not isinstance(order, dict) or set(order) != set(fields):
+        raise ApiSettingsTransferError("api.invalidBackup")
+    for kind, field in fields.items():
+        expected = {(p["id"], model) for p in imported for model in p.get(field, [])}
+        entries = order[kind]
+        seen = set()
+        if not isinstance(entries, list):
+            raise ApiSettingsTransferError("api.invalidBackup")
+        for entry in entries:
+            if not isinstance(entry, dict) or type(entry.get("visible")) is not bool:
+                raise ApiSettingsTransferError("api.invalidBackup")
+            key = (entry.get("provider_id"), entry.get("model"))
+            if not all(isinstance(value, str) for value in key) or key not in expected or key in seen:
+                raise ApiSettingsTransferError("api.invalidBackup")
+            seen.add(key)
+        if seen != expected:
+            raise ApiSettingsTransferError("api.invalidBackup")
+
+
+def _restore_complete_order(adapter, payload, imported, merged):
+    imported_ids = {p["id"] for p in imported}
+    inventory = _complete_inventory(adapter, merged)
+    settings = {"hidden": {}}
+    for kind, entries in inventory.items():
+        lookup = {(e["provider_id"], e["model"]): e["id"] for e in entries}
+        incoming = payload["model_order"][kind]
+        settings[kind] = [lookup[(e["provider_id"], e["model"])] for e in incoming]
+        settings["hidden"][kind] = [lookup[(e["provider_id"], e["model"])]
+                                    for e in incoming if not e["visible"]]
+        for entry in entries:
+            if entry["provider_id"] not in imported_ids:
+                settings[kind].append(entry["id"])
+                if entry.get("visible") is False:
+                    settings["hidden"][kind].append(entry["id"])
+    _required_adapter_dependency(adapter.save_model_settings, "save_model_settings")(settings)
+
+
 def _normalize_imported_settings(
     adapter: _ApiSettingsStorageAdapter,
     payload: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
     try:
-        supported_version = int((payload or {}).get("version") or 0) == 1
+        supported_version = type(payload.get("version")) is int and payload["version"] in (1, 2)
     except (AttributeError, TypeError, ValueError):
         supported_version = False
     if (
@@ -229,11 +356,26 @@ def _normalize_imported_settings(
     )
     providers = []
     seen = set()
+    complete = payload.get("version") == 2
+    if complete and (not isinstance(payload.get("secrets"), dict)
+                     or not isinstance(payload.get("runninghub_workflows"), dict)):
+        raise ApiSettingsTransferError("api.invalidBackup")
     for raw in raw_providers:
-        if not isinstance(raw, dict) or not _exportable_provider(raw):
+        if complete and not isinstance(raw, dict):
+            raise ApiSettingsTransferError("api.invalidBackup")
+        if not isinstance(raw, dict) or (not complete and not _exportable_provider(raw)):
             continue
+        if complete:
+            for field in ("image_models", "video_models", "chat_models"):
+                values = raw.get(field)
+                if (not isinstance(values, list) or not all(isinstance(v, str) and v.strip() for v in values)
+                        or len(values) != len(set(values))):
+                    raise ApiSettingsTransferError("api.invalidBackup")
+            names = raw.get("model_names")
+            if not isinstance(names, dict) or not all(isinstance(v, str) and v.strip() for v in names.values()):
+                raise ApiSettingsTransferError("api.invalidBackup")
         provider = normalize_provider(raw)
-        if not _exportable_provider(provider):
+        if not complete and not _exportable_provider(provider):
             continue
         if provider["id"] in seen:
             raise ApiSettingsTransferError(
@@ -241,9 +383,11 @@ def _normalize_imported_settings(
             )
         seen.add(provider["id"])
         providers.append(provider)
+    if complete:
+        providers = _complete_providers(providers)
     if not providers:
         raise ApiSettingsTransferError(
-            "API 设置包中没有可导入的非 CLI 平台"
+            "api.emptyBackup" if complete else "API 设置包中没有可导入的非 CLI 平台"
         )
     return providers
 
@@ -461,7 +605,15 @@ def _import_api_settings_payload(
 ) -> Dict[str, Any]:
     imported = _normalize_imported_settings(adapter, payload)
     current = adapter.load_providers()
-    imported = _without_local_cli_collisions(current, imported)
+    complete = payload.get("version") == 2
+    if not complete:
+        imported = _without_local_cli_collisions(current, imported)
+    capabilities = []
+    if complete:
+        _validate_complete_order(payload, imported)
+        capabilities = _required_adapter_dependency(
+            adapter.validate_capabilities, "validate_capabilities"
+        )(payload.get("capabilities"), imported)
     if not imported:
         raise ApiSettingsTransferError(
             "API 设置包中的平台与本机 CLI 平台 ID 冲突，未导入任何内容"
@@ -481,9 +633,10 @@ def _import_api_settings_payload(
         for item in imported
         if item["id"] in current_ids
     ]
-    merged = _merge_imported_providers(current, imported)
+    merged = (_merge_complete_providers(current, imported) if complete
+              else _merge_imported_providers(current, imported))
     env_updates = _imported_env_updates(
-        imported,
+        _exportable_providers(imported),
         payload.get("secrets"),
     )
     environment = adapter.environment if adapter.environment is not None else os.environ
@@ -531,10 +684,13 @@ def _import_api_settings_payload(
             and isinstance(workflow_store, dict)
         ):
             save_workflows(workflow_store)
-        save_model_order(
-            _imported_model_order(adapter, payload, imported)
-        )
+        if complete:
+            _restore_complete_order(adapter, payload, imported, merged)
+        else:
+            save_model_order(_imported_model_order(adapter, payload, imported))
         providers = public_providers()
+        if complete:
+            _required_adapter_dependency(adapter.import_capabilities, "import_capabilities")(capabilities)
     except Exception as import_error:
         rollback_errors = []
         for path, snapshot in snapshots.items():
@@ -552,6 +708,8 @@ def _import_api_settings_payload(
                 rollback_errors.append(exc)
         try:
             reload_env_globals()
+            if complete and adapter.refresh_capabilities:
+                adapter.refresh_capabilities()
         except Exception as exc:
             rollback_errors.append(exc)
         if rollback_errors:
@@ -578,7 +736,7 @@ def _import_package(
     """Decrypt, validate, merge, and persist one complete settings package."""
 
     payload = _decrypt_payload(package, password)
-    with adapter.mutation_lock:
+    with adapter.mutation_lock, (adapter.capability_lock or nullcontext()):
         return _import_api_settings_payload(adapter, payload)
 
 

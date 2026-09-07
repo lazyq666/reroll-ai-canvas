@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>API and model settings synchronization test</title>
+<style>
+  body { margin:0; font:14px system-ui; }
+  nav { padding:8px; }
+  button { padding:8px 16px; }
+  iframe { border:0; width:100%; height:calc(100vh - 55px); }
+  [hidden] { display:none !important; }
+</style>
+<nav><button data-page="models">Model settings</button><button data-page="api">API settings</button></nav>
+<iframe id="models" title="Model settings" src="/static/available-model-management.html"></iframe>
+<iframe id="api" title="API settings" src="/static/api-settings.html" hidden></iframe>
+<script>
+  document.querySelectorAll('[data-page]').forEach(button => button.onclick = () => {
+    document.querySelectorAll('iframe').forEach(frame => { frame.hidden = frame.id !== button.dataset.page; });
+  });
+</script>
+</html>

@@ -21,6 +21,7 @@ const models = {
 };
 const state = {
   saves: [],
+  transferRequests: [],
   providers: [
     {
       id: 'modelscope', name: 'ModelScope', base_url: 'https://api-inference.modelscope.cn/v1', protocol: 'openai',
@@ -78,6 +79,35 @@ function readJson(request) {
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://127.0.0.1:${PORT}`);
   if (url.pathname === '/favicon.ico') return response.writeHead(204).end();
+  if (url.pathname === '/api/admin/available-models') {
+    const inventory = Object.fromEntries(Object.entries({image:'image_models', video:'video_models', text:'chat_models'}).map(([kind, field]) => [
+      kind, state.providers.filter(p => p.enabled !== false).flatMap(p => (p[field] || []).map(model => ({
+        id: `${p.id}:${model}`, model, provider_id:p.id, provider_name:p.name,
+        name:p.model_names?.[model] || model, visible:true,
+      }))),
+    ]));
+    return json(response, 200, {models:inventory});
+  }
+  if (url.pathname === '/api/admin/model-capability-matrix') return json(response, 200, {models:[]});
+  // Synthetic transfer fixtures exercise page states; Python tests verify actual encryption/storage.
+  if (url.pathname === '/api/providers/export-encrypted' && request.method === 'POST') {
+    await readJson(request);
+    state.transferRequests.push({ action: 'export' });
+    response.writeHead(200, { 'Content-Type': 'application/vnd.infinite-canvas.api-settings',
+      'Content-Disposition': 'attachment; filename="synthetic-backup.icapi"' });
+    return response.end('synthetic-backup');
+  }
+  if (url.pathname === '/api/providers/import-encrypted' && request.method === 'POST') {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const body = Buffer.concat(chunks).toString('utf8');
+    const preview = /name="preview"\r\n\r\ntrue/.test(body);
+    state.transferRequests.push({ action: 'import', preview });
+    if (body.includes('broken-backup.icapi')) return json(response, 400, { detail: 'api.invalidBackup' });
+    if (preview) return json(response, 200, { version: 2, providers: ['Test API', 'GPT CLI'], added: 1, updated: 1, models: 5 });
+    return json(response, 200, { imported: [{id:'test-api',name:'Test API'}], added: [],
+      updated: [{id:'test-api',name:'Test API'}], providers: state.providers });
+  }
   if (url.pathname === '/api/providers' && request.method === 'GET') return json(response, 200, { providers: state.providers });
   if (url.pathname === '/api/providers' && request.method === 'PUT') {
     try {

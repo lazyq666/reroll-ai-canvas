@@ -1,5 +1,6 @@
 /* T18 standard Provider surface */
-.api-settings-page [hidden] { display: none !important; }
+.api-settings-page [hidden], .api-transfer-dialog [hidden] { display: none !important; }
+#apiImportConfirmation [data-confirmation-copy] { white-space: pre-line; }
 .api-settings-page {
   width: min(100%, 76rem);
   min-width: 0;

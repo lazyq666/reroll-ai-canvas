@@ -516,7 +516,7 @@ class DesignTokensUiRegressionTests(unittest.TestCase):
         self.assertEqual(
             {
                 "surface", "surface-canvas", "surface-subtle", "surface-floating",
-                "surface-success", "surface-warning", "surface-danger",
+                "surface-success", "surface-warning", "surface-danger", "surface-segmented",
             },
             surface_names,
         )
