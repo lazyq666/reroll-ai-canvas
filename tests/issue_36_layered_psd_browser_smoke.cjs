@@ -154,7 +154,7 @@ async function waitForServer(child) {
     await page.waitForFunction(() => Boolean(
       document.querySelector('#imageEditModal')?.open
       && !document.getElementById('layerDecompositionEditor')?.hidden
-      && document.querySelector('.layer-decomposition-editor-panel-footer #layerDecompositionPsdDownload')
+      && document.querySelector('#layerDecompositionEditorTools #layerDecompositionPsdDownload')
       && document.querySelectorAll('#layerDecompositionEditorList .layer-decomposition-editor-layer').length === 3
     ));
     const downloadButton = page.locator('#layerDecompositionPsdDownload');
@@ -164,12 +164,10 @@ async function waitForServer(child) {
     const titleRow = page.locator('#layerDecompositionEditorList .layer-decomposition-editor-layer', {hasText:'Title'});
     await titleRow.hover();
     await titleRow.locator('[data-layer-visibility]').click();
-    const foregroundRow = page.locator('#layerDecompositionEditorList .layer-decomposition-editor-layer', {hasText:'Foreground'});
-    await foregroundRow.hover();
-    await foregroundRow.locator('[data-layer-delete]').click();
+    assert.equal(await page.locator('#layerDecompositionEditorList [data-layer-delete]').count(), 0);
     await page.waitForFunction(() => {
       const node = nodes.find(item => item.id === 'issue-36-layers');
-      return node?.layerDecompositionItems?.length === 2
+      return node?.layerDecompositionItems?.length === 3
         && node.layerDecompositionItems.find(item => item.id === 'title')?.hidden === true;
     });
 
@@ -187,7 +185,7 @@ async function waitForServer(child) {
     assert.ok(persistenceAtRequest[0].messages.length > 0, 'current layer edits were not checkpointed');
     assert.deepEqual(
       persistenceAtRequest[0].items.map(item => [item.id, item.hidden]),
-      [['base', false], ['title', true]],
+      [['base', false], ['foreground', false], ['title', true]],
     );
 
     assert.equal(await page.locator('ic-toast[data-ic-overlay]').count(), 0, 'browser download is sufficient success feedback');

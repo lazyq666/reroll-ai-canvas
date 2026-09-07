@@ -2566,7 +2566,6 @@ function renderLayerDecompositionEditor(){
             <span class="layer-decomposition-editor-layer-name" title="${escapeAttr(name)}"${nameBinding}>${escapeHtml(name)}</span>
             <span class="layer-decomposition-editor-layer-actions">
                 <ic-icon-button type="button" size="s" hierarchy="quiet" icon="preview" label="${escapeAttr(tr(visibilityKey))}" data-i18n-label="${visibilityKey}" data-layer-visibility="${escapeAttr(item.id)}"></ic-icon-button>
-                <ic-icon-button type="button" size="s" hierarchy="quiet" tone="danger" icon="delete" label="${escapeAttr(tr('smart.deleteLayer'))}" data-i18n-label="smart.deleteLayer" data-layer-delete="${escapeAttr(item.id)}"></ic-icon-button>
             </span>
         </div>`;
     }).join('');
@@ -2578,22 +2577,20 @@ function renderLayerDecompositionEditor(){
 function applyLayerDecompositionEditorAction(itemId, action){
     const node = layerDecompositionEditorNode();
     const index = (node?.layerDecompositionItems || []).findIndex(item => item?.id === itemId);
-    if(!node || index < 0 || !['visibility','delete'].includes(action)) return;
+    if(!node || index < 0 || action !== 'visibility') return;
     imageStudioMutationModule.history({action:'push'});
-    if(action === 'visibility') node.layerDecompositionItems[index].hidden = !node.layerDecompositionItems[index].hidden;
-    else node.layerDecompositionItems.splice(index,1);
+    node.layerDecompositionItems[index].hidden = !node.layerDecompositionItems[index].hidden;
     renderLayerDecompositionEditor();
     if(typeof render === 'function') render({syncVirtualization:false,nodeIds:[node.id]});
     imageStudioPersistenceModule.schedule();
 }
 document.getElementById('layerDecompositionEditorList')?.addEventListener('click', event => {
-    const button = event.target.closest?.('[data-layer-visibility],[data-layer-delete]');
+    const button = event.target.closest?.('[data-layer-visibility]');
     if(!button) return;
-    const visibilityId = button.dataset.layerVisibility || '';
-    const itemId = visibilityId || button.dataset.layerDelete || '';
+    const itemId = button.dataset.layerVisibility || '';
     event.preventDefault();
     event.stopPropagation();
-    applyLayerDecompositionEditorAction(itemId, visibilityId ? 'visibility' : 'delete');
+    applyLayerDecompositionEditorAction(itemId, 'visibility');
 });
 document.getElementById('layerDecompositionPsdDownload')?.addEventListener('click', event => {
     const node = layerDecompositionEditorNode();

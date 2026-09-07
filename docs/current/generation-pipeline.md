@@ -190,7 +190,7 @@ Node，也不复用 Smart Group 的 Composer、宫格、整理、运行、添加
 
 Canvas 只把它显示为一张合成图：内部图片不参与命中，透明区域不绘制缩略图底色。单选节点时，
 公共节点工具栏提供“预览”和“下载 PSD”，分别打开分层编辑器或导出当前节点。双击进入
-Image Studio 的智能分层模式；顶部不显示普通图片编辑模式栏，右侧图层列表提供显隐与删除；底部工作栏提供下载 PSD、原图滑动对比、缩放与适应窗口，
+Image Studio 的智能分层模式；顶部不显示普通图片编辑模式栏，右侧图层列表仅提供可恢复的显隐切换，不提供删除图层；底部工作栏提供下载 PSD、原图滑动对比、缩放与适应窗口，
 原图取自来源 Node 对应图片，来源缺失时禁用对比。查看状态不修改 Canvas；图层
 修改继续随 Canvas Save、Reload、Undo/Redo 和 Realtime 协作保存。提交或轮询失败沿用标准
 Generation Failed Node，并在页面级失败队列显示可查看诊断的持续 Alert；Node 内不得嵌套
@@ -204,6 +204,7 @@ Administrator / Designer 的画布写权限，只从当前 Workspace Managed Med
 并按 Manifest 画布尺寸、当前图层名称、`z_index`、`absolute_bbox`、Alpha 与显隐状态在内存中
 组装完整 PSD；已经从 `layerDecompositionItems` 删除的图层不再导出。隐藏图层仍保留为 PSD
 图层，但不进入合成预览。导出不创建 Generation Run、不修改 Canvas，也不提供 PSD 回导。
+结果编辑器通过隐藏暂时排除元素，再次显示即可恢复；旧版已删除的图层不会因本次移除删除入口而自动还原。
 服务端只有在文件完整生成后才返回下载响应；素材缺失、状态非法或生成失败时返回结构化错误，
 客户端不下载响应体，只显示当前语言下的通用失败提示。
 
@@ -220,6 +221,7 @@ Administrator / Designer 的画布写权限，只从当前 Workspace Managed Med
 - [`tests/test_layered_psd.py`](../../tests/test_layered_psd.py)
 - [`tests/issue_31_layer_decomposition_browser_smoke.cjs`](../../tests/issue_31_layer_decomposition_browser_smoke.cjs)
 - [`tests/issue_36_layered_psd_browser_smoke.cjs`](../../tests/issue_36_layered_psd_browser_smoke.cjs)
+- [`tests/layer_decomposition_editor_checks.js`](../../tests/layer_decomposition_editor_checks.js)：结果列表无删除入口、旧删除操作无效、显隐可恢复且不减少图层，中英文切换后行为一致；使用 `node tests/issue_38_layer_dialog_fixture.cjs --editor` 打开真实页面验收。
 
 ## 5. 后端：Generation Run 生命周期
 
