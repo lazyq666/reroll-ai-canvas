@@ -148,6 +148,100 @@ class MediaCleanupTests(unittest.TestCase):
                 self.assertTrue(media.exists())
                 record.unlink()
 
+    def test_recovery_json_backup_keeps_its_media(self):
+        kept = self.media('backup-only.png')
+        self.media()
+        backup = self.record('recovery/old.json.bak', {'url': '/assets/output/backup-only.png'})
+        original = backup.read_bytes()
+        self.assertEqual(1, self.confirm(self.scan())['file_count'])
+        self.assertTrue(kept.exists())
+        self.assertEqual(original, backup.read_bytes())
+
+    def test_structurally_truncated_legacy_backup_keeps_all_complete_references(self):
+        kept = [self.media(name) for name in ('early.png', 'last image.png')]
+        self.media()
+        backup = self.root / 'data/recovery/Avatar 2.0.corrupt-20260721-170251.json.bak'
+        backup.parent.mkdir()
+        # The real legacy backup ends after a complete value, missing }}]}.
+        content = json.dumps({
+            'url': '/assets/output/early.png',
+            'nodes': [{'composer': {'url': '/assets/output/last image.png', 'text': 'braces { [ and escaped "quotes"'}}],
+        }, ensure_ascii=True)[:-4]
+        backup.write_text(content)
+        self.assertEqual(1, self.confirm(self.scan())['file_count'])
+        self.assertTrue(all(path.exists() for path in kept))
+        self.assertEqual(content, backup.read_text())
+
+    def test_unrecoverable_or_unrecognized_backups_still_block_confirmation(self):
+        media = self.media()
+        plan = self.scan()
+        cases = [
+            ('recovery/x.corrupt-20260721-170251.json.bak', '{"url":"/assets/output/unused.png'),
+            ('recovery/x.corrupt-20260721-170251.json.bak', '{"url":"unused.png",'),
+            ('recovery/x.corrupt-20260721-170251.json.bak', '{"url":"unused.png" "bad":true}'),
+            ('recovery/x.corrupt-20260721-170251.json.bak', '{"url":"unused.png"]'),
+            ('recovery/x.corrupt-20260721-170251.json.bak', '{"number":1e'),
+            ('recovery/old.json.bak', '{"url":"unused.png"'),
+            ('recovery/old.bin', '{}'),
+            ('canvases/x.corrupt-20260721-170251.json.bak', '{"url":"unused.png"'),
+        ]
+        for name, content in cases:
+            with self.subTest(name=name, content=content):
+                path = self.root / 'data' / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content)
+                with self.assertRaises(MediaCleanupError):
+                    self.confirm(plan)
+                self.assertTrue(media.exists())
+                path.unlink()
+
+    def test_legacy_matting_model_cache_does_not_block_or_get_deleted(self):
+        self.media()
+        directory = self.root / 'data/models/matting'
+        directory.mkdir(parents=True)
+        models = [directory / (name + '.onnx') for name in ('birefnet-general', 'birefnet-general-lite')]
+        for path in models:
+            path.write_bytes(b'legacy model')
+        self.assertEqual(1, self.confirm(self.scan())['file_count'])
+        self.assertTrue(all(path.exists() for path in models))
+
+    def test_unknown_model_files_and_symlinked_legacy_models_still_block(self):
+        media = self.media()
+        plan = self.scan()
+        for name in ('models/matting/unknown.onnx', 'other/birefnet-general.onnx'):
+            path = self.root / 'data' / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'unknown')
+            with self.assertRaises(MediaCleanupError):
+                self.confirm(plan)
+            path.unlink()
+        path = self.root / 'data/models/matting/birefnet-general.onnx'
+        path.symlink_to(media)
+        with self.assertRaises(MediaCleanupError):
+            self.confirm(plan)
+        self.assertTrue(media.exists())
+
+    def test_large_recovery_json_keeps_references_beyond_previous_limit(self):
+        kept = self.media('large-backup-only.png')
+        self.media()
+        backup = self.root / 'data/recovery/large.json'
+        backup.parent.mkdir()
+        with backup.open('w') as stream:
+            stream.write(' ' * (64 * 1024 * 1024 + 1))
+            json.dump({'url': '/assets/output/large-backup-only.png'}, stream)
+        self.assertEqual(1, self.confirm(self.scan())['file_count'])
+        self.assertTrue(kept.exists())
+
+    def test_json_above_new_read_limit_still_blocks(self):
+        media = self.media()
+        plan = self.scan()
+        path = self.root / 'data/too-large.json'
+        with path.open('wb') as stream:
+            stream.truncate(256 * 1024 * 1024 + 1)
+        with self.assertRaises(MediaCleanupError):
+            self.confirm(plan)
+        self.assertTrue(media.exists())
+
     def test_symlinks_hardlinks_hidden_and_unknown_media_are_not_candidates(self):
         source = self.root / 'source.png'
         source.write_bytes(b'outside')

@@ -26,6 +26,14 @@ from urllib.parse import unquote
 from .media import _MEDIA_EXTENSIONS
 
 
+# Legacy Canvas snapshots can contain inline media and exceed 64 MiB.
+_MAX_JSON_REFERENCE_BYTES = 256 * 1024 * 1024
+_LEGACY_MATTING_MODELS = {
+    ('models', 'matting', 'birefnet-general.onnx'),
+    ('models', 'matting', 'birefnet-general-lite.onnx'),
+}
+
+
 class MediaCleanupError(Exception):
     def __init__(self, code: str = "unreadable") -> None:
         super().__init__(code)
@@ -144,6 +152,45 @@ class WorkspaceMediaCleanup:
             for item in value:
                 self._collect_value(item, used)
 
+    @staticmethod
+    def _close_backup_containers(text: str) -> str:
+        # Some legacy corrupt-* backups end after a complete JSON value. Only
+        # append missing object/array delimiters; never invent or discard a
+        # string/value. json.loads below still validates the entire document.
+        closers: list[str] = []
+        quoted = escaped = False
+        for char in text:
+            if quoted:
+                if escaped:
+                    escaped = False
+                elif char == '\\':
+                    escaped = True
+                elif char == '"':
+                    quoted = False
+            elif char == '"':
+                quoted = True
+            elif char in '{[':
+                closers.append('}' if char == '{' else ']')
+            elif char in '}]':
+                if not closers or closers.pop() != char:
+                    raise MediaCleanupError()
+        if quoted or not closers:
+            raise MediaCleanupError()
+        return text + ''.join(reversed(closers))
+
+    def _reference_json(self, path: Path, *, recovery_backup: bool):
+        if path.stat().st_size > _MAX_JSON_REFERENCE_BYTES:
+            raise MediaCleanupError()
+        text = path.read_text(encoding='utf-8-sig')
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as error:
+            if (not recovery_backup
+                    or not re.fullmatch(r'.+\.corrupt-\d{8}-\d{6}\.json\.bak', path.name)
+                    or error.pos < len(text.rstrip())):
+                raise
+            return json.loads(self._close_backup_containers(text))
+
     def _database(self, path: Path, used: set[str]) -> None:
         # Reconnect catch-up events and idempotency acknowledgements are not
         # restorable content. Bounded canvas_mutations *are* roots (both sides).
@@ -227,15 +274,19 @@ class WorkspaceMediaCleanup:
                     "generation-history.json", "generation-runs.json", "generation-effects.json"
                 }:
                     continue
+                relative = path.relative_to(data).parts
+                if relative in _LEGACY_MATTING_MODELS and stat.S_ISREG(path.lstat().st_mode):
+                    # Known regenerable model caches from the old Workspace
+                    # layout contain no Canvas references. Leave their bytes.
+                    continue
+                recovery_backup = relative[0] == 'recovery' and name.endswith('.json.bak')
                 if path.suffix in {".sqlite3", ".db"}:
                     self._database(path, used)
                 elif name.endswith(("-wal", "-shm", "-journal")):
                     if not path.with_name(re.sub(r"-(wal|shm|journal)$", "", name)).is_file():
                         raise MediaCleanupError()
-                elif path.suffix == ".json":
-                    if path.stat().st_size > 64 * 1024 * 1024:
-                        raise MediaCleanupError()
-                    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+                elif path.suffix == ".json" or recovery_backup:
+                    payload = self._reference_json(path, recovery_backup=recovery_backup)
                     if folder == data and name == "generation-effects.json" and isinstance(payload, dict) and payload.get("pending"):
                         raise MediaCleanupError("busy")
                     self._collect_value(payload, used)
