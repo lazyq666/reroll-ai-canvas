@@ -232,7 +232,9 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 
 隔离仓库 [PR #6](https://github.com/lazyq666/reroll-readiness-acceptance/pull/6) 的五组与总门槛通过，并在启用规则后由维护者独立合并。真实 API 已拒绝未经 PR 的直接推送、禁用 hook 后的直接推送、失败 PR、取消及整条 workflow 跳过后的合并。文档改动产生完整检查；同一提交在 Mac 成功而在 Linux 命中合成平台断言时，远端拒绝合并。规则关闭、strict 关闭、名称或来源变化、增加 bypass 均被只读对照识别，实验后恢复预期配置。
 
-[首次 main 后验](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34103227113) 暴露了已有协作验收测试的间歇失败，其余四组完成。[隔离诊断](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34106385785) 确认全部 18 次操作、9 次恢复和最终投影正确，只有实测 p99 373.429ms 超过功能测试写死的 300ms。功能回归现在仅替换验收脚本的延迟测量时钟，真实网络、超时和生产性能入口保持真实时钟；同时注入 400ms / 600ms，验证 p99 / p95 超限仍失败。修复后完整远端验收仍通过 PR 进行。此失败是 A18 的真实证据，不能用重跑的绿色覆盖。生产规则尚未启用；旧基线拒绝、修复后的 main 后验和生产验收仍待完成，不据此宣称 F14 完成。
+[首次 main 后验](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34103227113) 暴露了已有协作验收测试的间歇失败，其余四组完成。[隔离诊断](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34106385785) 确认全部 18 次操作、9 次恢复和最终投影正确，只有实测 p99 373.429ms 超过功能测试写死的 300ms。功能回归现在仅替换验收脚本的延迟测量时钟，真实网络、超时和生产性能入口保持真实时钟；同时注入 400ms / 600ms，验证 p99 / p95 超限仍失败。[修复 PR #9](https://github.com/lazyq666/reroll-readiness-acceptance/pull/9) 与 [main 后验](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34107404475) 均全绿；原失败记录保留，A18 已按 PR 恢复路径完成。
+
+[平台修复 PR #11](https://github.com/lazyq666/reroll-readiness-acceptance/pull/11) 的同一提交 `a32d1b1` 在 Mac 全套快照与 Linux Gate 均成功。main 前进后，[PR #12](https://github.com/lazyq666/reroll-readiness-acceptance/pull/12) 保持 MERGEABLE、原六项检查全绿，但状态变为 BEHIND，合并 API 以缺少当前 `Public readiness gate` 返回 405；这将旧基线拒绝与文件冲突区分开。规则回读成功。生产候选 `39df95c` 的本地五组快照也已成功，包含 2,111 项 Python 回归。隔离验收已完成，生产 PR、规则启用及最终 main 验证仍待完成，不据此宣称 F14 完成。
 
 ## 16. Rollout, migration and rollback
 
