@@ -6,7 +6,6 @@ import copy
 import datetime as _datetime
 import json
 import os
-import re
 import uuid
 from pathlib import Path
 from threading import RLock
@@ -16,7 +15,6 @@ from typing import Any, Callable
 from .model_capabilities import (
     SUPPORTED_OPERATIONS,
     SUPPORT_STATES,
-    _assert_no_forbidden_fields,
 )
 
 
@@ -49,26 +47,6 @@ EVIDENCE_FIELD_LIMITS = {
     "excerpt": 4000,
     "actor_id": 200,
 }
-_EVIDENCE_FORBIDDEN_CONTENT = (
-    "price",
-    "pricing",
-    "billing",
-    "charge",
-    "credit",
-    "cost",
-    "currency",
-    "fee",
-    "quota balance",
-    "价格",
-    "计价",
-    "计费",
-    "消耗",
-    "积分",
-    "费用",
-    "金额",
-    "货币",
-    "余额",
-)
 
 
 class ModelCapabilityWorkbenchError(RuntimeError):
@@ -222,24 +200,6 @@ class ModelCapabilityWorkbench:
             raise ModelCapabilityWorkbenchValidation(
                 f"unsupported evidence source type: {normalized_source_type or 'empty'}"
             )
-        forbidden = next(
-            (
-                fragment
-                for fragment in _EVIDENCE_FORBIDDEN_CONTENT
-                if re.search(
-                    rf"(?<![a-z]){re.escape(fragment)}(?![a-z])"
-                    if fragment.isascii()
-                    else re.escape(fragment),
-                    "\n".join(fields.values()),
-                    re.IGNORECASE,
-                )
-            ),
-            None,
-        )
-        if forbidden:
-            raise ModelCapabilityWorkbenchValidation(
-                "evidence contains forbidden commercial capability content"
-            )
         return {
             **identity,
             "source_type": normalized_source_type,
@@ -388,10 +348,6 @@ class ModelCapabilityWorkbench:
                 raise ModelCapabilityWorkbenchValidation(
                     f"draft capability field must be an object: {required_mapping}"
                 )
-        try:
-            _assert_no_forbidden_fields(candidate, path="draft.capability")
-        except ValueError as error:
-            raise ModelCapabilityWorkbenchValidation(str(error)) from error
         cls._validate_capability_contract(candidate)
         return candidate
 
@@ -523,7 +479,6 @@ class ModelCapabilityWorkbench:
         self,
         *,
         records: list[Mapping[str, Any]],
-        model_name: str,
         active_catalog_revision: str,
         actor_id: str,
         activate: Callable[[], Mapping[str, Any]] | None = None,
@@ -576,9 +531,8 @@ class ModelCapabilityWorkbench:
                         "applicable_version": revision,
                         "content_location": "Administrator model capability choices",
                         "excerpt": (
-                            f"Administrator confirmed capability options for "
-                            f"{_clean(raw_record.get('model_name')) or _clean(model_name) or identity['model_id']} "
-                            f"({identity['operation']})."
+                            "Administrator confirmed capability options "
+                            "in the model details editor."
                         ),
                     }
                 ]

@@ -526,20 +526,13 @@ class ModelCapabilityMatrix:
         self,
         *,
         model_id: str,
-        name: str,
         operations: Sequence[Mapping[str, Any]],
         actor_id: str,
     ) -> dict[str, Any]:
         requested_model = _clean(model_id)
         if not requested_model:
             raise ValueError("model_id is required")
-        current = self.snapshot()
-        row = next(
-            (item for item in current["models"] if item["model_id"] == requested_model),
-            None,
-        )
-        if row is None:
-            raise ValueError("model does not exist in the current environment")
+        catalog_revision = self.catalog.revision
         selected = {
             _clean(item.get("operation")): item
             for item in operations
@@ -547,10 +540,12 @@ class ModelCapabilityMatrix:
         }
         inventory = self._inventory()
         records = []
+        model_exists = False
         for model_type in MODEL_TYPES:
             for item in inventory.get(model_type, ()):
                 if _clean(item.get("model")) != requested_model:
                     continue
+                model_exists = True
                 provider_id = _clean(item.get("provider_id"))
                 for operation in OPERATIONS_BY_TYPE.get(model_type, ()):
                     choice = selected.get(operation)
@@ -565,12 +560,13 @@ class ModelCapabilityMatrix:
                             "capability": self._apply_choice(base, choice),
                         }
                     )
+        if not model_exists:
+            raise ValueError("model does not exist in the current environment")
         if not records:
             raise ValueError("no capability choices were supplied for this model")
         return self.workbench.publish_manual_capabilities(
             records=records,
-            model_name=_clean(name) or row["name"],
-            active_catalog_revision=current["catalog_revision"],
+            active_catalog_revision=catalog_revision,
             actor_id=actor_id,
             activate=self.catalog.refresh,
         )

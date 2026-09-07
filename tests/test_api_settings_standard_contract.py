@@ -22,6 +22,8 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.page = PAGE.read_text(encoding="utf-8")
+        cls.model_page = (ROOT / "static/available-model-management.html").read_text(encoding="utf-8")
+        cls.model_script = (ROOT / "static/js/available-model-management.js").read_text(encoding="utf-8")
         cls.style = STYLE.read_text(encoding="utf-8")
         cls.legacy_style = (ROOT / "static" / "css" / "api-settings.css").read_text(encoding="utf-8")
         cls.script = SCRIPT.read_text(encoding="utf-8")
@@ -188,9 +190,9 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertIn("grid-template-columns: auto auto minmax(0, 1fr) auto;", self.style)
         self.assertEqual(
             self.page.count('<ic-heading class="side-section-title" level="3"'),
-            3,
+            2,
         )
-        self.assertGreaterEqual(self.page.count('data-legal-combination="h3-title"'), 4)
+        self.assertGreaterEqual(self.page.count('data-legal-combination="h3-title"'), 3)
         self.assertRegex(
             self.style,
             r'#providerNavigation \.side-section-title \{[\s\S]*?color: var\(--ui-color-text-primary\);',
@@ -234,26 +236,18 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertEqual(onboarding.count('data-legal-combination="h3-with-subtitle"'), 2)
         self.assertIn("[data-i18n-subtitle]", (ROOT / "static" / "js" / "i18n-core.js").read_text(encoding="utf-8"))
 
-    def test_sidebar_is_content_height_and_transfer_actions_share_one_row(self):
+    def test_sidebar_is_content_height_and_backup_has_moved_to_models(self):
         self.assertIn(".api-settings-page .layout #providerNavigation {", self.style)
         self.assertIn("background: transparent !important;", self.style)
         self.assertIn("max-height: none !important;", self.style)
         self.assertIn("overflow: visible !important;", self.style)
         self.assertNotRegex(self.page, r'<ic-button class="cli-quick-btn')
         self.assertEqual(self.page.count('class="sidebar-cli-action"'), 4)
-        self.assertRegex(
-            self.page,
-            r'<ic-heading[^>]+data-i18n="api.settingsMigration"[^>]*>API 与模型备份</ic-heading>',
-        )
-        self.assertIn('class="api-transfer-actions"', self.page)
-        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", self.style)
-        self.assertLess(self.page.index('class="cli-quick-group"'), self.page.index('class="api-transfer-group"'))
-        self.assertRegex(
-            self.page,
-            r'class="api-transfer-group"[\s\S]*?data-i18n="api.settingsMigration"[\s\S]*?class="api-transfer-note"[\s\S]*?class="api-transfer-actions"[\s\S]*?exportEncryptedApiSettings\(\)[\s\S]*?chooseEncryptedApiSettings\(\)',
-        )
-        self.assertRegex(self.page, r'<ic-file-input[^>]+id="apiSettingsImportInput"[^>]+hidden')
-        self.assertIn(".layout .cli-quick-group,", self.style)
+        self.assertNotIn('api-transfer-group', self.page)
+        self.assertNotIn('apiSettingsImportInput', self.page)
+        self.assertNotIn('exportEncryptedApiSettings', self.script)
+        self.assertNotIn('importEncryptedApiSettings', self.script)
+        self.assertIn('.layout .cli-quick-group {', self.style)
         self.assertIn("border-top: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);", self.style)
         self.assertRegex(self.style, r"\.provider-list \{[\s\S]*?border-bottom: 0;")
 
@@ -378,8 +372,6 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
             self.assertRegex(self.page, rf"<{tag}[^>]*id=\"{control_id}\"")
         for endpoint in (
             "/api/providers",
-            "/api/providers/export-encrypted",
-            "/api/providers/import-encrypted",
             "/api/providers/test-connection",
             "/api/providers/fetch-models",
         ):
@@ -486,7 +478,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         ):
             self.assertNotIn(selector, self.legacy_style)
         start = self.style.index('.model-picker-dialog .model-selection-count')
-        picker_styles = self.style[start:self.style.index('.api-transfer-dialog', start)]
+        picker_styles = self.style[start:self.style.index('.visually-hidden', start)]
         self.assertNotRegex(picker_styles, r'#[0-9a-fA-F]{3,8}\b')
         self.assertNotIn('box-shadow', picker_styles)
         self.assertNotIn('background: rgba(', picker_styles)
@@ -504,7 +496,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertNotIn("alert(", self.script)
         self.assertIn("customElements.get('ic-toast')?.notify(message, {tone})", self.script)
         self.assertIn("function showVerificationToast(content, tone='info')", self.script)
-        self.assertIn("showError(tr('api.passwordMismatch'))", self.script)
+        self.assertIn("showBackupError(tr('api.passwordMismatch'))", self.model_script)
         for empty_title in ("api.noMatches", "api.noModels", "api.loraEmpty"):
             self.assertRegex(self.script, rf'<ic-empty-state title=.*{re.escape(empty_title)}')
 
@@ -517,13 +509,13 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertIn("--wa-form-control-padding-inline: var(--ui-space-2)", self.selection_styles)
 
     def test_standard_import_export_and_confirmation_use_public_components(self):
-        self.assertRegex(self.page, r'<ic-file-input[^>]*id="apiSettingsImportInput"')
-        self.assertRegex(self.page, r'<ic-dialog[^>]*id="apiTransferDialog"')
-        self.assertRegex(self.page, r'<ic-confirmation-dialog[^>]*id="apiImportConfirmation"')
-        self.assertIn("input.open()", self.script)
-        self.assertIn("acceptedFiles", self.script)
-        self.assertIn("apiImportConfirmation", self.script)
-        self.assertNotIn("if(!confirm(tr('api.confirmPackageImport')))", self.script)
+        self.assertRegex(self.model_page, r'<ic-file-input[^>]*id="apiSettingsImportInput"')
+        self.assertRegex(self.model_page, r'<ic-dialog[^>]*id="apiTransferDialog"')
+        self.assertRegex(self.model_page, r'<ic-confirmation-dialog[^>]*id="apiImportConfirmation"')
+        self.assertIn("input.open()", self.model_script)
+        self.assertIn("acceptedFiles", self.model_script)
+        self.assertIn("apiImportConfirmation", self.model_script)
+        self.assertNotIn("if(!confirm(tr('api.confirmPackageImport')))", self.model_script)
 
     def test_all_standard_confirmation_actions_use_public_dialogs(self):
         self.assertRegex(self.page, r'<ic-confirmation-dialog[^>]*id="apiActionConfirmation"')
@@ -546,9 +538,6 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         for marker in (
             'data-i18n-label="api.platformName"',
             'data-i18n-label="api.baseUrl"',
-            'data-i18n-label="api.encryptedPackage"',
-            'data-i18n-label="api.encryptionPassword"',
-            'data-i18n-label="api.passwordAgain"',
         ):
             self.assertIn(marker, self.page)
 

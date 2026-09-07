@@ -9,6 +9,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
 
   const controls = {
     message: byId('capability-message'),
+    editorMessage: byId('capability-editor-message'),
     editorDialog,
     editorTitle: byId('capability-editor-title'),
     editorModelId: byId('capability-editor-model-id'),
@@ -51,6 +52,10 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   const setDisabled = (control, disabled) => control?.toggleAttribute('disabled', Boolean(disabled));
   const getValue = (control) => String(control?.value ?? control?.getAttribute?.('value') ?? '');
   const showMessage = (key, tone = 'success', values = {}) => {
+    controls.editorMessage.removeAttribute('data-i18n');
+    controls.message.removeAttribute('data-i18n');
+    controls.editorMessage.hidden = true;
+    controls.editorMessage.textContent = '';
     controls.message.textContent = key ? tf(key, values) : '';
     controls.message.setAttribute('tone', tone);
     controls.message.hidden = !key;
@@ -67,7 +72,12 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   const request = async (url, options = {}) => {
     const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...options });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(errorMessage(payload));
+    if (!response.ok) {
+      const error = new Error(errorMessage(payload));
+      const key = `models.error.${payload?.detail?.code}`;
+      if (tr(key) !== key) error.translationKey = key;
+      throw error;
+    }
     return payload;
   };
   const selectedRow = () => state.matrix.models.find((row) => row.model_id === state.selectedModelId) || null;
@@ -492,7 +502,15 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
   const runAction = (action) => async () => {
     showMessage('');
-    try { await action(); } catch (error) { showMessage('', 'danger'); controls.message.textContent = error.message || tr('models.operationRetry'); controls.message.hidden = false; }
+    try {
+      await action();
+    } catch (error) {
+      const message = controls.editorDialog.open ? controls.editorMessage : controls.message;
+      message.setAttribute('tone', 'danger');
+      message.textContent = error.message || tr('models.operationRetry');
+      if (error.translationKey) message.setAttribute('data-i18n', error.translationKey);
+      message.hidden = false;
+    }
   };
   const readOperation = (card) => {
     const inputs = {};
@@ -600,7 +618,6 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model_id: row.model_id,
-          name: row.name,
           operations: [...controls.operationEditors.querySelectorAll('.capability-editor-card')]
             .flatMap((card) => {
               if (card.dataset.profileType === 'image') return readImageProfile(card, row);
@@ -627,6 +644,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   controls.close.addEventListener('click', () => controls.editorDialog.hide('cancel'));
   window.addEventListener('studio-lang-change', render);
   window.ModelCapabilityEditor = Object.freeze({
+    refresh: runAction(loadMatrix),
     open: (modelId) => runAction(() => openEditor(modelId))(),
   });
   void runAction(loadMatrix)();

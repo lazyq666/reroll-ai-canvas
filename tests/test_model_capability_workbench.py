@@ -11,6 +11,30 @@ from backend.infinite_canvas.model_capability_workbench import (
 
 
 class ModelCapabilityWorkbenchTests(unittest.TestCase):
+    def test_evidence_preserves_identifiers_and_free_text_without_keyword_filtering(self):
+        fields = dict(
+            provider_id="apimart", model_id="gpt-image-2",
+            operation="image.generate", source_type="manual",
+            source_locator="model-capability-matrix",
+            fetched_at="2026-09-07T09:00:00Z", applicable_version="catalog-test",
+            content_location="Administrator model capability choices",
+            excerpt="Administrator confirmed capability options in the model details editor.",
+            actor_id="admin-test",
+        )
+        for key, value in (
+            ("applicable_version", "6fee0d2be118020afff0de09"),
+            ("actor_id", "1234fee0-1234-4567-8901-123456789abc"),
+            ("source_locator", "https://example.test/versions/6fee0/options"),
+        ):
+            with self.subTest(field=key):
+                result = ModelCapabilityWorkbench.validate_evidence(**{**fields, key: value})
+                self.assertEqual(result["created_by" if key == "actor_id" else key], value)
+        for key in ("excerpt", "content_location"):
+            for value in ("The fee is 2 credits.", "费用和价格说明"):
+                with self.subTest(field=key, content=value):
+                    result = ModelCapabilityWorkbench.validate_evidence(**{**fields, key: value})
+                    self.assertEqual(result[key], value)
+
     @staticmethod
     def record_seedance_evidence(workbench):
         return workbench.record_evidence(

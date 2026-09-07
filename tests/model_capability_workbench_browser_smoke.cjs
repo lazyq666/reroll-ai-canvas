@@ -116,6 +116,7 @@ function startServer(state) {
       let body = '';
       request.on('data', chunk => { body += chunk; });
       return request.on('end', () => {
+        if (state.failSave) return json(response, 400, { detail: { code: 'model_capability_workbench_invalid' } });
         state.applied += 1;
         state.appliedPayload = JSON.parse(body);
         json(response, 200, { result: { published: 2 }, matrix });
@@ -231,6 +232,16 @@ function startServer(state) {
     await page.locator('[data-choice-value="0.5K"]').click();
     await page.locator('.capability-image-profile ic-aspect-ratio-picker button[data-value="1:8"]').click();
     await page.locator('.capability-image-profile ic-aspect-ratio-picker button[data-value="5:4"]').click();
+    state.failSave = true;
+    await page.locator('#capability-apply').click();
+    const editorError = page.locator('#capability-editor-dialog ic-alert[tone="danger"]');
+    await editorError.waitFor({ state: 'visible', timeout: 3000 });
+    assert.ok((await editorError.textContent()).trim());
+    assert.equal(state.applied, 0);
+    assert.equal(await page.locator('#capability-editor-dialog').evaluate(dialog => dialog.open), true);
+    assert.equal(await page.locator('#capability-apply').evaluate(button => button.disabled), false);
+    assert.equal(await page.locator('.capability-image-profile ic-aspect-ratio-picker button[data-value="5:4"]').getAttribute('aria-checked'), 'true');
+    state.failSave = false;
     await page.locator('#capability-apply').click();
     await page.waitForFunction(() => document.querySelector('#capability-message').textContent.includes('已保存'));
     await page.waitForFunction(() => !document.querySelector('#capability-editor-dialog')?.open);
@@ -339,6 +350,22 @@ function startServer(state) {
     await page.locator('#model-list .model-capability-edit').click();
     await page.waitForFunction(() => document.querySelector('#capability-editor-dialog')?.open);
     assert.equal((await page.locator('.capability-image-profile h4').textContent()).trim(), 'Image capabilities');
+    state.failSave = true;
+    await page.locator('#capability-apply').click();
+    await editorError.waitFor({ state: 'visible' });
+    assert.match(await editorError.textContent(), /capability draft or evidence/);
+    await page.evaluate(() => {
+      localStorage.setItem('studio_lang', 'zh');
+      window.StudioI18n.apply();
+      window.dispatchEvent(new CustomEvent('studio-lang-change', { detail: { lang: 'zh' } }));
+    });
+    assert.match(await editorError.textContent(), /能力草稿/);
+    await page.evaluate(() => {
+      localStorage.setItem('studio_lang', 'en');
+      window.StudioI18n.apply();
+      window.dispatchEvent(new CustomEvent('studio-lang-change', { detail: { lang: 'en' } }));
+    });
+    state.failSave = false;
     assert.equal(
       await page.locator('.capability-image-profile [data-reference-enabled]').getAttribute('label'),
       'Supports reference images',

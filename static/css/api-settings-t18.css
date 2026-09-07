@@ -1,6 +1,5 @@
 /* T18 standard Provider surface */
-.api-settings-page [hidden], .api-transfer-dialog [hidden] { display: none !important; }
-#apiImportConfirmation [data-confirmation-copy] { white-space: pre-line; }
+.api-settings-page [hidden] { display: none !important; }
 .api-settings-page {
   width: min(100%, 76rem);
   min-width: 0;
@@ -41,18 +40,8 @@
   padding: 0;
   color: var(--ui-color-text-primary);
 }
-.api-settings-page .layout .api-transfer-group {
-  display: grid;
-  gap: var(--ui-space-2);
-}
-.api-settings-page .layout .cli-quick-group,
-.api-settings-page .layout .api-transfer-group {
-  margin-top: var(--ui-space-2);
-  padding-top: var(--ui-space-4);
-  border-top: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
-}
-.api-settings-page .layout .cli-quick-group .side-section-title,
-.api-settings-page .layout .api-transfer-group .side-section-title { margin-top: 0; }
+.api-settings-page .layout .cli-quick-group { margin-top: var(--ui-space-2); padding-top: var(--ui-space-4); border-top: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
+.api-settings-page .layout .cli-quick-group .side-section-title { margin-top: 0; }
 .api-settings-page .layout .provider-list {
   gap: var(--ui-space-2);
   width: 100%;
@@ -62,16 +51,6 @@
   min-height: 0 !important;
   max-height: none !important;
   overflow: visible !important;
-}
-.api-settings-page .layout .api-transfer-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--ui-space-2);
-}
-.api-settings-page .layout .api-transfer-note {
-  color: var(--ui-color-text-tertiary);
-  font: var(--ui-text-caption);
-  line-height: var(--ui-line-height-body);
 }
 .api-settings-page .layout .cli-quick-list { display: grid; gap: var(--ui-space-2); }
 .api-settings-page .layout .provider-nav-item,
@@ -340,8 +319,6 @@ body.show-ms .api-settings-page .layout .ms-lora-block { display: block; }
 .model-picker-dialog .model-selection-table td[colspan] { padding: var(--ui-space-6); }
 .model-picker-dialog .model-picker-id { color: var(--ui-color-text-tertiary); font: var(--ui-text-code); overflow-wrap: anywhere; }
 .api-settings-page .provider-guide-link { min-width: 0; }
-.api-transfer-dialog .api-transfer-modal,
-.api-transfer-dialog .api-transfer-password-body { display: grid; gap: var(--ui-space-4); }
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -394,9 +371,6 @@ body.show-ms .api-settings-page .layout .ms-lora-block { display: block; }
 }
 @media (max-width: 32rem) {
   .api-settings-page { padding: var(--ui-space-3); }
-  .api-settings-page .layout .api-transfer-actions {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .api-settings-page .layout .content-head,
   .api-settings-page .layout .models-card-header {
     align-items: stretch;

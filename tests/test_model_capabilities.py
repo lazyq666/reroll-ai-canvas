@@ -34,6 +34,37 @@ def catalog(*, published_path=None) -> ModelCapabilityCatalog:
 
 
 class ModelCapabilityCatalogTests(unittest.TestCase):
+    def test_parameter_names_are_not_filtered_by_word_fragments(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model-capability-workbench.json"
+            registry = catalog(published_path=path)
+            ModelCapabilityWorkbench(path).publish_manual_capabilities(
+                records=[{
+                    "provider_id": "codex", "model_id": "gpt-5.5",
+                    "operation": "text.generate",
+                    "capability": {
+                        "support_state": "supported", "inputs": {}, "output": {},
+                        "parameters": {"feedback": {"type": "boolean", "default": False}},
+                    },
+                }],
+                active_catalog_revision=registry.revision, actor_id="admin-test",
+                activate=registry.refresh,
+            )
+            reopened = catalog(published_path=path).resolve("codex", "gpt-5.5", "text.generate")
+            self.assertEqual(reopened["parameters"]["feedback"]["type"], "boolean")
+
+    def test_invalid_published_support_state_keeps_last_catalog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model-capability-workbench.json"
+            registry = catalog(published_path=path)
+            revision = registry.revision
+            path.write_text(json.dumps({"published": {"capabilities": [{
+                "provider_id": "codex", "model_id": "gpt-5.5", "operation": "text.generate",
+                "capability": {"support_state": "experimental"},
+            }]}}))
+            self.assertFalse(registry.refresh()["ok"])
+            self.assertEqual(registry.revision, revision)
+
     def test_exact_image_operation_has_unified_identity_and_typed_contract(self):
         capability = catalog().resolve(
             "apimart",

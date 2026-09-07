@@ -187,7 +187,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         keys.update(re.findall(r"(?:tr|tf)\('([^']+)'", self.script))
         for key in keys:
             self.assertRegex(
-                self.i18n,
+                self.i18n + (ROOT / "static/js/i18n/api-settings.js").read_text(encoding="utf-8") + (ROOT / "static/js/i18n/common.js").read_text(encoding="utf-8"),
                 rf'"{re.escape(key)}"\s*:\s*\{{\s*zh:\s*"[^"]+",\s*en:\s*"[^"]+"',
                 key,
             )

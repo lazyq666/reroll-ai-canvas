@@ -64,7 +64,7 @@ class ModelSettingsBackup:
     def restore(self, records):
         if records:
             self.workbench.publish_manual_capabilities(
-                records=records, model_name="", actor_id="api-settings-backup",
+                records=records, actor_id="api-settings-backup",
                 active_catalog_revision=self.catalog.revision, activate=self.catalog.refresh,
             )
 
