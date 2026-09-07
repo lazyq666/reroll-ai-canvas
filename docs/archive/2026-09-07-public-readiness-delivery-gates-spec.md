@@ -1,14 +1,16 @@
 # Public readiness：提交快照验收与 main 合入门槛
 
-- **Status**：In Progress（用户已要求进入开发；远端启用须通过分阶段验收）
+- **Status**：Archived（生产验收完成，当前合同已提炼到 Current）
 - **Feature ID**：F14
-- **Tracking Issue**：[Issue #59](https://github.com/lazyq666/reroll-ai-canvas/issues/59)（实施 In Progress）
+- **Tracking Issue**：[Issue #59](https://github.com/lazyq666/reroll-ai-canvas/issues/59)
 - **Owners**：仓库维护者 / 开发 / 测试与发布
-- **Last verified**：2026-09-07（完整本地快照、隔离仓库正反向验收；生产启用仍待验证）
+- **Last verified**：2026-09-07（本地快照、隔离仓库正反向验收及生产 PR/main 全部通过）
 - **Applies to**：`lazyq666/reroll-ai-canvas` 的 Public readiness 与 main 发布流程
-- **Supersedes / Superseded by**：无
-- **Related ADRs**：[ADR-0013](../adr/0013-public-readiness-gates.md)（Proposed）
+- **Supersedes / Superseded by**：[Public readiness 当前合同](../current/public-readiness.md)
+- **Related ADRs**：[ADR-0013](../adr/0013-public-readiness-gates.md)（Accepted）
 - **Domain terms**：不新增产品领域概念；Workspace、Instance State、Device State 的现有边界不变
+
+> 本文保留原始目标、分阶段实验与恢复历史；以下“待完成”等措辞表示当时状态。当前操作以 [Current 合同](../current/public-readiness.md)为准。
 
 ## 1. 一页摘要
 
@@ -274,3 +276,5 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 | Date | Status | Change | Evidence/decision |
 | --- | --- | --- | --- |
 | 2026-09-07 | Draft | 定义快照验收、main 合入限制、独立任务和 A01–A19 验收 | 故障提交对照、历史日志、远端配置核查；尚未实施 |
+
+| 2026-09-07 | Archived | 生产规则已启用并回读无漂移，PR #61 按规则合并，稳定合同毕业为 Current | [PR #61](https://github.com/lazyq666/reroll-ai-canvas/pull/61)、[main 六项成功](https://github.com/lazyq666/reroll-ai-canvas/actions/runs/34111965273)；最终候选 Mac 五组成功，Python 2,116 项、Node 8 个入口、浏览器 12 项 |

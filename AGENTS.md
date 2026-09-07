@@ -26,6 +26,10 @@ Put every user-facing string in the shared i18n resources and provide both Chine
 
 Write English product copy for native English usage: prefer concise sentence case, preserve product names, and check that translated text fits every supported layout. Completion requires `node static/js/i18n/validate-i18n.js`, relevant i18n regression tests, and a language-switch check for any affected dynamic UI. User-facing literals in JavaScript or unbound visible HTML are incomplete implementation.
 
+### Public readiness
+
+Before pushing to a project remote, changing the readiness workflow, inventory or rules, or completing release verification, read and follow [the Public readiness contract](docs/current/public-readiness.md). Completion requires the final main checks and effective rule readback to succeed.
+
 ### Project release version
 
 Before every push to any project remote, update the root `VERSION` using the existing `YYYY.MM.DD.daily-sequence` rule (for example, `2026.08.30.1`, then `2026.08.30.2` for another push on the same day). The new version must be strictly greater than the previously published version. Synchronize `static/update-notes.json` so its `version` exactly matches `VERSION`, and verify the pair with `python3 -m unittest tests.test_update_sources` before pushing.

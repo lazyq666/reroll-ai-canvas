@@ -8,6 +8,10 @@ Create an ADR when a decision constrains future implementation, establishes a sy
 
 [ADR-0011](0011-placement-intent-belongs-to-canvas-mutation.md) records why initial placement intent belongs to Canvas Mutation and why history restores exact geometry.
 
+## Release verification
+
+[ADR-0013](0013-public-readiness-gates.md) records fixed-commit verification, independent checks, and enforced main rules without a standing bypass.
+
 ## Naming
 
 [ADR-0012](0012-manual-workspace-media-cleanup.md) defines manual reclamation of

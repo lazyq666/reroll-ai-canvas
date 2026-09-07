@@ -58,12 +58,11 @@ remain opt-in because they require credentials, existing data, controlled
 hardware, or visual judgment. The relevant Current or Active specification
 defines when one of those gates is required.
 
-## Committed-snapshot readiness (F14 rollout)
+## Committed-snapshot readiness
 
-Use Python 3.12 and Node 24 for the release candidate. The new entry point is
-under staged acceptance; see the [F14 specification](../docs/active/2026-09-07-public-readiness-delivery-gates-spec.md)
-for remote gates still pending. A working-directory test result does not verify
-a commit with omitted files.
+Use Python 3.12 and Node 24 for the release candidate and follow the
+[Public readiness contract](../docs/current/public-readiness.md).
+A working-directory test result does not verify a commit with omitted files.
 
 ```bash
 python3.12 scripts/public_readiness.py snapshot HEAD --base origin/main --output /tmp/readiness.json
@@ -72,9 +71,12 @@ python3.12 scripts/public_readiness.py snapshot HEAD --base origin/main --output
 `--base` must identify the previous main commit. Commit the release version pair
 before running this command. Each group gets a disposable full-history copy and
 fresh locked dependencies. Staged, unstaged and untracked files stay in the
-development directory. Only metadata reports survive; command IDs and exit codes
-identify which check needs a targeted rerun. Empty or wholly skipped suites fail;
-the deterministic suite retains its documented optional gates.
+development directory. Only metadata reports survive; command IDs, exit codes and safe test/file/line
+diagnostics identify which check needs a targeted local rerun. Remote reruns
+must include all jobs so the final gate has evidence from the same attempt. Empty or wholly skipped suites fail;
+the deterministic suite retains its documented optional gates. Functional
+collaboration regressions use controlled measurement inputs to test latency
+limits; live networking, timeouts and the separate performance gates use real clocks.
 
 Local failure-injection tests run without GitHub or dependency downloads:
 
