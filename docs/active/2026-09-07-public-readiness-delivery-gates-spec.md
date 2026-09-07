@@ -4,7 +4,7 @@
 - **Feature ID**：F14
 - **Tracking Issue**：[Issue #59](https://github.com/lazyq666/reroll-ai-canvas/issues/59)（实施 In Progress）
 - **Owners**：仓库维护者 / 开发 / 测试与发布
-- **Last verified**：2026-09-07（故障对照实验与 GitHub 配置只读核查；目标行为未验收）
+- **Last verified**：2026-09-07（完整本地快照、隔离仓库正反向验收；生产启用仍待验证）
 - **Applies to**：`lazyq666/reroll-ai-canvas` 的 Public readiness 与 main 发布流程
 - **Supersedes / Superseded by**：无
 - **Related ADRs**：[ADR-0013](../adr/0013-public-readiness-gates.md)（Proposed）
@@ -228,7 +228,11 @@ Ruleset 防止日常误操作，不声称防御拥有仓库管理权限的人主
 
 维护者从 PR 页面可识别每组失败、当前被测提交与是否允许合入；能按文档独立完成一次候选验收、失败修复和重验。回归覆盖现有 public audit、documentation knowledge map、i18n、资源版本、更新源、Node contracts、core browser、Linux 参数边界。
 
-**实施中验证记录**：已通过真实临时 Git 仓库、子进程、超时清理、源码写回、缺失浏览器、版本复用与并发推送等本地行为回归；真实依赖解析器拒绝声明/锁冲突和不兼容的 Pydantic 传递依赖。完整候选的公开树、完整历史、锁定依赖审计已通过；其余全套快照与远端 A09–A18 验收仍在进行。隔离仓库为 `lazyq666/reroll-readiness-acceptance`，生产规则尚未启用；不据此宣称 F14 完成。
+**实施中验证记录**：27 项交付行为回归已通过，覆盖真实临时 Git 仓库、删除文件后的祖先历史审计、gitlink 拒绝、源码写回、嵌套进程超时清理、空证据、版本与推送竞争。真实依赖解析器拒绝声明/锁冲突和不兼容的 Pydantic 组合。固定候选 `b76cfe6` 的 Mac 全套快照成功：Python 2,109 项（40 项有依据的跳过，浏览器由独立组执行）、Node 8 个入口、浏览器 12 项，以及审计和仓库合同全部成功。
+
+隔离仓库 [PR #6](https://github.com/lazyq666/reroll-readiness-acceptance/pull/6) 的五组与总门槛通过，并在启用规则后由维护者独立合并。真实 API 已拒绝未经 PR 的直接推送、禁用 hook 后的直接推送、失败 PR、取消及整条 workflow 跳过后的合并。文档改动产生完整检查；同一提交在 Mac 成功而在 Linux 命中合成平台断言时，远端拒绝合并。规则关闭、strict 关闭、名称或来源变化、增加 bypass 均被只读对照识别，实验后恢复预期配置。
+
+[首次 main 后验](https://github.com/lazyq666/reroll-readiness-acceptance/actions/runs/34103227113) 暴露了已有协作验收测试的间歇失败，其余四组完成；Issue 保持开放，继续通过 PR 定位与修复。此失败是 A18 的真实证据，不能用重跑的绿色覆盖。生产规则尚未启用；旧基线拒绝、修复后的 main 后验和生产验收仍待完成，不据此宣称 F14 完成。
 
 ## 16. Rollout, migration and rollback
 
