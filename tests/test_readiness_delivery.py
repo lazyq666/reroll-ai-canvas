@@ -141,6 +141,13 @@ class SnapshotTests(unittest.TestCase):
             report = readiness.run_group(candidate, 'python-tests', self.base)
         self.assertEqual([r['result'] for r in report['checks']], ['failure', 'blocked', 'success'])
 
+    def test_successful_exit_without_required_suite_evidence_fails(self):
+        sha = self.fixture_runner({'python-tests': [{'id': 'python-suite', 'argv': ['{python}', '-c', 'pass']}]})
+        with readiness.materialize(self.root, sha, self.base) as candidate:
+            report = readiness.run_group(candidate, 'python-tests', self.base)
+        self.assertEqual(report['result'], 'failure')
+        self.assertIn('empty', report['checks'][0]['reason'])
+
     def test_test_writing_source_fails_without_repairing_candidate(self):
         sha = self.fixture_runner({'node-tests': [{'id': 'write', 'argv': ['{python}', '-c', "open('source.py','w').write('changed')"]}]})
         with readiness.materialize(self.root, sha, self.base) as candidate:
@@ -148,6 +155,13 @@ class SnapshotTests(unittest.TestCase):
             self.assertEqual(report['result'], 'failure')
             self.assertFalse(report['source_unchanged'])
         self.assertEqual((self.root / 'source.py').read_text(), 'value = 0\n')
+
+    def test_user_git_checkout_configuration_cannot_transform_candidate(self):
+        config = Path(self.temp.name) / 'user.gitconfig'
+        config.write_text('[core]\n autocrlf = true\n')
+        with patch.dict(os.environ, {'GIT_CONFIG_GLOBAL': str(config)}):
+            with readiness.materialize(self.root, self.base) as candidate:
+                self.assertEqual((candidate / 'source.py').read_bytes(), b'value = 0\n')
 
     def test_uncommitted_symlink_cannot_influence_candidate(self):
         (self.root / 'link').symlink_to('source.py')
@@ -283,6 +297,11 @@ class GateTests(unittest.TestCase):
         for checks in ([], [{'result': 'skipped'}], [{'result': 'failure'}]):
             self.reports[0]['checks'] = checks
             self.assertFalse(readiness.aggregate(self.reports, self.expected, self.needs))
+
+    def test_missing_chromium_fails_before_test_discovery(self):
+        with patch.object(sys, 'argv', ['readiness_tests.py', 'browser']), patch.object(test_runner.subprocess, 'check_output', return_value='/nonexistent-readiness-chromium'):
+            with self.assertRaisesRegex(RuntimeError, 'Chromium'):
+                test_runner.main()
 
     def test_empty_or_entirely_skipped_test_group_fails(self):
         result = unittest.TestResult()
