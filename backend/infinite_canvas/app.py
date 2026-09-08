@@ -203,7 +203,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.10.1">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=2026.08.10.1">
-  <script src="/static/js/i18n.js?v=i18n-loader-016ce9a7d434"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-cacaad1d126e"></script>
 </head>
 <body class="runtime-page">
   <main class="runtime-shell">
@@ -272,7 +272,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.10.1">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=2026.08.10.1">
-  <script src="/static/js/i18n.js?v=i18n-loader-016ce9a7d434"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-cacaad1d126e"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -457,7 +457,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=2026.08.28.issue-181.1"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=i18n-loader-016ce9a7d434"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-cacaad1d126e"></script>
   <script src="/static/js/theme.js?v=2026.08.28.issue-181.1"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.28.issue-181.1">

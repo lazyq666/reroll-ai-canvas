@@ -22,7 +22,9 @@ class I18nCacheVersionTests(unittest.TestCase):
     def test_loader_and_page_references_follow_i18n_content(self):
         loader_bytes = LOADER.read_bytes()
         loader = loader_bytes.decode("utf-8")
-        module_paths = re.findall(r"'(/static/js/(?:i18n-core|i18n/[^']+)\.js)'", loader)
+        # Every loaded script shares VERSION, including the cloud error
+        # boundary. Its changes must invalidate the same cached module graph.
+        module_paths = re.findall(r"'(/static/js/[^']+\.js)'", loader)
         self.assertGreater(len(module_paths), 1)
 
         module_parts = [
