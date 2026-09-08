@@ -357,17 +357,6 @@ class CanvasSync:
             raise CanvasSyncError(500, "CanvasStore 未返回 Canvas 快照")
         return copy.deepcopy(result.canvas)
 
-    def _read_realtime_store_snapshot(
-        self,
-        canvas_id: str,
-        actor: Dict[str, Any] | None,
-    ) -> Dict[str, Any]:
-        """Read and require one Smart Canvas for the realtime protocol."""
-
-        canvas = self._read_store_snapshot(canvas_id, actor)
-        self._require_smart(canvas)
-        return canvas
-
     def _access_epoch(self, canvas_id: str) -> int:
         return int(self._access_epochs.get(canvas_id, 0))
 
@@ -977,7 +966,6 @@ class CanvasSync:
         """Authorize, accept, enable, persist, and send one shared snapshot."""
 
         canvas_id = str(canvas_id or "").strip()
-        await self._run_store(self._authorize_realtime_open, canvas_id, actor)
 
         safe_client_id = re.sub(
             r"[^A-Za-z0-9_.:-]",
@@ -987,6 +975,14 @@ class CanvasSync:
         session: RealtimeSession | None = None
         try:
             async with self._operation_lock(canvas_id):
+                # Authorize and capture once before registering. Holding the
+                # operation lock keeps mutations from falling between this
+                # snapshot and the new connection's first message.
+                snapshot, access_scope = await self._run_store(
+                    self._prepare_realtime_snapshot,
+                    canvas_id,
+                    actor,
+                )
                 # Register while the Canvas operation lock is held so no
                 # committed mutation can be broadcast to this connection
                 # before its snapshot has been queued.
@@ -996,11 +992,6 @@ class CanvasSync:
                     safe_client_id,
                 ):
                     return None
-                snapshot, access_scope = await self._run_store(
-                    self._prepare_realtime_snapshot,
-                    canvas_id,
-                    actor,
-                )
                 revision = int(snapshot.get("revision") or 0)
                 self._remember_revision(canvas_id, revision)
                 session = RealtimeSession(
@@ -1044,26 +1035,14 @@ class CanvasSync:
             await self.close_realtime(session)
         return None
 
-    def _authorize_realtime_open(
-        self,
-        canvas_id: str,
-        actor: Dict[str, Any] | None,
-    ) -> None:
-        if self._canvas_store is not None:
-            self._read_realtime_store_snapshot(canvas_id, actor)
-            return
-        with self._file_lock:
-            _path, canvas = self._read_locked(canvas_id)
-            self._require_actor(canvas, actor, write=True)
-            self._require_smart(canvas)
-
     def _prepare_realtime_snapshot(
         self,
         canvas_id: str,
         actor: Dict[str, Any] | None,
     ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         if self._canvas_store is not None:
-            canvas = self._read_realtime_store_snapshot(canvas_id, actor)
+            canvas = self._read_store_snapshot(canvas_id, actor)
+            self._require_smart(canvas)
             return canvas, self._realtime_access_scope(canvas)
         with self._file_lock:
             path, canvas = self._read_locked(canvas_id)

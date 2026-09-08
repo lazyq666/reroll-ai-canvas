@@ -1,4 +1,5 @@
 import unittest
+import subprocess
 from pathlib import Path
 
 
@@ -6,6 +7,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CanvasListUiRegressionTests(unittest.TestCase):
+    def test_cloud_failure_does_not_render_an_access_empty_state(self):
+        result = subprocess.run(
+            ['node', 'tests/canvas_list_cloud_failure_regression.cjs'],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_project_filter_uses_vertical_manual_tabs_with_internal_count(self):
         page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")

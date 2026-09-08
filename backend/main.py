@@ -502,8 +502,12 @@ async def canvas_realtime_endpoint(
             actor,
             client_id,
         )
-    except CanvasSyncError:
-        await websocket.close(code=4404)
+    except TursoError as exc:
+        await websocket.accept()
+        await websocket.close(code=1013, reason=exc.code)
+        return
+    except CanvasSyncError as exc:
+        await websocket.close(code=1011 if exc.status_code >= 500 else 4404)
         return
     if session is None:
         return
@@ -531,8 +535,12 @@ async def canvas_realtime_endpoint(
                         message,
                         raw_size=len(raw.encode("utf-8")),
                     )
-            except CanvasSyncError:
-                await websocket.close(code=4403)
+            except TursoError as exc:
+                print(f"Canvas cloud storage unavailable: {exc.code}")
+                await websocket.close(code=1013, reason=exc.code)
+                return
+            except CanvasSyncError as exc:
+                await websocket.close(code=1011 if exc.status_code >= 500 else 4403)
                 return
     except WebSocketDisconnect:
         pass
@@ -9284,7 +9292,9 @@ async def delete_workspace_asset_folder(folder_id: str):
 @app.get("/api/canvases")
 async def canvases(project: str = "", cursor: str = "", limit: int = 0):
     started = time.perf_counter()
-    page = list_canvas_page(project=project, cursor=cursor, limit=limit)
+    page = await asyncio.to_thread(
+        list_canvas_page, project=project, cursor=cursor, limit=limit
+    )
     return {
         "canvases": page.records,
         "next_cursor": page.next_cursor,
@@ -9321,7 +9331,9 @@ async def canvas_presence_summary(payload: CanvasPresenceSummaryRequest):
 
 @app.get("/api/projects")
 async def get_projects():
-    projects, rebuilding, index_error = list_projects(with_status=True)
+    projects, rebuilding, index_error = await asyncio.to_thread(
+        list_projects, with_status=True
+    )
     return {
         "projects": projects,
         "rebuilding": rebuilding,
@@ -9391,7 +9403,8 @@ async def update_account_project_permissions(
 
 @app.get("/api/canvases/trash")
 async def trashed_canvases():
-    return {"canvases": list_deleted_canvases(), "retention_days": 30}
+    records = await asyncio.to_thread(list_deleted_canvases)
+    return {"canvases": records, "retention_days": 30}
 
 @app.post("/api/canvases")
 async def create_canvas(payload: CanvasCreateRequest):
@@ -9535,7 +9548,7 @@ async def regenerate_canvas_share(canvas_id: str):
     return _replace_canvas_share(canvas_id, regenerate=True)
 
 @app.get("/api/canvases/{canvas_id}/share")
-async def get_canvas_share_status(canvas_id: str):
+def get_canvas_share_status(canvas_id: str):
     load_canvas(canvas_id)
     status = AUTH_SYSTEM.canvas_share_status(
         current_workspace_id(),
@@ -9594,7 +9607,7 @@ async def get_shared_canvas_media(token: str, media_id: str, w: int = 0):
     )
 
 @app.get("/api/canvases/{canvas_id}/meta")
-async def get_canvas_meta(canvas_id: str):
+def get_canvas_meta(canvas_id: str):
     canvas = load_canvas(canvas_id)
     return {
         "id": canvas.get("id"),
@@ -9619,7 +9632,7 @@ async def update_canvas_meta(canvas_id: str, payload: CanvasMetaUpdate):
     return {"canvas": canvas_record(result.canvas)}
 
 @app.get("/api/canvases/{canvas_id}")
-async def get_canvas(canvas_id: str):
+def get_canvas(canvas_id: str):
     actor = require_current_user("admin", "designer")
     try:
         canvas = CANVAS_SYNC.read(
@@ -9671,7 +9684,7 @@ async def export_layer_decomposition_psd(canvas_id: str, node_id: str):
 
 
 @app.get("/api/canvases/{canvas_id}/generation-runs/active")
-async def get_active_canvas_generation_runs(canvas_id: str):
+def get_active_canvas_generation_runs(canvas_id: str):
     actor = require_current_user("admin", "designer")
     try:
         CANVAS_SYNC.read(canvas_id, actor, smart_snapshot=True)
@@ -9699,7 +9712,7 @@ async def get_active_canvas_generation_runs(canvas_id: str):
     }
 
 @app.get("/api/canvases/{canvas_id}/open")
-async def open_canvas(canvas_id: str):
+def open_canvas(canvas_id: str):
     actor = require_current_user("admin", "designer")
     try:
         canvas = CANVAS_SYNC.read(
@@ -9719,7 +9732,7 @@ async def open_canvas(canvas_id: str):
     )
 
 @app.get("/api/canvases/{canvas_id}/logs")
-async def get_canvas_generation_logs(
+def get_canvas_generation_logs(
     canvas_id: str,
     node_id: str = "",
     cursor: str = "",
@@ -9754,7 +9767,7 @@ async def append_canvas_generation_log(
     return {"log_id": log_id}
 
 @app.get("/api/canvases/{canvas_id}/logs/{log_id}")
-async def get_canvas_generation_log_detail(canvas_id: str, log_id: str):
+def get_canvas_generation_log_detail(canvas_id: str, log_id: str):
     actor = require_current_user("admin", "designer")
     try:
         log = CANVAS_SYNC.read_generation_log_detail(
@@ -10452,7 +10465,7 @@ async def export_smart_canvas_group(payload: SmartCanvasGroupExportRequest):
     return {"ok": True, "folder": target_dir, "count": count}
 
 @app.get("/api/canvases/{canvas_id}/prompt-templates")
-async def get_canvas_prompt_templates(canvas_id: str):
+def get_canvas_prompt_templates(canvas_id: str):
     canvas = load_canvas(canvas_id)
     return {
         "canvas_id": canvas_id,

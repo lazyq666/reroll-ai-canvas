@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 from infinite_canvas.turso_runtime import TursoWorkspaceRuntime
 from infinite_canvas.turso_sqlite import TursoError
+from infinite_canvas.canvas_store import CanvasIntent, CanvasProjection
+from tests.test_canvas_store import ADMIN, sample_canvas
 from tests import test_turso_stores as store_fixtures
 from tests import test_generation_run_store as run_fixtures
 
@@ -46,6 +48,105 @@ class TursoRuntimeTests(unittest.TestCase):
         self.assertEqual(runtime.public()["status"], "unavailable")
         with self.assertRaises(TursoError):
             runtime.connect()
+
+    def test_transient_renewal_recovers_same_owner_without_reviving_old_connections(self):
+        runtime = self.open()
+        self.addCleanup(runtime.close)
+        runtime.canvas_store.commit('canvas-1', ADMIN, CanvasIntent.import_canvas(sample_canvas(), operation_id='seed:canvas-0001'))
+        old_connection = runtime.connect()
+        self.addCleanup(old_connection.close)
+        old_fence = runtime.fence
+        with patch.object(runtime.lease, '_connect', side_effect=TursoError('cloud_storage_outcome_unknown')):
+            with self.assertRaises(TursoError):
+                runtime.renew()
+        with self.assertRaises(TursoError):
+            runtime.connect()
+        with patch.object(runtime.lease, 'acquire', side_effect=AssertionError('Recovery must not acquire a new lease')):
+            runtime.renew()
+        self.assertEqual(runtime.public()['status'], 'connected')
+        self.assertEqual((runtime.fence.owner, runtime.fence.epoch), (old_fence.owner, old_fence.epoch))
+        self.assertTrue(old_fence._revoked.is_set())
+        with self.assertRaises(TursoError):
+            old_connection.execute('BEGIN IMMEDIATE')
+        old_connection.rollback()
+        self.assertEqual(len(runtime.canvas_store.list_items(ADMIN)), 1)
+        operation = CanvasIntent.canvas_mutation({
+            'operation_id': 'paste:image-0001', 'base_revision': 7,
+            'changes': {'node_creates': [{'id': 'pasted-image', 'type': 'image', 'x': 1000, 'y': 1000, 'imageUrl': '/assets/uploads/test.png'}]},
+        })
+        committed = runtime.canvas_store.commit('canvas-1', ADMIN, operation)
+        self.assertTrue(committed.changed)
+        self.assertTrue(runtime.canvas_store.commit('canvas-1', ADMIN, operation).duplicate)
+        canvas = runtime.canvas_store.read('canvas-1', ADMIN, CanvasProjection.public_snapshot()).canvas
+        self.assertEqual(sum(node['id'] == 'pasted-image' for node in canvas['nodes']), 1)
+
+    def test_uncertain_renewal_cannot_recover_after_local_deadline(self):
+        runtime = self.open()
+        self.addCleanup(runtime.close)
+        with patch.object(runtime.lease, '_connect', side_effect=TursoError('cloud_storage_outcome_unknown')):
+            with self.assertRaises(TursoError):
+                runtime.renew()
+        runtime._deadline = 0
+        with self.assertRaises(TursoError):
+            runtime.renew()
+        self.assertEqual(runtime.public()['status'], 'unavailable')
+
+    def test_lost_commit_response_reconciles_the_same_lease(self):
+        runtime = self.open()
+        self.addCleanup(runtime.close)
+        old_fence = runtime.fence
+        def lose_commit_response(url, payload):
+            response = self.fixture.remote(url, payload)
+            if any(request.get('stmt', {}).get('sql') == 'COMMIT' for request in payload['requests']):
+                raise TursoError('cloud_storage_outcome_unknown')
+            return response
+        with patch.object(runtime, '_transport', lose_commit_response):
+            with self.assertRaises(TursoError):
+                runtime.renew()
+        self.assertEqual(runtime.public()['status'], 'reconnecting')
+        runtime.renew()
+        self.assertEqual(runtime.public()['status'], 'connected')
+        self.assertEqual(runtime.fence.epoch, old_fence.epoch)
+        self.assertTrue(old_fence._revoked.is_set())
+
+    def test_recovery_refuses_expired_changed_or_retired_remote_lease(self):
+        for update in ("expires_at=0", "owner='another-process'", "epoch=epoch+1", "state='retired'", "binding_id='foreign'"):
+            with self.subTest(update=update):
+                runtime = self.open()
+                try:
+                    with patch.object(runtime.lease, '_connect', side_effect=TursoError('cloud_storage_outcome_unknown')):
+                        with self.assertRaises(TursoError):
+                            runtime.renew()
+                    self.fixture.remote.database.execute('UPDATE reroll_workspace_lease SET ' + update)
+                    with self.assertRaises(TursoError):
+                        runtime.renew()
+                    self.assertFalse(runtime.lease.can_reconcile)
+                    self.assertEqual(runtime.public()['status'], 'unavailable')
+                finally:
+                    runtime.close()
+                    self.fixture.remote.database.execute("UPDATE reroll_workspace_lease SET state='active', binding_id='binding', owner='', expires_at=0")
+
+    def test_heartbeat_retries_uncertain_renewal_instead_of_exiting(self):
+        runtime = self.open()
+        self.addCleanup(runtime.close)
+        delays = []
+        renewals = []
+        real_renew = runtime.renew
+        def renew():
+            renewals.append(1)
+            if len(renewals) == 1:
+                with patch.object(runtime.lease, '_connect', side_effect=TursoError('cloud_storage_outcome_unknown')):
+                    return real_renew()
+            return real_renew()
+        def wait(delay):
+            delays.append(delay)
+            return len(delays) == 3
+        with patch.object(runtime, 'renew', side_effect=renew), patch.object(runtime._stop, 'wait', side_effect=wait), patch('infinite_canvas.turso_runtime.threading.Thread') as thread:
+            runtime.start()
+            thread.call_args.kwargs['target']()
+        self.assertEqual(delays, [20, 2, 20])
+        self.assertEqual(len(renewals), 2)
+        self.assertEqual(runtime.public()['status'], 'connected')
 
     def test_unfinished_generation_cannot_resume_on_another_device(self):
         first = self.open()

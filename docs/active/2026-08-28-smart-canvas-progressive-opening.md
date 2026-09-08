@@ -111,11 +111,17 @@ Opening 模块对页面暴露小型 Interface：`open({canvasId, outlineReady, o
 UI 模块就绪后同时启动：
 
 - Canvas Opening Stream；
+- 当前 Canvas 的活动 Generation Run 查询；
 - Prompt Templates；
 - Runtime / Provider Config；
 - 既有设备级 Viewport 恢复。
 
-Viewport Restore 和 Opening 网络读取保持并行；只有轮廓首次 Paint 依赖 Viewport Restore 完成。首次 Node 渲染依赖完整 Canvas 文档、Viewport Restore 和必需 UI 模块。模板或运行配置失败不得使已授权 Canvas 变成空白；相关功能沿用自身降级与错误反馈，并在其完成后执行一次既有配置同步。
+Viewport Restore 和 Opening 网络读取保持并行；只有轮廓首次 Paint 依赖 Viewport Restore 完成。
+
+活动 Generation Run 查询与完整文档读取并行；查询结果在文档、本地草稿和旧格式恢复后应用，并在建立首次同步基线前完成。不得把打开时的状态修正推迟为一次新的 Canvas Edit。首次 Node 渲染依赖完整 Canvas 文档、活动任务恢复、Viewport Restore 和必需 UI 模块。
+
+模板或运行配置失败不得使已授权 Canvas 变成空白；相关功能沿用自身降级与错误反馈，并在其完成后执行一次既有配置同步。这次配置同步不额外触发整个 Canvas 的 Node 渲染。
+
 
 ## 6. Presentation, media and accessibility
 

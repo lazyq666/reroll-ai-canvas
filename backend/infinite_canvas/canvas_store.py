@@ -1175,15 +1175,15 @@ class SqliteCanvasStore:
         canvas_id = str(row["canvas_id"])
         item = self._row_canvas(row)
         item["deleted_at"] = int(row["deleted_at"] or 0)
-        item["node_count"] = int(
+        projected = "list_node_count" in row.keys()
+        item["node_count"] = int(row["list_node_count"]) if projected else int(
             connection.execute(
                 "SELECT COUNT(*) FROM canvas_nodes WHERE canvas_id = ?",
                 (canvas_id,),
             ).fetchone()[0]
         )
-        payloads = {
-            str(payload["payload_key"]): json.loads(payload["payload_json"])
-            for payload in connection.execute(
+        payload_rows = (
+            json.loads(row["list_payloads"]) if projected else connection.execute(
                 """
                 SELECT payload_key, payload_json
                 FROM canvas_top_level_payloads
@@ -1192,6 +1192,10 @@ class SqliteCanvasStore:
                 """,
                 (canvas_id,),
             )
+        )
+        payloads = {
+            str(payload["payload_key"]): json.loads(payload["payload_json"])
+            for payload in payload_rows
         }
         item["board_x"] = payloads.get("board_x")
         item["board_y"] = payloads.get("board_y")
@@ -1214,16 +1218,17 @@ class SqliteCanvasStore:
                 )
                 return item
 
-        for node_index, node_row in enumerate(
-            connection.execute(
+        node_rows = (
+            json.loads(row["list_nodes"]) if projected else connection.execute(
                 """
                 SELECT payload_json FROM canvas_nodes
                 WHERE canvas_id = ? ORDER BY position
                 """,
                 (canvas_id,),
             )
-        ):
-            node = _json_object(node_row["payload_json"])
+        )
+        for node_index, node_row in enumerate(node_rows):
+            node = node_row if projected else _json_object(node_row["payload_json"])
             images = node.get("images") if isinstance(node.get("images"), list) else []
             for image_index, value in enumerate(images):
                 url = self._list_asset_url(value)
@@ -1267,38 +1272,25 @@ class SqliteCanvasStore:
     ) -> Dict[str, Any]:
         canvas_id = str(row["canvas_id"])
         canvas = self._row_canvas(row)
-        for payload in connection.execute(
+        # One round trip for the document sections, even when the connection
+        # is remote. Do not serialize generation logs into an opening snapshot.
+        document = connection.execute(
             """
-            SELECT payload_key, payload_json
-            FROM canvas_top_level_payloads
-            WHERE canvas_id = ?
-            ORDER BY payload_key
+            SELECT
+                (SELECT json_group_object(payload_key, json(payload_json))
+                 FROM canvas_top_level_payloads WHERE canvas_id = ?) AS payloads,
+                (SELECT json_group_array(json(payload_json))
+                 FROM (SELECT payload_json FROM canvas_nodes
+                       WHERE canvas_id = ? ORDER BY position)) AS nodes,
+                (SELECT json_group_array(json(payload_json))
+                 FROM (SELECT payload_json FROM canvas_connections
+                       WHERE canvas_id = ? ORDER BY position)) AS connections
             """,
-            (canvas_id,),
-        ):
-            canvas[str(payload["payload_key"])] = json.loads(
-                payload["payload_json"]
-            )
-        canvas["nodes"] = [
-            json.loads(item["payload_json"])
-            for item in connection.execute(
-                """
-                SELECT payload_json FROM canvas_nodes
-                WHERE canvas_id = ? ORDER BY position
-                """,
-                (canvas_id,),
-            )
-        ]
-        canvas["connections"] = [
-            json.loads(item["payload_json"])
-            for item in connection.execute(
-                """
-                SELECT payload_json FROM canvas_connections
-                WHERE canvas_id = ? ORDER BY position
-                """,
-                (canvas_id,),
-            )
-        ]
+            (canvas_id, canvas_id, canvas_id),
+        ).fetchone()
+        canvas.update(json.loads(document["payloads"]))
+        canvas["nodes"] = json.loads(document["nodes"])
+        canvas["connections"] = json.loads(document["connections"])
         return canvas
 
     def _receipt_commit(self, row: sqlite3.Row) -> CanvasCommit:
@@ -3576,9 +3568,26 @@ class SqliteCanvasStore:
     ) -> tuple[Dict[str, Any], ...]:
         with self._connect() as connection:
             items: list[Dict[str, Any]] = []
+            # Project only cover candidates, never full node bodies. Correlated
+            # subqueries execute at the database, not as one HTTP call per card.
             for row in connection.execute(
                 """
-                SELECT * FROM canvases
+                SELECT canvases.*,
+                    (SELECT COUNT(*) FROM canvas_nodes
+                     WHERE canvas_id = canvases.canvas_id) AS list_node_count,
+                    (SELECT json_group_array(json_object(
+                        'payload_key', payload_key, 'payload_json', payload_json))
+                     FROM canvas_top_level_payloads
+                     WHERE canvas_id = canvases.canvas_id
+                       AND payload_key IN ('board_x', 'board_y', 'cover_image'))
+                        AS list_payloads,
+                    (SELECT json_group_array(json_object(
+                        'id', json_extract(payload_json, '$.id'),
+                        'images', json_extract(payload_json, '$.images')))
+                     FROM (SELECT payload_json FROM canvas_nodes
+                           WHERE canvas_id = canvases.canvas_id ORDER BY position))
+                        AS list_nodes
+                FROM canvases
                 ORDER BY canvas_id
                 """
             ):

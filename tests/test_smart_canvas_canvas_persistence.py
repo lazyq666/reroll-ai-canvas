@@ -13,6 +13,20 @@ PLACEMENT_MODULE = ROOT / "static/js/smart-canvas/node-placement.js"
 
 
 class SmartCanvasPersistenceModuleTests(unittest.TestCase):
+    def test_focused_image_submission_does_not_hold_required_save_receipt(self):
+        result = subprocess.run(
+            ['node', 'tests/smart_canvas_generation_focus_ack_regression.cjs'],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_cloud_reconnect_preserves_pending_operation_and_localized_reason(self):
+        result = subprocess.run(
+            ['node', 'tests/smart_canvas_cloud_reconnect_regression.cjs'],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_external_prompt_commit_deduplicates_http_and_websocket_in_either_order(self):
         script = textwrap.dedent(
             f"""
