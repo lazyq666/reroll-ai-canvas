@@ -123,6 +123,10 @@ from infinite_canvas.workspace_storage_composition import (
     WorkspaceStorageCompositionError,
     compose_workspace_storage,
 )
+from infinite_canvas.storage_authority import resolve_storage_authority
+from infinite_canvas.turso_runtime import TursoWorkspaceRuntime
+from infinite_canvas.turso_sqlite import TursoError
+from infinite_canvas.turso_stores import TursoBatchGeneration
 from infinite_canvas.sqlite_workspace_bootstrap import (
     bootstrap_fresh_workspace_sqlite,
     fresh_workspace_sqlite_bootstrap_required,
@@ -299,9 +303,19 @@ logging.getLogger("uvicorn.access").addFilter(QuietAccessLogFilter())
 app = FastAPI()
 MEDIA_CLEANUP = WorkspaceMediaCleanup()
 MEDIA_CLEANUP_GATE = MediaCleanupGate()
+PENDING_CLOUD_SWITCH = None
+CLOUD_TRANSITION_PUBLISHED = False
+
+
+def cloud_transition_admission(path):
+    if CLOUD_TRANSITION_PUBLISHED and path.startswith('/api/') and not path.startswith(('/api/auth/', '/api/runtime/', '/api/workspace-storage-settings/cloud')):
+        return 'cloud_storage_restart_required'
+
+
 app.add_middleware(
     MediaCleanupTraffic, gate=MEDIA_CLEANUP_GATE,
     lease=lambda value: MEDIA_CLEANUP.lease(value),
+    admission=cloud_transition_admission,
 )
 
 app.add_middleware(
@@ -348,6 +362,7 @@ def _prepare_startup_state():
         startup_composition = compose_workspace_storage(
             current_workspace_content(),
             workspace_id=current_workspace_id(),
+            cloud_runtime=cloud_workspace_runtime,
         )
         if (
             WORKSPACE_STORAGE_COMPOSITION is None
@@ -438,6 +453,7 @@ async def shutdown_event():
         _CLI_UPDATE_TASK = None
     finally:
         cancel_pending_workspace_open()
+        close_cloud_workspace_runtime()
         release_workspace_occupation()
 
 @app.websocket("/ws/stats")
@@ -506,6 +522,9 @@ async def canvas_realtime_endpoint(
             )
             try:
                 async with MEDIA_CLEANUP_GATE.activity():
+                    if CLOUD_TRANSITION_PUBLISHED:
+                        await websocket.close(code=1012)
+                        return
                     await CANVAS_SYNC.receive_realtime(
                         session,
                         actor,
@@ -571,6 +590,7 @@ MODEL_CAPABILITY_MATRIX = ModelCapabilityMatrix(
 )
 WORKSPACE_SERVER_ID = DEVICE_STATE.server_identity()
 WORKSPACE_OCCUPATION = None
+CLOUD_WORKSPACE_RUNTIME = None
 WORKSPACE_TAKEOVER_CONFIRMED = str(
     os.getenv("INFINITE_CANVAS_WORKSPACE_TAKEOVER") or ""
 ).strip().lower() in {"1", "true", "yes", "on"}
@@ -698,6 +718,30 @@ def workspace_move_status() -> Dict[str, Any]:
     return status
 
 
+def cloud_workspace_runtime(authority):
+    global CLOUD_WORKSPACE_RUNTIME
+    if CLOUD_WORKSPACE_RUNTIME is None:
+        CLOUD_WORKSPACE_RUNTIME = TursoWorkspaceRuntime(
+            Path(DEVICE_STATE_DIR) / "turso-connection.json",
+            workspace_id=authority.workspace_id,
+            binding_id=authority.binding_id,
+            device_id=WORKSPACE_SERVER_ID,
+        )
+        CLOUD_WORKSPACE_RUNTIME.start()
+    return CLOUD_WORKSPACE_RUNTIME
+
+
+def close_cloud_workspace_runtime():
+    global CLOUD_WORKSPACE_RUNTIME
+    runtime = CLOUD_WORKSPACE_RUNTIME
+    CLOUD_WORKSPACE_RUNTIME = None
+    if runtime is not None:
+        try:
+            runtime.close()
+        except Exception:
+            logging.warning("Cloud Workspace release was not confirmed; the lease will expire")
+
+
 def ensure_workspace_occupation(
     workspace_directory: str = "",
     *,
@@ -717,11 +761,24 @@ def ensure_workspace_occupation(
         raise WorkspaceStorageError(
             "当前服务已经在使用另一个工作区，请先完成受控重启"
         )
+    workspace_directory = requested or WORKSPACE_SERVICE.current().directory
+    identity = WORKSPACE_SERVICE.identity(workspace_directory)
+    authority_path = workspace_directory / "data" / "storage-authority.json"
+    authority = resolve_storage_authority(
+        authority_path, identity, supported_modes=("json", "sqlite", "turso"),
+    ) if authority_path.exists() else None
     WORKSPACE_OCCUPATION = WORKSPACE_SERVICE.acquire_occupation(
         WORKSPACE_SERVER_ID,
         directory=str(requested) if requested is not None else "",
         allow_foreign_takeover=allow_foreign_takeover,
+        remote_authority=authority is not None and authority.mode == "turso",
     )
+    if authority is not None and authority.mode == "turso":
+        try:
+            cloud_workspace_runtime(authority)
+        except BaseException:
+            release_workspace_occupation()
+            raise
     return WORKSPACE_OCCUPATION
 
 
@@ -1138,6 +1195,8 @@ async def _prepare_workspace_move():
 def prepare_controlled_restart():
     """Apply a confirmed Workspace operation at the runtime safe point."""
 
+    if PENDING_CLOUD_SWITCH is not None:
+        return prepare_cloud_storage_switch()
     with WORKSPACE_MOVE_LOCK:
         if PENDING_WORKSPACE_MOVE is not None:
             return _prepare_workspace_move()
@@ -1176,6 +1235,7 @@ def prepare_controlled_restart():
 
 
 atexit.register(release_workspace_occupation)
+atexit.register(close_cloud_workspace_runtime)
 atexit.register(cancel_pending_workspace_open)
 
 
@@ -2829,6 +2889,23 @@ install_access_control(
     user_enricher=enrich_current_workspace_user,
 )
 
+
+@app.exception_handler(TursoError)
+async def cloud_storage_error(_request: Request, error: TursoError):
+    return JSONResponse(status_code=503, content={"code": error.code, "detail": {"code": error.code}})
+
+
+@app.middleware("http")
+async def cloud_write_admission(request: Request, call_next):
+    runtime = globals().get("CLOUD_WORKSPACE_RUNTIME")
+    if runtime is not None and request.method not in {"GET", "HEAD", "OPTIONS"} and request.url.path.startswith("/api/"):
+        if not request.url.path.startswith(("/api/auth/", "/api/runtime/", "/api/workspace-storage-settings/cloud")):
+            try:
+                runtime.require_active()
+            except TursoError as error:
+                return await cloud_storage_error(request, error)
+    return await call_next(request)
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount(
     "/assets",
@@ -4141,6 +4218,7 @@ WORKSPACE_STORAGE_COMPOSITION = (
     compose_workspace_storage(
         current_workspace_content(),
         workspace_id=current_workspace_id(),
+        cloud_runtime=cloud_workspace_runtime,
     )
     if WORKSPACE_CONFIGURED
     else None
@@ -5023,7 +5101,90 @@ def _workspace_storage_response(paths=None, **extra):
 @app.get("/api/workspace-storage-settings")
 async def get_workspace_storage_settings(request: Request):
     require_current_user("admin")
-    return _workspace_storage_response(restart_required=False)
+    cloud = CLOUD_WORKSPACE_RUNTIME.public() if CLOUD_WORKSPACE_RUNTIME else {"enabled": False, "provider": "turso", "status": "local"}
+    try:
+        configuration = json.loads((Path(DEVICE_STATE_DIR) / 'turso-connection.json').read_text())
+        cloud['prepared'] = configuration.get('workspace_id') == current_workspace_id() and configuration.get('status') == 'verified'
+    except (OSError, ValueError):
+        cloud['prepared'] = False
+    return _workspace_storage_response(
+        restart_required=False,
+        cloud_records=cloud,
+    )
+
+
+async def prepare_cloud_storage_switch():
+    from infinite_canvas.turso_switch import CloudStorageSwitch
+    global CLOUD_TRANSITION_PUBLISHED
+    pending = PENDING_CLOUD_SWITCH
+    if pending is None or pending.get('prepared'):
+        return
+    batch = globals().get('_BATCH_GENERATION')
+    generation = globals().get('_GENERATION_SQLITE_RUNTIME')
+    try:
+        async with MEDIA_CLEANUP_GATE.exclusive():
+            if active_generation_run_count():
+                raise TursoError('cloud_storage_tasks_pending')
+            if batch:
+                await batch.stop_scheduler()
+            if generation:
+                await generation.pause_delivery()
+
+            def publish():
+                switch = CloudStorageSwitch(current_workspace_content(), workspace_id=current_workspace_id(), state_directory=DEVICE_STATE_DIR)
+                return switch.enable() if pending['enabled'] else switch.disable(CLOUD_WORKSPACE_RUNTIME)
+
+            work = asyncio.create_task(asyncio.to_thread(publish))
+            try:
+                await asyncio.shield(work)
+            except asyncio.CancelledError:
+                await work
+                raise
+            finally:
+                # Publication or a retired/uncertain cloud commit cannot resume
+                # the old process, even if the automatic restart later fails.
+                manifest = resolve_storage_authority(current_workspace_content().storage_authority, current_workspace_id(), supported_modes=('json', 'sqlite', 'turso'))
+                CLOUD_TRANSITION_PUBLISHED = manifest.mode != WORKSPACE_STORAGE_COMPOSITION.mode or bool(CLOUD_WORKSPACE_RUNTIME and CLOUD_WORKSPACE_RUNTIME.fence._revoked.is_set())
+            pending['prepared'] = True
+            CLOUD_TRANSITION_PUBLISHED = True
+    except BaseException as error:
+        pending['error'] = getattr(error, 'code', 'cloud_storage_query_failed')
+        if not CLOUD_TRANSITION_PUBLISHED:
+            if generation:
+                await generation.start()
+            if batch:
+                await batch.start_scheduler()
+        raise
+
+
+class CloudStorageSelection(BaseModel):
+    enabled: bool
+
+
+@app.post('/api/workspace-storage-settings/cloud')
+async def select_cloud_storage(payload: CloudStorageSelection, request: Request):
+    global PENDING_CLOUD_SWITCH
+    _require_local_workspace_management(request)
+    if PENDING_WORKSPACE_OPEN is not None or PENDING_WORKSPACE_MOVE is not None or PENDING_CLOUD_SWITCH is not None:
+        raise TursoError('cloud_storage_workspace_busy')
+    if payload.enabled == bool(CLOUD_WORKSPACE_RUNTIME) and not CLOUD_TRANSITION_PUBLISHED:
+        return {'enabled': payload.enabled, 'restart_required': False}
+    if _RUNTIME_ASYNC_RESTART_REQUESTER is None:
+        raise TursoError('cloud_storage_restart_required')
+    if active_generation_run_count():
+        raise TursoError('cloud_storage_tasks_pending')
+    PENDING_CLOUD_SWITCH = {'enabled': payload.enabled}
+    status = {}
+    try:
+        result = await _RUNTIME_ASYNC_RESTART_REQUESTER(cancel_active=False)
+        status = result.public() if callable(getattr(result, 'public', None)) else dict(result or {})
+        if status.get('stage') not in {'restart_waiting', 'stopping'}:
+            raise TursoError('cloud_storage_restart_required' if CLOUD_TRANSITION_PUBLISHED else PENDING_CLOUD_SWITCH.get('error', 'cloud_storage_query_failed'))
+        return {**status, 'enabled': payload.enabled, 'restart_required': True}
+    finally:
+        # A waiting runtime still needs the pending operation at its safe point.
+        if status.get('stage') != 'restart_waiting':
+            PENDING_CLOUD_SWITCH = None
 
 
 class MediaCleanupConfirmation(BaseModel):
@@ -5032,6 +5193,10 @@ class MediaCleanupConfirmation(BaseModel):
 
 async def _workspace_media_cleanup(scan_id: str = ""):
     actor = require_current_user("admin")
+    if CLOUD_TRANSITION_PUBLISHED:
+        raise TursoError('cloud_storage_restart_required')
+    if CLOUD_WORKSPACE_RUNTIME is not None:
+        raise HTTPException(status_code=409, detail={"code": "media_cleanup_cloud_unsupported"})
     try:
         async with MEDIA_CLEANUP_GATE.exclusive():
             if active_generation_run_count():
@@ -11283,6 +11448,8 @@ _GENERATION_SQLITE_RUNTIME = (
             ),
         ),
         worker_id=_GENERATION_WORKER_ID,
+        idle_delay_seconds=5 if CLOUD_WORKSPACE_RUNTIME is not None else 0.25,
+        failure_delay_seconds=10 if CLOUD_WORKSPACE_RUNTIME is not None else 1,
     )
     if (
         WORKSPACE_STORAGE_COMPOSITION is not None
@@ -11449,12 +11616,13 @@ async def _submit_batch_generation_task(task, *, owner, batch_id):
     }
 
 
-_BATCH_GENERATION = BatchGeneration(
-    (
-        current_workspace_content().batch_generation
-        if WORKSPACE_CONFIGURED
+_BATCH_GENERATION = (TursoBatchGeneration if CLOUD_WORKSPACE_RUNTIME else BatchGeneration)(
+    CLOUD_WORKSPACE_RUNTIME.connect if CLOUD_WORKSPACE_RUNTIME else (
+        current_workspace_content().batch_generation if WORKSPACE_CONFIGURED
         else Path(SETUP_STATE_DIR) / "unavailable-batch-generation.sqlite3"
     ),
+    **({"workspace_id": current_workspace_id()} if CLOUD_WORKSPACE_RUNTIME else {}),
+    scheduler_interval=5 if CLOUD_WORKSPACE_RUNTIME else 1,
     submit=_submit_batch_generation_task,
     inspect_run=lambda run_id, owner: _GENERATION_RUNS.get(
         run_id, owner=owner

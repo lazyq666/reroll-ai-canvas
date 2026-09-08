@@ -17,6 +17,10 @@ Create an ADR when a decision constrains future implementation, establishes a sy
 [ADR-0012](0012-manual-workspace-media-cleanup.md) defines manual reclamation of
 unreferenced Workspace media and separates record deletion from physical deletion.
 
+[ADR-0014](0014-optional-cloud-sqlite-authority.md) proposes optional cloud
+placement for Workspace SQLite records while media remain in OneDrive. It is
+implemented as an opt-in pilot; broader acceptance is still pending.
+
 Use `NNNN-kebab-case-title.md`, with monotonically increasing four-digit numbers, for example `0001-canvas-mutation-as-write-authority.md`.
 
 ## Lifecycle

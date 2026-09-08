@@ -84,18 +84,24 @@ class MediaCleanupGate:
 class MediaCleanupTraffic:
     """ASGI admission, including uploads and reads that lazily persist data."""
 
-    def __init__(self, app, *, gate, lease) -> None:
+    def __init__(self, app, *, gate, lease, admission=None) -> None:
         self.app, self.gate, self.lease = app, gate, lease
+        self.admission = admission
 
     async def __call__(self, scope, receive, send):
         path = scope.get("path", "")
         cleanup_paths = {
             "/api/workspace-storage-settings/cleanup/scan",
             "/api/workspace-storage-settings/cleanup/confirm",
+            "/api/workspace-storage-settings/cloud",
         }
         if scope["type"] != "http" or path in cleanup_paths:
             return await self.app(scope, receive, send)
         async with self.gate.activity():
+            code = self.admission(path) if self.admission else None
+            if code:
+                from starlette.responses import JSONResponse
+                return await JSONResponse({'code': code, 'detail': {'code': code}}, status_code=503)(scope, receive, send)
             if path.startswith(("/assets/", "/api/storage-files/")):
                 self.lease(path)
             await self.app(scope, receive, send)

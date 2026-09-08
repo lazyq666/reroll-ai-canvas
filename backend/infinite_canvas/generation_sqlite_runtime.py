@@ -100,6 +100,11 @@ class GenerationSqliteRuntime:
             await self._store_executor.close()
             self._closed = True
 
+    async def pause_delivery(self) -> None:
+        """Drain the dispatcher for maintenance while keeping Stores usable."""
+        async with self._lifecycle_lock:
+            await self._dispatcher.stop()
+
     async def close(self) -> None:
         """Drain effect delivery, then close shared Store admission."""
 

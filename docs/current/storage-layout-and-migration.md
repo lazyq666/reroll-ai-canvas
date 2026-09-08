@@ -40,7 +40,7 @@
 │   ├── workflows/
 │   ├── canvas-content.sqlite3
 │   ├── generation-runs.sqlite3
-│   ├── storage-authority.json         # 仅 SQLite authority 存在
+│   ├── storage-authority.json         # SQLite / 可选 Turso authority
 │   ├── api_providers.json
 │   ├── available_models.json
 │   ├── generation-history.json        # 仅 JSON authority 兼容期
@@ -185,6 +185,35 @@ Workspace 不会改变这个位置。
 目录身份由源码目录的规范绝对路径稳定派生，因此两个 checkout 的端口记录、锁、
 服务身份和 Workspace 选择不会互相覆盖。可用 `INFINITE_CANVAS_STATE_DIR` 覆盖，
 主要用于测试、便携部署和管理员明确指定；显式指向同一路径会关闭自动隔离。
+
+### 可选 Turso 云端记录（试用）
+
+默认保持本地模式。受控准备并验证的 Workspace 可在“数据存储位置”启用云端开关，
+将 Canvas、Generation Run/History、Batch Generation 三类 SQLite 业务表保存到同一
+Turso 数据库。图片、视频、Workflow、Prompt Library 及其他原有非 SQLite 文件继续在
+Workspace 中，仍由 OneDrive 同步。云端不保存 Account、Session 或 Provider 密钥。
+
+Workspace 的 `data/storage-authority.json` 保存 `canvas`、`generation_runs`、
+`batch_generation` 为 `turso`，以及非秘密的 `cloud_binding_id` 和数据库地址。每台设备
+分别在 Device State 的 `turso-connection.json` 配置 `schema_version: 1`、`workspace_id`、
+`url`（Turso HTTPS/libsql 地址）和限定该数据库的 `token`，文件只允许本机用户读取。
+它不能放在 OneDrive 或仓库。切换前已校验的迁移还需本机 `migration_directory` 和验证报告。
+没有通用的自动建库/导入向导；第二台只配置已有绑定，不上传旧库。再次启用需重新准备
+最新本地内容的导入，不能复用旧云端副本。
+
+启动时云端身份/格式/编辑资格任一检查失败就停止；不会自动启用旧本地 SQLite。
+每个云端业务事务检查远程资格，续期失败停止写入。换设备前完成或取消任务并退出应用，
+等待 OneDrive 文件同步完成。若有未完成任务，只允许原设备恢复。永久媒体清理在此模式
+下禁用。账号 ID 和权限保留，跨安装私有账号映射尚未交付；完整限制见
+[试用合同](../active/2026-09-07-optional-cloud-records-onedrive-media-spec.md)和
+[ADR-0014](../adr/0014-optional-cloud-sqlite-authority.md)。
+
+关闭开关会排空请求与后台消费，导出云端最新数据并核验，退休旧云端绑定后再发布本地
+三库和 manifest。`cloud_return_epoch` 必须与三库内的值一致，防止 OneDrive 只同步部分
+文件就打开混合旧副本。备份、完整导出和恢复日志保留在 Device State 的 `cloud-migrations/`
+及 `cloud-return-<binding>.json`；令牌不进入 Workspace。退休后发布中断时保持停写，退出
+应用后运行 `python scripts/storage/finish_cloud_return.py` 完成已有导出，再从统一启动器重启。
+不要手动改 manifest 或复制迁移前旧库来关闭云端。
 
 ### Device Cache
 

@@ -46,6 +46,7 @@ _SETUP_PREFIXES = (
     "/static/",
 )
 _MAINTENANCE_INITIATOR_PATHS = {
+    "/api/workspace-storage-settings/cloud",
     "/api/setup/open-workspace",
     "/api/workspace-storage-settings/open",
     "/api/workspace-storage-settings/move",
@@ -189,6 +190,8 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
         detail_key = "runtime.failedDetail"
         action = '<ic-button id="copy-error" type="button" hierarchy="secondary" data-i18n="runtime.copyError">复制错误信息</ic-button>'
     safe_title = html.escape(title)
+    if status.message_code.startswith('cloud_storage_'):
+        detail_key = 'cloudStorage.' + status.message_code
     safe_detail = html.escape(detail)
     error_id = html.escape(status.error_id)
     return f"""<!doctype html>
@@ -200,7 +203,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.10.1">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=2026.08.10.1">
-  <script src="/static/js/i18n.js?v=2026.08.30.i18n-audit.12"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-016ce9a7d434"></script>
 </head>
 <body class="runtime-page">
   <main class="runtime-shell">
@@ -224,7 +227,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
     function applyRuntimeDetail() {{
       const target = document.getElementById('runtime-detail');
       if (!target) return;
-      target.textContent = window.StudioI18n?.lang?.() === 'en'
+      target.textContent = runtimeDetailKey.startsWith('cloudStorage.') || window.StudioI18n?.lang?.() === 'en'
         ? (window.StudioI18n?.format?.(runtimeDetailKey, {{count:{status.blocking_generation_runs}}}) || runtimeDetailFallback)
         : runtimeDetailFallback;
     }}
@@ -269,7 +272,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.10.1">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=2026.08.10.1">
-  <script src="/static/js/i18n.js?v=2026.08.30.i18n-audit.12"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-016ce9a7d434"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -454,7 +457,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=2026.08.28.issue-181.1"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=2026.08.30.i18n-audit.12"></script>
+  <script src="/static/js/i18n.js?v=i18n-loader-016ce9a7d434"></script>
   <script src="/static/js/theme.js?v=2026.08.28.issue-181.1"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=2026.08.29.reroll.1" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=2026.08.28.issue-181.1">

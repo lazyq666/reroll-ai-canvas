@@ -1,0 +1,35 @@
+(function () {
+    if (!window.StudioI18n) return;
+    window.StudioI18n.register({
+        'cloudStorage.title': { zh: '云端画布记录', en: 'Cloud canvas records' },
+        'cloudStorage.enable': { zh: '将画布记录保存到云端', en: 'Save canvas records to the cloud' },
+        'cloudStorage.note': { zh: '画布、生成历史和批量任务保存到 Turso。图片和视频继续保存在当前工作区，由 OneDrive 同步。', en: 'Canvas records, generation history, and batch tasks are stored in Turso. Images and videos stay in this workspace and sync through OneDrive.' },
+        'cloudStorage.rotation': { zh: '切换设备前请结束生成任务并退出 Reroll，等待 OneDrive 同步完成。', en: 'Finish generation tasks and quit Reroll before switching devices. Wait for OneDrive to finish syncing.' },
+        'cloudStorage.local': { zh: '当前使用本地记录', en: 'Records are stored locally' },
+        'cloudStorage.connected': { zh: '已连接云端记录库', en: 'Connected to cloud storage' },
+        'cloudStorage.unavailable': { zh: '云端连接不可用，请恢复网络后重启 Reroll。未确认的修改尚未保存。', en: 'Cloud storage is unavailable. Restore your connection and restart Reroll. Unconfirmed changes have not been saved.' },
+        'cloudStorage.prepareFirst': { zh: '首次启用前需配置并校验云端迁移副本。', en: 'Configure and verify a cloud migration copy before enabling this mode.' },
+        'cloudStorage.switching': { zh: '正在切换保存位置，请等待校验和重启完成…', en: 'Switching storage. Wait for verification and restart to finish…' },
+        'cloudStorage.localExport': { zh: '关闭后会下载最新记录并恢复本地保存，需要重启。', en: 'Turning this off downloads the latest records and switches to local storage. A restart is required.' },
+        'cloudStorage.cleanupDisabled': { zh: '云端模式下暂不提供永久文件清理。', en: 'Permanent file cleanup is unavailable in cloud mode.' },
+        'cloudStorage.cloud_storage_configuration_required': { zh: '请先在本机配置 Turso 连接并校验迁移副本。', en: 'Configure the Turso connection on this device and verify the migration copy first.' },
+        'cloudStorage.cloud_storage_binding_invalid': { zh: '云端工作区绑定无效，未切换保存位置。', en: 'The cloud workspace binding is invalid. Storage has not been switched.' },
+        'cloudStorage.cloud_storage_invalid_url': { zh: 'Turso 数据库地址无效。', en: 'The Turso database address is invalid.' },
+        'cloudStorage.cloud_storage_invalid_token': { zh: 'Turso 访问令牌无效。', en: 'The Turso access token is invalid.' },
+        'cloudStorage.cloud_storage_unauthorized': { zh: '云端访问令牌已失效或没有访问权限，请更新本机连接配置。', en: 'The cloud token has expired or does not have access. Update this device’s connection settings.' },
+        'cloudStorage.cloud_storage_workspace_busy': { zh: '另一台设备正在使用此工作区，请先退出原设备的 Reroll。', en: 'Another device is using this workspace. Quit Reroll on that device first.' },
+        'cloudStorage.cloud_storage_original_device_required': { zh: '原设备还有未收束的生成或批量任务，请先回到原设备完成或取消任务。', en: 'The previous device has unfinished generation or batch tasks. Finish or cancel them on that device first.' },
+        'cloudStorage.cloud_storage_lease_lost': { zh: '本机已失去工作区编辑资格，保存已暂停。请确认另一设备已退出后重启 Reroll。', en: 'This device no longer has workspace write access. Saving is paused. Quit Reroll on the other device, then restart here.' },
+        'cloudStorage.cloud_storage_outcome_unknown': { zh: '尚未确认这次云端保存结果，请保持页面并恢复网络，不要重复创建相同内容。', en: 'This cloud save has not been confirmed. Keep this page open and restore your connection. Avoid creating the same content again.' },
+        'cloudStorage.cloud_storage_limit_reached': { zh: '云端服务已达到用量限制，保存已暂停。请检查 Turso 用量。', en: 'Cloud usage limits have been reached. Saving is paused. Check your Turso usage.' },
+        'cloudStorage.cloud_storage_workspace_mismatch': { zh: '云端数据库不属于当前工作区，已阻止读写。', en: 'The cloud database belongs to a different workspace. Access has been blocked.' },
+        'cloudStorage.cloud_storage_schema_invalid': { zh: '云端记录格式与当前版本不兼容，请检查迁移和应用版本。', en: 'The cloud record format is incompatible with this version. Check the migration and app version.' },
+        'cloudStorage.cloud_storage_constraint_violation': { zh: '云端记录冲突，本次操作未完成。请重新读取画布后重试。', en: 'A cloud record conflict prevented this operation. Reload the canvas and try again.' },
+        'cloudStorage.cloud_storage_query_failed': { zh: '云端操作失败，本次修改未确认保存。', en: 'The cloud operation failed. This change has not been confirmed as saved.' },
+        'cloudStorage.cloud_storage_source_changed': { zh: '本地记录在迁移校验后发生了变化，请重新准备迁移副本。', en: 'Local records have changed since verification. Prepare a new migration copy.' },
+        'cloudStorage.cloud_storage_tasks_pending': { zh: '请先完成或取消当前生成和批量任务，再切换保存位置。', en: 'Finish or cancel generation and batch tasks before switching storage.' },
+        'cloudStorage.cloud_storage_export_mismatch': { zh: '下载的记录未通过完整性校验，尚未切回本地保存。请检查网络后重试。', en: 'Downloaded records failed verification. Storage has not switched to local. Check your connection and retry.' },
+        'cloudStorage.cloud_storage_local_copy_incomplete': { zh: '本地数据库尚未完整同步，请等待 OneDrive 同步完成后重启。', en: 'Local databases have not finished syncing. Wait for OneDrive, then restart.' },
+        'cloudStorage.cloud_storage_restart_required': { zh: '请退出并通过统一启动入口重启 Reroll，完成保存位置切换。', en: 'Quit Reroll and restart it through the launcher to finish switching storage.' }
+    });
+})();
