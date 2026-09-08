@@ -11,7 +11,7 @@ from typing import Literal
 
 
 STORAGE_AUTHORITY_SCHEMA_VERSION = 1
-StorageMode = Literal["json", "sqlite"]
+StorageMode = Literal["json", "sqlite", "turso"]
 _MIGRATION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 
 
@@ -25,6 +25,8 @@ class StorageAuthority:
     workspace_id: str
     migration_id: str = ""
     explicit: bool = False
+    binding_id: str = ""
+    return_epoch: str = ""
 
 
 def resolve_storage_authority(
@@ -87,7 +89,7 @@ def resolve_storage_authority(
     generation_runs_mode = str(
         raw.get("generation_runs") or ""
     ).strip().lower()
-    valid_modes = {"json", "sqlite"}
+    valid_modes = {"json", "sqlite", "turso"}
     if canvas_mode not in valid_modes or generation_runs_mode not in valid_modes:
         raise StorageAuthorityError(
             "storage-authority.json 存储类型必须是 json 或 sqlite"
@@ -96,6 +98,15 @@ def resolve_storage_authority(
         raise StorageAuthorityError(
             "不允许 Canvas 与 Generation Run 使用不同的存储权威"
         )
+    binding_id = str(raw.get("cloud_binding_id") or "")
+    return_epoch = str(raw.get("cloud_return_epoch") or "")
+    if return_epoch and (canvas_mode != "sqlite" or not _MIGRATION_ID.fullmatch(return_epoch)):
+        raise StorageAuthorityError("cloud_storage_binding_invalid")
+    if canvas_mode == "turso" and (
+        not _MIGRATION_ID.fullmatch(binding_id)
+        or raw.get("batch_generation") != "turso"
+    ):
+        raise StorageAuthorityError("cloud_storage_binding_invalid")
     supported = {
         str(value or "").strip().lower() for value in supported_modes
     }
@@ -108,6 +119,8 @@ def resolve_storage_authority(
         workspace_id=expected_workspace_id,
         migration_id=migration_id,
         explicit=True,
+        binding_id=binding_id,
+        return_epoch=return_epoch,
     )
 
 

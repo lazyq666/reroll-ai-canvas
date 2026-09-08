@@ -7,6 +7,9 @@
         saving: false,
         active: {},
         configured: {},
+        cloud: {},
+        cloudBusy: false,
+        cloudError: '',
         intent: "",
         selected: {},
         summary: null,
@@ -153,7 +156,7 @@
             dialog.setAttribute("size", "medium");
             dialog.setAttribute("dismiss-policy", "explicit");
             dialog.addEventListener('ic-hide', event => {
-                if (state.cleanupBusy) event.preventDefault();
+                if (state.cleanupBusy || state.cloudBusy) event.preventDefault();
             });
             dialog.addEventListener("ic-after-hide", () => {
                 if (state.open) closePreferencesModal();
@@ -161,7 +164,7 @@
             document.body.appendChild(dialog);
         }
         dialog.setAttribute("label", tr("preferences.title"));
-        const busy = state.loading || state.saving || Boolean(state.cleanupBusy);
+        const busy = state.loading || state.saving || state.cloudBusy || Boolean(state.cleanupBusy);
         const selectedDirectory = state.selected.workspace_directory || "";
         const confirmLabel =
             state.intent === "move"
@@ -179,9 +182,21 @@
                             <span id="workspaceDirectory">${escapeHtml(state.active.workspace_directory || tr("preferences.loading"))}</span>
                         </div>
                     </section>
+                    <section class="preferences-section" aria-label="${tr('cloudStorage.title')}">
+                        <h3>${tr('cloudStorage.title')}</h3>
+                        <ic-switch data-cloud-storage label="${tr('cloudStorage.enable')}" ${state.cloud.enabled ? 'checked' : ''} ${busy || (!state.cloud.enabled && !state.cloud.prepared) ? 'disabled' : ''}></ic-switch>
+                        <p class="preferences-note">${tr('cloudStorage.note')}</p>
+                        <p class="preferences-note">${tr('cloudStorage.rotation')}</p>
+                        <p class="preferences-note">${tr(state.cloud.enabled ? 'cloudStorage.localExport' : 'cloudStorage.prepareFirst')}</p>
+                        <div role="status" aria-live="polite">
+                            <p>${tr('cloudStorage.' + (state.cloudBusy ? 'switching' : (state.cloud.enabled ? (state.cloud.status === 'connected' ? 'connected' : 'unavailable') : 'local')))}</p>
+                            ${state.cloudError ? `<ic-alert tone="danger">${tr('cloudStorage.' + state.cloudError)}</ic-alert>` : ''}
+                        </div>
+                    </section>
                     <section class="preferences-section" aria-label="${tr('preferences.cleanupTitle')}">
                         <h3>${tr('preferences.cleanupTitle')}</h3>
                         <p class="preferences-note">${tr('preferences.cleanupNote')}</p>
+                        ${state.cloud.enabled ? `<p class="preferences-note">${tr('cloudStorage.cleanupDisabled')}</p>` : ''}
                         <div role="status" aria-live="polite">
                             ${state.cleanupBusy ? `<p>${tr('preferences.cleanup' + state.cleanupBusy)}</p>` : ''}
                             ${state.cleanup && !state.cleanupBusy ? `<p>${state.cleanup.file_count
@@ -192,7 +207,7 @@
                             ${state.cleanupError ? `<ic-alert tone="danger">${tr('preferences.' + state.cleanupError)}</ic-alert>` : ''}
                         </div>
                         <ic-toolbar appearance="plain" label="${tr('preferences.cleanupTitle')}">
-                            <ic-button hierarchy="secondary" data-cleanup-scan ${busy ? 'disabled' : ''}>${tr('preferences.cleanupScan')}</ic-button>
+                            <ic-button hierarchy="secondary" data-cleanup-scan ${busy || state.cloud.enabled ? 'disabled' : ''}>${tr('preferences.cleanupScan')}</ic-button>
                             ${state.cleanup?.file_count ? `<ic-button hierarchy="primary" data-cleanup-confirm ${busy ? 'disabled' : ''}>${tr('preferences.cleanupConfirm')}</ic-button>` : ''}
                         </ic-toolbar>
                     </section>
@@ -228,7 +243,7 @@
                         ${state.message ? `<ic-alert class="preferences-message" tone="info">${escapeHtml(state.message)}</ic-alert>` : ""}
                     </section>
                 </div>
-                <ic-button slot="footer" hierarchy="secondary" type="button" data-preferences-close ${state.cleanupBusy ? 'disabled' : ''}>${state.summary ? tr("preferences.exitNoChanges") : tr("common.close")}</ic-button>
+                <ic-button slot="footer" hierarchy="secondary" type="button" data-preferences-close ${state.cleanupBusy || state.cloudBusy ? 'disabled' : ''}>${state.summary ? tr("preferences.exitNoChanges") : tr("common.close")}</ic-button>
                     ${
                         state.summary
                             ? `<ic-button slot="footer" hierarchy="primary" type="button" data-preferences-confirm ${busy || !state.summary.can_continue ? "disabled" : ""}>${confirmLabel}</ic-button>`
@@ -250,6 +265,7 @@
             const data = await apiJson("/api/workspace-storage-settings");
             state.active = data.active || {};
             state.configured = data.configured || {};
+            state.cloud = data.cloud_records || {};
         } catch (error) {
             state.error = error.message || tr("preferences.readFailed");
         } finally {
@@ -259,7 +275,7 @@
     }
 
     async function cleanupMedia(confirm = false) {
-        if (state.cleanupBusy || state.loading || state.saving) return;
+        if (state.cleanupBusy || state.loading || state.saving || state.cloudBusy || state.cloud.enabled) return;
         const scanId = state.cleanup?.scan_id;
         if (confirm && !scanId) return;
         state.cleanupBusy = confirm ? 'Cleaning' : 'Scanning';
@@ -428,7 +444,7 @@
     }
 
     function closePreferencesModal() {
-        if (state.cleanupBusy) return;
+        if (state.cleanupBusy || state.cloudBusy) return;
         state.open = false;
         state.intent = "";
         state.selected = {};
@@ -443,11 +459,47 @@
 
     async function openPreferencesModal() {
         state.open = true;
+        state.cloudError = '';
         state.message = "";
         state.error = "";
         render();
         await loadPreferences();
     }
+
+    async function switchCloudStorage(enabled) {
+        if (state.cloudBusy || state.saving || state.loading || state.cleanupBusy) return;
+        if (!state.cloud.enabled && !state.cloud.prepared) { render(); return; }
+        state.cloudBusy = true;
+        state.cloudError = '';
+        render();
+        try {
+            const response = await fetch('/api/workspace-storage-settings/cloud', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled}),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const code = data.code || data.detail?.code;
+                const key = 'cloudStorage.' + code;
+                state.cloudError = tr(key) === key ? 'cloud_storage_query_failed' : code;
+            } else if (data.restart_required) {
+                window.location.assign('/startup');
+                return;
+            } else {
+                state.cloud.enabled = Boolean(data.enabled);
+            }
+        } catch (_) {
+            state.cloudError = 'cloud_storage_query_failed';
+        } finally {
+            state.cloudBusy = false;
+            render();
+        }
+    }
+
+    document.addEventListener('change', event => {
+        if (event.target instanceof Element && event.target.closest('[data-cloud-storage]')) {
+            void switchCloudStorage(event.target.checked);
+        }
+    });
 
     document.addEventListener("click", (event) => {
         const target = event.target;

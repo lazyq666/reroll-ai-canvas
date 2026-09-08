@@ -412,6 +412,11 @@ HTTP 429 和“额度不足”返回，不再压成笼统的 502“无法生成�
 
 ## 10. 轮询、断线与重启恢复
 
+在[可选云端记录试用](../active/2026-09-07-optional-cloud-records-onedrive-media-spec.md)中，
+Generation Run、effect/publication 回执和批量任务也使用同一 Turso 权威。新设备只能在
+前一设备没有未完成任务时接管；未结束的生成恢复仍须回到原设备及其 Provider 凭据。
+未知远程提交不自动重试或回退本地，保留现有 Operation ID 与输出目标校验。
+
 前端对图片、视频、ComfyUI 和文字后台任务按 task ID 查询。视频提交先创建后台
 Generation Run 并把 task ID 返回前端，不再让一个等待供应商的 inline HTTP 请求承担唯一恢复
 锚点。服务端在收到远端 task ID 时会立即写入 Generation Run，因此浏览器刷新或服务受控

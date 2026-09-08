@@ -35,15 +35,19 @@ class RuntimeStatus:
     blocking_generation_runs: int = 0
     error_id: str = ""
     unavailable_features: tuple[str, ...] = ()
+    message_code: str = ''
 
     def public(self) -> dict[str, object]:
-        return {
+        result = {
             "stage": self.stage.value,
             "message": self.message,
             "blocking_generation_runs": self.blocking_generation_runs,
             "error_id": self.error_id,
             "unavailable_features": list(self.unavailable_features),
         }
+        if self.message_code:
+            result['message_code'] = self.message_code
+        return result
 
 
 @dataclass(frozen=True)
@@ -258,6 +262,7 @@ class ApplicationRuntime:
                     RuntimeStage.FAILED,
                     "Reroll 启动失败，请复制错误信息后反馈。",
                     error_id=error_id,
+                    message_code=(getattr(exc, 'code', '') if re.fullmatch(r'cloud_storage_[a-z_]+', getattr(exc, 'code', '')) else ''),
                 )
                 return self._status
             self._startup = startup

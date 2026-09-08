@@ -11,6 +11,7 @@ const files = [
     'static/js/i18n/workspace.js',
     'static/js/i18n/model-management.js',
     'static/js/i18n/preferences.js',
+    'static/js/i18n/cloud-storage.js',
     'static/js/i18n/batch-generation.js',
     'static/js/i18n/runtime.js',
     'static/js/i18n/studio.js',

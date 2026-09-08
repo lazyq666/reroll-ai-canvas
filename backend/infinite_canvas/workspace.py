@@ -1625,6 +1625,7 @@ class WorkspaceService:
         pid: Optional[int] = None,
         process_alive: Optional[Callable[[int], bool]] = None,
         allow_foreign_takeover: bool = False,
+        remote_authority: bool = False,
     ) -> WorkspaceOccupation:
         """Acquire this server's unique write ownership before business writes."""
 
@@ -1668,7 +1669,7 @@ class WorkspaceService:
             )
 
         try:
-            owner = _read_occupation_metadata(metadata_path)
+            owner = None if remote_authority else _read_occupation_metadata(metadata_path)
             if owner is not None:
                 if not owner:
                     raise WorkspaceStorageError(
@@ -1700,16 +1701,17 @@ class WorkspaceService:
                         "工作区正在被另一个 Reroll 服务使用，"
                         "请先在原服务中正常关闭"
                     )
-            _write_occupation_metadata(
-                metadata_path,
-                {
-                    "version": 1,
-                    "server_id": server_id,
-                    "instance_id": instance_id,
-                    "pid": current_pid,
-                    "started_at": int(time.time()),
-                },
-            )
+            if not remote_authority:
+                _write_occupation_metadata(
+                    metadata_path,
+                    {
+                        "version": 1,
+                        "server_id": server_id,
+                        "instance_id": instance_id,
+                        "pid": current_pid,
+                        "started_at": int(time.time()),
+                    },
+                )
             with _ACTIVE_OCCUPATIONS_LOCK:
                 if workspace_directory in _ACTIVE_OCCUPATIONS:
                     raise WorkspaceStorageError(

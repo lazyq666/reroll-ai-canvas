@@ -1,5 +1,5 @@
 (function(){
-    const VERSION = 'i18n-c29451e0eec0';
+    const VERSION = 'i18n-66960c453913';
     const scripts = [
         '/static/js/i18n-core.js',
         '/static/js/i18n/common.js',
@@ -7,6 +7,8 @@
         '/static/js/i18n/workspace.js',
         '/static/js/i18n/model-management.js',
         '/static/js/i18n/preferences.js',
+        '/static/js/i18n/cloud-storage.js',
+        '/static/js/cloud-records.js',
         '/static/js/i18n/batch-generation.js',
         '/static/js/i18n/runtime.js',
         '/static/js/i18n/studio.js',

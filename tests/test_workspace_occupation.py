@@ -117,6 +117,22 @@ class WorkspaceOccupationTests(unittest.TestCase):
             finally:
                 second.release()
 
+    def test_cloud_occupation_ignores_synced_metadata_but_keeps_local_process_lock(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._service(root)
+            abandoned = self._abandon_in_subprocess(root, 'device-a')
+            self.assertEqual(abandoned.returncode, 0, abandoned.stderr)
+            metadata = root / 'workspace' / '.infinite-canvas-service' / 'occupation.json'
+            before = {path: path.read_bytes() for path in (root / 'workspace' / '.infinite-canvas-service').glob('*.json')}
+            first = self._service(root).acquire_occupation('device-b', remote_authority=True)
+            try:
+                with self.assertRaises(WorkspaceStorageError):
+                    self._service(root).acquire_occupation('another-local-process', remote_authority=True)
+            finally:
+                first.release()
+            self.assertEqual(before, {path: path.read_bytes() for path in before})
+
     def test_same_server_cleans_its_confirmed_stale_ownership(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
