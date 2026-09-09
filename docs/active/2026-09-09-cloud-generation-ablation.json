@@ -1,0 +1,344 @@
+{
+  "date": "2026-09-09",
+  "scenario": "One synthetic image generation, actual GenerationRuns/lifecycle/history publication/Canvas delivery; two Canvas nodes",
+  "measurement": "Each phase drains scheduled lifecycle writes; one timed run per variant and phase",
+  "baseline": "Local source snapshot after the first Canvas-editing ablation and before generation changes",
+  "excluded": [
+    "Provider compute and media download time",
+    "browser save debounce/checkpoint and rendering",
+    "background dispatcher idle wait (covered separately by wake-up tests)"
+  ],
+  "probe": {
+    "path": "scripts/performance/run_cloud_generation_ablation.py",
+    "sha256": "66b20c5c721a97dd202491d7ece0fdb94cf352d952fd09fe2524c408e4142251"
+  },
+  "measured": {
+    "before": {
+      "synthetic": true,
+      "delay_per_request_ms": 100.0,
+      "source_sha256": {
+        "backend/main.py": "4d6adce6e191202153ebaa9425c3192b2141c63ea0a81cd3efc9fb815d0c3679",
+        "backend/infinite_canvas/canvas_store.py": "2c2087dca7852444a73e41cbad7178fef8effe8b4686dab480ec10fb4d184165",
+        "backend/infinite_canvas/canvas_sync.py": "cd3526efb9c44b3a87c33b2a6dfe8040d54643246f63d316b8d07ffa032a58b4",
+        "backend/infinite_canvas/generation_runs.py": "d8d8603fe89d932ec922bf29c067fabf445f25cd2eaf2a55ccd458fd4b9e9bef",
+        "backend/infinite_canvas/generation_run_store.py": "22f275c2b113fe1dc8d6971cf63644d21bb9d72c634b1d79e516af147ad6c8de",
+        "backend/infinite_canvas/turso_sqlite.py": "74d38ab46668a978d0abc34c69af683ceda0af97c044472bba02fd79efa88ddf",
+        "backend/infinite_canvas/turso_stores.py": "8368a2a4e27a63d322cbd0879fd24afe98eaa4c182348ba545e2636333c37a5e",
+        "backend/infinite_canvas/generation_run_lifecycle.py": "8ffb4c54faba963fdf6de47f1f51bca51b1fdcd9aca52acd805b11032e94d962",
+        "backend/infinite_canvas/generation_effect_dispatcher.py": "b6433c9c14425c832e71e3af90aa3033eb81b48d762d57984740024d4c9f8a78",
+        "backend/infinite_canvas/generation_publication.py": "3f471de97073a437fa56f4d4738ab9f6a02616e84936021782ba6b160561f15d",
+        "backend/infinite_canvas/generation_sqlite_runtime.py": "31cdd6cbd0219f64352012e71f4a795c269ab02a0fc0d09358d93b85f1ceb838"
+      },
+      "results": [
+        {
+          "operation": "submit_and_persist_remote_id",
+          "remote_requests": 33,
+          "elapsed_ms": 3427.0,
+          "request_types": {
+            "SELECT": 11,
+            "BEGIN": 3,
+            "INSERT": 6,
+            "DELETE": 9,
+            "COMMIT": 3,
+            "batch": 1
+          },
+          "server_event_loop_timer_lateness_ms": 197.8,
+          "submission_response_ms": 207.4
+        },
+        {
+          "operation": "poll_running_generation",
+          "remote_requests": 13,
+          "elapsed_ms": 1351.2,
+          "request_types": {
+            "SELECT": 5,
+            "BEGIN": 1,
+            "INSERT": 2,
+            "DELETE": 3,
+            "batch": 1,
+            "COMMIT": 1
+          },
+          "server_event_loop_timer_lateness_ms": 198.6
+        },
+        {
+          "operation": "persist_new_progress",
+          "remote_requests": 11,
+          "elapsed_ms": 1145.5,
+          "request_types": {
+            "BEGIN": 1,
+            "SELECT": 3,
+            "INSERT": 2,
+            "DELETE": 3,
+            "batch": 1,
+            "COMMIT": 1
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "persist_unchanged_progress",
+          "remote_requests": 11,
+          "elapsed_ms": 1141.9,
+          "request_types": {
+            "BEGIN": 1,
+            "SELECT": 3,
+            "INSERT": 2,
+            "DELETE": 3,
+            "batch": 1,
+            "COMMIT": 1
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "complete_and_publish_history",
+          "remote_requests": 64,
+          "elapsed_ms": 6659.7,
+          "request_types": {
+            "SELECT": 26,
+            "BEGIN": 7,
+            "INSERT": 13,
+            "COMMIT": 7,
+            "DELETE": 6,
+            "batch": 3,
+            "UPDATE": 2
+          },
+          "server_event_loop_timer_lateness_ms": 201.3
+        },
+        {
+          "operation": "write_output_to_canvas",
+          "remote_requests": 37,
+          "elapsed_ms": 3868.8,
+          "request_types": {
+            "SELECT": 16,
+            "BEGIN": 3,
+            "UPDATE": 4,
+            "COMMIT": 3,
+            "INSERT": 7,
+            "DELETE": 4
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "read_canvas_logs",
+          "remote_requests": 2,
+          "elapsed_ms": 212.1,
+          "request_types": {
+            "SELECT": 2
+          },
+          "server_event_loop_timer_lateness_ms": 1.1
+        },
+        {
+          "operation": "read_global_history",
+          "remote_requests": 1,
+          "elapsed_ms": 107.3,
+          "request_types": {
+            "SELECT": 1
+          },
+          "server_event_loop_timer_lateness_ms": 0.9
+        },
+        {
+          "operation": "query_completed_generation",
+          "remote_requests": 0,
+          "elapsed_ms": 0.1,
+          "request_types": {},
+          "server_event_loop_timer_lateness_ms": 1.1
+        }
+      ]
+    },
+    "after": {
+      "synthetic": true,
+      "delay_per_request_ms": 100.0,
+      "source_sha256": {
+        "backend/main.py": "4d6adce6e191202153ebaa9425c3192b2141c63ea0a81cd3efc9fb815d0c3679",
+        "backend/infinite_canvas/canvas_store.py": "3869f6c0e655c7f4b2a85ac7c646f22aae9712d6ae44ab7b7e82cfd4aff2f976",
+        "backend/infinite_canvas/canvas_sync.py": "eb4804c01a0505adb72ffe58e7c909b3350b8bda774ece5afaf0594afa137e76",
+        "backend/infinite_canvas/generation_runs.py": "7cd762c17234a7cf63cc8572e448cb58e5f568f16125a98c7963bf8f8c140a3f",
+        "backend/infinite_canvas/generation_run_store.py": "74da4e08625071deb9887b5e1191ce9c0e8df8c05acb67d0d3cd90cd929eec81",
+        "backend/infinite_canvas/turso_sqlite.py": "74d38ab46668a978d0abc34c69af683ceda0af97c044472bba02fd79efa88ddf",
+        "backend/infinite_canvas/turso_stores.py": "e2faf457177213e01c60a20be6cbe61e4c08789674d8507d4838c144dd4edacf",
+        "backend/infinite_canvas/generation_run_lifecycle.py": "291fd430fa4e4334dbf2aad8e057731600e485af6741c64144358f5e3207e473",
+        "backend/infinite_canvas/generation_effect_dispatcher.py": "340bd2ad9a075034ae70190288cdfbad39eec2e6fb308791bf50b256e3e7e502",
+        "backend/infinite_canvas/generation_publication.py": "3f471de97073a437fa56f4d4738ab9f6a02616e84936021782ba6b160561f15d",
+        "backend/infinite_canvas/generation_sqlite_runtime.py": "86027d310bb2409a0e67b14ed84e4b69e2eb70b7097ffe8f379a700218ef2695"
+      },
+      "results": [
+        {
+          "operation": "submit_and_persist_remote_id",
+          "remote_requests": 19,
+          "elapsed_ms": 1983.5,
+          "request_types": {
+            "SELECT": 10,
+            "BEGIN": 3,
+            "batch": 3,
+            "COMMIT": 3
+          },
+          "server_event_loop_timer_lateness_ms": 1.0,
+          "submission_response_ms": 106.0
+        },
+        {
+          "operation": "poll_running_generation",
+          "remote_requests": 1,
+          "elapsed_ms": 105.8,
+          "request_types": {
+            "SELECT": 1
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "persist_new_progress",
+          "remote_requests": 6,
+          "elapsed_ms": 626.6,
+          "request_types": {
+            "BEGIN": 1,
+            "SELECT": 3,
+            "batch": 1,
+            "COMMIT": 1
+          },
+          "server_event_loop_timer_lateness_ms": 0.5
+        },
+        {
+          "operation": "persist_unchanged_progress",
+          "remote_requests": 0,
+          "elapsed_ms": 0.0,
+          "request_types": {},
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "complete_and_publish_history",
+          "remote_requests": 48,
+          "elapsed_ms": 4894.0,
+          "request_types": {
+            "SELECT": 25,
+            "BEGIN": 7,
+            "batch": 3,
+            "COMMIT": 7,
+            "INSERT": 4,
+            "UPDATE": 2
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "write_output_to_canvas",
+          "remote_requests": 30,
+          "elapsed_ms": 3127.5,
+          "request_types": {
+            "SELECT": 16,
+            "BEGIN": 3,
+            "UPDATE": 1,
+            "COMMIT": 3,
+            "batch": 2,
+            "INSERT": 5
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "read_canvas_logs",
+          "remote_requests": 2,
+          "elapsed_ms": 211.0,
+          "request_types": {
+            "SELECT": 2
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "read_global_history",
+          "remote_requests": 1,
+          "elapsed_ms": 106.2,
+          "request_types": {
+            "SELECT": 1
+          },
+          "server_event_loop_timer_lateness_ms": 1.0
+        },
+        {
+          "operation": "query_completed_generation",
+          "remote_requests": 0,
+          "elapsed_ms": 0.0,
+          "request_types": {},
+          "server_event_loop_timer_lateness_ms": 1.0
+        }
+      ]
+    }
+  },
+  "stages": {
+    "noop": {
+      "submit_and_persist_remote_id": 33,
+      "poll_running_generation": 2,
+      "persist_new_progress": 11,
+      "persist_unchanged_progress": 0,
+      "complete_and_publish_history": 64,
+      "write_output_to_canvas": 37,
+      "read_canvas_logs": 2,
+      "read_global_history": 1,
+      "query_completed_generation": 0
+    },
+    "save-batch": {
+      "submit_and_persist_remote_id": 20,
+      "poll_running_generation": 2,
+      "persist_new_progress": 6,
+      "persist_unchanged_progress": 0,
+      "complete_and_publish_history": 49,
+      "write_output_to_canvas": 37,
+      "read_canvas_logs": 2,
+      "read_global_history": 1,
+      "query_completed_generation": 0
+    },
+    "delivery-batch": {
+      "submit_and_persist_remote_id": 20,
+      "poll_running_generation": 2,
+      "persist_new_progress": 6,
+      "persist_unchanged_progress": 0,
+      "complete_and_publish_history": 49,
+      "write_output_to_canvas": 30,
+      "read_canvas_logs": 2,
+      "read_global_history": 1,
+      "query_completed_generation": 0
+    },
+    "target": {
+      "submit_and_persist_remote_id": 19,
+      "poll_running_generation": 1,
+      "persist_new_progress": 6,
+      "persist_unchanged_progress": 0,
+      "complete_and_publish_history": 48,
+      "write_output_to_canvas": 30,
+      "read_canvas_logs": 2,
+      "read_global_history": 1,
+      "query_completed_generation": 0
+    }
+  },
+  "wake_up": {
+    "previous_cloud_idle_poll_seconds": 5,
+    "current_trigger": "Successfully committed Canvas effect notifies the process-owned dispatcher; periodic recovery polling is retained",
+    "test_idle_seconds": 60,
+    "test_delivery_start_timeout_seconds": 0.5
+  },
+  "verification": [
+    {
+      "command": "PYTHONWARNINGS=ignore .venv/bin/python -m unittest tests.test_cloud_generation_ablation tests.test_cloud_canvas_ablation tests.test_generation_runs tests.test_generation_runs_sqlite_authority tests.test_generation_run_store tests.test_generation_run_lifecycle tests.test_generation_effect_dispatcher tests.test_generation_sqlite_runtime tests.test_turso_sqlite tests.test_turso_stores tests.test_turso_runtime tests.test_turso_workspace_lease tests.test_canvas_store tests.test_canvas_store_move_fast_path tests.test_canvas_sync tests.test_canvas_sync_contract tests.test_canvas_generation_idempotency tests.test_canvas_text_generation_recovery tests.test_generation_recovery_routes tests.test_generation_task_restart_queries tests.test_issue_71_generation_output tests.test_remote_generation_contracts tests.test_batch_generation_http tests.test_batch_generation tests.test_main_account_integration tests.test_canvas_realtime_websocket",
+      "result": "343 tests passed before the additional automatic-delivery integration case was added"
+    },
+    {
+      "command": ".venv/bin/python -m unittest tests.test_generation_sqlite_runtime.GenerationSqliteRuntimeTests.test_generation_lifecycle_delivers_to_canvas_after_idle_without_manual_dispatch",
+      "result": "1 additional integration test passed"
+    },
+    {
+      "command": "PYTHONWARNINGS=ignore .venv/bin/python -m unittest tests.test_documentation_knowledge_map tests.test_core_creation_i18n tests.test_canvas_management_i18n",
+      "result": "24 tests passed"
+    },
+    {
+      "command": "node static/js/i18n/validate-i18n.js",
+      "result": "3542 keys passed"
+    },
+    {
+      "command": "python3 scripts/sync_infinite_canvas_ui_version.py --check",
+      "result": "passed: ic-ui-06b10ed19617"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "limits": [
+    "Synthetic transport, no live Provider or business writes",
+    "Single observations, not a percentile latency claim",
+    "Image is the timed fixture; shared lifecycle behavior also has text/video/Workflow regression coverage",
+    "Second physical device/network and media-delay gates are still open"
+  ]
+}

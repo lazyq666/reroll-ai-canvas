@@ -87,6 +87,10 @@
 .generation-log-index-reason { min-width:0; display:flex; align-items:center; gap:var(--ui-space-1); color:var(--ui-color-text-danger); font-size:var(--ui-font-size-1); font-weight:var(--ui-font-weight-bold); }
 .generation-log-index-reason > span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .generation-log-detail { min-width:0; min-height:0; display:grid; grid-template-rows:minmax(0, 1fr) auto; }
+.generation-log-loading { display:flex; flex-direction:column; gap:var(--ui-space-4); }
+.generation-log-loading ic-skeleton { background:var(--ui-color-border-secondary); }
+.generation-log-skeleton-row { display:flex; flex-direction:column; gap:var(--ui-space-3); padding:var(--ui-space-3) var(--ui-space-2); }
+.generation-log-load-error { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--ui-space-3); }
 .generation-log-detail-view { --generation-log-detail-indent:var(--ui-space-0); min-width:0; min-height:0; padding:var(--ui-space-5); overflow:auto; overscroll-behavior:contain; }
 .generation-log-detail-heading { display:flex; align-items:flex-start; gap:var(--ui-space-3); }
 .generation-log-status-icon.is-detail { width:var(--ui-icon-size-s); height:var(--ui-icon-size-s); flex:none; }

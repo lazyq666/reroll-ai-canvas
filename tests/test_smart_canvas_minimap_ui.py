@@ -149,6 +149,47 @@ class SmartCanvasMinimapUiTests(unittest.TestCase):
             self.manifest["surfaces"]["migration"]["targetComponentIds"],
         )
 
+    def test_pointer_navigation_inverts_projection_on_large_canvases(self):
+        script = f"""
+            import assert from 'node:assert/strict';
+            globalThis.HTMLElement = class {{}};
+            const {{ projectSmartMinimapScene, IcSmartMinimap }} =
+                await import({json.dumps(MODULE.as_uri())});
+            const bounds = {{left:1200, top:700}};
+            for (const remoteX of [-80000000, 80000000, -8000]) {{
+                const projection = projectSmartMinimapScene({{
+                    width:168, height:106,
+                    viewport:{{x:38040,y:48464,width:1920,height:872}},
+                    items:[
+                        {{id:'remote',x:remoteX,y:-25000000,width:480,height:430}},
+                        {{id:'main',x:39000,y:48900,width:480,height:430}}
+                    ]
+                }});
+                assert.ok(projection.scale < 0.0001);
+                const receiver = {{
+                    _projection:projection,
+                    _content:{{getBoundingClientRect:() => bounds}}
+                }};
+                for (const expected of [{{x:39000,y:48900}}, {{x:0,y:0}}]) {{
+                    const clientX = bounds.left + projection.offsetX
+                        + (expected.x - projection.minX) * projection.scale;
+                    const clientY = bounds.top + projection.offsetY
+                        + (expected.y - projection.minY) * projection.scale;
+                    const actual = IcSmartMinimap.prototype.worldPointFromClient
+                        .call(receiver,clientX,clientY);
+                    assert.ok(Math.abs(actual.x - expected.x) < 0.001,
+                        `Expected x ${{expected.x}}, got ${{actual.x}}`);
+                    assert.ok(Math.abs(actual.y - expected.y) < 0.001,
+                        `Expected y ${{expected.y}}, got ${{actual.y}}`);
+                }}
+            }}
+        """
+        result = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_projection_preserves_semantics_and_keeps_viewport_inside_map(self):
         script = f"""
             globalThis.HTMLElement = class {{}};

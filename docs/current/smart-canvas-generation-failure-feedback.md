@@ -21,6 +21,10 @@
 
 生成日志 Modal 使用“任务索引 + 所选任务详情”的单一结构。标题栏只显示“生成日志”和关闭按钮；不显示标题图标、说明文案或主题切换入口，明暗外观跟随应用全局主题。
 
+点击日志入口或失败 Node 的“查看日志”后，Modal 立即打开，不等待历史请求完成。首次加载时，左右两栏使用共享 `ic-skeleton` 占位，并标记加载状态；成功后替换为任务索引和详情，保留入口指定的日志 ID 或 Generation Run ID 定位。已加载的历史在当前页面内直接复用。加载失败时显示明确说明和“重新加载”按钮，不能误报为没有日志；只有请求成功且没有记录时显示空状态。加载期间可以通过关闭按钮、Escape 或背景关闭，迟到的响应不得重新打开 Modal 或抢走焦点；连续打开复用正在进行的请求，以最后一次入口指定的任务为准。中英文切换保留加载或错误状态，骨架外观跟随全局主题和减少动态效果设置。
+
+验收入口：`node tests/smart_canvas_log_loading_regression.cjs` 覆盖慢请求、任务定位、缓存、关闭、连续打开、失败重试、空状态和语言重绘；`node tests/generation_log_loading_browser_app.cjs` 提供真实页面模拟服务，通过标准输入的 `hold`、`success`、`empty`、`error` 控制响应，不连接真实云端。
+
 左侧把每条 Generation History 记录当作一个对应 Node 的任务，并按“今天”“昨天”“本月”“上个月”或更早月份的真实时间分组。失败任务以更高的信息层级显示用户可理解的概括原因；成功任务使用更低高度。两种状态都可以选择查看详情。索引不显示成功、失败或总数统计，也不放置或预留复制按钮。索引标题固定为“任务成功 / 任务失败 / 任务部分完成 · Prompt 第一句”，使用 Regular 字重并单行省略；失败状态图标与概括原因放在同一行。成功记录不显示状态图标：存在引用图时仅显示缩略图，不存在引用图时文字占满整行。左侧滚动面使用 Canvas Surface，Modal 内滚动条与 Prompt Node 的细滚动条规范一致。右侧详情标题仍为“任务类型 · 任务名称”：优先使用当前 Node 的用户自定义名称，没有名称时使用 Prompt 第一句，不生成临时摘要。右侧始终保留完整 Prompt。
 
 右侧是连续信息面，不叠加多层卡片，整个内容面使用 `--ui-space-5` Padding。它展示状态、Node 与完整时间、输出设置、Model、Provider、耗时、失败概括、Reference Input Instance 缩略图和完整提示词；引用图可以打开轻量预览。成功详情标题不显示状态图标；失败状态图标放入失败概括模块，图标容器与图标等大且不带独立背景。失败概括模块使用 `--ui-color-action-secondary-danger` 背景和 `--ui-radius-s` 圆角，不使用左侧 Border。Generation Run ID、上游任务 ID、HTTP / 错误码和经过脱敏的 Provider 原文放在默认收起的“技术详情”中。
@@ -47,6 +51,12 @@ Modal 内任意区域的 `contextmenu` 事件不得冒泡打开 Canvas 的创建
 | provider unavailable | 平台暂时不可用 | 稍后重试或更换 Provider |
 | target changed | Node 已删除、权限变化或结果已过期 | 保留生成历史，不写回旧目标 |
 | unknown | 尚未分类 | 复制诊断并重试 |
+
+提交前画布同步超时使用 `canvas_sync_incomplete`，说明本次生成请求尚未提交，并提示
+等待画布恢复同步后重试。历史记录中“实时同步尚未完成，生成任务未提交”、智能分层的
+“画布仍在同步，请稍后重试保存提示词”及对应英文原文也使用此分类；已存为 `unknown`
+的诊断在显示时按当前规则重新识别，切换语言时重新解析用户说明。此分类不填造 HTTP 状态、上游任务 ID
+或费用证据，不能将本地同步失败解释为 Provider 拒绝生成。
 
 APIMART 等平台返回“账户限制”时，不能自行推断为余额不足；只有原始响应明确指向余额、额度或套餐时才使用对应类别。
 
@@ -78,6 +88,8 @@ CLI helper 返回结构化错误时，`error.message` 与经过脱敏的 `error.
 - 生成信息概览显示模型目录名称，诊断仍保留实际请求模型 ID；两种身份不会互相覆盖。
 - 已成功输出不会因同批其他任务失败而消失。
 - 可恢复错误保留 Prompt、素材和设置；目标失效不会让旧 Node 复活。
+- 文本生成在输入框聚焦或保存回执延迟超过 5 秒时仍可提交一次；同步始终未完成时不提交，保留输入，并在中英文日志与诊断中显示同步失败分类。
+- 智能分层使用同一生成同步等待；保存确认后才提交，超时保留分层要求并记录同步失败。历史中已保存为未知错误的此类失败，在任务索引、详情和中英文切换后都显示同步失败原因。
 - 反馈使用公共 `ic-alert` 等项目组件，并通过真实 Smart Canvas 行为测试验证。
 
 代表性测试：`tests/test_generation_log_modal.py`、`tests/generation_log_modal_browser_smoke.cjs`、`tests/test_smart_canvas_generation_failure_feedback.py`、`tests/smart_canvas_generation_task_query_browser_smoke.cjs`。

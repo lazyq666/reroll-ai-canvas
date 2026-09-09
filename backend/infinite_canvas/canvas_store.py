@@ -61,6 +61,7 @@ MUTATION_CHANGE_ACTIONS = (
     "canvas_unsets",
 )
 MUTATION_CHANGE_ACTION_SET = frozenset(MUTATION_CHANGE_ACTIONS)
+CANVAS_METADATA_FIELDS = ('id', 'kind', 'title', 'icon', 'updated_at', 'revision')
 
 
 class CanvasStoreError(RuntimeError):
@@ -86,6 +87,8 @@ class CanvasStoreError(RuntimeError):
 
 
 class CanvasProjectionKind(str, Enum):
+    METADATA = "metadata"
+    GENERATION_TARGET = "generation_target"
     PUBLIC_SNAPSHOT = "public_snapshot"
     MIGRATION_VERIFICATION = "migration_verification"
     LIST_ITEM = "list_item"
@@ -102,6 +105,14 @@ class CanvasProjection:
     log_id: str = ""
     limit: int = DEFAULT_LOG_PAGE_SIZE
     include_details: bool = False
+
+    @classmethod
+    def metadata(cls) -> "CanvasProjection":
+        return cls(CanvasProjectionKind.METADATA)
+
+    @classmethod
+    def generation_target(cls, node_id: str) -> "CanvasProjection":
+        return cls(CanvasProjectionKind.GENERATION_TARGET, node_id=str(node_id or ""))
 
     @classmethod
     def public_snapshot(cls) -> "CanvasProjection":
@@ -2231,38 +2242,28 @@ class SqliteCanvasStore:
         connection: sqlite3.Connection,
         row: sqlite3.Row,
     ) -> Dict[str, Any]:
-        state_row = connection.execute(
+        stored = connection.execute(
             """
-            SELECT payload_json FROM canvas_realtime_state
-            WHERE canvas_id = ?
+            SELECT
+                (SELECT payload_json FROM canvas_realtime_state
+                 WHERE canvas_id = ?) AS state_json,
+                (SELECT json_group_array(json_object(
+                    'operation_id', operation_id, 'actor_id', actor_id,
+                    'revision', revision, 'base_revision', base_revision,
+                    'changes', json(changes_json), 'inverse', json(inverse_json),
+                    'reverts_operation_id', reverts_operation_id, 'undone_by', undone_by
+                 )) FROM (SELECT * FROM canvas_mutations
+                          WHERE canvas_id = ? ORDER BY revision)) AS history_json
             """,
-            (row["canvas_id"],),
+            (row["canvas_id"], row["canvas_id"]),
         ).fetchone()
-        state = _json_object(
-            state_row["payload_json"] if state_row is not None else "{}"
-        )
+        state = _json_object(stored["state_json"])
         state["enabled"] = True
         state["receipts"] = {}
-        state["history"] = []
-        for mutation in connection.execute(
-            """
-            SELECT * FROM canvas_mutations
-            WHERE canvas_id = ? ORDER BY revision
-            """,
-            (row["canvas_id"],),
-        ):
-            record = {
-                "operation_id": mutation["operation_id"],
-                "actor_id": mutation["actor_id"],
-                "revision": mutation["revision"],
-                "base_revision": mutation["base_revision"],
-                "changes": json.loads(mutation["changes_json"]),
-                "inverse": json.loads(mutation["inverse_json"]),
-                "reverts_operation_id": mutation["reverts_operation_id"],
-            }
-            if mutation["undone_by"]:
-                record["undone_by"] = mutation["undone_by"]
-            state["history"].append(record)
+        state["history"] = json.loads(stored["history_json"])
+        for record in state["history"]:
+            if not record["undone_by"]:
+                del record["undone_by"]
         return state
 
     def _mutation_canvas(
@@ -2301,79 +2302,35 @@ class SqliteCanvasStore:
                     revision=revision,
                 )
 
-    def _upsert_node(
-        self,
-        connection: sqlite3.Connection,
+    @staticmethod
+    def _node_upsert_statement(
         canvas_id: str,
         node: Mapping[str, Any],
-    ) -> None:
+    ) -> tuple[str, tuple[Any, ...]]:
         node_id = str(node.get("id") or "")
-        existing = connection.execute(
+        return (
             """
-            SELECT position FROM canvas_nodes
-            WHERE canvas_id = ? AND node_id = ?
+            INSERT INTO canvas_nodes(canvas_id, node_id, position, payload_json)
+            VALUES (?, ?, COALESCE(
+                (SELECT position FROM canvas_nodes WHERE canvas_id = ? AND node_id = ?),
+                (SELECT COALESCE(MAX(position), -1) + 1 FROM canvas_nodes WHERE canvas_id = ?)
+            ), ?)
+            ON CONFLICT(canvas_id, node_id) DO UPDATE SET payload_json = excluded.payload_json
             """,
-            (canvas_id, node_id),
-        ).fetchone()
-        if existing is None:
-            position = int(
-                connection.execute(
-                    """
-                    SELECT COALESCE(MAX(position), -1) + 1
-                    FROM canvas_nodes WHERE canvas_id = ?
-                    """,
-                    (canvas_id,),
-                ).fetchone()[0]
-            )
-            connection.execute(
-                """
-                INSERT INTO canvas_nodes(
-                    canvas_id, node_id, position, payload_json
-                ) VALUES (?, ?, ?, ?)
-                """,
-                (canvas_id, node_id, position, _json(node)),
-            )
-        else:
-            connection.execute(
-                """
-                UPDATE canvas_nodes SET payload_json = ?
-                WHERE canvas_id = ? AND node_id = ?
-                """,
-                (_json(node), canvas_id, node_id),
-            )
-
-    def _replace_connections(
-        self,
-        connection: sqlite3.Connection,
-        canvas_id: str,
-        connections: list[Any],
-    ) -> None:
-        connection.execute(
-            "DELETE FROM canvas_connections WHERE canvas_id = ?",
-            (canvas_id,),
+            (canvas_id, node_id, canvas_id, node_id, canvas_id, _json(node)),
         )
-        for position, item in enumerate(connections):
-            connection.execute(
-                """
-                INSERT INTO canvas_connections(
-                    canvas_id, connection_id, position, payload_json
-                ) VALUES (?, ?, ?, ?)
-                """,
-                (
-                    canvas_id,
-                    self._connection_id(item, position),
-                    position,
-                    _json(item),
-                ),
-            )
 
-    def _persist_mutation_state(
+    @staticmethod
+    def _write_statements(connection: sqlite3.Connection, statements) -> None:
+        for sql, parameters in statements:
+            connection.execute(sql, parameters)
+
+    def _mutation_statements(
         self,
-        connection: sqlite3.Connection,
         canvas: Dict[str, Any],
         result: Any,
         actor: Mapping[str, Any],
-    ) -> None:
+    ) -> Iterator[tuple[str, Any]]:
         canvas_id = str(canvas["id"])
         changes = result.changes
         nodes = {
@@ -2389,14 +2346,10 @@ class SqliteCanvasStore:
         }
         for node_id in affected_nodes:
             if node_id in nodes:
-                self._upsert_node(
-                    connection,
-                    canvas_id,
-                    nodes[node_id],
-                )
+                yield self._node_upsert_statement(canvas_id, nodes[node_id])
         for raw in changes.get("node_deletes", []):
             node_id = str(raw.get("id") if isinstance(raw, Mapping) else raw)
-            connection.execute(
+            yield (
                 """
                 DELETE FROM canvas_nodes
                 WHERE canvas_id = ? AND node_id = ?
@@ -2409,11 +2362,16 @@ class SqliteCanvasStore:
             or changes.get("connection_removes")
             or changes.get("node_deletes")
         ):
-            self._replace_connections(
-                connection,
-                canvas_id,
-                list(canvas.get("connections") or []),
-            )
+            yield "DELETE FROM canvas_connections WHERE canvas_id = ?", (canvas_id,)
+            for position, item in enumerate(canvas.get("connections") or []):
+                yield (
+                    """
+                    INSERT INTO canvas_connections(
+                        canvas_id, connection_id, position, payload_json
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (canvas_id, self._connection_id(item, position), position, _json(item)),
+                )
         for root in {"title", "icon"}:
             if any(
                 isinstance(entry, Mapping)
@@ -2421,7 +2379,7 @@ class SqliteCanvasStore:
                 for action in ("canvas_updates", "canvas_unsets")
                 for entry in changes.get(action, [])
             ):
-                connection.execute(
+                yield (
                     f"UPDATE canvases SET {root} = ? WHERE canvas_id = ?",
                     (str(canvas.get(root) or ""), canvas_id),
                 )
@@ -2431,7 +2389,7 @@ class SqliteCanvasStore:
             for action in ("canvas_updates", "canvas_unsets")
             for entry in changes.get(action, [])
         ):
-            connection.execute(
+            yield (
                 """
                 INSERT INTO canvas_top_level_payloads(
                     canvas_id, payload_key, payload_json
@@ -2443,7 +2401,7 @@ class SqliteCanvasStore:
             )
 
         updated_at = int(self._now_ms())
-        connection.execute(
+        yield (
             """
             UPDATE canvases
             SET revision = ?, updated_at = ?, updated_by = ?
@@ -2459,7 +2417,7 @@ class SqliteCanvasStore:
         state = dict(canvas.get("_realtime") or {})
         history = list(state.pop("history", []) or [])
         state.pop("receipts", None)
-        connection.execute(
+        yield (
             """
             INSERT INTO canvas_realtime_state(canvas_id, payload_json)
             VALUES (?, ?)
@@ -2483,7 +2441,7 @@ class SqliteCanvasStore:
             None,
         )
         if current_record is not None:
-            connection.execute(
+            yield (
                 """
                 INSERT INTO canvas_mutations(
                     canvas_id, operation_id, actor_id, revision,
@@ -2507,7 +2465,7 @@ class SqliteCanvasStore:
                 ),
             )
         if result.reverts_operation_id:
-            connection.execute(
+            yield (
                 """
                 UPDATE canvas_mutations SET undone_by = ?
                 WHERE canvas_id = ? AND operation_id = ?
@@ -2520,7 +2478,7 @@ class SqliteCanvasStore:
             )
         if history_ids:
             placeholders = ",".join("?" for _item in history_ids)
-            connection.execute(
+            yield (
                 f"""
                 DELETE FROM canvas_mutations
                 WHERE canvas_id = ?
@@ -2529,7 +2487,7 @@ class SqliteCanvasStore:
                 [canvas_id, *history_ids],
             )
         else:
-            connection.execute(
+            yield (
                 "DELETE FROM canvas_mutations WHERE canvas_id = ?",
                 (canvas_id,),
             )
@@ -2644,36 +2602,23 @@ class SqliteCanvasStore:
             )
         persist_started_ns = time.perf_counter_ns()
         assert canvas is not None
-        self._persist_mutation_state(
-            connection,
-            canvas,
-            result,
-            actor,
-        )
-        if timing is not None:
-            timing["persist_ms"] = (
-                time.perf_counter_ns() - persist_started_ns
-            ) / 1_000_000
+        statements = list(self._mutation_statements(canvas, result, actor))
         event_started_ns = time.perf_counter_ns()
         event = result.message()
         event["canvas_id"] = str(row["canvas_id"])
-        connection.execute(
+        statements.append((
             """
             INSERT INTO canvas_events(
                 canvas_id, revision, event_json, created_at
             ) VALUES (?, ?, ?, ?)
             """,
-            (
-                row["canvas_id"],
-                result.revision,
-                _json(event),
-                int(self._now_ms()),
-            ),
-        )
+            (row["canvas_id"], result.revision, _json(event), int(self._now_ms())),
+        ))
         if timing is not None:
-            timing["event_ms"] = (
-                time.perf_counter_ns() - event_started_ns
-            ) / 1_000_000
+            timing["event_ms"] = (time.perf_counter_ns() - event_started_ns) / 1_000_000
+        self._write_statements(connection, statements)
+        if timing is not None:
+            timing["persist_ms"] = (time.perf_counter_ns() - persist_started_ns) / 1_000_000
         return CanvasCommit(
             canvas_id=str(row["canvas_id"]),
             operation_id=intent.operation_id,
@@ -2911,11 +2856,13 @@ class SqliteCanvasStore:
                 [_json_object(peer["payload_json"]) for peer in peer_rows],
                 run_id=str(intent.payload.get("run_id") or ""),
             )
-            for updated_node in updated_nodes:
-                self._upsert_node(connection, str(row["canvas_id"]), updated_node)
+            statements = [
+                self._node_upsert_statement(str(row["canvas_id"]), updated_node)
+                for updated_node in updated_nodes
+            ]
             revision += 1
             updated_at = int(self._now_ms())
-            connection.execute(
+            statements.append((
                 """
                 UPDATE canvases
                 SET revision = ?, updated_at = ?, updated_by = ?
@@ -2927,7 +2874,7 @@ class SqliteCanvasStore:
                     str(actor.get("id") or ""),
                     row["canvas_id"],
                 ),
-            )
+            ))
             event = {
                 "type": "canvas_updated",
                 "canvas_id": str(row["canvas_id"]),
@@ -2935,7 +2882,7 @@ class SqliteCanvasStore:
                 "updated_at": updated_at,
                 "client_id": "",
             }
-            connection.execute(
+            statements.append((
                 """
                 INSERT INTO canvas_events(
                     canvas_id, revision, event_json, created_at
@@ -2947,7 +2894,8 @@ class SqliteCanvasStore:
                     _json(event),
                     updated_at,
                 ),
-            )
+            ))
+            self._write_statements(connection, statements)
 
         log_id = ""
         if final_log is not None:
@@ -3620,7 +3568,18 @@ class SqliteCanvasStore:
         projection: CanvasProjection,
     ) -> CanvasRead:
         with self._connect() as connection:
-            row = self._canvas_row(connection, canvas_id)
+            if projection.kind == CanvasProjectionKind.GENERATION_TARGET:
+                row = connection.execute(
+                    """SELECT canvases.*, nodes.payload_json AS generation_node_json
+                       FROM canvases LEFT JOIN canvas_nodes AS nodes
+                         ON nodes.canvas_id = canvases.canvas_id AND nodes.node_id = ?
+                       WHERE canvases.canvas_id = ?""",
+                    (projection.node_id, str(canvas_id or "")),
+                ).fetchone()
+                if row is None:
+                    raise CanvasStoreError("not_found", "画布不存在")
+            else:
+                row = self._canvas_row(connection, canvas_id)
             self._require_actor(
                 row,
                 actor,
@@ -3631,6 +3590,15 @@ class SqliteCanvasStore:
             )
             if projection.kind == CanvasProjectionKind.LIST_ITEM:
                 return CanvasRead(canvas=self._list_item(connection, row))
+            if projection.kind in {CanvasProjectionKind.METADATA, CanvasProjectionKind.GENERATION_TARGET}:
+                metadata = self._row_canvas(row)
+                canvas = {key: metadata[key] for key in CANVAS_METADATA_FIELDS}
+                if projection.kind == CanvasProjectionKind.GENERATION_TARGET:
+                    canvas['nodes'] = (
+                        [_json_object(row['generation_node_json'])]
+                        if row['generation_node_json'] is not None else []
+                    )
+                return CanvasRead(canvas=canvas)
             if projection.kind in {
                 CanvasProjectionKind.PUBLIC_SNAPSHOT,
                 CanvasProjectionKind.MIGRATION_VERIFICATION,

@@ -202,14 +202,16 @@ export class IcSmartMinimap extends HTMLElement {
 
   worldPointFromClient(clientX, clientY) {
     if (!this._projection || !this._content) return null;
+    const scale = this._projection.scale;
+    if (!Number.isFinite(scale) || scale <= 0) return null;
     const bounds = this._content.getBoundingClientRect();
     const x = finite(clientX) - bounds.left;
     const y = finite(clientY) - bounds.top;
     return {
       x: this._projection.minX
-        + (x - this._projection.offsetX) / Math.max(0.0001, this._projection.scale),
+        + (x - this._projection.offsetX) / scale,
       y: this._projection.minY
-        + (y - this._projection.offsetY) / Math.max(0.0001, this._projection.scale),
+        + (y - this._projection.offsetY) / scale,
     };
   }
 

@@ -1,9 +1,9 @@
-"""Process-owned lifecycle for future SQLite Generation persistence.
+"""Process-owned lifecycle for SQLite-compatible Generation persistence.
 
 The legacy JSON production path does not construct this runtime.  Once the
 Workspace authority switches to SQLite, this composition root ensures the
 lifecycle gateway and durable effect dispatcher share one bounded Store
-executor and shut down in the only safe order.
+executor, notify committed effects, and drain delivery before closing storage.
 """
 
 from __future__ import annotations
@@ -43,10 +43,6 @@ class GenerationSqliteRuntime:
             max_workers=store_max_workers,
             max_pending=store_max_pending,
         )
-        self._lifecycle_store = AsyncGenerationRunLifecycleStore(
-            store=store,
-            store_executor=self._store_executor,
-        )
         self._dispatcher = GenerationEffectDispatcher(
             store=store,
             store_executor=self._store_executor,
@@ -56,6 +52,11 @@ class GenerationSqliteRuntime:
             retry_delay_seconds=retry_delay_seconds,
             idle_delay_seconds=idle_delay_seconds,
             failure_delay_seconds=failure_delay_seconds,
+        )
+        self._lifecycle_store = AsyncGenerationRunLifecycleStore(
+            store=store,
+            store_executor=self._store_executor,
+            on_effect_saved=self._dispatcher.wake,
         )
         self._lifecycle_lock = asyncio.Lock()
         self._close_task: asyncio.Task[None] | None = None

@@ -1,7 +1,7 @@
 import './core.js';
 await Promise.all([
-  import('../smart-canvas/generation-failure-feedback.js?v=2026.08.27.2'),
-  import('../smart-canvas/generation-log-modal.js?v=2026.08.27.1'),
+  import('../smart-canvas/generation-failure-feedback.js?v=asset-a947561e1189'),
+  import('../smart-canvas/generation-log-modal.js?v=asset-ad3879b87435'),
 ]);
 
 const params = new URLSearchParams(location.search);

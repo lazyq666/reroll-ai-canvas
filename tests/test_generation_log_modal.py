@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import subprocess
@@ -51,6 +52,28 @@ class GenerationLogModalTests(unittest.TestCase):
         self.assertNotIn('class="log-head"', modal)
         self.assertNotIn("data-theme", modal)
         self.assertNotIn("sun-moon", modal)
+
+    def test_live_and_library_entries_invalidate_changed_log_assets(self):
+        # The host calls the current module's API. Reusing the old script URL
+        # can leave a cached create() without setLoadState and break both
+        # the toolbar and failure-detail entry points before the dialog opens.
+        for asset, consumers in (
+            (HOST, (PAGE,)),
+            (FAILURE, (PAGE, DIALOG_CASE_JS)),
+            (MODULE, (PAGE, DIALOG_CASE_JS)),
+            (STYLE, (PAGE, DIALOG_CASE)),
+        ):
+            version = "asset-" + hashlib.sha256(asset.read_bytes()).hexdigest()[:12]
+            for consumer in consumers:
+                with self.subTest(asset=asset.name, consumer=consumer.name):
+                    references = re.findall(
+                        rf"{re.escape(asset.name)}(?:\?v=[^'\"<>\s)]+)?",
+                        consumer.read_text(encoding="utf-8"),
+                    )
+                    self.assertIn(
+                        f"{asset.name}?v={version}",
+                        references,
+                    )
 
     def test_modal_header_has_only_title_and_close_action(self):
         opening = self.page.split('<ic-dialog id="smartLogModal"', 1)[1].split(">", 1)[0]
@@ -148,11 +171,11 @@ process.stdout.write(report);
         open_start = self.host.index("async function openSmartCanvasLog")
         open_end = self.host.index("\nfunction closeSmartCanvasLog", open_start)
         open_function = self.host[open_start:open_end]
-        self.assertIn("await loadSmartCanvasLogs();", open_function)
+        self.assertIn("loadSmartCanvasLogs().finally", open_function)
         self.assertIn("smartGenerationLogModal.select", open_function)
         self.assertIn("smartGenerationLogModal.beforeOpen", open_function)
         self.assertIn("smartGenerationLogModal.afterOpen", open_function)
-        self.assertIn("await smartLogModal.show();", open_function)
+        self.assertIn("const showing = smartLogModal.show();", open_function)
         self.assertNotIn("smartLogModal.classList.add('open');", open_function)
 
     def test_open_focuses_the_selected_task_instead_of_the_close_tooltip(self):

@@ -73,7 +73,7 @@ class SmartCanvasMattingTests(unittest.TestCase):
         self.assertIn('@app.post("/api/smart-canvas/matting")', self.server)
         self.assertIn('@app.get("/api/smart-canvas/matting/{job_id}")', self.server)
         self.assertIn("load_canvas(payload.canvas_id, write=True)", self.server)
-        self.assertIn("load_canvas(str(job.get(\"canvas_id\") or \"\"), write=True)", self.server)
+        self.assertIn("load_canvas(str(job.get(\"canvas_id\") or \"\"), write=True, metadata_only=True)", self.server)
         self.assertIn('"/api/storage-files/"', self.server)
         self.assertIn("source_image.verify()", self.server)
 

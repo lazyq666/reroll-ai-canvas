@@ -1,7 +1,8 @@
 """Bounded scheduling and at-least-once Generation effect delivery.
 
-This module is not installed in ``main`` yet.  It provides the async seam that
-keeps blocking GenerationRunStore work away from the application event loop.
+The process-owned runtime keeps blocking Store work away from the event loop
+and wakes delivery after new Canvas effects commit. Periodic reads recover work
+that has no in-process notification, including after restart.
 """
 
 from __future__ import annotations
@@ -217,6 +218,7 @@ class GenerationEffectDispatcher:
         self._failure_delay_seconds = float(failure_delay_seconds)
         self._task: asyncio.Task[None] | None = None
         self._stop_event: asyncio.Event | None = None
+        self._wake_event: asyncio.Event | None = None
         self._last_error: Exception | None = None
         if not self._worker_id:
             raise ValueError("worker_id must not be empty")
@@ -244,12 +246,19 @@ class GenerationEffectDispatcher:
         if self.running:
             return
         stop_event = asyncio.Event()
+        wake_event = asyncio.Event()
         self._stop_event = stop_event
+        self._wake_event = wake_event
         self._task = asyncio.create_task(
-            self._run_until_stopped(stop_event),
+            self._run_until_stopped(stop_event, wake_event),
             name=f"generation-effect-dispatcher:{self._worker_id}",
         )
         await asyncio.sleep(0)
+
+    def wake(self) -> None:
+        """Notify the owning event loop that a Canvas effect has committed."""
+        if self._wake_event is not None:
+            self._wake_event.set()
 
     async def stop(self) -> None:
         """Stop new claims and drain the currently owned delivery."""
@@ -260,15 +269,18 @@ class GenerationEffectDispatcher:
             return
         if stop_event is not None:
             stop_event.set()
+        self.wake()
         if task is not asyncio.current_task():
             await asyncio.gather(task, return_exceptions=True)
         if self._task is task:
             self._task = None
             self._stop_event = None
+            self._wake_event = None
 
     @staticmethod
     async def _wait_or_stop(
         stop_event: asyncio.Event,
+        wake_event: asyncio.Event,
         delay_seconds: float,
     ) -> None:
         if stop_event.is_set():
@@ -278,7 +290,7 @@ class GenerationEffectDispatcher:
             return
         try:
             await asyncio.wait_for(
-                stop_event.wait(),
+                wake_event.wait(),
                 timeout=delay_seconds,
             )
         except TimeoutError:
@@ -287,8 +299,12 @@ class GenerationEffectDispatcher:
     async def _run_until_stopped(
         self,
         stop_event: asyncio.Event,
+        wake_event: asyncio.Event,
     ) -> None:
         while not stop_event.is_set():
+            # Clear before reading: a commit during that read must still wake
+            # the next wait, including the empty-read/idle transition.
+            wake_event.clear()
             try:
                 result = await self.dispatch_once()
             except asyncio.CancelledError:
@@ -297,12 +313,14 @@ class GenerationEffectDispatcher:
                 self._last_error = exc
                 await self._wait_or_stop(
                     stop_event,
+                    wake_event,
                     self._failure_delay_seconds,
                 )
                 continue
             if result.status is GenerationEffectDispatchStatus.IDLE:
                 await self._wait_or_stop(
                     stop_event,
+                    wake_event,
                     self._idle_delay_seconds,
                 )
 

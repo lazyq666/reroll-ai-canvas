@@ -621,7 +621,8 @@ class SqliteGenerationRunStore:
                         "run_finalized",
                         "completed Generation Run details cannot be restored",
                     )
-                connection.execute(
+                statements = []
+                statements.append((
                     """
                     INSERT INTO generation_runs(
                         run_id, kind, status, phase, owner_id, idempotency_key,
@@ -657,8 +658,8 @@ class SqliteGenerationRunStore:
                         int(run.status_code),
                         int(bool(run.recoverable)),
                     ),
-                )
-                connection.execute(
+                ))
+                statements.append((
                     """
                     INSERT INTO generation_run_payloads(
                         run_id, request_json, effect_context_json, target_json,
@@ -677,19 +678,19 @@ class SqliteGenerationRunStore:
                         _json(run.target) if run.target is not None else None,
                         _json(run.public_metadata),
                     ),
-                )
-                connection.execute(
+                ))
+                statements.append((
                     "DELETE FROM generation_run_attempts WHERE run_id = ?",
                     (run.run_id,),
-                )
-                connection.executemany(
-                    """
-                    INSERT INTO generation_run_attempts(
-                        run_id, attempt_index, status, provider_id, remote_ref,
-                        payload_json, provider_output_json, error, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
+                ))
+                for attempt in run.attempts:
+                    statements.append((
+                        """
+                        INSERT INTO generation_run_attempts(
+                            run_id, attempt_index, status, provider_id, remote_ref,
+                            payload_json, provider_output_json, error, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
                         (
                             run.run_id,
                             int(attempt.attempt_index),
@@ -704,27 +705,21 @@ class SqliteGenerationRunStore:
                             ),
                             attempt.error,
                             float(attempt.updated_at),
-                        )
-                        for attempt in run.attempts
-                    ),
-                )
-                connection.execute(
+                        ),
+                    ))
+                statements.append((
                     "DELETE FROM generation_run_remote_refs WHERE run_id = ?",
                     (run.run_id,),
-                )
-                connection.executemany(
-                    """
-                    INSERT INTO generation_run_remote_refs(
-                        run_id, position, provider_id, remote_ref
-                    ) VALUES (?, ?, ?, ?)
-                    """,
-                    (
+                ))
+                for position, (provider_id, remote_ref) in enumerate(run.remote_refs):
+                    statements.append((
+                        """
+                        INSERT INTO generation_run_remote_refs(
+                            run_id, position, provider_id, remote_ref
+                        ) VALUES (?, ?, ?, ?)
+                        """,
                         (run.run_id, position, provider_id, remote_ref)
-                        for position, (provider_id, remote_ref) in enumerate(
-                            run.remote_refs
-                        )
-                    ),
-                )
+                    ))
                 if any(
                     value is not None
                     for value in (
@@ -733,7 +728,7 @@ class SqliteGenerationRunStore:
                         run.result,
                     )
                 ):
-                    connection.execute(
+                    statements.append((
                         """
                         INSERT INTO generation_run_outputs(
                             run_id, provider_output_json, prepared_output_json,
@@ -760,12 +755,13 @@ class SqliteGenerationRunStore:
                             _json(run.result) if run.result is not None else None,
                             float(run.updated_at),
                         ),
-                    )
+                    ))
                 else:
-                    connection.execute(
+                    statements.append((
                         "DELETE FROM generation_run_outputs WHERE run_id = ?",
                         (run.run_id,),
-                    )
+                    ))
+                self._write_statements(connection, statements)
                 if effect is not None:
                     payload_json = _json(effect.payload)
                     payload_digest = _digest(effect.payload)
@@ -818,6 +814,11 @@ class SqliteGenerationRunStore:
                                 "effect_collision",
                                 "run already has a different stable effect",
                             ) from exc
+
+    @staticmethod
+    def _write_statements(connection: sqlite3.Connection, statements) -> None:
+        for sql, parameters in statements:
+            connection.execute(sql, parameters)
 
     def load(self, run_id: str) -> GenerationRunState | None:
         with self._connect() as connection:
@@ -964,25 +965,23 @@ class SqliteGenerationRunStore:
             raise ValueError("lease_seconds must be positive")
         now = float(self._now())
         lease_token = uuid.uuid4().hex
+        candidate_sql = """
+            SELECT effects.*, runs.owner_id
+            FROM generation_effect_outbox AS effects
+            JOIN generation_runs AS runs ON runs.run_id = effects.run_id
+            WHERE (effects.state = 'pending' AND effects.available_at <= ?)
+               OR (effects.state = 'claimed' AND effects.lease_expires_at <= ?)
+            ORDER BY effects.available_at, effects.created_at, effects.effect_id
+            LIMIT 1
+        """
         with self._connect() as connection:
+            # An idle poll needs no write lock or lease transaction. A candidate
+            # is always re-read under the write lock before it can be claimed.
+            if connection.execute(candidate_sql, (now, now)).fetchone() is None:
+                return None
             with connection:
                 connection.execute("BEGIN IMMEDIATE")
-                row = connection.execute(
-                    """
-                    SELECT effects.*, runs.owner_id
-                    FROM generation_effect_outbox AS effects
-                    JOIN generation_runs AS runs
-                        ON runs.run_id = effects.run_id
-                    WHERE (effects.state = 'pending'
-                           AND effects.available_at <= ?)
-                       OR (effects.state = 'claimed'
-                           AND effects.lease_expires_at <= ?)
-                    ORDER BY effects.available_at, effects.created_at,
-                             effects.effect_id
-                    LIMIT 1
-                    """,
-                    (now, now),
-                ).fetchone()
+                row = connection.execute(candidate_sql, (now, now)).fetchone()
                 if row is None:
                     return None
                 connection.execute(
@@ -1047,8 +1046,9 @@ class SqliteGenerationRunStore:
                 ).fetchone()
                 if current is None:
                     return False
+                statements = []
                 if resolution is EffectResolution.RETRY:
-                    connection.execute(
+                    statements.append((
                         """
                         UPDATE generation_effect_outbox
                         SET state = 'pending', outcome = '',
@@ -1062,9 +1062,9 @@ class SqliteGenerationRunStore:
                             now,
                             claim.effect_id,
                         ),
-                    )
+                    ))
                 else:
-                    connection.execute(
+                    statements.append((
                         """
                         UPDATE generation_effect_outbox
                         SET state = 'completed', outcome = ?, payload_json = NULL,
@@ -1080,8 +1080,8 @@ class SqliteGenerationRunStore:
                             now,
                             claim.effect_id,
                         ),
-                    )
-                    connection.execute(
+                    ))
+                    statements.append((
                         """
                         UPDATE generation_runs
                         SET status = ?, phase = 'finished', updated_at = ?,
@@ -1103,17 +1103,18 @@ class SqliteGenerationRunStore:
                             resolution.value,
                             claim.run_id,
                         ),
-                    )
+                    ))
                     for table in (
                         "generation_run_payloads",
                         "generation_run_attempts",
                         "generation_run_remote_refs",
                         "generation_run_outputs",
                     ):
-                        connection.execute(
+                        statements.append((
                             f"DELETE FROM {table} WHERE run_id = ?",
                             (claim.run_id,),
-                        )
+                        ))
+                self._write_statements(connection, statements)
         return True
 
     @staticmethod

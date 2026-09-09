@@ -1,0 +1,295 @@
+{
+  "date": "2026-09-09",
+  "scenario": "25 synthetic prompt nodes, no connections; one timed run per operation and variant",
+  "baseline": "Local working-tree source snapshot immediately before ablation; hashes below",
+  "network": "No live business writes; SQLite-backed transport injects 100 ms per HTTP round trip",
+  "probes": {
+    "scripts/performance/run_cloud_canvas_ablation.py": "c25f32d2e53fbfa5cdc2c981bedd577b36f9bdc2ac3e0c9efe11c2496171269e",
+    "scripts/performance/ablate_generation_checkpoint.cjs": "1e4934ec9629e44efde3dd97b9168edc678324204103131edf9a64005c97542c"
+  },
+  "staged_single_node_ablation": [
+    {
+      "variant": "baseline",
+      "remote_requests": 17,
+      "nodes": 1
+    },
+    {
+      "variant": "remove_node_read_before_write",
+      "remote_requests": 16,
+      "nodes": 1
+    },
+    {
+      "variant": "combine_realtime_and_history_read",
+      "remote_requests": 15,
+      "nodes": 1
+    },
+    {
+      "variant": "batch_mutation_writes",
+      "remote_requests": 10,
+      "nodes": 1
+    }
+  ],
+  "measured": {
+    "before": {
+      "synthetic": true,
+      "nodes": 25,
+      "delay_per_request_ms": 100.0,
+      "source_sha256": {
+        "backend/main.py": "f51d633be1f52d9ea6a78d2cee37c7e8bb17e407e734b7c4bd252ef73bc8b3be",
+        "backend/infinite_canvas/canvas_store.py": "aeebb4cb5ec5899d1fafc0628b5dcb1200694f1695d618bbfe74413a2068cd1c",
+        "backend/infinite_canvas/canvas_sync.py": "4cff73799229cc69d25bae3b45923b04690342018c9822fee074d74a886c151c",
+        "backend/infinite_canvas/turso_sqlite.py": "5757f67f7131accddc53d4c53ae5f19ff4d625f271cc3b36cbdbd346d3cc35d4",
+        "backend/infinite_canvas/turso_stores.py": "26c4b3708c2ac95cfc02734a65c9cc9f300fb729fcf110dcc656a7e06573bc90",
+        "backend/infinite_canvas/generation_run_store.py": "dc69464aef49ab8bbd02040750b551fbc84daaa9237644afaf30edf93391665a"
+      },
+      "results": [
+        {
+          "operation": "read_canvas",
+          "remote_requests": 2,
+          "elapsed_ms": 215.2,
+          "request_types": {
+            "SELECT": 2,
+            "get_autocommit": 2
+          }
+        },
+        {
+          "operation": "list_canvases",
+          "remote_requests": 1,
+          "elapsed_ms": 109.5,
+          "request_types": {
+            "SELECT": 1,
+            "get_autocommit": 1
+          }
+        },
+        {
+          "operation": "move_one_node",
+          "remote_requests": 17,
+          "elapsed_ms": 1804.0,
+          "request_types": {
+            "BEGIN": 1,
+            "get_autocommit": 17,
+            "SELECT": 8,
+            "UPDATE": 2,
+            "INSERT": 4,
+            "DELETE": 1,
+            "COMMIT": 1
+          }
+        },
+        {
+          "operation": "move_25_nodes",
+          "remote_requests": 65,
+          "elapsed_ms": 6925.8,
+          "request_types": {
+            "BEGIN": 1,
+            "get_autocommit": 65,
+            "SELECT": 32,
+            "UPDATE": 26,
+            "INSERT": 4,
+            "DELETE": 1,
+            "COMMIT": 1
+          }
+        },
+        {
+          "operation": "edit_prompt",
+          "remote_requests": 17,
+          "elapsed_ms": 1812.2,
+          "request_types": {
+            "BEGIN": 1,
+            "get_autocommit": 17,
+            "SELECT": 8,
+            "UPDATE": 2,
+            "INSERT": 4,
+            "DELETE": 1,
+            "COMMIT": 1
+          }
+        },
+        {
+          "operation": "restore_viewport",
+          "remote_requests": 2,
+          "elapsed_ms": 220.6,
+          "request_types": {
+            "SELECT": 2,
+            "get_autocommit": 2
+          },
+          "server_event_loop_timer_lateness_ms": 210.6
+        },
+        {
+          "operation": "save_viewport",
+          "remote_requests": 2,
+          "elapsed_ms": 223.7,
+          "request_types": {
+            "SELECT": 2,
+            "get_autocommit": 2
+          },
+          "server_event_loop_timer_lateness_ms": 213.8
+        },
+        {
+          "operation": "empty_generation_effect_poll",
+          "remote_requests": 5,
+          "elapsed_ms": 531.0,
+          "request_types": {
+            "BEGIN": 1,
+            "get_autocommit": 5,
+            "SELECT": 3,
+            "COMMIT": 1
+          }
+        }
+      ]
+    },
+    "after": {
+      "synthetic": true,
+      "nodes": 25,
+      "delay_per_request_ms": 100.0,
+      "source_sha256": {
+        "backend/main.py": "4d6adce6e191202153ebaa9425c3192b2141c63ea0a81cd3efc9fb815d0c3679",
+        "backend/infinite_canvas/canvas_store.py": "2c2087dca7852444a73e41cbad7178fef8effe8b4686dab480ec10fb4d184165",
+        "backend/infinite_canvas/canvas_sync.py": "cd3526efb9c44b3a87c33b2a6dfe8040d54643246f63d316b8d07ffa032a58b4",
+        "backend/infinite_canvas/turso_sqlite.py": "74d38ab46668a978d0abc34c69af683ceda0af97c044472bba02fd79efa88ddf",
+        "backend/infinite_canvas/turso_stores.py": "8368a2a4e27a63d322cbd0879fd24afe98eaa4c182348ba545e2636333c37a5e",
+        "backend/infinite_canvas/generation_run_store.py": "22f275c2b113fe1dc8d6971cf63644d21bb9d72c634b1d79e516af147ad6c8de"
+      },
+      "results": [
+        {
+          "operation": "read_canvas",
+          "remote_requests": 2,
+          "elapsed_ms": 218.6,
+          "request_types": {
+            "SELECT": 2,
+            "get_autocommit": 2
+          }
+        },
+        {
+          "operation": "list_canvases",
+          "remote_requests": 1,
+          "elapsed_ms": 110.6,
+          "request_types": {
+            "SELECT": 1,
+            "get_autocommit": 1
+          }
+        },
+        {
+          "operation": "move_one_node",
+          "remote_requests": 10,
+          "elapsed_ms": 1069.1,
+          "request_types": {
+            "BEGIN": 1,
+            "get_autocommit": 10,
+            "SELECT": 6,
+            "batch": 1,
+            "INSERT": 1,
+            "COMMIT": 1
+          }
+        },
+        {
+          "operation": "move_25_nodes",
+          "remote_requests": 10,
+          "elapsed_ms": 1075.4,
+          "request_types": {
+            "BEGIN": 1,
+            "get_autocommit": 10,
+            "SELECT": 6,
+            "batch": 1,
+            "INSERT": 1,
+            "COMMIT": 1
+          }
+        },
+        {
+          "operation": "edit_prompt",
+          "remote_requests": 10,
+          "elapsed_ms": 1086.6,
+          "request_types": {
+            "BEGIN": 1,
+            "get_autocommit": 10,
+            "SELECT": 6,
+            "batch": 1,
+            "INSERT": 1,
+            "COMMIT": 1
+          }
+        },
+        {
+          "operation": "restore_viewport",
+          "remote_requests": 1,
+          "elapsed_ms": 117.6,
+          "request_types": {
+            "SELECT": 1,
+            "get_autocommit": 1
+          },
+          "server_event_loop_timer_lateness_ms": 0.4
+        },
+        {
+          "operation": "save_viewport",
+          "remote_requests": 1,
+          "elapsed_ms": 110.2,
+          "request_types": {
+            "SELECT": 1,
+            "get_autocommit": 1
+          },
+          "server_event_loop_timer_lateness_ms": 2.0
+        },
+        {
+          "operation": "empty_generation_effect_poll",
+          "remote_requests": 1,
+          "elapsed_ms": 110.5,
+          "request_types": {
+            "SELECT": 1,
+            "get_autocommit": 1
+          }
+        }
+      ]
+    }
+  },
+  "checkpoint_negative_control": {
+    "submission_before_save_confirmed": true,
+    "decision": "retain_checkpoint"
+  },
+  "live_read_only_select_1_ms": [
+    368.5,
+    93.0,
+    95.0,
+    92.3,
+    94.0
+  ],
+  "limits": [
+    "Controlled timings are not P95/P99 or a live business-operation benchmark.",
+    "Real SELECT 1 timing reads no Canvas content and does not acquire a write lease.",
+    "Second physical device, second network, media delay and private account mapping remain pending."
+  ],
+  "verification": [
+    {
+      "command": "PYTHONWARNINGS=ignore .venv/bin/python -m unittest tests.test_cloud_canvas_ablation tests.test_turso_sqlite tests.test_turso_stores tests.test_canvas_store tests.test_canvas_store_move_fast_path tests.test_canvas_sync tests.test_canvas_sync_contract tests.test_canvas_realtime tests.test_canvas_generation_idempotency tests.test_generation_run_store tests.test_generation_effect_dispatcher tests.test_turso_runtime tests.test_turso_workspace_lease tests.test_generation_recovery_routes tests.test_smart_canvas_matting tests.test_smart_canvas_smart_matting",
+      "result": "249 tests passed"
+    },
+    {
+      "command": "PYTHONWARNINGS=ignore .venv/bin/python -m unittest tests.test_smart_canvas_matting tests.test_main_account_integration tests.test_generation_sqlite_runtime tests.test_canvas_text_generation_recovery tests.test_canvas_realtime_websocket",
+      "result": "31 tests passed"
+    },
+    {
+      "command": "PYTHONWARNINGS=ignore .venv/bin/python -m unittest tests.test_documentation_knowledge_map tests.test_core_creation_i18n tests.test_canvas_management_i18n",
+      "result": "24 tests passed"
+    },
+    {
+      "command": "node tests/smart_canvas_text_generation_sync_regression.cjs",
+      "result": "passed"
+    },
+    {
+      "command": "node tests/smart_canvas_generation_focus_ack_regression.cjs",
+      "result": "passed"
+    },
+    {
+      "command": "node scripts/performance/ablate_generation_checkpoint.cjs",
+      "result": "expected unconfirmed submission observed; retained guard"
+    },
+    {
+      "command": "node static/js/i18n/validate-i18n.js",
+      "result": "3542 keys passed"
+    },
+    {
+      "command": "python3 scripts/sync_infinite_canvas_ui_version.py --check",
+      "result": "passed: ic-ui-06b10ed19617"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ]
+}

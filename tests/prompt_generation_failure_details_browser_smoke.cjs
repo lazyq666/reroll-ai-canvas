@@ -16,6 +16,7 @@ const MIME = {
 const CANVAS_ID = 'prompt-generation-failure-details';
 const TASK_ID = 'text-generation-run-failed';
 const ERROR_TEXT = 'Text provider rejected the prompt with HTTP 502';
+const SYNC_TIMEOUT = process.env.PROMPT_SYNC_TIMEOUT === '1';
 const PROMPT_TEXT = '把参考素材整理为可直接生成的电影感提示词';
 
 function json(response, payload, status=200){
@@ -36,8 +37,8 @@ function testSource(requestPath, source){
         'save(){ return Promise.resolve(true); }',
       )
       .replace(
-        /synced\(\{timeout=5000\}=\{\}\)\{\s*return canvasPersistenceSynced\(timeout\);\s*\}/,
-        'synced(){ return Promise.resolve(true); }',
+        /async synced\(\{timeout=5000,forGeneration=false\}=\{\}\)\{[\s\S]*?\n    \},/,
+        `synced(){ return Promise.resolve(${!SYNC_TIMEOUT}); },`,
       );
   }
   if(requestPath.endsWith('/generation-recovery.js')){
@@ -57,6 +58,7 @@ function startServer(){
         return;
       }
       if(request.method === 'POST' && requestPath === '/api/canvas-llm-tasks'){
+        server.generationSubmissions = Number(server.generationSubmissions || 0) + 1;
         json(response, {task_id:TASK_ID, status:'queued', actor_id:'browser-test-user'});
         return;
       }
@@ -75,7 +77,7 @@ function startServer(){
       }
       if(request.method === 'GET' && requestPath === `/api/canvases/${CANVAS_ID}/logs`){
         generationLogReads += 1;
-        if(generationLogReads === 1){
+        if(generationLogReads === 1 || SYNC_TIMEOUT){
           json(response, {logs:[], next_cursor:''});
           return;
         }
@@ -189,6 +191,28 @@ function startServer(){
       message:document.querySelector('[data-generation-failure-queue] ic-alert[data-ic-stack-index="0"]')?.textContent || '',
       localLog:canvas.logs?.[0] || null,
     }));
+    if(SYNC_TIMEOUT){
+      assert.equal(server.generationSubmissions || 0, 0);
+      assert.equal(alertState.localLog?.errorDetail?.category, 'canvas_sync_incomplete');
+      assert.equal(alertState.localLog?.tasks?.[0]?.errorCode, 'canvas_sync_incomplete');
+      assert.equal(alertState.localLog?.prompt, PROMPT_TEXT);
+      await page.locator('[data-generation-failure-queue] ic-alert[data-ic-stack-index="0"]')
+        .locator('.action').click();
+      await page.waitForFunction(() => document.querySelector('#smartLogModal')?.hasAttribute('open'));
+      for(const language of ['zh','en','zh']){
+        await page.evaluate(lang => window.StudioI18n.set(lang), language);
+        await page.waitForFunction(expected => document.querySelector('#smartLogList')?.textContent.includes(expected),
+          language === 'zh' ? '画布同步未完成' : 'Canvas sync incomplete');
+        const report = await page.evaluate(() => generationFailureFeedback.diagnosticReport(canvas.logs[0], {
+          translate:tr,format:trf,language:window.StudioI18n.lang(),
+        }));
+        assert.match(report, /canvas_sync_incomplete/);
+        assert.match(report, language === 'zh' ? /请求未提交/ : /was not submitted/);
+      }
+      assert.equal(server.generationLogWrites, 1);
+      console.log('PASS: text sync timeout sends no generation request; saved diagnostics and real log UI switch Chinese/English');
+      return;
+    }
     assert.match(alertState.heading, /失败/);
     assert.match(alertState.message, /HTTP 502/);
     assert.equal(alertState.localLog?.generationRunId, TASK_ID);

@@ -14,7 +14,8 @@ const base = process.env.CLOUD_PREVIEW_URL || 'http://127.0.0.1:8806';
       await page.addInitScript(({lang,theme}) => {
         localStorage.setItem('studio_lang',lang); localStorage.setItem('studio_theme',theme);
       }, {lang,theme});
-      await page.route('**/api/workspace-storage-settings', route => route.fulfill({json:{active:{workspace_directory:'/synthetic-workspace'},cloud_records:{enabled:true,status:'connected'}}}));
+      let cloud = {enabled:false,visible:false,prepared:false,status:'local'};
+      await page.route('**/api/workspace-storage-settings', route => route.fulfill({json:{active:{workspace_directory:'/synthetic-workspace'},cloud_records:cloud}}));
       let release;
       await page.route('**/api/workspace-storage-settings/cloud', async route => {
         assert.equal(route.request().postDataJSON().enabled, false);
@@ -23,6 +24,17 @@ const base = process.env.CLOUD_PREVIEW_URL || 'http://127.0.0.1:8806';
       });
       await page.goto(base + '/studio');
       await page.waitForFunction(() => !document.getElementById('studioEntryMotion'));
+      await page.evaluate(() => openPreferencesModal());
+      await page.waitForFunction(() => document.getElementById('workspaceDirectory')?.textContent === '/synthetic-workspace');
+      assert.equal(await page.locator('[data-cloud-storage]').count(), 0, 'local defaults must hide the whole cloud section');
+      cloud = {enabled:false,visible:true,prepared:false,status:'local'};
+      await page.evaluate(() => openPreferencesModal());
+      await page.locator('[data-cloud-storage]').waitFor();
+      assert.equal(await page.locator('[data-cloud-storage]').getAttribute('disabled'), '', 'showing the settings must not bypass migration preparation');
+      cloud = {enabled:true,visible:true,status:'unavailable'};
+      await page.evaluate(() => openPreferencesModal());
+      await page.getByText(lang === 'zh' ? '云端连接不可用，请恢复网络后重启 Reroll。未确认的修改尚未保存。' : 'Cloud storage is unavailable. Restore your connection and restart Reroll. Unconfirmed changes have not been saved.', {exact:true}).waitFor();
+      cloud = {enabled:true,visible:true,status:'connected'};
       await page.evaluate(() => openPreferencesModal());
       const toggle = page.locator('[data-cloud-storage]');
       await toggle.waitFor();
@@ -51,6 +63,6 @@ const base = process.env.CLOUD_PREVIEW_URL || 'http://127.0.0.1:8806';
       await page.screenshot({path:`/private/tmp/reroll-cloud-ui/${lang}-${theme}-${width}.png`});
       await context.close();
     }
-    console.log('cloud storage browser: four layouts, keyboard toggle, pending/error language changes, unchanged active mode passed');
+    console.log('cloud storage browser: default hidden, opt-in preparation gate, disconnected visibility, four layouts, keyboard toggle, pending/error language changes passed');
   } finally { await browser.close(); }
 })().catch(error => {console.error(error);process.exitCode=1;});

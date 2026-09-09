@@ -6,6 +6,7 @@
  */
 (function(){
     const RULES = Object.freeze([
+        {category:'canvas_sync_incomplete', retryability:'retry_later', statuses:[], signals:['canvas_sync_incomplete','实时同步尚未完成，生成任务未提交','live sync is not complete, so the generation task was not submitted','画布仍在同步，请稍后重试保存提示词','the canvas is still syncing. try saving the prompt again in a moment.']},
         {category:'reference_upload_rejected', retryability:'modify_then_retry', statuses:[], signals:['reference_upload_rejected','apimart 上传失败(413)']},
         {category:'reference_upload_failed', retryability:'retry_later', statuses:[], signals:['reference_upload_failed']},
         {category:'provider_account_restricted', retryability:'retry_later', statuses:[], signals:['provider account is temporarily restricted','account temporarily restricted']},
@@ -111,7 +112,9 @@
     }
     function localize(error, translate){
         const tr = typeof translate === 'function' ? translate : key => key;
-        const value = error?.category ? error : classify(error);
+        // Older clients may have saved an unknown classification before a
+        // diagnostic rule existed. Resolve it again when displaying history.
+        const value = error?.category && error.category !== 'unknown' ? error : classify(error);
         return {
             ...value,
             title:tr(value.titleKey),

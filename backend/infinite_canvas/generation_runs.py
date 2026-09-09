@@ -1552,7 +1552,7 @@ class GenerationRuns:
         key = str(key or "").strip()
         owner = str(owner or "").strip()
         if target is not None and self._target_guard is not None:
-            self._target_guard.validate(owner, target)
+            await asyncio.to_thread(self._target_guard.validate, owner, target)
         with self._lock:
             self._load_locked()
             existing_id = self._keys.get((owner, key)) if key else None
@@ -1607,7 +1607,9 @@ class GenerationRuns:
         if existing is not None:
             if isinstance(delivery, Inline) and event is not None:
                 await event.wait()
-                return self.get(existing.id, owner=owner, deduplicated=True)
+                return dataclasses.replace(
+                    await self.query(existing.id, owner=owner), deduplicated=True,
+                )
             return snapshot
 
         if isinstance(delivery, Background):
@@ -1910,6 +1912,8 @@ class GenerationRuns:
             self._load_locked()
             run = self._runs.get(run_id)
             if run is None or run.status in TERMINAL_STATUSES:
+                return
+            if all(run.public_metadata.get(key) == item for key, item in projection.items()):
                 return
             run.public_metadata.update(projection)
             run.updated_at = float(self._now())
@@ -2427,7 +2431,7 @@ class GenerationRuns:
                 # SQLite lifecycle/outbox owns the eventual canvas write.  The
                 # synchronous guard remains useful only as a stale-target check;
                 # applying here would race the atomic output + final-log intent.
-                current = self._target_guard.is_current(owner, target)
+                current = await asyncio.to_thread(self._target_guard.is_current, owner, target)
             if not current:
                 with self._lock:
                     run = self._runs[run_id]
@@ -2486,16 +2490,15 @@ class GenerationRuns:
         run_id = str(run_id or "")
         with self._lock:
             self._load_locked()
-            if run_id in self._runs:
-                return self.get(run_id, owner=owner)
+            cached = run_id in self._runs
             lifecycle_store = self._lifecycle_store
-            if self._path() is not None or lifecycle_store is None:
+            if not cached and (self._path() is not None or lifecycle_store is None):
                 raise GenerationRunNotFound("Generation Run 不存在")
 
         # The lifecycle adapter runs SQLite I/O on the bounded store executor,
         # outside the runtime lock and the event loop. Querying never executes
         # the Provider or replays publication effects.
-        state = await lifecycle_store.load(run_id)
+        state = await lifecycle_store.load(run_id) if not cached else None
         with self._lock:
             # Another query/recovery may have populated a newer runtime state
             # while the database read was in flight; never overwrite it.
@@ -2508,7 +2511,31 @@ class GenerationRuns:
                 if run.key:
                     self._keys.setdefault((run.owner, run.key), run.id)
                 self._index_remote_refs_locked(run)
-            return self.get(run_id, owner=owner)
+            run = self._runs[run_id]
+            self._require_owner(run, owner)
+            target = run.target if run.status in ACTIVE_STATUSES else None
+            target_owner = run.owner
+
+        # A cloud target check may wait on the network. Keep it outside both
+        # the event loop and the runtime lock, then apply it only to the same
+        # still-active target; a newer completion must never be discarded.
+        current = True
+        if target is not None and self._target_guard is not None:
+            current = await asyncio.to_thread(self._target_guard.is_current, target_owner, target)
+        with self._lock:
+            run = self._runs[run_id]
+            self._require_owner(run, owner)
+            if not current and run.status in ACTIVE_STATUSES and run.target == target:
+                run.status = "discarded"
+                run.result = None
+                run.error = ""
+                run.recoverable = True
+                run.updated_at = float(self._now())
+                self._persist_terminal_locked(run)
+            snapshot = run.snapshot()
+            if run.id in self._runtime_results:
+                snapshot = dataclasses.replace(snapshot, result=self._runtime_results[run.id])
+            return snapshot
 
     def get(
         self,
@@ -2671,15 +2698,12 @@ class GenerationRuns:
                 replay_prepared = None
         if event is not None and isinstance(delivery, Background):
             with self._lock:
-                current = self._runs[run.id]
-                if current.status not in TERMINAL_STATUSES:
-                    current.status = "running"
-                    current.updated_at = float(self._now())
-                    self._persist_locked(current)
-                return current.snapshot()
+                # The active worker owns progress and state transitions. A
+                # browser poll only observes it; it does not restart the Run.
+                return self._runs[run.id].snapshot()
         if event is not None:
             await event.wait()
-            snapshot = self.get(run_id, owner=owner)
+            snapshot = await self.query(run_id, owner=owner)
             if (
                 recovery_request is not None
                 and snapshot.status in ACTIVE_STATUSES
@@ -2791,7 +2815,7 @@ class GenerationRuns:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                snapshot = self.get(run_id, owner=owner)
+                snapshot = await self.query(run_id, owner=owner)
             if snapshot.status in TERMINAL_STATUSES:
                 return
             attempt += 1
@@ -4090,6 +4114,7 @@ class CanvasGenerationTargetGuard:
                 target.canvas_id,
                 actor,
                 write=True,
+                generation_node_id=target.node_id,
             )
         except Exception as exc:
             raise GenerationRunError(
