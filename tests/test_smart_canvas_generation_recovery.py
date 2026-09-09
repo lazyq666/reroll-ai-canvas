@@ -15,6 +15,13 @@ PROVIDER_MODULE = ROOT / "static/js/smart-canvas/generation-provider.js"
 
 
 class SmartCanvasGenerationRecoveryTests(unittest.TestCase):
+    def test_refresh_restores_batch_slots_without_duplicate_outputs(self):
+        result = subprocess.run(
+            ["node", "tests/smart_canvas_generation_refresh_batch_regression.cjs"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_one_generation_run_projects_each_output_to_its_pending_slot(self):
         script = textwrap.dedent(
             f"""
