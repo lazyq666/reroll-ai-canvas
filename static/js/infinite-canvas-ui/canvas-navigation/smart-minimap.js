@@ -224,6 +224,10 @@ export class IcSmartMinimap extends HTMLElement {
 
   onPointerDown(event) {
     if (event.button !== 0) return;
+    if (event.composedPath().includes(this._controls)) {
+      event.stopPropagation();
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     this._activePointerId = event.pointerId;
@@ -244,6 +248,7 @@ export class IcSmartMinimap extends HTMLElement {
   }
 
   onKeyDown(event) {
+    if (event.composedPath().includes(this._controls)) return;
     const direction = {
       ArrowLeft: [-1, 0],
       ArrowRight: [1, 0],
@@ -302,6 +307,7 @@ export class IcSmartMinimap extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {
+          position:relative;
           display:block;
           box-sizing:border-box;
           width:190px;
@@ -317,6 +323,21 @@ export class IcSmartMinimap extends HTMLElement {
           user-select:none;
         }
         :host(:focus-visible) { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
+        :host([controls]) { height:166px; }
+        :host([controls]) .smart-minimap-content { bottom:48px; }
+        .smart-minimap-controls {
+          display:none;
+          position:absolute;
+          inset:auto 10px 6px;
+          height:32px;
+          align-items:center;
+          justify-content:space-between;
+          color:var(--ui-color-text-secondary);
+          font:var(--ui-font-size-2)/1.4 var(--ui-font-sans);
+          font-variant-numeric:tabular-nums;
+          cursor:default;
+        }
+        :host([controls]) .smart-minimap-controls { display:flex; }
         .smart-minimap-content {
           position:absolute;
           inset:10px;
@@ -357,7 +378,9 @@ export class IcSmartMinimap extends HTMLElement {
           </g>
           <rect class="smart-minimap-outside-mask" mask="url(#${this._maskId})"></rect>
         </svg>
-      </div>`;
+      </div>
+      <div class="smart-minimap-controls" part="controls"><slot name="controls"></slot></div>`;
+    this._controls = this.shadowRoot.querySelector('.smart-minimap-controls');
     this._content = this.shadowRoot.querySelector('.smart-minimap-content');
     this._svg = this.shadowRoot.querySelector('.minimap-node-map');
     this._maskBase = this.shadowRoot.querySelector('.smart-minimap-mask-base');

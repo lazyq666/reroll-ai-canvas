@@ -1483,7 +1483,7 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .image-studio-resolution-notice.is-failed { background:var(--ui-color-surface-danger); color:var(--ui-color-text-danger); }
 .video-frame-tools { margin:var(--ui-space-0) auto; display:flex; align-items:center; justify-content:center; gap:var(--ui-space-1); }
 .theme-dark .edit-text-inline { background:var(--ui-color-surface); border-color:var(--ui-color-border-secondary); box-shadow:0 8px 24px rgba(0,0,0,.34); }
-@media (max-width:760px) { .composer { width:min(48rem, calc(100vw - 28px)); } .composer-card { grid-template-columns:minmax(0, 1fr) auto; } .smart-minimap { width:148px; height:98px; } }
+@media (max-width:760px) { .composer { width:min(48rem, calc(100vw - 28px)); } .composer-card { grid-template-columns:minmax(0, 1fr) auto; } .smart-minimap { width:148px; height:98px; } .smart-minimap[controls] { height:136px; } }
 /* 分组外框：不论是空态摘要还是图片缩略图网格，都由容器统一提供边框/背景/内边距。
    内边距 16px 与图片网格布局里预留的 PAD=32（每边 16px）一致。 */
 .smart-group-node { box-sizing:border-box; padding:var(--ui-space-4); border-radius:12px; background:var(--ui-color-surface); border:var(--ui-border-width-thin) solid var(--ui-color-border-nodes); box-shadow:var(--ui-shadow-raised); backdrop-filter:blur(12px); pointer-events:auto; }

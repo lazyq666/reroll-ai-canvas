@@ -33,13 +33,13 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-60e1ba3da7e0"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-102aa167791a"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-62dbb280ba33">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-2dcf6bec0fc2">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-a6b547953ad6" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-0187a4f679b8" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=2026.09.01.5.1788439320"></script>
 </head>
 <body>
@@ -139,7 +139,10 @@
         </ic-menu>
         <ic-file-input id="fileInput" label="上传媒体" data-i18n-label="smart.uploadMedia" accept="image/*,video/*,audio/*,.png,.jpg,.jpeg,.webp,.gif,.mp4,.webm,.mov,.m4v,.mp3,.wav,.m4a,.aac,.ogg,.flac" max-files="20" multiple hidden></ic-file-input>
         <input id="referenceFileInput" type="file" accept="text/plain,.txt,image/*,video/*,audio/*" multiple hidden aria-label="上传本地引用" data-i18n-aria-label="smart.uploadLocalReference">
-        <ic-smart-minimap id="minimap" class="smart-minimap" aria-label="导航地图" data-i18n-aria-label="share.minimap"></ic-smart-minimap>
+        <ic-smart-minimap id="minimap" class="smart-minimap" controls aria-label="导航地图" data-i18n-aria-label="share.minimap">
+            <output slot="controls" data-canvas-zoom aria-live="off" aria-label="画布缩放比例" data-i18n-aria-label="smart.viewportZoom">100%</output>
+            <ic-icon-button slot="controls" id="smartResetView" type="button" size="s" hierarchy="quiet" icon="reset-view" label="重置视图" data-i18n-label="smart.resetView" onclick="window.SmartCanvasModules.viewportSelection.viewport.reset()"></ic-icon-button>
+        </ic-smart-minimap>
         <ic-smart-canvas-dock id="smartCanvasDock" label="智能画布工具栏" data-i18n-label="smart.toolbar" orientation="vertical" data-position="left">
             <ic-icon-button id="smartPointerTool" class="smart-canvas-dock-btn active" data-value="pointer" type="button" size="s" hierarchy="quiet" icon="cursor" label="指针" data-i18n-label="smart.pointer" shortcut="V" toggle pressed></ic-icon-button>
             <ic-icon-button id="smartHandTool" class="smart-canvas-dock-btn" data-value="hand" type="button" size="s" hierarchy="quiet" icon="hand" label="抓手" data-i18n-label="smart.hand" shortcut="H" toggle></ic-icon-button>
@@ -658,10 +661,10 @@
     <script src="/static/js/smart-canvas/canvas-virtualization.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/image-studio-geometry.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-a6b547953ad6"></script>
+    <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=ic-ui-0187a4f679b8"></script>
     <script src="/static/js/smart-canvas/canvas-opening.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-db03716b41e1"></script>
-    <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-5371070c8d3c"></script>
+    <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-e0ba8ae1f087"></script>
     <script src="/static/js/smart-canvas/realtime-presence.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/canvas-mutation.js?v=asset-d6c95b230a90"></script>
     <script src="/static/js/smart-canvas/smart-container.js?v=asset-96a4fd4f079d"></script>
@@ -690,7 +693,7 @@
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=asset-dd104f696fc9"></script>
     <script src="/static/js/smart-canvas/prompt-generation-composer.js"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-a92eadeaf688" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-b580664a4b0c" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
 </body>
 </html>

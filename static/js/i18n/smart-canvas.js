@@ -1,6 +1,8 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "smart.resetView": { zh: "重置视图", en: "Reset view" },
+        "smart.viewportZoom": { zh: "画布缩放比例", en: "Canvas zoom" },
         "smart.textComposer.retry": { zh: "重试此任务", en: "Retry this task" },
         "smart.textComposer.conflict": { zh: "此指令已在其他位置更新，请选择保留哪个版本", en: "These instructions were updated elsewhere. Choose which version to keep." },
         "smart.textComposer.useSaved": { zh: "使用已保存版本", en: "Use saved version" },

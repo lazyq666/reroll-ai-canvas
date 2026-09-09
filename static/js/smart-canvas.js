@@ -120,7 +120,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-a6b547953ad6')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-0187a4f679b8')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -16332,13 +16332,14 @@ function applySmartCanvasViewportZoom(factor, point=null){
     const pointY = Number(point?.clientY);
     const sx = Number.isFinite(pointX) ? pointX - rect.left : shell.clientWidth / 2;
     const sy = Number.isFinite(pointY) ? pointY - rect.top : shell.clientHeight / 2;
-    const currentScale = safeScale(viewport.scale);
+    const camera = window.SmartCanvasModules.viewportSelection.viewport;
+    const currentScale = camera.clampScale(viewport.scale);
     const before = {
         x:(sx - viewport.x) / currentScale,
         y:(sy - viewport.y) / currentScale
     };
-    const nextScale = safeScale(currentScale * numericFactor);
-    if(nextScale === currentScale) return false;
+    const nextScale = camera.clampScale(currentScale * numericFactor);
+    if(nextScale === currentScale && currentScale === viewport.scale) return false;
     viewport.scale = nextScale;
     viewport.x = sx - before.x * viewport.scale;
     viewport.y = sy - before.y * viewport.scale;

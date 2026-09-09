@@ -10,6 +10,13 @@ MODULE = ROOT / "static/js/smart-canvas/viewport-selection.js"
 
 
 class SmartCanvasViewportSelectionModuleTests(unittest.TestCase):
+    def test_zoom_limits_and_reset_recover_extreme_viewports(self):
+        result = subprocess.run(
+            ["node", "tests/smart_canvas_viewport_reset_test.cjs"],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_reveal_uses_the_minimum_world_pan_and_is_zoom_invariant(self):
         script = f"""
             const vm = require('vm');

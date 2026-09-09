@@ -18,6 +18,7 @@ const SMART_VIEWPORT_SAVE_DELAY_MS = 900;
 const SMART_VIEWPORT_RETRY_DELAY_MS = 5000;
 const SMART_VIEWPORT_MIN_SCALE = 0.02;
 const SMART_VIEWPORT_MAX_SCALE = 8;
+const SMART_VIEWPORT_MAX_CENTER = 1000000000;
 
 function smartViewportSelectionNow(){
     return globalThis.performance?.now?.() ?? Date.now();
@@ -130,8 +131,8 @@ function smartViewportSelectionSerializableViewState(){
     if(
         !Number.isFinite(center.x)
         || !Number.isFinite(center.y)
-        || Math.abs(center.x) > 1000000000
-        || Math.abs(center.y) > 1000000000
+        || Math.abs(center.x) > SMART_VIEWPORT_MAX_CENTER
+        || Math.abs(center.y) > SMART_VIEWPORT_MAX_CENTER
     ) return null;
     return {
         center_x:center.x,
@@ -239,9 +240,23 @@ async function smartViewportSelectionRestoreViewState(){
     return restored;
 }
 
+function smartViewportSelectionClampScale(value){
+    const scale = Number(value);
+    return Math.max(SMART_VIEWPORT_MIN_SCALE, Math.min(
+        SMART_VIEWPORT_MAX_SCALE, Number.isNaN(scale) ? 1 : scale
+    ));
+}
 function smartViewportSelectionApply({persist=true}={}){
-    const scale = Number(viewport.scale);
-    viewport.scale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    viewport.scale = smartViewportSelectionClampScale(viewport.scale);
+    // Corrupt offsets can overflow CSS and stall spatial-index iteration even
+    // after scale is clamped. Recover before rendering or querying visibility.
+    const center = smartViewportSelectionCenter();
+    if(!Number.isFinite(center.x) || Math.abs(center.x) > SMART_VIEWPORT_MAX_CENTER){
+        viewport.x = shell.clientWidth / 2;
+    }
+    if(!Number.isFinite(center.y) || Math.abs(center.y) > SMART_VIEWPORT_MAX_CENTER){
+        viewport.y = shell.clientHeight / 2;
+    }
     const lodState = window.SmartCanvasModules?.canvasLevelOfDetail?.update?.(viewport.scale)
         || {mode:'detail', changed:false};
     if(shell?.dataset) shell.dataset.canvasLod = lodState.mode;
@@ -394,6 +409,8 @@ function smartViewportSelectionSyncMinimapScene(){
 }
 function smartViewportSelectionUpdateMinimapViewport(){
     if(typeof minimap === 'undefined') return;
+    const zoomLabel = minimap?.querySelector?.('[data-canvas-zoom]');
+    if(zoomLabel) zoomLabel.textContent = `${Math.round(viewport.scale * 100)}%`;
     minimap?.updateViewport?.(smartViewportSelectionMinimapViewport());
 }
 function smartViewportSelectionScheduleMinimap(){
@@ -454,6 +471,14 @@ function smartViewportSelectionFitAll(){
     viewport.x = shell.clientWidth / 2 - centerX * viewport.scale;
     viewport.y = shell.clientHeight / 2 - centerY * viewport.scale;
     smartViewportSelectionApply();
+}
+function smartViewportSelectionReset(){
+    // Discard the previous camera so leaving overview cannot restore a broken view.
+    zoomPreviewState = null;
+    shell.classList.remove('zoom-preview');
+    shell.scrollLeft = 0;
+    shell.scrollTop = 0;
+    smartViewportSelectionFitAll();
 }
 function smartViewportSelectionExitZoomPreview(point=null){
     if(!zoomPreviewState) return false;
@@ -586,6 +611,8 @@ window.SmartCanvasModules.viewportSelection = Object.freeze({
         })
     }),
     viewport:Object.freeze({
+        clampScale:smartViewportSelectionClampScale,
+        reset:smartViewportSelectionReset,
         apply:smartViewportSelectionApply,
         restore:smartViewportSelectionRestoreViewState,
         save:smartViewportSelectionSaveViewState,
