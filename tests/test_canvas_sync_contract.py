@@ -3,13 +3,19 @@ import json
 import os
 import tempfile
 import unittest
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from infinite_canvas.canvas_list_index import CanvasListIndex
 from infinite_canvas.canvas_store import CanvasIntent, SqliteCanvasStore
 from infinite_canvas.canvas_sync import CanvasSync
+from infinite_canvas.canvas_sync import CanvasSyncError
+from infinite_canvas.turso_sqlite import TursoError
 from tests.runtime_env import (
     configure_test_workspace,
     ensure_test_workspace,
@@ -64,6 +70,67 @@ class CanvasSyncContractTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         return response.json()["canvas"]
+
+    def test_storage_and_internal_realtime_failures_are_not_permission_loss(self):
+        canvas = self.create_canvas('smart')
+        path = f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=storage-test"
+        for error, code in (
+            (TursoError('cloud_storage_lease_lost'), 1013),
+            (CanvasSyncError(500, 'Storage event unavailable'), 1011),
+            (CanvasSyncError(403, 'Permission denied'), 4403),
+        ):
+            with self.subTest(error=type(error).__name__, code=code):
+                with self.client.websocket_connect(path) as socket:
+                    receive_canvas_message(socket, 'canvas_snapshot')
+                    with patch.object(self.main.CANVAS_SYNC, 'receive_realtime', side_effect=error):
+                        socket.send_json({'type': 'canvas_mutation', 'canvas_id': canvas['id']})
+                        with self.assertRaises(WebSocketDisconnect) as closed:
+                            receive_canvas_message(socket, 'canvas_mutation')
+                    self.assertEqual(closed.exception.code, code)
+
+    def test_cloud_failure_during_realtime_open_has_retryable_close(self):
+        canvas = self.create_canvas('smart')
+        path = f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=storage-test"
+        with patch.object(self.main.CANVAS_SYNC, 'open_realtime', side_effect=TursoError('cloud_storage_lease_lost')):
+            with self.client.websocket_connect(path) as socket:
+                with self.assertRaises(WebSocketDisconnect) as closed:
+                    socket.receive_json()
+        self.assertEqual(closed.exception.code, 1013)
+        self.assertEqual(closed.exception.reason, 'cloud_storage_lease_lost')
+
+    def test_slow_canvas_reads_leave_navigation_requests_responsive(self):
+        created = self.create_canvas("smart")
+        targets = [
+            ("/api/canvases", self.main, "list_canvas_page"),
+            ("/api/projects", self.main, "list_projects"),
+            ("/api/canvases/trash", self.main, "list_deleted_canvases"),
+            (f"/api/canvases/{created['id']}/open", self.main.CANVAS_SYNC, "read"),
+        ]
+        for url, owner, name in targets:
+            with self.subTest(url=url):
+                entered, release, navigation_done = (threading.Event() for _ in range(3))
+                original = getattr(owner, name)
+
+                def slow_read(*args, **kwargs):
+                    entered.set()
+                    release.wait(5)
+                    return original(*args, **kwargs)
+
+                def navigate():
+                    response = self.client.get("/static/canvas-list.html")
+                    navigation_done.set()
+                    return response
+
+                with patch.object(owner, name, slow_read), ThreadPoolExecutor(2) as pool:
+                    pending = pool.submit(self.client.get, url)
+                    try:
+                        self.assertTrue(entered.wait(2))
+                        navigation = pool.submit(navigate)
+                        self.assertTrue(navigation_done.wait(2), "Navigation waited for the cloud read")
+                    finally:
+                        release.set()
+                    self.assertEqual(navigation.result().status_code, 200)
+                    self.assertEqual(pending.result().status_code, 200)
 
     def test_progressive_opening_stream_keeps_one_canvas_identity_and_revision(self):
         created = self.create_canvas("smart")

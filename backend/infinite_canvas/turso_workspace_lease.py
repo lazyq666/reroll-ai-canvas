@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from threading import Event
 from typing import Any
 from uuid import uuid4
+import sqlite3
 
 from .turso_sqlite import TursoError
 
@@ -83,6 +84,7 @@ class WorkspaceLease:
         self.ttl_seconds = ttl_seconds
         self._fence: WorkspaceFence | None = None
         self._lost = False
+        self._uncertain = False
         self._revoked = Event()
 
     def acquire(self) -> WorkspaceFence:
@@ -115,6 +117,32 @@ class WorkspaceLease:
         fence = self._fence
         if fence is None or self._lost:
             raise TursoError('cloud_storage_lease_lost')
+        self._extend(fence)
+
+    @property
+    def can_reconcile(self) -> bool:
+        return self._uncertain
+
+    def reconcile(self) -> WorkspaceFence:
+        """Confirm the same unexpired owner/epoch; never acquire a new lease.
+
+        Previously issued connections keep their revoked fence. Only new
+        connections may use the replacement after the renewal commit is known.
+        """
+        fence = self._fence
+        if fence is None or not self._uncertain:
+            raise TursoError('cloud_storage_lease_lost')
+        self._extend(fence)
+        self._revoked = Event()
+        self._fence = WorkspaceFence(
+            fence.workspace_id, fence.binding_id, fence.owner, fence.epoch,
+            self._revoked,
+        )
+        self._lost = False
+        self._uncertain = False
+        return self._fence
+
+    def _extend(self, fence: WorkspaceFence) -> None:
         try:
             with closing(self._connect()) as connection:
                 with connection:
@@ -127,16 +155,28 @@ class WorkspaceLease:
                     ).rowcount
                     if changed != 1:
                         raise TursoError('cloud_storage_lease_lost')
-        except Exception:
+        except Exception as error:
             # An uncertain renewal must pause this incarnation. A caller may
             # reconcile state explicitly; it must not silently acquire again.
             self._lost = True
             self._revoked.set()
+            self._uncertain = (
+                isinstance(error, OSError)
+                or getattr(error, 'code', '') in {
+                    'cloud_storage_outcome_unknown',
+                    'cloud_storage_unavailable',
+                    'cloud_storage_limit_reached',
+                    'cloud_storage_connection_closed',
+                }
+                or (type(error) is sqlite3.OperationalError
+                    and str(error) == 'cloud_storage_query_failed')
+            )
             raise
 
     def release(self) -> None:
         fence = self._fence
         self._lost = True
+        self._uncertain = False
         self._revoked.set()
         if fence is None:
             return

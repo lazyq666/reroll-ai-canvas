@@ -832,6 +832,24 @@ class CanvasSyncSqliteRealtimeTests(unittest.IsolatedAsyncioTestCase):
             (self.directory / "legacy-empty" / "smart-sqlite.json").exists()
         )
 
+    async def test_realtime_open_reads_one_authorized_snapshot(self):
+        with patch.object(self.store, "read", wraps=self.store.read) as read:
+            session = await self.sync.open_realtime(
+                self.websocket, "smart-sqlite", ADMIN, "single-read"
+            )
+        self.assertIsNotNone(session)
+        self.assertEqual(read.call_count, 1)
+        self.assertEqual(self.notifier.sent[0][1]["canvas"]["title"], "SQLite Smart")
+        await self.sync.close_realtime(session)
+
+    async def test_realtime_open_rejects_before_registering_a_connection(self):
+        with self.assertRaises(CanvasSyncError):
+            await self.sync.open_realtime(
+                self.websocket, "smart-sqlite", {"id": "guest", "role": "guest"}, "denied"
+            )
+        self.assertFalse(self.notifier.connections)
+        self.assertFalse(self.notifier.sent)
+
     async def test_board_layout_metadata_does_not_revoke_realtime_session(self):
         session = await self.sync.open_realtime(
             self.websocket,

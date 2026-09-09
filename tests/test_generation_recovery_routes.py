@@ -267,7 +267,7 @@ class GenerationRecoveryRouteTests(unittest.IsolatedAsyncioTestCase):
                     "/api/canvas-video-tasks", "POST"
                 )(payload)
                 await adapter.started.wait()
-                active = await self.endpoint(
+                active = self.endpoint(
                     "/api/canvases/{canvas_id}/generation-runs/active",
                     "GET",
                 )("canvas-1")

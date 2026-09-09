@@ -17528,5 +17528,4 @@ window.onload = async () => {
     smartLayerDecomposition.resume();
     await supportingData;
     syncApiKindToggleVisibility();
-    render();
 };

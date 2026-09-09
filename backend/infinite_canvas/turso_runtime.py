@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import re
 import threading
 import time
 from contextlib import closing
@@ -10,6 +12,8 @@ from pathlib import Path
 from .turso_sqlite import TursoConnection, TursoError, database_url
 from .turso_stores import FencedTursoConnection, TursoCanvasStore, TursoGenerationRunStore
 from .turso_workspace_lease import WorkspaceLease
+
+LOGGER = logging.getLogger(__name__)
 
 
 class TursoWorkspaceRuntime:
@@ -51,13 +55,20 @@ class TursoWorkspaceRuntime:
 
     def require_active(self):
         if self._stop.is_set() or self.fence._revoked.is_set() or time.monotonic() >= self._deadline:
+            if not self._stop.is_set() and self.lease.can_reconcile and time.monotonic() < self._deadline:
+                raise TursoError("cloud_storage_reconnecting")
             raise TursoError("cloud_storage_lease_lost")
 
     def renew(self):
         with self._renew_lock:
-            self.require_active()
+            if self._stop.is_set() or time.monotonic() >= self._deadline:
+                raise TursoError("cloud_storage_lease_lost")
             started = time.monotonic()
-            self.lease.renew()
+            if self.lease.can_reconcile:
+                self.fence = self.lease.reconcile()
+            else:
+                self.require_active()
+                self.lease.renew()
             self._deadline = started + 110
 
     def start(self):
@@ -66,12 +77,22 @@ class TursoWorkspaceRuntime:
             return
 
         def heartbeat():
-            while not self._stop.wait(20):
+            delay = 20
+            while not self._stop.wait(delay):
                 try:
                     self.renew()
-                except Exception:
+                    delay = 20
+                except Exception as error:
                     self.fence._revoked.set()
-                    return
+                    retry = self.lease.can_reconcile and time.monotonic() < self._deadline
+                    code = getattr(error, 'code', '')
+                    LOGGER.warning(
+                        'Cloud lease renewal unavailable; reconciling=%s; error=%s',
+                        retry, code if isinstance(code, str) and re.fullmatch(r'cloud_storage_[a-z_]+', code) else type(error).__name__,
+                    )
+                    if not retry:
+                        return
+                    delay = 2
 
         self._thread = threading.Thread(target=heartbeat, name="cloud-workspace-lease", daemon=True)
         self._thread.start()
@@ -116,6 +137,6 @@ class TursoWorkspaceRuntime:
         try:
             self.require_active()
             status = "connected"
-        except TursoError:
-            status = "unavailable"
+        except TursoError as error:
+            status = "reconnecting" if error.code == "cloud_storage_reconnecting" else "unavailable"
         return {"enabled": True, "provider": "turso", "status": status, "workspace_id": self.workspace_id}

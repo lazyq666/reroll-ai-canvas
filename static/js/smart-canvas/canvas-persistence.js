@@ -12,6 +12,7 @@ let canvasPersistenceReadyTimer = null;
 let canvasPersistenceStatusRevealTimer = null;
 let canvasPersistenceSocket = null;
 let canvasPersistenceStatusValue = 'idle';
+let canvasPersistenceStorageErrorCode = '';
 let canvasPersistenceReconnectAttempt = 0;
 let canvasPersistenceRevision = 0;
 let canvasPersistenceConfirmedDocument = null;
@@ -19,6 +20,7 @@ let canvasPersistenceOpeningSourceDocument = null;
 let canvasPersistenceOpeningBaselineDocument = null;
 let canvasPersistenceInFlight = null;
 let canvasPersistencePendingSave = false;
+let canvasPersistenceGenerationWaiters = 0;
 let canvasPersistenceOperationCounter = 0;
 let canvasPersistenceLastPongAt = 0;
 let canvasPersistenceLastOfflineToastAt = 0;
@@ -778,6 +780,16 @@ function canvasPersistenceEditableElementActive(){
     if(window.SmartCanvasModules?.promptGenerationComposer?.owns?.(active)){
         return false;
     }
+    // Manual submission and queued resume may keep the image prompt focused.
+    // Admission waits for our saved output slots, so holding their receipt here
+    // would make submission time out before contacting the Provider. Rendering
+    // the same Composer subject preserves its editor and draft. Other inputs,
+    // ordinary editing, and explicit interaction holds remain protected.
+    if(
+        canvasPersistenceGenerationWaiters > 0
+        && typeof promptInput !== 'undefined'
+        && (active === promptInput || promptInput?.contains?.(active))
+    ) return false;
     if(typeof isEditableTarget === 'function' && isEditableTarget(active)){
         return true;
     }
@@ -843,6 +855,12 @@ function canvasPersistenceStatusElement(){
     return document.getElementById('canvasSyncStatus');
 }
 function canvasPersistenceSetStatus(status,message=''){
+    if(status === 'ready') canvasPersistenceStorageErrorCode = '';
+    if(canvasPersistenceStorageErrorCode && ['connecting','reconnecting'].includes(status)){
+        const key = 'cloudStorage.' + canvasPersistenceStorageErrorCode;
+        const detail = window.StudioI18n?.t?.(key);
+        if(detail && detail !== key) message = detail;
+    }
     const previousStatus = canvasPersistenceStatusValue;
     canvasPersistenceStatusValue = status;
     const element = canvasPersistenceStatusElement();
@@ -1681,6 +1699,8 @@ function canvasPersistenceConnect(){
             canvasPersistenceSetStatus('error',fatalMessage);
             return;
         }
+        const storageCode = String(event?.reason || '');
+        canvasPersistenceStorageErrorCode = storageCode.startsWith('cloud_storage_') ? storageCode : '';
         canvasPersistenceSetStatus('reconnecting');
         canvasPersistenceReconnectAttempt += 1;
         const delay = Math.min(
@@ -1747,6 +1767,10 @@ function canvasPersistenceReconnectNow(){
 async function canvasPersistenceLoad(){
     if(!canvasId) return null;
     const opening = window.SmartCanvasModules?.canvasOpening || null;
+    const generationRunModule = canvasPersistenceGenerationRun();
+    // Fetch independently, but apply only after document/draft hydration so
+    // recovered task state remains part of the opening baseline, not an edit.
+    const activeRuns = generationRunModule.readActive?.();
     const viewportModule =
         window.SmartCanvasModules.viewportSelection.viewport;
     const viewportRestore = Promise.resolve().then(() => (
@@ -1823,10 +1847,9 @@ async function canvasPersistenceLoad(){
         const migratedPromptSplits =
             typeof migrateLegacyPromptSplitNodes === 'function'
             && migrateLegacyPromptSplitNodes();
-        const generationRunModule = canvasPersistenceGenerationRun();
         const smartMattingModule = canvasPersistenceSmartMatting();
         if(typeof generationRunModule.restoreActive === 'function'){
-            await generationRunModule.restoreActive();
+            await generationRunModule.restoreActive({runs:await activeRuns});
         }
         nodes.forEach(node => {
             const pendingTasks = typeof generationRunModule.pendingTasks === 'function'
@@ -1940,8 +1963,15 @@ window.SmartCanvasModules.canvasPersistence = Object.freeze({
     save(){
         return canvasPersistenceSave();
     },
-    synced({timeout=5000}={}){
-        return canvasPersistenceSynced(timeout);
+    async synced({timeout=5000,forGeneration=false}={}){
+        if(!forGeneration) return canvasPersistenceSynced(timeout);
+        canvasPersistenceGenerationWaiters += 1;
+        try {
+            canvasPersistenceFlushQueuedMessages();
+            return await canvasPersistenceSynced(timeout);
+        } finally {
+            canvasPersistenceGenerationWaiters -= 1;
+        }
     },
     checkpoint({timeout=5000}={}){
         return canvasPersistenceCheckpoint({timeout});

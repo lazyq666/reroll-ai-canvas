@@ -13,7 +13,7 @@ from infinite_canvas.turso_stores import (
 )
 from infinite_canvas.turso_workspace_lease import LEASE_SCHEMA, WorkspaceLease
 from tests import test_generation_run_store as run_fixtures
-from tests.test_canvas_store import ADMIN, sample_canvas
+from tests.test_canvas_store import ADMIN, DESIGNER, sample_canvas
 from tests.test_turso_sqlite import SqlitePipeline
 
 
@@ -84,6 +84,83 @@ class TursoStoreTests(unittest.TestCase):
             }, owner=ADMIN['id']))
         for table in ['canvases', 'generation_runs', 'batches']:
             self.assertEqual(self.remote.database.execute(f'SELECT count(*) FROM {table}').fetchone()[0], 0)
+
+    def test_canvas_list_network_round_trips_do_not_grow_per_card(self):
+        store = TursoCanvasStore(self.connect, workspace_id='workspace')
+
+        def add_canvas(index):
+            document = sample_canvas(f'list-{index}')
+            document['board_x'] = 1000 + index * 300
+            document['board_y'] = 2000
+            document['nodes'][0]['images'] = [
+                {'url': f'/assets/input/cover-{index}.png', 'kind': 'image'},
+            ]
+            store.commit(document['id'], ADMIN, CanvasIntent.import_canvas(
+                document, operation_id=f'import-list-{index}',
+            ))
+
+        add_canvas(0)
+        self.remote.calls.clear()
+        one = store.list_items(ADMIN)
+        single_card_round_trips = len(self.remote.calls)
+        for index in range(1, 7):
+            add_canvas(index)
+        self.remote.calls.clear()
+        many = store.list_items(ADMIN)
+        many_card_round_trips = len(self.remote.calls)
+
+        self.assertEqual(len(one), 1)
+        self.assertEqual(len(many), 7)
+        for index, item in enumerate(many):
+            self.assertEqual(item['cover_url'], f'/assets/input/cover-{index}.png')
+            self.assertEqual(item['node_count'], 2)
+            self.assertEqual(item['board_x'], 1000 + index * 300)
+            self.assertNotIn('nodes', item)
+        self.assertLessEqual(
+            many_card_round_trips, single_card_round_trips,
+            f'Listing 7 cards took {many_card_round_trips} remote requests; '
+            f'listing 1 took {single_card_round_trips}. Each card must not '
+            'add serial network waits before the board can be shown.',
+        )
+
+    def test_opening_reads_document_sections_in_one_remote_request(self):
+        store = TursoCanvasStore(self.connect, workspace_id='workspace')
+        document = sample_canvas()
+        store.commit(document['id'], ADMIN, CanvasIntent.import_canvas(
+            document, operation_id='opening-round-trips',
+        ))
+        self.remote.calls.clear()
+        result = store.read(document['id'], ADMIN, CanvasProjection.public_snapshot())
+        self.assertEqual(result.canvas['nodes'], document['nodes'])
+        self.assertEqual(result.canvas['connections'], document['connections'])
+        self.assertLessEqual(len(self.remote.calls), 2)
+
+    def test_batched_list_preserves_cover_selection_and_permissions(self):
+        store = TursoCanvasStore(self.connect, workspace_id='workspace')
+        for index in range(4):
+            document = sample_canvas(f'cover-{index}')
+            document['nodes'][0]['images'] = [
+                '/assets/movie.mp4', {'src': '/assets/fallback.webp?size=1'},
+            ]
+            if index == 1:
+                document['cover_image'] = {
+                    'url': '/assets/custom.png', 'node_id': 'chosen', 'image_index': 3,
+                }
+            if index == 2:
+                document['visibility'] = 'private'
+            if index == 3:
+                document['nodes'] = []
+                document['connections'] = []
+            store.commit(document['id'], ADMIN, CanvasIntent.import_canvas(
+                document, operation_id=f'cover-parity-{index}',
+            ))
+        items = store.list_items(ADMIN)
+        for item in items:
+            self.assertEqual(item, store.read(item['id'], ADMIN, CanvasProjection.list_item()).canvas)
+        self.assertEqual(items[0]['cover_image_index'], 1)
+        self.assertTrue(items[1]['cover_custom'])
+        self.assertEqual(items[3]['cover_url'], '')
+        self.assertNotIn('cover-2', [item['id'] for item in store.list_items(DESIGNER)])
 
     def test_a_revoked_fence_between_write_and_commit_rolls_back(self):
         with self.assertRaises(TursoError):

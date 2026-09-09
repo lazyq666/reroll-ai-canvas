@@ -138,7 +138,7 @@ function generationRunResumeQueued(){
         Promise.resolve().then(async () => {
             if(
                 typeof generationRunPersistenceModule.synced === 'function'
-                && !await generationRunPersistenceModule.synced({timeout:15000})
+                && !await generationRunPersistenceModule.synced({timeout:30000,forGeneration:true})
             ){
                 setTimeout(generationRunResumeQueued, 1500);
                 return;
@@ -184,20 +184,25 @@ function generationRunResumeQueued(){
 function activeGenerationRecoveryModule(){
     return window.SmartCanvasModules?.generationRecovery || null;
 }
-async function generationRunRestoreActive(){
-    if(!canvasId) return false;
+async function generationRunReadActive(){
+    if(!canvasId) return null;
     try {
         const response = await fetch(
             `/api/canvases/${encodeURIComponent(canvasId)}/generation-runs/active`,
             {cache:'no-store'}
         );
-        if(!response.ok) return false;
+        if(!response.ok) return null;
         const payload = await response.json();
-        return Boolean(
-            activeGenerationRecoveryModule()?.restoreActive?.({
-                runs:Array.isArray(payload?.runs) ? payload.runs : []
-            })
-        );
+        return Array.isArray(payload?.runs) ? payload.runs : [];
+    } catch(error){
+        return null;
+    }
+}
+async function generationRunRestoreActive({runs}={}){
+    const activeRuns = runs === undefined ? await generationRunReadActive() : runs;
+    if(!Array.isArray(activeRuns)) return false;
+    try {
+        return Boolean(activeGenerationRecoveryModule()?.restoreActive?.({runs:activeRuns}));
     } catch(error){
         return false;
     }
@@ -414,7 +419,7 @@ async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings
     await generationRunPersistenceModule.save();
     if(
         typeof generationRunPersistenceModule.synced === 'function'
-        && !await generationRunPersistenceModule.synced({timeout:5000})
+        && !await generationRunPersistenceModule.synced({timeout:30000,forGeneration:true})
     ){
         const error = new Error(tr('smart.syncIncompleteGeneration'));
         error.generationSyncPending = true;
@@ -467,7 +472,7 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
     await generationRunPersistenceModule.save();
     if(
         typeof generationRunPersistenceModule.synced === 'function'
-        && !await generationRunPersistenceModule.synced({timeout:5000})
+        && !await generationRunPersistenceModule.synced({timeout:30000,forGeneration:true})
     ){
         const error = new Error(tr('smart.syncIncompleteGeneration'));
         error.generationSyncPending = true;
@@ -1524,9 +1529,8 @@ window.SmartCanvasModules.generationRun = Object.freeze({
         generationRunResumeQueued();
         return recovery;
     },
-    restoreActive(){
-        return generationRunRestoreActive();
-    },
+    readActive:generationRunReadActive,
+    restoreActive:generationRunRestoreActive,
     status(options={}){
         return generationRunStatus(options);
     },

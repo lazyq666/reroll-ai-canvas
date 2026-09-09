@@ -189,7 +189,7 @@
                         <p class="preferences-note">${tr('cloudStorage.rotation')}</p>
                         <p class="preferences-note">${tr(state.cloud.enabled ? 'cloudStorage.localExport' : 'cloudStorage.prepareFirst')}</p>
                         <div role="status" aria-live="polite">
-                            <p>${tr('cloudStorage.' + (state.cloudBusy ? 'switching' : (state.cloud.enabled ? (state.cloud.status === 'connected' ? 'connected' : 'unavailable') : 'local')))}</p>
+                            <p>${tr('cloudStorage.' + (state.cloudBusy ? 'switching' : (state.cloud.enabled ? (['connected', 'reconnecting'].includes(state.cloud.status) ? state.cloud.status : 'unavailable') : 'local')))}</p>
                             ${state.cloudError ? `<ic-alert tone="danger">${tr('cloudStorage.' + state.cloudError)}</ic-alert>` : ''}
                         </div>
                     </section>

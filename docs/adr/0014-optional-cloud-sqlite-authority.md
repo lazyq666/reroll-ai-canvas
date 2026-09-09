@@ -32,8 +32,14 @@ finish syncing.
 Each process acquires a remote, expiring Workspace write lease. Every business
 transaction checks the binding and lease epoch under its remote write lock,
 including a second check before commit. A lost or uncertain renewal revokes
-that process's fence. A timeout is an unknown outcome and must not start a
-local fallback writer. Normal rotation drains unfinished Generation Runs,
+all previously issued fences immediately. Before the conservative local
+deadline, a transient renewal failure may be reconciled by a conditional
+renewal of the same unexpired owner, epoch and active binding. Only a confirmed
+commit issues a replacement fence for new connections; old fences stay revoked.
+Reconciliation never acquires a lease or changes its epoch. Expiry, takeover,
+binding changes and authentication failures require a launcher restart.
+A timeout is an unknown outcome and must not start a local fallback writer
+or automatically replay a business transaction. Normal rotation drains unfinished Generation Runs,
 batch tasks and publication work before releasing the Workspace.
 
 Runtime Store construction validates an existing cloud schema without creating

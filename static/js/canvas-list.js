@@ -176,6 +176,8 @@ let clipboardCanvas = null;   // 剪切的画布快照（切换项目后仍可�
 let currentUser = null;
 let canvasBatchLoading = false;
 let canvasListPageLeaving = false;
+let canvasListLoadError = null;
+let canvasListLoadRetryTimer = null;
 const canvasListPerformance = {
     batches:[],
     longTasks:[],
@@ -389,12 +391,14 @@ function currentProject(){ return projects.find(p => p.id === currentProjectId) 
 function canvasesInProject(pid){ return canvases.filter(c => (c.project || 'default') === pid); }
 
 async function loadAll(){
+    clearTimeout(canvasListLoadRetryTimer);
     try {
         // The current project's first card batch is the only blocking canvas
         // payload. Project counts and trash context follow after first paint.
         await loadCurrentProjectBatch({ reset: true });
         const pRes = await fetch('/api/projects');
-        const pData = pRes.ok ? await pRes.json() : { projects: [] };
+        if(!pRes.ok) throw await canvasListResponseError(pRes);
+        const pData = await pRes.json();
         projects = (pData.projects || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
         if(!projects.length){
             currentProjectId = '';
@@ -417,14 +421,29 @@ async function loadAll(){
         }
         rememberProjectId(currentProjectId);
         renderProjects();
-        resetView();
         if(pData.rebuilding) refreshProjectsInBackground();
         loadSecondaryCanvasData();
     } catch(e){
         if(canvasListPageLeaving) return;
         console.error(e);
-        setStatus(L('加载失败','Load failed'));
+        canvasListLoadError = e;
+        renderBoardEmptyState();
+        setStatus(tr('workspace.loadFailed'), 'danger');
+        if(e.status === 503 && e.code !== 'cloud_storage_lease_lost'){
+            canvasListLoadRetryTimer = setTimeout(() => {
+                if(!canvasListPageLeaving) refreshCanvasListSession().catch(handleCanvasListSessionError);
+            }, 3000);
+        }
     }
+}
+
+async function canvasListResponseError(response){
+    let payload;
+    try { payload = await response.json(); } catch(_error) {}
+    return Object.assign(new Error('canvas list load failed'), {
+        status:response.status,
+        code:payload?.code || payload?.detail?.code || '',
+    });
 }
 
 function refreshProjectsInBackground(){
@@ -458,9 +477,10 @@ async function loadCurrentProjectBatch({ reset = false } = {}){
     try {
         const url = `/api/canvases?project=${encodeURIComponent(currentProjectId)}&limit=40&cursor=${encodeURIComponent(page.cursor || '')}`;
         const response = await fetch(url);
-        if(!response.ok) throw new Error('canvas batch load failed');
+        if(!response.ok) throw await canvasListResponseError(response);
         const data = await response.json();
         if(currentProjectId !== projectId) return;
+        canvasListLoadError = null;
         const byId = new Map(existing.map(item => [item.id, item]));
         const additions = (data.canvases || []).filter(item => !byId.has(item.id));
         (data.canvases || []).forEach(item => byId.set(item.id, item));
@@ -483,8 +503,10 @@ async function loadCurrentProjectBatch({ reset = false } = {}){
             receivedAt:Math.round(performance.now()),
         });
         canvases = loaded;
-        if(reset) renderBoard();
-        else renderCanvasAdditions(additions);
+        if(reset){
+            renderBoard();
+            resetView();
+        } else renderCanvasAdditions(additions);
         updateLoadMoreButton();
         performance.mark?.('canvas-list-batch-rendered');
     } finally {
@@ -541,7 +563,16 @@ async function loadNextCanvasBatch(){
     }
 }
 
+let canvasListSessionRefresh = null;
 async function refreshCanvasListSession(){
+    if(canvasListSessionRefresh) return canvasListSessionRefresh;
+    canvasListSessionRefresh = loadCanvasListSession().finally(() => {
+        canvasListSessionRefresh = null;
+    });
+    return canvasListSessionRefresh;
+}
+
+async function loadCanvasListSession(){
     const res = await fetch('/api/auth/me', { cache:'no-store' });
     if(!res.ok){
         const error = new Error('unauthorized');
@@ -756,16 +787,46 @@ function renderBoard(){
     boardWorld.innerHTML = '';
     const token = ++renderBatchToken;
     renderCanvasBatch(items, 0, token);
-    const hasProjects = projects.length > 0;
-    boardEmptyHint.setAttribute('title', hasProjects ? L('暂无画布','No canvases') : L('暂无可访问项目','No accessible projects'));
-    boardEmptyHint.setAttribute('label', hasProjects ? L('画布列表为空','Empty canvas list') : L('项目列表为空','Empty project list'));
-    const emptyDescription = boardEmptyHint.querySelector(':scope > span:not([slot])');
-    if(emptyDescription) emptyDescription.textContent = hasProjects
-        ? L('为当前项目创建第一块画布','Create the first canvas for this project')
-        : L('管理员尚未为此账号分配项目','No projects are assigned to this account');
-    boardEmptyHint.classList.toggle('hidden', items.length > 0);
+    renderBoardEmptyState();
     updatePasteBtn();
     refreshIcons();
+}
+
+function renderBoardEmptyState(){
+    const items = canvasesInProject(currentProjectId);
+    if(canvasListLoadError){
+        boardEmptyHint.setAttribute('data-i18n-title', 'workspace.loadFailed');
+        boardEmptyHint.setAttribute('data-i18n-label', 'workspace.loadFailed');
+        boardEmptyHint.setAttribute('title', tr('workspace.loadFailed'));
+        boardEmptyHint.setAttribute('label', tr('workspace.loadFailed'));
+        const description = boardEmptyHint.querySelector(':scope > span:not([slot])');
+        const code = String(canvasListLoadError.code || '');
+        const key = 'cloudStorage.' + code;
+        const translated = code.startsWith('cloud_storage_') ? tr(key) : '';
+        if(description){
+            const descriptionKey = translated && translated !== key ? key : 'workspace.loadFailedHint';
+            description.setAttribute('data-i18n', descriptionKey);
+            description.textContent = tr(descriptionKey);
+        }
+        boardEmptyHint.classList.toggle('hidden', items.length > 0);
+        if(emptyCreateCanvasBtn) emptyCreateCanvasBtn.hidden = true;
+        return;
+    }
+    const hasProjects = projects.length > 0;
+    const titleKey = hasProjects ? 'workspace.noCanvases' : 'workspace.noAccessibleProjects';
+    const labelKey = hasProjects ? 'workspace.emptyCanvasList' : 'workspace.emptyProjectList';
+    boardEmptyHint.setAttribute('data-i18n-title', titleKey);
+    boardEmptyHint.setAttribute('data-i18n-label', labelKey);
+    boardEmptyHint.setAttribute('title', tr(titleKey));
+    boardEmptyHint.setAttribute('label', tr(labelKey));
+    const emptyDescription = boardEmptyHint.querySelector(':scope > span:not([slot])');
+    if(emptyDescription){
+        const descriptionKey = hasProjects ? 'workspace.createFirst' : 'workspace.noAccessibleProjectsHint';
+        emptyDescription.setAttribute('data-i18n', descriptionKey);
+        emptyDescription.textContent = tr(descriptionKey);
+    }
+    boardEmptyHint.classList.toggle('hidden', items.length > 0);
+    if(emptyCreateCanvasBtn) emptyCreateCanvasBtn.hidden = !hasProjects;
 }
 
 function renderCanvasAdditions(items){
@@ -1726,6 +1787,7 @@ document.addEventListener('keyup', e => {
 window.addEventListener('blur', cancelBoardPan);
 window.addEventListener('pagehide', () => {
     canvasListPageLeaving = true;
+    clearTimeout(canvasListLoadRetryTimer);
 });
 document.addEventListener('visibilitychange', () => {
     if(document.hidden) cancelBoardPan();

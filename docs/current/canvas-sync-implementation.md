@@ -29,6 +29,10 @@
 - 专属文字 Composer 保持焦点时继续处理保存确认与实时合并，快捷键提交不要求
   先离开编辑器；Composer 保留正在编辑的 DOM、草稿和光标，并显式处理同字段冲突。
   拖动等活动画布手势仍按既有合并保护执行。
+- 图片生成等待保存确认期间（含本地排队恢复），即使 Composer 提示词输入框仍有焦点，
+  也处理生成前所需的保存回执，并在开始等待时处理已有的暂缓回执，
+  避免已保存的输出占位一直等待确认而无法提交任务。保留同一编辑器的文字和焦点；
+  普通编辑、其他输入控件及活动画布手势仍使用既有合并保护。
 - 每一次实际 REST 或 WebSocket 写入都会从持久层重新读取并检查当前权限。
 - Canvas Selection、Viewport、当前工具、pointer、drag/resize/frame/brush
   preview 不进入共享 Mutation，也不会出现在 Smart Canvas 共享快照中。
@@ -54,6 +58,10 @@
 3. 把 `CanvasSyncError` 投影成原有 HTTP/关闭码；
 4. 返回既有响应形状；渐进式打开路由只把同一次读取交给 Canvas Opening
    序列化为轮廓事件和完整文档事件。
+
+建立实时连接时，Canvas Sync 在同一 Canvas 操作锁内完成一次授权快照读取，再注册连接并发送首个快照。权限失败时不注册连接；锁内不允许 Mutation 插入快照读取与连接注册之间。连接前不另读一次完整快照作预检查。
+
+云端存储不可用时，实时通道以 `1013` 和 `cloud_storage_*` 原因码关闭；服务内部错误以 `1011` 关闭，不映射为账号编辑权限丢失。客户端保留待确认操作，重连取得快照后按原 Operation ID 核对。画布列表的读取失败与无项目空状态分开显示。
 
 Canvas Sync 不回调 `main.py` 的旧实现。文件系统、通知与账号分享/审计分别通过
 Workspace content、Connection Manager 和 Auth System adapter 完成。
