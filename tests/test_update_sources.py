@@ -27,6 +27,7 @@ class UpdateSourceConfigurationTests(unittest.TestCase):
             "backend/infinite_canvas/matting_capacity.py",
             "backend/infinite_canvas/matting_service.py",
             "backend/infinite_canvas/outbound_security.py",
+            "requirements.lock.in",
             "requirements.lock.txt",
             "requirements.txt",
             "backend/infinite_canvas/workspace_storage.py",

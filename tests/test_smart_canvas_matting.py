@@ -30,7 +30,7 @@ class SmartCanvasMattingTests(unittest.TestCase):
         cls.server = (
             ROOT / "backend" / "main.py"
         ).read_text(encoding="utf-8")
-        cls.requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+        cls.requirements = (ROOT / "requirements.lock.in").read_text(encoding="utf-8")
 
     def test_floating_menu_exposes_matting_for_images(self):
         self.assertIn("{key:'matting', icon:'cut', label:tr('smart.matting')", self.script)

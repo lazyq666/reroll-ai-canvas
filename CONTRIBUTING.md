@@ -29,10 +29,13 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock.txt
 ```
 
-`requirements.txt` declares direct dependency ranges.
+`requirements.lock.in` declares direct dependency ranges.
+`requirements.txt` forwards to that source for installation compatibility.
 `requirements.lock.txt` is the reviewed, hash-pinned installation input. After
 changing direct dependencies, regenerate it with the command recorded at the
-top of the lock file and include the resulting diff.
+top of the lock file and include the resulting diff. The launcher prefers the
+lock, then its `.in` source, and finally the legacy `requirements.txt` entry.
+Source fallback tracks the declaration contents so edits still trigger syncing.
 
 Node.js 22 or newer is required for JavaScript contract and browser tests.
 Install their locked development dependencies with `npm ci`. Browser tests are
@@ -96,12 +99,17 @@ at merge time. Keep the Issue open until the final main check succeeds. Changes
 to workflow, inventory or expected rules must be identified in the PR description.
 
 Dependabot groups Pydantic and pydantic-core because their runtime versions are
-coupled. Grouping alone is not compatibility proof. For any direct or transitive
-Python update, regenerate the lock using uv 0.10.0, review the diff, and pass the
+coupled. The same-stem `requirements.lock.in` / `requirements.lock.txt` pair makes
+Dependabot use its pip-compile resolver, including for transitive dependencies.
+Keep this pairing even if the generated header changes. `requirements.txt` is
+a forwarding entry point, not a second dependency declaration. Dependabot uses
+pip-tools to compile updates; maintainers verify the resulting pins with the
+project's fixed uv version. Grouping alone is not compatibility proof.
+For any direct or transitive Python update, regenerate the lock using uv 0.10.0, review the diff, and pass the
 installation consistency, import and full readiness checks:
 
 ```bash
-uv pip compile requirements.txt --generate-hashes --python-version 3.12 --output-file requirements.lock.txt
+uv pip compile requirements.lock.in --generate-hashes --python-version 3.12 --output-file requirements.lock.txt
 ```
 
 Use `--upgrade-package` for the intended compatible packages when regenerating;

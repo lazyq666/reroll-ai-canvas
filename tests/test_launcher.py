@@ -196,6 +196,22 @@ class LauncherPathTests(unittest.TestCase):
 
 
 class LauncherDependencyTests(unittest.TestCase):
+    def test_paired_source_fallback_tracks_changes_behind_legacy_entry(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            requirements = root / "requirements.txt"
+            lock = root / "requirements.lock.txt"
+            source = lock.with_suffix(".in")
+            requirements.write_text("-r requirements.lock.in\n", encoding="utf-8")
+            source.write_text("fastapi\n", encoding="utf-8")
+            selected = launcher.dependency_requirements_file(lock, requirements)
+            self.assertEqual(selected, source)
+            first = launcher.requirements_digest(selected)
+            source.write_text("fastapi\nuvicorn\n", encoding="utf-8")
+            self.assertNotEqual(launcher.requirements_digest(selected), first)
+            lock.write_text("fastapi==1.2.3 --hash=sha256:abc\n", encoding="utf-8")
+            self.assertEqual(launcher.dependency_requirements_file(lock, requirements), lock)
+
     def test_hash_pinned_lock_is_preferred_over_source_requirements(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
