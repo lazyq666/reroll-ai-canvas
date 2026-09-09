@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # The .in/.txt pair routes updates through pip-compile. Keep transitive
+    # updates enabled after generated pins stop being classified as direct.
+    allow:
+      - dependency-type: all
     groups:
       pydantic-runtime:
         patterns:

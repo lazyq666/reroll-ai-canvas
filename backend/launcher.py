@@ -193,7 +193,10 @@ def dependency_requirements_file(
 ) -> Path:
     """Prefer the reviewed, hash-pinned lock while retaining source fallback."""
 
-    return lock_file if lock_file.is_file() else requirements_file
+    if lock_file.is_file():
+        return lock_file
+    source = lock_file.with_suffix(".in")
+    return source if source.is_file() else requirements_file
 
 
 def requirements_digest(path: Optional[Path] = None) -> str:

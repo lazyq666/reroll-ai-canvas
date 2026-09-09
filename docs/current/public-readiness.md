@@ -44,7 +44,11 @@ main 的 active Ruleset 要求 PR、最新 main 基线，以及 GitHub Actions�
 
 ## 依赖升级
 
-Pydantic 与 pydantic-core 成组更新，并用固定 uv 0.10.0 重解锁文件。每次直接或传递依赖更新都要通过声明/锁一致性、哈希校验安装、安装后的依赖检查、关键导入与完整 Gate。`npm ci` 使用前端锁文件。分组不能代替兼容验证；兼容错误和漏洞审计是不同结果。常规 Dependabot 更新使用默认标签，不自动标为安全问题。
+Python 直接依赖统一声明在 `requirements.lock.in`，与 `requirements.lock.txt` 按同名主干配对；`requirements.txt` 仅转发到声明文件，保留原安装入口。
+
+该配对让 Dependabot 的 pip 更新器使用 pip-tools 重新求解整套版本，直接和传递依赖均允许更新。即使生成头部改变，也必须保留文件名配对，不能把锁文件恢复成逐项升级的普通声明。Pydantic 与 pydantic-core 成组更新；维护者使用固定 uv 0.10.0 从 `requirements.lock.in` 重解并验证机器人生成的锁文件。
+
+每次直接或传递依赖更新都要通过声明/锁一致性、哈希校验安装、安装后的依赖检查、关键导入与完整 Gate。`npm ci` 使用前端锁文件。分组不能代替兼容验证；兼容错误和漏洞审计是不同结果。常规 Dependabot 更新使用默认标签，不自动标为安全问题。
 
 ## 规则核查与失败恢复
 

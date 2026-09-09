@@ -12,6 +12,7 @@ APPLICATION_UPDATE_ROOT_FILES = frozenset(
         "VERSION",
         "backend/launcher.py",
         "backend/main.py",
+        "requirements.lock.in",
         "requirements.lock.txt",
         "requirements.txt",
     }

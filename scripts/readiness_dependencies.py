@@ -14,7 +14,7 @@ def verify(uv, root):
     committed = root / 'requirements.lock.txt'
     with tempfile.TemporaryDirectory() as scratch:
         output = Path(scratch) / 'requirements.lock.txt'
-        subprocess.run([uv, 'pip', 'compile', 'requirements.txt', '--constraint', str(committed),
+        subprocess.run([uv, 'pip', 'compile', 'requirements.lock.in', '--constraint', str(committed),
                         '--python-version', '3.12', '--generate-hashes', '--output-file', str(output)],
                        cwd=root, check=True)
         if pins(output.read_text()) != pins(committed.read_text()):
