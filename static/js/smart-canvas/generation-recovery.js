@@ -113,17 +113,43 @@ function generationRecoveryRestoreActiveRuns(runs=[]){
             selected = nodeRuns;
             node.generationOperationId = [...operationIds][0];
         }
-        const existingTasks = generationRecoveryTasks(node).filter(task =>
+        const currentTasks = generationRecoveryTasks(node);
+        const existingTasks = currentTasks.filter(task =>
             !selected.some(run => String(run.id) === String(task.taskId))
         );
-        const restoredTasks = selected.map(run => ({
-            taskId:String(run.id),
-            actorId:String(run.actor_id || ''),
-            kind:String(run.kind || 'image'),
-            providerId:String(run.provider_id || ''),
-            nodeId,
-            generationRequestIndex:Number(run.generation_request_index || 0)
-        }));
+        const restoredTasks = selected.map(run => {
+            const acceptedTask = currentTasks.find(task =>
+                String(task.taskId) === String(run.id)
+            );
+            const task = {
+                ...acceptedTask,
+                taskId:String(run.id),
+                actorId:String(run.actor_id || ''),
+                kind:String(run.kind || 'image'),
+                providerId:String(run.provider_id || ''),
+                nodeId,
+                generationRequestIndex:Number(run.generation_request_index || 0)
+            };
+            // Active Run anchors supplement accepted task metadata; replacing it
+            // would make the primary slot consume the whole multi-image result.
+            const count = node.generationInputSnapshot?.settings?.count;
+            const index = node.generationSlotIndex;
+            if(!acceptedTask
+                && currentOperationId === String(run.generation_operation_id || '')
+                && node.generationBatchId
+                && Number.isInteger(count) && count >= 2 && count <= 8
+                && node.generationSlotCount === count
+                && Number.isInteger(index) && index >= 0 && index < count){
+                task.generationBatchId = node.generationBatchId;
+                task.generationSlotIndex = index;
+                task.generationSlotCount = count;
+            }
+            delete task.failed;
+            delete task.error;
+            delete task.querying;
+            delete task.recoverTaskId;
+            return task;
+        });
         generationRecoveryApply(node, {
             type:'submitted',
             tasks:[...existingTasks, ...restoredTasks],
