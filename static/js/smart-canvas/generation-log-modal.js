@@ -54,6 +54,7 @@
         let requestedLogId = '';
         let requestedRunId = '';
         let lastFocused = null;
+        let loadState = 'ready';
 
         function logs(){
             return (options.getLogs?.() || []).filter(log => log && typeof log === 'object');
@@ -364,6 +365,19 @@
         }
 
         function render(){
+            indexRoot.setAttribute('aria-busy', String(loadState === 'loading'));
+            detailRoot.setAttribute('aria-busy', String(loadState === 'loading'));
+            if(loadState === 'loading'){
+                const line = width => `<ic-skeleton shape="text" style="width:${width};height:var(--ui-space-4)" aria-hidden="true"></ic-skeleton>`;
+                indexRoot.innerHTML = `<div class="generation-log-loading" role="status" aria-label="${escapeHtml(tr('smart.generationLog.loading'))}">${Array.from({length:5}, () => `<div class="generation-log-skeleton-row" aria-hidden="true">${line('85%')}${line('60%')}</div>`).join('')}</div>`;
+                detailRoot.innerHTML = `<div class="generation-log-detail-view generation-log-loading" aria-hidden="true">${line('65%')}${line('40%')}<div class="generation-log-skeleton-row">${line('90%')}${line('80%')}${line('95%')}${line('55%')}</div></div>`;
+                return null;
+            }
+            if(loadState === 'error'){
+                indexRoot.innerHTML = '';
+                detailRoot.innerHTML = `<div class="generation-log-empty generation-log-load-error"><p role="alert">${escapeHtml(tr('smart.generationLog.loadFailed'))}</p><ic-button size="s" hierarchy="secondary" data-generation-log-retry>${escapeHtml(tr('smart.generationLog.retry'))}</ic-button></div>`;
+                return null;
+            }
             const currentLogs = logs().slice().sort((left, right) => logDate(right) - logDate(left));
             const selected = resolveSelection(currentLogs);
             indexRoot.innerHTML = currentLogs.length ? groupedIndex(currentLogs) : `<div class="generation-log-empty">${escapeHtml(tr('canvas.noLogs'))}</div>`;
@@ -379,12 +393,19 @@
             return render();
         }
 
+        function setLoadState(state){
+            loadState = state;
+            return render();
+        }
+
         function beforeOpen(){
             lastFocused = document.activeElement;
         }
 
         function afterOpen(){
             requestAnimationFrame(() => {
+                const open = sharedDialog ? root.hasAttribute('open') : root.classList.contains('open');
+                if(!open) return;
                 const selected = indexRoot.querySelector('.generation-log-index-item.is-selected');
                 selected?.scrollIntoView({block:'nearest'});
                 selected?.classList.add('is-focused-target');
@@ -425,6 +446,10 @@
         }
 
         root.addEventListener('click', event => {
+            if(event.target.closest('[data-generation-log-retry]')){
+                options.onRetry?.(requestedLogId, requestedRunId);
+                return;
+            }
             const selectButton = event.target.closest('[data-generation-log-select]');
             if(selectButton){
                 selectedId = selectButton.dataset.generationLogSelect || '';
@@ -482,7 +507,7 @@
             else options.onClose?.();
         }, true);
 
-        return Object.freeze({render, select, beforeOpen, afterOpen, onClosed, closeLightbox});
+        return Object.freeze({render, select, setLoadState, beforeOpen, afterOpen, onClosed, closeLightbox});
     }
 
     global.SmartCanvasModules = global.SmartCanvasModules || {};

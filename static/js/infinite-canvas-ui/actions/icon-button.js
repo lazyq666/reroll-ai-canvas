@@ -1,5 +1,5 @@
-import { IC_ICON_NAMES } from '../icon.js?v=ic-ui-0187a4f679b8';
-import { activeOverlayScope } from '../overlay-layer.js?v=ic-ui-0187a4f679b8';
+import { IC_ICON_NAMES } from '../icon.js?v=ic-ui-f39048a0e265';
+import { activeOverlayScope } from '../overlay-layer.js?v=ic-ui-f39048a0e265';
 import { IcButton } from './button.js';
 import { syncMetalEffect, disconnectMetalEffect } from './metal-effect.js';
 import { ICON_BUTTON_STYLES } from './styles.js';

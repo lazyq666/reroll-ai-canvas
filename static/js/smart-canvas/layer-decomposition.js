@@ -37,13 +37,14 @@
             redraw();
             save(node);
         }
-        function fail(node, message, recoverable=false, technicalMessage='', task=null){
+        function fail(node, message, recoverable=false, technicalMessage='', task=null, errorCode=''){
             const fallback = text('smart.layerDecompositionFailed');
             const detail = String(message || fallback).slice(0, 500);
             setJob(node, {
                 status:recoverable ? 'recoverable' : 'failed',
                 message:recoverable ? text('smart.layerDecompositionRecoverable') : fallback,
                 error:detail,
+                errorCode:String(errorCode || ''),
                 technicalError:String(technicalMessage || '').slice(0, 500),
                 recoverable:Boolean(recoverable)
             });
@@ -53,6 +54,7 @@
                 taskId:node?.layerDecompositionJob?.taskId || '',
                 message:detail,
                 technicalError:technicalMessage,
+                errorCode,
                 recoverable
             });
             if(feedback){
@@ -270,7 +272,9 @@
                     pending,
                     text('smart.layerDecompositionSubmitFailed'),
                     false,
-                    error?.message
+                    error?.message,
+                    null,
+                    error?.code
                 );
                 return pending;
             }

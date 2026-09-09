@@ -4348,10 +4348,10 @@ def list_projects(*, with_status=False):
 def migrate_all_canvas_access():
     CANVAS_SYNC.migrate_all_access()
 
-def load_canvas(canvas_id, write=False):
+def load_canvas(canvas_id, write=False, *, metadata_only=False):
     actor = require_current_user("admin", "designer")
     try:
-        return CANVAS_SYNC.read(canvas_id, actor, write=write)
+        return CANVAS_SYNC.read(canvas_id, actor, write=write, metadata_only=metadata_only)
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
 
@@ -5110,6 +5110,7 @@ def _workspace_storage_response(paths=None, **extra):
 async def get_workspace_storage_settings(request: Request):
     require_current_user("admin")
     cloud = CLOUD_WORKSPACE_RUNTIME.public() if CLOUD_WORKSPACE_RUNTIME else {"enabled": False, "provider": "turso", "status": "local"}
+    cloud['visible'] = cloud['enabled'] or os.environ.get('INFINITE_CANVAS_SHOW_CLOUD_RECORDS', '').strip() == '1'
     try:
         configuration = json.loads((Path(DEVICE_STATE_DIR) / 'turso-connection.json').read_text())
         cloud['prepared'] = configuration.get('workspace_id') == current_workspace_id() and configuration.get('status') == 'verified'
@@ -9608,7 +9609,7 @@ async def get_shared_canvas_media(token: str, media_id: str, w: int = 0):
 
 @app.get("/api/canvases/{canvas_id}/meta")
 def get_canvas_meta(canvas_id: str):
-    canvas = load_canvas(canvas_id)
+    canvas = load_canvas(canvas_id, metadata_only=True)
     return {
         "id": canvas.get("id"),
         "updated_at": canvas.get("updated_at", 0),
@@ -9687,7 +9688,7 @@ async def export_layer_decomposition_psd(canvas_id: str, node_id: str):
 def get_active_canvas_generation_runs(canvas_id: str):
     actor = require_current_user("admin", "designer")
     try:
-        CANVAS_SYNC.read(canvas_id, actor, smart_snapshot=True)
+        CANVAS_SYNC.read(canvas_id, actor, metadata_only=True)
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
     runs = _GENERATION_RUNS.active_for_canvas(canvas_id)
@@ -9782,7 +9783,7 @@ def get_canvas_generation_log_detail(canvas_id: str, log_id: str):
 def require_smart_canvas_view_access(canvas_id: str) -> Dict[str, Any]:
     actor = require_current_user("admin", "designer")
     try:
-        canvas = CANVAS_SYNC.read(canvas_id, actor)
+        canvas = CANVAS_SYNC.read(canvas_id, actor, metadata_only=True)
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
     if normalize_canvas_kind(canvas.get("kind")) != "smart":
@@ -9790,7 +9791,7 @@ def require_smart_canvas_view_access(canvas_id: str) -> Dict[str, Any]:
     return actor
 
 @app.get("/api/smart-canvas/{canvas_id}/view-state")
-async def get_smart_canvas_view_state(canvas_id: str):
+def get_smart_canvas_view_state(canvas_id: str):
     actor = require_smart_canvas_view_access(canvas_id)
     return {
         "view_state": AUTH_SYSTEM.get_canvas_view_state(
@@ -9801,7 +9802,7 @@ async def get_smart_canvas_view_state(canvas_id: str):
     }
 
 @app.put("/api/smart-canvas/{canvas_id}/view-state")
-async def update_smart_canvas_view_state(
+def update_smart_canvas_view_state(
     canvas_id: str,
     payload: SmartCanvasViewStateUpdate,
 ):
@@ -10040,7 +10041,7 @@ async def submit_smart_canvas_matting(payload: SmartCanvasMattingRequest):
     return public_matting_job(job)
 
 @app.get("/api/smart-canvas/matting/{job_id}")
-async def get_smart_canvas_matting(job_id: str):
+def get_smart_canvas_matting(job_id: str):
     actor = require_current_user("admin", "designer")
     job = MATTING_JOBS.get(str(job_id or ""))
     if not job:
@@ -10049,7 +10050,7 @@ async def get_smart_canvas_matting(job_id: str):
         raise HTTPException(status_code=404, detail="抠图任务不存在")
     # Recheck canvas visibility/ownership on every poll instead of treating a
     # bearer job id as permission to fetch a result.
-    load_canvas(str(job.get("canvas_id") or ""), write=True)
+    load_canvas(str(job.get("canvas_id") or ""), write=True, metadata_only=True)
     return public_matting_job(job)
 
 @app.put("/api/canvases/{canvas_id}/visibility")

@@ -126,6 +126,11 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 认这次 operation”之后，才会真正提交生成请求。这样可避免供应商很快返回，而服务端还
 不知道结果应该属于哪次运行。
 
+图片、视频、文本生成与智能分层的提交前同步最多等待 30 秒。等待期间，当前生成输入框的焦点
+不能阻塞保存回执；其他编辑控件与拖拽等交互仍保留原有保护。超时后文本生成和智能分层不会
+调用生成接口，保留输入供用户重试，并记录 `canvas_sync_incomplete`，不归为 Provider
+未知错误。任务接收后的网络异常仍沿用原有查询恢复流程。
+
 ### 4.3 当前前端分流
 
 `generation-provider.js` 当前仍保留多种入口，尚未做到所有类型完全同路：
@@ -246,6 +251,24 @@ Canvas 任务 API 会把请求转换为 `ImageRun`、`VideoRun`、`TextRun`、`W
 `data/generation-runs.json`，SQLite authority 使用 `data/generation-runs.sqlite3`。SQLite 模式
 不会把 legacy JSON 路径交给运行时。凭证字段在持久化前会脱敏，API Key、token、密码和
 Authorization 不应进入可恢复记录。
+
+已有执行者的任务在收到进度查询时只返回当前状态，不重复保存相同状态，也不把供应商的
+排队状态改成运行中。供应商重复报告完全相同的进度字段时跳过持久化；新进度、远端任务
+编号、准备好的输出和终态仍进入可恢复记录。没有执行者的未完成任务继续沿用原 Run
+和远端编号恢复。
+
+生成提交、运行中查询与完成检查通过当前 Canvas 权限和目标 Node 的 operation ID 验证。
+SQLite-compatible authority 只读取 Canvas 简要信息及该 Node；同步存储读取在工作线程
+执行，不占用服务事件循环。查询等待期间若任务已经完成，迟到的目标检查不会把该完成
+状态改成 discarded。结果写入时仍在 Canvas 事务中再次核对目标。
+
+Canvas effect 随终态成功提交后，生命周期适配器立即唤醒当前进程的投递器，不等待下一轮
+空闲轮询。周期检查继续用于启动恢复和延后重试；停止时仍等待已领取的投递结束，再关闭
+Store。任务关联写入、结果节点/修订/事件更新及投递收尾各自在原事务内按顺序批量执行，
+权限、稳定编号冲突、提交资格与失败回滚边界不变。
+
+代表性验证：[生成消融回归](../../tests/test_cloud_generation_ablation.py)、
+[自动投递与关闭顺序](../../tests/test_generation_sqlite_runtime.py)。
 
 核心代码：
 

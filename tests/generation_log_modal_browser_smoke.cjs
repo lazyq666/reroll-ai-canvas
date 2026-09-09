@@ -76,7 +76,10 @@ function startServer(data){
     if(request.method === 'GET' && requestPath === '/api/config') return json(response, {api_providers:[],available_models:{image:[],video:[],text:[]},comfy_instances:[]});
     if(request.method === 'GET' && requestPath === '/api/workflows') return json(response, {workflows:[]});
     if(request.method === 'GET' && requestPath === `/api/canvases/${CANVAS_ID}`) return json(response, {canvas:data.canvas});
-    if(request.method === 'GET' && requestPath === `/api/canvases/${CANVAS_ID}/logs`) return json(response, {logs:data.logs,next_cursor:''});
+    if(request.method === 'GET' && requestPath === `/api/canvases/${CANVAS_ID}/logs`){
+      if(data.respondLogs) return data.respondLogs(request, response);
+      return json(response, {logs:data.logs,next_cursor:''});
+    }
     if(request.method === 'GET' && requestPath === '/api/media-preview'){
       data.previewRequests.push(new URL(request.url, 'http://127.0.0.1').searchParams.get('url') || '');
       return fs.readFile(path.join(ROOT, 'static/images/test/fixture.svg'), (error, body) => {
@@ -165,7 +168,9 @@ async function screenshot(cdp, sessionId, targetPath){
   fs.writeFileSync(targetPath, Buffer.from(result.data, 'base64'));
 }
 
-(async () => {
+module.exports = {fixture, startServer, CANVAS_ID, json};
+
+if(require.main === module) (async () => {
   if(!fs.existsSync(CHROME)) throw new Error(`Chrome not found: ${CHROME}`);
   const data = fixture();
   const server = await startServer(data);

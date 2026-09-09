@@ -182,7 +182,7 @@
                             <span id="workspaceDirectory">${escapeHtml(state.active.workspace_directory || tr("preferences.loading"))}</span>
                         </div>
                     </section>
-                    <section class="preferences-section" aria-label="${tr('cloudStorage.title')}">
+                    ${state.cloud.visible ? `<section class="preferences-section" aria-label="${tr('cloudStorage.title')}">
                         <h3>${tr('cloudStorage.title')}</h3>
                         <ic-switch data-cloud-storage label="${tr('cloudStorage.enable')}" ${state.cloud.enabled ? 'checked' : ''} ${busy || (!state.cloud.enabled && !state.cloud.prepared) ? 'disabled' : ''}></ic-switch>
                         <p class="preferences-note">${tr('cloudStorage.note')}</p>
@@ -192,7 +192,7 @@
                             <p>${tr('cloudStorage.' + (state.cloudBusy ? 'switching' : (state.cloud.enabled ? (['connected', 'reconnecting'].includes(state.cloud.status) ? state.cloud.status : 'unavailable') : 'local')))}</p>
                             ${state.cloudError ? `<ic-alert tone="danger">${tr('cloudStorage.' + state.cloudError)}</ic-alert>` : ''}
                         </div>
-                    </section>
+                    </section>` : ''}
                     <section class="preferences-section" aria-label="${tr('preferences.cleanupTitle')}">
                         <h3>${tr('preferences.cleanupTitle')}</h3>
                         <p class="preferences-note">${tr('preferences.cleanupNote')}</p>
@@ -459,6 +459,7 @@
 
     async function openPreferencesModal() {
         state.open = true;
+        state.cloud = {};
         state.cloudError = '';
         state.message = "";
         state.error = "";

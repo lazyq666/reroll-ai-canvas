@@ -146,6 +146,48 @@ class TursoSqliteTests(unittest.TestCase):
         self.assertNotIn('Sensitive', str(rejected.exception))
         self.assertEqual(connection.execute('SELECT count(*) FROM records').fetchone(), (0,))
 
+    def test_mixed_write_batch_preserves_order_and_rolls_back_on_error(self):
+        connection = self.connection
+        connection.execute('CREATE TABLE records (id INTEGER PRIMARY KEY, text TEXT)')
+        with connection:
+            count = connection.execute_batch([
+                ('INSERT INTO records VALUES (?, ?)', (1, 'original')),
+                ('UPDATE records SET text = ? WHERE id = ?', ('changed', 1)),
+                ('INSERT INTO records VALUES (?, ?)', (2, 'second')),
+            ])
+        self.assertEqual(count, 3)
+        self.assertEqual(list(connection.execute('SELECT * FROM records ORDER BY id')),
+                         [(1, 'changed'), (2, 'second')])
+        with self.assertRaises(sqlite3.IntegrityError):
+            with connection:
+                connection.execute_batch([
+                    ('DELETE FROM records WHERE id = ?', (1,)),
+                    ('INSERT INTO records VALUES (?, ?)', (2, 'duplicate')),
+                    ('DELETE FROM records', ()),
+                ])
+        self.assertEqual(list(connection.execute('SELECT * FROM records ORDER BY id')),
+                         [(1, 'changed'), (2, 'second')])
+
+    def test_write_batch_rejects_transaction_control_and_invalid_generator_prefix(self):
+        connection = self.connection
+        connection.execute('CREATE TABLE records (id INTEGER PRIMARY KEY)')
+        with self.assertRaises(sqlite3.ProgrammingError):
+            with connection:
+                connection.execute_batch([
+                    ('INSERT INTO records VALUES (?)', (1,)), ('COMMIT', ()),
+                ])
+        self.assertEqual(connection.execute('SELECT count(*) FROM records').fetchone()[0], 0)
+
+        def writes():
+            for index in range(130):
+                yield 'INSERT INTO records VALUES (?)', (index,)
+            raise ValueError('Interrupted statement production')
+
+        with self.assertRaises(ValueError):
+            with connection:
+                connection.execute_batch(writes())
+        self.assertEqual(connection.execute('SELECT count(*) FROM records').fetchone()[0], 0)
+
     def test_large_batch_is_chunked_and_an_error_rolls_back_previous_chunks(self):
         connection = self.connection
         connection.execute('CREATE TABLE records (id INTEGER PRIMARY KEY)')

@@ -212,7 +212,7 @@ flowchart LR
 
 ## 已知边界
 
-已配置并核验的工作区可试用 Turso 云端记录模式：画布、生成历史和批量任务使用同一云端数据库，媒体继续由 OneDrive 同步。仅支持两台可信设备轮换，默认关闭；首次及再次启用需要受控准备，关闭会导出最新数据并重启。第二设备与网络性能验收仍在进行，见[试用说明](docs/active/2026-09-07-optional-cloud-records-onedrive-media-spec.md)。
+已配置并核验的工作区可试用 Turso 云端记录模式：画布、生成历史和批量任务使用同一云端数据库，媒体继续由 OneDrive 同步。仅支持两台可信设备轮换，默认关闭；管理员设置入口默认隐藏，已启用的工作区自动显示，手动显示方式见[存储说明](docs/current/storage-layout-and-migration.md#可选-turso-云端记录试用)。首次及再次启用需要受控准备，关闭会导出最新数据并重启。第二设备与网络性能验收仍在进行，见[试用说明](docs/active/2026-09-07-optional-cloud-records-onedrive-media-spec.md)。
 
 - 主要面向桌面浏览器，不承诺手机端或其他移动端布局。
 - 适合个人与可信小团队，不是成熟的互联网多租户 SaaS。

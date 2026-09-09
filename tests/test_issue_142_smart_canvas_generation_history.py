@@ -75,14 +75,17 @@ const fetch = async url => {{
 
     def test_canvas_load_does_not_fetch_history_until_log_modal_opens(self):
         self.assertNotIn("loadSmartCanvasLogs", self.persistence)
-        modal_start = self.host.index("async function openSmartCanvasLog")
-        modal_end = self.host.index("\nfunction closeSmartCanvasLog", modal_start)
-        modal = self.host[modal_start:modal_end]
-        self.assertIn("await loadSmartCanvasLogs();", modal)
-        self.assertLess(
-            modal.index("await loadSmartCanvasLogs();"),
-            modal.index("await smartLogModal.show();"),
+        # Opening and slow-request behavior are exercised by
+        # smart_canvas_log_loading_regression.cjs. History stays lazy, but
+        # the dialog now opens immediately while that request is pending.
+        result = subprocess.run(
+            ["node", "tests/smart_canvas_log_loading_regression.cjs"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

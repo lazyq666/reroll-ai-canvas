@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Generation log loading acceptance</title>
+<style>body { margin:0; font:14px system-ui; } nav { padding:8px; } iframe { width:100%; height:calc(100vh - 50px); border:0; }</style>
+<nav aria-label="Test controls">
+  <button data-language="zh">中文</button>
+  <button data-language="en">English</button>
+</nav>
+<iframe title="Smart Canvas under test" src="/static/smart-canvas.html?id=generation-log-modal-browser-smoke"></iframe>
+<script>
+  document.querySelectorAll('[data-language]').forEach(button => {
+    button.addEventListener('click', () => document.querySelector('iframe').contentWindow.postMessage(
+      {type:'studio-lang', lang:button.dataset.language}, location.origin,
+    ));
+  });
+</script>
+</html>

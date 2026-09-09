@@ -40,6 +40,50 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def test_canvas_sync_failure_classifies_new_and_historical_diagnostics(self):
+        values = self.run_module("""
+            const cases = [
+                {technicalError:'实时同步尚未完成，生成任务未提交'},
+                {technicalError:'Live sync is not complete, so the generation task was not submitted'},
+                {technicalError:'画布仍在同步，请稍后重试保存提示词'},
+                {technicalError:'The canvas is still syncing. Try saving the prompt again in a moment.'},
+                {errorCode:'canvas_sync_incomplete'},
+            ];
+            process.stdout.write(JSON.stringify(cases.map(input => feedback.classify(input))));
+        """)
+        for value in values:
+            self.assertEqual('canvas_sync_incomplete', value['category'])
+            self.assertEqual('retry_later', value['retryability'])
+            self.assertEqual({}, value['billingEvidence'])
+            self.assertEqual(0, value['httpStatus'])
+
+    def test_canvas_sync_diagnostic_switches_language_without_claiming_billing(self):
+        values = self.run_module("""
+            const storage = new Map();
+            sandbox.localStorage = {getItem:key => storage.get(key), setItem:(key,value) => storage.set(key,value)};
+            sandbox.document = {querySelectorAll:() => [], addEventListener(){}, documentElement:{setAttribute(){}}};
+            sandbox.CustomEvent = function(type, init){ return {type,...init}; };
+            sandbox.window.dispatchEvent = () => {};
+            for(const file of ['static/js/i18n-core.js','static/js/i18n/smart-canvas.js']){
+                vm.runInContext(fs.readFileSync(file,'utf8'),sandbox);
+            }
+            const i18n = sandbox.window.StudioI18n;
+            const task = {status:'failed', technicalError:'实时同步尚未完成，生成任务未提交'};
+            const values = ['zh','en','zh'].map(lang => {
+                i18n.set(lang);
+                return feedback.diagnosticReport({tasks:[task]}, {translate:i18n.t,format:i18n.tf});
+            });
+            process.stdout.write(JSON.stringify(values));
+        """)
+        self.assertIn('画布同步未完成', values[0])
+        self.assertIn('Canvas sync incomplete', values[1])
+        self.assertIn('请求未提交', values[0])
+        self.assertIn('was not submitted', values[1])
+        self.assertIn('扣费状态未知', values[0])
+        for value in values:
+            self.assertIn('canvas_sync_incomplete', value)
+            self.assertNotIn('smart.error.', value)
+
     def test_upload_status_and_historical_422_classify_without_parameter_blame(self):
         values = self.run_module("""
             const cases = [

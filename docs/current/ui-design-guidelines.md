@@ -252,6 +252,10 @@ Text Entry 的默认 `appearance="outlined"` 使用 Surface 与 Border；低强�
 
 提示词与诊断信息复制成功及级联完成使用 Success Toast；复制失败及级联运行失败使用 Danger Toast。用户主动停止级联不属于运行失败，使用 Neutral Toast。
 
+API 设置的连接检测使用按钮 Loading 表示执行过程，不为每次检测叠加进度 Toast。检测结果
+使用当前平台 Card 内可关闭的 `ic-alert`，成功与失败均保留到关闭、重试、连接修改或平台
+切换；状态码与原因随结果显示。保存引发的通知回传不能用重复加载提示覆盖检测结果。
+
 `ic-alert` 表达需要用户处理、在关闭或恢复前持续存在的异常与重要状态。它不再提供独立的 Action 变体；设置非空 `action-label` 时，同一个 `ic-alert` 会组合一个 `ic-button-secondary-small` 并在点击时派发 `ic-action`。Alert 统一使用 `--ui-radius-s` 圆角，Title 使用 `--ui-font-size-3` 与 `--ui-font-weight-medium`，Subtitle 保留 `--ui-text-subtitle` 的字族、字重与行高，并将字号设为 `--ui-font-size-2`。Neutral 使用灰色 `circle-alert`，Success 使用 `circle-check-big`，Warning 使用橙色 `triangle-alert`，Danger 使用红色 `circle-alert`；是否带按钮不改变状态图标。状态图标统一使用 2px 描边，并与 Title 首行垂直居中；关闭操作复用 `ic-icon-button-tertiary-small`，可见按钮高度与 Title 行高一致，按钮及其内部关闭图标在整个 Alert 高度中垂直居中。组件页的 Alert 区使用固定演示位与 Neutral、Info、Success、Warning、Danger、带按钮 Alert 六个触发按钮；六种都进入同一队列。新 Alert 插入最上层，旧 Alert 向下错位并缩小，最多露出三层，只有顶层可以操作；所有 Alert，包括带按钮 Alert，都不自动销毁，只在用户点击 × 后执行离场动画并移除，之后下一项上移、隐藏队列依次补入第三层。生成失败等任务级 Alert 保持在右上反馈区，并在对应 Node 内保留对象级失败状态；每个失败 Generation Run 创建独立队列条目，即使失败原因相同也不得合并或覆盖。每张 Alert 独立绑定自己的详情目标；点击“查看详情”只打开详情，不销毁 Alert，只有点击 × 才执行离场与补位。`ic-toast` 只表达操作已经完成、用户知晓即可的短暂结果，使用独立的浮层结构与视觉：四边等宽描边、浮层阴影和紧凑状态图标，不继承 Alert 的 DOM 或左侧强调边。公共 Overlay 默认位于视口底部中央，至少保留 24px 阴影安全距离；新消息在最终锚点从 `96%` 缩放与透明状态淡入，避免动画穿过底部安全边界，并位于最前；最多同时显示三张逐级上移、缩小的堆叠卡片。Toast 不提供关闭按钮，默认 4 秒自动消失，Pointer 悬停或键盘 Focus 时暂停；销毁时先进入不可交互且对辅助技术隐藏的离场状态，向下滑出并淡出，同时让后方卡片补位，动画结束后才移除元素；减少动态效果模式近乎即时完成。只有提供后续动作的 Toast 才允许由调用方设为持续显示。页面底部存在固定操作栏或 Dock 时，通过 `--ic-toast-block-end-offset` 将 Toast 抬高避让。Alert 与 Toast 不共享同一视觉结构或空间锚点，不能只依靠颜色区分严重程度和持续性。
 
 实现上，Alert 与 Toast 复用 Feedback / Progress 家族内部的堆叠队列模块，由同一状态机负责进入、退出、补位、可见层数、层级、过期销毁任务失效和 Reduced Motion；公共组件拥有 Host 的透明度、Transform、Transition 和交互状态，页面只定位 Alert 队列容器，不得复制动画选择器。顶部 Alert 与底部 Toast 通过方向、层距、缩放和销毁时长参数形成两个适配器。共享只发生在行为 seam，二者的 DOM、视觉、挂载范围、可访问语义与自动消失策略不得合并。

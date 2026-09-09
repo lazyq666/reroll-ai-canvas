@@ -1,4 +1,4 @@
-import { ensureSelectionAdjustmentStyles } from './styles.js?v=ic-ui-0187a4f679b8';
+import { ensureSelectionAdjustmentStyles } from './styles.js?v=ic-ui-f39048a0e265';
 
 ensureSelectionAdjustmentStyles();
 

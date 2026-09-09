@@ -99,7 +99,14 @@ const smartLayerDecomposition = smartLayerDecompositionFactory.create({
     createPending:createLayerDecompositionPendingNode,
     applyResult:applyLayerDecompositionResult,
     save:() => canvasPersistence.schedule(),
-    checkpoint:() => canvasPersistence.checkpoint({timeout:5000}),
+    checkpoint:async () => {
+        await canvasPersistence.save();
+        if(!await canvasPersistence.synced({timeout:30000,forGeneration:true})){
+            const error = new Error(tr('smart.syncIncompleteGeneration'));
+            error.code = 'canvas_sync_incomplete';
+            throw error;
+        }
+    },
     render:() => render(),
     toast,
     reportFailure:reportLayerDecompositionFailure,
@@ -120,7 +127,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-0187a4f679b8')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-f39048a0e265')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -448,7 +455,9 @@ const smartGenerationLogModal = generationLogModal.create({
         }
     },
     onClose:() => closeSmartCanvasLog(),
+    onRetry:(logId, runId) => openSmartCanvasLog(logId, runId),
 });
+smartLogModal?.addEventListener('ic-hide', () => { smartCanvasLogOpenSequence += 1; });
 smartLogModal?.addEventListener('ic-after-hide', () => smartGenerationLogModal.onClosed());
 function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`; }
 function escapeHtml(str){ return String(str == null ? '' : str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
@@ -7113,6 +7122,8 @@ function smartRunSnapshot(node, prompt, refs=[], kind='image', sourceSettings=se
     };
 }
 let smartCanvasLogsHydrated = false;
+let smartCanvasLogLoadPromise = null;
+let smartCanvasLogOpenSequence = 0;
 function normalizePersistedSmartCanvasLog(log={}){
     const normalized = {...log};
     normalized.generationRunId = normalized.generationRunId || normalized.runId || '';
@@ -7237,7 +7248,7 @@ function addSmartGenerationLog({run, outputs=[], runMs=0, error='', status='', t
     if(!error && recoverStuckLoopOutputsFromLogs()) render();
     return entry;
 }
-function reportLayerDecompositionFailure({node=null,task=null,taskId='',message='',technicalError='',recoverable=false}={}){
+function reportLayerDecompositionFailure({node=null,task=null,taskId='',message='',technicalError='',errorCode='',recoverable=false}={}){
     if(!node) return null;
     const diagnostics = task?.diagnostics && typeof task.diagnostics === 'object'
         ? task.diagnostics
@@ -7254,7 +7265,7 @@ function reportLayerDecompositionFailure({node=null,task=null,taskId='',message=
         ),
         technicalError:rawError,
         httpStatus:Number(task?.status_code || diagnostics?.http_status || 0),
-        errorCode:String(diagnostics?.tasks?.[0]?.upstream_error_code || diagnostics?.error_code || ''),
+        errorCode:String(errorCode || diagnostics?.tasks?.[0]?.upstream_error_code || diagnostics?.error_code || ''),
         providerId:String(diagnostics?.provider_id || node.layerDecompositionJob?.providerId || 'apimart'),
         billingEvidence:diagnostics?.tasks?.[0]?.billing_evidence || diagnostics?.billing_evidence || {}
     };
@@ -7519,11 +7530,18 @@ function renderSmartCanvasLog(){
 }
 async function openSmartCanvasLog(logId='', generationRunId=''){
     if(!canvas) return;
-    await loadSmartCanvasLogs();
+    const sequence = ++smartCanvasLogOpenSequence;
     deactivateSmartAnnotationTool();
+    smartGenerationLogModal.setLoadState(smartCanvasLogsHydrated ? 'ready' : 'loading');
     smartGenerationLogModal.select(logId, generationRunId);
-    smartGenerationLogModal.beforeOpen();
-    await smartLogModal.show();
+    if(!smartLogModal.hasAttribute('open')) smartGenerationLogModal.beforeOpen();
+    const showing = smartLogModal.show();
+    if(!smartCanvasLogLoadPromise){
+        smartCanvasLogLoadPromise = loadSmartCanvasLogs().finally(() => { smartCanvasLogLoadPromise = null; });
+    }
+    await Promise.all([showing, smartCanvasLogLoadPromise]);
+    if(sequence !== smartCanvasLogOpenSequence || !smartLogModal.hasAttribute('open')) return;
+    smartGenerationLogModal.setLoadState(smartCanvasLogsHydrated ? 'ready' : 'error');
     if(smartLogModal.hasAttribute('open')) smartGenerationLogModal.afterOpen();
 }
 function closeSmartCanvasLog(){
@@ -15578,8 +15596,10 @@ async function runPromptLLMNode(nodeId, options={}){
     let definiteRejection = false;
     try {
         await canvasPersistence.save();
-        if(!await canvasPersistence.synced({timeout:5000})){
-            throw new Error(tr('smart.syncIncompleteGeneration'));
+        if(!await canvasPersistence.synced({timeout:30000,forGeneration:true})){
+            const error = new Error(tr('smart.syncIncompleteGeneration'));
+            error.generationSyncPending = true;
+            throw error;
         }
         if(!nodes.some(item => item.id === outputNode.id)) return null;
         if(!nodes.some(item => item.id === sourceId) || !canvasPersistence.editable() || canvasId !== sourceCanvasId) throw new Error(tr('smart.syncIncompleteGeneration'));
@@ -15659,7 +15679,14 @@ async function runPromptLLMNode(nodeId, options={}){
         }
         const entry = unknownSubmission ? null : e.smartGenerationLogged
             ? (canvas?.logs || []).find(log => log.generationRunId === runLog.generationRunId)
-            : addSmartGenerationLog({run:{...runLog,nodeId:failedOutputId},outputs:[],runMs:nowMs()-runLogStart,error:e.message || tr('smart.promptLlmFailed'),status:'failed'});
+            : addSmartGenerationLog({
+                run:{...runLog,nodeId:failedOutputId},outputs:[],runMs:nowMs()-runLogStart,
+                error:e.message || tr('smart.promptLlmFailed'),status:'failed',
+                tasks:e.generationSyncPending ? [{
+                    status:'failed',runMs:nowMs()-runLogStart,providerId:provider,
+                    errorCode:'canvas_sync_incomplete',technicalError:e.message
+                }] : []
+            });
         if(liveOutput && submissionAccepted) liveOutput.generationLogId = entry?.id || liveOutput.generationLogId || '';
         if(!e.smartGenerationLogged) toast(e.message || tr('smart.promptLlmFailed'),{persistent:true,heading:tr('smart.promptLlmFailed'),detailLogId:entry?.id || '',detailRunId:runLog.generationRunId || ''});
         if(e&&typeof e==='object') e.aiProcessorToastShown=true;

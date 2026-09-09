@@ -216,11 +216,30 @@ const autoSaveState = {
     lastError:''
 };
 const providerVerificationStates = new Map();
+let connectionVerificationResult = null;
+let connectionVerificationRevision = 0;
+let connectionVerificationPending = null;
+function clearConnectionVerification(){
+    connectionVerificationRevision += 1;
+    connectionVerificationResult = null;
+    renderConnectionVerification();
+}
+function renderConnectionVerification(){
+    const alert = document.getElementById('connectionVerificationResult');
+    if(!alert) return;
+    const result = connectionVerificationResult;
+    alert.hidden = !result || result.providerId !== selectedId;
+    if(alert.hidden) return;
+    alert.setAttribute('tone', result.tone);
+    alert.setAttribute('heading', tr(result.tone === 'success' ? 'api.connectionVerifiedTitle' : 'api.connectionFailedTitle'));
+    alert.textContent = String(result.message()).replace(/^[✓⚠]\s*/, '').trim();
+}
 function setAutoSavePhase(phase=autoSaveState.phase){
     autoSaveState.phase = phase;
 }
 function markProviderUnverified(){
     if(selectedId) providerVerificationStates.set(selectedId, 'unverified');
+    clearConnectionVerification();
 }
 function markCurrentProviderVerified(){
     if(selectedId) providerVerificationStates.set(selectedId, 'verified');
@@ -301,11 +320,16 @@ function handleAutoSaveKeyDown(event){
     if(event.key !== 'Enter' || !autoSaveControl(event)) return;
     commitAutoSave();
 }
+const apiSettingsChangeSource = `api-settings:${Date.now()}:${Math.random().toString(36).slice(2)}`;
 function broadcastStudioApiChange(type='providers-changed'){
-    const message = { type, updated_at:Date.now() };
-    try { new BroadcastChannel('studio-api').postMessage(message); } catch(e) {}
-    try { window.parent?.postMessage(message, '*'); } catch(e) {}
-    try { window.top?.postMessage(message, '*'); } catch(e) {}
+    const message = { type, updated_at:Date.now(), source:apiSettingsChangeSource };
+    try {
+        const channel = new BroadcastChannel('studio-api');
+        channel.postMessage(message);
+        channel.close();
+    } catch(e) {}
+    try { if(window.parent !== window) window.parent?.postMessage(message, '*'); } catch(e) {}
+    try { if(window.top !== window && window.top !== window.parent) window.top?.postMessage(message, '*'); } catch(e) {}
 }
 function checkCliUpdates(){
     window.parent?.postMessage({type:'cli-update-check'}, window.location.origin);
@@ -2406,10 +2430,11 @@ function renderEditor(){
     if(isModelScope) renderMsLoras();
     else if(msLoraList) msLoraList.innerHTML = '';
     renderProviderList();
+    renderConnectionVerification();
 }
-function showVerificationToast(content, tone='info'){
-    const message = String(content || '').replace(/\s+/g, ' ').trim();
-    if(message) setStatus(message, tone);
+function showConnectionVerification(message, tone){
+    connectionVerificationResult = {providerId:selectedId,message,tone};
+    renderConnectionVerification();
 }
 function prettyJson(value){
     try { return JSON.stringify(value, null, 2); } catch(_) { return String(value || ''); }
@@ -2713,7 +2738,7 @@ function applyDetectedImageRequestMode(mode){
     item.image_request_mode = detected;
     return changed;
 }
-function applyDetectedProtocol(protocol){
+function applyDetectedProtocol(protocol, {notify=true}={}){
     const item = provider();
     const detected = String(protocol || '').toLowerCase();
     if(!item || !protocolInput || !API_PROTOCOLS.includes(detected)) return false;
@@ -2738,7 +2763,8 @@ function applyDetectedProtocol(protocol){
         item.video_models = unique(item.video_models || []);
     }
     initializeCliProvider(item, detected);
-    dispatchSelectionChange(protocolInput);
+    if(notify) dispatchSelectionChange(protocolInput);
+    else updateProtocolFromInput();
     return true;
 }
 
@@ -2766,6 +2792,7 @@ function runninghubModelSourceNote(data){
 }
 
 async function testConnection(){
+    if(connectionVerificationPending) return;
     const item = provider();
     if(!item) return;
     const btn = document.getElementById('testUrlBtn');
@@ -2774,8 +2801,12 @@ async function testConnection(){
     const currentProtocol = String(protocolInput?.value || item.protocol || '').toLowerCase();
     const isCliProtocol = CLI_PROTOCOLS.has(currentProtocol);
     if(!baseUrl && !isJimeng && !isCliProtocol){ showError(tr('api.baseUrlRequired')); return; }
-    if(btn) btn.loading = true;
-    setStatus(tr('api.testingUrl'));
+    clearConnectionVerification();
+    const check = {providerId:selectedId,revision:connectionVerificationRevision};
+    connectionVerificationPending = check;
+    const isCurrentCheck = () => selectedId === check.providerId
+        && connectionVerificationRevision === check.revision;
+    if(btn){ btn.loading = true; btn.disabled = true; }
     try {
         const apiKey = currentProviderApiKey(item);
         const runninghubContext = isRunningHubContext(item, baseUrl);
@@ -2789,15 +2820,24 @@ async function testConnection(){
                 image_request_mode: imageRequestModeInput?.value || item.image_request_mode || 'openai'
             })
         }).then(async r => {
-            if(!r.ok) throw new Error((await r.json()).detail || tr('api.urlInvalid'));
+            if(!r.ok){
+                const body = await r.json().catch(() => ({}));
+                const error = new Error(typeof body.detail === 'string' ? body.detail : tr('api.urlInvalid'));
+                error.httpStatus = r.status;
+                throw error;
+            }
             return r.json();
         });
+        if(!isCurrentCheck()) return;
         if(data.ok){
             const detectedProtocol = String(data.protocol || '').toLowerCase();
+            let connectionChanged = false;
             if(detectedProtocol && detectedProtocol !== String(protocolInput?.value || '').toLowerCase()){
-                applyDetectedProtocol(detectedProtocol);
+                connectionChanged = applyDetectedProtocol(detectedProtocol, {notify:false});
             }
-            if(data.image_request_mode) applyDetectedImageRequestMode(data.image_request_mode);
+            if(data.image_request_mode){
+                connectionChanged = applyDetectedImageRequestMode(data.image_request_mode) || connectionChanged;
+            }
             // 存入 picker 状态并启用「选择模型」按钮，但不自动弹出
             lastFetchedAll = data.all || [];
             lastFetchedSuggestion = {
@@ -2807,33 +2847,41 @@ async function testConnection(){
             };
             const openBtn = document.getElementById('openPickerBtn');
             if(openBtn) openBtn.disabled = false;
-            const isRunningHubNow = runninghubContext || detectedProtocol === 'runninghub';
-            const isVolcengineNow = !isRunningHubNow && (detectedProtocol === 'volcengine' || isVolcengineProvider(item));
-            const volcengineNote = isVolcengineNow
-                ? `${detectedProtocol === 'volcengine' ? tr('api.volcengineDetected') : ''}${tr('api.volcengineProtocolHint')}`
-                : '';
-            const jimengNote = isJimeng ? tr('api.jimengReady') : '';
-            const codexNote = currentProtocol === 'codex' ? tr('api.codexReady') : '';
-            const geminiCliNote = currentProtocol === 'gemini-cli' ? tr('api.antigravityReady') : '';
-            const imageModeNote = ` · ${tr('api.imageInterface')}: ${imageRequestModeLabel(imageRequestModeInput?.value || item.image_request_mode)}`;
-            const runninghubNote = isRunningHubNow
-                ? ` · RunningHub OpenAPI${runninghubModelSourceNote(data)}`
-                : imageModeNote;
-            const verificationNotes = [volcengineNote, jimengNote, codexNote, geminiCliNote].filter(Boolean);
             markCurrentProviderVerified();
-            await requestAutoSave();
-            showVerificationToast(`${trf('api.urlVerifiedModels', {count: data.model_count, note: runninghubNote})}${verificationNotes.length ? ` · ${verificationNotes.join(' · ')}` : ''}`, 'success');
+            if(connectionChanged) await requestAutoSave();
+            else await commitAutoSave();
+            if(!isCurrentCheck()) return;
+            showConnectionVerification(() => {
+                const isRunningHubNow = runninghubContext || detectedProtocol === 'runninghub';
+                const isVolcengineNow = !isRunningHubNow && (detectedProtocol === 'volcengine' || isVolcengineProvider(item));
+                const volcengineNote = isVolcengineNow
+                    ? `${detectedProtocol === 'volcengine' ? tr('api.volcengineDetected') : ''}${tr('api.volcengineProtocolHint')}`
+                    : '';
+                const jimengNote = isJimeng ? tr('api.jimengReady') : '';
+                const codexNote = currentProtocol === 'codex' ? tr('api.codexReady') : '';
+                const geminiCliNote = currentProtocol === 'gemini-cli' ? tr('api.antigravityReady') : '';
+                const imageModeNote = ` · ${tr('api.imageInterface')}: ${imageRequestModeLabel(imageRequestModeInput?.value || item.image_request_mode)}`;
+                const runninghubNote = isRunningHubNow
+                    ? ` · RunningHub OpenAPI${runninghubModelSourceNote(data)}`
+                    : imageModeNote;
+                const verificationNotes = [volcengineNote, jimengNote, codexNote, geminiCliNote].filter(Boolean);
+                return `${trf('api.urlVerifiedModels', {count: data.model_count, note: runninghubNote})}${verificationNotes.length ? ` · ${verificationNotes.join(' · ')}` : ''}`;
+            }, 'success');
         } else {
             markProviderUnverified();
             if(!autoSaveState.dirty) setAutoSavePhase('saved');
-            showVerificationToast(`${trf('api.urlVerifyFailedHttp', {status: data.status})} ${(data.message || '').slice(0,200)}`, 'danger');
+            showConnectionVerification(() => `${Number(data.status) > 0
+                ? trf('api.urlVerifyFailedHttp', {status:data.status})
+                : tr('api.connectionNoResponse')} ${(data.message || '').slice(0,200)}`, 'danger');
         }
     } catch(e){
+        if(!isCurrentCheck()) return;
         markProviderUnverified();
         if(!autoSaveState.dirty) setAutoSavePhase('saved');
-        showVerificationToast(`⚠ ${e.message || String(e)}`, 'danger');
+        showConnectionVerification(() => `${e.httpStatus ? trf('api.urlVerifyFailedHttp', {status:e.httpStatus}) : ''} ${e.message || tr('api.connectionNoResponse')}`, 'danger');
     } finally {
-        if(btn) btn.loading = false;
+        connectionVerificationPending = null;
+        if(btn){ btn.loading = false; btn.disabled = false; }
     }
 }
 let lastFetchedAll = [];          // 全部模型 id 列表
@@ -3295,6 +3343,7 @@ function selectProvider(id){
         return;
     }
     syncEditor();
+    if(selectedId !== id) clearConnectionVerification();
     selectedId = id;
     renderEditor();
     if(autoSaveState.dirty) commitAutoSave();
@@ -3636,7 +3685,9 @@ function escapeHtml(str){
 }
 function escapeAttr(str){ return escapeHtml(str).replace(/`/g, '&#96;'); }
 function receiveProviderChange(event){
-    if(event.data?.type !== 'providers-changed' || autoSaveState.dirty || autoSaveState.inFlight) return;
+    if(event.data?.type !== 'providers-changed' || event.data.source === apiSettingsChangeSource
+        || autoSaveState.dirty || autoSaveState.inFlight) return;
+    clearConnectionVerification();
     void loadProviders({preserveSelection:true});
 }
 try {
@@ -3665,12 +3716,16 @@ document.addEventListener('mousedown', event => {
 });
 window.addEventListener('studio-lang-change', () => {
     renderEditor();
+    renderConnectionVerification();
     if(document.getElementById('modelPickerOverlay')?.open) renderModelPicker();
 });
 window.onload = () => {
     if(window.StudioTheme) window.StudioTheme.apply();
     if(window.StudioI18n) window.StudioI18n.apply();
     loadProviders();
+    document.getElementById('connectionVerificationResult')?.addEventListener('ic-dismiss', () => {
+        connectionVerificationResult = null;
+    });
     // 平台名输入时实时预览生成的 ID
     if(nameInput) nameInput.addEventListener('input', updateIdPreview);
     if(providerList) providerList.addEventListener('ic-change', event => { const id = event.detail?.value || ''; if(id && id !== selectedId) selectProvider(id); });

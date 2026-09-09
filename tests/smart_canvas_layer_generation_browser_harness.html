@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Layer generation sync acceptance</title>
+<style>
+  body { margin:0; font:14px system-ui; }
+  nav { padding:8px; }
+  iframe { width:100%; height:calc(100vh - 50px); border:0; }
+</style>
+<nav aria-label="Test controls">
+  <button data-language="zh">中文</button>
+  <button data-language="en">English</button>
+  <button data-theme="light">Light</button>
+  <button data-theme="dark">Dark</button>
+</nav>
+<iframe title="Smart Canvas under test" src="/static/smart-canvas.html?id=issue-31-layer-decomposition-browser&amp;manual=1"></iframe>
+<script>
+  document.querySelectorAll('[data-language]').forEach(button => {
+    button.addEventListener('click', () => document.querySelector('iframe').contentWindow.postMessage(
+      {type:'studio-lang', lang:button.dataset.language}, location.origin,
+    ));
+  });
+  document.querySelectorAll('[data-theme]').forEach(button => {
+    button.addEventListener('click', () => document.querySelector('iframe').contentWindow.postMessage(
+      {type:'studio-theme', theme:button.dataset.theme}, location.origin,
+    ));
+  });
+</script>
+</html>

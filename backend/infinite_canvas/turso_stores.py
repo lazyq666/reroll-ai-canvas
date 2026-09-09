@@ -102,6 +102,9 @@ class TursoCanvasStore(_CloudStore, SqliteCanvasStore):
     def _initialize(self):
         self._verify_metadata('store_metadata', CANVAS_SCHEMA_VERSION)
 
+    def _write_statements(self, connection, statements):
+        connection.execute_batch(statements)
+
 
 class TursoGenerationRunStore(_CloudStore, SqliteGenerationRunStore):
     def __init__(self, connect: Callable[[], TursoConnection], *, workspace_id: str, now=None):
@@ -111,6 +114,9 @@ class TursoGenerationRunStore(_CloudStore, SqliteGenerationRunStore):
 
     def _initialize(self):
         self._verify_metadata('generation_run_store_metadata', RUN_SCHEMA_VERSION)
+
+    def _write_statements(self, connection, statements):
+        connection.execute_batch(statements)
 
 
 class TursoBatchGeneration(BatchGeneration):

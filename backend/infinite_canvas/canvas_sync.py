@@ -31,6 +31,7 @@ from .canvas_realtime import (
     public_snapshot,
 )
 from .canvas_store import (
+    CANVAS_METADATA_FIELDS,
     CanvasIntent,
     CanvasProjection,
     CanvasShareGrant,
@@ -339,16 +340,24 @@ class CanvasSync:
         self,
         canvas_id: str,
         actor: Dict[str, Any] | None,
+        *,
+        metadata_only: bool = False,
+        generation_node_id: str = "",
     ) -> Dict[str, Any]:
         """Read the closed public projection from an injected store."""
 
         assert self._canvas_store is not None
         store = self._canvas_store()
+        projection = CanvasProjection.public_snapshot()
+        if generation_node_id:
+            projection = CanvasProjection.generation_target(generation_node_id)
+        elif metadata_only:
+            projection = CanvasProjection.metadata()
         try:
             result = store.read(
                 canvas_id,
                 actor,
-                CanvasProjection.public_snapshot(),
+                projection,
             )
         except CanvasStoreError as exc:
             status = 404 if exc.code == "not_found" else 500
@@ -554,6 +563,8 @@ class CanvasSync:
         write: bool = False,
         include_deleted: bool = False,
         smart_snapshot: bool = False,
+        metadata_only: bool = False,
+        generation_node_id: str = "",
     ) -> Dict[str, Any]:
         """Read one freshly-authorized Canvas through the same storage seam."""
 
@@ -563,10 +574,14 @@ class CanvasSync:
                     500,
                     "CanvasStore 尚未提供已删除 Canvas projection",
                 )
-            canvas = self._read_store_snapshot(canvas_id, actor)
+            canvas = self._read_store_snapshot(
+                canvas_id, actor, metadata_only=metadata_only, generation_node_id=generation_node_id,
+            )
             return (
                 public_snapshot(canvas)
                 if smart_snapshot
+                and not metadata_only
+                and not generation_node_id
                 and normalize_canvas_kind(canvas.get("kind")) == "smart"
                 else canvas
             )
@@ -578,6 +593,14 @@ class CanvasSync:
                 write=write,
                 include_deleted=include_deleted,
             )
+            if metadata_only or generation_node_id:
+                result = {key: copy.deepcopy(canvas[key]) for key in CANVAS_METADATA_FIELDS if key in canvas}
+                if generation_node_id:
+                    result['nodes'] = [
+                        copy.deepcopy(node) for node in canvas.get('nodes') or []
+                        if isinstance(node, dict) and str(node.get('id') or '') == generation_node_id
+                    ]
+                return result
             return (
                 public_snapshot(canvas)
                 if smart_snapshot

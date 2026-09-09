@@ -1,9 +1,7 @@
-"""Pure lifecycle mapping for the future SQLite Generation Run authority.
+"""Map Generation Run snapshots into the selected SQLite-compatible store.
 
-The production ``GenerationRuns`` service is still backed by its legacy JSON
-store.  This module converts one ``_Run.stored()`` snapshot into the normalized
-store contract without changing that external lifecycle or selecting a new
-authority.
+Local SQLite and Turso share this lifecycle/effect contract. Authority selection
+stays in the Workspace composition; successful effect commits notify delivery.
 """
 
 from __future__ import annotations
@@ -54,9 +52,11 @@ class AsyncGenerationRunLifecycleStore:
         *,
         store: GenerationRunStore,
         store_executor: GenerationRunStoreExecutorPort,
+        on_effect_saved: Callable[[], None] | None = None,
     ) -> None:
         self._store = store
         self._store_executor = store_executor
+        self._on_effect_saved = on_effect_saved
 
     @property
     def store_executor(self) -> GenerationRunStoreExecutorPort:
@@ -70,12 +70,15 @@ class AsyncGenerationRunLifecycleStore:
         *,
         effect: GenerationRunEffectIntent | None = None,
     ) -> GenerationRunPersistenceRecord:
-        return await self._store_executor.call(
+        record = await self._store_executor.call(
             _map_and_persist_generation_run_lifecycle,
             self._store,
             value,
             effect,
         )
+        if record.effect is not None and self._on_effect_saved is not None:
+            self._on_effect_saved()
+        return record
 
     async def load(self, run_id: str) -> GenerationRunState | None:
         return await self._store_executor.call(self._store.load, run_id)

@@ -148,26 +148,7 @@ class TursoCursor:
     def executemany(self, sql: str, parameters: Iterable[Any]) -> "TursoCursor":
         if _verb(sql) not in _DML:
             raise sqlite3.ProgrammingError("executemany requires a DML statement")
-        count = 0
-        statements = []
-        byte_count = 0
-        try:
-            for values in parameters:
-                statement = self.connection._statement(sql, values, want_rows=False)
-                size = len(json.dumps(statement, ensure_ascii=False).encode('utf-8'))
-                if statements and (len(statements) >= 128 or byte_count + size > 1024 * 1024):
-                    count += self.connection._execute_batch(statements)
-                    statements, byte_count = [], 0
-                statements.append(statement)
-                byte_count += size
-            if statements:
-                count += self.connection._execute_batch(statements)
-        except BaseException:
-            # Local iteration/encoding can fail after a previous chunk was
-            # written. Even if the caller catches it, committing that prefix
-            # would silently publish only part of one requested operation.
-            self.connection._needs_rollback = self.connection.in_transaction
-            raise
+        count = self.connection.execute_batch((sql, values) for values in parameters)
         self.description = None
         self._rows = []
         self._index = 0
@@ -378,6 +359,31 @@ class TursoConnection:
         except (KeyError, TypeError, ValueError):
             self._broken = True
             raise TursoError('cloud_storage_outcome_unknown') from None
+
+    def execute_batch(self, writes: Iterable[tuple[str, Any]]) -> int:
+        """Execute ordered writes in bounded requests within the current transaction."""
+        count = 0
+        statements = []
+        byte_count = 0
+        try:
+            for sql, parameters in writes:
+                if _verb(sql) not in _DML:
+                    raise sqlite3.ProgrammingError('execute_batch requires DML statements')
+                statement = self._statement(sql, parameters, want_rows=False)
+                size = len(json.dumps(statement, ensure_ascii=False).encode('utf-8'))
+                if statements and (len(statements) >= 128 or byte_count + size > 1024 * 1024):
+                    count += self._execute_batch(statements)
+                    statements, byte_count = [], 0
+                statements.append(statement)
+                byte_count += size
+            if statements:
+                count += self._execute_batch(statements)
+        except BaseException:
+            # A later chunk or local producer may fail after earlier writes.
+            # Never allow that partial operation to be committed by a caller.
+            self._needs_rollback = self.in_transaction
+            raise
+        return count
 
     def _sequence(self, sql: str) -> None:
         if self.in_transaction:

@@ -8,12 +8,14 @@ const id = 'issue-31-layer-decomposition-browser';
 const source = {id:'layer-source',type:'smart-image',x:180,y:120,w:500,h:250,images:[{url:'/fixture/source.svg',media_id:'layer-source-media',name:'Layer fixture',kind:'image',natural_w:2000,natural_h:1000}]};
 let canvas = {id,title:'Layer Dialog Test',project:'default',revision:1,nodes:[source],connections:[],settings:{},logs:[]};
 const editorMode = process.argv.includes('--editor');
+const mutationReceiptDelayMs = Math.max(0, Number(process.env.LAYER_SYNC_DELAY_MS) || 0);
 if(editorMode) {
  const base = {url:'/fixture/source.svg',name:'Base',kind:'image',natural_w:2000,natural_h:1000};
  const layer = {url:'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="250"><rect width="300" height="250" rx="12" fill="#c06745"/><text x="30" y="145" font-size="60" fill="white">EDIT</text></svg>'),name:'Note',kind:'image'};
  canvas.nodes.push({id:'layer-result',type:'smart-layer-decomposition',x:760,y:120,w:500,h:250,images:[base],layerDecompositionSourceNodeId:source.id,layerDecompositionSourceImageIndex:0,layerDecompositionManifest:{canvas_width:2000,canvas_height:1000,source_media_id:'layer-source-media'},layerDecompositionItems:[{id:'base',role:'base',z_index:0,media:base},{id:'note',role:'layer',z_index:1,absolute_bbox:[150,600,450,850],media:layer}]});
 }
 const mutations = [], submissions = [], psdExports = [];
+const mutationReceipts = new Map();
 function apply(changes) {
   for (const item of changes.canvas_updates || []) {
     let target=canvas;
@@ -33,12 +35,18 @@ function apply(changes) {
     if(target) delete target[item.path.at(-1)];
   }
   for (const item of changes.node_deletes || []) canvas.nodes = canvas.nodes.filter(n=>n.id!==(item.id || item));
+  for (const item of changes.connection_adds || []) {
+    if(!canvas.connections.some(c=>c.from===item.from&&c.to===item.to&&c.kind===item.kind))canvas.connections.push(item);
+  }
+  for (const item of changes.connection_removes || []) {
+    canvas.connections=canvas.connections.filter(c=>!(c.from===item.from&&c.to===item.to&&c.kind===item.kind));
+  }
 }
 const init = `
 class FixtureSocket {
   static CONNECTING=0; static OPEN=1; static CLOSING=2; static CLOSED=3;
   constructor(){this.readyState=0; setTimeout(async()=>{const data=await fetch('/fixture/state').then(r=>r.json());this.readyState=1;this.onopen?.({});this.onmessage?.({data:JSON.stringify({type:'canvas_snapshot',canvas_id:'${id}',revision:data.canvas.revision,canvas:data.canvas})});},0);}
-  send(raw){const message=JSON.parse(raw);if(message.type==='ping'){this.onmessage?.({data:JSON.stringify({type:'pong'})});return;}if(message.type!=='canvas_mutation')return;fetch('/fixture/mutation',{method:'POST',body:raw}).then(r=>r.json()).then(data=>this.onmessage?.({data:JSON.stringify(data)}));}
+  send(raw){const message=JSON.parse(raw);if(message.type==='ping'){fetch('/fixture/state').then(r=>r.json()).then(data=>{if(this.readyState===1)this.onmessage?.({data:JSON.stringify({type:'pong',revision:data.canvas.revision})});});return;}if(message.type!=='canvas_mutation')return;fetch('/fixture/mutation',{method:'POST',body:raw}).then(r=>r.json()).then(data=>{if(this.readyState===1)this.onmessage?.({data:JSON.stringify(data)});});}
   close(code=1000){this.readyState=3;this.onclose?.({code});}
 }
 window.WebSocket=FixtureSocket;
@@ -48,7 +56,17 @@ const server=http.createServer(async(req,res)=>{
  const url=new URL(req.url,'http://127.0.0.1');
  const send=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
  if(url.pathname==='/fixture/state')return send({canvas,mutations,submissions,psdExports});
- if(url.pathname==='/fixture/mutation') {let raw='';for await(const part of req)raw+=part;const message=JSON.parse(raw);const operation=message.operation;mutations.push(operation);apply(operation.changes||{});canvas.revision++;return send({type:'canvas_mutation',canvas_id:id,operation_id:operation.operation_id,revision:canvas.revision,changes:operation.changes,duplicate:false,undoable:true});}
+ if(url.pathname==='/fixture/mutation') {
+  let raw='';for await(const part of req)raw+=part;
+  const operation=JSON.parse(raw).operation;
+  const previous=mutationReceipts.get(operation.operation_id);
+  if(previous)return send({...previous,duplicate:true});
+  mutations.push(operation);apply(operation.changes||{});canvas.revision++;
+  const receipt={type:'canvas_mutation',canvas_id:id,operation_id:operation.operation_id,revision:canvas.revision,changes:operation.changes,duplicate:false,undoable:true};
+  mutationReceipts.set(operation.operation_id,receipt);
+  if(mutationReceiptDelayMs)await new Promise(resolve=>setTimeout(resolve,mutationReceiptDelayMs));
+  return send(receipt);
+ }
  if(url.pathname==='/fixture/init.js'){res.writeHead(200,{'Content-Type':'text/javascript'});return res.end(init);}
  if(url.pathname==='/fixture/source.svg'){res.writeHead(200,{'Content-Type':'image/svg+xml'});return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1000"><rect width="2000" height="1000" fill="#e9dfc7"/><rect x="200" y="200" width="1400" height="200" fill="#775437"/><text x="270" y="340" font-size="120" fill="white">LAYER STUDY</text><circle cx="1000" cy="720" r="210" fill="#314e55"/><rect x="150" y="600" width="300" height="250" rx="12" fill="#f8f1dc"/><text x="180" y="745" font-size="60">NOTE</text></svg>');}
  if(url.pathname.startsWith('/api/')){
