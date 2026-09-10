@@ -171,6 +171,17 @@ async function waitForServer(child) {
         && node.layerDecompositionItems.find(item => item.id === 'title')?.hidden === true;
     });
 
+    await page.evaluate(() => {
+      window.__issue36CheckpointCalls = 0;
+      const persistence = window.SmartCanvasModules.canvasPersistence;
+      window.SmartCanvasModules.canvasPersistence = {
+        ...persistence,
+        checkpoint:async () => {
+          window.__issue36CheckpointCalls += 1;
+          throw new Error('canvas_checkpoint_timeout');
+        },
+      };
+    });
     const responsePromise = page.waitForResponse(response => response.url().endsWith('/layer-decompositions/issue-36-layers/psd'));
     const downloadPromise = page.waitForEvent('download');
     await downloadButton.click();
@@ -181,8 +192,8 @@ async function waitForServer(child) {
       url:`http://127.0.0.1:${port}/api/canvases/issue-36-layered-psd/layer-decompositions/issue-36-layers/psd`,
       method:'POST',
     });
-    assert.equal(persistenceAtRequest[0].pending, false);
-    assert.ok(persistenceAtRequest[0].messages.length > 0, 'current layer edits were not checkpointed');
+    assert.equal(await page.evaluate(() => window.__issue36CheckpointCalls), 0,
+      'PSD download must not checkpoint the canvas');
     assert.deepEqual(
       persistenceAtRequest[0].items.map(item => [item.id, item.hidden]),
       [['base', false], ['foreground', false], ['title', true]],

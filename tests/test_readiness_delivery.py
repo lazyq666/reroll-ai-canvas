@@ -1,5 +1,7 @@
 """Behavioral delivery tests: real Git snapshots and child processes, no network."""
 import copy
+import io
+from contextlib import redirect_stdout
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import importlib.util
@@ -56,6 +58,43 @@ class SnapshotTests(unittest.TestCase):
     def command(self, root, code):
         state = Path(self.temp.name) / 'state'
         return readiness.execute([sys.executable, '-c', code], root, readiness.clean_environment(state), 10)
+
+    def test_failed_command_logs_safe_diagnostics_without_raw_output(self):
+        name = 'tests.synthetic.Probe.test_failure'
+        counts = {'tests': 1, 'skipped': 0, 'failures': 1, 'errors': 0,
+                  'failed_tests': [name, 'private prompt\n::error::injected'],
+                  'failure_locations': [
+                      {'test': name, 'file': 'tests/test_probe.py', 'line': 42},
+                      {'test': name, 'file': '/private/secret.py', 'line': 1},
+                      {'test': name, 'file': 'tests/../secret.py', 'line': 1}]}
+        command = "print('private raw application output'); print(" + repr('READINESS_COUNTS=' + json.dumps(counts)) + "); raise SystemExit(1)"
+        result = self.command(self.root, command)
+        output = io.StringIO()
+        with redirect_stdout(output):
+            readiness.show_check_result('python-tests', {'id': 'python-suite', 'argv': ['private argument'], **result})
+        lines = output.getvalue().splitlines()
+        self.assertEqual(lines[0], 'python-tests/python-suite: failure')
+        details = json.loads(lines[1].removeprefix('READINESS_FAILURE='))
+        self.assertEqual(details['exit_code'], 1)
+        self.assertEqual(details['counts'][0]['failed_tests'], [name])
+        self.assertEqual(details['counts'][0]['failure_locations'], [counts['failure_locations'][0]])
+        self.assertNotIn('private', output.getvalue())
+        self.assertNotIn('secret', output.getvalue())
+
+    def test_failure_without_test_counts_still_logs_exit_code(self):
+        result = self.command(self.root, 'raise SystemExit(7)')
+        output = io.StringIO()
+        with redirect_stdout(output):
+            readiness.show_check_result('python-tests', {'id': 'python-suite', **result})
+        details = json.loads(output.getvalue().split('READINESS_FAILURE=')[1])
+        self.assertEqual(details['exit_code'], 7)
+        self.assertEqual(details['counts'], [])
+
+    def test_success_logs_only_status(self):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            readiness.show_check_result('python-tests', {'id': 'python-suite', 'result': 'success'})
+        self.assertEqual(output.getvalue(), 'python-tests/python-suite: success\n')
 
     def test_uncommitted_staged_untracked_repairs_cannot_change_candidate(self):
         (self.root / 'source.py').write_text('value = 1\n')

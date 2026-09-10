@@ -92,6 +92,15 @@ def interrupted(signum, frame):
     raise KeyboardInterrupt
 
 
+def show_check_result(group, check):
+    print(f"{group}/{check['id']}: {check['result']}", flush=True)
+    if check['result'] != 'failure':
+        return
+    # Only execute's sanitized metadata is public; never print argv or raw output.
+    details = {key: check[key] for key in ('exit_code', 'duration_seconds', 'reason', 'counts') if key in check}
+    print('READINESS_FAILURE=' + json.dumps(details, ensure_ascii=True), flush=True)
+
+
 def execute(argv, root, env, timeout, shutdown_grace=5):
     start = time.monotonic()
     # Raw output exists only in a temporary file. Public artifacts retain bounded,
@@ -214,7 +223,7 @@ def run_group(root, group, base, head=None, timeout=1800):
                 check.update(result='failure', reason='check changed candidate source')
             results[entry['id']] = check['result']
             report['checks'].append(check)
-            print(f"{group}/{entry['id']}: {check['result']}", flush=True)
+            show_check_result(group, check)
         if group == 'browser-core' and results.get('browser-contract') == 'success':
             probe = execute(['node', '-e', "const {chromium}=require('playwright'); (async()=>{const b=await chromium.launch({headless:true,args:process.platform==='linux'?['--no-sandbox']:[]}); console.log('READINESS_BROWSER='+b.version());await b.close()})().catch(()=>process.exit(1))"], root, env, 30)
             report['checks'].append({'id': 'browser-runtime', **probe})
