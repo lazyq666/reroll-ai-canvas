@@ -1,11 +1,12 @@
 import { IcDialog } from './dialog.js';
 import { ensureAiProcessorDialogStyles } from './ai-processor-dialog/styles.js';
+import { GridGifControls } from './ai-processor-dialog/grid-gif.js?v=ic-ui-421483d0209f';
 import { LayerAuthoring } from './ai-processor-dialog/layer-authoring.js';
 
 ensureAiProcessorDialogStyles();
 
 const OWNED_ATTRIBUTE = 'data-ic-ai-processor-owned';
-const PROCESSORS = new Set(['reverse-prompt', 'outpaint', 'angle-control', 'lighting-reference', 'layer-decomposition']);
+const PROCESSORS = new Set(['grid-gif', 'reverse-prompt', 'outpaint', 'angle-control', 'lighting-reference', 'layer-decomposition']);
 const OUTPAINT_LONG_EDGE_LIMIT = 8192;
 const OUTPAINT_PIXEL_LIMIT = 64_000_000;
 const OUTPAINT_ASPECT_RATIO_PRESETS = Object.freeze(['1:1','2:3','3:2','3:4','4:3','9:16','16:9','21:9','9:21']);
@@ -189,6 +190,8 @@ export class IcAiProcessorDialog extends IcDialog {
     this.openProcessor = '';
     this.initialLayerDraft = null;
     this.layerAuthoring = new LayerAuthoring(this);
+    this.gridGif = new GridGifControls(this);
+    this.addEventListener('ic-after-hide',event=>{if(event.target===this) this.gridGif.dispose();});
   }
   get groups(){ return this._groups || []; }
   set groups(value){ const old=this._groups; this._groups=normalizeGroups(value); this.requestUpdate('groups',old); }
@@ -199,7 +202,7 @@ export class IcAiProcessorDialog extends IcDialog {
   message(key,fallback=''){ return String(this.messages[key] || fallback); }
 
   connectedCallback(){ this.ensureOwnedStructure(); super.connectedCallback(); }
-  disconnectedCallback(){ this.layerAuthoring.dispose(); this.disposeAngleController(); this.disposeLightingController(); this.disposeOutpaintPreview(); super.disconnectedCallback(); }
+  disconnectedCallback(){ this.gridGif.dispose(); this.layerAuthoring.dispose(); this.disposeAngleController(); this.disposeLightingController(); this.disposeOutpaintPreview(); super.disconnectedCallback(); }
   ensureOwnedStructure(){
     if(!this.bodyElement){
       this.bodyElement=document.createElement('div');
@@ -242,6 +245,7 @@ export class IcAiProcessorDialog extends IcDialog {
     }
   }
   submissionReason(){
+    if(this.processor==='grid-gif') return this.gridGif.reason();
     if(this.processor!=='lighting-reference'&&!this.models.length) return this.processor==='layer-decomposition'
       ? this.message('noModels')
       : '没有可用模型，请先到模型设置中配置。';
@@ -267,6 +271,7 @@ export class IcAiProcessorDialog extends IcDialog {
     return '';
   }
   resetForOpen(){
+    this.gridGif.reset();
     this.errorMessage=''; this.pending=false; this.selectedModel=this.models[0]?.id||'';
     this.selectedTemplate=''; this.selectedGroup=''; this.fillColor='#ffffff'; this.customFillColor=''; this.outpaintAspectRatio='adaptive'; this.outpaintResolution='auto';
     this.angleAspectRatio='source'; this.angleResolution='auto';
@@ -287,7 +292,7 @@ export class IcAiProcessorDialog extends IcDialog {
       this.layerAuthoring.reset(this.initialLayerDraft);
     }
     this.size=this.processor==='reverse-prompt'?'medium':'large';
-    this.label=this.processor==='reverse-prompt'?'反推提示词':this.processor==='outpaint'?'扩图':this.processor==='angle-control'?'视角控制':this.processor==='layer-decomposition'?this.message('title'):'灯光参考';
+    this.label=this.processor==='grid-gif'?this.gridGif.t('title'):this.processor==='reverse-prompt'?'反推提示词':this.processor==='outpaint'?'扩图':this.processor==='angle-control'?'视角控制':this.processor==='layer-decomposition'?this.message('title'):'灯光参考';
     this.renderBody(); this.syncActions();
   }
   async show(){ this.openProcessor=this.processor; this.resetForOpen(); await this.updateComplete; return super.show(); }
@@ -389,11 +394,13 @@ export class IcAiProcessorDialog extends IcDialog {
   renderBody(){
     if(!this.bodyElement) return;
     this.layerAuthoring.dispose();
+    this.gridGif.dispose();
     this.disposeAngleController();
     this.disposeLightingController();
     this.disposeOutpaintPreview();
-    this.bodyElement.innerHTML=`${this.processor==='reverse-prompt'?this.reverseMarkup():this.processor==='outpaint'?this.outpaintMarkup():this.processor==='angle-control'?this.angleMarkup():this.processor==='layer-decomposition'?this.layerDecompositionMarkup():this.lightingReferenceMarkup()}<ic-alert data-ai-processor-error tone="danger"${this.errorMessage?'':' hidden'}>${escapeHtml(this.errorMessage)}</ic-alert>`;
+    this.bodyElement.innerHTML=`${this.processor==='grid-gif'?this.gridGif.markup():this.processor==='reverse-prompt'?this.reverseMarkup():this.processor==='outpaint'?this.outpaintMarkup():this.processor==='angle-control'?this.angleMarkup():this.processor==='layer-decomposition'?this.layerDecompositionMarkup():this.lightingReferenceMarkup()}<ic-alert data-ai-processor-error tone="danger"${this.errorMessage?'':' hidden'}>${escapeHtml(this.errorMessage)}</ic-alert>`;
     this.bindCommonControls();
+    if(this.processor==='grid-gif') this.gridGif.mount();
     if(this.processor==='layer-decomposition') this.layerAuthoring.mount();
     if(this.processor==='outpaint'){ this.bindOutpaint(); this.syncOutpaintVisual(); }
     if(this.processor==='angle-control') this.mountAngleController();
@@ -660,8 +667,13 @@ export class IcAiProcessorDialog extends IcDialog {
   }
   syncActions(){
     if(!this.cancelAction||!this.confirmAction) return;
-    this.cancelAction.textContent=this.processor==='layer-decomposition'?this.message('cancel'):'取消'; this.cancelAction.disabled=this.pending;
-    this.confirmAction.textContent=this.processor==='reverse-prompt'?'开始反推':this.processor==='outpaint'?'开始扩图':this.processor==='angle-control'?'生成新视角':this.processor==='layer-decomposition'?this.message('submit'):'创建灯光参考';
+    this.cancelAction.textContent=['grid-gif','layer-decomposition'].includes(this.processor)?this.message('cancel'):'取消'; this.cancelAction.disabled=this.pending;
+    this.confirmAction.textContent=this.processor==='grid-gif'?this.gridGif.t('submit'):this.processor==='reverse-prompt'?'开始反推':this.processor==='outpaint'?'开始扩图':this.processor==='angle-control'?'生成新视角':this.processor==='layer-decomposition'?this.message('submit'):'创建灯光参考';
+    if(this.processor==='grid-gif'){
+      this.bodyElement?.querySelectorAll('ic-select,ic-number-input,ic-color-field,[data-gif-reset-authoring]').forEach(control=>{control.disabled=this.pending;});
+      this.bodyElement?.querySelectorAll('ic-segmented-control').forEach(control=>control.toggleAttribute('disabled',this.pending));
+      this.gridGif.authoring?.sync();
+    }
     this.confirmAction.loading=this.pending; this.confirmAction.disabled=this.pending||Boolean(this.validateContract())||Boolean(this.submissionReason());
     const error=this.bodyElement?.querySelector('[data-ai-processor-error]');
     if(error){ error.textContent=this.errorMessage; error.hidden=!this.errorMessage; }
@@ -670,7 +682,7 @@ export class IcAiProcessorDialog extends IcDialog {
   detail(){
     const template=this.currentTemplates().find(item=>item.id===this.selectedTemplate)||null;
     if(this.processor==='layer-decomposition') this.prompt=this.layerAuthoring.prompt();
-    return {processor:this.processor,groupId:this.selectedGroup,templateId:this.selectedTemplate,template,modelId:this.selectedModel,prompt:String(this.prompt||''),fillColor:this.fillColor,outpaintAspectRatio:this.outpaintAspectRatio,outpaintResolution:this.outpaintResolution,outpaint:{...this.outpaint,...this.outpaintSize()},angleAspectRatio:this.angleAspectRatio,angleResolution:this.angleResolution,angle:{...this.angleState},layerResolution:this.layerResolution,lightingIntent:this.lightingIntent?JSON.parse(JSON.stringify(this.lightingIntent)):null,lightingPrompts:this.lightingPrompts?{...this.lightingPrompts}:null};
+    return {processor:this.processor,gridGif:this.gridGif.detail(),groupId:this.selectedGroup,templateId:this.selectedTemplate,template,modelId:this.selectedModel,prompt:String(this.prompt||''),fillColor:this.fillColor,outpaintAspectRatio:this.outpaintAspectRatio,outpaintResolution:this.outpaintResolution,outpaint:{...this.outpaint,...this.outpaintSize()},angleAspectRatio:this.angleAspectRatio,angleResolution:this.angleResolution,angle:{...this.angleState},layerResolution:this.layerResolution,lightingIntent:this.lightingIntent?JSON.parse(JSON.stringify(this.lightingIntent)):null,lightingPrompts:this.lightingPrompts?{...this.lightingPrompts}:null};
   }
   async cancel(){ if(this.pending)return; const event=new CustomEvent('ic-cancel',{bubbles:true,composed:true,cancelable:true}); if(this.dispatchEvent(event)) await this.hide('cancel'); }
   confirm(){
@@ -682,6 +694,7 @@ export class IcAiProcessorDialog extends IcDialog {
     if(this.pending) return;
     await super.requestClose(source);
     if(!this.open){
+      this.gridGif.dispose();
       this.layerAuthoring.dispose();
       this.disposeAngleController();
       this.disposeLightingController();
@@ -692,6 +705,7 @@ export class IcAiProcessorDialog extends IcDialog {
   updated(changed){
     this.ensureOwnedStructure();
     if(this.processor==='layer-decomposition'&&changed.has('messages')) this.label=this.message('title');
+    if(this.processor==='grid-gif'&&changed.has('messages')) this.label=this.gridGif.t('title');
     const structural=['processor','groups','models','messages','sourceImage','sourceAlt','sourceWidth','sourceHeight','selectedGroup'];
     if(structural.some(key=>changed.has(key))) this.renderBody();
     this.syncActions(); super.updated(changed);

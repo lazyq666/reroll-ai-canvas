@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Smart Canvas more tools acceptance</title>
+<style>
+  html,body{margin:0;height:100%;font:14px system-ui;background:#eee}
+  nav{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px}
+  iframe{display:block;width:100%;height:calc(100% - 44px);border:0}
+</style>
+<nav aria-label="Test controls">
+  <button data-language="zh">中文</button><button data-language="en">English</button>
+  <button data-theme="light">Light</button><button data-theme="dark">Dark</button>
+</nav>
+<iframe title="Production Smart Canvas" src="/static/smart-canvas.html?id=hit-priority-manual&amp;manual=1&amp;fixture=grid-gif"></iframe>
+<script>
+  const frame = document.querySelector('iframe');
+  document.querySelector('nav').addEventListener('click', event => {
+    const {language, theme} = event.target.dataset;
+    if(language) frame.contentWindow.postMessage({type:'studio-lang',lang:language}, location.origin);
+    if(theme) frame.contentWindow.postMessage({type:'studio-theme',theme}, location.origin);
+  });
+</script>
+</html>

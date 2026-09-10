@@ -1,6 +1,6 @@
-export { IcCanvasNode } from './nodes/node.js?v=ic-ui-f39048a0e265';
-export { IcCanvasMultiSelection } from './nodes/multi-selection.js?v=ic-ui-f39048a0e265';
-export { IcPromptNodeFocusSurface } from './nodes/prompt-focus-surface.js?v=ic-ui-f39048a0e265';
+export { IcCanvasNode } from './nodes/node.js?v=ic-ui-421483d0209f';
+export { IcCanvasMultiSelection } from './nodes/multi-selection.js?v=ic-ui-421483d0209f';
+export { IcPromptNodeFocusSurface } from './nodes/prompt-focus-surface.js?v=ic-ui-421483d0209f';
 export {
   CANVAS_FRAME_DEFAULT_COLOR,
   CANVAS_NODE_KINDS,
@@ -11,4 +11,4 @@ export {
   isCanvasNodeKind,
   renderCanvasNodeMarkup,
   renderReadOnlyPromptNodeBodyMarkup,
-} from './nodes/shared.js?v=ic-ui-f39048a0e265';
+} from './nodes/shared.js?v=ic-ui-421483d0209f';

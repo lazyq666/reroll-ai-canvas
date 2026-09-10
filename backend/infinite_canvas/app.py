@@ -220,7 +220,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-f39048a0e265"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-421483d0209f"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
     const runtimeDetailFallback = document.getElementById('runtime-detail')?.textContent || '';
@@ -332,7 +332,7 @@ def _recovery_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-f39048a0e265"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-421483d0209f"></script>
   <script>
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const input = document.getElementById('workspace-directory');
@@ -493,7 +493,7 @@ def _workspace_move_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-f39048a0e265"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-421483d0209f"></script>
   <script src="/static/js/workspace-move.js?v=2026.08.28.issue-181.1" defer></script>
 </body>
 </html>"""

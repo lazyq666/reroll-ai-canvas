@@ -1,5 +1,5 @@
-import './core.js?v=ic-ui-f39048a0e265';
-import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=ic-ui-f39048a0e265';
+import './core.js?v=ic-ui-421483d0209f';
+import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=ic-ui-421483d0209f';
 
 const params = new URLSearchParams(location.search);
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light';

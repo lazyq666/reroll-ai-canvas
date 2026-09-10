@@ -112,6 +112,61 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
         result = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_image_toolbar_groups_specialist_tools_and_pins_current_image(self):
+        start = self.script.index("function smartNodeToolbarText(")
+        end = self.script.index("function duplicateSmartNodeMediaToCanvas(", start)
+        script = f"""
+            const assert = require('node:assert/strict');
+            global.window = {{}};
+            require('./static/js/smart-canvas/node-kinds.js');
+            const nodeKinds = window.SmartCanvasModules.nodeKinds;
+            const tr = key => key;
+            const escapeAttr = text => text;
+            const escapeHtml = text => text;
+            const smartNodeInFlight = () => false;
+            const smartNodeToolbarImageIndex = () => 1;
+            const imageForDisplay = item => item;
+            const mediaKindForItem = item => item.kind;
+            {self.script[start:end]}
+            const html = smartNodeToolbarHtml({{id:'two-images', type:'smart-image', images:[
+                {{url:'one.png', kind:'image'}}, {{url:'two.png', kind:'image'}}
+            ]}});
+            assert.deepEqual([...html.matchAll(/data-smart-node-action="([^"]+)"/g)].map(m => m[1]),
+                ['generate-image', 'layer-decomposition', 'matting', 'outpaint', 'reverse-prompt', 'more-tools', 'edit', 'download']);
+            assert.deepEqual([...html.matchAll(/<ic-menu-item kind="command" value="([^"]+)"/g)].map(m => m[1]),
+                ['angle-control', 'grid-gif', 'lighting-reference']);
+            assert.match(html, /data-smart-node-tools data-node-id="two-images" data-media-index="1"/);
+            assert.match(html, /slot="trigger" aria-haspopup="menu" aria-expanded="false"/);
+            const audio = smartNodeToolbarHtml({{id:'audio', type:'smart-image', images:[
+                {{url:'one.mp3', kind:'audio'}}, {{url:'two.mp3', kind:'audio'}}
+            ]}});
+            assert.doesNotMatch(audio, /more-tools|ic-menu-item/);
+        """
+        result = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_more_tools_selection_dispatches_once_to_the_captured_image(self):
+        start = self.script.index("function bindSmartNodeFloatingPortal()")
+        end = self.script.index("function syncSmartNodeFloatingPortal()", start)
+        script = f"""
+            const assert = require('node:assert/strict');
+            const calls = [];
+            const menu = {{dataset:{{nodeId:'source', mediaIndex:'1'}},
+                addEventListener(type, handler) {{this[type] = handler;}}}};
+            const smartNodeFloatingPortal = {{querySelectorAll:() => [menu]}};
+            const runSmartNodeToolbarAction = (...args) => calls.push(args);
+            {self.script[start:end]}
+            bindSmartNodeFloatingPortal();
+            const item = {{localName:'ic-menu-item', hasAttribute:() => false}};
+            menu['ic-select']({{composedPath:() => [item, menu], detail:{{value:'grid-gif'}}}});
+            assert.deepEqual(calls, [['source', 'grid-gif', 1, item]]);
+            item.hasAttribute = () => true;
+            menu['ic-select']({{composedPath:() => [item, menu], detail:{{value:'grid-gif'}}}});
+            assert.equal(calls.length, 1);
+        """
+        result = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_composer_uses_compact_headerless_layout(self):
         composer_start = self.page.index('id="composer"')
         composer_end = self.page.index('id="inputTextPreviewTooltip"', composer_start)
