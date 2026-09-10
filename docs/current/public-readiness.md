@@ -36,7 +36,7 @@ python3.12 scripts/readiness_publish.py HEAD --branch codex/my-change --report /
 
 五个独立组由 [共享清单](../../scripts/readiness/manifest.json) 定义：公开及依赖审计、确定性 Python、Node 合同、核心 Chromium 浏览器、仓库资源与版本合同。前一组失败不遮挡其他组；缺少依赖的检查明确受阻。Python 默认套件跳过的浏览器合同由独立必需组实际执行，受控性能验收保留为功能规格的额外 Gate。
 
-功能回归使用可控计时输入验证延迟超限的成功／失败路径；真实网络、超时和性能工具保留真实时钟。共享 CI 机器的偶发耗时不能代替受控环境中的性能验收。画布列表万级语料的路由、分页和解析次数始终在确定性组验证；首批 2 秒、后续页 1 秒的真实耗时门槛由 `tests.test_issue_71_canvas_list_index.CanvasListIndexContractTests.test_acceptance_corpus_grouped_project_latency` 单独验收，遵循现有 `IC_SKIP_PERFORMANCE_TESTS` 开关。
+功能回归使用可控计时输入验证延迟超限的成功／失败路径；真实网络、超时和性能工具保留真实时钟。共享 CI 机器的偶发耗时不能代替受控环境中的性能验收。画布列表万级语料的路由、分页和解析次数始终在确定性组验证；首批小于 2 秒、后续页小于 3 秒的真实耗时门槛由 `tests.test_issue_71_canvas_list_index.CanvasListIndexContractTests.test_acceptance_corpus_grouped_project_latency` 单独验收，遵循现有 `IC_SKIP_PERFORMANCE_TESTS` 开关。后续页门槛覆盖单次后端 `list_records()` 调用，包括目录扫描、文件状态与项目归属检查、索引读取及结果过滤排序，不包含测试数据准备、此前查询、网络传输或页面渲染；3 秒上限为万级文件场景保留磁盘与调度余量，不代表交互耗时目标。
 
 macOS 本地 Chromium 合同使用模拟钥匙串，避免隔离用户目录时等待系统凭据初始化；浏览器配置仍是临时的，不读取用户登录钥匙串。这与 Playwright 的自动化启动配置一致，页面和交互断言保持完整执行。
 
