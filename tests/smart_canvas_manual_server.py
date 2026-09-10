@@ -130,6 +130,10 @@ MANUAL_BOOTSTRAP = r"""
     ];
     manualCanvas.connections = [];
   }
+  if(fixture === 'grid-gif') {
+    manualCanvas.nodes = [{id:'gif-source',type:'smart-image',title:'Sprite sheet',x:180,y:180,w:360,h:360,
+      images:[{url:'/__grid_gif_source.png',name:'sprites.png',kind:'image',natural_w:1280,natural_h:1280}]}];
+  }
   class ManualWebSocket {
     static CONNECTING = 0;
     static OPEN = 1;
@@ -241,7 +245,7 @@ class ManualHandler(SimpleHTTPRequestHandler):
         boundary = (boundary_match.group(1) or boundary_match.group(2) or "").encode()
         for part in body.split(b"--" + boundary):
             header, separator, payload = part.partition(b"\r\n\r\n")
-            if not separator or b'name="file"' not in header:
+            if not separator or not re.search(br'name="files?"', header):
                 continue
             filename_match = re.search(br'filename="([^"]*)"', header)
             filename = filename_match.group(1).decode("utf-8", "replace") if filename_match else ""
@@ -273,6 +277,26 @@ class ManualHandler(SimpleHTTPRequestHandler):
         }
 
     def do_GET(self) -> None:  # noqa: N802
+        if urlparse(self.path).path == '/__grid_gif_source.png':
+            source = os.environ.get('GRID_GIF_SOURCE')
+            if source:
+                payload = Path(source).read_bytes()
+            else:
+                from PIL import Image, ImageDraw
+                image = Image.new('RGBA', (1280, 1280))
+                draw = ImageDraw.Draw(image)
+                for index in range(16):
+                    x, y = index % 4 * 320, index // 4 * 320
+                    draw.rectangle((x+40, y+40, x+280, y+280), fill=(index*16, 100, 240-index*12, 255))
+                buffer = io.BytesIO()
+                image.save(buffer, 'PNG')
+                payload = buffer.getvalue()
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/png')
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         if parsed.path == "/static/smart-canvas.html" and query.get("manual") == ["1"]:
@@ -391,6 +415,12 @@ class ManualHandler(SimpleHTTPRequestHandler):
         self.send_json({})
 
     def do_POST(self) -> None:  # noqa: N802
+        if urlparse(self.path).path == '/api/ai/upload':
+            filename, raw = self.read_uploaded_file()
+            if os.environ.get('GRID_GIF_OUTPUT') and raw.startswith(b'GIF89a'):
+                Path(os.environ['GRID_GIF_OUTPUT']).write_bytes(raw)
+            self.send_json({'files':[{'url':'data:image/gif;base64,'+base64.b64encode(raw).decode(), 'name':filename, 'kind':'image'}]})
+            return
         parsed = urlparse(self.path)
         if parsed.path in {"/api/canvas-workflows/inspect", "/api/canvas-workflows/import"}:
             try:

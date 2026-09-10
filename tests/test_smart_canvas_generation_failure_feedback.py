@@ -19,6 +19,41 @@ CURRENT_SPEC = ROOT / "docs/current/smart-canvas-generation-failure-feedback.md"
 
 
 class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
+    def test_reference_role_failure_reclassifies_historical_errors_in_both_languages(self):
+        values = self.run_module("""
+            const storage = new Map();
+            sandbox.localStorage = {getItem:key => storage.get(key), setItem:(key,value) => storage.set(key,value)};
+            sandbox.document = {querySelectorAll:() => [], addEventListener(){}, documentElement:{setAttribute(){}}};
+            sandbox.CustomEvent = function(type, init){ return {type,...init}; };
+            sandbox.window.dispatchEvent = () => {};
+            for(const file of ['static/js/i18n-core.js','static/js/i18n/smart-canvas.js']){
+                vm.runInContext(fs.readFileSync(file,'utf8'),sandbox);
+            }
+            const i18n = sandbox.window.StudioI18n;
+            const errors = [
+                '图片的角色或顺序不符合当前模型要求',
+                'The images roles or order are not supported by this model.'
+            ];
+            process.stdout.write(JSON.stringify(errors.map(technicalError => {
+                const saved = {category:'unknown',technicalError};
+                return ['zh','en','zh'].map(lang => {
+                    i18n.set(lang);
+                    return feedback.localize(saved,i18n.t);
+                });
+            })));
+        """)
+        for chinese, english, restored in values:
+            self.assertEqual(chinese, restored)
+            self.assertEqual('参考图用途或顺序不匹配', chinese['title'])
+            self.assertEqual('Reference image role or order mismatch', english['title'])
+            for value in (chinese, english):
+                self.assertEqual('reference_role_invalid', value['category'])
+                self.assertEqual('modify_then_retry', value['retryability'])
+                self.assertEqual({}, value['billingEvidence'])
+                self.assertEqual(0, value['httpStatus'])
+                for field in ('title', 'description', 'action'):
+                    self.assertNotIn('smart.error.', value[field])
+
     def run_module(self, body: str):
         script = textwrap.dedent(
             f"""

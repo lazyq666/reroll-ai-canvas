@@ -60,6 +60,10 @@ Modal 内任意区域的 `contextmenu` 事件不得冒泡打开 Canvas 的创建
 
 APIMART 等平台返回“账户限制”时，不能自行推断为余额不足；只有原始响应明确指向余额、额度或套餐时才使用对应类别。
 
+参考图角色或顺序校验失败使用 `reference_role_invalid`。历史中“图片的角色或顺序不符合当前模型要求”及对应英文原文也按此分类显示，包含已存为 `unknown` 的诊断；中英文切换重新解析说明与操作提示。提示用户检查参考模式及首尾帧顺序；全能参考模式仍报错时，刷新页面重试，持续失败则复制诊断反馈。不由此推断平台拒绝、扣费或退款。
+
+视频提交前的角色预检与实际请求保持一致：全能参考模式不传递参考图内部编号或遗留的首尾帧角色；首尾帧模式按当前图片顺序分配首帧和尾帧。源参考输入保持完整，数量、混合输入、输出参数及目录版本校验继续生效。验收入口为 `tests/test_smart_canvas_video_submission_roles.py`，使用真实模型能力目录与前端提交模块，视频任务接口采用模拟响应。
+
 Dreamina CLI 返回 `current account is not allowed to use dreamina_cli` 或对应中文原文时，使用 `provider_permission_denied`，不能显示“平台内部错误，稍后重试”。这一语义也优先于历史记录中包装的 HTTP 502；新请求以 HTTP 403 保留权限拒绝原文。登录或积分查询成功只证明对应查询可用，不能证明生成接口的账号资格。没有任务或计费证据时不推断扣费、退款或可恢复状态。
 
 CLI helper 返回结构化错误时，`error.message` 与经过脱敏的 `error.detail` 都必须进入 Generation Run 诊断；不能把带上游参数说明的 HTTP 400 收缩成只有 `HTTP 400`。失败 Alert 的“查看详情”同时保存当前日志 ID 和稳定的 Generation Run ID；若日志持久化或协作对账后 ID 发生变化，应按 Generation Run ID 找到对应记录并聚焦。

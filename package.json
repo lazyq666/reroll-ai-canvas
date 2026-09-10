@@ -8,9 +8,10 @@
   },
   "scripts": {
     "test": "npm run test:node-contracts",
-    "test:node-contracts": "node tests/available_model_management_state_test.cjs && node tests/available_model_management_sync_test.cjs && node tests/api_settings_backup_state_test.cjs && node tests/model_vendor_icon_variants_test.cjs && node tests/infinite_canvas_ui_surface_model.test.cjs && node tests/ui_component_library_decision_store.test.cjs && node tests/ui_component_library_sandbox.test.cjs && node tests/layer_decomposition_draft_contract.cjs",
+    "test:node-contracts": "node tests/available_model_management_state_test.cjs && node tests/available_model_management_sync_test.cjs && node tests/api_settings_backup_state_test.cjs && node tests/model_vendor_icon_variants_test.cjs && node tests/infinite_canvas_ui_surface_model.test.cjs && node tests/ui_component_library_decision_store.test.cjs && node tests/ui_component_library_sandbox.test.cjs && node tests/layer_decomposition_draft_contract.cjs && node tests/sprite_components.test.mjs",
     "test:browser:core": "node tests/ic_core_browser_smoke.cjs",
-    "build:motion": "node scripts/build_libraries_motion.mjs"
+    "build:motion": "node scripts/build_libraries_motion.mjs",
+    "test:gif": "node --test tests/sprite_components.test.mjs"
   },
   "devDependencies": {
     "@paper-design/shaders": "0.0.80",

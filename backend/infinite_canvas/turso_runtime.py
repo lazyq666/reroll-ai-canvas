@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TursoWorkspaceRuntime:
-    def __init__(self, configuration: Path | str, *, workspace_id: str, binding_id: str, device_id: str, transport=None):
+    def __init__(self, configuration: Path | str, *, workspace_id: str, binding_id: str, device_id: str, transport=None, startup_wait_seconds: float = 125):
         try:
             value = json.loads(Path(configuration).read_text(encoding="utf-8"))
             if value.get("schema_version") != 1 or value.get("workspace_id") != workspace_id:
@@ -35,9 +35,7 @@ class TursoWorkspaceRuntime:
         self._thread = None
         self._closed = False
         self.lease = WorkspaceLease(self.raw_connect, workspace_id=workspace_id, binding_id=binding_id, ttl_seconds=120)
-        started = time.monotonic()
-        self.fence = self.lease.acquire()
-        self._deadline = started + 110
+        self.fence = self._acquire_startup_lease(startup_wait_seconds)
         try:
             self.canvas_store = TursoCanvasStore(self.connect, workspace_id=workspace_id)
             self.generation_run_store = TursoGenerationRunStore(self.connect, workspace_id=workspace_id)
@@ -45,6 +43,39 @@ class TursoWorkspaceRuntime:
         except BaseException:
             self.close()
             raise
+
+    def _acquire_startup_lease(self, wait_seconds):
+        """Allow a crashed process's lease to expire without taking it over.
+
+        Only acquisition is retried, before any Store or recovery starts.
+        Every attempt still uses the database's atomic ownership check.
+        """
+        deadline = time.monotonic() + max(0, min(float(wait_seconds), 125))
+        while True:
+            started = time.monotonic()
+            try:
+                fence = self.lease.acquire()
+            except TursoError as error:
+                if error.code != 'cloud_storage_workspace_busy' or time.monotonic() >= deadline:
+                    raise
+                # A missing, retired or foreign binding will not recover by
+                # waiting. Do not turn those failures into a two-minute wait.
+                with closing(self.raw_connect()) as connection:
+                    active = connection.execute(
+                        "SELECT 1 FROM reroll_workspace_lease WHERE workspace_id=? AND binding_id=? AND state='active'",
+                        (self.workspace_id, self.binding_id),
+                    ).fetchone()
+                if active is None:
+                    raise
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise
+                time.sleep(min(2, remaining))
+            else:
+                # The local safety deadline starts at the successful attempt,
+                # and includes its network time, not time spent waiting.
+                self._deadline = started + 110
+                return fence
 
     def raw_connect(self):
         return TursoConnection(self._url, self._token, transport=self._transport)

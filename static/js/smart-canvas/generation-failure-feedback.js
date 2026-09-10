@@ -6,6 +6,7 @@
  */
 (function(){
     const RULES = Object.freeze([
+        {category:'reference_role_invalid', retryability:'modify_then_retry', statuses:[], signals:['的角色或顺序不符合当前模型要求','roles or order are not supported by this model']},
         {category:'canvas_sync_incomplete', retryability:'retry_later', statuses:[], signals:['canvas_sync_incomplete','实时同步尚未完成，生成任务未提交','live sync is not complete, so the generation task was not submitted','画布仍在同步，请稍后重试保存提示词','the canvas is still syncing. try saving the prompt again in a moment.']},
         {category:'reference_upload_rejected', retryability:'modify_then_retry', statuses:[], signals:['reference_upload_rejected','apimart 上传失败(413)']},
         {category:'reference_upload_failed', retryability:'retry_later', statuses:[], signals:['reference_upload_failed']},

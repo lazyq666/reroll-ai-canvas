@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Grid GIF encoder regression</title>
+<button id="run">Run encoder regression</button><pre id="result">Ready</pre>
+<script type="module">
+import {createGridGif} from '/static/js/smart-canvas/grid-gif.js';
+window.StudioI18n = {t:key=>key};
+const assert = (ok, message) => { if (!ok) throw new Error(message); };
+document.querySelector('#run').onclick = async () => {
+    const result = document.querySelector('#result');
+    result.textContent = 'Running';
+    try {
+        const source = document.createElement('canvas'); source.width=81; source.height=61;
+        const ctx = source.getContext('2d');
+        // Odd source dimensions must not introduce grid clipping or stretching.
+        const colors = ['#ff0000','#00ff00','#0000ff','#ffff00'];
+        [[10,18,12,10],[50,18,12,10],[10,48,12,10],[50,48,12,10]].forEach(([x,y,w,h],i)=>{
+            ctx.fillStyle=colors[i]; ctx.fillRect(x,y,w,h);
+        });
+        for (const delay of [500,250,100,70,50]) {
+            const output = await createGridGif({sourceUrl:source.toDataURL(),rows:2,cols:2,delay,fillColor:'#112233'});
+            assert(output.width===16 && output.height===14 && output.frames===4, 'Wrong output geometry');
+            const decoder = new ImageDecoder({data:await output.blob.arrayBuffer(),type:'image/gif'});
+            await decoder.tracks.ready;
+            assert(decoder.tracks.selectedTrack.frameCount===4, 'Wrong frame count');
+            assert(decoder.tracks.selectedTrack.repetitionCount===Infinity, 'Not looping forever');
+            const frameCanvas=document.createElement('canvas'); frameCanvas.width=output.width;frameCanvas.height=output.height;
+            const frameCtx=frameCanvas.getContext('2d',{willReadFrequently:true});
+            for(let i=0;i<4;i++) {
+                const {image}=await decoder.decode({frameIndex:i});
+                assert(image.duration===delay*1000, 'Wrong delay');
+                frameCtx.drawImage(image,0,0);
+                const rgba=frameCtx.getImageData(8,8,1,1).data;
+                const expected=colors[i].match(/[0-9a-f]{2}/g).map(v=>parseInt(v,16));
+                assert(expected.every((v,j)=>Math.abs(rgba[j]-v)<3), 'Wrong frame order or color');
+                const bg=frameCtx.getImageData(0,0,1,1).data;
+                assert([17,34,51,255].every((v,j)=>Math.abs(bg[j]-v)<3), 'Wrong transparent-area background');
+                image.close();
+            }
+            decoder.close();
+        }
+        ctx.fillStyle='#000000';ctx.fillRect(10,18,2,2);
+        ctx.fillStyle='#00ffff';ctx.fillRect(28,5,2,2);
+        ctx.fillStyle='rgba(0,255,255,0.25)';ctx.fillRect(28,9,1,1);
+        ctx.fillStyle='rgba(0,255,255,0.75)';ctx.fillRect(28,12,1,1);
+        const transparent=await createGridGif({sourceUrl:source.toDataURL(),rows:2,cols:2,delay:100,fillColor:'#ffffff',transparent:true});
+        const decoder=new ImageDecoder({data:await transparent.blob.arrayBuffer(),type:'image/gif'});
+        await decoder.tracks.ready;
+        assert(decoder.tracks.selectedTrack.frameCount===4,'Transparent frame count');
+        const rendered=document.createElement('canvas');rendered.width=transparent.width;rendered.height=transparent.height;
+        const renderedCtx=rendered.getContext('2d',{willReadFrequently:true});
+        const first=transparent.sprites[0];
+        const alpha=(x,y)=>renderedCtx.getImageData(x+first.offsetX,y+first.offsetY,1,1).data[3];
+        for(let i=0;i<4;i++) {
+            const {image}=await decoder.decode({frameIndex:i});
+            renderedCtx.clearRect(0,0,rendered.width,rendered.height);renderedCtx.drawImage(image,0,0);image.close();
+            assert(renderedCtx.getImageData(0,0,1,1).data[3]===0,'Transparent background became opaque');
+            assert(alpha(28,5)===(i===0?255:0),'Previous-frame particle left a trail');
+            if(i===0) {
+                const black=renderedCtx.getImageData(10+first.offsetX,18+first.offsetY,1,1).data;
+                assert(black[0]===0 && black[1]===0 && black[2]===0 && black[3]===255,'Opaque black became transparent');
+                assert(alpha(28,9)===0 && alpha(28,12)===255,'Partial alpha conversion failed');
+            }
+        }
+        decoder.close();
+        for (const settings of [{rows:0,cols:2},{rows:1,cols:1},{rows:1,cols:12},{rows:2.5,cols:2},{rows:2,cols:2,delay:1},{transparent:'true'}]) {
+            let rejected=false;
+            try { await createGridGif({sourceUrl:source.toDataURL(),rows:2,cols:2,delay:100,fillColor:'#ffffff',...settings}); }
+            catch { rejected=true; }
+            assert(rejected,'Invalid parameters accepted');
+        }
+        result.textContent='PASS: 5 speeds, 24 decoded frames, solid and transparent backgrounds, no trails, opaque black, alpha threshold, loop and 6 invalid inputs';
+    } catch(error) { result.textContent=`FAIL: ${error.stack}`; }
+};
+</script></html>

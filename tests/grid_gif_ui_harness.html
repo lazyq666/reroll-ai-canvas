@@ -1,0 +1,131 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Grid GIF UI acceptance</title>
+<style>body{margin:0}header{height:34px;display:flex;gap:12px;align-items:center}iframe{border:0;width:100%;height:calc(100vh - 34px)}</style>
+<header><button id="regression">Run UI regression</button><output id="result"></output><button id="open">Open GIF dialog</button><button id="zh">中文</button><button id="en">English</button><button id="light">Light</button><button id="dark">Dark</button><button id="narrow">Narrow / wide</button><button id="fail">Fail next upload</button></header>
+<iframe id="canvas" title="Smart Canvas test" src="/static/smart-canvas.html?id=gif-ui-test&manual=1&fixture=grid-gif"></iframe>
+<script>
+const frame=document.querySelector('iframe');
+document.getElementById('regression').onclick=async()=>{
+ const output=document.getElementById('result'); output.textContent='Running';
+ const wait=()=>new Promise(resolve=>setTimeout(resolve,80));
+ let stage='initial';
+ const analyzed=async dialog=>{const started=performance.now();while(!dialog.gridGif.analysis&&!dialog.gridGif.analysisError&&performance.now()-started<15000)await wait();assert(dialog.gridGif.analysis,'Recognition failed at '+stage+': '+dialog.gridGif.reason());};
+ const assert=(value,message)=>{if(!value)throw new Error(message);};
+ try {
+  document.getElementById('open').click();await wait();
+  const dialog=frame.contentDocument.querySelector('ic-ai-processor-dialog');
+  await dialog.updateComplete; await wait(); await analyzed(dialog);
+  assert(dialog.gridGif.analysis.boundaryConflicts===0,'Automatic boundaries cross visible parts');
+  assert(dialog.gridGif.boundaries.rowLines.length===3,'Automatic horizontal polylines missing');
+  const automatic=JSON.stringify(dialog.gridGif.boundaries);
+  const field=dialog.querySelector('[data-gif-rows]');
+  const input=field.shadowRoot.querySelector('input');
+  input.value='3';input.dispatchEvent(new Event('input',{bubbles:true,composed:true}));input.dispatchEvent(new Event('change',{bubbles:true,composed:true}));await wait();
+  assert(dialog.gridGif.rows===3,'Row change not recorded');
+  frame.contentWindow.postMessage({type:'studio-lang',lang:'zh'},location.origin);await wait();
+  assert(dialog.gridGif.rows===3 && dialog.querySelector('[data-gif-rows]').value=='3','Language switch lost rows');
+  assert(dialog.label==='图片处理','Chinese title missing');
+  frame.contentWindow.postMessage({type:'studio-lang',lang:'en'},location.origin);await wait();
+  assert(dialog.gridGif.rows===3 && dialog.label==='Image processing','English switch lost state');
+  const preset=dialog.querySelector('[data-gif-preset]');preset.value='2x3';preset.dispatchEvent(new Event('change',{bubbles:true}));await wait();
+  assert(dialog.gridGif.rows===2 && dialog.gridGif.cols===3,'Preset not applied');
+  stage='restore layout';preset.value='4x4';preset.dispatchEvent(new Event('change',{bubbles:true}));await wait();await analyzed(dialog);
+  assert(!dialog.querySelector('[data-gif-handle],[data-gif-handle-x],[data-gif-handle-y]'),'Right-side point editors remain');
+  assert(!dialog.querySelector('[data-gif-edit-hint]'),'Unnecessary editing instructions remain');
+  const preview=dialog.querySelector('[data-gif-preview]');
+  const beforeKeys=JSON.stringify(dialog.gridGif.detail());
+  for(const key of ['[',']','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']) preview.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true}));
+  assert(JSON.stringify(dialog.gridGif.detail())===beforeKeys && !dialog.gridGif.selectedHandle,'Keyboard still edits control points');
+  const dragPoint=(predicate,dx,dy)=>{
+   const canvas=dialog.querySelector('[data-gif-preview]');
+   const handles=dialog.gridGif.authoring.handles();
+   const handle=handles.find(h=>predicate(h) && !handles.some(other=>other.id!==h.id && Math.hypot(h.x-other.x,h.y-other.y)<.001));
+   assert(handle,'No distinct pointer target');
+   const rect=canvas.getBoundingClientRect(),size=dialog.gridGif.naturalSize;
+   const at=(x,y)=>({clientX:rect.left+x/size.width*rect.width,clientY:rect.top+y/size.height*rect.height});
+   const capture=canvas.setPointerCapture;let captured=false;
+   // Synthetic events cannot activate native pointer capture. The real pointer
+   // path is verified separately in the browser; assert this handler requests it.
+   canvas.setPointerCapture=()=>{captured=true;};
+   try {
+    canvas.dispatchEvent(new PointerEvent('pointerdown',{...at(handle.x,handle.y),pointerId:7,pointerType:'mouse',button:0,bubbles:true}));
+    assert(captured && dialog.gridGif.selectedHandle===handle.id,'Mouse did not select the point');
+    canvas.dispatchEvent(new PointerEvent('pointermove',{...at(handle.x+dx,handle.y+dy),pointerId:7,pointerType:'mouse',buttons:1,bubbles:true}));
+    canvas.dispatchEvent(new PointerEvent('pointerup',{...at(handle.x+dx,handle.y+dy),pointerId:7,pointerType:'mouse',button:0,bubbles:true}));
+   } finally {canvas.setPointerCapture=capture;}
+   return handle;
+  };
+  const edit=dialog.querySelector('[data-gif-edit-mode]');edit.querySelector('[data-value="anchors"]').click();await wait();
+  const oldX=dialog.gridGif.anchors[0].x;
+  stage='anchor';dragPoint(h=>h.id==='a:0',3,0);await wait();await analyzed(dialog);
+  assert(dialog.gridGif.anchors[0].x===oldX+3,'Mouse alignment lost');
+  edit.querySelector('[data-value="boundaries"]').click();await wait();
+  stage='column';const moved=dragPoint(h=>h.id.startsWith('v:2:1:') && h.point>0,2,0);await wait();await analyzed(dialog);
+  assert(dialog.gridGif.boundaries.columns[moved.row][moved.col][moved.point].x*dialog.gridGif.naturalSize.width>moved.x,'Mouse ownership point did not move');
+  const saved=JSON.stringify(dialog.gridGif.boundaries);
+  const transparency=dialog.querySelector('[data-gif-background]');
+  const checkSegments=()=>{
+   for(const control of dialog.querySelectorAll('[data-gif-edit-mode],[data-gif-speed],[data-gif-background]')) {
+    assert(control.tagName==='IC-SEGMENTED-CONTROL','Setting does not use segmented control');
+    assert(control.dataset.icContractStatus==='ready','Segmented control contract invalid');
+    assert(control.getAttribute('size')==='medium','Inconsistent segmented size');
+    assert(control.scrollWidth<=control.clientWidth+1,'Segmented options overflow');
+    const box=control.getBoundingClientRect(),parent=control.parentElement.getBoundingClientRect();
+    assert(box.left>=parent.left-1 && box.right<=parent.right+1,'Segmented control exceeds its field: '+control.getAttribute('name')+' '+box.width+'/'+parent.width+' left '+box.left+'/'+parent.left);
+    for(const button of control.children)assert(button.scrollWidth<=button.clientWidth+1,'Segment label clipped');
+   }
+  };
+  checkSegments();
+  transparency.querySelector('[data-value="transparent"]').click();await wait();
+  assert(dialog.gridGif.transparent && preview.hasAttribute('data-gif-checkerboard'),'Transparent preview missing');
+  assert(dialog.querySelector('[data-gif-color]').hidden,'Solid color picker not hidden');
+  frame.contentWindow.postMessage({type:'studio-lang',lang:'zh'},location.origin);await wait();
+  assert(JSON.stringify(dialog.gridGif.boundaries)===saved,'Language switch lost edited boundaries');
+  assert(dialog.gridGif.transparent && dialog.querySelector('[data-gif-background]').getAttribute('value')==='transparent','Language switch lost transparency');
+  assert(dialog.querySelector('[data-gif-background]').getAttribute('label')==='GIF 背景','Chinese transparency label missing');
+  assert(dialog.querySelector('[data-gif-reset-authoring]').textContent.includes('重新自动'),'Chinese regroup action missing');
+  frame.style.width='390px';await wait();checkSegments();frame.style.width='100%';
+  frame.contentWindow.postMessage({type:'studio-lang',lang:'en'},location.origin);await wait();
+  frame.style.width='390px';await wait();checkSegments();frame.style.width='100%';await wait();
+  assert(dialog.querySelector('[data-gif-reset-authoring]').textContent.includes('automatically'),'English regroup action missing');
+  assert(dialog.querySelector('[data-gif-background]').getAttribute('label')==='GIF background','English transparency label missing');
+  stage='regroup';dialog.querySelector('[data-gif-reset-authoring]').click();await wait();await analyzed(dialog);
+  assert(JSON.stringify(dialog.gridGif.boundaries)===automatic,'Regroup did not restore automatic boundaries');
+  assert(dialog.gridGif.anchors[0].x===oldX,'Regroup did not reset alignment');
+  assert(dialog.gridGif.transparent,'Regroup lost transparent background');
+  stage='row';const movedRow=dragPoint(h=>h.id.startsWith('h:3:') && h.point>0,0,2);await wait();await analyzed(dialog);
+  assert(dialog.gridGif.boundaries.rowLines[movedRow.row-1][movedRow.point].x*dialog.gridGif.naturalSize.height>movedRow.y,'Mouse horizontal polyline could not be edited');
+  stage='regroup';dialog.querySelector('[data-gif-reset-authoring]').click();await wait();await analyzed(dialog);
+  const speed=dialog.querySelector('[data-gif-speed]');speed.querySelector('[data-value="250"]').click();
+  const color=dialog.querySelector('[data-gif-color]');color.value='#112233';color.dispatchEvent(new Event('change',{bubbles:true}));await wait();
+  const toggle=dialog.querySelector('[data-gif-background]');
+  toggle.querySelector('[data-value="solid"]').click();await wait();
+  assert(!dialog.querySelector('[data-gif-color]').hidden && dialog.gridGif.fillColor==='#112233','Solid color not restored');
+  toggle.querySelector('[data-value="transparent"]').click();await wait();
+  document.getElementById('fail').click();dialog.confirmAction.click();await wait();
+  assert(dialog.pending,'Submission did not enter pending');
+  assert(dialog.cancelAction.disabled && dialog.confirmAction.disabled && toggle.hasAttribute('disabled') && [...toggle.children].every(button=>button.disabled),'Pending controls not blocked');
+  for(let i=0;i<150 && dialog.pending;i++)await wait();
+  assert(dialog.open && dialog.errorMessage && !dialog.pending,'Upload error not recoverable');
+  assert(dialog.gridGif.delay===250 && dialog.gridGif.fillColor==='#112233' && dialog.gridGif.transparent,'Failure lost settings');
+  dialog.confirmAction.click();await wait();
+  for(let i=0;i<150 && dialog.open;i++)await wait();
+  assert(!dialog.open,'Retry failed to close dialog');
+  output.textContent='PASS: three segmented settings, narrow zh/en labels, mouse editing, transparency, regroup, pending and retry';
+ }catch(error){output.textContent='FAIL: '+error.message;}
+};
+for(const lang of ['zh','en']) document.getElementById(lang).onclick=()=>frame.contentWindow.postMessage({type:'studio-lang',lang},location.origin);
+for(const theme of ['light','dark']) document.getElementById(theme).onclick=()=>frame.contentWindow.postMessage({type:'studio-theme',theme},location.origin);
+document.getElementById('narrow').onclick=()=>frame.style.width=frame.style.width==='390px'?'100%':'390px';
+document.getElementById('open').onclick=()=>{
+ const script=frame.contentDocument.createElement('script');
+ script.textContent="openAiProcessorForSmartImage('grid-gif','gif-source',0)";
+ frame.contentDocument.body.append(script);script.remove();
+};
+document.getElementById('fail').onclick=()=>{
+ const original=frame.contentWindow.fetch;
+ frame.contentWindow.fetch=async (...args)=>{
+  if(args[0]==='/api/ai/upload') {frame.contentWindow.fetch=original; return new frame.contentWindow.Response('{}',{status:500});}
+  return original(...args);
+ };
+};
+</script></html>

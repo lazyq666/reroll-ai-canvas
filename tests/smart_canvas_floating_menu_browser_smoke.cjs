@@ -56,7 +56,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
         const group = document.querySelector('#smartNodeFloatingPortal ic-smart-node-toolbar');
         const buttons = [...document.querySelectorAll('#smartNodeFloatingPortal ic-button')];
         return group?.dataset.icContractStatus === 'ready'
-            && buttons.length === 7
+            && buttons.length === 8
             && buttons.every(button => button.dataset.icContractStatus === 'ready');
     });
 
@@ -88,13 +88,45 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
         groupTag:'ic-smart-node-toolbar',
         groupContract:'ready',
         nativeButtonCount:0,
-        buttonCount:7,
-        buttonContracts:['ready', 'ready', 'ready', 'ready', 'ready', 'ready', 'ready'],
+        buttonCount:8,
+        buttonContracts:Array(8).fill('ready'),
         dividerCount:1,
-        actions:['reverse-prompt', 'generate-image', 'matting', 'outpaint', 'angle-control', 'edit', 'download'],
-        labels:['反推提示词', '生成图片/视频', '抠图', '扩图', '角度控制', '编辑', '下载'],
-        icons:['reverse-prompt', 'online-generate', 'cut', 'fit', 'angle-control', 'edit', 'download'],
+        actions:['generate-image', 'layer-decomposition', 'matting', 'outpaint', 'reverse-prompt', 'more-tools', 'edit', 'download'],
+        labels:['生成图片/视频', '智能分层', '抠图', '扩图', '反推提示词', '更多', '编辑', '下载'],
+        icons:['online-generate', 'layers', 'cut', 'fit', 'reverse-prompt', 'more', 'edit', 'download'],
     });
+
+    const moreTools = page.locator('#smartNodeFloatingPortal [data-smart-node-action="more-tools"]');
+    const toolsMenu = page.locator('#smartNodeFloatingPortal [data-smart-node-tools]');
+    const buttonAppearance = button => {
+        const base = getComputedStyle(button.shadowRoot.querySelector('[part="base"]'));
+        const icon = getComputedStyle(button.querySelector('ic-icon'));
+        const svg = getComputedStyle(button.querySelector('ic-icon').shadowRoot.querySelector('svg'));
+        return {fontSize:base.fontSize, color:base.color, iconColor:icon.color,
+            iconWidth:icon.width, iconHeight:icon.height, strokeWidth:svg.strokeWidth};
+    };
+    assert.deepEqual(await moreTools.evaluate(buttonAppearance),
+        await page.locator('#smartNodeFloatingPortal [data-smart-node-action="reverse-prompt"]').evaluate(buttonAppearance));
+    const toolbarSizing = await page.locator('#smartNodeFloatingPortal ic-smart-node-toolbar').evaluate(toolbar => {
+        const content = toolbar.shadowRoot.querySelector('[part="content"]');
+        return {maxWidth:getComputedStyle(toolbar).maxWidth,
+            portalMaxWidth:getComputedStyle(toolbar.parentElement).maxWidth,
+            overflow:getComputedStyle(content).overflowX};
+    });
+    assert.deepEqual(toolbarSizing, {maxWidth:'none', portalMaxWidth:'none', overflow:'visible'});
+    await moreTools.click();
+    assert.equal(await toolsMenu.getAttribute('open'), '');
+    assert.deepEqual(await toolsMenu.locator('ic-menu-item').evaluateAll(items => items.map(item => item.getAttribute('value'))),
+        ['angle-control', 'grid-gif', 'lighting-reference']);
+    await page.keyboard.press('End');
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('value')), 'lighting-reference');
+    await page.keyboard.press('Escape');
+    assert.equal(await toolsMenu.getAttribute('open'), null);
+    assert.equal(await moreTools.getAttribute('aria-expanded'), 'false');
+    await moreTools.press('Enter');
+    assert.equal(await toolsMenu.getAttribute('open'), '');
+    await moreTools.click();
+    assert.equal(await toolsMenu.getAttribute('open'), null);
 
     const tightTopPosition = await page.evaluate(() => {
         nodes[0].y = 30;
