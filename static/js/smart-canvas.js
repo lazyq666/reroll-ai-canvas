@@ -127,7 +127,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-f39048a0e265')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1c107712fb1a')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -8354,6 +8354,13 @@ function smartNodeToolbarText(node){
 }
 function smartNodeToolbarActionHtml(node, action){
     if(action.key === 'divider') return '<ic-divider orientation="vertical" data-smart-node-divider></ic-divider>';
+    if(action.items){
+        const menuId = `smartNodeMoreTools-${node.id}`;
+        return `<ic-menu id="${escapeAttr(menuId)}" data-smart-node-tools data-node-id="${escapeAttr(node.id)}" data-media-index="${smartNodeToolbarImageIndex(node)}" label="${escapeAttr(action.label)}" trigger="dropdown" selection="command" size="small" placement="block-end" alignment="start">
+            ${smartNodeToolbarActionHtml(node, {...action, items:null, menuId})}
+            ${action.items.map(item => `<ic-menu-item kind="command" value="${escapeAttr(item.key)}" icon="${escapeAttr(item.icon)}" label="${escapeAttr(item.label)}"${item.enabled ? '' : ' disabled'}></ic-menu-item>`).join('')}
+        </ic-menu>`;
+    }
     const toggle = action.toggle === true;
     const hierarchy = toggle ? 'secondary' : 'quiet';
     const toggleAttrs = toggle
@@ -8363,7 +8370,8 @@ function smartNodeToolbarActionHtml(node, action){
         ? ` data-media-index="${action.imageIndex}"`
         : '';
     const reason = action.reason ? ` title="${escapeAttr(action.reason)}" aria-label="${escapeAttr(`${action.label}: ${action.reason}`)}"` : '';
-    return `<ic-button type="button" size="xs" hierarchy="${hierarchy}" data-smart-node-action="${escapeAttr(action.key)}" data-node-id="${escapeAttr(node.id)}"${mediaIndex}${toggleAttrs}${reason} ${action.enabled ? '' : 'disabled'}>
+    const menuAttrs = action.menuId ? ` slot="trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="${escapeAttr(action.menuId)}"` : '';
+    return `<ic-button type="button" size="xs" hierarchy="${hierarchy}" data-smart-node-action="${escapeAttr(action.key)}" data-node-id="${escapeAttr(node.id)}"${menuAttrs}${mediaIndex}${toggleAttrs}${reason} ${action.enabled ? '' : 'disabled'}>
         <ic-icon slot="start" name="${escapeAttr(action.icon)}" size="x-small"></ic-icon><span${toggle ? ' data-smart-playback-label' : ''}>${escapeHtml(action.label)}</span>
     </ic-button>`;
 }
@@ -8424,11 +8432,14 @@ function smartNodeToolbarHtml(node){
             ? [
                 {key:'generate-image', icon:'online-generate', label:tr('smart.action.generateMedia'), enabled:true},
                 {key:'layer-decomposition', icon:'layers', label:tr('smart.layerDecomposition'), enabled:true},
-                {key:'reverse-prompt', icon:'reverse-prompt', label:tr('smart.contextReversePrompt'), enabled:true},
                 {key:'matting', icon:'cut', label:tr('smart.matting'), enabled:true},
                 {key:'outpaint', icon:'fit', label:tr('canvas.modeOutpaint'), enabled:true},
-                {key:'angle-control', icon:'angle-control', label:tr('nav.angle'), enabled:true},
-                {key:'lighting-reference', icon:'lighting-reference', label:tr('smart.contextLightingReference'), enabled:true},
+                {key:'reverse-prompt', icon:'reverse-prompt', label:tr('smart.contextReversePrompt'), enabled:true},
+                {key:'more-tools', icon:'more', label:tr('smart.action.moreTools'), enabled:true, items:[
+                    {key:'angle-control', icon:'angle-control', label:tr('nav.angle'), enabled:true},
+                    {key:'grid-gif', icon:'play', label:tr('smart.gif.menu'), enabled:true},
+                    {key:'lighting-reference', icon:'lighting-reference', label:tr('smart.contextLightingReference'), enabled:true}
+                ]},
                 {key:'divider'},
                 {key:'edit', icon:'edit', label:tr('smart.imageModeEdit'), enabled:true},
                 downloadAction
@@ -8562,7 +8573,7 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, tri
         });
         return;
     }
-    if(action === 'outpaint' || action === 'angle-control' || action === 'lighting-reference'){
+    if(action === 'grid-gif' || action === 'outpaint' || action === 'angle-control' || action === 'lighting-reference'){
         openAiProcessorForSmartImage(action, nodeId, index).catch(error => {
             toast((error.message || tr('smart.operationFailed')).slice(0, 160));
         });
@@ -8664,7 +8675,10 @@ function positionSmartNodeFloatingPortal(
     const nodeBottom = nodeTop + rect.height * viewport.scale;
     const isVisible = nodeRight > 0 && nodeLeft < shell.clientWidth && nodeBottom > 0 && nodeTop < shell.clientHeight;
     smartNodeFloatingPortal.classList.toggle('viewport-hidden', !isVisible);
-    if(!isVisible) return;
+    if(!isVisible){
+        smartNodeFloatingPortal.querySelector('[data-smart-node-tools][open]')?.hide('anchor-hidden');
+        return;
+    }
     const anchorX = viewport.x + (rect.x + rect.width / 2) * viewport.scale;
     const menuWidth = smartNodeFloatingPortal.offsetWidth || 0;
     const anchorY = nodeTop - 8;
@@ -8673,6 +8687,7 @@ function positionSmartNodeFloatingPortal(
     smartNodeFloatingPortal.classList.remove('place-below');
     smartNodeFloatingPortal.style.left = `${Math.max(minX, Math.min(maxX, anchorX))}px`;
     smartNodeFloatingPortal.style.top = `${anchorY}px`;
+    smartNodeFloatingPortal.querySelector('[data-smart-node-tools][open]')?.positionSurface();
 }
 function selectedSmartTextAnnotationNode(){
     const selection = window.SmartCanvasModules?.viewportSelection?.selection;
@@ -8739,6 +8754,13 @@ function syncSmartTextOptions(){
 }
 function bindSmartNodeFloatingPortal(){
     if(!smartNodeFloatingPortal) return;
+    smartNodeFloatingPortal.querySelectorAll('[data-smart-node-tools]').forEach(menu => {
+        menu.addEventListener('ic-select', event => {
+            const item = event.composedPath().find(element => element?.localName === 'ic-menu-item');
+            if(!item || item.hasAttribute('disabled')) return;
+            runSmartNodeToolbarAction(menu.dataset.nodeId, event.detail.value, Number(menu.dataset.mediaIndex), item);
+        });
+    });
     smartNodeFloatingPortal.onpointerdown = event => {
         const frameAction = event.target.closest('[data-smart-frame-action]');
         if(frameAction){
@@ -8762,6 +8784,12 @@ function bindSmartNodeFloatingPortal(){
         event.preventDefault();
         event.stopPropagation();
         if(!button || button.disabled) return;
+        if(nodeAction?.dataset.smartNodeAction === 'more-tools'){
+            const menu = button.closest('[data-smart-node-tools]');
+            if(menu?.hasAttribute('open')) menu.hide('toggle');
+            else menu?.show(button);
+            return;
+        }
         if(nodeAction) runSmartNodeToolbarAction(
             button.dataset.nodeId || '',
             button.dataset.smartNodeAction,
@@ -11793,6 +11821,7 @@ function aiProcessorDialogModels(entries){
 }
 function aiProcessorDialogMessages(){
     return {
+        gif:Object.fromEntries(["recognitionHint", "recognizing", "recognized", "boundaryReview", "rowBoundaryPoint", "noTransparency", "emptySource", "countMismatch", "invalidBoundaries", "tooComplex", "editMode", "boundaries", "anchors", "resetAuthoring", "frameNumber", "rowBoundary", "boundaryPoint", "menu", "title", "submit", "grid", "custom", "rows", "cols", "speed", "speed500Short", "speed250Short", "speed100Short", "speed70Short", "speed50Short", "speed500", "speed250", "speed100", "speed70", "speed50", "background", "backgroundHint", "backgroundMode", "solidBackground", "transparent", "transparentHint", "preview", "order", "loading", "imageError", "invalid", "failed", "uploadFailed", "created"].map(key=>[key,tr(`smart.gif.${key}`)])),
         layerAuthoring:Object.fromEntries(["mode", "intelligent", "regions", "granularity", "prompt", "preset.auto", "preset.subject-background", "preset.text-subject-background", "preset.objects", "prompt.subject-background", "prompt.text-subject-background", "prompt.objects", "canvas", "drawHint", "add", "clear", "delete", "selectedRegion", "regionNumber", "x", "y", "width", "height", "description", "descriptionHint", "supplement", "preview", "regionLine", "regionPrompt", "promptRequired", "unsupported", "loading", "imageError", "retry", "staleSize", "invalidRegion", "limit", "sourceChanged", "conflict", "cannotSave", "discardUnsaved"].map(key=>[key,tr(`smart.layerAuthoring.${key}`)])),
         title:tr('smart.layerDecomposition'),
         model:tr('smart.layerDecompositionModel'),
@@ -12195,11 +12224,38 @@ function aiProcessorAngleTarget(source,ratioKey='source',resolution='auto'){
     const mapped=parseSizeValue(apiImageSize(ratioKey==='source'?'custom':ratioKey,resolution,standard,''));
     return {width:Math.max(1,Number(mapped?.width)||width),height:Math.max(1,Number(mapped?.height)||height)};
 }
+async function submitGridGifProcessor(context, settings){
+    const sourceIsCurrent=()=>{
+        const source=nodes.find(item=>item.id===context.sourceNodeId);
+        return source?.images?.[context.imageIndex]?.url===context.originalSourceUrl;
+    };
+    if(!sourceIsCurrent()) throw new Error(tr('smart.reversePromptSourceUnavailable'));
+    const {createGridGif}=await import('/static/js/smart-canvas/grid-gif.js?v=4');
+    const result=await createGridGif({sourceUrl:context.sourceUrl,...settings});
+    if(!sourceIsCurrent()) throw new Error(tr('smart.reversePromptSourceUnavailable'));
+    let file;
+    try { file=await aiProcessorGeometry.uploadBlob(result.blob,'grid-animation.gif'); }
+    catch { throw new Error(tr('smart.gif.uploadFailed')); }
+    if(!sourceIsCurrent()) throw new Error(tr('smart.reversePromptSourceUnavailable'));
+    const output=canvasMutation.create({
+        kind:'image',
+        data:{title:tr('smart.gif.menu'),images:[{...file,kind:'image',natural_w:result.width,natural_h:result.height,width:result.width,height:result.height}]},
+        options:{select:true,reveal:true,placement:{anchor:{kind:'source',sourceNodeId:context.sourceNodeId},relation:'downstream',arrangement:'single'}}
+    });
+    if(!output) throw new Error(tr('smart.operationFailed'));
+    selectedIds=[]; selectedImage={nodeId:output.id,index:0};
+    render(); canvasPersistence.schedule();
+    aiProcessorDialog.pending=false;
+    await aiProcessorDialog.hide('accepted');
+    aiProcessorDialogContext=null;
+    toast(tr('smart.gif.created'));
+}
 async function submitAiProcessorDialog(detail){
     const context=aiProcessorDialogContext;
     if(aiProcessorDialog.pending) return;
     if(!context) throw new Error(tr('smart.aiProcessorContextUnavailable'));
     aiProcessorDialog.pending=true; aiProcessorDialog.setError('');
+    if(detail.processor==='grid-gif') return submitGridGifProcessor(context,detail.gridGif);
     if(detail.processor==='lighting-reference') return submitLightingReferenceProcessor(context,detail);
     const model=context.models.find(item=>item.id===detail.modelId);
     if(!model) throw new Error(tr('smart.availableModelRequired'));
@@ -12215,7 +12271,7 @@ async function openAiProcessorForSmartImage(processor,nodeId,imageIndex){
     if(!source || !image?.url || mediaKindForItem(image) !== 'image') return;
     if(!promptLibraries.length && processor==='reverse-prompt') await loadPromptTemplates();
     const groups=processor==='reverse-prompt'||processor==='outpaint'?aiProcessorPromptGroups():[];
-    const candidateModels=processor==='lighting-reference'?[]:aiProcessorModelEntries(processor==='reverse-prompt'?'text':'image');
+    const candidateModels=['grid-gif','lighting-reference'].includes(processor)?[]:aiProcessorModelEntries(processor==='reverse-prompt'?'text':'image');
     const models=processor==='layer-decomposition'
         ? await smartLayerDecomposition.supportedModels(candidateModels.map(entry=>{
             const provider=(apiProviders||[]).find(item=>item.id===entry.provider_id);
@@ -12239,6 +12295,7 @@ async function openAiProcessorForSmartImage(processor,nodeId,imageIndex){
     dialog.groups=groups; dialog.models=aiProcessorDialogModels(models);
     aiProcessorDialogContext = {
         sourceNodeId:source.id,
+        originalSourceUrl:image.url,
         layerMediaKey,
         layerDraftBaseline:window.SmartCanvasModules.layerDecompositionDraft.copy(savedLayerDraft),
         imageIndex,

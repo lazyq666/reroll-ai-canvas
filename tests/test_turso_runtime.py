@@ -24,13 +24,38 @@ class TursoRuntimeTests(unittest.TestCase):
         self.configuration = Path(self.temp.name) / "connection.json"
         self.configuration.write_text(json.dumps({"schema_version": 1, "workspace_id": "workspace", "url": "https://test.turso.io", "token": "private-test-token"}))
 
-    def open(self, device="device-a", binding="binding"):
-        return TursoWorkspaceRuntime(self.configuration, workspace_id="workspace", binding_id=binding, device_id=device, transport=self.fixture.remote)
+    def open(self, device="device-a", binding="binding", **kwargs):
+        return TursoWorkspaceRuntime(self.configuration, workspace_id="workspace", binding_id=binding, device_id=device, transport=self.fixture.remote, **kwargs)
+
+    def test_restart_waits_for_unreleased_previous_process_lease(self):
+        previous = self.open()
+        self.addCleanup(previous.close)
+        old_fence = previous.fence
+        clock = [1000.0]
+
+        def wait(seconds):
+            clock[0] += seconds
+            self.fixture.remote.database.execute('UPDATE reroll_workspace_lease SET expires_at=0')
+
+        with patch('infinite_canvas.turso_runtime.time.monotonic', side_effect=lambda: clock[0]), patch('infinite_canvas.turso_runtime.time.sleep', side_effect=wait) as sleep:
+            replacement = self.open()
+            self.addCleanup(replacement.close)
+            self.assertEqual(replacement.public()['status'], 'connected')
+            self.assertEqual(sleep.call_count, 1)
+            self.assertEqual(replacement._deadline, clock[0] + 110)
+        self.assertNotEqual(replacement.fence.owner, old_fence.owner)
+        self.assertGreater(replacement.fence.epoch, old_fence.epoch)
+        with self.assertRaisesRegex(TursoError, 'lease_lost'):
+            with old_fence.transaction(previous.raw_connect):
+                self.fail('Previous process must remain fenced out')
+        previous.close()
+        with replacement.fence.transaction(replacement.raw_connect):
+            pass
 
     def test_rotation_reuses_cloud_records_and_keeps_credentials_out_of_status(self):
         first = self.open()
         with self.assertRaises(TursoError):
-            self.open("device-b")
+            self.open("device-b", startup_wait_seconds=0)
         self.assertEqual(first.public()["status"], "connected")
         self.assertNotIn("private-test-token", json.dumps(first.public()))
         first.close()
@@ -38,6 +63,28 @@ class TursoRuntimeTests(unittest.TestCase):
         second = self.open("device-b")
         self.addCleanup(second.close)
         self.assertEqual(second.public()["status"], "connected")
+
+    def test_startup_wait_is_bounded_and_never_steals_active_lease(self):
+        previous = self.open()
+        self.addCleanup(previous.close)
+        clock = [1000.0]
+        def wait(seconds):
+            clock[0] += seconds
+        with patch('infinite_canvas.turso_runtime.time.monotonic', side_effect=lambda: clock[0]), patch('infinite_canvas.turso_runtime.time.sleep', side_effect=wait):
+            with self.assertRaisesRegex(TursoError, 'workspace_busy'):
+                self.open('device-b')
+        self.assertEqual(clock[0], 1125.0)
+        with previous.fence.transaction(previous.raw_connect):
+            pass
+
+    def test_startup_does_not_retry_network_failure_or_invalid_binding(self):
+        with patch('infinite_canvas.turso_runtime.time.sleep') as sleep:
+            with self.assertRaisesRegex(TursoError, 'workspace_busy'):
+                self.open(binding='foreign')
+            with patch('infinite_canvas.turso_runtime.WorkspaceLease.acquire', side_effect=TursoError('cloud_storage_outcome_unknown')):
+                with self.assertRaisesRegex(TursoError, 'outcome_unknown'):
+                    self.open()
+            sleep.assert_not_called()
 
     def test_failed_renewal_stops_new_connections_until_restart(self):
         runtime = self.open()
