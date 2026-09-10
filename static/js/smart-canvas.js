@@ -127,7 +127,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-421483d0209f')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1c107712fb1a')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',

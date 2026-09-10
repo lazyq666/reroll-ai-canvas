@@ -4,7 +4,7 @@ import {
   CANVAS_NODE_STATES,
   canvasNodeClasses,
   isCanvasNodeKind,
-} from './shared.js?v=ic-ui-421483d0209f';
+} from './shared.js?v=ic-ui-1c107712fb1a';
 
 const MANAGED_CLASSES = new Set(CANVAS_NODE_KINDS.flatMap(kind => [
   ...canvasNodeClasses(kind, { detail:true }).split(' '),

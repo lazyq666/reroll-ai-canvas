@@ -450,7 +450,9 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
             },
             inputRoles:{
                 image:imageRefsOnly([...uploadedRefs,...manualLinks], null).map((ref, index) => {
-                    if(!effectiveSettings.videoUseFrameRoles) return String(ref?.role || '');
+                    // Match the submitted images: authoring labels and stale frame
+                    // roles are not video input roles in all-around reference mode.
+                    if(!effectiveSettings.videoUseFrameRoles) return '';
                     if(index === 0) return 'first_frame';
                     if(index === 1) return 'last_frame';
                     return '';

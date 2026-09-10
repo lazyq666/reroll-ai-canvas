@@ -1,6 +1,6 @@
 import { IcDialog } from './dialog.js';
 import { ensureAiProcessorDialogStyles } from './ai-processor-dialog/styles.js';
-import { GridGifControls } from './ai-processor-dialog/grid-gif.js?v=ic-ui-421483d0209f';
+import { GridGifControls } from './ai-processor-dialog/grid-gif.js?v=ic-ui-1c107712fb1a';
 import { LayerAuthoring } from './ai-processor-dialog/layer-authoring.js';
 
 ensureAiProcessorDialogStyles();
