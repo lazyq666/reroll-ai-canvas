@@ -81,7 +81,7 @@ function loadModule() {
   const success = loadModule();
   const events = [];
   success.root.SmartCanvasModules.canvasPersistence = {
-    checkpoint:async () => events.push('checkpoint'),
+    checkpoint:async () => { throw new Error('canvas_checkpoint_timeout'); },
   };
   success.root.fetch = async (url, options) => {
     events.push('fetch');
@@ -99,7 +99,7 @@ function loadModule() {
     button:success.button,
   });
   assert.equal(downloaded, true);
-  assert.deepEqual(events, ['checkpoint', 'fetch']);
+  assert.deepEqual(events, ['fetch'], 'Download must not wait for or save the canvas');
   assert.deepEqual(success.clicks, [{href:'blob:issue-36', download:'角色.psd'}]);
   assert.deepEqual(success.revoked, ['blob:issue-36']);
   assert.equal(success.button.disabled, false);
@@ -109,18 +109,17 @@ function loadModule() {
     const custom = loadModule();
     const trigger = {disabled:false, toggleAttribute(name, active) { this[name] = active; }};
     let release;
-    let checkpointCount = 0;
-    custom.root.SmartCanvasModules.canvasPersistence = {checkpoint:() => {
-      checkpointCount++;
-      return new Promise(resolve => { release = resolve; });
-    }};
-    custom.root.fetch = async () => response({ok});
+    let requestCount = 0;
+    custom.root.fetch = () => {
+      requestCount++;
+      return new Promise(resolve => { release = () => resolve(response({ok})); });
+    };
     const pending = custom.api.download({canvasId:'toolbar-canvas', nodeId:'toolbar-node', button:trigger});
     assert.equal(trigger.disabled, true, 'Disable the clicked toolbar button');
     assert.equal(trigger['aria-busy'], true);
     assert.equal(custom.button.disabled, false, 'Do not disable a separate editor button');
     const duplicate = custom.api.download({canvasId:'toolbar-canvas', nodeId:'toolbar-node', button:trigger});
-    assert.equal(checkpointCount, 1, 'Duplicate export does not start a second checkpoint');
+    assert.equal(requestCount, 1, 'Duplicate export does not start a second request');
     assert.equal(await duplicate, false, 'Coalesce exports for the same node');
     release();
     assert.equal(await pending, ok);

@@ -1,4 +1,4 @@
-/* Persist the current Layer Decomposition Node, then download its server-built PSD. */
+/* Download the persisted Layer Decomposition Node without saving the canvas. */
 (function(root){
     'use strict';
 
@@ -72,11 +72,9 @@
         activeExports.add(exportKey);
         busy(button, true);
         try {
-            const checkpoint = root.SmartCanvasModules?.canvasPersistence?.checkpoint;
-            if(typeof checkpoint !== 'function' || typeof root.fetch !== 'function'){
+            if(typeof root.fetch !== 'function'){
                 throw new Error('layered_psd_unavailable');
             }
-            await checkpoint.call(root.SmartCanvasModules.canvasPersistence, {timeout:5000});
             const response = await root.fetch(
                 `/api/canvases/${encodeURIComponent(normalizedCanvasId)}/layer-decompositions/${encodeURIComponent(normalizedNodeId)}/psd`,
                 {
