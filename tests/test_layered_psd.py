@@ -575,10 +575,16 @@ class LayeredPsdHttpContractTests(unittest.TestCase):
                             if saved.get("type") == "canvas_mutation":
                                 break
                         self.assertEqual(1, saved["revision"])
+                    before_export = designer.get(f"/api/canvases/{canvas_id}").json()
                     exported = designer.post(
                         f"/api/canvases/{canvas_id}/layer-decompositions/layers-36/psd"
                     )
                     self.assertEqual(200, exported.status_code, exported.text)
+                    self.assertEqual(
+                        before_export,
+                        designer.get(f"/api/canvases/{canvas_id}").json(),
+                        "PSD download must not change the canvas, revision, or logs",
+                    )
                     self.assertEqual(
                         "image/vnd.adobe.photoshop",
                         exported.headers["content-type"],

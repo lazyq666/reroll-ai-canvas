@@ -212,13 +212,14 @@ Generation Failed Node，并在页面级失败队列显示可查看诊断的持�
 Alert。Guest Account 和 Anonymous Share Visitor 没有该提交入口，服务端也只允许
 Administrator 或 Designer 创建与查询任务。
 
-智能分层模式底部的“下载 PSD”导出当前专用 Node，而不是初始 Provider 响应。单击后客户端
-先等待 Canvas checkpoint，再调用
+智能分层模式底部的“下载 PSD”导出服务端已保存的当前专用 Node，而不是初始 Provider 响应。单击后客户端
+直接调用下载接口，不触发 Canvas Save 或 checkpoint，不等待实时同步：
 `POST /api/canvases/{canvas_id}/layer-decompositions/{node_id}/psd`。服务端重新校验
 Administrator / Designer 的画布写权限，只从当前 Workspace Managed Media 解析底图与图层，
 并按 Manifest 画布尺寸、当前图层名称、`z_index`、`absolute_bbox`、Alpha 与显隐状态在内存中
 组装完整 PSD；已经从 `layerDecompositionItems` 删除的图层不再导出。隐藏图层仍保留为 PSD
-图层，但不进入合成预览。导出不创建 Generation Run、不修改 Canvas，也不提供 PSD 回导。
+图层，但不进入合成预览。尚未同步到服务端的本地修改不包含在该次导出中。导出不创建 Generation Run、
+不修改 Canvas、不记录下载行为，也不提供 PSD 回导；实时连接恢复中不应单独阻止下载。
 结果编辑器通过隐藏暂时排除元素，再次显示即可恢复；旧版已删除的图层不会因本次移除删除入口而自动还原。
 服务端只有在文件完整生成后才返回下载响应；素材缺失、状态非法或生成失败时返回结构化错误，
 客户端不下载响应体，只显示当前语言下的通用失败提示。
