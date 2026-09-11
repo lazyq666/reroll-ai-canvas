@@ -462,6 +462,31 @@ class ApplicationHttpTests(unittest.TestCase):
             self.assertEqual(admin.json()["stage"], "stopping")
             self.assertEqual(restarts, [True])
 
+    def test_restart_returns_controlled_conflict_for_unknown_local_submission(self):
+        from infinite_canvas.local_generation_submissions import LocalSubmissionError
+        class Runs:
+            def active_count(self):
+                return 1
+            async def cancel_active(self):
+                raise LocalSubmissionError("local_generation_uncertain")
+        class Authorization:
+            def role_for_session(self, token):
+                return "admin"
+        with tempfile.TemporaryDirectory() as temporary:
+            async def initialize():
+                return RuntimeStartup(application=FastAPI())
+            restarts = []
+            runtime = ApplicationRuntime(initializer=initialize,
+                local_state_dir=Path(temporary), version="test", generation_runs=Runs(),
+                restart_signal=lambda: restarts.append(True))
+            asyncio.run(runtime.start())
+            client = TestClient(create_app(runtime, runtime_authorization=Authorization()))
+            client.cookies.set("ic_session", "admin-session")
+            response = client.post("/api/runtime/restart", json={"cancel_active": True})
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(response.json()["code"], "local_generation_uncertain")
+            self.assertEqual(restarts, [])
+
     def test_storage_migration_rejects_active_generation_runs_with_next_step(self):
         legacy_app = FastAPI()
         migration_calls = []

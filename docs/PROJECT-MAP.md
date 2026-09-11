@@ -115,6 +115,8 @@ backend/
     ├── canvas_realtime.py      Smart Canvas Mutation 语义和历史
     ├── connection_manager.py   实时连接、发送队列、连接硬上限
     ├── realtime_presence.py    账号级短暂成员/指针状态、协议、批处理与 TTL
+    ├── local_generation_submissions.py 云端试用的本机提交日志、后台前置确认与未知回执核对
+    ├── local_generation_http.py 获授权账号的本机接收、查询与恢复入口
     ├── generation_runs.py      Generation Run 生命周期、结果物化编排、幂等和恢复
     ├── generation_run_store.py SQLite Run、Global History 与发布回执权威
     ├── generation_publication.py JSON / SQLite History 与通知发布接缝

@@ -709,11 +709,15 @@ def create_app(
         )
         if authorization_error is not None:
             return authorization_error
-        return (
-            await runtime.request_restart(
-                cancel_active=payload.cancel_active,
-            )
-        ).public()
+        from .local_generation_submissions import LocalSubmissionError
+        try:
+            return (
+                await runtime.request_restart(
+                    cancel_active=payload.cancel_active,
+                )
+            ).public()
+        except LocalSubmissionError as error:
+            return JSONResponse(status_code=error.status_code, content={"code": error.code})
 
     @shell.post("/api/runtime/storage-migration")
     async def request_storage_migration(

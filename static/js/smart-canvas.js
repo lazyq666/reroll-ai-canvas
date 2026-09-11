@@ -5799,13 +5799,14 @@ async function submitComposerGeneration(){
         }
         const queued = receipt.state === 'queued' || (receipt.tasks?.length
             && receipt.tasks.every(task => task.status === 'queued'));
-        const key = receipt.state === 'local-queued' ? 'smart.generationSavedOffline'
+        const key = receipt.state === 'local-accepted' ? 'smart.localGenerationAccepted'
+            : receipt.state === 'local-queued' ? 'smart.generationSavedOffline'
             : receipt.state === 'completed' ? 'smart.generationCompleted'
             : queued ? 'smart.generationQueued' : 'smart.generationSubmitted';
         toast(tr(key), {tone:'success', duration:4000, submission:true, i18nKey:key});
     };
     try {
-        return await generationRun.run({nodeId:node.id, onAccepted:notifyAccepted, onQueued:notifyAccepted});
+        return await generationRun.run({nodeId:node.id, onAccepted:notifyAccepted, onQueued:notifyAccepted, onLocalAccepted:notifyAccepted});
     } catch(error){
         toast(error?.message || tr('smart.errRunFailed'), {tone:'danger'});
         return false;
@@ -7717,7 +7718,9 @@ function generationPendingNodeHtml({kind='image',state='generating',count=1,labe
     return `<ic-generation-pending data-generation-pending-node kind="${escapeAttr(safeKind)}" state="${escapeAttr(safeState)}" count="${safeCount}" label="${escapeAttr(accessibleLabel)}"${descriptionAttribute}${elapsedAttribute}></ic-generation-pending>`;
 }
 function generationRecoveryNodeHtml({nodeId='',taskId='',targetKind='jimeng',kind='image',state='recoverable',title='',description='',actionLabel='',width=null,height=null}={}){
-    const targetAttributes = targetKind === 'image'
+    const targetAttributes = targetKind === 'local'
+        ? `data-local-generation-query="${escapeAttr(nodeId)}"`
+        : targetKind === 'image'
         ? `data-image-task-query="${escapeAttr(nodeId)}" data-task-id="${escapeAttr(taskId)}"`
         : `data-jimeng-query="${escapeAttr(nodeId)}"`;
     const safeKind = ['image','video','text'].includes(kind) ? kind : 'image';
@@ -8082,6 +8085,24 @@ function nodeBodyHtml(node, layout){
     if(node.type === 'smart-splitter') return splitterNodeBodyHtml(node);
     if(node.type === 'smart-loop') return smartLoopBodyHtml(node);
     const imgs = (node.images || []).map(imageForDisplay);
+    const localSubmissions = window.SmartCanvasModules?.localGenerationSubmissions;
+    const localSubmission = localSubmissions?.forNode(node);
+    if(localSubmission && imgs.length === 0){
+        const label = tr(localSubmissions.keyFor(localSubmission));
+        if(['failed','uncertain'].includes(localSubmission.status)){
+            return generationRecoveryNodeHtml({
+                kind:generationPendingNodeKind(node), state:'recoverable',
+                title:tr(localSubmission.status === 'uncertain' ? 'smart.localGenerationCheck' : 'smart.errRunFailed'),
+                description:label,
+                actionLabel:tr(localSubmission.status === 'uncertain' ? 'smart.localGenerationCheck' : 'smart.localGenerationRetry'),
+                nodeId:node.id, targetKind:'local'
+            });
+        }
+        return generationPendingNodeHtml({
+            kind:generationPendingNodeKind(node), state:'queued', count:Math.max(1, Number(node.pending) || 1),
+            label, elapsed:generationPendingNodeElapsed(node)
+        });
+    }
     if(generationNodeHasFailedRun(node) && imgs.length === 0) return generationFailureTargetHtml(node);
     if(node.mattingJob && imgs.length === 0){
         return smartMatting.pendingHtml({node, layout, elapsed:generationPendingNodeElapsed(node)});
@@ -9096,6 +9117,7 @@ function smartCanvasNodeRenderSignature(node){
     delete copy.y;
     return JSON.stringify([
         copy,
+        window.SmartCanvasModules?.localGenerationSubmissions?.forNode(node),
         smartCanvasNodeUsesFarPresentation(node.id) ? 'far' : 'detail',
         window.StudioI18n?.lang?.() || 'zh'
     ]);
@@ -9296,12 +9318,13 @@ function render(options={}){
         const isImageNode = node.type === 'smart-image' || !node.type;
         const isJimengPending = Boolean(node.jimengPending && node.jimengPending.submitId && imgs.length === 0);
         const isMattingJob = Boolean(node.mattingJob && imgs.length === 0);
+        const hasLocalSubmission = Boolean(window.SmartCanvasModules?.localGenerationSubmissions?.forNode(node));
         const isQueued = Boolean(node.queued && imgs.length === 0 && !node.pending && !isJimengPending);
         const isFailed = generationNodeHasFailedRun(node);
-        const isEmpty = isImageNode && imgs.length === 0 && !node.pending && !isQueued && !isJimengPending && !isMattingJob && !isFailed;
+        const isEmpty = isImageNode && imgs.length === 0 && !node.pending && !isQueued && !isJimengPending && !isMattingJob && !isFailed && !hasLocalSubmission;
         const isHistory = isHistoryGroupNode(node);
         const isGroup = isImageNode && imgs.length > 1;
-        const isPending = ((node.pending || isQueued || isJimengPending || smartMatting.isActive({job:node.mattingJob})) && imgs.length === 0);
+        const isPending = ((node.pending || isQueued || isJimengPending || hasLocalSubmission || smartMatting.isActive({job:node.mattingJob})) && imgs.length === 0);
         const nodeFarMode = smartCanvasNodeUsesFarPresentation(node.id);
         const nodeRole = nodeKinds.roleOf(node);
         const body = nodeFarMode ? farNodeBodyHtml(node, layout) : nodeBodyHtml(node, layout);
@@ -11196,6 +11219,12 @@ function bindNodeEvents(){
                 e.preventDefault();
                 e.stopPropagation();
                 runSmartGroupToolbarAction(btn.dataset.nodeId || id, btn.dataset.smartGroupAction);
+            });
+        });
+        el.querySelectorAll('ic-generation-recovery[data-local-generation-query]').forEach(control => {
+            control.addEventListener('ic-recover', e => {
+                e.preventDefault(); e.stopPropagation();
+                window.SmartCanvasModules.localGenerationSubmissions.recover(control.dataset.localGenerationQuery);
             });
         });
         el.querySelectorAll('ic-generation-recovery[data-jimeng-query]').forEach(control => {

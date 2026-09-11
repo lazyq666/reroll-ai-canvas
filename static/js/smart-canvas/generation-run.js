@@ -416,8 +416,11 @@ async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings
         settings:settingsSnapshot,
         createdAt:Date.now()
     };
-    await generationRunPersistenceModule.save();
-    if(
+    const localSubmission = options.onLocalAccepted
+        ? await window.SmartCanvasModules?.localGenerationSubmissions?.context?.({settings:settingsSnapshot, onLocalAccepted:options.onLocalAccepted})
+        : null;
+    if(!localSubmission) await generationRunPersistenceModule.save();
+    if(!localSubmission &&
         typeof generationRunPersistenceModule.synced === 'function'
         && !await generationRunPersistenceModule.synced({timeout:30000,forGeneration:true})
     ){
@@ -434,7 +437,8 @@ async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings
         context:{
             canvasId,
             nodeId:node.id,
-            operationId:generationOperationId
+            operationId:generationOperationId,
+            localSubmission
         }
     });
     const currentNode = nodes.find(item => item.id === node.id);
@@ -469,8 +473,11 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
         slot.generationOperationId = generationOperationId;
         slot.generationInputSnapshot = generationRunClone(inputSnapshot);
     });
-    await generationRunPersistenceModule.save();
-    if(
+    const localSubmission = options.onLocalAccepted
+        ? await window.SmartCanvasModules?.localGenerationSubmissions?.context?.({settings:settingsSnapshot, onLocalAccepted:options.onLocalAccepted})
+        : null;
+    if(!localSubmission) await generationRunPersistenceModule.save();
+    if(!localSubmission &&
         typeof generationRunPersistenceModule.synced === 'function'
         && !await generationRunPersistenceModule.synced({timeout:30000,forGeneration:true})
     ){
@@ -489,7 +496,8 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
             nodeId:slots[0].id,
             nodeIds:slots.map(slot => slot.id),
             generationBatchId:slots[0].generationBatchId || '',
-            operationId:generationOperationId
+            operationId:generationOperationId,
+            localSubmission
         }
     });
     const liveSlots = slots.map(slot => nodes.find(item => item.id === slot.id));
@@ -1080,6 +1088,11 @@ async function runGeneration(options={}){
     }
     render();
     let submissionAccepted = false;
+    let locallyAccepted = false;
+    const onLocalAccepted = options.onLocalAccepted ? async detail => {
+        locallyAccepted = true;
+        await options.onLocalAccepted(detail);
+    } : null;
     const onAccepted = async detail => {
         submissionAccepted = true;
         await options.onAccepted?.(detail);
@@ -1091,12 +1104,13 @@ async function runGeneration(options={}){
                 prompt,
                 refs,
                 runSettings,
-                {logContext:{run:runLog,runLogStart}, onAccepted}
+                {logContext:{run:runLog,runLogStart}, onAccepted, onLocalAccepted}
             )
             : await submitAndSettleGenerationProvider(pendingNode, prompt, refs, runSettings, {
                 logContext:{run:runLog, runLogStart},
                 submissionSnapshot,
-                onAccepted
+                onAccepted,
+                onLocalAccepted
             });
         if(result.deferred){
             delete pendingNode._runMetaTargetId;
@@ -1174,6 +1188,17 @@ async function runGeneration(options={}){
         clearPromptInput({preserveDraft:true});
         generationRunPersistenceModule.schedule();
     } catch(e) {
+        if(locallyAccepted || e?.generationLocallyAccepted){
+            // The device worker owns this intent now. Do not delete its target,
+            // requeue on the source, or assign a new operation after a lost reply.
+            pendingNodes.forEach(target => {
+                target.pending = e?.localSubmissionPending ? 1 : 0;
+                target.running = false;
+                if(!e?.localSubmissionPending) target.generationRunFeedback = generationRunNodeFailureFeedback(e);
+            });
+            window.SmartCanvasModules?.localGenerationSubmissions?.resume?.();
+            return;
+        }
         pendingNodes.forEach(target => {
             target.pending = 0;
             target.running = false;
@@ -1485,7 +1510,7 @@ async function regenerateGenerationRun(nodeId){
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.generationRun = Object.freeze({
-    run({nodeId='', mode='single', onAccepted=null, onQueued=null}={}){
+    run({nodeId='', mode='single', onAccepted=null, onQueued=null, onLocalAccepted=null}={}){
         const node = nodeId ? nodes.find(item => item.id === nodeId) : window.SmartCanvasModules.viewportSelection.selection.node();
         if(mode === 'loop'){
             if(!generationRunOnline()){
@@ -1499,7 +1524,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             selectedIds = [];
             selectedImage = {nodeId:'', index:-1};
         }
-        return runGeneration({node, onAccepted, onQueued});
+        return runGeneration({node, onAccepted, onQueued, onLocalAccepted});
     },
     processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},onAccepted=null,throwOnSubmissionFailure=true}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
@@ -1525,6 +1550,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
         return activeGenerationCascadeModule()?.stop(options);
     },
     resume(){
+        window.SmartCanvasModules?.localGenerationSubmissions?.resume?.();
         const recovery = activeGenerationRecoveryModule()?.resume();
         generationRunResumeQueued();
         return recovery;

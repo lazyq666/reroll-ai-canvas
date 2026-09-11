@@ -34,6 +34,7 @@ class TursoWorkspaceRuntime:
         self._deadline = 0.0
         self._thread = None
         self._closed = False
+        self.local_submissions_protected = False
         self.lease = WorkspaceLease(self.raw_connect, workspace_id=workspace_id, binding_id=binding_id, ttl_seconds=120)
         self.fence = self._acquire_startup_lease(startup_wait_seconds)
         try:
@@ -139,6 +140,9 @@ class TursoWorkspaceRuntime:
         with closing(self.connect()) as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
             previous = connection.execute("SELECT value FROM store_metadata WHERE key='cloud_last_device_id'").fetchone()
+            local_owner = connection.execute("SELECT value FROM store_metadata WHERE key='cloud_local_submissions_device'").fetchone()
+            if local_owner and local_owner[0] and local_owner[0] != device_id:
+                raise TursoError("cloud_storage_original_device_required")
             unfinished = connection.execute("""
                 SELECT 1 FROM generation_runs r
                 WHERE r.status NOT IN ('succeeded','failed','cancelled','discarded')
@@ -150,6 +154,25 @@ class TursoWorkspaceRuntime:
             if unfinished and (previous is None or previous[0] != device_id):
                 raise TursoError("cloud_storage_original_device_required")
             connection.execute("INSERT INTO store_metadata(key,value) VALUES('cloud_last_device_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (device_id,))
+
+    def protect_local_submissions(self, device_id):
+        """Fence rotation before admitting any device-only submission intents."""
+        if not device_id:
+            raise TursoError("cloud_storage_configuration_required")
+        with closing(self.connect()) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            owner = connection.execute("SELECT value FROM store_metadata WHERE key='cloud_local_submissions_device'").fetchone()
+            if owner and owner[0] and owner[0] != device_id:
+                raise TursoError("cloud_storage_original_device_required")
+            connection.execute("INSERT INTO store_metadata(key,value) VALUES('cloud_local_submissions_device',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (device_id,))
+        self.local_submissions_protected = True
+
+    def finish_local_submissions(self, device_id):
+        """Clear only this device's guard after local admission has drained."""
+        self.local_submissions_protected = False
+        with closing(self.connect()) as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute("UPDATE store_metadata SET value='' WHERE key='cloud_local_submissions_device' AND value=?", (device_id,))
 
     def close(self):
         if self._closed:

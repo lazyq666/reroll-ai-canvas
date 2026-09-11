@@ -307,8 +307,8 @@ Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 的验收入
 
 ### Smart Canvas
 
-- Composer 的运行按钮在提交开始时使用公共 `<ic-icon-button hierarchy="primary" loading>`（样板间标识 `ic-icon-button-primary-loading`），可访问名称为“正在提交…”。Loading 仅覆盖校验、保存/同步、上传及等待接收确认；期间阻止重复点击。确认接收后恢复运行入口，允许用户主动提交下一次生成；不等输出完成。当前展开编辑会在确认后收起，保留提示词、参考图和参数；迟到确认不得关闭用户重新打开或已切换对象的编辑会话。单次和多图运行共用该行为。
-- Composer 接收反馈使用公共 Toast：服务端明确返回排队时显示“已加入队列”，其他未完成回执显示“生成任务已提交”，同步返回输出时显示“生成已完成”；仅本地暂存显示“已保存，联网后提交”。一次提交只提示一次，即使已有其他生成失败 Alert，也不能吞掉此次接收提示。校验或提交失败结束 Loading、保留展开和输入，沿用现有失败反馈。Loading 名称与可见 Toast 均随中英文切换更新。验收见 `tests/composer_submission_feedback_browser_smoke.cjs` 与 `tests/composer_submission_feedback.test.cjs`。
+- Composer 的运行按钮在提交开始时使用公共 `<ic-icon-button hierarchy="primary" loading>`（样板间标识 `ic-icon-button-primary-loading`），可访问名称为“正在提交…”。Loading 仅覆盖校验、输入准备及等待接收确认；期间阻止重复点击。云端试用的媒体 Composer 以本机可靠写入为接收点，后续画布同步与 Provider 提交在后台推进；默认模式沿用原保存/同步与服务端回执。确认接收后恢复运行入口，允许用户主动提交下一次生成；不等输出完成。当前展开编辑会在确认后收起，保留提示词、参考图和参数；迟到确认不得关闭用户重新打开或已切换对象的编辑会话。单次和多图运行共用该行为。
+- Composer 接收反馈使用公共 Toast：服务端明确返回排队时显示“已加入队列”，其他未完成回执显示“生成任务已提交”，同步返回输出时显示“生成已完成”；原有离线暂存显示“已保存，联网后提交”；云端试用的本机可靠接收显示“任务已保存在本机，后台提交中，可继续生成”，对应占位显示“等待同步并提交”，不得表示已保存到云端。一次提交只提示一次，即使已有其他生成失败 Alert，也不能吞掉此次接收提示。校验或提交失败结束 Loading、保留展开和输入，沿用现有失败反馈。Loading 名称与可见 Toast 均随中英文切换更新。验收见 `tests/composer_submission_feedback_browser_smoke.cjs` 与 `tests/composer_submission_feedback.test.cjs`。
 - Node、Connection、Frame、Selection 与 Viewport 的术语和归属以 [`CONTEXT.md`](../../CONTEXT.md) 为准。
 - 普通 Prompt Node 的双击只开启一次行内编辑；延迟事件或在已编辑文本上再次双击，不得重置选区、光标或本次编辑的取消快照。全选后输入、粘贴或中文输入应替换当前选区；点击外部或按 `Ctrl/Cmd+Enter` 保留修改，行内编辑按 `Escape` 恢复进入本次编辑时的内容。已退出的编辑不得被迟到的动画帧回调重新开启。
 - 单选 Smart Group 或具有明确生成身份的 Generation Node 时，Composer 自动打开。普通 Image Node 不触发 Composer，包括上传前的空媒体槽、图片、视频与音频状态；上传中和上传完成重绘可以保持 Selection，但不能打开 Composer 或启用运行按钮。Quick Add 创建的空 Generation Node 只把所选图片 / 视频作为初始模式，Composer 仍可双向切换；只有已实际承载视频或音频、且没有图片媒体的 Generation Node 固定为视频生成。Composer 可见性、运行按钮基础资格和最终 Generation Run 门禁必须使用同一角色资格结果。

@@ -19,6 +19,7 @@ let canvasPersistenceConfirmedDocument = null;
 let canvasPersistenceOpeningSourceDocument = null;
 let canvasPersistenceOpeningBaselineDocument = null;
 let canvasPersistenceInFlight = null;
+const canvasPersistenceSealedOperations = [];
 let canvasPersistencePendingSave = false;
 let canvasPersistenceGenerationWaiters = 0;
 let canvasPersistenceOperationCounter = 0;
@@ -199,13 +200,22 @@ function canvasPersistenceReadLocal(){
             storage.removeItem(canvasPersistenceLocalKey());
             return null;
         }
+        if(record.submission_identity){
+            const identity = window.SmartCanvasModules?.localGenerationSubmissions?.identity?.();
+            if(!identity || identity.workspace_id !== record.submission_identity.workspace_id
+                || identity.actor_id !== record.submission_identity.actor_id) return null;
+        }
         return record;
     } catch(error){
         return null;
     }
 }
 function canvasPersistenceWriteLocal(changes={}){
-    if(canvasPersistenceChangesEmpty(changes)){
+    const operations = [
+        ...(canvasPersistenceInFlight ? [canvasPersistenceInFlight.operation] : []),
+        ...canvasPersistenceSealedOperations
+    ];
+    if(canvasPersistenceChangesEmpty(changes) && !operations.length){
         canvasPersistenceClearLocal();
         return true;
     }
@@ -217,7 +227,11 @@ function canvasPersistenceWriteLocal(changes={}){
             canvas_id:String(canvasId),
             base_revision:canvasPersistenceRevision,
             saved_at:Date.now(),
-            changes:canvasPersistenceClone(changes)
+            changes:canvasPersistenceClone(changes),
+            operations:canvasPersistenceClone(operations),
+            submission_identity:canvasPersistenceSealedOperations.length || canvasPersistenceInFlight?.sealed
+                ? window.SmartCanvasModules?.localGenerationSubmissions?.identity?.() || null
+                : null
         }));
         return true;
     } catch(error){
@@ -253,7 +267,7 @@ function canvasPersistenceRestoreLocal(documentValue={}){
     );
     const effectiveChanges = canvasPersistenceDiff(confirmed,restored);
     if(canvasPersistenceChangesEmpty(effectiveChanges)){
-        canvasPersistenceClearLocal();
+        canvasPersistenceWriteLocal(effectiveChanges);
         return confirmed;
     }
     canvasPersistencePendingSave = true;
@@ -980,7 +994,9 @@ function canvasPersistenceSendOperation(
     {
         revertsOperationId='',
         operationId='',
-        optimistic=true
+        optimistic=true,
+        baseRevision=canvasPersistenceRevision,
+        sealed=false
     }={}
 ){
     if(
@@ -995,7 +1011,7 @@ function canvasPersistenceSendOperation(
         );
     const operation = {
         operation_id:nextOperationId,
-        base_revision:canvasPersistenceRevision
+        base_revision:baseRevision
     };
     if(revertsOperationId){
         operation.reverts_operation_id = revertsOperationId;
@@ -1005,7 +1021,8 @@ function canvasPersistenceSendOperation(
     canvasPersistenceInFlight = {
         operation,
         changes:canvasPersistenceClone(changes || canvasPersistenceEmptyChanges()),
-        optimistic:Boolean(optimistic)
+        optimistic:Boolean(optimistic),
+        sealed:Boolean(sealed)
     };
     canvasPersistenceSocket.send(JSON.stringify({
         type:'canvas_mutation',
@@ -1088,6 +1105,17 @@ function canvasPersistenceSchedule(delay=450){
 async function canvasPersistenceSave(){
     if(canvasPersistenceTransientSession) return true;
     if(!canvasId || !canvas) return false;
+    if(canvasPersistenceSealedOperations.length){
+        canvasPersistencePendingSave = true;
+        canvasPersistencePersistLocal();
+        if(!canvasPersistenceOnline() || canvasPersistenceInFlight) return false;
+        const operation = canvasPersistenceSealedOperations.shift();
+        canvasPersistenceSendOperation(operation.changes, {
+            operationId:operation.operation_id, baseRevision:operation.base_revision, sealed:true
+        });
+        canvasPersistencePersistLocal();
+        return true;
+    }
     const baseline = canvasPersistenceDiffBaseline();
     if(!baseline){
         return false;
@@ -1113,6 +1141,29 @@ async function canvasPersistenceSave(){
         return true;
     }
     return false;
+}
+function canvasPersistenceSealGeneration(){
+    if(!canvasPersistenceOnline() || !canvasPersistenceConfirmedDocument){
+        throw new Error(canvasPersistenceText('smart.syncIncompleteGeneration'));
+    }
+    let baseline = canvasPersistenceOptimisticDocument(canvasPersistenceConfirmedDocument);
+    for(const operation of canvasPersistenceSealedOperations){
+        baseline = canvasPersistenceApplyChanges(baseline, operation.changes);
+    }
+    const changes = canvasPersistenceDiff(baseline, canvasPersistenceSharedDocument());
+    if(!canvasPersistenceChangesEmpty(changes)){
+        canvasPersistenceSealedOperations.push({
+            operation_id:canvasPersistenceOperationId('generation-checkpoint'),
+            base_revision:canvasPersistenceRevision,
+            changes:canvasPersistenceClone(changes)
+        });
+    }
+    const operations = canvasPersistenceClone([
+        ...(canvasPersistenceInFlight ? [canvasPersistenceInFlight.operation] : []),
+        ...canvasPersistenceSealedOperations
+    ]);
+    canvasPersistenceSave();
+    return operations;
 }
 function canvasPersistenceSynced(timeout=5000){
     if(canvasPersistenceTransientSession) return Promise.resolve(true);
@@ -1318,6 +1369,8 @@ function canvasRealtimeApplierApply(message){
     if(message.duplicate && incomingRevision <= canvasPersistenceRevision){
         if(ownInFlight){
             const acknowledged = canvasPersistenceInFlight;
+            const following = acknowledged.sealed
+                ? canvasPersistencePendingAfterInFlight(canvasPersistenceSharedDocument()) : null;
             canvasPersistenceInFlight = null;
             canvasPersistenceRecordAccepted(message);
             if(
@@ -1327,6 +1380,10 @@ function canvasRealtimeApplierApply(message){
                 canvasPersistenceAssignDocument(
                     canvasPersistenceConfirmedDocument
                 );
+            }
+            if(following){
+                canvasPersistenceAssignDocument(canvasPersistenceApplyChanges(canvasPersistenceConfirmedDocument, following));
+                canvasPersistenceReconcileTerminalGenerationState(canvasPersistenceConfirmedDocument);
             }
             canvasPersistenceSave();
         }
@@ -1779,6 +1836,7 @@ async function canvasPersistenceLoad(){
             : viewportModule.apply()
     )).catch(() => viewportModule.apply());
     try {
+        await window.SmartCanvasModules?.localGenerationSubmissions?.initialize?.();
         canvasPersistenceOpeningSourceDocument = null;
         canvasPersistenceOpeningBaselineDocument = null;
         if(opening?.open){
@@ -1811,13 +1869,19 @@ async function canvasPersistenceLoad(){
         canvasPersistenceOpeningSourceDocument = canvasPersistenceClone(
             canvasPersistenceConfirmedDocument
         );
+        // Restore exact operation identities before restoreLocal persists its
+        // rebased view; otherwise that write would replace the saved queue.
+        const openingLocalRecord = canvasPersistenceReadLocal();
+        if(openingLocalRecord?.submission_identity){
+            canvasPersistenceSealedOperations.push(...(openingLocalRecord.operations || [])
+                .filter(operation => operation?.operation_id && operation?.changes));
+        }
         Object.assign(
             canvas,
             canvasPersistenceRestoreLocal(
                 canvasPersistenceConfirmedDocument
             )
         );
-        const openingLocalRecord = canvasPersistenceReadLocal();
         const openingLocalChanges = openingLocalRecord
             ? canvasPersistenceClone(openingLocalRecord.changes)
             : canvasPersistenceEmptyChanges();
@@ -1963,6 +2027,7 @@ window.SmartCanvasModules.canvasPersistence = Object.freeze({
     save(){
         return canvasPersistenceSave();
     },
+    sealGeneration:canvasPersistenceSealGeneration,
     async synced({timeout=5000,forGeneration=false}={}){
         if(!forGeneration) return canvasPersistenceSynced(timeout);
         canvasPersistenceGenerationWaiters += 1;
