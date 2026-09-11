@@ -40,7 +40,18 @@ Reconciliation never acquires a lease or changes its epoch. Expiry, takeover,
 binding changes and authentication failures require a launcher restart.
 A timeout is an unknown outcome and must not start a local fallback writer
 or automatically replay a business transaction. Normal rotation drains unfinished Generation Runs,
-batch tasks and publication work before releasing the Workspace.
+batch tasks, device-local submission intents and publication work before releasing the Workspace.
+
+The cloud pilot stages immutable media Composer commands in Device State's
+`local-generation-submissions.sqlite3`. A committed local receipt releases the
+Composer; it does not acknowledge a cloud Canvas Mutation or Generation Run.
+Four device workers submit ordered Canvas prerequisites with their original
+Operation IDs, recheck the actor and targets, and invoke the existing Run entry
+points. Uncertain dispatches only reconcile the durable Run key. The journal is
+not a writable replica, contains no Provider credentials, and does not travel
+through OneDrive. A fenced `cloud_local_submissions_device` metadata marker
+requires the original device after an unclean exit even when no cloud Run was
+created yet. A clean, empty drain clears the marker before releasing the lease.
 
 Runtime Store construction validates an existing cloud schema without creating
 tables or relabeling Workspace identity. Migration is a separate operation:

@@ -52,7 +52,12 @@ from infinite_canvas.auth_system import (
     install_access_control,
     install_auth_routes,
     require_current_user,
+    background_actor,
 )
+from infinite_canvas.local_generation_submissions import (
+    LocalGenerationSubmissions, LocalSubmissionJournal, LocalSubmissionError,
+)
+from infinite_canvas.local_generation_http import install_local_generation_routes
 from infinite_canvas.batch_generation import (
     BatchGeneration,
     BatchGenerationValidation,
@@ -396,6 +401,9 @@ async def startup_event():
                 publication_recovery["failed"],
             )
     await generation_run_control.resume_active()
+    local_submissions = globals().get("_LOCAL_GENERATION_SUBMISSIONS")
+    if local_submissions is not None:
+        await local_submissions.start()
     if _GENERATION_SQLITE_RUNTIME is None:
         try:
             receipt_recovery = (
@@ -434,6 +442,9 @@ async def startup_event():
 async def shutdown_event():
     global MATTING_WORKER_TASKS, _CLI_UPDATE_TASK
     try:
+        local_submissions = globals().get("_LOCAL_GENERATION_SUBMISSIONS")
+        if local_submissions is not None:
+            await local_submissions.close(drain=True)
         batch_generation = globals().get("_BATCH_GENERATION")
         if batch_generation is not None:
             await batch_generation.stop_scheduler()
@@ -745,9 +756,16 @@ def close_cloud_workspace_runtime():
     CLOUD_WORKSPACE_RUNTIME = None
     if runtime is not None:
         try:
-            runtime.close()
+            submissions = globals().get("_LOCAL_GENERATION_SUBMISSIONS")
+            if submissions is not None and submissions.active_count() == 0:
+                runtime.finish_local_submissions(WORKSPACE_SERVER_ID)
         except Exception:
-            logging.warning("Cloud Workspace release was not confirmed; the lease will expire")
+            logging.warning("Local submission handoff was not confirmed; the original device may be required")
+        finally:
+            try:
+                runtime.close()
+            except Exception:
+                logging.warning("Cloud Workspace release was not confirmed; the lease will expire")
 
 
 def ensure_workspace_occupation(
@@ -3772,6 +3790,10 @@ class CloudGenRequest(BaseModel):
     image_urls: List[str] = []
     loras: Optional[Any] = None
     client_id: Optional[str] = None
+    canvas_id: str = ""
+    node_id: str = ""
+    generation_operation_id: str = ""
+    generation_request_index: int = 0
 
 class CloudPollRequest(BaseModel):
     task_id: str
@@ -5138,6 +5160,8 @@ async def prepare_cloud_storage_switch():
                 await batch.stop_scheduler()
             if generation:
                 await generation.pause_delivery()
+            if CLOUD_WORKSPACE_RUNTIME is not None:
+                await asyncio.to_thread(CLOUD_WORKSPACE_RUNTIME.finish_local_submissions, WORKSPACE_SERVER_ID)
 
             def publish():
                 switch = CloudStorageSwitch(current_workspace_content(), workspace_id=current_workspace_id(), state_directory=DEVICE_STATE_DIR)
@@ -5159,6 +5183,8 @@ async def prepare_cloud_storage_switch():
     except BaseException as error:
         pending['error'] = getattr(error, 'code', 'cloud_storage_query_failed')
         if not CLOUD_TRANSITION_PUBLISHED:
+            if CLOUD_WORKSPACE_RUNTIME is not None:
+                await asyncio.to_thread(CLOUD_WORKSPACE_RUNTIME.protect_local_submissions, WORKSPACE_SERVER_ID)
             if generation:
                 await generation.start()
             if batch:
@@ -11191,7 +11217,8 @@ async def generate_angle_cloud(req: CloudGenRequest):
                     "model": req.model,
                 }
             },
-        )
+        ),
+        req,
     )
 
 # --- ModelScope Z-Image 云端生图 ---
@@ -11210,7 +11237,8 @@ async def generate_cloud(req: CloudGenRequest):
                     "type": "cloud",
                 }
             },
-        )
+        ),
+        req,
     )
 
 # --- ModelScope 通用图片生成（支持图生图） ---
@@ -11557,6 +11585,115 @@ _GENERATION_RUNS = GenerationRuns(
     ),
 )
 generation_run_control.install(_GENERATION_RUNS)
+
+
+def _local_generation_routes():
+    return {
+        "/api/canvas-image-tasks": (OnlineImageRequest, create_canvas_image_task),
+        "/api/canvas-video-tasks": (CanvasVideoRequest, create_canvas_video_task),
+        "/api/canvas-comfy-tasks": (GenerateRequest, create_canvas_comfy_task),
+        "/api/runninghub/submit": (RunningHubSubmitRequest, runninghub_submit),
+        "/api/runninghub/workflow-submit": (RunningHubWorkflowSubmitRequest, runninghub_workflow_submit),
+        "/api/ms/generate": (MsGenerateRequest, ms_generate),
+        "/api/angle/generate": (CloudGenRequest, generate_angle_cloud),
+        "/generate": (CloudGenRequest, generate_cloud),
+    }
+
+
+def _validate_local_generation(command):
+    route = _local_generation_routes().get(command["endpoint"])
+    if route is None:
+        raise LocalSubmissionError("local_generation_invalid", 422)
+    raw = command["payload"]
+    if raw.get("api_key") or raw.get("token") or raw.get("apiKey"):
+        raise LocalSubmissionError("local_generation_invalid", 422)
+    try:
+        normalized = route[0](**raw).model_dump()
+    except ValueError as error:
+        raise LocalSubmissionError("local_generation_invalid", 422) from error
+    if (normalized.get("canvas_id") != command["canvas_id"]
+            or normalized.get("generation_operation_id") != command["operation_id"]
+            or not normalized.get("node_id")
+            or normalized.get("node_id") not in command["target_ids"]
+            or normalized.get("generation_request_index", 0) != command["request_index"]):
+        raise LocalSubmissionError("local_generation_invalid", 422)
+    for checkpoint in command["checkpoints"]:
+        if not checkpoint.get("operation_id") or not (isinstance(checkpoint.get("changes"), dict) or checkpoint.get("reverts_operation_id")):
+            raise LocalSubmissionError("local_generation_invalid", 422)
+    return normalized
+
+
+def _local_generation_actor(record):
+    if record["workspace_id"] != current_workspace_id() or not CLOUD_WORKSPACE_RUNTIME:
+        raise LocalSubmissionError("local_generation_workspace_changed")
+    actor = enrich_current_workspace_user(AUTH_SYSTEM.get_user(record["owner"]))
+    if not actor or actor.get("status", "active") != "active" or actor.get("role") not in {"admin", "designer"}:
+        raise LocalSubmissionError("local_generation_permission_lost", 403)
+    return actor
+
+
+async def _prepare_local_generation(record):
+    actor = _local_generation_actor(record)
+    command = record["command"]
+    for operation in command["checkpoints"]:
+        actor = _local_generation_actor(record)
+        await CANVAS_SYNC.commit_staged_operation(
+            record["canvas_id"], actor, operation, client_id=command.get("client_id", ""),
+        )
+
+
+async def _dispatch_local_generation(record):
+    actor = _local_generation_actor(record)
+    command = record["command"]
+    document = await asyncio.to_thread(CANVAS_SYNC.read, record["canvas_id"], actor, smart_snapshot=True)
+    targets = {node["id"]: node for node in document.get("nodes", [])}
+    if any(targets.get(node_id, {}).get("generationOperationId") != record["operation_id"] for node_id in command["target_ids"]):
+        raise LocalSubmissionError("local_generation_target_changed")
+    model, submit = _local_generation_routes()[command["endpoint"]]
+    with background_actor(actor):
+        result = await submit(model(**command["payload"]))
+        # A local receipt cannot replace the durable Run identity needed after
+        # restart. Provider execution remains concurrent with other commands.
+        await _GENERATION_RUNS.wait_for_lifecycle_projection(through_current=True)
+    return result
+
+
+async def _reconcile_local_generation(record):
+    actor = _local_generation_actor(record)
+    command = record["command"]
+    raw = command["payload"]
+    target = RunTarget(canvas_id=record["canvas_id"], node_id=raw["node_id"],
+                       operation_id=record["operation_id"], request_index=record["request_index"])
+    # Recheck access even for a completed receipt; staging never grants access.
+    await asyncio.to_thread(CANVAS_SYNC.read, record["canvas_id"], actor, metadata_only=True)
+    run = await _GENERATION_RUNS.find_by_key(owner=record["owner"], key=target.key(record["owner"]))
+    if run is None:
+        return None
+    if command["endpoint"] in {"/api/canvas-image-tasks", "/api/canvas-video-tasks", "/api/canvas-comfy-tasks"}:
+        return {"task_id": run.id, "status": run.status, "actor_id": run.owner, "deduplicated": True}
+    return run.result if isinstance(run.result, dict) else None
+
+
+if CLOUD_WORKSPACE_RUNTIME is not None:
+    CLOUD_WORKSPACE_RUNTIME.protect_local_submissions(WORKSPACE_SERVER_ID)
+
+_LOCAL_GENERATION_SUBMISSIONS = LocalGenerationSubmissions(
+    journal=LocalSubmissionJournal(Path(DEVICE_STATE_DIR) / "local-generation-submissions.sqlite3"),
+    workspace_id=current_workspace_id(), prepare=_prepare_local_generation,
+    dispatch=_dispatch_local_generation, reconcile=_reconcile_local_generation,
+) if CLOUD_WORKSPACE_RUNTIME is not None else None
+generation_run_control.install_submissions(_LOCAL_GENERATION_SUBMISSIONS)
+install_local_generation_routes(
+    app, service=lambda: _LOCAL_GENERATION_SUBMISSIONS,
+    workspace_id=current_workspace_id, validate=_validate_local_generation,
+    available=lambda: bool(CLOUD_WORKSPACE_RUNTIME is not None
+                           and CLOUD_WORKSPACE_RUNTIME.local_submissions_protected
+                           and CLOUD_WORKSPACE_RUNTIME.public().get("status") == "connected"
+                           and not CLOUD_TRANSITION_PUBLISHED
+                           and PENDING_CLOUD_SWITCH is None
+                           and PENDING_WORKSPACE_OPEN is None
+                           and PENDING_WORKSPACE_MOVE is None),
+)
 
 
 async def _submit_batch_generation_task(task, *, owner, batch_id):

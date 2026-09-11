@@ -221,6 +221,14 @@ Workspace 的 `data/storage-authority.json` 保存 `canvas`、`generation_runs`�
 [试用合同](../active/2026-09-07-optional-cloud-records-onedrive-media-spec.md)和
 [ADR-0014](../adr/0014-optional-cloud-sqlite-authority.md)。
 
+云端试用的媒体 Composer 将尚未确认的提交保存在 Device State 的
+`local-generation-submissions.sqlite3`，按 Workspace、账号和 Operation ID 隔离。
+本机写入成功后可继续生成；云端确认所需画布操作后才调用模型。刷新及同设备重启使用
+原任务恢复，未知提交结果只查询已有回执。此文件包含提示词、引用和参数快照，不能作为
+缓存删除，也不随 OneDrive 同步；正式记录仍以云端为准。每份命令上限 8 MiB，本机最多
+128 份活跃命令、4 个后台执行槽位。未完成本地提交也阻断存储切换及设备轮换；非正常
+退出会保留云端的原设备标记，须回原设备恢复并安全退出。
+
 关闭开关会排空请求与后台消费，导出云端最新数据并核验，退休旧云端绑定后再发布本地
 三库和 manifest。`cloud_return_epoch` 必须与三库内的值一致，防止 OneDrive 只同步部分
 文件就打开混合旧副本。备份、完整导出和恢复日志保留在 Device State 的 `cloud-migrations/`

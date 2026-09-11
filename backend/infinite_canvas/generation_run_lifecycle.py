@@ -83,6 +83,9 @@ class AsyncGenerationRunLifecycleStore:
     async def load(self, run_id: str) -> GenerationRunState | None:
         return await self._store_executor.call(self._store.load, run_id)
 
+    async def load_by_key(self, owner: str, key: str) -> GenerationRunState | None:
+        return await self._store_executor.call(self._store.load_by_key, owner, key)
+
     async def load_unfinished(
         self,
         *,

@@ -20,7 +20,7 @@
         'cloudStorage.cloud_storage_invalid_token': { zh: 'Turso 访问令牌无效。', en: 'The Turso access token is invalid.' },
         'cloudStorage.cloud_storage_unauthorized': { zh: '云端访问令牌已失效或没有访问权限，请更新本机连接配置。', en: 'The cloud token has expired or does not have access. Update this device’s connection settings.' },
         'cloudStorage.cloud_storage_workspace_busy': { zh: '此工作区仍被占用，或上次退出后的占用记录尚未释放。请退出已打开的 Reroll，等待 2 分钟后重新启动。', en: 'This workspace is still in use, or its previous session has not released it. Quit any running Reroll instances, wait 2 minutes, then restart.' },
-        'cloudStorage.cloud_storage_original_device_required': { zh: '原设备还有未收束的生成或批量任务，请先回到原设备完成或取消任务。', en: 'The previous device has unfinished generation or batch tasks. Finish or cancel them on that device first.' },
+        'cloudStorage.cloud_storage_original_device_required': { zh: '原设备可能还有本地待提交、生成或批量任务，请先回到原设备核对并完成或取消任务，再正常退出。', en: 'The previous device may have locally queued, generation, or batch tasks. Check and finish or cancel them on that device first, then quit normally.' },
         'cloudStorage.cloud_storage_lease_lost': { zh: '本机的云端连接资格已失效，保存已暂停。请恢复网络后重启 Reroll。', en: 'This device’s cloud connection authorization has expired. Saving is paused. Restore your connection and restart Reroll.' },
         'cloudStorage.cloud_storage_outcome_unknown': { zh: '尚未确认这次云端保存结果，请保持页面并恢复网络，不要重复创建相同内容。', en: 'This cloud save has not been confirmed. Keep this page open and restore your connection. Avoid creating the same content again.' },
         'cloudStorage.cloud_storage_limit_reached': { zh: '云端服务已达到用量限制，保存已暂停。请检查 Turso 用量。', en: 'Cloud usage limits have been reached. Saving is paused. Check your Turso usage.' },

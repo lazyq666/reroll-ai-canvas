@@ -820,6 +820,15 @@ class SqliteGenerationRunStore:
         for sql, parameters in statements:
             connection.execute(sql, parameters)
 
+    def load_by_key(self, owner: str, key: str) -> GenerationRunState | None:
+        """Read the durable receipt, including completed compacted Runs."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT run_id FROM generation_runs WHERE owner_id=? AND idempotency_key=?",
+                (str(owner), str(key)),
+            ).fetchone()
+        return self.load(str(row["run_id"])) if row else None
+
     def load(self, run_id: str) -> GenerationRunState | None:
         with self._connect() as connection:
             row = connection.execute(

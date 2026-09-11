@@ -25,6 +25,14 @@ class SqliteGenerationRunStoreContractTests(unittest.TestCase):
             now=lambda: self.clock,
         )
 
+    def test_lookup_by_original_owner_and_key_is_durable_and_scoped(self):
+        state = self.sample_run()
+        self.store.save(state)
+        restored = SqliteGenerationRunStore(self.database, workspace_id="workspace-a")
+        self.assertEqual(restored.load_by_key(state.owner, state.key).run_id, state.run_id)
+        self.assertIsNone(restored.load_by_key("other-owner", state.key))
+        self.assertIsNone(restored.load_by_key(state.owner, "other-key"))
+
     def tearDown(self):
         self.temporary.cleanup()
 

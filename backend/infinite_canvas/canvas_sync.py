@@ -1330,6 +1330,36 @@ class CanvasSync:
             ]
         )[0]
 
+    async def commit_staged_operation(
+        self, canvas_id: str, actor: Dict[str, Any],
+        operation: Dict[str, Any], *, client_id: str = "",
+    ) -> Dict[str, Any]:
+        """Confirm an immutable, device-staged Mutation using normal receipts.
+
+        The browser may have sent the same operation before disconnecting.
+        Store idempotency, current permissions and the per-Canvas lock apply
+        equally here; no synthetic snapshot or new operation ID is introduced.
+        """
+        session = RealtimeSession(
+            canvas_id=canvas_id, client_id=client_id, websocket=None,
+            actor_id=str(actor.get("id") or ""), access_epoch=0,
+            access_scope={}, revision=0,
+        )
+        async with self._operation_lock(canvas_id):
+            outgoing, target_only = await self._run_store(
+                self._commit_realtime_message, session, actor,
+                {"operation": operation},
+            )
+            if outgoing.get("type") == "mutation_rejected":
+                raise CanvasSyncError(409, {
+                    "code": outgoing.get("code"),
+                    "revision": outgoing.get("revision"),
+                })
+            self._remember_revision(canvas_id, int(outgoing.get("revision") or 0))
+            if not target_only:
+                await self._notifier.broadcast_canvas_message(canvas_id, outgoing)
+            return outgoing
+
     def _commit_json_realtime_batch(
         self,
         requests: list[_RealtimeBatchRequest],

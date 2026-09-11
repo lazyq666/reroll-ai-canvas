@@ -28,7 +28,7 @@ flowchart TD
     B --> C["Generation Settings 校验模型、画幅与数量"]
     C --> D["创建 Pending Node / 占位状态"]
     D --> E["写入 operation ID 与输入快照"]
-    E --> F["先保存并等待画布同步"]
+    E --> F["确认所需画布操作；云端试用可先本地接收并释放 Composer"]
     F --> G["Generation Provider 前端分流"]
     G --> H["Canvas 任务 API"]
     H --> I["Generation Runs：所有者、去重、状态与恢复"]
@@ -46,6 +46,14 @@ flowchart TD
     S --> T["写生成历史并广播通知"]
     T --> U["前端结束 Pending，展示结果"]
 ```
+
+云端试用的媒体 Composer 在输入准备后调用本机 `POST /api/local-generation-submissions`。
+本机可靠写入即恢复主提交按钮；后台持有本次不可变的输入、Operation ID 和结果目标，
+按原操作编号确认画布依赖，再进入上图的生成入口。队列按任务独立推进，未知响应只核对
+原 Run，不重发 Provider 请求。刷新后的等待、失败与待核对状态来自本机任务记录；
+后续正式结果仍由 Generation Run / Target Guard 投递。默认本地模式以及文字、处理器、
+再次生成与循环入口沿用原提交流程。该试用范围和未完成的实机验收见
+[云端 Active Spec 第 3.1 节](../active/2026-09-07-optional-cloud-records-onedrive-media-spec.md#31-连续生成本地接收后台提交)。
 
 ## 3. 关键名词翻译
 

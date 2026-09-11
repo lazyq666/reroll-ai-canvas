@@ -1512,7 +1512,7 @@ class GenerationRuns:
             project_after_previous()
         )
 
-    async def wait_for_lifecycle_projection(self) -> None:
+    async def wait_for_lifecycle_projection(self, *, through_current: bool = False) -> None:
         """Wait for the optional JSON-to-Store compatibility projection."""
 
         while True:
@@ -1521,6 +1521,8 @@ class GenerationRuns:
             if tail is None:
                 break
             await asyncio.shield(tail)
+            if through_current:
+                break
             with self._lock:
                 if tail is self._lifecycle_projection_tail:
                     break
@@ -2571,6 +2573,19 @@ class GenerationRuns:
                     result=self._runtime_results[run.id],
                 )
             return snapshot
+
+    async def find_by_key(self, *, owner: str, key: str) -> GenerationRunSnapshot | None:
+        """Reconcile a staged submission without executing its Provider again."""
+        if self._lifecycle_store is not None:
+            state = await self._lifecycle_store.load_by_key(owner, key)
+            return _Run.from_stored(_lifecycle_run_value(state)).snapshot() if state is not None else None
+        with self._lock:
+            self._load_locked()
+            run_id = self._keys.get((owner, key))
+            run = self._runs.get(run_id or "")
+            if run is not None:
+                return run.snapshot()
+        return None
 
     def find_by_remote_ref(
         self,
@@ -4176,7 +4191,12 @@ class GenerationRunControl:
 
     def __init__(self) -> None:
         self._runs: GenerationRuns | None = None
+        self._submissions = None
         self._lock = threading.Lock()
+
+    def install_submissions(self, submissions) -> None:
+        with self._lock:
+            self._submissions = submissions
 
     def install(self, runs: GenerationRuns) -> None:
         with self._lock:
@@ -4185,11 +4205,15 @@ class GenerationRunControl:
     def active_count(self) -> int:
         with self._lock:
             runs = self._runs
-        return runs.active_count() if runs is not None else 0
+            submissions = self._submissions
+        return (runs.active_count() if runs is not None else 0) + (submissions.active_count() if submissions is not None else 0)
 
     async def cancel_active(self) -> None:
         with self._lock:
             runs = self._runs
+            submissions = self._submissions
+        if submissions is not None:
+            await submissions.cancel_active()
         if runs is not None:
             await runs.cancel_active()
 

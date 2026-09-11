@@ -13,6 +13,20 @@ PLACEMENT_MODULE = ROOT / "static/js/smart-canvas/node-placement.js"
 
 
 class SmartCanvasPersistenceModuleTests(unittest.TestCase):
+    def test_local_submission_refresh_preserves_operations_and_rerenders_receipts(self):
+        result = subprocess.run(
+            ['node', 'tests/smart_canvas_local_submission_restore_regression.cjs'],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_local_acceptance_unlocks_the_composer_before_cloud_confirmation(self):
+        result = subprocess.run(
+            ['node', 'tests/smart_canvas_generation_local_acceptance_regression.cjs'],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_focused_image_submission_does_not_hold_required_save_receipt(self):
         result = subprocess.run(
             ['node', 'tests/smart_canvas_generation_focus_ack_regression.cjs'],
@@ -1107,6 +1121,7 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 "revert",
                 "save",
                 "schedule",
+                "sealGeneration",
                 "sendPresence",
                 "startTransientSession",
                 "status",

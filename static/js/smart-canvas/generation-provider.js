@@ -77,14 +77,20 @@ function generationProviderRunIdentity(context={},index=0){
         generation_request_index:index
     } : {};
 }
-async function generationProviderCreateComfyTask(payload){
-    const response = await fetch('/api/canvas-comfy-tasks', {
+async function generationProviderPostTask(endpoint, payload, context={}){
+    if(context.localSubmission){
+        return window.SmartCanvasModules.localGenerationSubmissions.post(endpoint, payload, context);
+    }
+    const response = await fetch(endpoint, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(payload)
     });
     if(!response.ok) throw new Error(await smartResponseErrorMessage(response, tr('smart.errRunFailed')));
     return response.json();
+}
+async function generationProviderCreateComfyTask(payload, context={}){
+    return generationProviderPostTask('/api/canvas-comfy-tasks', payload, context);
 }
 async function generationProviderWaitComfyTask(taskId){
     if(!taskId) throw new Error(tr('smart.errRunFailed'));
@@ -105,7 +111,7 @@ async function generationProviderWaitComfyTask(taskId){
     }
 }
 async function generationProviderRunComfyTask(payload, context={}){
-    const task = await generationProviderCreateComfyTask(payload);
+    const task = await generationProviderCreateComfyTask(payload, context);
     if(!task.task_id) throw new Error(tr('smart.errRunFailed'));
     await context.onAccepted?.(generationProviderPending([{
         taskId:task.task_id, status:String(task.status || ''), kind:'image'
@@ -288,17 +294,10 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         reference_images:referenceImages,
         catalog_revision:modelCapability?.catalog_revision || capability?.catalog_revision || ''
     };
-    const submitted = await fetch('/api/canvas-image-tasks', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-            ...payload,
-            ...generationProviderRunIdentity(context)
-        })
-    }).then(async response => {
-        if(!response.ok) throw new Error(await response.text());
-        return response.json();
-    });
+    const submitted = await generationProviderPostTask('/api/canvas-image-tasks', {
+        ...payload,
+        ...generationProviderRunIdentity(context)
+    }, context);
     const tasks = [{
         taskId:submitted.task_id,
         status:String(submitted.status || ''),
@@ -335,15 +334,9 @@ async function generationProviderSubmitRunningHub(prompt, refs, runSettings, con
     const body = ref.kind === 'workflow'
         ? {workflowId:ref.id, nodeInfoList, useWallet:runSettings.rhPayment === 'wallet', ...extras, ...generationProviderRunIdentity(context)}
         : {webappId:ref.id, nodeInfoList, instanceType:runSettings.rhInstanceType || '', useWallet:runSettings.rhPayment === 'wallet', ...generationProviderRunIdentity(context)};
-    const submit = await fetch(endpoint, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body)
-    }).then(async response => {
-        const data = await response.json();
-        if(!response.ok || data.success === false) throw new Error(data.detail || data.error || tr('smart.rhFailed'));
-        return data.data || data;
-    });
+    const response = await generationProviderPostTask(endpoint, body, context);
+    if(response.success === false) throw new Error(response.detail || response.error || tr('smart.rhFailed'));
+    const submit = response.data || response;
     if(!submit.taskId) throw new Error(tr('smart.rhNoTaskId'));
     await context.onAccepted?.(generationProviderPending([{taskId:submit.taskId, kind:'image'}]));
     const useWallet = runSettings.rhPayment === 'wallet';
@@ -363,7 +356,10 @@ async function generationProviderSubmitRunningHub(prompt, refs, runSettings, con
     }
     throw new Error(tr('smart.rhTimeout'));
 }
-async function generationProviderPostVideoTask(payload){
+async function generationProviderPostVideoTask(payload, context={}){
+    if(context.localSubmission){
+        return generationProviderPostTask('/api/canvas-video-tasks', payload, context);
+    }
     const body = JSON.stringify(payload);
     const post = endpoint => fetch(endpoint, {
         method:'POST',
@@ -517,7 +513,7 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
             trusted_asset:useAssetUris,
             catalog_revision:modelCapability?.catalog_revision || videoCapability?.catalog_revision || '',
             ...generationProviderRunIdentity(context)
-        });
+        }, context);
         if(result?.task_id){
             return generationProviderPending([{
                 taskId:result.task_id,
@@ -602,14 +598,7 @@ async function generationProviderSubmitModelscope(prompt, refs, runSettings, con
             size:`${width}x${height}`
         };
         Object.assign(body, generationProviderRunIdentity(context,index));
-        const data = await fetch(model.endpoint, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify(body)
-        }).then(async response => {
-            if(!response.ok) throw new Error(await response.text());
-            return response.json();
-        });
+        const data = await generationProviderPostTask(model.endpoint, body, context);
         return data.url || data.images?.[0] || '';
     };
     return generationProviderCompleted((await Promise.all(Array.from({length:count}, submit))).filter(Boolean), 'image');

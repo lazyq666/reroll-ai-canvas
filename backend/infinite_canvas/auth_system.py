@@ -1805,6 +1805,18 @@ def current_user() -> Optional[Dict[str, Any]]:
     return dict(user) if user else None
 
 
+@contextmanager
+def background_actor(user: Dict[str, Any]):
+    """Scope a freshly resolved account to a device-owned background command."""
+    if not user or user.get("status", "active") != "active" or user.get("role") not in {"admin", "designer"}:
+        raise HTTPException(status_code=403, detail={"code": "local_generation_permission_lost"})
+    token = _CURRENT_USER.set(dict(user))
+    try:
+        yield
+    finally:
+        _CURRENT_USER.reset(token)
+
+
 def require_current_user(*roles: str) -> Dict[str, Any]:
     user = current_user()
     if not user:

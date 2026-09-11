@@ -64,6 +64,26 @@ class TursoRuntimeTests(unittest.TestCase):
         self.addCleanup(second.close)
         self.assertEqual(second.public()["status"], "connected")
 
+    def test_device_local_submissions_block_rotation_even_without_cloud_runs(self):
+        first = self.open()
+        first.protect_local_submissions('device-a')
+        self.assertTrue(first.local_submissions_protected)
+        first.close()
+        with self.assertRaisesRegex(TursoError, 'original_device_required'):
+            self.open('device-b')
+        restored = self.open('device-a')
+        restored.protect_local_submissions('device-a')
+        restored.finish_local_submissions('wrong-device')
+        restored.close()
+        with self.assertRaisesRegex(TursoError, 'original_device_required'):
+            self.open('device-b')
+        finished = self.open('device-a')
+        finished.finish_local_submissions('device-a')
+        finished.close()
+        second = self.open('device-b')
+        self.addCleanup(second.close)
+        self.assertEqual(second.public()['status'], 'connected')
+
     def test_startup_wait_is_bounded_and_never_steals_active_lease(self):
         previous = self.open()
         self.addCleanup(previous.close)
