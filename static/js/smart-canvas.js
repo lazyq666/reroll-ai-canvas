@@ -8447,6 +8447,7 @@ function smartNodeToolbarHtml(node){
                 imageIndex:toolbarImageIndex
             },
             {key:'extract-frame', icon:'extract-frame', label:tr('smart.action.extractFrame'), enabled:true},
+            {key:'video-gif', icon:'play', label:tr('smart.gif.videoMenu'), enabled:!videoGifPending.has(node.id)},
             downloadAction
         ]
         : kind === 'image'
@@ -8563,6 +8564,10 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, tri
     selectedImage = {nodeId, index};
     if(action === 'download'){
         downloadPreviewFile(node.images?.[index] || item);
+        return;
+    }
+    if(action === 'video-gif' && kind === 'video'){
+        convertSmartVideoToGif(node, index).catch(error => toast((error.message || tr('smart.gif.failed')).slice(0,160)));
         return;
     }
     if(action === 'video-play' && kind === 'video'){
@@ -12253,30 +12258,50 @@ function aiProcessorAngleTarget(source,ratioKey='source',resolution='auto'){
     const mapped=parseSizeValue(apiImageSize(ratioKey==='source'?'custom':ratioKey,resolution,standard,''));
     return {width:Math.max(1,Number(mapped?.width)||width),height:Math.max(1,Number(mapped?.height)||height)};
 }
+const videoGifPending = new Set();
+async function convertSmartVideoToGif(node, imageIndex){
+    if(videoGifPending.has(node.id)) return;
+    const originalSourceUrl=node.images[imageIndex].url;
+    const context={sourceNodeId:node.id,imageIndex,originalSourceUrl};
+    videoGifPending.add(node.id); render();
+    toast(tr('smart.gif.videoConverting'));
+    try {
+        const {createVideoGif}=await import('/static/js/smart-canvas/video-gif.js?v=4');
+        const result=await createVideoGif({sourceUrl:displayMediaUrl(imageForDisplay(node.images[imageIndex]))});
+        await publishGifResult(context,result,true);
+    } finally { videoGifPending.delete(node.id); render(); }
+}
 async function submitGridGifProcessor(context, settings){
+    const source=nodes.find(item=>item.id===context.sourceNodeId);
+    if(source?.images?.[context.imageIndex]?.url!==context.originalSourceUrl) throw new Error(tr('smart.reversePromptSourceUnavailable'));
+    const {createGridGif}=await import('/static/js/smart-canvas/grid-gif.js?v=4');
+    const result=await createGridGif({sourceUrl:context.sourceUrl,...settings});
+    return publishGifResult(context,result);
+}
+async function publishGifResult(context,result,video=false){
     const sourceIsCurrent=()=>{
         const source=nodes.find(item=>item.id===context.sourceNodeId);
         return source?.images?.[context.imageIndex]?.url===context.originalSourceUrl;
     };
     if(!sourceIsCurrent()) throw new Error(tr('smart.reversePromptSourceUnavailable'));
-    const {createGridGif}=await import('/static/js/smart-canvas/grid-gif.js?v=4');
-    const result=await createGridGif({sourceUrl:context.sourceUrl,...settings});
-    if(!sourceIsCurrent()) throw new Error(tr('smart.reversePromptSourceUnavailable'));
+
     let file;
-    try { file=await aiProcessorGeometry.uploadBlob(result.blob,'grid-animation.gif'); }
+    try { file=await aiProcessorGeometry.uploadBlob(result.blob,video?'video-animation.gif':'grid-animation.gif'); }
     catch { throw new Error(tr('smart.gif.uploadFailed')); }
     if(!sourceIsCurrent()) throw new Error(tr('smart.reversePromptSourceUnavailable'));
     const output=canvasMutation.create({
         kind:'image',
-        data:{title:tr('smart.gif.menu'),images:[{...file,kind:'image',natural_w:result.width,natural_h:result.height,width:result.width,height:result.height}]},
+        data:{title:tr(video?'smart.gif.videoMenu':'smart.gif.menu'),images:[{...file,kind:'image',natural_w:result.width,natural_h:result.height,width:result.width,height:result.height}]},
         options:{select:true,reveal:true,placement:{anchor:{kind:'source',sourceNodeId:context.sourceNodeId},relation:'downstream',arrangement:'single'}}
     });
     if(!output) throw new Error(tr('smart.operationFailed'));
     selectedIds=[]; selectedImage={nodeId:output.id,index:0};
     render(); canvasPersistence.schedule();
-    aiProcessorDialog.pending=false;
-    await aiProcessorDialog.hide('accepted');
-    aiProcessorDialogContext=null;
+    if(!video){
+        aiProcessorDialog.pending=false;
+        await aiProcessorDialog.hide('accepted');
+        aiProcessorDialogContext=null;
+    }
     toast(tr('smart.gif.created'));
 }
 async function submitAiProcessorDialog(detail){
