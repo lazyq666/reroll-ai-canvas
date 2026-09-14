@@ -15,7 +15,7 @@ const {chromium} = require('playwright');
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  let browser;
  try {
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:process.env.IC_BROWSER_BIN || undefined,chromiumSandbox:process.env.IC_BROWSER_NO_SANDBOX !== '1'});
   const page=await browser.newPage();
   await page.goto(`http://127.0.0.1:${server.address().port}/tests/grid_gif_encoder_harness.html`);
   const result=await page.evaluate(async()=>{
@@ -36,7 +36,6 @@ const {chromium} = require('playwright');
    }finally{URL.revokeObjectURL(url);}
   });
   assert.equal(result.header,'GIF89a');assert.equal(result.width,640);assert.equal(result.height,480);assert.equal(result.plan.width,640);assert.equal(result.plan.frames,300);
-  fs.writeFileSync('/tmp/reroll-video-gif-test.gif',Buffer.from(result.bytes));
   const decoded=await require('sharp')(Buffer.from(result.bytes),{animated:true}).metadata();
   assert.ok(decoded.pages>=9); assert.equal(decoded.loop,0);
   const failures=await page.evaluate(async()=>{

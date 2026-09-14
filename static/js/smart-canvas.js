@@ -8567,7 +8567,7 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, tri
         return;
     }
     if(action === 'video-gif' && kind === 'video'){
-        convertSmartVideoToGif(node, index).catch(error => toast((error.message || tr('smart.gif.failed')).slice(0,160)));
+        convertSmartVideoToGif(node, index).catch(error => toast((error.message || tr('smart.gif.videoFailed')).slice(0,160)));
         return;
     }
     if(action === 'video-play' && kind === 'video'){

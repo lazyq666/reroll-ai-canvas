@@ -148,6 +148,18 @@ class InfiniteCanvasUiBoundaryTests(unittest.TestCase):
     "set IC_RUN_BROWSER_TESTS=1 to launch the real browser contract suite",
 )
 class InfiniteCanvasUiBrowserContractTests(unittest.TestCase):
+    def test_video_gif_toolbar_conversion_and_source_errors(self):
+        result = subprocess.run(
+            ["node", str(ROOT / "tests" / "video_gif_browser_test.cjs")],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+
+
     @classmethod
     def run_browser_contract(cls):
         if not hasattr(cls, "_browser_contract_result"):
