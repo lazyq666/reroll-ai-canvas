@@ -477,6 +477,7 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
         return generationRecoveryActiveTaskPolls.get(taskId);
     }
     const promise = (async () => {
+        let transientFailures = 0;
         for(let index = 0; index < 900; index++){
             await new Promise(resolve => setTimeout(resolve, 2000));
             if(!generationRecoveryTaskStillPending(nodeId, taskId)){
@@ -506,9 +507,10 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
                     || status === 408
                     || status === 429
                     || status >= 500;
-                if(transient && index < 45) continue;
+                if(transient && ++transientFailures <= 45) continue;
                 throw error;
             }
+            transientFailures = 0;
             generationRecoveryProjectImageProcessor(nodeId, task);
             if(task.status === 'succeeded') return {payload:task.result || {}, task};
             if(task.status === 'discarded'){

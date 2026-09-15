@@ -256,6 +256,14 @@ Canvas 任务 API 会把请求转换为 `ImageRun`、`VideoRun`、`TextRun`、`W
 `owner + operation key` 是幂等边界：同一次 operation 因网络重试再次提交时，内容一致
 则复用原任务；内容不一致则返回冲突，不会悄悄产生第二次计费请求。
 
+SQLite/Turso 作为唯一权威时，Provider 执行前必须确认已排入的 Run 身份保存。同一
+owner / operation key 重试会查询持久记录，包括启动时未载入内存的已完成 Run。
+Turso 生命周期保存遇到暂时错误时保留原快照，先查回 Run/effect 回执，再补齐未确认的保存；
+不重新调用付费生成。结果准备完成后若暂时读不到 Canvas，保留恢复阶段，不把读取失败
+当作目标已删除。网络恢复后的保存和交付仍受 Workspace 编辑资格与原 Operation ID 约束。
+运行时内存完成、终态事务确认和 Canvas outbox 消费是不同的确认边界；浏览器还需取得
+最终结果或 Canvas Revision。分支验证与剩余真实环境 Gate 见 [Turso 修复验收](../active/2026-09-07-optional-cloud-records-onedrive-media-spec.md#710-2026-09-15-分支修复与验证)。
+
 运行记录由 Workspace 当前 storage authority 决定：JSON 兼容 Workspace 使用
 `data/generation-runs.json`，SQLite authority 使用 `data/generation-runs.sqlite3`。SQLite 模式
 不会把 legacy JSON 路径交给运行时。凭证字段在持久化前会脱敏，API Key、token、密码和
@@ -489,7 +497,7 @@ Notification 以稳定 effect ID 发送并标记完成。已完成回执不会�
 | `running` | 进行中 | 正在调用供应商或处理结果 |
 | `pending` / `processing` / `in_progress` | 进行中、可恢复 | 供应商已有远端任务编号 |
 | `jimeng_pending` | 进行中、可恢复 | 即梦仍在队列中 |
-| `succeeded` | 终态 | 结果已物化并完成允许的写回/发布 |
+| `succeeded` | Run 终态 | 结果已物化并完成发布编排；SQLite/Turso 的 Canvas 写回通过 outbox 异步交付，不能单凭此状态判断画布已更新 |
 | `failed` | 终态 | 已确定失败 |
 | `cancelled` | 终态 | 用户或受控重启取消 |
 | `discarded` | 终态 | 目标节点已删除或运行已被替换，结果未写回 |
@@ -552,3 +560,8 @@ Managed Media，删除 Device Cache 只会导致下次使用时重新下载或�
 | Composer 正文前置、连接文本 / TXT 拖拽与键盘排序、图片顺序隔离、撤销重做及保存恢复 | `tests/composer_text_order_test.cjs`、`tests/composer_text_order_fixture.cjs` + `tests/composer_text_order_checks.js`（真实页面） |
 | Image Node 禁止触发、Smart Group / Generation Node（含旧 Generation Output 身份修复）的 Composer 资格与三层门禁一致性，以及 Quick Add 视频初始模式可切回图片 | `tests/test_issue_161_media_composer_eligibility.py`、`tests/issue_161_media_composer_browser_smoke.cjs`、`tests/test_smart_canvas_generation_output.py`、`tests/composer_quick_add_kind_toggle_browser_smoke.cjs` |
 | 画幅能力与结果物化 | `tests/test_image_capabilities.py`、`tests/test_issue_71_generation_output.py` |
+
+
+Turso 异常恢复的固定回归入口：`tests.test_turso_generation_reliability`；真实批量页面的
+单次查询失败恢复及中英状态切换：`tests/turso_batch_detail_browser.cjs`，使用
+`tests.batch_generation_browser_app` 临时工作区，禁止将测试提交指向真实 Provider。

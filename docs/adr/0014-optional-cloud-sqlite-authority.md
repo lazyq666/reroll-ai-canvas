@@ -39,7 +39,10 @@ commit issues a replacement fence for new connections; old fences stay revoked.
 Reconciliation never acquires a lease or changes its epoch. Expiry, takeover,
 binding changes and authentication failures require a launcher restart.
 A timeout is an unknown outcome and must not start a local fallback writer
-or automatically replay a business transaction. Normal rotation drains unfinished Generation Runs,
+or blindly replay a business transaction. Lifecycle snapshot recovery may first read back the
+stable Run/effect receipt and retry the exact idempotent save when not confirmed; it must preserve
+the original identity, transaction fencing and completed-effect deduplication, and never re-submit
+a Provider request. Normal rotation drains unfinished Generation Runs,
 batch tasks, device-local submission intents and publication work before releasing the Workspace.
 
 The cloud pilot stages immutable media Composer commands in Device State's

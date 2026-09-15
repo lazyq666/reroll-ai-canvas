@@ -6,11 +6,14 @@ stays in the Workspace composition; successful effect commits notify delivery.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
+
+from .turso_sqlite import TursoError
 
 from .generation_run_store import (
     GenerationRunAttempt,
@@ -57,6 +60,8 @@ class AsyncGenerationRunLifecycleStore:
         self._store = store
         self._store_executor = store_executor
         self._on_effect_saved = on_effect_saved
+        self._pending_writes: set[asyncio.Task] = set()
+        self._closed = False
 
     @property
     def store_executor(self) -> GenerationRunStoreExecutorPort:
@@ -70,15 +75,56 @@ class AsyncGenerationRunLifecycleStore:
         *,
         effect: GenerationRunEffectIntent | None = None,
     ) -> GenerationRunPersistenceRecord:
-        record = await self._store_executor.call(
-            _map_and_persist_generation_run_lifecycle,
-            self._store,
-            value,
-            effect,
-        )
+        if self._closed:
+            raise RuntimeError("Generation lifecycle store is closed")
+        task = asyncio.current_task()
+        self._pending_writes.add(task)
+        try:
+            record = await self._persist_recoverably(value, effect)
+        finally:
+            self._pending_writes.discard(task)
         if record.effect is not None and self._on_effect_saved is not None:
             self._on_effect_saved()
         return record
+
+    async def _persist_recoverably(
+        self, value: Mapping[str, Any], effect: GenerationRunEffectIntent | None
+    ) -> GenerationRunPersistenceRecord:
+        # Map once: every retry keeps the exact Run snapshot and effect identity.
+        record = await self._store_executor.call(map_generation_run_lifecycle, value, effect=effect)
+        retrying = False
+        delay = 0.25
+        while True:
+            try:
+                if retrying and await self._store_executor.call(
+                    self._store.persistence_confirmed, record.state, effect=record.effect
+                ):
+                    return record
+                await self._store_executor.call(
+                    self._store.save, record.state, effect=record.effect
+                )
+                return record
+            except TursoError as exc:
+                if exc.code not in {
+                    "cloud_storage_outcome_unknown", "cloud_storage_unavailable",
+                    "cloud_storage_connection_closed", "cloud_storage_limit_reached",
+                    "cloud_storage_lease_lost", "cloud_storage_reconnecting",
+                }:
+                    raise
+                # Never replay a Provider request. Read back the database receipt
+                # before retrying this idempotent snapshot transaction; fresh
+                # connections still enforce the current Workspace fence.
+                retrying = True
+                await asyncio.sleep(delay)
+                delay = min(5.0, delay * 2)
+
+    async def close(self) -> None:
+        self._closed = True
+        tasks = tuple(self._pending_writes)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def load(self, run_id: str) -> GenerationRunState | None:
         return await self._store_executor.call(self._store.load, run_id)
@@ -104,16 +150,6 @@ def _mapping(value: Any) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         return {}
     return copy.deepcopy(dict(value))
-
-
-def _map_and_persist_generation_run_lifecycle(
-    store: GenerationRunStore,
-    value: Mapping[str, Any],
-    effect: GenerationRunEffectIntent | None,
-) -> GenerationRunPersistenceRecord:
-    record = map_generation_run_lifecycle(value, effect=effect)
-    store.save(record.state, effect=record.effect)
-    return record
 
 
 def _attempt(

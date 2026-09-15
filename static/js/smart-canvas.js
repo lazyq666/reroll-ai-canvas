@@ -15806,8 +15806,8 @@ async function runPromptLLMNode(nodeId, options={}){
     } finally {
         const target = nodes.find(item => item.id === outputId);
         if(target) target.running = false;
+        canvasPersistence.schedule({generationSettlement:true});
         render();
-        canvasPersistence.schedule();
     }
     return outputNode;
 }

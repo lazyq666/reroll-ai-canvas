@@ -283,7 +283,7 @@ class LocalGenerationSubmissions:
         finally:
             self._cancelling = False
 
-    async def close(self, *, drain=False):
+    async def close(self, *, drain=False, drain_timeout=30.0):
         self._closed = True
         if self._accept_work:
             await asyncio.gather(*(asyncio.shield(task) for task in tuple(self._accept_work)), return_exceptions=True)
@@ -293,7 +293,10 @@ class LocalGenerationSubmissions:
         tasks = tuple(self._tasks.values())
         try:
             if drain and tasks:
-                await asyncio.gather(*(asyncio.shield(task) for task in tasks), return_exceptions=True)
+                # Cloud reconciliation may wait for connectivity indefinitely.
+                # Keep the durable intent and cancel process work after a bounded
+                # drain so shutdown can release the lease and resume next time.
+                await asyncio.wait(tasks, timeout=max(0.0, float(drain_timeout)))
         finally:
             for task in tasks:
                 if not task.done():

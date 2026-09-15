@@ -22,6 +22,7 @@ let canvasPersistenceInFlight = null;
 const canvasPersistenceSealedOperations = [];
 let canvasPersistencePendingSave = false;
 let canvasPersistenceGenerationWaiters = 0;
+let canvasPersistenceGenerationSettlement = null;
 let canvasPersistenceOperationCounter = 0;
 let canvasPersistenceLastPongAt = 0;
 let canvasPersistenceLastOfflineToastAt = 0;
@@ -1072,12 +1073,24 @@ function canvasPersistenceRebaseLocalChanges(
     }
     return rebased;
 }
-function canvasPersistenceSchedule(delay=450){
+function canvasPersistenceSchedule(delay=450,{generationSettlement=false}={}){
     if(canvasPersistenceTransientSession) return true;
     if(
         canvasPersistenceStatusValue === 'error'
         && canvasPersistenceConfirmedDocument
     ){
+        if(generationSettlement){
+            // Settling a known generation failure is not a new offline edit.
+            // Preserve the cleanup after the immutable in-flight operation so
+            // reconnect/refresh cannot resurrect its old busy flags.
+            canvasPersistencePendingSave = true;
+            const accepted = canvasPersistenceInFlight?.optimistic
+                ? canvasPersistenceApplyChanges(canvasPersistenceConfirmedDocument,canvasPersistenceInFlight.changes)
+                : canvasPersistenceConfirmedDocument;
+            canvasPersistenceGenerationSettlement = canvasPersistenceDiff(accepted,canvasPersistenceSharedDocument());
+            canvasPersistencePersistLocal();
+            return false;
+        }
         let restored = canvasPersistenceClone(
             canvasPersistenceConfirmedDocument
         );
@@ -1087,6 +1100,9 @@ function canvasPersistenceSchedule(delay=450){
                 canvasPersistenceInFlight.changes
             );
         }
+        if(canvasPersistenceGenerationSettlement){
+            restored = canvasPersistenceApplyChanges(restored,canvasPersistenceGenerationSettlement);
+        }
         canvasPersistenceAssignDocument(restored);
         if(Date.now() - canvasPersistenceLastOfflineToastAt > 1600){
             canvasPersistenceLastOfflineToastAt = Date.now();
@@ -1094,6 +1110,7 @@ function canvasPersistenceSchedule(delay=450){
         }
         return false;
     }
+    canvasPersistenceGenerationSettlement = null;
     canvasPersistencePendingSave = true;
     clearTimeout(canvasPersistenceSaveTimer);
     canvasPersistenceSaveTimer = setTimeout(
@@ -2021,8 +2038,8 @@ window.SmartCanvasModules.canvasPersistence = Object.freeze({
     load(){
         return canvasPersistenceLoad();
     },
-    schedule({delay=450}={}){
-        return canvasPersistenceSchedule(delay);
+    schedule({delay=450,generationSettlement=false}={}){
+        return canvasPersistenceSchedule(delay,{generationSettlement});
     },
     save(){
         return canvasPersistenceSave();

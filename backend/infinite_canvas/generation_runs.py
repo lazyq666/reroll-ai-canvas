@@ -1555,6 +1555,20 @@ class GenerationRuns:
         owner = str(owner or "").strip()
         if target is not None and self._target_guard is not None:
             await asyncio.to_thread(self._target_guard.validate, owner, target)
+        # Startup loads unfinished Runs only. A completed Run can still be the
+        # receipt for a batch association or POST response lost before restart.
+        loader = getattr(self._lifecycle_store, "load_by_key", None)
+        with self._lock:
+            known_key = (owner, key) in self._keys
+        if key and not known_key and self._path() is None and callable(loader):
+            stored = await loader(owner, key)
+            if stored is not None:
+                with self._lock:
+                    if (owner, key) not in self._keys:
+                        restored = _Run.from_stored(_lifecycle_run_value(stored))
+                        self._runs[restored.id] = restored
+                        self._keys[(owner, key)] = restored.id
+                        self._index_remote_refs_locked(restored)
         with self._lock:
             self._load_locked()
             existing_id = self._keys.get((owner, key)) if key else None
@@ -1681,6 +1695,9 @@ class GenerationRuns:
                 self._owners[run_id] = owner_task
             self._persist_locked(run)
         try:
+            if self._lifecycle_store is not None and self._path() is None:
+                # No paid execution before its recovery identity is durable.
+                await self.wait_for_lifecycle_projection(through_current=True)
             if replay_prepared is not None:
                 return await self._complete_prepared(
                     run_id,
@@ -4132,9 +4149,11 @@ class CanvasGenerationTargetGuard:
                 generation_node_id=target.node_id,
             )
         except Exception as exc:
-            raise GenerationRunError(
-                str(getattr(exc, "detail", "") or exc)
-            ) from exc
+            status = getattr(exc, "status_code", None)
+            if status in {401, 403, 404, 410}:
+                raise GenerationRunNotFound(str(getattr(exc, "detail", "") or exc)) from exc
+            # An unavailable database is not evidence that the target changed.
+            raise
         if str(canvas.get("kind") or "").strip().lower() != "smart":
             raise GenerationRunValidation("生成任务仅支持 Smart Canvas")
         node = next(
@@ -4158,7 +4177,7 @@ class CanvasGenerationTargetGuard:
     def is_current(self, owner: str, target: RunTarget) -> bool:
         try:
             self.validate(owner, target)
-        except GenerationRunError:
+        except (GenerationRunNotFound, GenerationRunConflict, GenerationRunValidation):
             return False
         return True
 

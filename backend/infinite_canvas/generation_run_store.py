@@ -141,6 +141,10 @@ class GenerationRunStore(Protocol):
         effect: GenerationRunEffect | None = None,
     ) -> None: ...
 
+    def persistence_confirmed(
+        self, run: GenerationRunState, *, effect: GenerationRunEffect | None = None
+    ) -> bool: ...
+
     def load(self, run_id: str) -> GenerationRunState | None: ...
 
     def load_unfinished(
@@ -819,6 +823,24 @@ class SqliteGenerationRunStore:
     def _write_statements(connection: sqlite3.Connection, statements) -> None:
         for sql, parameters in statements:
             connection.execute(sql, parameters)
+
+    def persistence_confirmed(
+        self, run: GenerationRunState, *, effect: GenerationRunEffect | None = None
+    ) -> bool:
+        """Read back an uncertain snapshot commit, including compacted effects."""
+        if effect is not None:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT run_id, canvas_id, terminal_status, payload_digest "
+                    "FROM generation_effect_outbox WHERE effect_id = ?",
+                    (effect.effect_id,),
+                ).fetchone()
+            # The terminal snapshot and this immutable receipt commit together.
+            # Completed delivery may already have compacted the Run payload.
+            return row is not None and (
+                row["run_id"], row["canvas_id"], row["terminal_status"], row["payload_digest"]
+            ) == (effect.run_id, effect.canvas_id, effect.terminal_status, _digest(effect.payload))
+        return self.load(run.run_id) == run
 
     def load_by_key(self, owner: str, key: str) -> GenerationRunState | None:
         """Read the durable receipt, including completed compacted Runs."""

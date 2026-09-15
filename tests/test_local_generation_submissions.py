@@ -70,6 +70,20 @@ class LocalWorkerTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.wait_for(service._tasks[record["id"]], 2)
         return self.journal.read(record["id"], "workspace", "alice")
 
+    async def test_shutdown_bounds_cloud_wait_and_retains_original_intent(self):
+        entered = asyncio.Event()
+        async def dispatch(record):
+            entered.set()
+            await asyncio.Event().wait()
+        service = self.service(dispatch=dispatch)
+        record = await service.accept("alice", command())
+        await entered.wait()
+        await asyncio.wait_for(service.close(drain=True, drain_timeout=0.01), 1)
+        stored = self.journal.read(record["id"], "workspace", "alice")
+        self.assertEqual(stored["operation_id"], "first")
+        self.assertIn(stored["status"], {"submitting", "uncertain"})
+        self.assertEqual(service.active_count(), 1)
+
     async def test_acceptance_and_independent_dispatch_do_not_wait_for_first_checkpoint(self):
         release = asyncio.Event()
         started = asyncio.Event()
