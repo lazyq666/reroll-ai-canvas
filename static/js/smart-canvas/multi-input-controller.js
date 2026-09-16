@@ -32,9 +32,7 @@ async function smartMultiInputCommit(snapshot,{kind='image',point=null,targetId=
     if(!snapshot?.ok || !['image','video'].includes(kind)) return null;
     smartMultiInputCommitting = true;
     try {
-        // Drain earlier edits so this gesture owns one operation and one Undo.
-        const ready = await canvasPersistence.checkpoint();
-        if(!ready || !canvasPersistence.editable() || canvasPersistence.status().state !== 'ready'){
+        if(!canvasPersistence.editable() || canvasPersistence.status().state !== 'ready'){
             toast(smartMultiInputReason('offline'));
             return null;
         }
@@ -42,6 +40,9 @@ async function smartMultiInputCommit(snapshot,{kind='image',point=null,targetId=
         if(selected.length !== snapshot.rawIds.length || selected.some(id=>!snapshot.rawIds.includes(id))) return null;
         const current = window.SmartCanvasModules.multiInput.validate(snapshot,smartMultiInputOptions(snapshot.rawIds));
         if(!current.ok){ toast(smartMultiInputReason(current.reason)); return null; }
+        // Start saving earlier edits before changing live state so this gesture
+        // retains its own operation and Undo without delaying local rendering.
+        void canvasPersistence.save();
         if(targetId){
             const plan = smartMultiInputTarget(snapshot,targetId);
             if(!plan.ok){ toast(smartMultiInputReason(plan.reason)); return null; }
