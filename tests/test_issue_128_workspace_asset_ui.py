@@ -85,7 +85,7 @@ class Issue128WorkspaceAssetUiTests(unittest.TestCase):
 
     def test_txt_prompt_order_and_generation_validation_are_explicit(self):
         self.assertIn(
-            "promptAuthoringJoinUnique([body, ...textInputs.map(entry => entry.text)])",
+            "promptAuthoringJoinUnique([...textInputs.map(entry => entry.text), body])",
             AUTHORING,
         )
         self.assertIn("本次生成合并的 TXT 文本超过 2MB", AUTHORING)
