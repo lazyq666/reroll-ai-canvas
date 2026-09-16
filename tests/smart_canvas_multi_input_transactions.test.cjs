@@ -154,3 +154,43 @@ test('production persistence saves one complete batch and reuses server operatio
     assert.deepEqual(clone(s.nodes.at(-1).inputNodeIds),['a','b']);
     assert.deepEqual(clone(s.canvas.connections),clone(changes.connection_adds));
 });
+test('multi-input creation renders before an earlier Canvas Mutation is acknowledged',async()=>{
+    const s=context([source('a'),source('b')]);
+    s.sent=[];
+    s.WebSocket={OPEN:1};
+    for(const name of ['node-geometry','node-placement','canvas-persistence','canvas-mutation']) load(s,name);
+    s.canvasPersistence=s.SmartCanvasModules.canvasPersistence;
+    s.canvasMutation=s.SmartCanvasModules.canvasMutation;
+    s.nodeKinds=s.SmartCanvasModules.nodeKinds={isGeneration:()=>false};
+    s.SmartCanvasModules.multiInput={validate:snapshot=>snapshot};
+    s.SmartCanvasModules.viewportSelection={
+        selection:{ids:()=>['a','b']},
+        viewport:{bounds:()=>null,reveal:()=>false}
+    };
+    s.smartNodeInFlight=()=>false;
+    s.outputImagesForNode=node=>node.images || [];
+    s.textForNode=()=>'';
+    s.referenceGenerationSettings=()=>({});
+    s.uid=()=> 'target';
+    s.MEDIA_NODE_DEFAULT_SCALE=1;
+    s.smartMultiSelectionBox=null;
+    s.syncSmartNodeFloatingPortal=()=>{};
+    vm.runInContext(`
+        canvasPersistenceConfirmedDocument=canvasPersistenceSharedDocument();
+        canvasPersistenceStatusValue='ready';
+        canvasPersistenceSocket={readyState:1,send:raw=>sent.push(JSON.parse(raw))};
+    `,s);
+    load(s,'multi-input-controller');
+    vm.runInContext('globalThis.__multiInputCommit=smartMultiInputCommit',s);
+
+    s.nodes[0].x=25;
+    const commit=s.__multiInputCommit({
+        ok:true,ids:['a','b'],rawIds:['a','b']
+    },{kind:'image',point:{x:700,y:500}});
+    await Promise.resolve();
+
+    assert.equal(s.sent.length,1, 'the earlier edit should begin saving');
+    assert.equal(s.nodes.at(-1).id,'target', 'the new target should render optimistically');
+    assert.equal(s.events.includes('render'),true);
+    await commit;
+});

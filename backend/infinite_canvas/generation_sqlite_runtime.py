@@ -98,6 +98,7 @@ class GenerationSqliteRuntime:
             # Store admission is still open.
             await self._dispatcher.stop()
         finally:
+            await self._lifecycle_store.close()
             await self._store_executor.close()
             self._closed = True
 

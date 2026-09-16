@@ -6,6 +6,7 @@
 - **Related ADR**：[ADR-0014](../adr/0014-optional-cloud-sqlite-authority.md)（Proposed，已实现试用接缝）。
 - **GitHub Issue**：[Issue #70](https://github.com/lazyq666/reroll-ai-canvas/issues/70)，Review；剩余设备与网络验收继续跟踪。
 - **规格修订**：2026-09-11 连续生成的本地接收与后台提交已实现（第 3.1 节）；本地自动化与隔离页面验收见本节末，真实云端、Provider 和第二设备联合验收仍待完成。
+- **链路盘点**：2026-09-14 完成源码核对与故障注入，见第 7 节。第 7.10 节记录 2026-09-15 分支修复；本次不更新上述真实云端与第二设备验收结论。
 
 ## 1. 用户目标与边界
 
@@ -185,3 +186,203 @@
 持久配置、凭据边界和停服恢复见[存储布局](../current/storage-layout-and-migration.md)。供应商免费档事实与官方来源见[调研](../archive/2026-09-07-hybrid-cloud-backend-free-tier-research.md)；额度以账户实际计划为准，本次没有开启超额计费。
 
 第二台必须先部署支持本模式的代码，单独配置同一数据库的凭据，等待 OneDrive 同步到云端 authority 后再启动；不导入它的旧 SQLite，不复制整个 auth.db。每次换设备前结束生成/批量任务并退出 Reroll，再等待 OneDrive 文件同步。
+
+## 7. Turso 生成链路盘点与可靠性验收
+
+第 7.1–7.9 节保留 2026-09-14 的盘点基线；后续修复状态以第 7.10 节为准。盘点时状态为 **待修复、待联合验收**。源码基线为 `08bb8abfc23040eefe636f72761b0e42927c8bc9`，版本 `2026.09.14.1`。本次仅核对链路、运行隔离测试和记录偏差，没有修改运行代码或用户数据。
+
+主要结论：生成执行已经汇入共同的 Generation Run（后台任务记录），但入口接收、保存确认和界面恢复尚未统一。开启 Turso 后，原本的本机数据库访问变成远程请求；这些请求出错时，部分分支会丢失完成记录、误判任务失效或停止刷新。媒体 Composer 的本机可靠接收解决了提交前等待的一部分问题，尚未覆盖结果回写的全部失败边界。
+
+以下使用三种证据等级：**隔离复现**表示调用真实产品函数、替换网络或保存依赖后观察到了缺陷；**源码确认**表示分支存在但没有完成真实环境复现；**现场观察**表示此次排查已读到的状态，不能单独证明因果关系。隔离测试不调用付费 Provider，也不能代替真实 Turso 断网验收。
+
+### 7.1 开关改变了什么
+
+| 对象 | 开启 Turso 后的位置与责任 | 对生成的影响 |
+| --- | --- | --- |
+| Canvas、节点和画布版本 | Turso 中的 Canvas 表，由 Canvas Sync 管理 | 提交前的目标确认、输入保存和最后的结果写回都依赖远程读写 |
+| Generation Run、全局生成历史、发布回执、outbox | Turso 中的生成记录表；outbox 是“等待写回画布的交付记录” | Provider 完成后还要保存阶段、准备结果、发布历史和交付画布 |
+| Generation Batch、批次任务与 Run 关联 | Turso 中的批量任务表 | 批次调度、并发槽释放及详情查询也依赖远程读写 |
+| 媒体 Composer 的本机提交意图 | Device State 中的 `local-generation-submissions.sqlite3` | 在正式云端 Run 创建前保留操作身份、参数和依赖；只有接入该入口的任务享有这一保护 |
+| 图片、视频等媒体文件 | 原 Workspace 媒体目录及 OneDrive | 下载到本机与云端记录成功是两件事；另一设备还需要媒体同步完成 |
+| Provider 执行、密钥、账号会话 | 原本机服务及安装/设备边界 | 开关没有把生成程序移到 Turso，也没有建立多台服务并发执行模式 |
+
+数据权威与设备限制沿用第 2 节及 [ADR-0014](../adr/0014-optional-cloud-sqlite-authority.md)。实现依据：[Turso Store 适配](../../backend/infinite_canvas/turso_stores.py)、[生成存储运行时](../../backend/infinite_canvas/generation_sqlite_runtime.py)、[本机提交记录](../../backend/infinite_canvas/local_generation_submissions.py)。云端连接失败不会自动改写旧本地三库。
+
+### 7.2 从点击到节点完成
+
+```mermaid
+flowchart TD
+    A[媒体 Composer 点击生成] --> B[本机可靠接收：保存不可变的提交意图]
+    C[文字、再次生成、级联、处理器] --> D[等待画布保存确认]
+    B --> E[后台确认该任务依赖的画布操作]
+    D --> F[共同 Generation Run]
+    E --> F
+    G[批量页面：保存批次并调度子任务] --> F
+    F --> H[本机调用 Provider，保存任务编号和进度]
+    H --> I[Provider 完成]
+    I --> J[准备结果：下载媒体或整理文字]
+    J --> K[核对目标，发布历史，保存终态和 outbox]
+    K --> L[消费 outbox：原子写入节点结果与最终日志]
+    L --> M[推送 Canvas Revision，浏览器结束等待]
+    F -.任务查询.-> N[浏览器轮询并更新界面]
+```
+
+图中主线表示有 Smart Canvas 目标的生成。Classic Canvas 的同步响应入口、无画布目标的批量任务不会经过相同的 Canvas 交付段；各入口见下一节。
+
+需要分别判断以下五个时点，不能把它们合称为“生成完成”：
+
+| 时点 | 当前可确认的事实 | 尚不能推出的结论 |
+| --- | --- | --- |
+| 本机接收成功 | 该点击的提交意图已写入本机日志 | 云端已建立 Run、Provider 已收到请求 |
+| 返回 `task_id` | 后台已有任务身份；普通 `start()` 先创建内存任务、安排保存和执行 | 每个入口都已等待该身份写入 Turso |
+| `provider_completed` | 供应商返回结果，后台记录其输出 | 媒体已全部准备好、画布已更新 |
+| `output_prepared` | 后台已准备可交付结果 | 历史发布、终态和画布交付已经完成 |
+| 内存 `succeeded` / `finished` | 完成编排已走到终态，安排保存终态及交付意图 | Turso 终态事务已确认、outbox 已消费、浏览器已收到新版本 |
+
+依据：[Run 创建](../../backend/infinite_canvas/generation_runs.py#L1543)、[阶段推进](../../backend/infinite_canvas/generation_runs.py#L2246)、[终态安排保存](../../backend/infinite_canvas/generation_runs.py#L2471)、[异步保存](../../backend/infinite_canvas/generation_runs.py#L1477)。本机提交后台额外调用 `wait_for_lifecycle_projection(through_current=True)`，等待当时截取的保存队列尾部；它不是等待全部 Provider 生成结束，且仍受此前保存失败的全局错误状态影响，见 G1。[实现](../../backend/main.py#L11644)
+
+### 7.3 生成入口矩阵
+
+“本机接收”专指第 3.1 节的持久提交日志，和浏览器 `sessionStorage` 排队不同。下表中的等待时间是客户端门槛，不是 Turso 的服务保证。
+
+| 入口 | 后台与提交方式 | 本机接收 | 同步、查询与刷新恢复 |
+| --- | --- | --- | --- |
+| Smart Canvas 媒体 Composer：API 图片、视频、RunningHub 模型 | `/api/canvas-image-tasks`、`/api/canvas-video-tasks`，后台 Run | 有；云端接收服务启用且传入 `onLocalAccepted` | 固定该任务所需画布操作，先接收再后台同步；查本机回执后转 task 查询，刷新时对账本机记录与 active Runs |
+| Smart Canvas 再次生成、非 Composer 图片/视频调用 | 同上 | 无 | 保存并等待确认，通常最长 30 秒；部分失败转浏览器本地排队；已有 Run 复用统一恢复 |
+| Prompt Generation Node 文字 | `/api/canvas-llm-tasks`，后台 TextRun | 无 | 先等待画布同步 30 秒；超时发生在 POST 之前；拿到 task 后统一查询，未知响应尝试 active Runs 对账 |
+| ComfyUI | `/api/canvas-comfy-tasks`，后台 WorkflowRun | 云端本机接收服务启用时，Composer 有；其他调用无 | 仍使用专用前端查询器；临时查询错误处理与普通图片不同 |
+| RunningHub 直接应用/工作流 | `/api/runninghub/submit`、`workflow-submit`，共同 WorkflowRun 的 Inline 入口 | 随 Composer 上下文 | 返回远端编号后使用专用查询；HTTP/业务错误直接退出该次前端等待。后端查询会寻找关联 Run 并恢复，不等于没有后台恢复 |
+| ModelScope 专用生成 | `/api/ms/generate`、`/api/angle/generate`、`/generate`，共同 WorkflowRun 的 Inline 入口 | 随 Composer 上下文 | 每张可有独立 `request_index`，前端组合结果；不同于普通 API 的一次多输出 Run |
+| Smart Cascade、画布 Batch Run Node、循环 | 浏览器编排，各子请求进入共同 Run | 无 | 已提交子任务可恢复；剩余级联图的执行状态是浏览器内存，刷新恢复子任务不等于自动继续整条流程 |
+| 智能分层 | `/api/canvas-layer-decomposition-tasks`，专用后台任务与交付 | 无 | 30 秒生成同步门槛，专用查询与恢复 |
+| Image Studio 本地深度图 | `/api/smart-canvas/depth-map`，确定性图片处理 Run | 无 | 仍为 5 秒同步门槛，未传 `forGeneration`；与其他生成入口不一致 |
+| 批量生成页面 `/online` | 先保存 Generation Batch，再以固定批次/序号 key 调共同 ImageRun | 无 | 后台云端调度周期 5 秒，页面详情 1.8 秒；任务与 Run 的关联另存于批次表 |
+| Classic Canvas API 图片 | `/api/canvas-image-tasks`，Run 身份保存在 `output._pending` | 无 | 先提交后保存 task 锚点；刷新依赖保存成功的 `canvasTaskId`，没有 Smart Canvas 的同等操作依赖封存 |
+| Classic Canvas 视频、文字/聊天 | `/api/canvas-video`、`/api/canvas-llm`，共同 Run 的 Inline 入口 | 无 | 前端等待请求响应，再保存结果；文字调用不携带 Smart Canvas 的 canvas/node/operation 目标身份 |
+
+源码入口：[Composer](../../static/js/smart-canvas.js#L5809)、[生成提交与再次生成](../../static/js/smart-canvas/generation-run.js)、[Provider 分流](../../static/js/smart-canvas/generation-provider.js)、[本机接收条件](../../static/js/smart-canvas/local-generation-submissions.js#L169)、[文字](../../static/js/smart-canvas.js#L15670)、[级联](../../static/js/smart-canvas/generation-cascade.js)、[深度图](../../static/js/smart-canvas/smart-depth-map.js#L137)、[Classic Canvas](../../static/js/canvas.js#L9889)、[后台批次](../../backend/main.py#L11699)。RunningHub、ModelScope 和 Classic 同步接口也经过 [`_run_generation_inline`](../../backend/main.py#L7371)，不能因前端等待同步响应就判定其没有 Generation Run。`canvas.js` 中还存在 `runGeneratorLegacy → /api/online-image` 兼容函数；本次未证明当前 UI 仍可到达，不计为已核实的在用入口。
+
+### 7.4 失败与恢复责任
+
+| 失败发生位置 | 当前恢复行为 | 边界 |
+| --- | --- | --- |
+| 本机意图已接收，画布依赖尚未同步 | 本机 worker 保留记录，周期重试准备阶段 | 仅覆盖已接入本机日志的入口；同设备恢复 |
+| 提交响应未知 | 保留原 Operation ID，查询已有 Run，不盲目重发 Provider | `submitting` / `uncertain` 期间不能按普通排队任务取消；回执待核对不等于没有开始生成 |
+| Run 有远端编号 | 恢复同一任务，以查询为主 | 付费任务没有远端编号和可恢复结果时，不保证自动重提交；确定性本地处理有自己的安全重跑规则 |
+| 已保存 `provider_completed` | 可从保存的供应商结果重新准备输出 | 依赖该阶段确实写入权威库 |
+| 已保存 `output_prepared` | 可复用准备好的结果，继续发布/交付 | 不能把未持久化的内存结果当作重启后仍然存在 |
+| outbox 已持久化，写画布失败 | 派送器把异常转为延迟重试；正常提交触发唤醒 | 这是“交付记录已经存在”后的重试，补不了 G1 中尚未写入的交付记录 |
+| 租约暂时失效 | 撤销旧连接资格，在安全期限内核对同一 owner/epoch 并续约 | 恢复写权限不代表遗漏的业务写入已补齐；未知业务事务不能直接重放 |
+| 浏览器刷新或实时通道重连 | 按画布/节点/Operation ID 对账任务，接收新的 Canvas Revision | 任务所有者可轮询，其他协作者主要依赖推送；一次 active Runs 查询失败没有独立持续对账保障 |
+| 正常退出应用 | 排空本机提交、停止批量调度、暂停当前进程任务，等待已领取的交付结束 | 不等待所有远端生成和所有 outbox 清空；仍有未完成记录时由原设备恢复 |
+| 切换存储模式 | 检查 Run、本机提交、outbox、publication、batch/task 是否排空，再迁移/导出 | 关闭 Turso 会导出最新云端记录，不是切回旧本地数据库 |
+
+依据：[本机提交 worker](../../backend/infinite_canvas/local_generation_submissions.py)、[Run 恢复](../../backend/infinite_canvas/generation_runs.py)、[交付重试](../../backend/infinite_canvas/generation_effect_dispatcher.py#L357)、[租约和设备恢复](../../backend/infinite_canvas/turso_runtime.py)、[启动/停机顺序](../../backend/main.py#L386)、[切换排空检查](../../backend/infinite_canvas/turso_switch.py#L47)。新设备启动检查批次汇总状态，存储切换还检查子任务状态，两者覆盖范围不同；这属于验收核查项，尚未证明存在因此绕过保护的真实数据。
+
+### 7.5 已隔离复现的五个缺陷
+
+下列编号是本节内的发现编号，不是 GitHub Issue 编号。它们均未在本次盘点中修复，也不能全部归因到最初两个节点。多数属于共用异常分支，Turso 增加了远程读写失败这一触发条件。
+
+| 编号 | 触发条件与观察结果 | 影响及源码 |
+| --- | --- | --- |
+| G1：终态保存失败后缺少补写 | Provider 和结果准备成功，只让带 effect 的终态保存抛一次异常。内存为 `succeeded`，最后成功保存的阶段仍为 `output_prepared`，无画布交付记录；重复等待保存队列没有发起第二次终态保存 | 当前进程可能已认为完成，但没有可消费的交付记录。保存错误仅写入 `_lifecycle_projection_error`，成功的后续保存不会清除它，后续接收回执等待也可能受影响。后续保存任务本身并非全部停止；重启能否补齐取决于先前已保存的恢复阶段。[保存队列](../../backend/infinite_canvas/generation_runs.py#L1477) |
+| G2：临时读错被判成目标失效 | 首次目标校验成功，结果完成后再次读 Canvas 时抛 `cloud_storage_unavailable`。健康对照为 `succeeded`；注入后为 `discarded`，结果为空，尽管节点和 Operation ID 未改变 | `validate()` 把读取异常统一包装，`is_current()` 再将其统一转为 false。完成路径把“暂时无法判断”当作“已经失效”；任务查询也调用这一判断。[目标检查](../../backend/infinite_canvas/generation_runs.py#L4115)、[完成前判断](../../backend/infinite_canvas/generation_runs.py#L2424) |
+| G3：文字失败清理被旧文档覆盖 | 文字同步未完成，Provider 提交次数为 0。持久化状态正常时节点结束等待并保留失败标记；注入 `status=error` 后，finally 的 `schedule()` 从 confirmedDocument + inFlight 重建文档，重新出现 `running=true`、`textGenerationPending=true` | 必须检查当前 `nodes` 中的节点，而非已经被替换掉的旧对象。普通 `cloud_storage_*` 断线实际走 `reconnecting`，故该复现不能直接证明此次现场命中了 `error` 分支。[文字收尾](../../static/js/smart-canvas.js#L15778)、[schedule 重建](../../static/js/smart-canvas/canvas-persistence.js#L1075) |
+| G4：批次保存失败丢失已提交 Run 的关联 | Run 已返回编号，只让第一次 `_finish_task` 保存关联失败；异常分支第二次保存成功。健康对照为 `running + pending-1`；故障后为 `failed + 空 run_id`，`resume_pending()` 后仍无法恢复关联 | 提交与保存共用一个 catch，保存失败被当作生成失败；第二次保存未传 run_id，默认空值覆盖关联。后续刷新仅查询非空 run_id 的任务。后台 Run 可继续，批次已无法正常展示其进度。[调度](../../backend/infinite_canvas/batch_generation.py#L517)、[保存](../../backend/infinite_canvas/batch_generation.py#L821)、[刷新](../../backend/infinite_canvas/batch_generation.py#L896) |
+| G5：批量详情一次查询失败后停止刷新 | 成功查询调用详情 renderer，并由其安排下一轮；失败查询只输出 console.error，不安排下一轮 | 界面会停在上次状态，后台不一定停止。重新打开详情会重新查询；历史列表有独立重试，不能替代详情轮询。[详情轮询](../../static/js/batch-generation.js#L1142) |
+
+故障注入使用现有测试夹具及真实产品函数：G1/G2 使用 [`GenerationRunsLifecycleProjectionTests`](../../tests/test_generation_run_lifecycle.py) 的完成执行器和结果准备器；G2 保留真实 `CanvasGenerationTargetGuard`。G3 使用 [文字同步回归夹具](../../tests/smart_canvas_text_generation_sync_regression.cjs)，保留真实 `runPromptLLMNode` 和 `canvas-persistence.js`，只控制同步结果与持久化状态。G4 使用真实 `BatchGeneration`、临时 SQLite 和 [`PendingGenerationRuns`](../../tests/test_batch_generation.py)，仅注入一次关联保存失败。G5 执行真实 `openBatch`，替换 fetch 与 renderer；“下一轮由成功 renderer 安排”另由源码核实，未运行真实浏览器的完整计时周期。这些是本次临时诊断探针，尚未成为防回归测试。
+
+### 7.6 源码确认、仍需验证的问题
+
+| 项目 | 代码事实与可能影响 | 待补验证 |
+| --- | --- | --- |
+| 长任务轮询的暂时错误预算 | [统一恢复](../../static/js/smart-canvas/generation-recovery.js#L474) 每轮至少等待 2 秒，`index < 45` 使用总轮次而非连续失败次数。约 90 秒后首次遇到暂时查询错误也会退出当前等待 | 长视频或排队任务运行超过该窗口后，注入单次 503，验证继续追踪同一个 Run |
+| 刷新后的孤儿文字等待 | [加载清理](../../static/js/smart-canvas/canvas-persistence.js#L1933) 只在 `pending || queued` 时清理忙状态，可能遗漏仅有 `running/textGenerationPending` 且没有 task 锚点的文字节点；[active Runs 查询](../../static/js/smart-canvas/generation-run.js#L187) 失败返回 null，加载调用没有独立周期重试 | 无 Run 的旧文字等待能否确定收尾；存在 Run 时单次读取失败能否再次对账 |
+| 各入口同步门槛与临时错误处理不同 | 深度图 5 秒、常规生成 30 秒、本机接收及 ComfyUI/RunningHub 专用查询分别实现 | 同样的云端延迟和断网分别覆盖文字、再次生成、处理器、工作流、级联 |
+| 批量调度同步远程 SQL | [批次调度](../../backend/infinite_canvas/batch_generation.py#L504) 在 async 函数中执行同步数据库调用；远程等待会占用服务事件循环。一次刷新写失败可中止当前调度轮次，但 [scheduler](../../backend/infinite_canvas/batch_generation.py#L577) 会在下一周期重试 | 慢 Turso 下批次刷新对画布响应、其他任务和租约心跳的延迟影响；尚无现场定量结论 |
+| 批次终态映射 | [批次刷新](../../backend/infinite_canvas/batch_generation.py#L916) 收束 succeeded/failed/cancelled，未收束 discarded | 先验证无 Canvas target 的批量 ImageRun 是否实际可达 discarded，不能直接报告成已发生故障 |
+| 持久化共享等待队列 | [生成存储运行时](../../backend/infinite_canvas/generation_sqlite_runtime.py#L24) 默认为一个 worker、最多 64 个待处理调用，生命周期、发布与交付共用；本机提交回执还等待截取的全局保存队列 | 多任务并发时，单次慢请求是否使无关任务的确认明显延后；先测分阶段等待，再决定事务合并或调度调整 |
+
+Turso HTTP 默认连接超时 5 秒、读取超时 15 秒；[传输层](../../backend/infinite_canvas/turso_sqlite.py#L208) 不自动重放结果未知的业务事务。云端 outbox 空闲检查为 5 秒、循环失败等待为 10 秒，已有任务交付失败默认延迟 5 秒；保存成功会主动唤醒派送，不能把每次回写固定算成额外等待 5 秒。[运行参数](../../backend/main.py#L11484)、[派送参数](../../backend/infinite_canvas/generation_sqlite_runtime.py#L24)
+
+本规格第 5.2 节已有注入 100 ms 数据库往返的消融测量，说明完成与交付阶段包含多次串行访问。该实验使用模拟传输，不能当作当前真实网络的耗时、百分位或本次卡住的直接原因。
+
+### 7.7 与本次两个节点的关系
+
+为避免将用户内容写入公开仓库，本节只保留节点 ID 后缀及状态证据，不记录提示词、媒体链接、数据库地址或凭据。
+
+| 节点 | 此次排查已观察到的事实 | 仍未证明的部分 |
+| --- | --- | --- |
+| 图片节点 `…09c0` | Provider 已完成，本机存在下载结果；Turso Run 最后阶段为 `provider_completed`，没有 prepared output，也没有 outbox；画布仍保存等待状态 | 缺口位于供应商完成之后、持久结果准备/交付之前。G1 复现的最后持久阶段是 `output_prepared`，与现场不同；不能直接断言 G1 就是唯一根因，也不能仅凭文件存在认定结果准备全部成功 |
+| 文字节点 `…22n8` | 画布保留 `running/textGenerationPending`；对应尝试日志为“画布同步未完成”，没有找到相应持久 Run；当前文字函数的同步超时发生在生成 POST 之前 | 该文字尝试应先按“未完成提交却遗留等待状态”排查。G3 与孤儿状态清理缺口提供了可验证方向，但缺少当时浏览器持久化状态，尚未证明具体触发分支 |
+
+因此不能用同一个“供应商已完成、前端未收到结果”概括这两个节点：图片有完成证据；文字有提交前同步失败证据。后续现场诊断应关联同一 Operation ID 的接收回执、Run 持久阶段、发布记录、outbox 和 Canvas Revision，定位最后一个确认成功的边界。
+
+### 7.8 整改顺序与验收条件
+
+以下是待评审目标，不是本次已实现行为。优先修复状态和结果丢失，再统一交互入口，最后依据测量优化网络往返。
+
+| 顺序 | 工作范围 | 完成条件 |
+| --- | --- | --- |
+| 1 | G1/G2：可靠保存终态，区分目标失效与暂时无法读取 | 对已执行的同一 Run 补齐保存/交付，不再次调用付费生成；一次未知提交先查回执；单次 Canvas 读取异常不产生 discarded；恢复后节点结果与最终日志各交付一次 |
+| 2 | G3/G4/G5：清理文字等待，保留批次 Run 关联，持续详情刷新 | 同步超时且未提交的文字显示失败并保留输入；断线、重连、刷新不复活旧等待；批次保存失败后能找回原 Run；单次详情 503 不停止追踪 |
+| 3 | 统一同步、查询和刷新恢复边界 | 明确哪些入口使用可靠接收；长任务查询按暂时错误预算恢复；active Runs 查询失败后再对账；专用 Provider 路径保留必要差异但统一用户可理解的状态 |
+| 4 | 分阶段测量及真实联合验收 | 覆盖慢网/断网、原设备重启、两设备轮换与媒体暂缺；分别测本机接收、云端身份确认、Provider 执行、结果保存和画布交付，确认无重复生成、无结果丢失，再评审推广 |
+
+交互验收应至少区分“已接收，等待同步”“已提交，等待生成”“生成完成，等待保存/回写”“暂时无法确认，正在恢复”“明确失败”。具体文案仍需产品评审和中英 i18n；本次不向 UI 添加新状态文案。
+
+与当前承诺的偏差： [Generation Pipeline](../current/generation-pipeline.md) 将 `succeeded` 描述为完成允许的写回/发布，但 SQLite/Turso 代码先安排异步终态保存，再消费 outbox；该状态不能独立证明 Canvas 已交付。G1/G2 进一步暴露失败时的收束缺口。F09 在 [项目地图](../PROJECT-MAP.md#功能规格注册表) 标记为 `drift`，范围限定为此处列明的持久化确认、交付和恢复语义，不能把“永久等待”改写成正常产品合同。默认本地存储的权威选择不变；Turso 仍为 Issue #70 跟踪的试用功能。
+
+### 7.9 本次验证与覆盖缺口
+
+使用项目 `.venv/bin/python`（Python 3.12），以下两组通过，重叠项目不重复计数。合计 104 个不同的 Python 测试，以及两项 JavaScript 回归脚本。测试使用临时库、模拟传输或固定执行器，未进行新的真实 Provider 生成和真实 Turso 故障注入。
+
+```sh
+.venv/bin/python -m unittest tests.test_turso_sqlite tests.test_turso_stores tests.test_turso_runtime tests.test_local_generation_submissions tests.test_generation_run_lifecycle tests.test_generation_effect_dispatcher tests.test_generation_runs_sqlite_authority tests.test_canvas_text_generation_recovery
+# 76 tests: OK
+
+.venv/bin/python -m unittest tests.test_batch_generation tests.test_turso_runtime tests.test_turso_stores tests.test_turso_switch
+# 49 tests: OK；其中 21 个与上一组重叠
+
+node tests/smart_canvas_local_submission_restore_regression.cjs
+node tests/smart_canvas_text_generation_sync_regression.cjs
+# 两项通过
+```
+
+系统 Python 3.9 曾在部分夹具构造中报告事件循环及快照错误；以项目 Python 3.12 重跑相关批次、runtime、store、switch 测试后全部通过，不将该环境差异归因于产品故障。
+
+文档知识地图测试 `tests.test_documentation_knowledge_map` 的 7 项检查通过；本次变更的相对链接、源码行号范围及 `git diff --check` 检查通过。
+
+现有测试通过不表示 G1–G5 已受防回归保护。例如已有 lifecycle 保存失败测试验证 JSON 兼容权威仍保留记录，并不验证 Turso 作为唯一权威时终态保存失败后的补写；已有文字超时测试检查旧节点引用，未覆盖整份文档被替换后的实际节点。后续修复应把第 7.5 节的故障注入变成相应模块的回归测试，并加入真实页面的断线/刷新验收。Issue #70 本次读取仍为 OPEN，其正文标记 Review；本次未修改 Issue 或关闭任何验收 Gate。
+
+
+### 7.10 2026-09-15 分支修复与验证
+
+状态：**已实现定向修复，真实云端断网与第二设备联合验收待完成**。分支 `codex/turso` 基于上述本地 `main` 基线，不改变存储开关、数据库 schema 或媒体路径。第 7.5 节 G1–G5 是修复前证据，不能再据其推断分支仍有相同实现。
+
+| 范围 | 分支行为 | 回归入口 |
+| --- | --- | --- |
+| G1：生命周期保存 | Turso 暂时错误保留原快照，按 0.25 秒起、上限 5 秒间隔重试。先查回相同 Run 或终态 effect 的不可变回执；已提交则确认成功，未提交才补写。结果和 effect 在同一事务；已消费并压缩的回执也可确认。此处只恢复保存，不调用 Provider | `tests.test_turso_generation_reliability` 的提交前失败、提交后响应未知、唯一交付和下一次提交检查 |
+| 提交与重启身份 | SQLite/Turso 唯一权威下，执行 Provider 前等待本次已排入的生命周期保存；同一 owner/key 在内存缺失时查询持久记录，重启后也复用已经完成的 Run | 同模块的 durable identity、completed Run restart 测试 |
+| G2：目标读取 | 仅明确的删除、访问撤销或 operation 冲突返回失效；临时存储异常继续向上报告。准备好的结果保留为可恢复阶段，恢复不重新生成 | 同模块的目标读取及 prepared output 恢复测试 |
+| G3：文字收尾 | 文字 finally 使用生成收尾保存；同步 error 状态下保留清理差异和浏览器本地记录，不用旧 inFlight 的 busy 状态覆盖。后续拒绝编辑也保留这份收尾差异；正常编辑仍执行原 error 回退 | `tests/smart_canvas_text_failure_settlement_regression.cjs`：当前节点、再次 schedule、保留输入及本地恢复 |
+| G4：批次关联 | 生成提交失败与关联保存失败分开处理。已返回的 Run 回执留在当前进程，下一轮先补关联；取消前也先补关联。进程重启后依赖持久 Run 的固定 key 去重 | `tests.test_turso_generation_reliability` 及 `tests.test_batch_generation` |
+| G5：详情刷新 | 已打开的批次详情遇到查询失败继续安排下一轮；离开该详情或切换批次后不再执行旧重试 | `tests/batch_generation_poll_recovery_regression.cjs`、`tests/turso_batch_detail_browser.cjs` |
+| 长任务查询 | 暂时错误预算按连续失败次数计算，成功查询后归零；不再用任务总轮次判断是否可以恢复 | `tests/generation_long_poll_recovery_regression.cjs` |
+| 停机 | 本机提交最多等待 30 秒排空，之后取消进程中的等待并保留原提交意图；生命周期运行时关闭会取消尚在重试的保存。正常联网时仍优先排空，断网时不会因无限保存重试卡住退出 | `tests.test_local_generation_submissions` 的 bounded drain；可靠性模块的 close retry 测试 |
+
+租约恢复期间的 `cloud_storage_reconnecting`、旧连接的 `cloud_storage_lease_lost` 只允许重新尝试带资格校验的新连接，不允许绕过 fence。若资格永久丢失，仍需重启；离线关闭时，尚未确认的内存结果不能承诺已经保存，后续恢复以最后的持久阶段和本机提交意图为准。不可重试的 schema、身份、数据冲突等错误继续报错，不自动转成本地写入。
+
+验证：一组涵盖生命周期、Turso Store/runtime/switch、SQLite authority、Run、批量 HTTP、Canvas persistence/recovery 的 218 项测试通过；随后补充的停机回归及相关 28 项测试通过。最终补充边界后的 98 项复核通过，命令如下：
+
+```sh
+.venv/bin/python -m unittest tests.test_turso_generation_reliability tests.test_local_generation_submissions tests.test_generation_run_lifecycle tests.test_generation_run_store tests.test_generation_sqlite_runtime tests.test_smart_canvas_canvas_persistence tests.test_smart_canvas_generation_recovery tests.test_documentation_knowledge_map tests.test_core_creation_i18n
+# 98 tests: OK
+```
+
+新增浏览器脚本已纳入可靠性 Python 测试的子进程调用，完整页面脚本单独运行。
+
+真实页面：以 `tests.batch_generation_browser_app` 的临时 Workspace 和固定数据运行 `tests/turso_batch_detail_browser.cjs`，验证第二次详情查询返回 503、第三次恢复完成，以及 English/中文动态状态切换，全部通过。未调用真实 Provider，未改用户原画布。已有 `batch_generation_ui_smoke.cjs` 在其旧 setup hierarchy 断言处失败，尚未到达本次详情恢复场景；本次不将该完整旧脚本称为通过，定向真实页面验收由上述新脚本完成。
+
+文案未新增 i18n 键，`node static/js/i18n/validate-i18n.js` 验证 3617 个键通过。仍需验证第 7.6 节的孤儿文字状态与 active Runs 再对账、专用 Provider 入口差异、慢 SQL 对调度的影响，以及真实云端断网和设备轮换。此次不统一所有生成入口，不把这些待验收项标为完成；Issue #70 仍为 OPEN，本次没有发布、合并或修改公开 Issue。

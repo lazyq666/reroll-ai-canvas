@@ -1148,7 +1148,15 @@
     async function openBatch(batchId) {
         try {
             renderBatchDetail(await fetchJson(`/api/batch-generation/batches/${encodeURIComponent(batchId)}`));
-        } catch (error) { console.error(error); }
+        } catch (error) {
+            console.error(error);
+            if (currentBatchId === batchId && !$('batchDetailStep').hidden) {
+                clearTimeout(batchPollTimer);
+                batchPollTimer = setTimeout(() => {
+                    if (currentBatchId === batchId && !$('batchDetailStep').hidden) return openBatch(batchId);
+                }, 1800);
+            }
+        }
     }
 
     function historyPromptSummary(batch) {
