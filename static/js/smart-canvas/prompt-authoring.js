@@ -310,7 +310,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
     const localTextRefs = promptAuthoringLocalTextReferences(node);
     const textInputs = promptAuthoringOrderedTextInputs(node, textRefs, localTextRefs, context);
     const validationErrors = promptAuthoringLocalTextValidation(localTextRefs);
-    body = promptAuthoringJoinUnique([body, ...textInputs.map(entry => entry.text)]);
+    body = promptAuthoringJoinUnique([...textInputs.map(entry => entry.text), body]);
     if(!body && sourceSettings?.engine === 'runninghub') body = rhDefaultPromptSuggestion();
     const displayPrompt = originalPrompt || body;
     const resolvedRefs = refs.map((img, index) => ({
@@ -507,7 +507,7 @@ function promptAuthoringMigrationPrompt(canvas, node, inputSnapshot={}){
             text:promptAuthoringNormalizeMigrationPrompt(ref?.textSnapshot)
         }))
     ], entry => entry.key);
-    const prompt = promptAuthoringJoinUnique([draftPrompt, ...ordered.map(entry => entry.text)]);
+    const prompt = promptAuthoringJoinUnique([...ordered.map(entry => entry.text), draftPrompt]);
     if(inputPrompt) return prompt;
     return promptAuthoringNormalizeMigrationPrompt(
         node?.runModelPrompt || inputSnapshot.prompt || prompt

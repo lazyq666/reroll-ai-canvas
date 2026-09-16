@@ -85,7 +85,7 @@ Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期�
 
 `runGeneration()` 是 Smart Canvas 的主要生成入口。它会：
 
-1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。Composer 正文固定放在用户提示词最前；随后按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，各段以两个换行连接并跳过空段与重复文本。正文为空时直接从第一个文本引用开始。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。媒体 `@` 引用的编号映射说明继续保留在用户需求正文之外。
+1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。先按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，最后追加输入框手写正文，即「文本 1 → 文本 2 → … → 手写内容」。各段以两个换行连接并跳过空段与重复文本。手写正文为空时只使用文本引用；没有文本引用时只使用手写正文。生成请求与「查看生成信息」使用同一份组装后的提示词；已有生成记录保留当次请求快照，不按新规则重排。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。媒体 `@` 引用的编号映射说明继续保留在用户需求正文之外。
 2. 对需要 Prompt 的运行做前置校验：空提示词时“运行”仍可点击，点击后提示“请输入提示词”；TXT 解码失败、单文件超过 1MB、合计超过 2MB，或引用媒体类型不被最终 Model Capability 支持时同样明确列出原因。校验失败不创建 Pending Node，也不提交 Provider 请求。
 3. 通过 Generation Settings 生成不可变的运行快照，并冻结本次使用的 Model Operation、能力 Schema 版本和目录 Revision。
 4. 根据同一 Model Capability Catalog 检查输入类型与数量、画幅、Resolution Tier、视频时长和输出数量；前端预检后，服务端在 Provider Adapter 前再次校验。
@@ -549,6 +549,6 @@ Managed Media，删除 Device Cache 只会导致下次使用时重新下载或�
 | Gemini CLI 会话/图片名隔离、429 透传、独立目录、并发和清理 | `tests/test_antigravity_cli.py` |
 | Smart Canvas 批量输出、方向快照与真实页面设置 | `tests/test_smart_canvas_generation_batch.py`、`tests/test_smart_canvas_node_placement.py`、`tests/issue_148_layout_browser_smoke.cjs` |
 | 生成中节点再次提交与悬浮菜单（含 Prompt Generation Node 并行文字输出） | `tests/test_issue_115_inflight_generation.py`、`tests/issue_115_inflight_generation_browser_smoke.cjs`、`tests/issue_115_prompt_generation_inflight_browser_smoke.cjs` |
-| Composer 正文前置、连接文本 / TXT 拖拽与键盘排序、图片顺序隔离、撤销重做及保存恢复 | `tests/composer_text_order_test.cjs`、`tests/composer_text_order_fixture.cjs` + `tests/composer_text_order_checks.js`（真实页面） |
+| Composer 手写正文后置、连接文本 / TXT 拖拽与键盘排序、图片顺序隔离、撤销重做及保存恢复 | `tests/composer_text_order_test.cjs`、`tests/composer_text_order_fixture.cjs` + `tests/composer_text_order_checks.js`（真实页面） |
 | Image Node 禁止触发、Smart Group / Generation Node（含旧 Generation Output 身份修复）的 Composer 资格与三层门禁一致性，以及 Quick Add 视频初始模式可切回图片 | `tests/test_issue_161_media_composer_eligibility.py`、`tests/issue_161_media_composer_browser_smoke.cjs`、`tests/test_smart_canvas_generation_output.py`、`tests/composer_quick_add_kind_toggle_browser_smoke.cjs` |
 | 画幅能力与结果物化 | `tests/test_image_capabilities.py`、`tests/test_issue_71_generation_output.py` |

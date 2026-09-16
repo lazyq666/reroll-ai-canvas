@@ -40,11 +40,11 @@ window.addEventListener('load', () => {
                 select();
                 canvasMutation.update({nodeId:'generation',mutate:n=>{delete n.inputRefOrder;n.promptDraftHtml='Composer';n.promptDraftText='Composer';},options:{render:true}});
                 select();setPromptText('Composer');savePromptDraftForCurrent();await settle();await sync();
-                equal(resolve().prompt,'Composer\n\nA\n\nB\n\nTXT','Composer first');
+                equal(resolve().prompt,'A\n\nB\n\nTXT\n\nComposer','Composer last');
                 check([...inputThumbsRow.querySelectorAll('[data-text-thumb-index]')].every(el=>el.draggable&&el.tabIndex===0),'All text references draggable and keyboard focusable');
                 drag(inputThumbsRow.querySelector('[data-text-node-id="b"]'),inputThumbsRow.querySelector('[data-text-node-id="a"]'));
                 equal(order(),['B','A','TXT'],'Connected text drag');
-                equal(resolve().prompt,'Composer\n\nB\n\nA\n\nTXT','Prompt follows drag');
+                equal(resolve().prompt,'B\n\nA\n\nTXT\n\nComposer','Prompt follows drag');
                 await sync();
                 canvasMutation.history({action:'undo'});await settle();select();
                 equal(order(),['A','B','TXT'],'Undo');
@@ -52,7 +52,7 @@ window.addEventListener('load', () => {
                 equal(order(),['B','A','TXT'],'Redo');
                 drag(inputThumbsRow.querySelector('[data-local-text-instance-id="txt"]'),inputThumbsRow.querySelector('[data-text-node-id="a"]'));
                 equal(order(),['B','TXT','A'],'TXT and connected text share order');
-                equal(resolve().prompt,'Composer\n\nB\n\nTXT\n\nA','Mixed text prompt');
+                equal(resolve().prompt,'B\n\nTXT\n\nA\n\nComposer','Mixed text prompt');
                 const b=inputThumbsRow.querySelector('[data-text-node-id="b"]');
                 b.focus();b.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',altKey:true,bubbles:true,cancelable:true}));
                 equal(order(),['TXT','B','A'],'Keyboard reorder');
@@ -64,7 +64,7 @@ window.addEventListener('load', () => {
                 equal(resolve().prompt,'TXT\n\nB\n\nA','Blank Composer');
                 setPromptText('Composer');savePromptDraftForCurrent();
                 selectedId='a';selectedIds=[];render();select();
-                equal(resolve().prompt,'Composer\n\nTXT\n\nB\n\nA','Switch away and back');
+                equal(resolve().prompt,'TXT\n\nB\n\nA\n\nComposer','Switch away and back');
                 const savedOrder=JSON.stringify(target().inputRefOrder);
                 for(const lang of ['zh','en']){
                     window.StudioI18n.set(lang);await settle();
@@ -85,7 +85,7 @@ window.addEventListener('load', () => {
                 check(resolve().refs[1].inputInstanceId===mentionedId,'Mention identity preserved after image drag');
                 check(resolve().prompt.includes(trf('canvas.imageNumber',{number:2})),'Model prompt uses new image number');
                 check(promptInput.querySelector('.mention-token-label').textContent.endsWith('2'),'Visible mention is renumbered');
-                check(resolve().prompt.indexOf('Composer')<resolve().prompt.indexOf('TXT'),'Composer stays first with mention map');
+                check(resolve().prompt.indexOf('Composer')>resolve().prompt.indexOf('TXT'),'Composer stays last with mention map');
                 setPromptText('Composer');savePromptDraftForCurrent();
                 inputThumbsRow.querySelector('[data-local-text-instance-id="txt"]').click();
                 check(!referenceViewerBackdrop.hidden&&referenceViewerContent.textContent==='TXT','TXT preview');
