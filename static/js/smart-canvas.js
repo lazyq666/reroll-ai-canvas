@@ -3949,10 +3949,8 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
     if(includeSource && settings[ratioKey] === 'source') applySourceRatioToSettings(prefix);
     const ratios = smartImageRatioOptions(prefix);
     const tiers = capability.resolution_tiers || [];
-    const currentRatio = settings[ratioKey] || '';
     const currentRes = String(
-        settings[resKey]
-        || reconciled.settings[resKey]
+        reconciled.settings[resKey]
         || window.SmartCanvasModules.imageCapabilities.preferredResolution(capability)
         || ''
     ).toLowerCase();
@@ -3960,6 +3958,9 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
         ...(includeSource && automatic.available ? ['source'] : []),
         ...ratios.map(item => item.key)
     ];
+    // Unknown capabilities preserve stored preferences, but the picker must
+    // receive only values in its current options so it remains recoverable.
+    const currentRatio = presets.includes(settings[ratioKey]) ? settings[ratioKey] : '';
     const warning = settings._imageCapabilityWarning === true
         && settings._imageCapabilityWarningKey === warningKey
         ? tr('smart.modelSettingsUnsupported')
