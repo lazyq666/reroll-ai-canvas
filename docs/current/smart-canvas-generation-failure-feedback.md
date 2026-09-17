@@ -1,7 +1,7 @@
 # Smart Canvas 生成失败反馈
 
 > Status: Current  
-> Last verified: 2026-08-27
+> Last verified: 2026-09-17
 > Applies to: Smart Canvas 图片、视频、文本与处理器生成
 
 ## 用户合同
@@ -22,6 +22,11 @@
 生成日志 Modal 使用“任务索引 + 所选任务详情”的单一结构。标题栏只显示“生成日志”和关闭按钮；不显示标题图标、说明文案或主题切换入口，明暗外观跟随应用全局主题。
 
 点击日志入口或失败 Node 的“查看日志”后，Modal 立即打开，不等待历史请求完成。首次加载时，左右两栏使用共享 `ic-skeleton` 占位，并标记加载状态；成功后替换为任务索引和详情，保留入口指定的日志 ID 或 Generation Run ID 定位。已加载的历史在当前页面内直接复用。加载失败时显示明确说明和“重新加载”按钮，不能误报为没有日志；只有请求成功且没有记录时显示空状态。加载期间可以通过关闭按钮、Escape 或背景关闭，迟到的响应不得重新打开 Modal 或抢走焦点；连续打开复用正在进行的请求，以最后一次入口指定的任务为准。中英文切换保留加载或错误状态，骨架外观跟随全局主题和减少动态效果设置。
+
+浏览器本地失败与服务器最终日志按稳定 Generation Run ID 合并成一条记录，而不是按到达顺序
+丢弃后到者。合并保留信息更完整的 Node、Provider、Model、Reference Input Instance、请求参数、
+上游任务和技术错误；具体持久化或 Provider 错误优先于无上下文的“没有返回图片”本地兜底。
+同一次失败不得因此生成两条日志、两个 Alert 或两份互相矛盾的诊断。
 
 验收入口：`node tests/smart_canvas_log_loading_regression.cjs` 覆盖慢请求、任务定位、缓存、关闭、连续打开、失败重试、空状态和语言重绘；`node tests/generation_log_loading_browser_app.cjs` 提供真实页面模拟服务，通过标准输入的 `hold`、`success`、`empty`、`error` 控制响应，不连接真实云端。
 
@@ -83,6 +88,7 @@ CLI helper 返回结构化错误时，`error.message` 与经过脱敏的 `error.
 - 单项、部分和全部失败的数量、标题与操作名正确。
 - Alert 在用户处理前持续存在；详情可展开，诊断可复制且已脱敏。
 - CLI helper 的结构化上游错误详情可见；日志 ID 对账变化后，“查看详情”仍能按稳定 Generation Run ID 聚焦本次失败。
+- 同一 Generation Run 的本地与服务器失败合并为一条，保留真实引用图数量、Provider、Model、Node、请求参数和具体技术错误，不追加“没有返回图片”的第二条兜底失败。
 - Modal 只呈现日期分组任务索引与当前详情；成功和失败任务都可选，失败层级更强，成功行更紧凑，索引无统计和复制动作。
 - Modal 使用位于 Canvas 手势根之外的共享 `ic-dialog`；点击日志任意内容不改变 Node 选择、不打开 Prompt Authoring，初始焦点位于当前任务且关闭 Tooltip 不会默认出现。
 - Modal 内的 Wheel 只滚动本地内容，不改变 Canvas 的 `x` / `y` / `scale`。

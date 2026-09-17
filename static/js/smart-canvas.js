@@ -127,7 +127,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-1c107712fb1a')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-9e5de786b163')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -7169,15 +7169,23 @@ async function loadSmartCanvasLogs({force=false}={}){
         const localLogs = Array.isArray(canvas.logs) ? canvas.logs : [];
         const persistedLogs = (Array.isArray(data.logs) ? data.logs : [])
             .map(normalizePersistedSmartCanvasLog);
-        const seen = new Set();
-        canvas.logs = [...localLogs, ...persistedLogs]
+        const mergedByRun = new Map();
+        [...localLogs, ...persistedLogs].forEach(log => {
+            const key = String(log?.generationRunId || log?.runId || log?.id || '');
+            if(!key) return;
+            const mergeLogRecords = globalThis.SmartCanvasModules
+                ?.generationFailureFeedback?.mergeLogRecords
+                || ((left, right) => ({...left, ...right}));
+            mergedByRun.set(
+                key,
+                mergeLogRecords(
+                    mergedByRun.get(key) || {},
+                    log,
+                ),
+            );
+        });
+        canvas.logs = [...mergedByRun.values()]
             .sort((left, right) => Number(right?.createdAt || 0) - Number(left?.createdAt || 0))
-            .filter(log => {
-                const key = String(log?.generationRunId || log?.runId || log?.id || '');
-                if(key && seen.has(key)) return false;
-                if(key) seen.add(key);
-                return true;
-            })
             .slice(0, 500);
         smartCanvasLogsHydrated = true;
     } catch(error){
@@ -7220,7 +7228,7 @@ function addSmartGenerationLog({run, outputs=[], runMs=0, error='', status='', t
     const safeDiagnostics = diagnostics && typeof diagnostics === 'object'
         ? generationFailureFeedback.safeObject(diagnostics)
         : null;
-    const entry = {
+    let entry = {
         id:uid('log'),
         generationRunId:run?.generationRunId || safeDiagnostics?.generation_run_id || '',
         version:safeDiagnostics?.application_version || '',
@@ -7245,6 +7253,16 @@ function addSmartGenerationLog({run, outputs=[], runMs=0, error='', status='', t
         recoverable:Boolean(safeDiagnostics?.recoverable),
         diagnostics:safeDiagnostics,
     };
+    const existingIndex = entry.generationRunId
+        ? canvas.logs.findIndex(log => String(log?.generationRunId || log?.runId || '') === entry.generationRunId)
+        : -1;
+    if(existingIndex >= 0){
+        const mergeLogRecords = globalThis.SmartCanvasModules
+            ?.generationFailureFeedback?.mergeLogRecords
+            || ((left, right) => ({...left, ...right}));
+        entry = mergeLogRecords(canvas.logs[existingIndex], entry);
+        canvas.logs.splice(existingIndex, 1);
+    }
     canvas.logs = [entry, ...canvas.logs].slice(0, 500);
     void persistSmartCanvasLog(entry);
     if(!error && recoverStuckLoopOutputsFromLogs()) render();

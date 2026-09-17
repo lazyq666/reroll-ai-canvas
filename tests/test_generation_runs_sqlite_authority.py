@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -6,11 +7,13 @@ from infinite_canvas.generation_effect_dispatcher import GenerationRunStoreExecu
 from infinite_canvas.generation_run_lifecycle import AsyncGenerationRunLifecycleStore
 from infinite_canvas.generation_publication import SqliteGenerationPublication
 from infinite_canvas.generation_run_store import (
+    GenerationRunStoreError,
     GenerationRunState,
     SqliteGenerationRunStore,
 )
 from infinite_canvas.generation_runs import (
     GenerationOutputPorts,
+    GenerationRunLifecycleProjectionError,
     GenerationRuns,
     ImageRun,
     Inline,
@@ -19,10 +22,298 @@ from infinite_canvas.generation_runs import (
     WorkspaceGenerationEffects,
 )
 from infinite_canvas.providers.core import Completed
-from infinite_canvas.providers.runtime import ProviderOutput
+from infinite_canvas.providers.runtime import ProviderOutput, TextOutput
 
 
 class GenerationRunsSqliteAuthorityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_multimodal_text_persists_workspace_reference_before_provider(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = SqliteGenerationRunStore(
+                Path(temporary) / "generation-runs.sqlite3",
+                workspace_id="workspace-text-media",
+            )
+            store_executor = GenerationRunStoreExecutor(max_workers=1, max_pending=8)
+            lifecycle = AsyncGenerationRunLifecycleStore(
+                store=store,
+                store_executor=store_executor,
+            )
+            provider_messages = []
+
+            class Executor:
+                async def execute(self, request, checkpoint=None):
+                    del checkpoint
+                    provider_messages.extend(request.messages)
+                    return Completed(TextOutput(text="ok", model="text-model"))
+
+            effects = WorkspaceGenerationEffects(
+                GenerationOutputPorts(
+                    save_image=lambda *_args, **_kwargs: None,
+                    image_meta=lambda url, _source: {"url": url},
+                    extract_images=lambda _raw: [],
+                ),
+                publication=SqliteGenerationPublication(
+                    store=store,
+                    store_executor=store_executor,
+                    notify=None,
+                    worker_id="text-media-worker",
+                ),
+            )
+            transport_url = "data:image/png;base64,dHJhbnNwb3J0"
+            workspace_url = "/assets/input/reference.png"
+            request = TextRun(
+                payload={"provider": "provider-text", "images": [transport_url]},
+                messages=({
+                    "role": "user",
+                    "content": [{"type": "image_url", "image_url": {"url": transport_url}}],
+                },),
+                durable_payload={"provider": "provider-text", "images": [workspace_url]},
+                durable_messages=({
+                    "role": "user",
+                    "content": [{"type": "image_url", "image_url": {"url": workspace_url}}],
+                },),
+            )
+            runs = GenerationRuns(
+                executor=Executor(),
+                effects=effects,
+                store_path=lambda: None,
+                lifecycle_store=lifecycle,
+            )
+            try:
+                completed = await runs.start(request, owner="designer-1", delivery=Inline())
+                await runs.wait_for_lifecycle_projection()
+            finally:
+                await lifecycle.close()
+                await store_executor.close()
+
+            self.assertEqual("succeeded", completed.status)
+            self.assertIn(transport_url, json.dumps(provider_messages))
+            stored = store.load(completed.id)
+            self.assertNotIn("data:image", json.dumps(stored.request))
+            self.assertIn(workspace_url, json.dumps(stored.request))
+
+    async def test_inline_provider_output_is_materialized_before_persistence(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            store = SqliteGenerationRunStore(
+                root / "generation-runs.sqlite3",
+                workspace_id="workspace-isolation",
+            )
+            store_executor = GenerationRunStoreExecutor(
+                max_workers=1,
+                max_pending=16,
+            )
+            lifecycle = AsyncGenerationRunLifecycleStore(
+                store=store,
+                store_executor=store_executor,
+            )
+            provider_calls = []
+
+            class Executor:
+                async def execute(self, request, checkpoint=None):
+                    del checkpoint
+                    provider_calls.append(request.prompt)
+                    image = (
+                        "data:image/png;base64,aW5saW5l"
+                        if request.prompt == "poison"
+                        else "https://provider.test/safe.png"
+                    )
+                    return Completed(
+                        ProviderOutput(
+                            media=(image,),
+                            raw={
+                                "images": [image],
+                                "inlineData": {
+                                    "mimeType": "image/png",
+                                    "data": "cmF3LW1lZGlhLWJ5dGVz",
+                                },
+                            },
+                            legacy={"images": [image]},
+                        )
+                    )
+
+            async def save_image(_value, **_options):
+                return "/assets/output/materialized.png"
+
+            async def notify(_record, **_options):
+                return None
+
+            effects = WorkspaceGenerationEffects(
+                GenerationOutputPorts(
+                    save_image=save_image,
+                    image_meta=lambda url, _source: {"url": url},
+                    extract_images=lambda raw: list(raw.get("images") or []),
+                ),
+                publication=SqliteGenerationPublication(
+                    store=store,
+                    store_executor=store_executor,
+                    notify=notify,
+                    worker_id="isolation-worker",
+                ),
+            )
+            runs = GenerationRuns(
+                executor=Executor(),
+                effects=effects,
+                store_path=lambda: None,
+                lifecycle_store=lifecycle,
+            )
+            try:
+                first = await runs.start(
+                    ImageRun(
+                        prompt="poison",
+                        settings={"provider_id": "provider-a"},
+                        publication="history",
+                    ),
+                    owner="designer-1",
+                    delivery=Inline(),
+                )
+                await runs.wait_for_lifecycle_projection()
+
+                second = await runs.start(
+                    ImageRun(
+                        prompt="safe",
+                        settings={"provider_id": "provider-b"},
+                        publication="history",
+                    ),
+                    owner="designer-1",
+                    delivery=Inline(),
+                )
+                await runs.wait_for_lifecycle_projection()
+            finally:
+                await lifecycle.close()
+                await store_executor.close()
+
+            self.assertEqual("succeeded", first.status)
+            self.assertEqual("succeeded", second.status)
+            self.assertEqual(["poison", "safe"], provider_calls)
+            stored = store.load(first.id)
+            self.assertIsNotNone(stored)
+            self.assertNotIn("data:image", json.dumps(stored.provider_output))
+            self.assertNotIn("cmF3LW1lZGlhLWJ5dGVz", json.dumps(stored.provider_output))
+            self.assertIn(
+                "/assets/output/materialized.png",
+                json.dumps(stored.provider_output),
+            )
+
+    async def test_lifecycle_failure_isolated_from_next_apimart_and_cli_runs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            store = SqliteGenerationRunStore(
+                root / "generation-runs.sqlite3",
+                workspace_id="workspace-failure-isolation",
+            )
+            store_executor = GenerationRunStoreExecutor(max_workers=1, max_pending=16)
+            delegate = AsyncGenerationRunLifecycleStore(
+                store=store,
+                store_executor=store_executor,
+            )
+
+            class FailOneProjection:
+                failed = False
+                run_id = ""
+
+                async def persist(self, value, *, effect=None):
+                    if (
+                        not self.failed
+                        and value.get("phase") == "provider_completed"
+                        and value.get("request", {}).get("prompt") == "poison"
+                    ):
+                        self.failed = True
+                        self.run_id = str(value.get("id") or "")
+                        raise GenerationRunStoreError(
+                            "inline_media_not_materialized",
+                            "media data URLs must be materialized before persistence",
+                        )
+                    return await delegate.persist(value, effect=effect)
+
+                async def load(self, run_id):
+                    return await delegate.load(run_id)
+
+                async def load_unfinished(self, *, limit=1000):
+                    return await delegate.load_unfinished(limit=limit)
+
+            provider_calls = []
+
+            class Executor:
+                async def execute(self, request, checkpoint=None):
+                    del checkpoint
+                    provider_calls.append(
+                        (request.settings.get("provider_id"), request.prompt)
+                    )
+                    return Completed(ProviderOutput(
+                        media=("https://provider.test/output.png",),
+                        raw={"images": ["https://provider.test/output.png"]},
+                        legacy={"images": ["https://provider.test/output.png"]},
+                    ))
+
+            async def save_image(_value, **_options):
+                return "/assets/output/materialized.png"
+
+            effects = WorkspaceGenerationEffects(
+                GenerationOutputPorts(
+                    save_image=save_image,
+                    image_meta=lambda url, _source: {"url": url},
+                    extract_images=lambda raw: list(raw.get("images") or []),
+                ),
+                publication=SqliteGenerationPublication(
+                    store=store,
+                    store_executor=store_executor,
+                    notify=None,
+                    worker_id="failure-isolation-worker",
+                ),
+            )
+            failing_lifecycle = FailOneProjection()
+            runs = GenerationRuns(
+                executor=Executor(),
+                effects=effects,
+                store_path=lambda: None,
+                lifecycle_store=failing_lifecycle,
+            )
+            try:
+                with self.assertRaises(GenerationRunLifecycleProjectionError):
+                    await runs.start(
+                        ImageRun(
+                            prompt="poison",
+                            settings={"provider_id": "provider-a"},
+                        ),
+                        owner="designer-1",
+                        delivery=Inline(),
+                    )
+                apimart = await runs.start(
+                    ImageRun(
+                        prompt="safe-apimart",
+                        settings={"provider_id": "apimart"},
+                    ),
+                    owner="designer-1",
+                    delivery=Inline(),
+                )
+                cli = await runs.start(
+                    ImageRun(
+                        prompt="safe-cli",
+                        settings={"provider_id": "gemini-cli"},
+                    ),
+                    owner="designer-1",
+                    delivery=Inline(),
+                )
+                await runs.wait_for_lifecycle_projection()
+            finally:
+                await delegate.close()
+                await store_executor.close()
+
+            self.assertEqual("succeeded", apimart.status)
+            self.assertEqual("succeeded", cli.status)
+            failed = store.load(failing_lifecycle.run_id)
+            self.assertIsNotNone(failed)
+            self.assertEqual("failed", failed.status)
+            self.assertEqual((), failed.remote_refs)
+            self.assertEqual(
+                [
+                    ("provider-a", "poison"),
+                    ("apimart", "safe-apimart"),
+                    ("gemini-cli", "safe-cli"),
+                ],
+                provider_calls,
+            )
+
     async def test_restores_unfinished_runs_from_lifecycle_store_without_json(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
