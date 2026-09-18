@@ -522,6 +522,36 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertNotIn("https://example.com", payload)
         self.assertNotIn("AAAA", payload)
 
+    def test_run_log_merge_keeps_server_diagnostics_over_generic_local_failure(self):
+        payload = self.run_module(
+            """
+            const local = {
+                id:'local-log', generationRunId:'run-107', status:'failed',
+                error:'没有返回图片数据', refs:[],
+                request:{provider_id:'',model:''},
+                tasks:[{status:'failed',technicalError:'没有返回图片数据'}],
+            };
+            const server = {
+                id:'server-log', generationRunId:'run-107', status:'failed',
+                nodeId:'node-107', platform:'APIMART', model:'image-v1',
+                error:'media data URLs must be materialized before persistence',
+                refs:[{url:'/assets/input/reference.png',name:'reference.png'}],
+                request:{provider_id:'apimart',model:'image-v1',size:'2048x2048'},
+                tasks:[{status:'failed',providerId:'apimart',technicalError:'media data URLs must be materialized before persistence'}],
+                diagnostics:{generation_run_id:'run-107',provider_id:'apimart'},
+            };
+            process.stdout.write(JSON.stringify(feedback.mergeLogRecords(local,server)));
+            """
+        )
+        self.assertEqual("run-107", payload["generationRunId"])
+        self.assertEqual("node-107", payload["nodeId"])
+        self.assertEqual("APIMART", payload["platform"])
+        self.assertEqual("image-v1", payload["model"])
+        self.assertEqual(1, len(payload["refs"]))
+        self.assertEqual("apimart", payload["request"]["provider_id"])
+        self.assertIn("materialized", payload["error"])
+        self.assertNotIn("没有返回图片", payload["error"])
+
 
 if __name__ == "__main__":
     unittest.main()

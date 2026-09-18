@@ -85,7 +85,7 @@ Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期�
 
 `runGeneration()` 是 Smart Canvas 的主要生成入口。它会：
 
-1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。Composer 正文固定放在用户提示词最前；随后按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，各段以两个换行连接并跳过空段与重复文本。正文为空时直接从第一个文本引用开始。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。媒体 `@` 引用的编号映射说明继续保留在用户需求正文之外。
+1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。先按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，最后追加输入框手写正文，即「文本 1 → 文本 2 → … → 手写内容」。各段以两个换行连接并跳过空段与重复文本。手写正文为空时只使用文本引用；没有文本引用时只使用手写正文。生成请求与「查看生成信息」使用同一份组装后的提示词；已有生成记录保留当次请求快照，不按新规则重排。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。媒体 `@` 引用的编号映射说明继续保留在用户需求正文之外。
 2. 对需要 Prompt 的运行做前置校验：空提示词时“运行”仍可点击，点击后提示“请输入提示词”；TXT 解码失败、单文件超过 1MB、合计超过 2MB，或引用媒体类型不被最终 Model Capability 支持时同样明确列出原因。校验失败不创建 Pending Node，也不提交 Provider 请求。
 3. 通过 Generation Settings 生成不可变的运行快照，并冻结本次使用的 Model Operation、能力 Schema 版本和目录 Revision。
 4. 根据同一 Model Capability Catalog 检查输入类型与数量、画幅、Resolution Tier、视频时长和输出数量；前端预检后，服务端在 Provider Adapter 前再次校验。
@@ -256,10 +256,29 @@ Canvas 任务 API 会把请求转换为 `ImageRun`、`VideoRun`、`TextRun`、`W
 `owner + operation key` 是幂等边界：同一次 operation 因网络重试再次提交时，内容一致
 则复用原任务；内容不一致则返回冲突，不会悄悄产生第二次计费请求。
 
+SQLite/Turso 作为唯一权威时，Provider 执行前必须确认已排入的 Run 身份保存。同一
+owner / operation key 重试会查询持久记录，包括启动时未载入内存的已完成 Run。
+Turso 生命周期保存遇到暂时错误时保留原快照，先查回 Run/effect 回执，再补齐未确认的保存；
+不重新调用付费生成。结果准备完成后若暂时读不到 Canvas，保留恢复阶段，不把读取失败
+当作目标已删除。网络恢复后的保存和交付仍受 Workspace 编辑资格与原 Operation ID 约束。
+运行时内存完成、终态事务确认和 Canvas outbox 消费是不同的确认边界；浏览器还需取得
+最终结果或 Canvas Revision。分支验证与剩余真实环境 Gate 见 [Turso 修复验收](../active/2026-09-07-optional-cloud-records-onedrive-media-spec.md#710-2026-09-15-分支修复与验证)。
+
 运行记录由 Workspace 当前 storage authority 决定：JSON 兼容 Workspace 使用
 `data/generation-runs.json`，SQLite authority 使用 `data/generation-runs.sqlite3`。SQLite 模式
 不会把 legacy JSON 路径交给运行时。凭证字段在持久化前会脱敏，API Key、token、密码和
 Authorization 不应进入可恢复记录。
+
+多模态文字请求在可恢复记录中只保存 Workspace 媒体引用；把本地媒体读取成 data URL、
+压缩图片或抽取视频帧属于 Provider 传输状态，不回写请求快照。Provider 返回 URL、Base64
+或 data URL 后，`WorkspaceGenerationEffects` 先将媒体保存到 Workspace Managed Media，
+再把只含稳定 URL 的 `provider_completed` 和 `output_prepared` 投影到 SQLite/Turso；原始媒体
+字节不进入 Run、History、Canvas Log 或 Effect Outbox。
+
+每次生命周期投影只向等待该投影的 Run 报告错误。失败投影不会成为进程级粘性错误，后续
+投影会越过已经结算的失败继续执行；因此一次 Run 的持久化失败会终止该 Run，但不会阻止
+其他用户、Provider、Model、图片或 CLI 任务。Provider 可能计费前的 `running` 身份保存仍须
+成功确认，故障隔离不放宽这一门禁。
 
 已有执行者的任务在收到进度查询时只返回当前状态，不重复保存相同状态，也不把供应商的
 排队状态改成运行中。供应商重复报告完全相同的进度字段时跳过持久化；新进度、远端任务
@@ -363,6 +382,10 @@ Workspace 或公开任务响应。
 4. 如果声明了目标画幅，读取真实图片尺寸并按居中 `cover` 生成 Materialized Output。
 5. 画布、下载和后续生成引用 Materialized Output；原始源图用于诊断和未来重处理。
 6. 把 History 与通知交给当前 authority 的发布适配器。
+
+`provider_completed` 的可恢复投影使用上述已经物化的 Workspace URL，而不是 Provider 原始
+响应中的媒体字节；`output_prepared` 随后保存画布、History 和通知所需的稳定结果。若进程在
+两阶段之间重启，恢复只重放本地准备或既有远端任务，不重新提交付费请求。
 
 这里的文件落盘与发布是两个独立职责。`WorkspaceGenerationEffects` 只负责把远程结果变成
 Managed Media，再调用发布接口；SQLite 路径不会复用会写 JSON 的旧实现。JSON authority 的
@@ -489,7 +512,7 @@ Notification 以稳定 effect ID 发送并标记完成。已完成回执不会�
 | `running` | 进行中 | 正在调用供应商或处理结果 |
 | `pending` / `processing` / `in_progress` | 进行中、可恢复 | 供应商已有远端任务编号 |
 | `jimeng_pending` | 进行中、可恢复 | 即梦仍在队列中 |
-| `succeeded` | 终态 | 结果已物化并完成允许的写回/发布 |
+| `succeeded` | Run 终态 | 结果已物化并完成发布编排；SQLite/Turso 的 Canvas 写回通过 outbox 异步交付，不能单凭此状态判断画布已更新 |
 | `failed` | 终态 | 已确定失败 |
 | `cancelled` | 终态 | 用户或受控重启取消 |
 | `discarded` | 终态 | 目标节点已删除或运行已被替换，结果未写回 |
@@ -534,6 +557,50 @@ Managed Media，删除 Device Cache 只会导致下次使用时重新下载或�
 - 新增供应商时，应优先新增 Provider Adapter，并返回 `Completed / Pending / Queued / Failed`，不要在 Canvas 页面复制一套供应商状态机。
 - 涉及画幅时必须读取真实输出尺寸，不能只相信请求参数或供应商元数据。
 
+### APIMart Midjourney 参数核查备注（2026-09-16）
+
+核查范围：本地代码中的 APIMart `midjourney` 专用 Imagine 路径，以及 APIMart 官方文档。本备注未抓取真实请求、未提交付费生成，也未验证实际输出；记录的是代码行为和供应商声明，不代表真实 Provider 验收通过。
+
+| Composer 或提示词设置 | 当前处理方式 | 影响 |
+| --- | --- | --- |
+| 提示词中的 `--ar 9:16` | 保留在 `prompt` 中 | APIMart 声明独立字段 `size` 优先于提示词中的 `--ar` |
+| Composer 画幅 | 从请求尺寸转换为 `size` 比例字段 | 明确选择画幅时，覆盖提示词中冲突的 `--ar` |
+| 提示词中的 `--hd` | 保留在 `prompt` 中 | 交给 APIMart 解析，受 MJ 版本支持限制 |
+| Composer 的 1K / 2K / 4K 分辨率 | 本地接收，但 MJ 请求组装只使用换算后的比例，未使用 `_resolution` | 未向上游发送分辨率，也未映射为 `hd` |
+| Composer 生成数量 `n` | 本地拆成多个子任务，每个子任务提交一次 Imagine 请求 | 数量没有失效，但单次上游请求不包含 `n` |
+
+例如，无参考图时，提示词为「一只猫 --ar 9:16 --hd」，Composer 选择 16:9、4K，按当前代码组装的单次请求如下。这是请求示例，不是真实抓包记录。
+
+```http
+POST https://api.apimart.ai/v1/midjourney/generations
+Content-Type: application/json
+```
+
+```json
+{
+  "prompt": "一只猫 --ar 9:16 --hd",
+  "size": "16:9"
+}
+```
+
+有参考图时会增加 `image_urls`。此分支不发送独立的 `resolution`、`resolution_tier`、`hd`、`quality`、`n` 或 `version` 字段；接口路由自动注入 `model=midjourney`。
+
+数量为 4、使用单一提示词时，本地计划执行 4 个子任务，各提交一次上述请求，不是发送一次带 `n: 4` 的请求。异步任务完成后调用 `extract_image(task_result)`，只取解析所得图片列表中的第一项；如果上游一次任务返回多张图，当前路径不会全部交付到画布。该项是否对应单图或网格图，需要结合实际响应结构确认；最终成功交付数量还取决于各子任务执行结果。
+
+APIMart 文档声明：`size` 覆盖提示词中的 `--ar`；`hd` / `--hd` 仅支持 v8.1 / v8.2，未传版本时自动补 `--v 8.1`。HD 与通用 1K / 2K / 4K 选项没有在本地建立转换关系。该规则来自供应商文档，真实解析与出图结果仍待实测。
+
+已识别的交互差异：Composer 分辨率可能被误认为能控制 MJ 输出像素；生成数量代表多次独立生成、每次取一个结果。后续可评估 MJ 专用普通 / HD 控件、画幅覆盖提示和一次任务多结果接收；这些是待评估方向，本次未修改实现。
+
+核查入口：
+
+- [页面请求组装](../../static/js/smart-canvas/generation-provider.js)：`n`、`size` 和 `resolution_tier`。
+- [Provider 数量能力](../../backend/infinite_canvas/providers/runtime.py)：`_http_image_native_count` 对 APIMart Midjourney 返回 `False`。
+- [生成任务拆分](../../backend/infinite_canvas/generation_runs.py)：`_image_child_plan` 与 `requires_child_attempts`。
+- [上游请求与结果提取](../../backend/infinite_canvas/providers/http_impl.py)：`generate_http_provider_image`、`apimart_size_resolution`、`extract_image`。
+- 既有测试入口：`tests/test_apimart_midjourney_routing.py`、`tests/test_provider_registry.py`。本次备注未运行这些测试，也未新增冲突参数或多结果验收。
+- [APIMart Imagine 官方文档](https://docs.apimart.ai/cn/api-reference/images/midjourney/imagine)：参数表与「混合使用（body 优先）」示例。
+- [APIMart Midjourney 概览](https://docs.apimart.ai/cn/api-reference/images/midjourney/generation)：专用路由与 `model` 注入规则。
+
 ## 14. 回归测试入口
 
 | 关注点 | 测试入口 |
@@ -549,6 +616,11 @@ Managed Media，删除 Device Cache 只会导致下次使用时重新下载或�
 | Gemini CLI 会话/图片名隔离、429 透传、独立目录、并发和清理 | `tests/test_antigravity_cli.py` |
 | Smart Canvas 批量输出、方向快照与真实页面设置 | `tests/test_smart_canvas_generation_batch.py`、`tests/test_smart_canvas_node_placement.py`、`tests/issue_148_layout_browser_smoke.cjs` |
 | 生成中节点再次提交与悬浮菜单（含 Prompt Generation Node 并行文字输出） | `tests/test_issue_115_inflight_generation.py`、`tests/issue_115_inflight_generation_browser_smoke.cjs`、`tests/issue_115_prompt_generation_inflight_browser_smoke.cjs` |
-| Composer 正文前置、连接文本 / TXT 拖拽与键盘排序、图片顺序隔离、撤销重做及保存恢复 | `tests/composer_text_order_test.cjs`、`tests/composer_text_order_fixture.cjs` + `tests/composer_text_order_checks.js`（真实页面） |
+| Composer 手写正文后置、连接文本 / TXT 拖拽与键盘排序、图片顺序隔离、撤销重做及保存恢复 | `tests/composer_text_order_test.cjs`、`tests/composer_text_order_fixture.cjs` + `tests/composer_text_order_checks.js`（真实页面） |
 | Image Node 禁止触发、Smart Group / Generation Node（含旧 Generation Output 身份修复）的 Composer 资格与三层门禁一致性，以及 Quick Add 视频初始模式可切回图片 | `tests/test_issue_161_media_composer_eligibility.py`、`tests/issue_161_media_composer_browser_smoke.cjs`、`tests/test_smart_canvas_generation_output.py`、`tests/composer_quick_add_kind_toggle_browser_smoke.cjs` |
 | 画幅能力与结果物化 | `tests/test_image_capabilities.py`、`tests/test_issue_71_generation_output.py` |
+
+
+Turso 异常恢复的固定回归入口：`tests.test_turso_generation_reliability`；真实批量页面的
+单次查询失败恢复及中英状态切换：`tests/turso_batch_detail_browser.cjs`，使用
+`tests.batch_generation_browser_app` 临时工作区，禁止将测试提交指向真实 Provider。

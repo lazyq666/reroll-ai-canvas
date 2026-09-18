@@ -280,6 +280,32 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("input_maximum", raised.exception.detail["code"])
         self.assertEqual("image", raised.exception.detail["field"])
 
+    async def test_text_request_keeps_transport_media_out_of_durable_snapshot(self):
+        workspace_url = "/assets/input/reference.png"
+        transport_url = "data:image/png;base64,dHJhbnNwb3J0"
+        payload = main.CanvasLLMRequest(
+            message="describe",
+            provider="codex",
+            model="gpt-5.5",
+            images=[workspace_url],
+            catalog_revision=main.MODEL_CAPABILITY_CATALOG.revision,
+        )
+
+        with (
+            patch.object(main, "is_image_reference_value", return_value=True),
+            patch.object(
+                main,
+                "media_reference_to_url",
+                return_value=transport_url,
+            ),
+        ):
+            request = await main._canvas_llm_run(payload)
+
+        self.assertIn(transport_url, str(request.messages))
+        self.assertNotIn(transport_url, str(request.durable_messages))
+        self.assertIn(workspace_url, str(request.durable_messages))
+        self.assertEqual([workspace_url], request.durable_payload["images"])
+
     async def test_text_request_rejects_history_overflow_without_truncating(self):
         payload = main.CanvasLLMRequest(
             message="test",

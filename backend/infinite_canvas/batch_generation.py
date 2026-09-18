@@ -212,6 +212,7 @@ class BatchGeneration:
         self._scheduler_task: Optional[asyncio.Task[Any]] = None
         self._scheduler_wakeup: Optional[asyncio.Event] = None
         self._scheduler_stopping = False
+        self._pending_associations: Dict[tuple, dict] = {}
         self._last_owner = ""
         self._last_batch_by_owner: Dict[str, str] = {}
         self._ensure_schema()
@@ -501,10 +502,21 @@ class BatchGeneration:
             return row
         return None
 
+    def _flush_pending_associations(self, batch_id=None):
+        for identity, result in list(self._pending_associations.items()):
+            if batch_id is not None and identity[0] != batch_id:
+                continue
+            self._finish_task(*identity, **result)
+            self._pending_associations.pop(identity)
+            self._finish_batch(identity[0])
+
     async def _dispatch_available(self) -> None:
         async with self._dispatch_lock:
             # Slot counts come from SQLite, so reconcile every batch before
             # completed runs can be mistaken for active work.
+            # A successful submit and its batch association are distinct steps.
+            # Retry the association first; do not submit another Provider task.
+            self._flush_pending_associations()
             self._refresh_all_runs()
             while True:
                 state = self._scheduler_state()
@@ -524,14 +536,6 @@ class BatchGeneration:
                     if inspect.isawaitable(result):
                         result = await result
                     result = dict(result or {})
-                    self._finish_task(
-                        candidate["batch_id"],
-                        candidate["task_index"],
-                        status=str(result.get("status") or "succeeded"),
-                        run_id=str(result.get("run_id") or ""),
-                        outputs=result.get("outputs") or [],
-                        attempted=True,
-                    )
                 except Exception as exc:
                     self._finish_task(
                         candidate["batch_id"],
@@ -540,6 +544,21 @@ class BatchGeneration:
                         error=str(exc),
                         attempted=True,
                     )
+                else:
+                    identity = (candidate["batch_id"], candidate["task_index"])
+                    association = dict(
+                        status=str(result.get("status") or "succeeded"),
+                        run_id=str(result.get("run_id") or ""),
+                        outputs=result.get("outputs") or [], attempted=True,
+                    )
+                    self._pending_associations[identity] = association
+                    try:
+                        self._finish_task(*identity, **association)
+                    except Exception:
+                        logging.exception("batch Run association save failed; retaining receipt")
+                        self._wake_scheduler()
+                        break
+                    self._pending_associations.pop(identity)
                 self._finish_batch(candidate["batch_id"])
 
     def _validate_task(self, task: Mapping[str, Any]) -> None:
@@ -667,6 +686,7 @@ class BatchGeneration:
         row = self._require_batch(batch_id, owner=owner, admin=admin)
         batch_owner = str(row["owner"])
         async with self._dispatch_lock:
+            self._flush_pending_associations(batch_id)
             self._refresh_runs(batch_id, batch_owner)
             with self._connect() as connection:
                 connection.execute(

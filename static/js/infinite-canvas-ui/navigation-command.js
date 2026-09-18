@@ -10,4 +10,4 @@ export {
   IcToolbar,
   NAVIGATION_COMMAND_TAGS,
   navigationCommandContractState,
-} from './navigation-command/index.js?v=ic-ui-1c107712fb1a';
+} from './navigation-command/index.js?v=ic-ui-9e5de786b163';

@@ -84,7 +84,7 @@ function startServer(data){
       data.previewRequests.push(new URL(request.url, 'http://127.0.0.1').searchParams.get('url') || '');
       return fs.readFile(path.join(ROOT, 'static/images/test/fixture.svg'), (error, body) => {
         if(error) return response.writeHead(500).end(error.message);
-        response.writeHead(200, {'Content-Type':'image/png'}).end(body);
+        response.writeHead(200, {'Content-Type':'image/svg+xml'}).end(body);
       });
     }
     const filePath = path.resolve(ROOT, `.${requestPath}`);
@@ -198,6 +198,8 @@ if(require.main === module) (async () => {
       return true;
     })()`);
     await waitFor(cdp, sessionId, "document.querySelectorAll('.generation-log-index-item').length === 3", 'three generation log records');
+    await waitFor(cdp, sessionId, "document.activeElement?.classList?.contains('generation-log-index-item')", 'selected generation log focus');
+    await waitFor(cdp, sessionId, "document.querySelector('img[data-preview-kind=\"video\"]')?.complete && document.querySelector('img[data-preview-kind=\"video\"]')?.naturalWidth > 0", 'video reference preview');
 
     const initial = await evaluate(cdp, sessionId, `(() => {
       const root=document.querySelector('#smartLogModal');

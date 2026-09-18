@@ -170,6 +170,10 @@ class TextRun:
     payload: Any
     history: tuple[Mapping[str, Any], ...] = ()
     messages: tuple[Mapping[str, Any], ...] = ()
+    durable_payload: Any = field(default=None, compare=False, repr=False)
+    durable_messages: tuple[Mapping[str, Any], ...] | None = field(
+        default=None, compare=False, repr=False
+    )
     stream: bool = False
     publication: str = ""
     effect_context: Mapping[str, Any] = field(
@@ -456,6 +460,91 @@ def _provider_output_value(output: ProviderOutput) -> dict[str, Any]:
     }
 
 
+def _without_inline_media(value: Any) -> Any:
+    """Keep diagnostic structure while dropping transport-only media bytes."""
+
+    value = _json_value(value)
+    if isinstance(value, str):
+        return (
+            None
+            if value.lower().startswith("data:") and "," in value[:512]
+            else value
+        )
+    if isinstance(value, Mapping):
+        media_payload = (
+            str(value.get("type") or "").lower() == "base64"
+            or str(value.get("mimeType") or value.get("mime") or "")
+            .lower()
+            .startswith(("image/", "video/", "audio/"))
+        )
+        return {
+            str(key): (
+                None
+                if (
+                    re.search(
+                        r"(?:^|_)(?:base64|b64)(?:_|$)",
+                        str(key),
+                        re.IGNORECASE,
+                    )
+                    or (media_payload and str(key).lower() in {"data", "value"})
+                )
+                else _without_inline_media(item)
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_without_inline_media(item) for item in value]
+    return value
+
+
+def _prepared_media_urls(prepared: PreparedGenerationOutput) -> tuple[str, ...]:
+    urls: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            if value.startswith(
+                ("/assets/", "/api/storage-files/", "http://", "https://")
+            ):
+                if value not in urls:
+                    urls.append(value)
+            return
+        if isinstance(value, Mapping):
+            for key in (
+                "images", "videos", "audios", "files", "outputs",
+                "image_items", "items", "base", "layers", "url",
+            ):
+                if key in value:
+                    collect(value[key])
+            return
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                collect(item)
+
+    collect(prepared.canvas)
+    collect(prepared.result)
+    return tuple(urls)
+
+
+def _durable_provider_output(
+    output: ProviderOutput,
+    prepared: PreparedGenerationOutput,
+) -> ProviderOutput:
+    """Project a paid Provider result onto materialized Workspace references."""
+
+    media = _prepared_media_urls(prepared)
+    return ProviderOutput(
+        text=output.text,
+        media=media,
+        workflow_items=(),
+        model=output.model,
+        usage=_without_inline_media(output.usage),
+        raw={"outputs": list(media)},
+        remote_refs=output.remote_refs,
+        metadata=_without_inline_media(output.metadata) or {},
+        legacy=_without_inline_media(prepared.result),
+    )
+
+
 def _provider_output_from_value(value: Any) -> ProviderOutput:
     if not isinstance(value, Mapping):
         raise GenerationRunConflict("Generation Run 缺少可恢复的生成结果")
@@ -551,9 +640,17 @@ def _canonical_request(request: RunRequest) -> dict[str, Any]:
     if isinstance(request, TextRun):
         return {
             "kind": "text-stream" if request.stream else "text",
-            "payload": _json_value(request.payload),
-            "history": _json_value(request.history),
-            "messages": _json_value(request.messages),
+            "payload": _without_inline_media(
+                request.durable_payload
+                if request.durable_payload is not None
+                else request.payload
+            ),
+            "history": _without_inline_media(request.history),
+            "messages": _without_inline_media(
+                request.durable_messages
+                if request.durable_messages is not None
+                else request.messages
+            ),
             "publication": request.publication,
         }
     if isinstance(request, WorkflowRun):
@@ -1337,8 +1434,7 @@ class GenerationRuns:
         self._owners: dict[str, asyncio.Task[Any]] = {}
         self._runtime_results: dict[str, Any] = {}
         self._pausing: set[str] = set()
-        self._lifecycle_projection_tail: asyncio.Task[None] | None = None
-        self._lifecycle_projection_error: Exception | None = None
+        self._lifecycle_projection_tail: asyncio.Task[Exception | None] | None = None
 
     async def restore_lifecycle_authority(self, *, limit: int = 1000) -> int:
         """Load unfinished Runs when SQLite is the sole lifecycle authority."""
@@ -1485,15 +1581,13 @@ class GenerationRuns:
             return
         try:
             loop = asyncio.get_running_loop()
-        except RuntimeError as exc:
-            if self._lifecycle_projection_error is None:
-                self._lifecycle_projection_error = exc
+        except RuntimeError:
             return
         previous = self._lifecycle_projection_tail
         snapshot = copy.deepcopy(dict(value))
         effect_snapshot = copy.deepcopy(effect)
 
-        async def project_after_previous() -> None:
+        async def project_after_previous() -> Exception | None:
             if previous is not None:
                 await asyncio.shield(previous)
             try:
@@ -1504,9 +1598,8 @@ class GenerationRuns:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                with self._lock:
-                    if self._lifecycle_projection_error is None:
-                        self._lifecycle_projection_error = exc
+                return exc
+            return None
 
         self._lifecycle_projection_tail = loop.create_task(
             project_after_previous()
@@ -1515,20 +1608,19 @@ class GenerationRuns:
     async def wait_for_lifecycle_projection(self, *, through_current: bool = False) -> None:
         """Wait for the optional JSON-to-Store compatibility projection."""
 
+        failure: Exception | None = None
         while True:
             with self._lock:
                 tail = self._lifecycle_projection_tail
             if tail is None:
                 break
-            await asyncio.shield(tail)
+            failure = await asyncio.shield(tail)
             if through_current:
                 break
             with self._lock:
                 if tail is self._lifecycle_projection_tail:
                     break
-        with self._lock:
-            failure = self._lifecycle_projection_error
-        if failure is not None:
+        if isinstance(failure, BaseException):
             raise GenerationRunLifecycleProjectionError(
                 str(failure)
             ) from failure
@@ -1555,6 +1647,20 @@ class GenerationRuns:
         owner = str(owner or "").strip()
         if target is not None and self._target_guard is not None:
             await asyncio.to_thread(self._target_guard.validate, owner, target)
+        # Startup loads unfinished Runs only. A completed Run can still be the
+        # receipt for a batch association or POST response lost before restart.
+        loader = getattr(self._lifecycle_store, "load_by_key", None)
+        with self._lock:
+            known_key = (owner, key) in self._keys
+        if key and not known_key and self._path() is None and callable(loader):
+            stored = await loader(owner, key)
+            if stored is not None:
+                with self._lock:
+                    if (owner, key) not in self._keys:
+                        restored = _Run.from_stored(_lifecycle_run_value(stored))
+                        self._runs[restored.id] = restored
+                        self._keys[(owner, key)] = restored.id
+                        self._index_remote_refs_locked(restored)
         with self._lock:
             self._load_locked()
             existing_id = self._keys.get((owner, key)) if key else None
@@ -1681,6 +1787,9 @@ class GenerationRuns:
                 self._owners[run_id] = owner_task
             self._persist_locked(run)
         try:
+            if self._lifecycle_store is not None and self._path() is None:
+                # No paid execution before its recovery identity is durable.
+                await self.wait_for_lifecycle_projection(through_current=True)
             if replay_prepared is not None:
                 return await self._complete_prepared(
                     run_id,
@@ -1764,8 +1873,13 @@ class GenerationRuns:
                     and not missing_recovery_credential
                     and not transient_recovery_failure
                 )
+                projection_failure = isinstance(
+                    exc, GenerationRunLifecycleProjectionError
+                )
                 run.status = (
-                    "running"
+                    "failed"
+                    if projection_failure
+                    else "running"
                     if (
                         not missing_recovery_credential
                         and not permanent_recovery_failure
@@ -1787,7 +1901,8 @@ class GenerationRuns:
                 run.recoverable = (
                     False
                     if (
-                        missing_recovery_credential
+                        projection_failure
+                        or missing_recovery_credential
                         or permanent_recovery_failure
                     )
                     else provider_completed or run.recoverable
@@ -2241,6 +2356,18 @@ class GenerationRuns:
                     result=published,
                 )
 
+        prepared: PreparedGenerationOutput | None = None
+        prepare = getattr(self._effects, "prepare", None)
+        if callable(prepare):
+            prepared = prepare(run_id, request, output)
+            if inspect.isawaitable(prepared):
+                prepared = await prepared
+            if not isinstance(prepared, PreparedGenerationOutput):
+                raise RuntimeError(
+                    "generation effects returned an invalid prepared output"
+                )
+            output = _durable_provider_output(output, prepared)
+
         with self._lock:
             run = self._runs[run_id]
             run.phase = "provider_completed"
@@ -2257,26 +2384,19 @@ class GenerationRuns:
             run.updated_at = float(self._now())
             self._persist_locked(run)
             stored_prepared = copy.deepcopy(run.prepared_output)
+        if self._lifecycle_store is not None and self._path() is None:
+            await self.wait_for_lifecycle_projection(through_current=True)
         if stored_prepared is not None:
             prepared = PreparedGenerationOutput.from_stored(stored_prepared)
-        else:
-            prepare = getattr(self._effects, "prepare", None)
-            if callable(prepare):
-                prepared = prepare(run_id, request, output)
-                if inspect.isawaitable(prepared):
-                    prepared = await prepared
-            else:
-                prepared = PreparedGenerationOutput(
-                    result=output.legacy,
-                    canvas=_canvas_output(
-                        output,
-                        "video" if isinstance(request, VideoRun) else "",
-                    ),
-                )
-            if not isinstance(prepared, PreparedGenerationOutput):
-                raise RuntimeError(
-                    "generation effects returned an invalid prepared output"
-                )
+        elif prepared is None:
+            prepared = PreparedGenerationOutput(
+                result=output.legacy,
+                canvas=_canvas_output(
+                    output,
+                    "video" if isinstance(request, VideoRun) else "",
+                ),
+            )
+        if stored_prepared is None:
             with self._lock:
                 run = self._runs[run_id]
                 run.phase = "output_prepared"
@@ -3410,7 +3530,7 @@ class WorkspaceGenerationEffects:
                 image_data, raw = legacy
             else:
                 image_data, raw = legacy, one.raw
-            raw_items.append(raw)
+            raw_items.append(_without_inline_media(raw))
             normalized_media = list(one.media)
             try:
                 image_values = (
@@ -4132,9 +4252,11 @@ class CanvasGenerationTargetGuard:
                 generation_node_id=target.node_id,
             )
         except Exception as exc:
-            raise GenerationRunError(
-                str(getattr(exc, "detail", "") or exc)
-            ) from exc
+            status = getattr(exc, "status_code", None)
+            if status in {401, 403, 404, 410}:
+                raise GenerationRunNotFound(str(getattr(exc, "detail", "") or exc)) from exc
+            # An unavailable database is not evidence that the target changed.
+            raise
         if str(canvas.get("kind") or "").strip().lower() != "smart":
             raise GenerationRunValidation("生成任务仅支持 Smart Canvas")
         node = next(
@@ -4158,7 +4280,7 @@ class CanvasGenerationTargetGuard:
     def is_current(self, owner: str, target: RunTarget) -> bool:
         try:
             self.validate(owner, target)
-        except GenerationRunError:
+        except (GenerationRunNotFound, GenerationRunConflict, GenerationRunValidation):
             return False
         return True
 

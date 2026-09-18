@@ -17,10 +17,10 @@ vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/js/smart-canvas/p
 const resolve=()=>sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node,defaultImages:[
     {url:'one.png',inputInstanceId:'one'}, {url:'two.png',inputInstanceId:'two'},
 ]});
-assert.equal(resolve().prompt,'Composer\n\nA\n\nB\n\nTXT');
+assert.equal(resolve().prompt,'A\n\nB\n\nTXT\n\nComposer');
 node.inputRefOrder=['instance|two','text|b','instance|txt','text|a','instance|one'];
 let result=resolve();
-assert.equal(result.prompt,'Composer\n\nB\n\nTXT\n\nA');
+assert.equal(result.prompt,'B\n\nTXT\n\nA\n\nComposer');
 assert.deepEqual(Array.from(result.textInputs,entry=>entry.key),['text|b','instance|txt','text|a']);
 assert.deepEqual(Array.from(result.refs,ref=>ref.inputInstanceId),['two','one']);
 const migrationNode={...node,promptDraftText:'Composer',promptDraftHtml:'Composer'};
@@ -39,4 +39,15 @@ node.type='smart-group'; node.text='Group';
 textRefs=[node,...textRefs];
 node.inputRefOrder=['text|a', 'text|generation','instance|txt'];
 assert.equal(resolve().prompt,'A\n\nGroup\n\nTXT\n\nC');
+// Handwritten model parameters follow all referenced text, including multiple inputs.
+delete node.type;
+node.localTextRefs=[];
+textRefs=[{id:'a',text:'Character description'},{id:'b',text:'--raw --stylize 250'}];
+node.inputRefOrder=['text|a','text|b'];
+promptInput.childNodes=[{nodeType:3,textContent:'--iw 0.5'}];
+assert.equal(resolve().prompt,'Character description\n\n--raw --stylize 250\n\n--iw 0.5');
+textRefs=[];
+assert.equal(resolve().prompt,'--iw 0.5','Handwritten-only input is preserved');
+promptInput.childNodes=[];
+assert.equal(resolve().prompt,'','Empty input remains empty');
 console.log('Composer text ordering: PASS (draft, mixed text, media order, removal, new inputs, groups, validation)');
