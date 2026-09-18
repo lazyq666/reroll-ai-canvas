@@ -43,8 +43,27 @@ class PublicReadinessAuditTests(unittest.TestCase):
                       [item['argv'] for item in manifest['public-audit']])
         self.assertIn(['{python}', 'scripts/readiness_tests.py', 'discover'],
                       [item['argv'] for item in manifest['python-tests']])
+        repository_commands = [item['argv'] for item in manifest['repository-contracts']]
+        for duplicate in (
+            'tests.test_documentation_knowledge_map',
+            'tests.test_i18n_cache_versions',
+            'tests.test_infinite_canvas_ui_asset_version',
+            'tests.test_update_sources',
+        ):
+            self.assertFalse(any(duplicate in argv for argv in repository_commands))
+        self.assertFalse(any(item['id'] in ('uv', 'install') for item in manifest['repository-contracts']))
         runner = (ROOT / 'scripts/readiness_tests.py').read_text()
         self.assertIn("os.environ['IC_BROWSER_NO_SANDBOX'] = '1'", runner)
+
+    def test_workflow_persists_the_download_directories_used_by_the_runner(self):
+        workflow = PUBLIC_READINESS_WORKFLOW.read_text(encoding='utf-8')
+
+        self.assertEqual(4, workflow.count('READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads'))
+        self.assertIn('${{ runner.temp }}/readiness-downloads/uv', workflow)
+        self.assertIn('${{ runner.temp }}/readiness-downloads/pip', workflow)
+        self.assertIn('${{ runner.temp }}/readiness-downloads/npm', workflow)
+        self.assertIn("hashFiles('requirements.lock.txt')", workflow)
+        self.assertIn("hashFiles('package-lock.json')", workflow)
 
     def test_core_browser_launcher_keeps_no_sandbox_opt_in(self):
         launcher = (ROOT / "tests" / "ic_core_browser_smoke.cjs").read_text(

@@ -73,7 +73,7 @@ class SnapshotTests(unittest.TestCase):
         with redirect_stdout(output):
             readiness.show_check_result('python-tests', {'id': 'python-suite', 'argv': ['private argument'], **result})
         lines = output.getvalue().splitlines()
-        self.assertEqual(lines[0], 'python-tests/python-suite: failure')
+        self.assertRegex(lines[0], r'^python-tests/python-suite: failure \([0-9.]+s\)$')
         details = json.loads(lines[1].removeprefix('READINESS_FAILURE='))
         self.assertEqual(details['exit_code'], 1)
         self.assertEqual(details['counts'][0]['failed_tests'], [name])
@@ -95,6 +95,28 @@ class SnapshotTests(unittest.TestCase):
         with redirect_stdout(output):
             readiness.show_check_result('python-tests', {'id': 'python-suite', 'result': 'success'})
         self.assertEqual(output.getvalue(), 'python-tests/python-suite: success\n')
+
+    def test_check_duration_is_visible_without_raw_output(self):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            readiness.show_check_result('python-tests', {
+                'id': 'python-suite', 'result': 'success', 'duration_seconds': 12.3456})
+        self.assertEqual(output.getvalue(), 'python-tests/python-suite: success (12.346s)\n')
+
+    def test_slow_test_timings_are_bounded_and_sanitized(self):
+        timings = [
+            {'test': f'tests.synthetic.Probe.test_{index:02d}', 'duration_seconds': index / 10}
+            for index in range(25)
+        ] + [
+            {'test': 'private prompt\n::error::injected', 'duration_seconds': 100},
+            {'test': 'tests.synthetic.Probe.invalid', 'duration_seconds': -1},
+        ]
+        counts = {'tests': 25, 'skipped': 0, 'failures': 0, 'errors': 0,
+                  'slow_tests': timings}
+        command = "print(" + repr('READINESS_COUNTS=' + json.dumps(counts)) + ")"
+        result = self.command(self.root, command)
+        self.assertEqual(len(result['counts'][0]['slow_tests']), 20)
+        self.assertNotIn('private', json.dumps(result))
 
     def test_uncommitted_staged_untracked_repairs_cannot_change_candidate(self):
         (self.root / 'source.py').write_text('value = 1\n')

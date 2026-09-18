@@ -199,31 +199,6 @@
     ],
     "repository-contracts": [
       {
-        "id": "uv",
-        "argv": [
-          "{tools_python}",
-          "-m",
-          "pip",
-          "install",
-          "uv==0.10.0"
-        ]
-      },
-      {
-        "id": "install",
-        "needs": [
-          "uv"
-        ],
-        "argv": [
-          "{uv}",
-          "pip",
-          "sync",
-          "--python",
-          "{python}",
-          "--require-hashes",
-          "requirements.lock.txt"
-        ]
-      },
-      {
         "id": "vendor",
         "argv": [
           "{python}",
@@ -231,31 +206,10 @@
         ]
       },
       {
-        "id": "knowledge-map",
-        "argv": [
-          "{python}",
-          "scripts/readiness_tests.py",
-          "tests.test_documentation_knowledge_map"
-        ]
-      },
-      {
         "id": "i18n",
         "argv": [
           "node",
           "static/js/i18n/validate-i18n.js"
-        ]
-      },
-      {
-        "id": "cache-versions",
-        "argv": [
-          "{python}",
-          "scripts/readiness_tests.py",
-          "tests.test_i18n_cache_versions",
-          "tests.test_infinite_canvas_ui_asset_version",
-          "tests.test_update_sources"
-        ],
-        "needs": [
-          "install"
         ]
       },
       {

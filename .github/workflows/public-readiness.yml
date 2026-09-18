@@ -41,7 +41,16 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+      - name: Restore public audit downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/readiness-downloads/uv
+            ${{ runner.temp }}/readiness-downloads/pip
+          key: readiness-public-audit-${{ runner.os }}-python-3.12-uv-0.10.0-${{ hashFiles('requirements.lock.txt') }}
       - name: Run shared public-audit inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group public-audit --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/public-audit.json"
       - name: Preserve metadata even after failure
         if: always()
@@ -79,7 +88,16 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+      - name: Restore Python test downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/readiness-downloads/uv
+            ${{ runner.temp }}/readiness-downloads/pip
+          key: readiness-python-tests-${{ runner.os }}-python-3.12-uv-0.10.0-${{ hashFiles('requirements.lock.txt') }}
       - name: Run shared python-tests inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group python-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/python-tests.json"
       - name: Preserve metadata even after failure
         if: always()
@@ -117,7 +135,14 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+      - name: Restore npm downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ runner.temp }}/readiness-downloads/npm
+          key: readiness-node-${{ runner.os }}-node-24-${{ hashFiles('package-lock.json') }}
       - name: Run shared node-tests inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group node-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/node-tests.json"
       - name: Preserve metadata even after failure
         if: always()
@@ -155,7 +180,14 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+      - name: Restore npm downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ runner.temp }}/readiness-downloads/npm
+          key: readiness-node-${{ runner.os }}-node-24-${{ hashFiles('package-lock.json') }}
       - name: Run shared browser-core inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group browser-core --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/browser-core.json"
       - name: Preserve metadata even after failure
         if: always()

@@ -6,10 +6,28 @@ import re
 from pathlib import Path
 import subprocess
 import sys
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+
+class TimedTestResult(unittest.TextTestResult):
+    """Collect bounded per-test timings for the public-safe readiness summary."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.test_durations = []
+
+    def startTest(self, test):
+        self._test_started = time.perf_counter()
+        super().startTest(test)
+
+    def stopTest(self, test):
+        duration = max(0.0, time.perf_counter() - self._test_started)
+        self.test_durations.append((test.id(), duration))
+        super().stopTest(test)
 
 
 def successful(result, require_no_skips=False):
@@ -47,15 +65,21 @@ def main():
         targets = ['tests.test_infinite_canvas_ui_core']
     loader = unittest.TestLoader()
     suite = loader.discover('tests', top_level_dir='.') if targets == ['discover'] else loader.loadTestsFromNames(targets)
-    result = unittest.TextTestRunner(verbosity=1).run(suite)
+    result = unittest.TextTestRunner(verbosity=1, resultclass=TimedTestResult).run(suite)
     skip_categories = Counter(
         'controlled performance environment required' if 'performance' in reason.lower() else
         'browser runs in dedicated required group' if 'IC_RUN_BROWSER_TESTS' in reason else
         'POSIX environment required' if 'POSIX' in reason else
         'other optional test; inspect its declared reason'
         for _, reason in result.skipped)
+    slow_tests = [
+        {'test': test, 'duration_seconds': round(duration, 3)}
+        for test, duration in sorted(result.test_durations, key=lambda item: (-item[1], item[0]))[:20]
+        if re.fullmatch(r'[A-Za-z_][\w.]*', test)
+    ]
     print('READINESS_COUNTS=' + json.dumps({'tests': result.testsRun, 'skipped': len(result.skipped),
                                           'skip_categories': dict(skip_categories),
+                                          'slow_tests': slow_tests,
                                           'failure_locations': failure_locations(result),
                                           'failed_tests': [test.id() for test, _ in result.failures + result.errors if re.fullmatch(r'[A-Za-z_][\w.]*', test.id())],
                                           'failures': len(result.failures), 'errors': len(result.errors)}))
