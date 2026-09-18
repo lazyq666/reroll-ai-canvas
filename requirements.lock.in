@@ -8,5 +8,5 @@ pillow
 cryptography>=50,<51
 numpy>=1.26,<3
 scipy>=1.11
-pymatting==1.1.15
+pymatting==1.1.16
 onnxruntime>=1.30.0,<2
