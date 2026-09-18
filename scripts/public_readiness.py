@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -93,7 +94,8 @@ def interrupted(signum, frame):
 
 
 def show_check_result(group, check):
-    print(f"{group}/{check['id']}: {check['result']}", flush=True)
+    duration = f" ({check['duration_seconds']:.3f}s)" if 'duration_seconds' in check else ''
+    print(f"{group}/{check['id']}: {check['result']}{duration}", flush=True)
     if check['result'] != 'failure':
         return
     # Only execute's sanitized metadata is public; never print argv or raw output.
@@ -131,6 +133,17 @@ def execute(argv, root, env, timeout, shutdown_grace=5):
                         allowed_reasons = {'controlled performance environment required', 'browser runs in dedicated required group', 'POSIX environment required', 'other optional test; inspect its declared reason'}
                         count['skip_categories'] = {key: int(number) for key, number in value.get('skip_categories', {}).items() if key in allowed_reasons}
                         count['failed_tests'] = [name for name in value.get('failed_tests', []) if isinstance(name, str) and re.fullmatch(r'[A-Za-z_][\w.]*', name)]
+                        count['slow_tests'] = [
+                            {'test': item['test'], 'duration_seconds': round(float(item['duration_seconds']), 3)}
+                            for item in value.get('slow_tests', [])[:20]
+                            if isinstance(item, dict) and set(item) == {'test', 'duration_seconds'}
+                            and isinstance(item['test'], str)
+                            and re.fullmatch(r'[A-Za-z_][\w.]*', item['test'])
+                            and isinstance(item['duration_seconds'], (int, float))
+                            and not isinstance(item['duration_seconds'], bool)
+                            and math.isfinite(item['duration_seconds'])
+                            and item['duration_seconds'] >= 0
+                        ]
                         count['failure_locations'] = [
                             item for item in value.get('failure_locations', [])
                             if isinstance(item, dict) and set(item) == {'test', 'file', 'line'}
