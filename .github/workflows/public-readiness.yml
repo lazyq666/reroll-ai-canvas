@@ -27,8 +27,6 @@ jobs:
     name: public-audit
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
     steps:
       - name: Check out the tested merge or push commit with complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,6 +49,8 @@ jobs:
             ${{ runner.temp }}/readiness-downloads/pip
           key: readiness-public-audit-${{ runner.os }}-python-3.12-uv-0.10.0-${{ hashFiles('requirements.lock.txt') }}
       - name: Run shared public-audit inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group public-audit --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/public-audit.json"
       - name: Preserve metadata even after failure
         if: always()
@@ -74,8 +74,6 @@ jobs:
     name: python-tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
     steps:
       - name: Check out the tested merge or push commit with complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -98,6 +96,8 @@ jobs:
             ${{ runner.temp }}/readiness-downloads/pip
           key: readiness-python-tests-${{ runner.os }}-python-3.12-uv-0.10.0-${{ hashFiles('requirements.lock.txt') }}
       - name: Run shared python-tests inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group python-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/python-tests.json"
       - name: Preserve metadata even after failure
         if: always()
@@ -121,8 +121,6 @@ jobs:
     name: node-tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
     steps:
       - name: Check out the tested merge or push commit with complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -143,6 +141,8 @@ jobs:
           path: ${{ runner.temp }}/readiness-downloads/npm
           key: readiness-node-${{ runner.os }}-node-24-${{ hashFiles('package-lock.json') }}
       - name: Run shared node-tests inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group node-tests --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/node-tests.json"
       - name: Preserve metadata even after failure
         if: always()
@@ -166,8 +166,6 @@ jobs:
     name: browser-core
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
     steps:
       - name: Check out the tested merge or push commit with complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -188,6 +186,8 @@ jobs:
           path: ${{ runner.temp }}/readiness-downloads/npm
           key: readiness-node-${{ runner.os }}-node-24-${{ hashFiles('package-lock.json') }}
       - name: Run shared browser-core inventory
+        env:
+          READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
         run: python scripts/public_readiness.py group browser-core --base "$BASE_SHA" --head "$HEAD_SHA" --output "$RUNNER_TEMP/browser-core.json"
       - name: Preserve metadata even after failure
         if: always()
@@ -211,8 +211,6 @@ jobs:
     name: repository-contracts
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads
     steps:
       - name: Check out the tested merge or push commit with complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

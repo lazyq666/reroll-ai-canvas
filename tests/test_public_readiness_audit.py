@@ -58,7 +58,7 @@ class PublicReadinessAuditTests(unittest.TestCase):
     def test_workflow_persists_the_download_directories_used_by_the_runner(self):
         workflow = PUBLIC_READINESS_WORKFLOW.read_text(encoding='utf-8')
 
-        self.assertEqual(5, workflow.count('READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads'))
+        self.assertEqual(4, workflow.count('READINESS_DOWNLOAD_CACHE: ${{ runner.temp }}/readiness-downloads'))
         self.assertIn('${{ runner.temp }}/readiness-downloads/uv', workflow)
         self.assertIn('${{ runner.temp }}/readiness-downloads/pip', workflow)
         self.assertIn('${{ runner.temp }}/readiness-downloads/npm', workflow)
