@@ -272,6 +272,11 @@ function startServer(){
       null,
       {timeout:1500},
     );
+    await page.waitForFunction(
+      () => document.querySelectorAll('#smartLogList .generation-log-index-item').length === 1,
+      null,
+      {timeout:3000},
+    );
     const immediateLogState = await page.locator('#smartLogList').evaluate(list => ({
       count:list.querySelectorAll('.generation-log-index-item').length,
       empty:list.querySelector('.generation-log-empty')?.textContent || '',

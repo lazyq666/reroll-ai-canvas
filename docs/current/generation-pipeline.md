@@ -269,6 +269,17 @@ Turso 生命周期保存遇到暂时错误时保留原快照，先查回 Run/eff
 不会把 legacy JSON 路径交给运行时。凭证字段在持久化前会脱敏，API Key、token、密码和
 Authorization 不应进入可恢复记录。
 
+多模态文字请求在可恢复记录中只保存 Workspace 媒体引用；把本地媒体读取成 data URL、
+压缩图片或抽取视频帧属于 Provider 传输状态，不回写请求快照。Provider 返回 URL、Base64
+或 data URL 后，`WorkspaceGenerationEffects` 先将媒体保存到 Workspace Managed Media，
+再把只含稳定 URL 的 `provider_completed` 和 `output_prepared` 投影到 SQLite/Turso；原始媒体
+字节不进入 Run、History、Canvas Log 或 Effect Outbox。
+
+每次生命周期投影只向等待该投影的 Run 报告错误。失败投影不会成为进程级粘性错误，后续
+投影会越过已经结算的失败继续执行；因此一次 Run 的持久化失败会终止该 Run，但不会阻止
+其他用户、Provider、Model、图片或 CLI 任务。Provider 可能计费前的 `running` 身份保存仍须
+成功确认，故障隔离不放宽这一门禁。
+
 已有执行者的任务在收到进度查询时只返回当前状态，不重复保存相同状态，也不把供应商的
 排队状态改成运行中。供应商重复报告完全相同的进度字段时跳过持久化；新进度、远端任务
 编号、准备好的输出和终态仍进入可恢复记录。没有执行者的未完成任务继续沿用原 Run
@@ -371,6 +382,10 @@ Workspace 或公开任务响应。
 4. 如果声明了目标画幅，读取真实图片尺寸并按居中 `cover` 生成 Materialized Output。
 5. 画布、下载和后续生成引用 Materialized Output；原始源图用于诊断和未来重处理。
 6. 把 History 与通知交给当前 authority 的发布适配器。
+
+`provider_completed` 的可恢复投影使用上述已经物化的 Workspace URL，而不是 Provider 原始
+响应中的媒体字节；`output_prepared` 随后保存画布、History 和通知所需的稳定结果。若进程在
+两阶段之间重启，恢复只重放本地准备或既有远端任务，不重新提交付费请求。
 
 这里的文件落盘与发布是两个独立职责。`WorkspaceGenerationEffects` 只负责把远程结果变成
 Managed Media，再调用发布接口；SQLite 路径不会复用会写 JSON 的旧实现。JSON authority 的

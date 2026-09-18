@@ -211,6 +211,48 @@
             };
         });
     }
+    function logValueScore(value){
+        if(Array.isArray(value)) return value.reduce((score, item) => score + logValueScore(item), value.length * 4);
+        if(value && typeof value === 'object') return Object.values(value).reduce((score, item) => score + logValueScore(item), 2);
+        if(typeof value === 'string') return value.trim() ? Math.min(20, value.trim().length) : 0;
+        return value == null || value === false || value === 0 ? 0 : 1;
+    }
+    function logErrorScore(value){
+        const text = String(value || '').trim();
+        if(!text) return 0;
+        const category = classify({technicalError:text}).category;
+        return (category === 'empty_output' ? 1 : 100) + Math.min(50, text.length);
+    }
+    function mergeLogRecords(left={}, right={}){
+        const leftScore = logValueScore(left);
+        const rightScore = logValueScore(right);
+        const preferred = rightScore >= leftScore ? right : left;
+        const fallback = preferred === right ? left : right;
+        const merged = {...fallback, ...preferred};
+        for(const key of ['generationRunId','runId','nodeId','nodeType','platform','model','prompt','requestHash']){
+            if(!merged[key]) merged[key] = fallback[key] || '';
+        }
+        for(const key of ['refs','tasks','outputs']){
+            const first = Array.isArray(left[key]) ? left[key] : [];
+            const second = Array.isArray(right[key]) ? right[key] : [];
+            merged[key] = logValueScore(second) >= logValueScore(first) ? second : first;
+        }
+        merged.request = {
+            ...(left.request && typeof left.request === 'object' ? left.request : {}),
+            ...(right.request && typeof right.request === 'object' ? right.request : {}),
+        };
+        merged.diagnostics = {
+            ...(left.diagnostics && typeof left.diagnostics === 'object' ? left.diagnostics : {}),
+            ...(right.diagnostics && typeof right.diagnostics === 'object' ? right.diagnostics : {}),
+        };
+        const leftError = left.error || left.errorSummary || '';
+        const rightError = right.error || right.errorSummary || '';
+        merged.error = logErrorScore(rightError) >= logErrorScore(leftError) ? rightError : leftError;
+        const leftDetail = left.errorDetail || left.error_detail || null;
+        const rightDetail = right.errorDetail || right.error_detail || null;
+        merged.errorDetail = logValueScore(rightDetail) >= logValueScore(leftDetail) ? rightDetail : leftDetail;
+        return merged;
+    }
     function diagnosticReport(log={}, options={}){
         const tr = typeof options.translate === 'function' ? options.translate : key => key;
         const trf = typeof options.format === 'function' ? options.format : (key, values) => `${tr(key)} ${JSON.stringify(values)}`;
@@ -287,5 +329,6 @@
         safeObject,
         billingEvidence,
         referenceSummary,
+        mergeLogRecords,
     });
 })();

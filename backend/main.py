@@ -8987,6 +8987,7 @@ async def _canvas_llm_run(payload: CanvasLLMRequest) -> TextRun:
     )
     raise_model_capability_validation(validation)
     payload.catalog_revision = capability["catalog_revision"]
+    durable_payload = payload.model_dump()
     upstream_messages = [{"role": "system", "content": system_prompt}] if system_prompt else []
     for item in payload.messages:
         role = item.get("role")
@@ -8996,8 +8997,10 @@ async def _canvas_llm_run(payload: CanvasLLMRequest) -> TextRun:
     # 构造用户消息：有图片/视频时用 OpenAI/Gemini 多模态格式
     requested_image_count = len(requested_images)
     payload.images = list(image_inputs)
+    durable_messages = copy.deepcopy(upstream_messages)
     if image_inputs or video_inputs:
         content_parts = [{"type": "text", "text": payload.message}]
+        durable_content_parts = [{"type": "text", "text": payload.message}]
         resolved_cli_images = []
         ok_imgs = 0
         for img in image_inputs:
@@ -9007,6 +9010,7 @@ async def _canvas_llm_run(payload: CanvasLLMRequest) -> TextRun:
             if not ref_url:
                 continue
             content_parts.append({"type": "image_url", "image_url": {"url": ref_url}})
+            durable_content_parts.append({"type": "image_url", "image_url": {"url": img}})
             resolved_cli_images.append(img)
             ok_imgs += 1
         ok_videos = 0
@@ -9026,18 +9030,23 @@ async def _canvas_llm_run(payload: CanvasLLMRequest) -> TextRun:
                     continue
                 content_parts.append({"type": "video_url", "video_url": {"url": ref_url}})
                 ok_videos += 1
+            durable_content_parts.append({"type": "video_url", "video_url": {"url": video}})
         # CLI text adapters consume payload.images rather than the normalized
         # OpenAI-style message parts. Keep them aligned so rejected values are
         # not reintroduced and extracted video frames remain visible to CLIs.
         payload.images = resolved_cli_images
         print(f"[canvas-llm] model={payload.model} provider={payload.provider} text_len={len(payload.message)} images={ok_imgs}/{requested_image_count} videos={ok_videos}/{len(payload.videos)}")
         upstream_messages.append({"role": "user", "content": content_parts})
+        durable_messages.append({"role": "user", "content": durable_content_parts})
     else:
         upstream_messages.append({"role": "user", "content": payload.message})
+        durable_messages.append({"role": "user", "content": payload.message})
     return TextRun(
         payload,
         history=tuple(payload.messages),
         messages=tuple(upstream_messages),
+        durable_payload=durable_payload,
+        durable_messages=tuple(durable_messages),
     )
 
 
@@ -11084,6 +11093,14 @@ async def caption_image_with_provider(abs_path, prompt, provider_id, model, ms_m
         TextRun(
             payload=payload,
             messages=tuple(messages),
+            durable_payload=payload.model_dump(),
+            durable_messages=({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt_text},
+                    {"type": "image_url", "image_url": {"url": abs_path}},
+                ],
+            },),
         )
     )
     return result.text.strip() or "接口返回了空回复。", result.model

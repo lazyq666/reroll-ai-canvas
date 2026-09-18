@@ -1,4 +1,4 @@
-import './core.js?v=ic-ui-1c107712fb1a';
+import './core.js?v=ic-ui-9e5de786b163';
 
 const DEFAULTS = Object.freeze({
   count: 8,
