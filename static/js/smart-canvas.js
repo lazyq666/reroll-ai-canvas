@@ -7000,22 +7000,143 @@ function fileNameFromUrl(url=''){
     }
 }
 function extensionForMediaItem(item, fallback='.png'){
-    const source = [item?.name, item?.url].map(value => String(value || '').split('?')[0].split('#')[0]).find(value => /\.[a-z0-9]{2,8}$/i.test(value));
-    if(source) return source.match(/(\.[a-z0-9]{2,8})$/i)?.[1] || fallback;
-    const kind = mediaKindForItem(item);
-    if(kind === 'video') return '.mp4';
-    if(kind === 'audio') return '.mp3';
-    if(kind === 'text') return '.txt';
-    return fallback;
+    return window.SmartCanvasModules.mediaNaming.extensionFor(
+        item,
+        mediaKindForItem(item),
+        fallback
+    );
+}
+function mediaNameBodyForItem(item){
+    return window.SmartCanvasModules.mediaNaming.nameBody(
+        item,
+        imageNameLabel(item),
+        mediaKindForItem(item)
+    );
+}
+function validateMediaNameInput(value, item){
+    const result = window.SmartCanvasModules.mediaNaming.validate(
+        value,
+        item,
+        mediaKindForItem(item)
+    );
+    const error = result.errorKey
+        ? result.errorKey === 'smart.mediaNameExtensionMismatch'
+            ? trf(result.errorKey,{extension:result.extension})
+            : tr(result.errorKey)
+        : '';
+    return {...result,error};
+}
+let assetNameDialogSession = null;
+function openAssetNameDialog(options={}){
+    if(assetNameDialogSession?.cancel) assetNameDialogSession.cancel();
+    const cancelValue = Object.hasOwn(options,'cancelValue') ? options.cancelValue : null;
+    const dialog = document.createElement('ic-dialog');
+    dialog.id = 'smartAssetNameDialog';
+    dialog.size = 'small';
+    dialog.variant = 'compact';
+    dialog.dismissPolicy = 'explicit';
+    dialog.label = String(options.title || tr('smart.renameMedia'));
+    dialog.setAttribute('label',dialog.label);
+    const field = document.createElement('ic-form-field');
+    field.setAttribute('label',String(options.placeholder || tr('smart.mediaName')));
+    field.toggleAttribute('required',true);
+    const input = document.createElement(options.multiline ? 'ic-textarea' : 'ic-input');
+    input.id = 'smartAssetNameInput';
+    input.slot = 'control';
+    input.name = 'smart-media-name';
+    input.value = String(options.value || '');
+    input.setAttribute('value',input.value);
+    input.setAttribute('autocomplete','off');
+    if(options.multiline) input.setAttribute('rows','5');
+    else input.setAttribute('maxlength',String(options.maxlength || 180));
+    field.appendChild(input);
+    const cancel = document.createElement('ic-button');
+    cancel.type = 'button';
+    cancel.slot = 'footer';
+    cancel.hierarchy = 'secondary';
+    cancel.textContent = tr('common.cancel');
+    const submit = document.createElement('ic-button');
+    submit.type = 'button';
+    submit.slot = 'footer';
+    submit.hierarchy = 'primary';
+    submit.textContent = tr('common.save');
+    dialog.append(field,cancel,submit);
+    document.body.appendChild(dialog);
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = value => {
+            if(settled) return;
+            settled = true;
+            if(assetNameDialogSession?.dialog === dialog) assetNameDialogSession = null;
+            resolve(value);
+        };
+        const close = async (value, reason) => {
+            finish(value);
+            if(dialog.open) await dialog.hide(reason);
+            else dialog.remove();
+        };
+        const submitValue = () => {
+            const value = String(input.value || '');
+            const error = typeof options.validate === 'function'
+                ? String(options.validate(value) || '')
+                : '';
+            field.setAttribute('validation',error);
+            if(error){
+                input.focus();
+                input.input?.focus?.();
+                return;
+            }
+            close(value,'confirm');
+        };
+        const cancelDialog = () => close(cancelValue,'cancel');
+        assetNameDialogSession = {dialog,cancel:cancelDialog};
+        cancel.addEventListener('click',cancelDialog);
+        submit.addEventListener('click',submitValue);
+        input.addEventListener('input',() => field.removeAttribute('validation'));
+        input.addEventListener('keydown',event => {
+            if(event.key === 'Escape'){
+                event.preventDefault();
+                event.stopPropagation();
+                cancelDialog();
+                return;
+            }
+            if(!options.multiline && event.key === 'Enter' && !event.isComposing){
+                event.preventDefault();
+                event.stopPropagation();
+                submitValue();
+            }
+        });
+        dialog.addEventListener('ic-after-show',() => {
+            input.focus();
+            input.input?.focus?.();
+            input.select?.();
+            input.input?.select?.();
+        },{once:true});
+        dialog.addEventListener('ic-after-hide',() => {
+            finish(cancelValue);
+            dialog.remove();
+        },{once:true});
+        // Dynamic Web Awesome controls need one completed Lit render before the
+        // dialog animation starts. Opening in the same task as appendChild can
+        // leave the underlying native dialog waiting for an animation event.
+        (async () => {
+            await dialog.updateComplete;
+            await field.updateComplete;
+            await input.updateComplete;
+            await dialog.show();
+        })().catch(() => {
+            finish(cancelValue);
+            dialog.remove();
+        });
+    });
 }
 function downloadNameForMediaItem(item, fallbackPrefix='canvas-output'){
-    const localName = fileNameFromUrl(item?.url || '');
-    const preferred = localName || item?.name || '';
-    const ext = extensionForMediaItem(item);
-    const randomName = `${fallbackPrefix}_${Date.now()}_${Math.random().toString(16).slice(2, 8)}${ext}`;
-    let name = safeExportFileName(preferred || randomName, randomName);
-    if(!/\.[a-z0-9]{2,8}$/i.test(name)) name += ext;
-    return name;
+    return window.SmartCanvasModules.mediaNaming.downloadName(item,{
+        kind:mediaKindForItem(item),
+        fileNameFromUrl,
+        safeFileName:safeExportFileName,
+        fallbackPrefix
+    });
 }
 function downloadPreviewImage(){
     const node = nodes.find(n => n.id === previewNavState.nodeId);
@@ -11556,6 +11677,7 @@ function smartContextMenuSections(state){
     const media = smartContextMediaTarget(state);
     const mediaItems = media.item?.url ? [media.item] : (node.images || []).filter(item => item?.url);
     const mediaKind = media.item ? mediaKindForItem(media.item) : (mediaItems.length === 1 ? mediaKindForItem(mediaItems[0]) : '');
+    const editable = typeof canvasPersistence === 'undefined' || canvasPersistence.editable?.() !== false;
     const busy = smartNodeInFlight(node);
     if(busy){
         primary.push(smartContextMenuItem('noop', node.queued ? tr('smart.contextQueued') : tr('smart.contextGenerating'), 'loading', '', {disabled:true}));
@@ -11569,6 +11691,7 @@ function smartContextMenuSections(state){
         content.push(smartContextMenuItem('publish-workspace-assets', tr('smart.addToAssetLibrary'), 'collection'));
     }
     if(isSmartImageNode(node)){
+        if(media.item?.url && editable) content.push(smartContextMenuItem('rename-media', tr('smart.contextRenameMedia'), 'edit'));
         if(!(node.images || []).length && !busy){
             content.push(smartContextMenuItem('pick-media', tr('smart.contextChooseFile'), 'choose-file'));
         } else if(mediaKind === 'image'){
@@ -11592,6 +11715,7 @@ function smartContextMenuSections(state){
         primary.push(smartContextMenuItem('add-to-group', tr('smart.contextAddNode'), 'add'));
         if(!busy) primary.push(smartContextMenuItem('run-group', node.runAt ? tr('smart.contextRunGroupAgain') : tr('smart.contextRunGroup'), 'play'));
         structure.push(smartContextMenuItem('arrange-group', tr('smart.contextArrange'), 'arrange', '', {disabled:!groupImages.length && !smartContainer.groupMembers(node).length}));
+        if(media.item?.url && editable) content.push(smartContextMenuItem('rename-media', tr('smart.contextRenameMedia'), 'edit'));
         if(groupImages.length > 1) content.push(smartContextMenuItem('grid-group', tr('smart.contextGridJoin'), 'join-grid'));
         if(groupImages.length) content.push(smartContextMenuItem('download-group', tr('smart.contextBatchDownload'), 'archive'));
         if(mediaKind === 'image') content.push(smartContextMenuItem('copy-image', tr('smart.contextCopyAsImage'), 'copy-image', smartShortcutLabel('copy-image')));
@@ -12566,6 +12690,10 @@ async function runSmartContextMenuAction(action, state){
         toast(tr('smart.coverSet'));
         return;
     }
+    if(action === 'rename-media'){
+        if(media.node && media.index >= 0) await renameSmartNodeImage(media.node.id,media.index);
+        return;
+    }
     if(action === 'replace-media'){ replaceSmartMedia(media.node?.id || node.id, media.index); return; }
     if(action === 'edit-media'){
         imageStudio.open({
@@ -12857,21 +12985,61 @@ function deleteImage(id, imageIndex){
     render();
     canvasPersistence.schedule();
 }
+function smartMediaRenameLocator(item){
+    return window.SmartCanvasModules.mediaNaming.locator(
+        item,
+        mediaKindForItem(item || {})
+    );
+}
+function smartFindMediaRenameTarget(node, locator){
+    return window.SmartCanvasModules.mediaNaming.findTarget(
+        node,
+        locator,
+        mediaKindForItem
+    );
+}
 async function renameSmartNodeImage(nodeId, imageIndex){
     const node = nodes.find(n => n.id === nodeId);
     const index = Math.max(0, Number(imageIndex) || 0);
     const image = node?.images?.[index];
     if(!node || !image) return;
-    const current = imageNameLabel(image);
-    const name = await openAssetNameDialog({title:tr('smart.renameImage'), value:current, placeholder:tr('smart.imageName'), cancelValue:null});
+    if(typeof canvasPersistence !== 'undefined' && canvasPersistence.editable?.() === false){
+        toast(tr('smart.mediaRenameReadOnly'));
+        return;
+    }
+    const locator = smartMediaRenameLocator(image);
+    const current = mediaNameBodyForItem(image);
+    const name = await openAssetNameDialog({
+        title:tr('smart.renameMedia'),
+        value:current,
+        placeholder:tr('smart.mediaName'),
+        cancelValue:null,
+        validate:value => validateMediaNameInput(value,image).error
+    });
     if(name === null) return;
-    const next = String(name || '').trim();
-    if(!next || next === current) return;
+    const entered = String(name || '').trim();
+    if(entered === current) return;
+    const liveNode = nodes.find(n => n.id === nodeId);
+    const target = smartFindMediaRenameTarget(liveNode,locator);
+    if(!liveNode || !target){
+        toast(tr('smart.mediaRenameTargetMissing'));
+        return;
+    }
+    if(typeof canvasPersistence !== 'undefined' && canvasPersistence.editable?.() === false){
+        toast(tr('smart.mediaRenameReadOnly'));
+        return;
+    }
+    const validated = validateMediaNameInput(entered,target.item);
+    if(validated.error){
+        toast(validated.error);
+        return;
+    }
+    if(validated.name === String(target.item.name || '').trim()) return;
     canvasMutation.history({action:'push'});
-    image.name = next;
-    selectedId = node.id;
+    target.item.name = validated.name;
+    selectedId = liveNode.id;
     selectedIds = [];
-    selectedImage = {nodeId:node.id, index};
+    selectedImage = {nodeId:liveNode.id, index:target.index};
     render();
     canvasPersistence.schedule();
 }

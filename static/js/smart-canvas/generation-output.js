@@ -855,21 +855,60 @@ function generationOutputMigrateLegacyGalleries(){
     };
     return changed || currentVersion < GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION;
 }
+const GENERATION_OUTPUT_EXTENSIONS = new Set([
+    'avif','bmp','gif','jpeg','jpg','png','svg','tif','tiff','webp',
+    'm4v','mkv','mov','mp4','webm','aac','flac','m4a','mp3','ogg','opus','wav','txt'
+]);
+const GENERATION_OUTPUT_FALLBACK_EXTENSIONS = Object.freeze({
+    image:'png',
+    video:'mp4',
+    audio:'mp3',
+    text:'txt'
+});
+const GENERATION_OUTPUT_MIME_EXTENSIONS = Object.freeze({
+    'image/avif':'avif','image/bmp':'bmp','image/gif':'gif','image/jpeg':'jpg',
+    'image/png':'png','image/svg+xml':'svg','image/tiff':'tiff','image/webp':'webp',
+    'video/mp4':'mp4','video/quicktime':'mov','video/webm':'webm',
+    'audio/aac':'aac','audio/flac':'flac','audio/mp4':'m4a','audio/mpeg':'mp3',
+    'audio/ogg':'ogg','audio/opus':'opus','audio/wav':'wav','audio/x-wav':'wav',
+    'text/plain':'txt'
+});
+function generationOutputExtensionFromValue(value=''){
+    const text = String(value || '').trim();
+    if(!text) return '';
+    if(text.startsWith('data:')){
+        const mime = text.slice(5).split(';',1)[0].toLowerCase();
+        return GENERATION_OUTPUT_MIME_EXTENSIONS[mime] || '';
+    }
+    let path = text.split('?',1)[0].split('#',1)[0];
+    try { path = decodeURIComponent(path); } catch(error) {}
+    const extension = path.match(/\.([a-z0-9]{2,8})$/i)?.[1]?.toLowerCase() || '';
+    return GENERATION_OUTPUT_EXTENSIONS.has(extension) ? extension : '';
+}
+function generationOutputDefaultName(source, url, kind, ordinal){
+    const normalizedKind = Object.hasOwn(GENERATION_OUTPUT_FALLBACK_EXTENSIONS, kind)
+        ? kind
+        : 'image';
+    const extension = generationOutputExtensionFromValue(url)
+        || ['mime','mime_type','mimeType','content_type','contentType']
+            .map(key => String(source?.[key] || '').split(';',1)[0].trim().toLowerCase())
+            .map(mime => GENERATION_OUTPUT_MIME_EXTENSIONS[mime] || '')
+            .find(Boolean)
+        || generationOutputExtensionFromValue(source?.name)
+        || GENERATION_OUTPUT_FALLBACK_EXTENSIONS[normalizedKind];
+    return `${normalizedKind}-${String(ordinal).padStart(2, '0')}.${extension}`;
+}
 function generationOutputNormalize(outputs=[], kind='image', options={}){
     const generatedResult = options.generatedResult !== false;
     const defaultName = options.defaultName !== false;
-    const extension = kind === 'video'
-        ? 'mp4'
-        : kind === 'audio'
-            ? 'mp3'
-            : kind === 'text'
-                ? 'txt'
-                : 'png';
     const mediaItems = resultMediaUrls(outputs);
+    const kindCounts = new Map();
     return generationOutputClean(mediaItems.map((item, index) => {
         const source = typeof item === 'object' && item ? item : {};
         const url = typeof item === 'string' ? item : source.url || '';
-        const itemKind = source.kind || kind;
+        const itemKind = String(source.kind || kind || 'image').toLowerCase();
+        const ordinal = (kindCounts.get(itemKind) || 0) + 1;
+        kindCounts.set(itemKind, ordinal);
         const normalized = {
             url,
             kind:itemKind
@@ -879,8 +918,9 @@ function generationOutputNormalize(outputs=[], kind='image', options={}){
             || source.generationOutputId
             || generationOutputIdentity(normalized)
         );
-        const name = source.name
-            || (defaultName ? `output-${index + 1}.${extension}` : '');
+        const name = defaultName
+            ? generationOutputDefaultName(source, url, itemKind, ordinal)
+            : source.name || '';
         if(name) normalized.name = name;
         if(generatedResult) normalized.generatedResult = true;
         return stripImageGenerationMeta(

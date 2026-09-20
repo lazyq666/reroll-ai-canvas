@@ -109,6 +109,35 @@ class Issue71GenerationOutputTests(unittest.TestCase):
         self.assertEqual(payload["activeOutputId"], payload["ids"][1])
         self.assertTrue(payload["stable"])
 
+    def test_new_outputs_override_provider_names_with_short_per_kind_names(self):
+        payload = self.run_node(
+            """
+            const normalized = output.normalize({
+                outputs:[
+                    {url:'/assets/output/provider-task-123.png',kind:'image',name:'provider-task-123.png'},
+                    {url:'/assets/output/second.webp',kind:'image',name:'provider-task-456.webp'},
+                    {url:'/assets/output/clip.webm',kind:'video',name:'provider-video.mp4'},
+                    {url:'/assets/output/voice.wav',kind:'audio',name:'provider-audio.mp3'},
+                    {url:'/assets/output/opaque-id',kind:'video',mimeType:'video/webm',name:'provider-video.mp4'},
+                ],
+                kind:'image',
+            });
+            const replay = output.normalize({
+                outputs:[{url:'/assets/output/result.png',kind:'image',name:'手动名称.png'}],
+                kind:'image', generatedResult:false, defaultName:false,
+            });
+            process.stdout.write(JSON.stringify({
+                names:normalized.map(item => item.name),
+                replayName:replay[0].name,
+            }));
+            """
+        )
+        self.assertEqual(
+            payload["names"],
+            ["image-01.png", "image-02.webp", "video-01.webm", "audio-01.wav", "video-02.webm"],
+        )
+        self.assertEqual(payload["replayName"], "手动名称.png")
+
     def test_completion_does_not_steal_selection_changed_during_run(self):
         payload = self.run_node(
             """
