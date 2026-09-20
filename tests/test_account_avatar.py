@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from infinite_canvas.auth_system import AuthSystem, hash_password
+from infinite_canvas.avatar_assets import AVATAR_ASSETS
 
 
 class AccountAvatarMigrationTests(unittest.TestCase):
@@ -41,25 +42,23 @@ class AccountAvatarMigrationTests(unittest.TestCase):
                 connection.close()
 
             first = AuthSystem(database).get_user("legacy")
-            self.assertIn(first["avatar_color_slot"], range(1, 11))
+            self.assertIn(first["avatar_asset"], AVATAR_ASSETS)
 
             reopened = AuthSystem(database).get_user("legacy")
             self.assertEqual(
-                reopened["avatar_color_slot"],
-                first["avatar_color_slot"],
+                reopened["avatar_asset"],
+                first["avatar_asset"],
             )
 
             with sqlite3.connect(database) as check:
                 column = next(
                     row
                     for row in check.execute("PRAGMA table_info(users)")
-                    if row[1] == "avatar_color_slot"
+                    if row[1] == "avatar_asset"
                 )
-                self.assertEqual(column[2].upper(), "INTEGER")
-                self.assertEqual(column[3], 1)
-                self.assertEqual(str(column[4]), "0")
+                self.assertEqual(column[2].upper(), "TEXT")
 
-    def test_every_new_account_path_assigns_a_persistent_slot(self):
+    def test_every_new_account_path_assigns_a_persistent_asset(self):
         with tempfile.TemporaryDirectory() as tmp:
             auth = AuthSystem(Path(tmp) / "auth.db")
             admin = auth.create_initial_admin(
@@ -81,11 +80,23 @@ class AccountAvatarMigrationTests(unittest.TestCase):
 
             for user in (admin, cli_user, approved):
                 with self.subTest(username=user["username"]):
-                    self.assertIn(user["avatar_color_slot"], range(1, 11))
+                    self.assertIn(user["avatar_asset"], AVATAR_ASSETS)
                     self.assertEqual(
-                        auth.get_user(user["id"])["avatar_color_slot"],
-                        user["avatar_color_slot"],
+                        auth.get_user(user["id"])["avatar_asset"],
+                        user["avatar_asset"],
                     )
+
+    def test_random_asset_never_returns_the_current_asset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            auth = AuthSystem(Path(tmp) / "auth.db")
+            user = auth.create_user(
+                username="designer", password="designer-password", role="designer"
+            )
+            for _ in range(8):
+                updated = auth.randomize_avatar_asset(user["id"])
+                self.assertIn(updated["avatar_asset"], AVATAR_ASSETS)
+                self.assertNotEqual(user["avatar_asset"], updated["avatar_asset"])
+                user = updated
 
 
 if __name__ == "__main__":

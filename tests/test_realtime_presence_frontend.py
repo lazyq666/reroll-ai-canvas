@@ -1,4 +1,5 @@
 import subprocess
+import json
 import unittest
 from pathlib import Path
 
@@ -7,6 +8,35 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RealtimePresenceFrontendContractTests(unittest.TestCase):
+    def test_account_avatar_manifest_and_renderer_use_local_images_only(self):
+        manifest = json.loads(
+            (ROOT / "static/images/avatars/manifest.json").read_text(encoding="utf-8")
+        )
+        assets = manifest["assets"]
+        self.assertEqual(32, len(assets))
+        self.assertEqual(32, len(set(assets)))
+        for asset in assets:
+            self.assertTrue((ROOT / "static/images/avatars" / asset).is_file())
+
+        renderer = (ROOT / "static/js/account-avatar.js").read_text(encoding="utf-8")
+        self.assertIn("avatar_asset", renderer)
+        self.assertIn("manifest.json", renderer)
+        self.assertIn("document.createElement('img')", renderer)
+        self.assertIn("icon.setAttribute('name', 'account')", renderer)
+        self.assertNotIn("firstGrapheme", renderer)
+        self.assertNotIn("avatar_color_slot", renderer)
+
+    def test_account_menu_has_large_avatar_and_non_command_random_action(self):
+        markup = (ROOT / "static/index.html").read_text(encoding="utf-8")
+        script = (ROOT / "static/js/account-ui.js").read_text(encoding="utf-8")
+        styles = (ROOT / "static/css/studio-shell.css").read_text(encoding="utf-8")
+        self.assertIn('id="account-random-avatar"', markup)
+        self.assertNotIn('id="account-random-avatar" value=', markup)
+        self.assertIn("/api/auth/avatar/random", script)
+        self.assertIn("button.loading = true", script)
+        self.assertIn("width: 35px", styles)
+        self.assertIn("width: 80px", styles)
+
     def test_light_avatar_glyphs_use_the_lighter_400_color_scale(self):
         tokens = (ROOT / "static/css/design-tokens.css").read_text(encoding="utf-8")
         palette = {
@@ -44,11 +74,24 @@ class RealtimePresenceFrontendContractTests(unittest.TestCase):
         ):
             self.assertIn(contract, smoke)
 
+        avatar_smoke = (ROOT / "tests/account_avatar_browser_smoke.cjs").read_text(
+            encoding="utf-8"
+        )
+        for contract in (
+            "bear.png",
+            "publish",
+            "../secret.png",
+            "cat.png",
+            "Account Avatar browser smoke passed",
+        ):
+            self.assertIn(contract, avatar_smoke)
+
     def test_presence_and_avatar_modules_parse_as_javascript(self):
         for relative in (
             "static/js/account-avatar.js",
             "static/js/smart-canvas/realtime-presence.js",
             "tests/realtime_presence_browser_smoke.cjs",
+            "tests/account_avatar_browser_smoke.cjs",
         ):
             completed = subprocess.run(
                 ["node", "--check", str(ROOT / relative)],

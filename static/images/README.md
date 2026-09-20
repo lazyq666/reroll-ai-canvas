@@ -3,6 +3,7 @@
 Keep assets grouped by product purpose rather than file format:
 
 - `brand/`: Reroll identity assets, favicon, wordmarks, and brand motion.
+- `avatars/`: built-in Account Avatar images and their shared `manifest.json`.
 - `providers/`: external Provider and Model brand marks, plus their license notices.
 - `ui/`: visual assets owned by reusable interface components.
 - `test/`: deterministic fixtures used only by prototypes and automated tests.

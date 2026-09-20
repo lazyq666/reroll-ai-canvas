@@ -23,7 +23,7 @@
     }
   }
 
-  function renderAccount(user) {
+  function renderAccount(user, { initialize = true } = {}) {
     currentUser = user;
     window.__IC_USER = user;
     const menu = byId('account-menu');
@@ -34,13 +34,50 @@
       byId('account-trigger-avatar'),
       user,
     );
+    window.InfiniteCanvasAccountAvatar?.apply?.(
+      byId('account-menu-avatar'),
+      user,
+    );
     if (name) name.textContent = user.display_name || user.username;
     if (role) role.textContent = roleLabel(user);
     if (trigger) trigger.setAttribute('aria-label', `${user.display_name || user.username} · ${roleLabel(user)}`);
     if (menu) menu.hidden = false;
     applyRoleGate(user);
-    window.initializeStudioForUser?.(user);
-    window.dispatchEvent(new CustomEvent('studio-user-ready', {detail: {user}}));
+    if (initialize) {
+      window.initializeStudioForUser?.(user);
+      window.dispatchEvent(new CustomEvent('studio-user-ready', {detail: {user}}));
+    }
+  }
+
+  function notify(message, tone = 'danger') {
+    const emit = () => customElements.get('ic-toast')?.notify(String(message || ''), { tone });
+    if (customElements.get('ic-toast')?.notify) emit();
+    else customElements.whenDefined('ic-toast').then(emit);
+  }
+
+  async function randomizeAvatar(event) {
+    event?.stopPropagation?.();
+    const button = byId('account-random-avatar');
+    if (!button || button.loading || button.disabled) return;
+    button.loading = true;
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/auth/avatar/random', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.user) throw new Error(payload.detail || tr('auth.randomAvatarFailed'));
+      renderAccount(payload.user, { initialize: false });
+      window.InfiniteCanvasAccountAvatar?.publish?.(payload.user);
+      window.dispatchEvent(new CustomEvent('studio-user-avatar-changed', { detail: { user: payload.user } }));
+    } catch (error) {
+      notify(error?.message || tr('auth.randomAvatarFailed'));
+    } finally {
+      button.loading = false;
+      button.disabled = false;
+    }
   }
 
   async function logout() {
@@ -51,6 +88,7 @@
   }
 
   byId('account-logout')?.addEventListener('ic-select', logout);
+  byId('account-random-avatar')?.addEventListener('click', randomizeAvatar);
   window.addEventListener('studio-lang-change', () => {
     if (!currentUser) return;
     const role = byId('account-trigger-role');

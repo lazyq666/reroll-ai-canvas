@@ -15,6 +15,7 @@ import base64
 import contextvars
 import hashlib
 import hmac
+import inspect
 import ipaddress
 import json
 import math
@@ -32,6 +33,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
+from .avatar_assets import AVATAR_ASSET_SET, random_avatar_asset
 from .instance_state import InstanceState
 
 
@@ -251,6 +253,7 @@ class AuthSystem:
                     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
                     display_name TEXT NOT NULL,
                     avatar_color_slot INTEGER NOT NULL DEFAULT 0,
+                    avatar_asset TEXT,
                     password_hash TEXT NOT NULL,
                     role TEXT NOT NULL CHECK (role IN ('admin', 'designer', 'guest')),
                     status TEXT NOT NULL CHECK (status IN ('active', 'disabled')),
@@ -364,7 +367,7 @@ class AuthSystem:
         self,
         connection: sqlite3.Connection,
     ) -> None:
-        """Add and fully backfill the stable Account Avatar color slot."""
+        """Add Account Avatar fields and give legacy accounts one stable asset."""
 
         if "avatar_color_slot" not in self._table_columns(connection, "users"):
             connection.execute(
@@ -378,6 +381,19 @@ class AuthSystem:
             WHERE avatar_color_slot NOT BETWEEN 1 AND 10
             """
         )
+        if "avatar_asset" not in self._table_columns(connection, "users"):
+            connection.execute("ALTER TABLE users ADD COLUMN avatar_asset TEXT")
+        legacy_rows = connection.execute(
+            """
+            SELECT id FROM users
+            WHERE avatar_asset IS NULL OR TRIM(avatar_asset) = ''
+            """
+        ).fetchall()
+        for row in legacy_rows:
+            connection.execute(
+                "UPDATE users SET avatar_asset = ? WHERE id = ?",
+                (random_avatar_asset(), row["id"]),
+            )
 
     def _migrate_workspace_scoped_schema(
         self,
@@ -529,6 +545,7 @@ class AuthSystem:
             "username": row["username"],
             "display_name": row["display_name"],
             "avatar_color_slot": int(row["avatar_color_slot"]),
+            "avatar_asset": str(row["avatar_asset"] or ""),
             "role": row["role"],
             "status": row["status"],
         }
@@ -554,15 +571,16 @@ class AuthSystem:
                 connection.execute(
                     """
                     INSERT INTO users
-                        (id, username, display_name, avatar_color_slot,
+                        (id, username, display_name, avatar_color_slot, avatar_asset,
                          password_hash, role, status, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
                     """,
                     (
                         user_id,
                         username,
                         (str(display_name or "").strip() or username)[:120],
                         secrets.randbelow(10) + 1,
+                        random_avatar_asset(),
                         hash_password(password),
                         role,
                         now,
@@ -613,16 +631,17 @@ class AuthSystem:
             connection.execute(
                 """
                 INSERT INTO users
-                    (id, username, display_name, avatar_color_slot,
+                    (id, username, display_name, avatar_color_slot, avatar_asset,
                      password_hash, role, status,
                      created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'admin', 'active', ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, 'admin', 'active', ?, ?)
                 """,
                 (
                     user_id,
                     username,
                     (str(display_name or "").strip() or username)[:120],
                     secrets.randbelow(10) + 1,
+                    random_avatar_asset(),
                     password_hash,
                     now,
                     now,
@@ -652,6 +671,43 @@ class AuthSystem:
         if not verify_password(password, row["password_hash"]):
             return None
         return self.public_user(row)
+
+    def randomize_avatar_asset(self, user_id: str) -> Dict[str, Any]:
+        """Atomically replace one account's avatar with a different valid asset."""
+
+        now = int(time.time())
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM users WHERE id = ? AND status = 'active'",
+                (str(user_id or ""),),
+            ).fetchone()
+            if row is None:
+                raise ValueError("账号不存在或已停用")
+            current = str(row["avatar_asset"] or "")
+            next_asset = random_avatar_asset(
+                excluding=current if current in AVATAR_ASSET_SET else ""
+            )
+            connection.execute(
+                """
+                UPDATE users
+                SET avatar_asset = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (next_asset, now, row["id"]),
+            )
+            updated = connection.execute(
+                "SELECT * FROM users WHERE id = ?", (row["id"],)
+            ).fetchone()
+        user = self.public_user(updated)
+        self.audit(
+            "account_avatar_randomized",
+            actor_id=user["id"],
+            target_type="user",
+            target_id=user["id"],
+            details={"avatar_asset": user["avatar_asset"]},
+        )
+        return user
 
     @staticmethod
     def public_application(row: sqlite3.Row | Dict[str, Any]) -> Dict[str, Any]:
@@ -1081,16 +1137,17 @@ class AuthSystem:
                 connection.execute(
                     """
                     INSERT INTO users
-                        (id, username, display_name, avatar_color_slot,
+                        (id, username, display_name, avatar_color_slot, avatar_asset,
                          password_hash, role, status,
                          created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, 'designer', 'active', ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, 'designer', 'active', ?, ?)
                     """,
                     (
                         user_id,
                         row["username"],
                         row["display_name"],
                         secrets.randbelow(10) + 1,
+                        random_avatar_asset(),
                         row["password_hash"],
                         now,
                         now,
@@ -1482,6 +1539,9 @@ def install_auth_routes(
     user_enricher: Optional[
         Callable[[Dict[str, Any]], Dict[str, Any]]
     ] = None,
+    avatar_change_handler: Optional[
+        Callable[[Dict[str, Any]], Any]
+    ] = None,
 ) -> None:
     failed_logins: Dict[str, list[float]] = {}
 
@@ -1732,6 +1792,25 @@ def install_auth_routes(
         if not user:
             raise HTTPException(status_code=401, detail="未登录或登录已失效")
         return {"user": public_session_user(user)}
+
+    @app.post("/api/auth/avatar/random")
+    async def randomize_current_avatar(request: Request):
+        if _cross_site_write(request, "POST"):
+            raise HTTPException(status_code=403, detail="已拒绝跨站头像修改请求")
+        user = getattr(request.state, "user", None) or auth.user_for_session(
+            request.cookies.get(SESSION_COOKIE, "")
+        )
+        if not user:
+            raise HTTPException(status_code=401, detail="未登录或登录已失效")
+        try:
+            updated = auth.randomize_avatar_asset(user["id"])
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if avatar_change_handler is not None:
+            result = avatar_change_handler(updated)
+            if inspect.isawaitable(result):
+                await result
+        return {"user": public_session_user(updated)}
 
     def admin_from_request(request: Request) -> Dict[str, Any]:
         user = getattr(request.state, "user", None)

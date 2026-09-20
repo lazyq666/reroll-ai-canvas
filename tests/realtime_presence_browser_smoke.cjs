@@ -5,6 +5,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
+const avatarAssets = require('../static/images/avatars/manifest.json').assets;
 const PORT = Number(process.env.PRESENCE_PREVIEW_PORT || 8799);
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 const browserExecutable = process.env.SMART_CANVAS_BROWSER
@@ -20,7 +21,7 @@ const canvas = {
 function apiPayload(url) {
   const pathname = new URL(url).pathname;
   if (pathname === '/api/auth/me') {
-    return { user: { id: 'account-self', username: 'self', display_name: 'Self User', role: 'admin', avatar_color_slot: 1 } };
+    return { user: { id: 'account-self', username: 'self', display_name: 'Self User', role: 'admin', avatar_asset: avatarAssets[0] } };
   }
   if (pathname === '/api/config') return { api_providers: [], available_models: {}, comfy_instances: [] };
   if (pathname === '/api/workflows') return { workflows: [] };
@@ -36,7 +37,7 @@ function member(index, overrides = {}) {
     participant_id: `participant-${index}`,
     username: `user-${index}`,
     display_name: index === 2 ? 'A Very Long Collaborator Display Name' : `Member ${index}`,
-    avatar_color_slot: index,
+    avatar_asset: avatarAssets[(index - 1) % avatarAssets.length],
     pointer_color_slot: index,
     cursor: null,
     cursor_version: 0,
@@ -140,7 +141,7 @@ async function sentPresence(page) {
   return page.evaluate(() => window.__presenceSockets[0].sent.filter(message => message.type.startsWith('presence_')));
 }
 
-async function collaboratorContrastRatios(page) {
+async function pointerContrastRatios(page) {
   return page.evaluate(() => {
     const luminance = value => {
       const channels = value.match(/[\d.]+/g).slice(0, 3).map(channel => {
@@ -158,24 +159,17 @@ async function collaboratorContrastRatios(page) {
     };
     return Array.from({ length: 10 }, (_, index) => {
       const slot = index + 1;
-      const avatar = document.createElement('span');
-      avatar.className = 'ic-account-avatar';
-      avatar.dataset.avatarColorSlot = String(slot);
-      avatar.textContent = 'A';
       const pointer = document.createElement('span');
       pointer.className = 'realtime-pointer-label';
       pointer.dataset.pointerColorSlot = String(slot);
       pointer.style.opacity = '1';
       pointer.textContent = 'Member';
-      document.body.append(avatar, pointer);
-      const avatarStyle = getComputedStyle(avatar);
+      document.body.append(pointer);
       const pointerStyle = getComputedStyle(pointer);
       const result = {
         slot,
-        avatar: ratio(avatarStyle.color, avatarStyle.backgroundColor),
         pointer: ratio(pointerStyle.color, pointerStyle.backgroundColor),
       };
-      avatar.remove();
       pointer.remove();
       return result;
     });
@@ -223,7 +217,7 @@ async function collaboratorContrastRatios(page) {
     assert.equal(group.overflow, '+2');
     assert.ok(group.hostZ > group.overlayZ);
     assert.equal(group.invalidTokens, 0);
-    (await collaboratorContrastRatios(page)).forEach(item => {
+    (await pointerContrastRatios(page)).forEach(item => {
       assert.ok(item.pointer >= 4.5, `light pointer slot ${item.slot} contrast ${item.pointer}`);
     });
 
@@ -286,10 +280,10 @@ async function collaboratorContrastRatios(page) {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    await page.evaluate(() => window.__presenceSockets[0].serverSend({
+    await page.evaluate(avatarAsset => window.__presenceSockets[0].serverSend({
       type: 'presence_join', protocol_version: 1, membership_version: 9,
-      member: { participant_id: 'participant-gap', display_name: 'Gap', username: 'gap', avatar_color_slot: 1, pointer_color_slot: 1, cursor: null, cursor_version: 0 },
-    }));
+      member: { participant_id: 'participant-gap', display_name: 'Gap', username: 'gap', avatar_asset: avatarAsset, pointer_color_slot: 1, cursor: null, cursor_version: 0 },
+    }), avatarAssets[0]);
     const afterGap = await sentPresence(page);
     assert.equal(afterGap.at(-1).type, 'presence_resync');
     assert.equal(await page.evaluate(() => window.SmartCanvasModules.realtimePresence.state().memberCount), 7);
@@ -317,8 +311,7 @@ async function collaboratorContrastRatios(page) {
     assert.equal(reducedPointer.duration, '0ms');
     assert.equal(reducedPointer.labelVisible, false);
     assert.notEqual(reducedPointer.color, '');
-    (await collaboratorContrastRatios(reduced.page)).forEach(item => {
-      assert.ok(item.avatar >= 4.5, `dark avatar slot ${item.slot} contrast ${item.avatar}`);
+    (await pointerContrastRatios(reduced.page)).forEach(item => {
       assert.ok(item.pointer >= 4.5, `dark pointer slot ${item.slot} contrast ${item.pointer}`);
     });
     if (evidenceDir) await reduced.page.screenshot({ path: path.join(evidenceDir, 'presence-dark-reduced.png') });

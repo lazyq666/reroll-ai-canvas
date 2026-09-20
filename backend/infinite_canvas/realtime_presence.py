@@ -15,6 +15,8 @@ import time
 import uuid
 from typing import Any, Dict, Mapping, Protocol
 
+from .avatar_assets import AVATAR_ASSET_SET
+
 
 PRESENCE_PROTOCOL_VERSION = 1
 PRESENCE_UPDATE_INTERVAL_ENV = "INFINITE_CANVAS_PRESENCE_UPDATE_INTERVAL_MS"
@@ -126,7 +128,7 @@ class _PresenceParticipant:
     participant_id: str
     username: str
     display_name: str
-    avatar_color_slot: int
+    avatar_asset: str
     pointer_color_slot: int
     connections: set[Any] = field(default_factory=set)
     cursor: Dict[str, float] | None = None
@@ -172,12 +174,9 @@ class RealtimePresenceManager:
         self._sweeper_task: asyncio.Task[None] | None = None
 
     @staticmethod
-    def _avatar_slot(actor: Mapping[str, Any]) -> int:
-        try:
-            slot = int(actor.get("avatar_color_slot") or 0)
-        except (TypeError, ValueError):
-            slot = 0
-        return slot if 1 <= slot <= 10 else 1
+    def _avatar_asset(actor: Mapping[str, Any]) -> str:
+        asset = str(actor.get("avatar_asset") or "")
+        return asset if asset in AVATAR_ASSET_SET else ""
 
     @staticmethod
     def _member_payload(member: _PresenceParticipant) -> Dict[str, Any]:
@@ -185,7 +184,7 @@ class RealtimePresenceManager:
             "participant_id": member.participant_id,
             "display_name": member.display_name,
             "username": member.username,
-            "avatar_color_slot": member.avatar_color_slot,
+            "avatar_asset": member.avatar_asset,
             "pointer_color_slot": member.pointer_color_slot,
             "cursor_version": member.cursor_version,
             "cursor": dict(member.cursor) if member.cursor is not None else None,
@@ -246,7 +245,7 @@ class RealtimePresenceManager:
                         str(actor.get("display_name") or "").strip()
                         or str(actor.get("username") or "").strip()
                     )[:120],
-                    avatar_color_slot=self._avatar_slot(actor),
+                    avatar_asset=self._avatar_asset(actor),
                     pointer_color_slot=self._pointer_slot(room),
                 )
                 room.members[actor_id] = member
@@ -367,7 +366,7 @@ class RealtimePresenceManager:
                     "participant_id": member.participant_id,
                     "display_name": member.display_name,
                     "username": member.username,
-                    "avatar_color_slot": member.avatar_color_slot,
+                    "avatar_asset": member.avatar_asset,
                     "is_self": member.actor_id == viewer_id,
                 }
                 for member in (room.members.values() if room else ())
@@ -380,6 +379,38 @@ class RealtimePresenceManager:
                 )
             ]
         return summaries
+
+    async def update_member_identity(self, actor: Mapping[str, Any]) -> None:
+        """Refresh an online account's avatar and replace connected snapshots."""
+
+        actor_id = str(actor.get("id") or "")
+        avatar_asset = self._avatar_asset(actor)
+        if not actor_id:
+            return
+        deliveries: list[tuple[Any, Dict[str, Any]]] = []
+        for room in tuple(self._rooms.values()):
+            async with room.lock:
+                member = room.members.get(actor_id)
+                if member is None or member.avatar_asset == avatar_asset:
+                    continue
+                member.avatar_asset = avatar_asset
+                room.membership_version += 1
+                deliveries.extend(
+                    (
+                        websocket,
+                        self._snapshot(room, connected.participant_id),
+                    )
+                    for connected in room.members.values()
+                    for websocket in connected.connections
+                )
+        if deliveries:
+            await asyncio.gather(
+                *(
+                    self._transport.send_presence_membership(websocket, snapshot)
+                    for websocket, snapshot in deliveries
+                ),
+                return_exceptions=True,
+            )
 
     @staticmethod
     def _valid_seq(value: Any) -> bool:
