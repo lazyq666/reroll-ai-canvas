@@ -15,10 +15,45 @@ from infinite_canvas.auth_system import (
     install_access_control,
     install_auth_routes,
 )
+from infinite_canvas.avatar_assets import AVATAR_ASSETS
 from infinite_canvas.instance_state import InstanceState, InstanceStateError
 
 
 class AuthHttpTests(unittest.TestCase):
+    def test_avatar_migration_assigns_missing_once_and_preserves_valid_asset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "auth.db"
+            auth = AuthSystem(database)
+            missing = auth.create_user(
+                username="missing", password="missing-password", role="designer"
+            )
+            valid = auth.create_user(
+                username="valid", password="valid-password", role="designer"
+            )
+            with sqlite3.connect(str(database)) as connection:
+                connection.execute(
+                    "UPDATE users SET avatar_asset = NULL WHERE id = ?",
+                    (missing["id"],),
+                )
+                connection.execute(
+                    "UPDATE users SET avatar_asset = ? WHERE id = ?",
+                    (AVATAR_ASSETS[5], valid["id"]),
+                )
+
+            migrated = AuthSystem(database)
+            first = migrated.authenticate("missing", "missing-password")["avatar_asset"]
+            self.assertIn(first, AVATAR_ASSETS)
+            self.assertEqual(
+                AVATAR_ASSETS[5],
+                migrated.authenticate("valid", "valid-password")["avatar_asset"],
+            )
+
+            reopened = AuthSystem(database)
+            self.assertEqual(
+                first,
+                reopened.authenticate("missing", "missing-password")["avatar_asset"],
+            )
+
     def test_designer_project_permissions_are_workspace_scoped_and_replaceable(self):
         with tempfile.TemporaryDirectory() as tmp:
             auth = AuthSystem(Path(tmp) / "auth.db")
@@ -668,7 +703,9 @@ class AuthHttpTests(unittest.TestCase):
                 self.assertEqual(login.status_code, 200)
                 self.assertIn("ic_session", login.cookies)
                 avatar_color_slot = login.json()["user"]["avatar_color_slot"]
+                avatar_asset = login.json()["user"]["avatar_asset"]
                 self.assertIn(avatar_color_slot, range(1, 11))
+                self.assertIn(avatar_asset, AVATAR_ASSETS)
                 self.assertEqual(
                     login.json()["user"],
                     {
@@ -676,6 +713,7 @@ class AuthHttpTests(unittest.TestCase):
                         "username": "admin",
                         "display_name": "Local Admin",
                         "avatar_color_slot": avatar_color_slot,
+                        "avatar_asset": avatar_asset,
                         "role": "admin",
                         "status": "active",
                     },
@@ -684,6 +722,49 @@ class AuthHttpTests(unittest.TestCase):
                 me = client.get("/api/auth/me")
                 self.assertEqual(me.status_code, 200)
                 self.assertEqual(me.json()["user"], login.json()["user"])
+
+    def test_random_avatar_requires_login_changes_and_persists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            auth = AuthSystem(Path(tmp) / "auth.db")
+            created = auth.create_user(
+                username="designer",
+                password="designer-password",
+                role="designer",
+            )
+            app = FastAPI()
+            install_auth_routes(app, auth)
+            install_access_control(app, auth)
+
+            with TestClient(app) as client:
+                self.assertEqual(401, client.post("/api/auth/avatar/random").status_code)
+                client.post(
+                    "/api/auth/login",
+                    json={"username": "designer", "password": "designer-password"},
+                )
+                rejected = client.post(
+                    "/api/auth/avatar/random",
+                    headers={"Origin": "https://example.invalid"},
+                )
+                self.assertEqual(403, rejected.status_code)
+                self.assertEqual(
+                    created["avatar_asset"],
+                    client.get("/api/auth/me").json()["user"]["avatar_asset"],
+                )
+                changed = client.post("/api/auth/avatar/random")
+                self.assertEqual(200, changed.status_code, changed.text)
+                updated = changed.json()["user"]
+                self.assertIn(updated["avatar_asset"], AVATAR_ASSETS)
+                self.assertNotEqual(created["avatar_asset"], updated["avatar_asset"])
+                self.assertEqual(
+                    updated["avatar_asset"],
+                    client.get("/api/auth/me").json()["user"]["avatar_asset"],
+                )
+
+            reopened = AuthSystem(Path(tmp) / "auth.db")
+            self.assertEqual(
+                updated["avatar_asset"],
+                reopened.authenticate("designer", "designer-password")["avatar_asset"],
+            )
 
     def test_explicit_global_session_revocation_invalidates_every_session(self):
         with tempfile.TemporaryDirectory() as tmp:

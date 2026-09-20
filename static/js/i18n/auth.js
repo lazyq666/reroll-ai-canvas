@@ -130,6 +130,9 @@
         "auth.cannotDeleteCurrent": { zh: "不能删除当前登录账号", en: "You cannot delete the current account" },
         "auth.loadFailed": { zh: "载入失败", en: "Load failed" },
         "auth.accountInfoFailed": { zh: "无法载入账号信息", en: "Could not load account information" },
+        "auth.avatarSettings": { zh: "头像设置", en: "Avatar settings" },
+        "auth.randomAvatar": { zh: "🎲 随机头像", en: "🎲 Random avatar" },
+        "auth.randomAvatarFailed": { zh: "头像更新失败，请稍后重试", en: "Could not update the avatar. Try again later." },
         "auth.logout": { zh: "退出登录", en: "Sign out" }
     });
 })();

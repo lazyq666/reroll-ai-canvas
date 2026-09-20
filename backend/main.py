@@ -2908,6 +2908,7 @@ install_auth_routes(
     initial_workspace_inspector=inspect_initial_workspace,
     initial_workspace_opener=open_initial_workspace,
     user_enricher=enrich_current_workspace_user,
+    avatar_change_handler=PRESENCE_MANAGER.update_member_identity,
 )
 install_access_control(
     app,

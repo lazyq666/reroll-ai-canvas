@@ -12,6 +12,7 @@ from infinite_canvas.realtime_presence import (
     RealtimePresenceManager,
     configured_presence_update_interval,
 )
+from infinite_canvas.avatar_assets import AVATAR_ASSETS
 
 
 class FakeWebSocket:
@@ -107,7 +108,7 @@ class RealtimePresenceManagerTests(unittest.IsolatedAsyncioTestCase):
             "id": "account-a",
             "username": "admin",
             "display_name": "Admin",
-            "avatar_color_slot": 7,
+            "avatar_asset": AVATAR_ASSETS[0],
             "role": "admin",
             "status": "active",
         }
@@ -184,12 +185,30 @@ class RealtimePresenceManagerTests(unittest.IsolatedAsyncioTestCase):
         summary = self.manager.member_summaries(["canvas-a", "empty"], viewer_id=self.admin["id"])
         self.assertEqual(summary, {"canvas-a": [{
             "participant_id": participant, "display_name": "Admin", "username": "admin",
-            "avatar_color_slot": 7, "is_self": True,
+            "avatar_asset": AVATAR_ASSETS[0], "is_self": True,
         }], "empty": []})
         self.assertFalse(self.manager.member_summaries(["canvas-a"], viewer_id="other")["canvas-a"][0]["is_self"])
         self.assertEqual(len(self.transport.membership), before)
         with patch("infinite_canvas.realtime_presence.time.monotonic", return_value=10**20):
             self.assertEqual(self.manager.member_summaries(["canvas-a"], viewer_id="other"), {"canvas-a": []})
+
+    async def test_avatar_change_replaces_snapshots_for_online_members(self):
+        first, second = FakeWebSocket(), FakeWebSocket()
+        await self.manager.join(first, "canvas-a", self.admin)
+        other = {
+            "id": "account-b", "username": "other", "display_name": "Other",
+            "avatar_asset": AVATAR_ASSETS[1], "role": "designer", "status": "active",
+        }
+        await self.manager.join(second, "canvas-a", other)
+        self.transport.personal.clear()
+
+        changed = {**self.admin, "avatar_asset": AVATAR_ASSETS[2]}
+        await self.manager.update_member_identity(changed)
+
+        self.assertEqual(len(self.transport.personal), 2)
+        for _, snapshot in self.transport.personal:
+            member = next(item for item in snapshot["members"] if item["username"] == "admin")
+            self.assertEqual(member["avatar_asset"], AVATAR_ASSETS[2])
 
     async def test_invalid_spoofed_or_stale_updates_are_silent(self):
         websocket = FakeWebSocket()

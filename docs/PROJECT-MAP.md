@@ -256,7 +256,7 @@ Issue #28 的[Smart Group 可逆编组与成员还原](active/2026-09-04-smart-g
 
 Issue #195 的[渐进式打开与节点骨架](active/2026-08-28-smart-canvas-progressive-opening.md)为 F05 / F06 增加授权 NDJSON Opening Stream：同一次 Canvas Sync 快照依次投影 Node 几何轮廓与完整文档；前端 Opening 模块拥有瞬时骨架和页面状态机，Canvas Persistence 仍是完整文档进入权威客户端状态的唯一边界。Windows 首帧、输入和回退发布验收由 Issue #214 跟踪，因此暂不毕业为 Current Authority。
 
-Issue #196 的[实时在场状态、指针与账号头像](active/2026-08-29-smart-canvas-realtime-presence.md)正在为 F02 / F06 / F13 增加 Instance State `avatar_color_slot`、现有 Canvas WebSocket 上独立的内存 Presence 协议、成员组与 Pointer Overlay。该流不进入 Canvas Store、Revision、Operation Lock 或可靠 Mutation 队列；当前自动化、浏览器 smoke 以及 Issue #215 的无 Pointer baseline 与 30 分钟正式机器负载均已通过，双机 LAN 人工验收仍由 Issue #216 跟踪，详情见[验证与毕业记录](active/2026-08-29-smart-canvas-realtime-presence-verification.md)，因此尚未成为 Current Authority。
+Issue #196 的[实时在场状态、指针与账号头像](active/2026-08-29-smart-canvas-realtime-presence.md)正在为 F02 / F06 / F13 增加 Instance State `avatar_asset`、现有 Canvas WebSocket 上独立的内存 Presence 协议、成员组与 Pointer Overlay。Account Avatar 由本地 32 个图片资源和唯一 manifest 提供，旧字段 `avatar_color_slot` 暂时保留但不再参与展示。Presence 不进入 Canvas Store、Revision、Operation Lock 或可靠 Mutation 队列；当前自动化、浏览器 smoke 以及 Issue #215 的无 Pointer baseline 与 30 分钟正式机器负载均已通过，双机 LAN 人工验收仍由 Issue #216 跟踪，详情见[验证与毕业记录](active/2026-08-29-smart-canvas-realtime-presence-verification.md)，因此尚未成为 Current Authority。
 
 Issue #20 扩展上述[实时在场状态规格](active/2026-08-29-smart-canvas-realtime-presence.md)：连接有效时保留最后有效指针；新增只读 `POST /api/canvases/presence`，通过既有授权列表投影与内存成员状态，向画布卡片内容区右侧提供在线摘要。列表查询不加入编辑房间，不返回坐标，不写 Canvas 内容或更新时间。回归入口为 `tests/test_canvas_presence_http.py` 与 `tests/canvas_presence_browser_smoke.cjs`。
 
