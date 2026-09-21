@@ -2987,6 +2987,13 @@ def versioned_static_html(html: str) -> str:
             fingerprint_prefix = "ic-ui-"
         elif path_url == "/static/js/i18n.js":
             fingerprint_prefix = "i18n-loader-"
+        elif path_url in {
+            "/static/css/account-avatar.css",
+            "/static/js/account-avatar.js",
+            "/static/js/canvas-list-presence.js",
+            "/static/js/smart-canvas/realtime-presence.js",
+        }:
+            fingerprint_prefix = "account-avatar-"
         if fingerprint_prefix and any(
             urllib.parse.unquote_plus(part.partition("=")[0]) == "v"
             and urllib.parse.unquote_plus(part.partition("=")[2]).startswith(

@@ -1,5 +1,6 @@
 (() => {
-  const MANIFEST_URL = '/static/images/avatars/manifest.json';
+  const ASSET_VERSION = 'account-avatar-d8d7445ac4c6';
+  const MANIFEST_URL = '/static/images/avatars/manifest.json?v=account-avatar-d8d7445ac4c6';
   const ASSET_ROOT = '/static/images/avatars/';
   const assets = new Set();
   let channel = null;
@@ -36,7 +37,7 @@
     image.alt = '';
     image.draggable = false;
     image.decoding = 'async';
-    image.src = `${ASSET_ROOT}${encodeURIComponent(asset)}`;
+    image.src = `${ASSET_ROOT}${encodeURIComponent(asset)}?v=${ASSET_VERSION}`;
     image.addEventListener('error', () => {
       if (element.dataset.avatarAssetRequest === asset) fallback(element);
     }, { once: true });
@@ -70,15 +71,22 @@
     });
   }
 
+  function announce(user = {}) {
+    window.dispatchEvent(new CustomEvent('account-avatar-updated', { detail: { user } }));
+  }
+
   function publish(user = {}) {
     updateUser(user);
+    announce(user);
     try { channel?.postMessage({ type: 'account-avatar-updated', user }); } catch (_) {}
   }
 
   try {
     channel = new BroadcastChannel('reroll-account-avatar');
     channel.addEventListener('message', event => {
-      if (event.data?.type === 'account-avatar-updated') updateUser(event.data.user);
+      if (event.data?.type !== 'account-avatar-updated') return;
+      updateUser(event.data.user);
+      announce(event.data.user);
     });
   } catch (_) {}
 

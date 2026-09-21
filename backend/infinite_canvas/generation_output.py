@@ -3,7 +3,79 @@
 from __future__ import annotations
 
 import copy
+import mimetypes
+from pathlib import PurePosixPath
 from typing import Any, Dict, Mapping
+from urllib.parse import unquote, urlsplit
+
+
+_MEDIA_EXTENSIONS = {
+    ".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".tif",
+    ".tiff", ".webp", ".m4v", ".mkv", ".mov", ".mp4", ".webm", ".aac",
+    ".flac", ".m4a", ".mp3", ".ogg", ".opus", ".wav", ".txt",
+}
+_KIND_FALLBACK_EXTENSIONS = {
+    "image": ".png",
+    "video": ".mp4",
+    "audio": ".mp3",
+    "text": ".txt",
+}
+
+
+def _media_kind(value: Mapping[str, Any]) -> str:
+    kind = str(value.get("kind") or value.get("type") or "image").strip().lower()
+    return kind if kind in _KIND_FALLBACK_EXTENSIONS else "image"
+
+
+def _extension_from_value(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.startswith("data:"):
+        mime = text[5:].split(";", 1)[0].strip().lower()
+        extension = mimetypes.guess_extension(mime, strict=False) or ""
+        return ".jpg" if extension == ".jpe" else extension.lower()
+    path = unquote(urlsplit(text).path)
+    suffix = PurePosixPath(path).suffix.lower()
+    return suffix if suffix in _MEDIA_EXTENSIONS else ""
+
+
+def _generation_output_extension(value: Mapping[str, Any], kind: str) -> str:
+    extension = _extension_from_value(value.get("url"))
+    if extension:
+        return extension
+    for key in ("mime", "mime_type", "mimeType", "content_type", "contentType"):
+        mime = str(value.get(key) or "").split(";", 1)[0].strip().lower()
+        if not mime:
+            continue
+        guessed = mimetypes.guess_extension(mime, strict=False) or ""
+        guessed = ".jpg" if guessed == ".jpe" else guessed.lower()
+        if guessed in _MEDIA_EXTENSIONS:
+            return guessed
+    extension = _extension_from_value(value.get("name"))
+    return extension or _KIND_FALLBACK_EXTENSIONS[kind]
+
+
+def _initialize_generation_output_names(values: Any) -> list[dict[str, Any]]:
+    counters: dict[str, int] = {}
+    named: list[dict[str, Any]] = []
+    for raw in values if isinstance(values, list) else []:
+        item = copy.deepcopy(dict(raw)) if isinstance(raw, Mapping) else {
+            "url": str(raw or ""),
+            "kind": "image",
+        }
+        if not str(item.get("url") or "").strip():
+            named.append(item)
+            continue
+        kind = _media_kind(item)
+        counters[kind] = counters.get(kind, 0) + 1
+        item["kind"] = kind
+        item["name"] = (
+            f"{kind}-{counters[kind]:02d}"
+            f"{_generation_output_extension(item, kind)}"
+        )
+        named.append(item)
+    return named
 
 
 def _output_key(value: Any) -> str:
@@ -27,7 +99,10 @@ def _merge_outputs(existing: Any, additions: Any) -> list[Any]:
         if key and key in indexes:
             index = indexes[key]
             if isinstance(merged[index], Mapping) and isinstance(item, Mapping):
+                existing_name = str(merged[index].get("name") or "").strip()
                 merged[index] = {**merged[index], **item}
+                if existing_name:
+                    merged[index]["name"] = existing_name
             continue
         if key:
             indexes[key] = len(merged)
@@ -40,6 +115,7 @@ def apply_generation_node_changes(
     node_changes: Mapping[str, Any],
     *,
     run_id: str,
+    initialize_names: bool = True,
 ) -> Dict[str, Any]:
     """Return one updated Node while preserving concurrent Run outputs.
 
@@ -53,6 +129,8 @@ def apply_generation_node_changes(
     changes = copy.deepcopy(dict(node_changes or {}))
     incoming_images = changes.pop("images", None)
     if isinstance(incoming_images, list):
+        if initialize_names:
+            incoming_images = _initialize_generation_output_names(incoming_images)
         updated["images"] = _merge_outputs(
             updated.get("images"),
             incoming_images,
@@ -114,9 +192,20 @@ def apply_generation_result_nodes(
         else settings.get("count") if isinstance(settings, Mapping) else None
     )
     outputs = node_changes.get("images")
+    named_outputs = (
+        _initialize_generation_output_names(outputs)
+        if isinstance(outputs, list)
+        else outputs
+    )
     if (not isinstance(count, int) or isinstance(count, bool) or not 2 <= count <= 8
             or not node.get("generationBatchId") or not isinstance(outputs, list)):
-        return [apply_generation_node_changes(node, node_changes, run_id=run_id)]
+        changes = {**node_changes, "images": named_outputs} if isinstance(outputs, list) else node_changes
+        return [apply_generation_node_changes(
+            node,
+            changes,
+            run_id=run_id,
+            initialize_names=False,
+        )]
 
     updated = []
     for candidate in peers:
@@ -131,9 +220,14 @@ def apply_generation_result_nodes(
         # Surplus outputs belong only to the final slot, which may split them.
         changes = {
             **node_changes,
-            "images": outputs[index:] if index == count - 1 else outputs[index:index + 1],
+            "images": named_outputs[index:] if index == count - 1 else named_outputs[index:index + 1],
         }
-        updated.append(apply_generation_node_changes(candidate, changes, run_id=run_id))
+        updated.append(apply_generation_node_changes(
+            candidate,
+            changes,
+            run_id=run_id,
+            initialize_names=False,
+        ))
     return updated
 
 

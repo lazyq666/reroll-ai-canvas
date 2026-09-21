@@ -5,6 +5,7 @@
 
 - 根目录中的 `build_*`、`audit_*`、`import_*` 等脚本用于生成或检查设计系统产物；
 - `sync_infinite_canvas_ui_version.py` 根据组件库 JS、设计令牌和 WebAwesome 适配样式生成统一内容指纹，并同步所有组件库模块引用；提交相关改动前运行该脚本，CI 使用 `--check` 校验；
+- `sync_account_avatar_asset_version.py` 根据账号头像渲染器、Presence、样式、清单和内置图片生成统一内容指纹，并同步所有生产引用，避免 iframe 继续执行旧头像代码；
 - `performance/` 用于可重复的性能测试和验收；
 - `storage/` 用于受保护的数据迁移流程；
 - 部分脚本由 `tests/` 自动调用，其余由开发者或运维人员按文档明确执行。
