@@ -393,6 +393,19 @@ class MainAccountIntegrationTests(unittest.TestCase):
             finally:
                 unload_main()
 
+    def test_static_html_versioning_preserves_account_avatar_content_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                main, _workspace = self._load_main(tmp)
+                source = (
+                    '<script src="/static/js/account-avatar.js'
+                    '?mode=review&v=account-avatar-0123456789ab"></script>'
+                )
+
+                self.assertEqual(source, main.versioned_static_html(source))
+            finally:
+                unload_main()
+
     def test_authenticated_designer_creates_owned_canvas_and_anonymous_is_denied(self):
         with tempfile.TemporaryDirectory() as tmp:
             try:

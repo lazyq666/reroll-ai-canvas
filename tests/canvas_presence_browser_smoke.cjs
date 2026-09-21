@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const { startServer } = require('./canvas_presence_browser_app.cjs');
+const avatarAssets = require('../static/images/avatars/manifest.json').assets;
 
 (async () => {
   const port = Number(process.env.PRESENCE_CARD_TEST_PORT || 8805);
@@ -124,6 +125,20 @@ const { startServer } = require('./canvas_presence_browser_app.cjs');
     assert.equal(await card.locator('.ws-presence-avatar').count(), 3);
     assert.equal(state.writes, 0);
     assert.equal(state.sockets, 0);
+
+    // The account menu lives in the parent page. Its avatar publication must
+    // update an already-rendered self member without waiting for the 5s poll.
+    const requestsBeforeAvatarChange = state.requests;
+    await page.evaluate(async asset => {
+      await window.InfiniteCanvasAccountAvatar.ready;
+      window.InfiniteCanvasAccountAvatar.publish({ id: 'viewer', avatar_asset: asset });
+    }, avatarAssets[10]);
+    await frame.waitForFunction(asset => (
+      [...document.querySelectorAll('.ws-presence-avatar img')]
+        .some(image => new URL(image.src).pathname.endsWith(`/${asset}`))
+    ), avatarAssets[10], { timeout: 1500 });
+    assert.equal(state.requests, requestsBeforeAvatarChange);
+
     assert.deepEqual(errors, []);
     console.log('Card presence: layout, keyboard, polling, language, theme, failure/recovery and foreground checks passed.');
   } finally {

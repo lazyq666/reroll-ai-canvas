@@ -130,6 +130,23 @@
         hosts().forEach(host => render(host, [], 'loading'));
     }
 
+    function updateSelfAvatar(user = {}) {
+        const avatarAsset = String(user.avatar_asset || '');
+        for (const [canvasId, members] of summaries) {
+            let changed = false;
+            const updated = members.map(member => {
+                if (!member.is_self || member.avatar_asset === avatarAsset) return member;
+                changed = true;
+                return { ...member, avatar_asset: avatarAsset };
+            });
+            if (changed) summaries.set(canvasId, updated);
+        }
+        hosts().forEach(host => {
+            const members = summaries.get(host.dataset.canvasId);
+            if (members) render(host, members, 'ready');
+        });
+    }
+
     async function refresh() {
         window.clearTimeout(timer);
         request?.abort();
@@ -186,5 +203,6 @@
     window.addEventListener('studio-lang-change', () => hosts().forEach(host => {
         render(host, summaries.get(host.dataset.canvasId) || [], host.dataset.status || 'loading');
     }));
+    window.addEventListener('account-avatar-updated', event => updateSelfAvatar(event.detail?.user));
     window.CanvasListPresence = Object.freeze({ mount, refresh });
 })();
