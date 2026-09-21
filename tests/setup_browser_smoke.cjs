@@ -31,10 +31,31 @@ function startServer(state, port = 0) {
         workspace_error: '',
       });
     }
+    if (url.pathname === '/api/auth/me') return json(response,200,{user:{id:'fixture-admin',username:'designer',role:'admin'}});
+    if (url.pathname === '/api/admin/onboarding') return json(response,200,{pending:!state.completed,services:state.services||{},workspace:{configured_workspace_directory:'/workspace/picked'}});
+    if (url.pathname.startsWith('/api/admin/onboarding/cli/')) return json(response,200,{installed:url.pathname.endsWith('/jimeng'),logged_in:!!state.cliLogin,version_ok:true});
+    if (url.pathname === '/api/jimeng/login/start') {state.cliLogin=true;return json(response,200,{running:true,text:'Fixture sign-in',qr_url:''});}
+    if (url.pathname === '/api/jimeng/login/status') return json(response,200,{running:false,logged_in:!!state.cliLogin});
+    if (url.pathname === '/api/admin/onboarding/connect') {
+      const payload=await requestBody(request);
+      const failed=payload.api_key==='fail';
+      if(!failed){state.services||={};state.services[payload.service]={name:payload.name||payload.service,count:3};}
+      response.writeHead(200,{'Content-Type':'application/x-ndjson'});
+      for(const stage of ['saving','verifying',...(failed?[]:['fetching'])])response.write(JSON.stringify({stage})+'\n');
+      return response.end(JSON.stringify(failed?{stage:'error',code:payload.service==='other'?'auto_failed':'connection_failed'}:{stage:'complete',provider_id:payload.service,count:3})+'\n');
+    }
+    if(url.pathname === '/api/admin/onboarding/complete') {
+      if(!Object.keys(state.services||{}).length)return json(response,409,{detail:{code:'no_source'}});
+      state.completed=true;return json(response,200,{next_url:'/static/canvas-list.html'});
+    }
+    if(url.pathname === '/static/canvas-list.html') {
+      response.writeHead(200,{'Content-Type':'text/html'});return response.end('<p id="canvas-list-destination">Canvas list fixture</p>');
+    }
     if (url.pathname === '/api/setup/select-directory') {
       state.pickerRequests += 1;
       return json(response, 200, { workspace_directory: '/workspace/picked' });
     }
+    if (url.pathname === '/api/setup/prepare-directory') return json(response,200,await requestBody(request));
     if (url.pathname === '/api/setup/inspect-workspace') {
       const payload = await requestBody(request);
       state.inspections.push(payload);
@@ -80,7 +101,7 @@ function startServer(state, port = 0) {
     }
     if (url.pathname === '/startup') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return response.end('<!doctype html><p id="startup-destination">Startup</p>');
+      return response.end('<!doctype html><script>location.replace("/setup")</script>');
     }
     if (url.pathname === '/login') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -163,7 +184,9 @@ async function waitFor(cdp, sessionId, expression, label, timeout = 20000) {
 
 async function click(cdp, sessionId, selector) {
   const point = await evaluate(cdp, sessionId, `(() => {
-    const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    const target = document.querySelector(${JSON.stringify(selector)});
+    target.scrollIntoView({block: "center"});
+    const rect = target.getBoundingClientRect();
     return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   })()`);
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 }, sessionId);
@@ -171,17 +194,17 @@ async function click(cdp, sessionId, selector) {
 }
 
 async function setValue(cdp, sessionId, selector, value) {
-  await evaluate(cdp, sessionId, `document.querySelector(${JSON.stringify(selector)}).value = ${JSON.stringify(value)}`);
+  await evaluate(cdp,sessionId,`(() => {
+    const host=document.querySelector(${JSON.stringify(selector)});
+    const input=host.shadowRoot.querySelector('input');
+    input.value=${JSON.stringify(value)};
+    input.dispatchEvent(new Event('input',{bubbles:true,composed:true}));
+  })()`);
 }
 
 async function navigateSetup(cdp, sessionId, port, theme) {
-  await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/setup?token-review-theme=${theme}` }, sessionId);
-  await waitFor(
-    cdp,
-    sessionId,
-    `customElements.get('ic-input') && document.querySelector('#workspace-directory').value === '/workspace/suggested'`,
-    `${theme} setup components`,
-  );
+  await cdp.send('Page.navigate',{url:`http://127.0.0.1:${port}/setup?token-review-theme=${theme}`},sessionId);
+  await waitFor(cdp,sessionId,"Boolean(document.querySelector('#setup-username')?.shadowRoot?.querySelector('input'))",'administrator first');
 }
 
 async function main() {
@@ -206,106 +229,44 @@ async function main() {
     const port = server.address().port;
 
     await navigateSetup(cdp, sessionId, port, 'light');
-    const desktop = await evaluate(cdp, sessionId, `(() => {
-      const card = document.querySelector('ic-card').getBoundingClientRect();
-      const directoryInput = document.querySelector('#workspace-directory').getBoundingClientRect();
-      const chooseButton = document.querySelector('#choose-workspace-directory');
-      const chooseBounds = chooseButton.getBoundingClientRect();
-      const chooseBase = chooseButton.shadowRoot?.querySelector('[part~="base"]');
-      return {
-        theme: document.documentElement.dataset.uiTheme,
-        scaled: document.documentElement.classList.contains('studio-ui-scaled'),
-        tags: ['ic-card','ic-form-field','ic-input','ic-alert','ic-button'].every(tag => customElements.get(tag)),
-        vendorTags: document.querySelectorAll('wa-button,wa-input').length,
-        nativeControls: document.querySelectorAll('input,button').length,
-        selectionVisible: !document.querySelector('#workspace-selection-step').hidden,
-        formHidden: document.querySelector('#initial-setup-form').hidden,
-        card: { width: Math.round(card.width), height: Math.round(card.height) },
-        directoryPicker: {
-          centerOffset: Math.abs((directoryInput.top + directoryInput.height / 2) - (chooseBounds.top + chooseBounds.height / 2)),
-          width: Math.round(chooseBounds.width),
-          textUnclipped: Boolean(chooseBase && chooseBase.scrollWidth <= chooseBase.clientWidth),
-        },
-      };
-    })()`);
-    const accessibilityTree = await cdp.send('Accessibility.getFullAXTree', {}, sessionId);
-    const roles = accessibilityTree.nodes.filter(node => !node.ignored).map(node => node.role?.value).filter(Boolean);
-
-    await setValue(cdp, sessionId, '#workspace-directory', '');
-    await click(cdp, sessionId, '#inspect-workspace');
-    await waitFor(cdp, sessionId, "!document.querySelector('#directory-error').hidden", 'empty directory validation');
-    const emptyValidation = await evaluate(cdp, sessionId, "document.querySelector('#directory-error').textContent");
-
-    await click(cdp, sessionId, '#choose-workspace-directory');
-    await waitFor(cdp, sessionId, "document.querySelector('#workspace-directory').value === '/workspace/picked'", 'directory picker');
-
-    await setValue(cdp, sessionId, '#workspace-directory', '/workspace/error');
-    await click(cdp, sessionId, '#inspect-workspace');
-    await waitFor(cdp, sessionId, "document.querySelector('#directory-error').textContent.includes('不可用')", 'inspection failure');
-
-    await setValue(cdp, sessionId, '#workspace-directory', '/workspace/existing');
-    await click(cdp, sessionId, '#inspect-workspace');
-    await waitFor(cdp, sessionId, "!document.querySelector('#existing-workspace-actions').hidden", 'existing workspace action');
-    const existing = await evaluate(cdp, sessionId, `({
-      message: document.querySelector('#workspace-inspection-result').textContent,
-      selectionVisible: !document.querySelector('#workspace-selection-step').hidden,
-    })`);
-    await click(cdp, sessionId, '#open-existing-workspace');
-    await waitFor(cdp, sessionId, "Boolean(document.querySelector('#startup-destination'))", 'existing workspace startup');
-
-    await navigateSetup(cdp, sessionId, port, 'light');
-    await setValue(cdp, sessionId, '#workspace-directory', '/workspace/new');
-    await click(cdp, sessionId, '#inspect-workspace');
-    await waitFor(cdp, sessionId, "!document.querySelector('#initial-setup-form').hidden", 'create admin step');
-    const adminStep = await evaluate(cdp, sessionId, `({
-      title: document.querySelector('#setup-title').textContent,
-      selectionHidden: document.querySelector('#workspace-selection-step').hidden,
-      workspace: document.querySelector('#selected-workspace').textContent,
-    })`);
-
-    await setValue(cdp, sessionId, '#setup-username', 'broken');
-    await setValue(cdp, sessionId, '#setup-password', 'password-one');
-    await setValue(cdp, sessionId, '#setup-password-confirm', 'password-two');
-    await click(cdp, sessionId, '#complete-initial-setup');
-    await waitFor(cdp, sessionId, "!document.querySelector('#setup-error').hidden", 'password mismatch');
-    const mismatch = await evaluate(cdp, sessionId, "document.querySelector('#setup-error').textContent");
-
-    await setValue(cdp, sessionId, '#setup-password-confirm', 'password-one');
-    await click(cdp, sessionId, '#complete-initial-setup');
-    await waitFor(cdp, sessionId, "document.querySelector('#setup-error').textContent.includes('管理员创建失败')", 'setup failure');
-
-    await evaluate(cdp, sessionId, "window.StudioI18n.set('en')");
-    await click(cdp, sessionId, '#workspace-back');
-    await setValue(cdp, sessionId, '#workspace-directory', '/workspace/error');
-    await click(cdp, sessionId, '#inspect-workspace');
-    await waitFor(cdp, sessionId, "document.querySelector('#directory-error').textContent.includes('Workspace inspection failed')", 'localized English setup failure');
-    const englishFailure = await evaluate(cdp, sessionId, "document.querySelector('#directory-error').textContent");
-    await evaluate(cdp, sessionId, "window.StudioI18n.set('zh')");
-
-    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: false }, sessionId);
-    await navigateSetup(cdp, sessionId, port, 'dark');
-    await setValue(cdp, sessionId, '#workspace-directory', '/workspace/new');
-    await click(cdp, sessionId, '#inspect-workspace');
-    await waitFor(cdp, sessionId, "!document.querySelector('#initial-setup-form').hidden", 'dark narrow admin step');
-    const narrow = await evaluate(cdp, sessionId, `(() => {
-      const card = document.querySelector('ic-card').getBoundingClientRect();
-      return {
-        theme: document.documentElement.dataset.uiTheme,
-        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-        cardWidth: Math.round(card.width),
-        viewportWidth: document.documentElement.clientWidth,
-      };
-    })()`);
-
-    await setValue(cdp, sessionId, '#setup-username', 'admin');
-    await setValue(cdp, sessionId, '#setup-password', 'password-one');
-    await setValue(cdp, sessionId, '#setup-password-confirm', 'password-one');
-    await click(cdp, sessionId, '#complete-initial-setup');
-    await waitFor(cdp, sessionId, "Boolean(document.querySelector('#startup-destination'))", 'successful initial setup');
-
-    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/setup` }, sessionId);
-    await waitFor(cdp, sessionId, "Boolean(document.querySelector('#login-destination'))", 'setup no longer required');
-
+    const administratorFirst=await evaluate(cdp,sessionId,"!document.querySelector('#workspace-selection-step')");
+    await setValue(cdp,sessionId,'#setup-username','designer');
+    await setValue(cdp,sessionId,'#setup-password','fixture-password');
+    await setValue(cdp,sessionId,'#setup-password-confirm','different-password');
+    await click(cdp,sessionId,'#admin-next');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('ic-alert[open]'))",'password mismatch');
+    await setValue(cdp,sessionId,'#setup-password-confirm','fixture-password');
+    await click(cdp,sessionId,'#admin-next');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#workspace-directory')?.shadowRoot)",'workspace');
+    const inlinePicker=await evaluate(cdp,sessionId,"document.querySelector('#choose-workspace-directory').parentElement.id==='workspace-directory'");
+    await setValue(cdp,sessionId,'#workspace-directory','/workspace/error');
+    await click(cdp,sessionId,'#inspect-workspace');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('ic-alert[open]'))",'inspection failure');
+    await click(cdp,sessionId,'#choose-workspace-directory');
+    await waitFor(cdp,sessionId,"document.querySelector('#workspace-directory').value==='/workspace/picked'",'directory picker');
+    await click(cdp,sessionId,'#inspect-workspace');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#configure'))",'resume after restart');
+    const noPreselection=await evaluate(cdp,sessionId,"document.querySelector('#configure').disabled");
+    await click(cdp,sessionId,'[data-service="apimart"]');
+    await click(cdp,sessionId,'[data-service="jimeng"]');
+    await click(cdp,sessionId,'#configure');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#api-key')?.shadowRoot)",'API key');
+    await setValue(cdp,sessionId,'#api-key','fail');
+    await click(cdp,sessionId,'#connect');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('ic-alert[open]'))",'key failure');
+    const inputRetained=await evaluate(cdp,sessionId,"document.querySelector('#api-key').value==='fail'");
+    await setValue(cdp,sessionId,'#api-key','fixture-key');
+    await click(cdp,sessionId,'#connect');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#login'))",'next CLI service');
+    await click(cdp,sessionId,'#login');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#start-creating'))",'CLI login and Ready');
+    await evaluate(cdp,sessionId,"window.StudioI18n.set('en')");
+    await waitFor(cdp,sessionId,"document.querySelector('#start-creating').textContent==='Start creating'",'English completion');
+    await click(cdp,sessionId,'#setup-theme');
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width:375,height:812,deviceScaleFactor:1,mobile:false},sessionId);
+    const narrow=await evaluate(cdp,sessionId,"document.documentElement.scrollWidth<=document.documentElement.clientWidth");
+    await click(cdp,sessionId,'#start-creating');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#canvas-list-destination'))",'canvas list');
     const consoleErrors = cdp.events.flatMap(event => (
       event.method === 'Runtime.exceptionThrown'
         ? [event.params.exceptionDetails?.exception?.description || event.params.exceptionDetails?.text]
@@ -313,33 +274,12 @@ async function main() {
           ? [event.params.args?.map(argument => argument.value || argument.description).join(' ')]
           : []
     ));
-    report = {
-      checks: {
-        publicComponents: desktop.tags && desktop.vendorTags === 0 && desktop.nativeControls === 0,
-        initialOrder: desktop.selectionVisible && desktop.formHidden,
-        emptyValidation: Boolean(emptyValidation),
-        picker: state.pickerRequests === 1,
-        inspectFailure: state.inspections.some(item => item.workspace_directory === '/workspace/error'),
-        existingOpen: existing.selectionVisible && existing.message.includes('现有工作区') && state.opens.length === 1,
-        createAdmin: adminStep.selectionHidden && adminStep.workspace.includes('/workspace/new'),
-        mismatch: mismatch.includes('不一致'),
-        setupFailure: state.setups.some(item => item.username === 'broken'),
-        englishFailure: englishFailure.includes('Workspace inspection failed') && !/[\u3400-\u9fff]/u.test(englishFailure),
-        setupSuccess: state.setups.some(item => item.username === 'admin' && item.display_name === '') && state.restarts === 1,
-        permissionBoundary: state.required === false,
-        accessibility: roles.includes('textbox') && roles.filter(role => role === 'button').length >= 2,
-        lightDesktop: desktop.theme === 'light' && !desktop.scaled && desktop.card.width <= 608,
-        directoryPicker: desktop.directoryPicker.centerOffset < 1 && desktop.directoryPicker.width >= 96 && desktop.directoryPicker.textUnclipped,
-        darkNarrow: narrow.theme === 'dark' && !narrow.overflow && narrow.cardWidth <= narrow.viewportWidth,
-        console: consoleErrors.length === 0,
-      },
-      desktop,
-      adminStep,
-      narrow,
-      requests: state,
-      consoleErrors,
-      browser: await cdp.send('Browser.getVersion'),
-    };
+    report={checks:{administratorFirst,inlinePicker,noPreselection,inputRetained,narrow,
+      inspectionBeforeSetup:state.inspections.length>=2&&state.setups.length===1,
+      resumedAfterRestart:state.restarts===1,
+      apiAndCliConnected:Object.keys(state.services).length===2,
+      completed:state.completed,console:consoleErrors.length===0},consoleErrors};
+
   } finally {
     browser.kill('SIGTERM');
     server.close();

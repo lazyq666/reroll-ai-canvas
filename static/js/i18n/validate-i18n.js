@@ -8,7 +8,7 @@ const files = [
     'static/js/i18n/common.js',
     'static/js/i18n/showcase.js',
     'static/js/i18n/auth.js',
-    'static/js/i18n/onboarding-demo.js',
+    'static/js/i18n/onboarding.js',
     'static/js/i18n/workspace.js',
     'static/js/i18n/model-management.js',
     'static/js/i18n/preferences.js',

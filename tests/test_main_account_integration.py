@@ -279,11 +279,11 @@ class MainAccountIntegrationTests(unittest.TestCase):
                     response = client.get("/setup")
                     self.assertEqual(response.status_code, 200)
                     self.assertIn(
-                        'id="workspace-selection-step"',
+                        'id="setup-content"',
                         response.text,
                     )
                     self.assertIn(
-                        'id="initial-setup-form" hidden',
+                        '/static/js/account-setup.js',
                         response.text,
                     )
             finally:

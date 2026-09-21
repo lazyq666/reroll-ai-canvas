@@ -1,9 +1,10 @@
 (function(){
-    const VERSION = 'i18n-65a42607dd0c';
+    const VERSION = 'i18n-39d1720a00e8';
     const scripts = [
         '/static/js/i18n-core.js',
         '/static/js/i18n/common.js',
         '/static/js/i18n/auth.js',
+        '/static/js/i18n/onboarding.js',
         '/static/js/i18n/workspace.js',
         '/static/js/i18n/model-management.js',
         '/static/js/i18n/preferences.js',

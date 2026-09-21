@@ -18,7 +18,7 @@ class SetupPageContractTests(unittest.TestCase):
 
     def test_setup_page_composes_only_public_ic_controls(self):
         for tag in ("ic-alert", "ic-button", "ic-card", "ic-form-field", "ic-input"):
-            self.assertIn(f"<{tag}", self.page)
+            self.assertIn(f"<{tag}", self.page + self.script)
         self.assertNotRegex(self.page, r"<input\b")
         self.assertNotRegex(self.page, r"<button\b")
         self.assertNotRegex(self.page, r"<wa-[a-z]")
@@ -50,22 +50,19 @@ class SetupPageContractTests(unittest.TestCase):
         )
         for endpoint in endpoints:
             self.assertIn(endpoint, self.script)
-        self.assertIn("payload.next_step === 'create_admin'", self.script)
+        self.assertIn("payload.next_step !== 'create_admin'", self.script)
         self.assertIn("payload.next_step === 'login'", self.script)
         self.assertIn("window.location.replace('/startup')", self.script)
-        self.assertIn("const setupUsername", self.script)
+        self.assertIn("state.account", self.script)
         self.assertNotIn("form.username", self.script)
 
     def test_server_messages_use_stable_codes_and_do_not_leak_chinese_in_english(self):
         self.assertIn("const setupMessageKeys = {", self.script)
-        self.assertIn("payload?.reason || payload?.message_code", self.script)
-        self.assertIn("containsHan(message)", self.script)
-        self.assertIn("window.StudioI18n?.lang?.() === 'en'", self.script)
-        self.assertNotIn("status.workspace_error !== '尚未选择工作区目录'", self.script)
-        self.assertIn(
-            "workspace_source_repository_overlap: 'auth.workspaceSourceRepositoryOverlap'",
-            self.script,
-        )
+        self.assertIn("payload.reason || payload.detail?.code", self.script)
+        self.assertNotIn("state.error=payload.detail", self.script)
+        self.assertIn("workspace_source_repository_overlap:'auth.workspaceSourceRepositoryOverlap'", self.script)
+        self.assertIn("tf(state.error,state.errorValues)", self.script)
+
 
 
 

@@ -2609,9 +2609,33 @@ async def gemini_cli_status():
         out_text, err_text = codex_decode_output(stdout, stderr)
         ok = proc.returncode == 0
         is_agy = is_antigravity_cli(exe)
+        logged_in = None
+        if ok and is_agy:
+            # /usage is answered by the CLI, without a model turn or generation.
+            status_proc = None
+            try:
+                status_proc = await asyncio.create_subprocess_exec(
+                    exe, "--print", "/usage", cwd=_ports.BASE_DIR,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                )
+                status_out, status_err = await asyncio.wait_for(status_proc.communicate(), timeout=20)
+                report = (status_out + status_err).decode("utf-8", errors="replace").lower()
+                if any(marker in report for marker in ("authentication required", "not logged in", "please log in", "please sign in")):
+                    logged_in = False
+                elif status_proc.returncode == 0 and re.search(r"quota|remaining|reset|额度", report):
+                    logged_in = True
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                if status_proc is not None:
+                    status_proc.kill()
+                    await status_proc.wait()
+                if asyncio.current_task().cancelling():
+                    raise
+            except OSError:
+                pass
         return {
             "installed": ok,
-            "logged_in": None,
+            "logged_in": logged_in,
             "version": out_text or err_text,
             "path": exe,
             "provider": "antigravity" if is_agy else "gemini",
@@ -2808,10 +2832,31 @@ async def codex_status():
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=10)
         out_text, err_text = codex_decode_output(stdout, stderr)
         ok = proc.returncode == 0
+        logged_in = None
+        if ok:
+            login_proc = None
+            try:
+                login_proc = await asyncio.create_subprocess_exec(
+                    exe, "login", "status", cwd=_ports.BASE_DIR,
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                )
+                login_stdout, login_stderr = await asyncio.wait_for(login_proc.communicate(), timeout=10)
+                # Do not return authentication command output or account identifiers.
+                login_text = (login_stdout + login_stderr).decode("utf-8", errors="replace").lower()
+                if "not logged in" in login_text:
+                    logged_in = False
+                elif login_proc.returncode == 0 and "logged in" in login_text:
+                    logged_in = True
+            except asyncio.TimeoutError:
+                if login_proc is not None:
+                    login_proc.kill()
+                    await login_proc.wait()
+            except OSError:
+                pass
         helper_message = "GPT Image 2 helper 已安装，OpenAI CLI 生图会使用 GPT Image 2。" if image2_exe else "未找到 GPT Image 2 helper，OpenAI CLI 生图不可用；已禁用 Codex 内置 $imagegen 回退。"
         return {
             "installed": ok,
-            "logged_in": None,
+            "logged_in": logged_in,
             "version": out_text or err_text,
             "path": exe,
             "image2_helper_installed": bool(image2_exe),
