@@ -237,7 +237,6 @@ class DesignTokensUiRegressionTests(unittest.TestCase):
         self.assertNotIn("--wa-color-shadow:", adapter)
 
         smart_canvas = (STATIC / "css/smart-canvas.css").read_text(encoding="utf-8")
-        canvas = (STATIC / "css/canvas.css").read_text(encoding="utf-8")
         api_settings = (STATIC / "css/api-settings.css").read_text(encoding="utf-8")
         canvas_share = (STATIC / "css/canvas-share.css").read_text(encoding="utf-8")
         self.assertIn(
@@ -248,10 +247,7 @@ class DesignTokensUiRegressionTests(unittest.TestCase):
             "prompt-node-focus-dialog.image-node", smart_canvas
         )
         self.assertIn("box-shadow:var(--ui-shadow-modal)", smart_canvas)
-        self.assertIn(
-            "box-shadow:inset 0 1px 0 rgba(255,255,255,.55), var(--ui-shadow-raised)",
-            canvas,
-        )
+        self.assertFalse((STATIC / "css/canvas.css").exists())
         self.assertIn("filter:var(--ui-shadow-none)", api_settings)
         self.assertNotIn("text-shadow:", canvas_share)
 
