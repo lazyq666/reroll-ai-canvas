@@ -1,4 +1,4 @@
-@import url('/static/css/account-avatar.css');
+@import url('/static/css/account-avatar.css?v=account-avatar-d8d7445ac4c6');
 .ic-account-panel { display: flex; align-items: center; gap: var(--ui-space-2); margin-top: var(--ui-space-1); padding: var(--ui-space-2) var(--ui-space-2); border-top: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); min-width: 0; }
 .ic-account-copy { flex: 1; min-width: 0; line-height: var(--ui-line-height-tight); }
 .ic-account-name { overflow: hidden; color: var(--ui-color-text-primary); font-size: var(--ui-font-size-2); font-weight: var(--ui-font-weight-bold); text-overflow: ellipsis; white-space: nowrap; }

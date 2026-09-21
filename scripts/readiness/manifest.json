@@ -221,6 +221,14 @@
         ]
       },
       {
+        "id": "account-avatar-version",
+        "argv": [
+          "{python}",
+          "scripts/sync_account_avatar_asset_version.py",
+          "--check"
+        ]
+      },
+      {
         "id": "release-version",
         "argv": [
           "{python}",

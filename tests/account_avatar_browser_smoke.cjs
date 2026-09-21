@@ -46,10 +46,12 @@ const server = http.createServer((request, response) => {
       avatar.apply(document.getElementById('first'), { id: 'account-a', avatar_asset: 'bear.png' });
       avatar.apply(document.getElementById('second'), { id: 'account-a', avatar_asset: 'bear.png' });
     });
-    await page.waitForFunction(() => document.querySelectorAll('img[src$="/bear.png"]').length === 2);
+    await page.waitForFunction(() => [...document.querySelectorAll('img')]
+      .filter(image => new URL(image.src).pathname.endsWith('/bear.png')).length === 2);
 
     await page.evaluate(() => window.InfiniteCanvasAccountAvatar.publish({ id: 'account-a', avatar_asset: 'fox.png' }));
-    await page.waitForFunction(() => document.querySelectorAll('img[src$="/fox.png"]').length === 2);
+    await page.waitForFunction(() => [...document.querySelectorAll('img')]
+      .filter(image => new URL(image.src).pathname.endsWith('/fox.png')).length === 2);
 
     await page.evaluate(() => window.InfiniteCanvasAccountAvatar.apply(
       document.getElementById('first'),

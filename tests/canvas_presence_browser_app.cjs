@@ -40,7 +40,8 @@ function startServer(port = 8804) {
         <button onclick="fetch('/_test/state?mode=failed',{method:'POST'})">Disconnect fixture</button>
         <button onclick="fetch('/_test/state?mode=ready',{method:'POST'})">Recover fixture</button>
         <button onclick="fetch('/_test/state?mode=empty',{method:'POST'})">Everyone leaves</button>
-        </nav><iframe title="Canvas list preview" src="/static/canvas-list.html" style="display:block;width:100%;height:calc(100vh - 40px);border:0"></iframe></body></html>`);
+        </nav><iframe title="Canvas list preview" src="/static/canvas-list.html" style="display:block;width:100%;height:calc(100vh - 40px);border:0"></iframe>
+        <script src="/static/js/account-avatar.js"></script></body></html>`);
     }
     if (url.pathname === '/api/auth/me') return json(res, 200, { user: { id: 'viewer', username: 'viewer', role: 'admin', status: 'active' } });
     if (url.pathname === '/api/projects') return json(res, 200, { projects: [{ id: 'default', name: '协作项目', order: 0, canvas_count: cards.length }] });
