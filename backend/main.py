@@ -4028,8 +4028,8 @@ class CanvasLLMRequest(BaseModel):
 
 class CanvasCreateRequest(BaseModel):
     title: str = "未命名画布"
-    icon: str = "🧩"
-    kind: str = "classic"
+    icon: str = "sparkles"
+    kind: str = "smart"
     project: Optional[str] = None
     board_x: Optional[float] = None
     board_y: Optional[float] = None
@@ -4373,15 +4373,44 @@ def migrate_all_canvas_access():
 def load_canvas(canvas_id, write=False, *, metadata_only=False):
     actor = require_current_user("admin", "designer")
     try:
-        return CANVAS_SYNC.read(canvas_id, actor, write=write, metadata_only=metadata_only)
+        canvas = CANVAS_SYNC.read(
+            canvas_id,
+            actor,
+            write=write,
+            metadata_only=metadata_only,
+        )
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
+    require_supported_canvas(canvas)
+    return canvas
 
 def load_shared_canvas(share):
     try:
-        return CANVAS_SYNC.read_shared(share)
+        canvas = CANVAS_SYNC.read_shared(share)
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
+    require_supported_canvas(canvas)
+    return canvas
+
+
+def require_supported_canvas(canvas):
+    kind = normalize_canvas_kind(canvas.get("kind"))
+    if kind == "smart":
+        return canvas
+    code = (
+        "classic_canvas_retired"
+        if kind == "classic"
+        else "unsupported_canvas_kind"
+    )
+    message = (
+        "普通画布已停止支持，历史数据仍会保留。"
+        if kind == "classic"
+        else "该画布类型不受支持。"
+    )
+    raise HTTPException(
+        status_code=410 if kind == "classic" else 422,
+        detail={"code": code, "message": message},
+    )
 
 def canvas_cover_record(data):
     explicit = data.get("cover_image") if isinstance(data.get("cover_image"), dict) else {}
@@ -4428,7 +4457,7 @@ def canvas_record(data):
     return {
         "id": data.get("id"),
         "title": data.get("title", "未命名画布"),
-        "icon": data.get("icon", "🧩"),
+        "icon": data.get("icon", "sparkles"),
         "kind": normalize_canvas_kind(data.get("kind")),
         "owner_id": str(data.get("owner_id") or ""),
         "owner_username": str(data.get("owner_username") or ""),
@@ -9678,6 +9707,7 @@ def get_canvas(canvas_id: str):
         )
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
+    require_supported_canvas(canvas)
     return {"canvas": canvas}
 
 
@@ -9758,6 +9788,7 @@ def open_canvas(canvas_id: str):
         )
     except CanvasSyncError as error:
         raise_canvas_sync_http(error)
+    require_supported_canvas(canvas)
     return StreamingResponse(
         stream_canvas_opening(canvas),
         media_type="application/x-ndjson",

@@ -8,8 +8,7 @@
 
 ## 用户可感知的保证
 
-- Classic Canvas 仍使用 `updated_at` 检测旧页面覆盖，并继续发送
-  `canvas_updated` 旧通知。
+- 产品运行态只接受 Smart Canvas；Classic Canvas 记录只作为历史数据保留，正常读取和写入返回稳定的 `classic_canvas_retired`。
 - Canvas Updated Time（`updated_at`）和最近编辑人（`updated_by`）只描述最近一次
   确实改变持久创作内容或 Canvas 标题/图标的 Canvas Edit；创建时初始化。
 - 打开、读取、刷新、Realtime 连接、Touch、Selection、Prompt 滚动和个人
@@ -17,11 +16,9 @@
 - Smart Canvas 渐进式打开从一次授权读取的同一快照依次发送只含 Node 几何的
   `canvas_outline` 与完整 `canvas_document`；轮廓是 Presentation，不是 Canvas
   内容，不产生 Mutation、Undo、Realtime 或持久化写入。
-- Classic Canvas 的等价快照是无写入结果；Smart Canvas 只接受非空且确实改变
-  共享内容的 Mutation，等价、空、重复或被拒绝的 Mutation 不推进 Revision 或时间。
+- Smart Canvas 只接受非空且确实改变共享内容的 Mutation，等价、空、重复或被拒绝的 Mutation 不推进 Revision 或时间。
 - Pin、Canvas List 位置、Project 归类、Visibility、Share、Trash、Restore、Purge
   与 owner transfer 是内容管理动作，不推进 Canvas Updated Time。
-- Classic 保存不会用另一个页面提交的 Viewport 覆盖当前个人视图。
 - Smart Canvas 仍使用 Revision、operation id、删除墓碑、Connection、
   Group 与安全 Undo 规则。
 - 同一 Smart Canvas 的持久化与通知按同一顺序完成；重复 operation
@@ -71,7 +68,7 @@ Workspace content、Connection Manager 和 Auth System adapter 完成。
 | 写入 | Canvas Sync 行为 |
 |---|---|
 | 新建 Canvas | 建立 owner、可见性、Revision 与默认内容后原子写入 |
-| Classic 快照保存 | 重新读取、验权与冲突检查；只有非空内容差异才原子写入、更新时间并发送旧通知；Smart 快照一律拒绝 |
+| 完整快照保存 | 产品运行态拒绝该旧写入方式；Smart Canvas 只通过 Realtime Mutation 修改共享内容，Classic Canvas 返回 `classic_canvas_retired` |
 | Smart Realtime | 重新读取、验权；只有非空且产生共享内容差异的 Mutation 才推进 Revision、更新时间、原子写入并有序广播 |
 | 标题 / 图标 Metadata | 值确实改变时更新 Canvas Updated Time 与最近编辑人，不推进 Smart Revision |
 | Pin / Canvas List 位置 / Project / 其他 Metadata | 管理结果可以写入，但保留 Canvas Updated Time、最近编辑人与 Revision；等价值不写入 Canvas |

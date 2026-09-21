@@ -25,20 +25,17 @@ class AssetLibraryRemovalTests(unittest.TestCase):
         self.assertNotIn('"/api/shared-folders', server)
 
     def test_canvas_pages_do_not_load_or_show_asset_library(self):
-        classic = (ROOT / "static/canvas.html").read_text(encoding="utf-8")
         smart = (ROOT / "static/smart-canvas.html").read_text(encoding="utf-8")
-        classic_script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
         smart_script = (ROOT / "static/js/smart-canvas.js").read_text(
             encoding="utf-8"
         )
-        for source in (classic, smart, classic_script, smart_script):
+        for source in (smart, smart_script):
             self.assertNotIn("/api/asset-library", source)
-        self.assertNotIn("canvasAssetToggle", classic)
-        self.assertNotIn("assetManagerModal", classic)
         self.assertNotIn("assetToggle", smart)
         self.assertNotIn("assetPanel", smart)
         self.assertNotIn("/smart-canvas/asset-library.js", smart)
         self.assertNotIn("素材库链接", smart_script)
+        self.assertFalse((ROOT / "static/js/canvas.js").exists())
 
     def test_workspace_migration_no_longer_copies_asset_catalog(self):
         workspace = (

@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-e8ecf3c8b713">
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-5bc8429cb26d"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-114a31063892"></script>
     <link rel="stylesheet" href="/static/css/canvas-list.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/account-avatar.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/theme.css?v=2026.09.01.5.1788439320">
@@ -88,13 +88,6 @@
             <ic-form-field id="createCanvasNameField" label="画布名称" hint="可留空，将按当前时间自动命名">
                 <ic-input id="createCanvasName" slot="control" type="text" maxlength="80" placeholder="画布名称（可留空）" autofocus></ic-input>
             </ic-form-field>
-            <div class="ws-create-kind-field">
-                <span class="ws-field-label">画布类型</span>
-                <ic-segmented-control id="createCanvasKind" label="画布类型" value="smart" data-legal-combination="single-label">
-                    <button type="button" data-value="classic">普通画布</button>
-                    <button type="button" data-value="smart">智能画布</button>
-                </ic-segmented-control>
-            </div>
         </div>
         <ic-button id="createCanvasCancel" slot="footer" type="button" hierarchy="secondary">取消</ic-button>
         <ic-button id="createCanvasConfirm" slot="footer" type="button" hierarchy="primary">创建</ic-button>

@@ -7,15 +7,15 @@ Reroll 是一个视觉创作工作区，人们在持久 Canvas 中组织媒体�
 ### 产品、身份与权限
 
 **Canvas（画布）**:
-一个持久的视觉创作空间；每个 Canvas 是 Classic Canvas 或 Smart Canvas。
+一个由可识别 Node 及其 Connection 组成的持久视觉创作空间；产品运行态中的 Canvas 均使用 Smart Canvas 模型。
 _Avoid_: Board, Document, 白板
 
 **Classic Canvas（普通画布）**:
-使用原始直接媒体编辑体验、而非 Node 与 Connection 生成图结构的 Canvas。
-_Avoid_: Smart Canvas, Legacy Document, 经典画布
+已经退役的历史 Canvas 数据类型。系统只为迁移、备份与回滚保留其原始记录，不允许创建、打开、编辑、生成或分享。
+_Avoid_: Smart Canvas, 可编辑 Canvas, 经典画布
 
 **Smart Canvas（智能画布）**:
-由可识别 Node 及其 Connection 组成的持久空间创作文档。
+Canvas 当前唯一的产品运行模型；由可识别 Node 及其 Connection 组成。
 _Avoid_: Board, Classic Canvas, 白板
 
 **Workspace（工作区）**:

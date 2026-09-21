@@ -1,7 +1,11 @@
 {
-  "version": "2026.09.18.5",
-  "updated_at": "2026-09-18T11:33:56+08:00",
+  "version": "2026.09.21.1",
+  "updated_at": "2026-09-21T10:13:34+08:00",
   "items": [
+    {
+      "type": "feature",
+      "text": "画布产品流程统一为 Smart Canvas，历史普通画布保留原始数据但停止创建、打开、编辑与分享"
+    },
     {
       "type": "feature",
       "text": "公开项目身份统一为 Reroll AI Canvas，并补充真实产品截图与中英文定位"

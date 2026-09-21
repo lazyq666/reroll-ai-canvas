@@ -79,12 +79,11 @@ REALTIME_JSON_BATCH_WINDOW_SECONDS = 0.03
 CANVAS_JSON_WRITE_CHUNK_BYTES = 256 * 1024
 
 
-def normalize_canvas_kind(kind: Any = "classic") -> str:
-    return (
-        "smart"
-        if str(kind or "").strip().lower() == "smart"
-        else "classic"
-    )
+def normalize_canvas_kind(kind: Any = None) -> str:
+    """Preserve known legacy kinds without treating unknown data as Classic."""
+
+    normalized = str(kind or "").strip().lower()
+    return normalized if normalized in {"smart", "classic"} else "unknown"
 
 
 def normalize_canvas_color(value: Any) -> str:
@@ -979,6 +978,27 @@ class CanvasSync:
             ),
         )
 
+    @staticmethod
+    def _require_supported_product_canvas(canvas: Mapping[str, Any]) -> None:
+        kind = normalize_canvas_kind(canvas.get("kind"))
+        if kind == "smart":
+            return
+        raise CanvasSyncError(
+            410 if kind == "classic" else 422,
+            {
+                "code": (
+                    "classic_canvas_retired"
+                    if kind == "classic"
+                    else "unsupported_canvas_kind"
+                ),
+                "message": (
+                    "普通画布已停止支持，历史数据仍会保留。"
+                    if kind == "classic"
+                    else "该画布类型不受支持。"
+                ),
+            },
+        )
+
     async def open_realtime(
         self,
         websocket: Any,
@@ -1802,6 +1822,37 @@ class CanvasSync:
                         actor,
                     )
                 return self._delete_project(canvas_id, actor)
+        if self._canvas_store is not None:
+            if command.action in {RESTORE_CANVAS, PURGE_CANVAS}:
+                existing = next(
+                    (
+                        item
+                        for item in await self._run_store(
+                            self.list_canvas_items,
+                            actor,
+                        )
+                        if str(item.get("id") or "") == canvas_id
+                    ),
+                    None,
+                )
+                if existing is None:
+                    raise CanvasSyncError(404, "画布不存在")
+            else:
+                existing = await self._run_store(
+                    self._read_store_snapshot,
+                    canvas_id,
+                    actor,
+                )
+        else:
+            with self._file_lock:
+                _path, existing = self._read_locked(canvas_id)
+                self._require_actor(
+                    existing,
+                    actor,
+                    write=True,
+                    include_deleted=command.action in {RESTORE_CANVAS, PURGE_CANVAS},
+                )
+        self._require_supported_product_canvas(existing)
         async with self._operation_lock(canvas_id):
             if (
                 self._canvas_store is not None
@@ -2077,16 +2128,33 @@ class CanvasSync:
         if not can_access_project(actor, project_id):
             raise CanvasSyncError(403, "当前账号无权访问目标项目")
         timestamp = int(self._now_ms())
-        kind = normalize_canvas_kind(values.get("kind"))
+        requested_kind = str(values.get("kind") or "smart").strip().lower()
+        if requested_kind == "classic":
+            raise CanvasSyncError(
+                410,
+                {
+                    "code": "classic_canvas_retired",
+                    "message": "普通画布已停止支持，无法新建。",
+                },
+            )
+        if requested_kind != "smart":
+            raise CanvasSyncError(
+                422,
+                {
+                    "code": "unsupported_canvas_kind",
+                    "message": "不支持的画布类型。",
+                },
+            )
+        kind = "smart"
         canvas = {
             "id": uuid.uuid4().hex,
             "title": (
                 values.get("title")
-                or ("智能画布" if kind == "smart" else "未命名画布")
+                or "未命名画布"
             )[:80],
             "icon": (
                 values.get("icon")
-                or ("sparkles" if kind == "smart" else "🧩")
+                or "sparkles"
             )[:32],
             "kind": kind,
             "owner_id": actor["id"],

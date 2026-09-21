@@ -468,6 +468,18 @@ class SqliteCanvasStoreContractTests(unittest.TestCase):
             )
         self.assertEqual(missing.exception.code, "not_found")
 
+    def test_unknown_canvas_kind_is_not_imported_as_classic(self):
+        invalid = sample_canvas("unknown-kind")
+        invalid["kind"] = "future-kind"
+
+        with self.assertRaises(CanvasStoreError) as rejected:
+            self.import_canvas(
+                invalid,
+                operation_id="migration:unknown-kind",
+            )
+
+        self.assertEqual(rejected.exception.code, "invalid_canvas_kind")
+
     def test_permissions_are_checked_for_every_projection_and_commit(self):
         self.import_canvas()
         denied = {**DESIGNER, "project_ids": []}

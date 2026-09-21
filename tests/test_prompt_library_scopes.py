@@ -361,7 +361,7 @@ class PromptLibraryScopeIntegrationTests(unittest.TestCase):
 
                 private_canvas = client.post(
                     "/api/canvases",
-                    json={"title": "Private", "kind": "classic"},
+                    json={"title": "Private", "kind": "smart"},
                 ).json()["canvas"]
                 visibility = client.put(
                     f"/api/canvases/{private_canvas['id']}/visibility",

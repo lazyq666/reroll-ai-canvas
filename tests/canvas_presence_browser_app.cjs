@@ -14,8 +14,6 @@ const cards = [0, 1, 3, 5].map((count, index) => ({
   node_count: 8, updated_at: 1788402600, board_x: (index % 3) * 312 + 40,
   board_y: Math.floor(index / 3) * 260 + 40, cover_url: '',
 }));
-cards.push({ ...cards[0], id: 'classic', kind: 'classic', title: '普通画布', board_x: 352, board_y: 300 });
-
 function startServer(port = 8804) {
   const state = { mode: 'ready', requests: 0, writes: 0, sockets: 0, lastIds: [] };
   function json(res, status, payload) {

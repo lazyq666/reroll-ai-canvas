@@ -71,6 +71,87 @@ class CanvasSyncContractTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return response.json()["canvas"]
 
+    def import_legacy_classic_canvas(self, canvas_id="legacy-classic"):
+        timestamp = self.main.now_ms()
+        document = {
+            "id": canvas_id,
+            "title": "Legacy Classic",
+            "icon": "layers",
+            "kind": "classic",
+            "owner_id": self.actor["id"],
+            "owner_username": self.actor["username"],
+            "visibility": "shared",
+            "created_by": self.actor["id"],
+            "updated_by": self.actor["id"],
+            "project": "default",
+            "created_at": timestamp,
+            "updated_at": timestamp,
+            "revision": 0,
+            "nodes": [{"id": "legacy-node", "type": "image"}],
+            "connections": [],
+            "viewport": {"x": 0, "y": 0, "scale": 1},
+        }
+        path = Path(self.main.current_workspace_content().smart_canvas(canvas_id))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+        return document, path
+
+    def test_canvas_creation_is_smart_only(self):
+        defaulted = self.client.post(
+            "/api/canvases",
+            json={"title": "Default kind"},
+        )
+        self.assertEqual(defaulted.status_code, 200)
+        self.assertEqual(defaulted.json()["canvas"]["kind"], "smart")
+
+        retired = self.client.post(
+            "/api/canvases",
+            json={"title": "Classic", "kind": "classic"},
+        )
+        self.assertEqual(retired.status_code, 410)
+        self.assertEqual(
+            retired.json()["detail"]["code"],
+            "classic_canvas_retired",
+        )
+
+        unknown = self.client.post(
+            "/api/canvases",
+            json={"title": "Unknown", "kind": "other"},
+        )
+        self.assertEqual(unknown.status_code, 422)
+        self.assertEqual(
+            unknown.json()["detail"]["code"],
+            "unsupported_canvas_kind",
+        )
+
+    def test_legacy_classic_is_hidden_and_product_routes_reject_without_rewriting(self):
+        original, legacy_path = self.import_legacy_classic_canvas()
+
+        listed = self.client.get("/api/canvases")
+        self.assertEqual(listed.status_code, 200)
+        self.assertNotIn(
+            original["id"],
+            {item["id"] for item in listed.json()["canvases"]},
+        )
+        for method, path, body in (
+            ("get", f"/api/canvases/{original['id']}", None),
+            ("get", f"/api/canvases/{original['id']}/open", None),
+            ("put", f"/api/canvases/{original['id']}", {"title": "Changed"}),
+            ("post", f"/api/canvases/{original['id']}/share", None),
+        ):
+            request = getattr(self.client, method)
+            response = request(path, json=body) if body is not None else request(path)
+            self.assertEqual(response.status_code, 410, path)
+            self.assertEqual(
+                response.json()["detail"]["code"],
+                "classic_canvas_retired",
+            )
+
+        preserved = json.loads(legacy_path.read_text(encoding="utf-8"))
+        self.assertEqual(preserved["kind"], "classic")
+        self.assertEqual(preserved["title"], original["title"])
+        self.assertEqual(preserved["nodes"], original["nodes"])
+
     def test_storage_and_internal_realtime_failures_are_not_permission_loss(self):
         canvas = self.create_canvas('smart')
         path = f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=storage-test"
@@ -877,152 +958,6 @@ class CanvasSyncContractTests(unittest.TestCase):
         self.assertEqual(listed[0]["updated_at"], created["updated_at"])
         self.assertEqual(listed[0]["updated_by"], created["updated_by"])
         self.assertEqual(listed[0]["revision"], created["revision"])
-
-    def test_public_classic_snapshot_command_persists_in_sqlite_only(self):
-        root = Path(self.temporary.name)
-        clock = {"now": 1500}
-        store = SqliteCanvasStore(
-            root / "sqlite-snapshot-command" / "canvas-content.sqlite3",
-            workspace_id=self.main.current_workspace_id(),
-            now_ms=lambda: clock["now"],
-        )
-        sync = CanvasSync(
-            content=self.main.current_workspace_content,
-            now_ms=lambda: clock["now"],
-            workspace_id=self.main.current_workspace_id,
-            canvas_store=lambda: store,
-        )
-        self.main.CANVAS_SYNC = sync
-        created = self.client.post(
-            "/api/canvases",
-            json={"title": "Classic before", "kind": "classic"},
-        ).json()["canvas"]
-        original_viewport = created["viewport"]
-        clock["now"] = 1600
-
-        saved = self.client.put(
-            f"/api/canvases/{created['id']}",
-            json={
-                "title": "Classic after",
-                "icon": "layers",
-                "nodes": [{"id": "classic-node", "type": "image"}],
-                "connections": [],
-                "viewport": {"x": 99, "y": 88, "scale": 0.5},
-                "settings": {"quality": "high"},
-                "base_updated_at": created["updated_at"],
-            },
-        )
-
-        self.assertEqual(saved.status_code, 200)
-        canvas = saved.json()["canvas"]
-        self.assertEqual(canvas["title"], "Classic after")
-        self.assertEqual(canvas["nodes"], [{"id": "classic-node", "type": "image"}])
-        self.assertEqual(canvas["viewport"], original_viewport)
-        self.assertEqual(canvas["updated_at"], 1600)
-        self.assertEqual(canvas["revision"], 0)
-        clock["now"] = 1700
-        unchanged = self.client.put(
-            f"/api/canvases/{created['id']}",
-            json={
-                "title": canvas["title"],
-                "icon": canvas["icon"],
-                "nodes": canvas["nodes"],
-                "connections": canvas["connections"],
-                "viewport": {"x": -999, "y": -888, "scale": 2},
-                "settings": canvas.get("settings") or {},
-                "base_updated_at": canvas["updated_at"],
-            },
-        )
-        self.assertEqual(unchanged.status_code, 200)
-        unchanged_canvas = unchanged.json()["canvas"]
-        self.assertEqual(unchanged_canvas["updated_at"], 1600)
-        self.assertEqual(unchanged_canvas["updated_by"], canvas["updated_by"])
-        self.assertEqual(unchanged_canvas["revision"], 0)
-        self.assertEqual(unchanged_canvas["viewport"], original_viewport)
-        self.assertFalse(
-            Path(
-                self.main.current_workspace_content().smart_canvas(created["id"])
-            ).exists()
-        )
-
-    def test_classic_save_preserves_viewport_and_legacy_broadcast_contract(self):
-        canvas = self.create_canvas("classic")
-        original_viewport = canvas["viewport"]
-        payload = {
-            "title": "Saved title",
-            "icon": "layers",
-            "nodes": [{"id": "node-a", "type": "image"}],
-            "connections": [],
-            "viewport": {"x": 999, "y": 888, "scale": 0.25},
-            "logs": [],
-            "settings": {},
-            "client_id": "classic-tab-a",
-            "base_updated_at": canvas["updated_at"],
-        }
-
-        with self.client.websocket_connect(
-            "/ws/stats?layout_gap=64&client_id=classic-observer"
-        ) as observer:
-            self.assertEqual(observer.receive_json()["type"], "stats")
-            response = self.client.put(
-                f"/api/canvases/{canvas['id']}",
-                json=payload,
-            )
-            self.assertEqual(response.status_code, 200)
-            saved = response.json()["canvas"]
-            notice = observer.receive_json()
-
-        self.assertEqual(saved["viewport"], original_viewport)
-        self.assertEqual(
-            notice,
-            {
-                "type": "canvas_updated",
-                "canvas_id": canvas["id"],
-                "updated_at": saved["updated_at"],
-                "client_id": "classic-tab-a",
-            },
-        )
-        stored = self.client.get(
-            f"/api/canvases/{canvas['id']}"
-        ).json()["canvas"]
-        self.assertEqual(stored["viewport"], original_viewport)
-        self.assertEqual(stored["nodes"], payload["nodes"])
-
-    def test_classic_stale_save_returns_current_canvas_without_overwrite(self):
-        canvas = self.create_canvas("classic")
-        first = self.client.put(
-            f"/api/canvases/{canvas['id']}",
-            json={
-                "title": "Newer title",
-                "nodes": [{"id": "newer-node"}],
-                "connections": [],
-                "base_updated_at": canvas["updated_at"],
-            },
-        )
-        self.assertEqual(first.status_code, 200)
-        newer = first.json()["canvas"]
-
-        stale = self.client.put(
-            f"/api/canvases/{canvas['id']}",
-            json={
-                "title": "Stale title",
-                "nodes": [{"id": "stale-node"}],
-                "connections": [],
-                "base_updated_at": max(1, newer["updated_at"] - 1),
-            },
-        )
-
-        self.assertEqual(stale.status_code, 409)
-        detail = stale.json()["detail"]
-        self.assertEqual(detail["message"], "画布已被其他页面更新，已拒绝旧版本覆盖。")
-        self.assertEqual(detail["updated_at"], newer["updated_at"])
-        self.assertEqual(detail["canvas"]["title"], "Newer title")
-        self.assertEqual(detail["canvas"]["nodes"], [{"id": "newer-node"}])
-        stored = self.client.get(
-            f"/api/canvases/{canvas['id']}"
-        ).json()["canvas"]
-        self.assertEqual(stored["title"], "Newer title")
-        self.assertEqual(stored["nodes"], [{"id": "newer-node"}])
 
     def test_smart_realtime_contract_omits_local_view_state_and_blocks_snapshot(self):
         canvas = self.create_canvas("smart")

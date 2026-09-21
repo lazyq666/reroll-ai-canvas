@@ -193,7 +193,7 @@ class AvailableModelManagementTests(unittest.TestCase):
         shell = (ROOT / "static/index.html").read_text(encoding="utf-8")
         account_ui = (ROOT / "static/js/account-ui.js").read_text(encoding="utf-8")
         online = (ROOT / "static/online.html").read_text(encoding="utf-8")
-        canvas = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
+        canvas = (ROOT / "static/js/smart-canvas.js").read_text(encoding="utf-8")
         management = (ROOT / "static/available-model-management.html").read_text(encoding="utf-8")
 
         self.assertIn("switchUI(this, 'available-model-management')", shell)
@@ -202,8 +202,7 @@ class AvailableModelManagementTests(unittest.TestCase):
         self.assertIn('id="model-list"', management)
         self.assertIn("/api/admin/available-models", (ROOT / "static/js/available-model-management.js").read_text(encoding="utf-8"))
         self.assertNotIn('id="providerSelect"', online)
-        self.assertIn("model-platform-tag", canvas)
-        self.assertIn("catalogModelOptions('image'", canvas)
+        self.assertIn("smartModelVendorIconMarkup", canvas)
 
 
 if __name__ == "__main__":

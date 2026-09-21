@@ -7,7 +7,7 @@
   const PAGE_IDS = ['zimage', 'enhance', 'klein', 'angle', 'online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings'];
   const LOCAL_PAGE_IDS = ['zimage', 'enhance', 'klein', 'angle'];
   const SETTINGS_PAGE_IDS = ['account-management', 'api-settings', 'available-model-management', 'comfyui-settings'];
-  const CANVAS_EDITOR_PATHS = new Set(['/static/canvas.html', '/static/smart-canvas.html']);
+  const CANVAS_EDITOR_PATHS = new Set(['/static/smart-canvas.html']);
 
   const tr = key => window.StudioI18n?.t?.(key) || key;
   const byId = id => document.getElementById(id);

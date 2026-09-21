@@ -255,47 +255,18 @@ class CanvasSyncClassicTests(unittest.IsolatedAsyncioTestCase):
             ADMIN,
         )
 
-    async def test_complete_save_persists_before_notifying_and_keeps_viewport(self):
-        result = await self.save()
-
-        self.assertEqual(result.canvas["title"], "Saved")
-        self.assertEqual(result.canvas["updated_at"], 200)
-        self.assertEqual(
-            result.canvas["viewport"],
-            {"x": 4, "y": 5, "scale": 1.5},
-        )
-        self.assertEqual(self.notifier.persisted_at_notice, [result.canvas])
-        self.assertEqual(
-            self.notifier.notices,
-            [
-                {
-                    "canvas_id": "classic-1",
-                    "updated_at": 200,
-                    "client_id": "classic-tab",
-                }
-            ],
-        )
-        self.assertEqual(
-            list(self.directory.glob("*.tmp")),
-            [],
-        )
-
-    async def test_equal_snapshot_is_no_op_without_file_write_or_notice(self):
+    async def test_complete_save_is_rejected_without_changing_legacy_file(self):
         before = self.path.read_bytes()
 
-        result = await self.save(
-            title="Original",
-            icon="layers",
-            nodes=[],
-            connections=[],
-            logs=[],
-            settings={},
-        )
+        with self.assertRaises(CanvasSyncError) as rejected:
+            await self.save()
 
+        self.assertEqual(rejected.exception.status_code, 410)
+        self.assertEqual(
+            rejected.exception.detail["code"],
+            "classic_canvas_retired",
+        )
         self.assertEqual(self.path.read_bytes(), before)
-        self.assertEqual(result.canvas["updated_at"], 100)
-        self.assertEqual(result.canvas["updated_by"], ADMIN["id"])
-        self.assertEqual(result.canvas["revision"], 0)
         self.assertEqual(self.notifier.notices, [])
 
     def test_legacy_access_normalization_during_reads_stays_in_memory(self):
@@ -346,18 +317,17 @@ class CanvasSyncClassicTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(legacy_path.read_bytes(), before)
         self.assertFalse(recovery.exists())
 
-    async def test_stale_save_returns_authoritative_canvas_without_writing(self):
+    async def test_stale_classic_save_is_retired_without_writing(self):
         before = self.path.read_bytes()
 
         with self.assertRaises(CanvasSyncError) as rejected:
             await self.save(base_updated_at=99)
 
-        self.assertEqual(rejected.exception.status_code, 409)
+        self.assertEqual(rejected.exception.status_code, 410)
         self.assertEqual(
-            rejected.exception.detail["message"],
-            "画布已被其他页面更新，已拒绝旧版本覆盖。",
+            rejected.exception.detail["code"],
+            "classic_canvas_retired",
         )
-        self.assertEqual(rejected.exception.detail["canvas"]["title"], "Original")
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(self.notifier.notices, [])
 

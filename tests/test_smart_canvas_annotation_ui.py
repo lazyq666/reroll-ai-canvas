@@ -18,15 +18,13 @@ class SmartCanvasAnnotationUiTests(unittest.TestCase):
         cls.block_styles = (ROOT / "static/js/infinite-canvas-ui/blocks/styles.js").read_text(encoding="utf-8")
         cls.selection_component = (ROOT / "static/js/infinite-canvas-ui/selection-adjustment/switch.js").read_text(encoding="utf-8")
         cls.selection_styles = (ROOT / "static/js/infinite-canvas-ui/selection-adjustment/styles.js").read_text(encoding="utf-8")
-        cls.classic_page = (ROOT / "static/canvas.html").read_text(encoding="utf-8")
 
-    def test_toolbar_is_on_smart_canvas_only(self):
+    def test_toolbar_is_on_smart_canvas(self):
         self.assertIn('id="smartCanvasDock"', self.smart_page)
         self.assertIn('id="smartPointerTool"', self.smart_page)
         self.assertIn('id="smartBrushTool"', self.smart_page)
         self.assertIn('id="smartTextTool"', self.smart_page)
-        self.assertNotIn('id="smartCanvasDock"', self.classic_page)
-        self.assertNotIn('id="canvasAnnotationPreview"', self.classic_page)
+        self.assertFalse((ROOT / "static/js/canvas.js").exists())
 
     def test_toolbar_groups_are_separated_in_figma_order(self):
         pointer = self.smart_page.index('id="smartPointerTool"')

@@ -15,7 +15,6 @@ const framePages = new Set([
   '/static/available-model-management.html',
   '/static/comfyui-settings.html',
   '/static/canvas-list.html',
-  '/static/canvas.html',
   '/static/smart-canvas.html',
 ]);
 

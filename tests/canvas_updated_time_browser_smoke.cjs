@@ -143,18 +143,6 @@ function forbiddenCanvasWrites(canvasId) {
         const context = await browser.newContext({viewport:{width:1280, height:820}});
         await installRoutes(context);
 
-        const classic = await context.newPage();
-        await classic.goto('http://canvas.local/static/canvas.html?id=classic-read-only', {
-            waitUntil:'domcontentloaded',
-        });
-        await classic.waitForFunction(() => (
-            typeof canvas !== 'undefined'
-            && canvas?.id === 'classic-read-only'
-            && !document.getElementById('shell')?.classList.contains('no-canvas')
-        ));
-        assert.deepEqual(forbiddenCanvasWrites('classic-read-only'), []);
-        await classic.close();
-
         const smart = await context.newPage();
         await smart.addInitScript(snapshot => {
             window.__issue102SocketMessages = [];

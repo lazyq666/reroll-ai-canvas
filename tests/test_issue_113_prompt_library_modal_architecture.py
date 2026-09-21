@@ -16,8 +16,6 @@ class Issue113PromptLibraryModalArchitectureTests(unittest.TestCase):
         cls.library = (
             ROOT / "static/js/infinite-canvas-ui/prompt-template-library.js"
         ).read_text(encoding="utf-8")
-        cls.classic_host = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
-        cls.classic_style = (ROOT / "static/css/canvas.css").read_text(encoding="utf-8")
 
     def test_shared_dialog_is_the_only_modal_shell_and_lives_outside_canvas_shell(self):
         shell_start = self.page.index('<div id="shell"')
@@ -73,24 +71,9 @@ class Issue113PromptLibraryModalArchitectureTests(unittest.TestCase):
         self.assertIn("this.reorderCategories(sourceId, targetId)", self.library)
         self.assertNotIn('part="category-manager"', self.library)
 
-    def test_classic_canvas_has_only_the_controlled_library_implementation(self):
-        self.assertEqual(self.classic_host.count("function renderPromptTemplateModal(){"), 1)
-        self.assertEqual(self.classic_host.count("async function openPromptTemplateModal(nodeId){"), 1)
-        for legacy_marker in (
-            "promptTemplateCats",
-            "promptTemplateBody",
-            "promptTemplateGroupEditMode",
-            "prompt-template-group-panel",
-            "prompt-template-list-tools",
-        ):
-            self.assertNotIn(legacy_marker, self.classic_host)
-        for legacy_selector in (
-            ".prompt-template-modal",
-            ".prompt-template-panel",
-            ".prompt-template-group-panel",
-            ".prompt-template-detail",
-        ):
-            self.assertNotIn(legacy_selector, self.classic_style)
+    def test_classic_canvas_prompt_library_implementation_is_removed(self):
+        self.assertFalse((ROOT / "static/js/canvas.js").exists())
+        self.assertFalse((ROOT / "static/css/canvas.css").exists())
 
 
 if __name__ == "__main__":
