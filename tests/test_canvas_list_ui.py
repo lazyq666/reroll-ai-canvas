@@ -1,3 +1,5 @@
+import hashlib
+import re
 import unittest
 import subprocess
 from pathlib import Path
@@ -7,6 +9,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CanvasListUiRegressionTests(unittest.TestCase):
+    def test_canvas_list_script_uses_its_content_fingerprint(self):
+        page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
+        script = ROOT / "static/js/canvas-list.js"
+        expected = f"asset-{hashlib.sha256(script.read_bytes()).hexdigest()[:12]}"
+        reference = re.search(
+            r'/static/js/canvas-list\.js\?v=([^"\']+)',
+            page,
+        )
+
+        self.assertIsNotNone(reference)
+        self.assertEqual(reference.group(1), expected)
+
     def test_cloud_failure_does_not_render_an_access_empty_state(self):
         result = subprocess.run(
             ['node', 'tests/canvas_list_cloud_failure_regression.cjs'],
