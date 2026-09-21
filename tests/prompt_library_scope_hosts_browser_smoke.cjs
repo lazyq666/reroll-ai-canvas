@@ -344,42 +344,6 @@ async function assertScopeContract(page) {
     });
     await installRoutes(context);
 
-    const classic = await context.newPage();
-    classic.on('pageerror', error => browserErrors.push(`classic pageerror: ${error.message}`));
-    classic.on('console', message => {
-      if(message.type() === 'error') browserErrors.push(`classic console: ${message.text()}`);
-    });
-    await classic.goto('http://prompt-host.local/static/canvas.html?id=classic-prompt-scope', {waitUntil:'domcontentloaded'});
-    await classic.waitForSelector('[data-prompt-template-open][data-prompt-template-node-id="classic-prompt"]');
-    await classic.locator('[data-prompt-template-open][data-prompt-template-node-id="classic-prompt"]').click();
-    await assertScopeContract(classic);
-    await classic.locator('[data-prompt-template-open][data-prompt-template-node-id="classic-prompt"]').click();
-    await classic.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    await classic.locator('#promptTemplatePanel').locator('[data-library-tabs] > [data-library-id="canvas"]').click();
-    await classic.locator('#promptTemplatePanel').evaluate(panel => {
-      window.__classicPromptCardsBeforeSelection = [...panel.shadowRoot.querySelectorAll('[part="template-card"]')];
-    });
-    await classic.locator('#promptTemplatePanel').locator('[data-template-id="canvas-one"] [part="template-select"]').click();
-    await classic.waitForFunction(() => !document.getElementById('promptTemplateDialog')?.open);
-    await classic.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    assert.equal(await classic.locator('#promptTemplatePanel').evaluate(panel => {
-      const cards = [...panel.shadowRoot.querySelectorAll('[part="template-card"]')];
-      return cards.every((card, index) => card === window.__classicPromptCardsBeforeSelection[index]);
-    }), true);
-    assert.equal(await classic.locator('.node[data-id="classic-prompt"] textarea').inputValue(), '角色始终佩戴红色围巾');
-    await classic.locator('.node[data-id="classic-prompt"] textarea').fill('Classic 刚编辑后立即保存');
-    await classic.evaluate(() => saveCurrentCanvasPromptAsTemplate('classic-prompt'));
-    await classic.waitForFunction(() => document.querySelector('ic-toast'));
-    const classicPromptRequest = promptCreateRequests.find(item => item.canvas === 'classic');
-    assert.ok(classicPromptRequest);
-    assert.equal(classicPromptRequest.body.base_revision, 4);
-    assert.ok(classicSaveRequests.length >= 1);
-    await classic.locator('.node[data-id="classic-prompt"] textarea').fill('提示词成功后的下一次普通编辑');
-    await classic.waitForTimeout(650);
-    assert.ok(classicSaveRequests.length >= 2);
-    assert.ok(Number(classicSaveRequests.at(-1).base_updated_at) >= 300);
-    await classic.close();
-
     const smart = await context.newPage();
     smart.on('pageerror', error => browserErrors.push(`smart pageerror: ${error.message}`));
     smart.on('console', message => {

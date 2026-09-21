@@ -95,7 +95,11 @@ def _summary(document: Dict[str, Any]) -> Dict[str, Any]:
         "id": str(document.get("id") or ""),
         "title": str(document.get("title") or "未命名画布"),
         "icon": str(document.get("icon") or "🧩"),
-        "kind": "smart" if document.get("kind") == "smart" else "classic",
+        "kind": (
+            document.get("kind")
+            if document.get("kind") in {"smart", "classic"}
+            else "unknown"
+        ),
         "owner_id": str(document.get("owner_id") or ""),
         "owner_username": str(document.get("owner_username") or ""),
         "visibility": document.get("visibility") if document.get("visibility") in {"shared", "private"} else "shared",
@@ -408,6 +412,8 @@ class CanvasListIndex:
         for entry in state["entries"].values():
             record = entry.get("record") if isinstance(entry, dict) else None
             if not isinstance(record, dict) or not can_access_canvas(actor, record):
+                continue
+            if record.get("kind") != "smart":
                 continue
             is_deleted = bool(record.get("deleted_at"))
             if is_deleted != bool(deleted):

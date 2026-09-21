@@ -867,34 +867,61 @@ class MainAccountIntegrationTests(unittest.TestCase):
                 canvas = client.post(
                     "/api/canvases", json={"title": "Shared canvas"}
                 ).json()["canvas"]
-                saved = client.put(
-                    f"/api/canvases/{canvas['id']}",
-                    json={
-                        "title": canvas["title"],
-                        "nodes": [
-                            {"id": "image-1", "url": "/assets/visible.png"},
-                            {
-                                "id": "smart-image-1",
-                                "type": "smart-image",
-                                "images": [{"url": "/assets/visible.png", "name": "原始名称.png"}],
-                                "promptDraftText": "private image prompt",
+                with client.websocket_connect(
+                    f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=share-test"
+                ) as socket:
+                    while socket.receive_json().get("type") != "canvas_snapshot":
+                        pass
+                    socket.send_json(
+                        {
+                            "type": "canvas_mutation",
+                            "canvas_id": canvas["id"],
+                            "operation": {
+                                "operation_id": "share-test:create-content",
+                                "base_revision": 0,
+                                "changes": {
+                                    "node_creates": [
+                                        {"id": "image-1", "url": "/assets/visible.png"},
+                                        {
+                                            "id": "smart-image-1",
+                                            "type": "smart-image",
+                                            "images": [
+                                                {
+                                                    "url": "/assets/visible.png",
+                                                    "name": "原始名称.png",
+                                                }
+                                            ],
+                                            "promptDraftText": "private image prompt",
+                                        },
+                                        {
+                                            "id": "smart-text-1",
+                                            "type": "smart-text",
+                                            "text": "观众可见文字",
+                                        },
+                                        {
+                                            "id": "smart-prompt-1",
+                                            "type": "smart-prompt",
+                                            "text": "shared prompt node",
+                                            "prompt": "shared prompt value",
+                                            "apiKey": "must-not-leak",
+                                        },
+                                    ],
+                                    "connection_adds": [
+                                        {
+                                            "from": "smart-prompt-1",
+                                            "to": "smart-image-1",
+                                        },
+                                        {
+                                            "from": "smart-image-1",
+                                            "to": "smart-text-1",
+                                        },
+                                    ],
+                                },
                             },
-                            {"id": "smart-text-1", "type": "smart-text", "text": "观众可见文字"},
-                            {
-                                "id": "smart-prompt-1",
-                                "type": "smart-prompt",
-                                "text": "shared prompt node",
-                                "prompt": "shared prompt value",
-                                "apiKey": "must-not-leak",
-                            },
-                        ],
-                        "connections": [
-                            {"from": "smart-prompt-1", "to": "smart-image-1"},
-                            {"from": "smart-image-1", "to": "smart-text-1"},
-                        ],
-                    },
-                )
-                self.assertEqual(saved.status_code, 200)
+                        }
+                    )
+                    while socket.receive_json().get("type") != "canvas_mutation":
+                        pass
 
                 share = client.post(f"/api/canvases/{canvas['id']}/share")
                 self.assertEqual(share.status_code, 200)
@@ -983,7 +1010,7 @@ class MainAccountIntegrationTests(unittest.TestCase):
                     username="designer", password="designer-pass", role="designer"
                 )
                 (canvas_dir / "legacy.json").write_text(
-                    '{"id":"legacy","title":"Legacy","nodes":[],"connections":[]}',
+                    '{"id":"legacy","title":"Legacy","kind":"smart","nodes":[],"connections":[]}',
                     encoding="utf-8",
                 )
                 main.migrate_all_canvas_access()

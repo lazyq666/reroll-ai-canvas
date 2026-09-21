@@ -858,7 +858,6 @@ function renderCanvasBatch(items, offset = 0, token = renderBatchToken){
 }
 
 function buildCard(c){
-    const isSmart = (c.kind || 'classic') === 'smart';
     const canEdit = currentUser && ['admin', 'designer'].includes(currentUser.role);
     const card = document.createElement('div');
     card.className = 'ws-card'
@@ -867,26 +866,22 @@ function buildCard(c){
     card.dataset.canvasId = c.id;
     card.tabIndex = 0;
     card.setAttribute('role', 'link');
-    card.setAttribute('aria-label', `${c.title || L('未命名画布','Untitled canvas')} · ${isSmart ? L('智能画布','Smart canvas') : L('普通画布','Classic canvas')}`);
+    card.setAttribute('aria-label', c.title || L('未命名画布','Untitled canvas'));
     card.style.left = (c.board_x || 0) + 'px';
     card.style.top = (c.board_y || 0) + 'px';
     const coverUrl = String(c.cover_url || '').trim();
     const coverPreviewUrl = canvasListCoverPreviewUrl(coverUrl);
-    const canvasLabel = `${c.title || L('未命名画布','Untitled canvas')} · ${isSmart ? L('智能画布','Smart canvas') : L('普通画布','Classic canvas')}`;
-    const canvasKindTag = isSmart
-        ? ''
-        : `<ic-badge class="ws-card-kind classic" kind="label" tone="neutral">${compactLabel('普通画布','普通','Classic')}</ic-badge>`;
+    const canvasLabel = c.title || L('未命名画布','Untitled canvas');
     card.innerHTML = `
         <ic-card class="ws-card-surface" size="small" label="${escapeAttr(canvasLabel)}">
             <ic-media-container class="ws-card-thumb ${coverUrl ? 'has-cover' : ''}" kind="image" fit="cover" aspect="landscape" state="ready" label="${escapeAttr(c.title || L('画布封面','Canvas cover'))}">
                 ${coverUrl ? `<img class="ws-card-cover" src="${escapeAttr(coverPreviewUrl)}" data-original-src="${escapeAttr(coverUrl)}" alt="${escapeAttr(c.title || L('画布封面','Canvas cover'))}" loading="lazy" decoding="async">` : ''}
                 <div class="ws-card-thumb-placeholder" aria-hidden="true">
-                    <span class="ws-card-thumb-icon"><ic-icon name="${isSmart ? 'app' : 'canvas'}" size="large" aria-hidden="true"></ic-icon></span>
+                    <span class="ws-card-thumb-icon"><ic-icon name="app" size="large" aria-hidden="true"></ic-icon></span>
                     <span>${L('暂无画布图片','No canvas image')}</span>
                 </div>
                 <div class="ws-card-top">
                     <div class="ws-card-labels">
-                        ${canvasKindTag}
                         ${canEdit ? `<ic-badge class="ws-card-access" kind="label" tone="neutral"><ic-icon name="edit" size="small" aria-hidden="true"></ic-icon>${L('可编辑','Editable')}</ic-badge>` : ''}
                         ${c.visibility === 'private' ? `<ic-badge class="ws-card-privacy" kind="label" tone="neutral"><ic-icon name="lock" size="x-small" aria-hidden="true"></ic-icon>${L('仅自己','Private')}</ic-badge>` : ''}
                     </div>
@@ -902,7 +897,7 @@ function buildCard(c){
                     <span class="ws-card-time">${formatCanvasTime(c.updated_at || c.created_at)}</span>
                 </div>
               </div>
-              ${isSmart ? '<div class="ws-card-presence" role="group"></div>' : ''}
+              <div class="ws-card-presence" role="group"></div>
             </div>
         </ic-card>`;
     const presenceHost = card.querySelector('.ws-card-presence');
@@ -977,9 +972,7 @@ function attachCardDrag(card, c){
 function canvasHref(c){
     const enc = encodeURIComponent(c.id);
     const project = encodeURIComponent(c.project || currentProjectId || 'default');
-    return (c.kind === 'smart')
-        ? `/static/smart-canvas.html?id=${enc}&project=${project}&v=${Date.now()}`
-        : `/static/canvas.html?id=${enc}&project=${project}&v=${Date.now()}`;
+    return `/static/smart-canvas.html?id=${enc}&project=${project}&v=${Date.now()}`;
 }
 
 function openCanvas(c){
@@ -988,7 +981,6 @@ function openCanvas(c){
 }
 
 /* ===== Card create flow ===== */
-let createKind = 'smart';
 let createWorldPoint = null;
 function closeCreateCard(){
     createWorldPoint = null;
@@ -997,18 +989,14 @@ function closeCreateCard(){
 function openCreateCard(worldPt){
     closeCardMenu();
     createWorldPoint = worldPt || boardCenterWorld();
-    createKind = 'smart';
     createCanvasDialog.label = L('新建画布','New canvas');
     createCanvasName.value = '';
     createCanvasName.placeholder = L('画布名称（可留空）','Canvas name (optional)');
-    createCanvasKind.setAttribute('value', 'smart');
     createCanvasDialog.show();
 }
 
-async function createCanvasOnBoard(title, kind, worldPt){
-    const isSmart = kind === 'smart';
-    const base = isSmart ? L('智能画布','Smart canvas') : L('画布','Canvas');
-    const name = title || `${base} ${new Date().toLocaleTimeString(langIsEn() ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+async function createCanvasOnBoard(title, worldPt){
+    const name = title || `${L('画布','Canvas')} ${new Date().toLocaleTimeString(langIsEn() ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
     if(createCanvasDialog?.open) await createCanvasDialog.hide('confirm');
     createWorldPoint = null;
     try {
@@ -1017,8 +1005,8 @@ async function createCanvasOnBoard(title, kind, worldPt){
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 title: name,
-                icon: isSmart ? 'sparkles' : '🧩',
-                kind: isSmart ? 'smart' : 'classic',
+                icon: 'sparkles',
+                kind: 'smart',
                 project: currentProjectId,
                 board_x: Math.round(worldPt.x),
                 board_y: Math.round(worldPt.y)
@@ -1636,11 +1624,7 @@ function renderTrash(){
         return;
     }
     deletedCanvases.forEach(c => {
-        const isSmart = (c.kind || 'classic') === 'smart';
         const projName = (projects.find(p => p.id === (c.project || 'default')) || {}).name || L('默认项目','Default');
-        const canvasKindTag = isSmart
-            ? ''
-            : `<ic-badge class="ws-card-kind classic" kind="label" tone="neutral">${L('普通','Classic')}</ic-badge>`;
         const card = document.createElement('ic-card');
         card.className = 'ws-trash-card';
         card.setAttribute('size', 'small');
@@ -1648,8 +1632,7 @@ function renderTrash(){
         card.dataset.canvasId = c.id;
         card.innerHTML = `
             <div class="ws-card-top">
-                <span class="ws-card-icon">${renderCanvasIcon(isSmart && /[^\x00-\x7F]/.test(c.icon || '') ? 'sparkles' : c.icon, 17)}</span>
-                ${canvasKindTag}
+                <span class="ws-card-icon">${renderCanvasIcon(/[^\x00-\x7F]/.test(c.icon || '') ? 'sparkles' : c.icon, 17)}</span>
             </div>
             <div class="ws-card-title">${escapeHtml(c.title)}</div>
             <div class="ws-card-meta"><span class="ws-card-nodes">${escapeHtml(projName)}</span><span class="ws-card-meta-dot"></span><span class="ws-card-time">${formatCanvasTime(c.deleted_at)}</span></div>
@@ -1720,18 +1703,15 @@ emptyCreateCanvasBtn?.addEventListener('click', e => {
     e.stopPropagation();
     openCreateCard(boardCenterWorld());
 });
-createCanvasKind.addEventListener('ic-change', event => {
-    createKind = event.detail?.value || 'smart';
-});
 createCanvasCancel.addEventListener('click', closeCreateCard);
 createCanvasConfirm.addEventListener('click', () => {
     if(!createWorldPoint) return;
-    createCanvasOnBoard(createCanvasName.value.trim(), createKind, createWorldPoint);
+    createCanvasOnBoard(createCanvasName.value.trim(), createWorldPoint);
 });
 createCanvasName.addEventListener('keydown', event => {
     if(event.key !== 'Enter' || !createWorldPoint) return;
     event.preventDefault();
-    createCanvasOnBoard(createCanvasName.value.trim(), createKind, createWorldPoint);
+    createCanvasOnBoard(createCanvasName.value.trim(), createWorldPoint);
 });
 createCanvasDialog.addEventListener('ic-after-hide', () => { createWorldPoint = null; });
 boardRefreshBtn.addEventListener('click', () => refreshCanvasListSession().catch(handleCanvasListSessionError));

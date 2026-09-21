@@ -1558,6 +1558,13 @@ class SqliteCanvasStore:
             (canvas_id,),
         ).fetchone():
             raise CanvasStoreError("canvas_exists", "Canvas 已存在")
+        raw_kind = str(document.get("kind") or "").strip().lower()
+        if raw_kind and raw_kind not in {"smart", "classic"}:
+            raise CanvasStoreError(
+                "invalid_canvas_kind",
+                "Canvas 类型无效",
+            )
+        imported_kind = raw_kind or "classic"
 
         connection.execute(
             """
@@ -1570,7 +1577,7 @@ class SqliteCanvasStore:
             """,
             (
                 canvas_id,
-                "smart" if document.get("kind") == "smart" else "classic",
+                imported_kind,
                 str(document.get("title") or "未命名画布"),
                 str(document.get("icon") or "layers"),
                 str(document.get("owner_id") or actor.get("id") or ""),

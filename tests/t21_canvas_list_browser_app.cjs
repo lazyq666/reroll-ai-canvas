@@ -15,7 +15,7 @@ function canvas(project, index) {
   return {
     id: `${project}-${index}`,
     title: project === 'motion' ? `动态分镜 ${index + 1}` : `品牌画布 ${index + 1}`,
-    kind: index % 2 ? 'classic' : 'smart',
+    kind: 'smart',
     project,
     visibility: index === 2 ? 'private' : 'shared',
     node_count: 8 + index * 3,
@@ -37,6 +37,9 @@ const server = http.createServer((request, response) => {
   if (url.pathname === '/api/auth/me') return json(response, 200, { user: { id: 't21-admin', username: 'admin', role: 'admin', status: 'active' } });
   if (url.pathname === '/api/projects') return json(response, 200, { projects });
   if (url.pathname === '/api/canvases/trash') return json(response, 200, { canvases: [] });
+  if (url.pathname === '/api/canvases/presence' && request.method === 'POST') {
+    return json(response, 200, { canvases: {} });
+  }
   if (url.pathname === '/api/canvases' && request.method === 'GET') {
     const project = url.searchParams.get('project') || 'default';
     const cursor = Number(url.searchParams.get('cursor') || 0);

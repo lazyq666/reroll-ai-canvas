@@ -46,7 +46,14 @@ class CanvasPresenceHttpTests(unittest.TestCase):
                         return response.json()["canvas"]["id"]
 
                     shared, private, deleted = create(), create(), create()
-                    classic, other = create("classic"), create(project=project["id"])
+                    classic = "legacy-classic-presence"
+                    classic_path = Path(main.current_workspace_content().smart_canvas(classic))
+                    classic_path.write_text(
+                        '{"id":"legacy-classic-presence","kind":"classic","title":"Legacy","owner_id":"%s","owner_username":"%s","visibility":"shared","project":"default","created_at":1,"updated_at":1,"revision":0,"nodes":[],"connections":[]}'
+                        % (users["admin"]["id"], users["admin"]["username"]),
+                        encoding="utf-8",
+                    )
+                    other = create(project=project["id"])
                     self.assertEqual(client.put(f"/api/canvases/{private}/visibility", json={"visibility": "private"}).status_code, 200)
                     self.assertEqual(client.delete(f"/api/canvases/{deleted}").status_code, 200)
                     main.AUTH_SYSTEM.set_user_project_ids(users["designer"]["id"], main.current_workspace_id(), ["default"], actor_id=users["admin"]["id"])

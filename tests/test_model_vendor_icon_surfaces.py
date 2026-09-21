@@ -14,8 +14,8 @@ class ModelVendorIconSurfaceTests(unittest.TestCase):
         cls.batch_script = (ROOT / "static/js/batch-generation.js").read_text(encoding="utf-8")
         cls.api_page = (ROOT / "static/api-settings.html").read_text(encoding="utf-8")
         cls.api_script = (ROOT / "static/js/api-settings.js").read_text(encoding="utf-8")
-        cls.canvas_page = (ROOT / "static/canvas.html").read_text(encoding="utf-8")
-        cls.canvas_script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
+        cls.canvas_page = (ROOT / "static/smart-canvas.html").read_text(encoding="utf-8")
+        cls.canvas_script = (ROOT / "static/js/smart-canvas.js").read_text(encoding="utf-8")
 
     def test_shared_helper_can_render_vendor_or_generic_icon(self):
         self.assertIn("const markup = (model = '', providerId = '', providerName = '', requestedStyle = 'auto')", self.vendor_script)
@@ -45,13 +45,11 @@ class ModelVendorIconSurfaceTests(unittest.TestCase):
         self.assertIn("modelVendorIconMarkup(model, item)", self.api_script)
         self.assertIn("model-picker-name", self.api_script)
 
-    def test_classic_canvas_selected_models_show_icons(self):
+    def test_canvas_selected_models_show_icons(self):
         self.assertIn('/static/css/model-vendor-icons.css', self.canvas_page)
         self.assertIn('/static/js/model-vendor-icons.js', self.canvas_page)
-        self.assertIn("canvasModelVendorIconMarkup('text'", self.canvas_script)
-        self.assertIn("canvasModelVendorIconMarkup('image'", self.canvas_script)
-        self.assertIn("canvasModelVendorIconMarkup('video'", self.canvas_script)
-        self.assertIn("syncCanvasModelVendorIcon", self.canvas_script)
+        self.assertIn("smartModelVendorIconMarkup", self.canvas_script)
+        self.assertIn("smartModelVendorIcon", self.canvas_script)
 
 
 if __name__ == "__main__":

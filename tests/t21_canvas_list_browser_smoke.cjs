@@ -22,7 +22,10 @@ const combinations = [
       const consoleErrors = [];
       const pageErrors = [];
       page.on('console', message => {
-        if (message.type() === 'error' || message.type() === 'warning') consoleErrors.push(message.text());
+        if (message.type() === 'error' || message.type() === 'warning') {
+          const sourceUrl = message.location().url;
+          consoleErrors.push(sourceUrl ? `${message.text()} (${sourceUrl})` : message.text());
+        }
       });
       page.on('pageerror', error => pageErrors.push(String(error)));
       await page.addInitScript(theme => {

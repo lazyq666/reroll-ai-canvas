@@ -42,7 +42,6 @@ class CanvasListBrowseNavigationContractTests(unittest.TestCase):
             '<ic-badge class="ws-project-count" kind="count"',
             '<ic-card class="ws-card-surface"',
             '<ic-media-container class="ws-card-thumb',
-            '<ic-badge class="ws-card-kind classic"',
             '<ic-badge class="ws-card-access"',
             '<ic-badge class="ws-card-privacy"',
             '<ic-icon-button class="ws-card-menu"',
@@ -69,8 +68,8 @@ class CanvasListBrowseNavigationContractTests(unittest.TestCase):
             "boardResetViewBtn.addEventListener('click', resetView);",
         ):
             self.assertIn(contract, self.script)
-        self.assertIn("? `/static/smart-canvas.html?id=${enc}&project=${project}&v=${Date.now()}`", self.script)
-        self.assertIn(": `/static/canvas.html?id=${enc}&project=${project}&v=${Date.now()}`", self.script)
+        self.assertIn("return `/static/smart-canvas.html?id=${enc}&project=${project}&v=${Date.now()}`", self.script)
+        self.assertNotIn("/static/canvas.html?id=", self.script)
 
     def test_browse_component_chrome_is_not_reimplemented_in_page_css(self):
         for selector in (

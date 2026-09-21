@@ -17,25 +17,17 @@ class SmartCanvasPromptTemplatePanelTests(unittest.TestCase):
             ROOT / "static/js/infinite-canvas-ui/prompt-template-library.js"
         ).read_text(encoding="utf-8")
         cls.server = (ROOT / "backend/main.py").read_text(encoding="utf-8")
-        cls.classic_page = (ROOT / "static/canvas.html").read_text(encoding="utf-8")
-        cls.classic_script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
         cls.commit_lane = (
             ROOT / "static/js/infinite-canvas-ui/canvas-commit-lane.js"
         ).read_text(encoding="utf-8")
 
     def test_canvas_prompt_writes_share_one_commit_lane_without_prompt_revision_cache(self):
-        for page, host_script in (
-            (self.page, "/static/js/smart-canvas.js"),
-            (self.classic_page, "/static/js/canvas.js"),
-        ):
-            lane_script = "/static/js/infinite-canvas-ui/canvas-commit-lane.js"
-            self.assertIn(lane_script, page)
-            self.assertLess(page.index(lane_script), page.index(host_script))
+        lane_script = "/static/js/infinite-canvas-ui/canvas-commit-lane.js"
+        self.assertIn(lane_script, self.page)
+        self.assertLess(self.page.index(lane_script), self.page.index("/static/js/smart-canvas.js"))
         self.assertIn("return Object.freeze({commitPrompt});", self.commit_lane)
         self.assertIn("smartPromptCommitLane().commitPrompt", self.script)
-        self.assertIn("classicPromptCommitLane().commitPrompt", self.classic_script)
         self.assertNotIn("promptTemplateRevision", self.script)
-        self.assertNotIn("canvasPromptTemplateRevision", self.classic_script)
         self.assertIn('"action": "create"', self.server)
         self.assertIn('"expected_item_version"', self.server)
 
@@ -168,8 +160,6 @@ class SmartCanvasPromptTemplatePanelTests(unittest.TestCase):
         self.assertIn("detail.draft?.coverFile", self.script)
         self.assertIn("uploadPromptTemplateCover(detail.draft.coverFile)", self.script)
         self.assertIn("fetch('/api/prompt-libraries/covers'", self.script)
-        self.assertIn("fetch('/api/prompt-libraries/covers'", self.classic_script)
-        self.assertNotIn("form.append('files', file, file.name || 'prompt-cover')", self.classic_script)
         self.assertIn('"cover": payload.cover or ""', self.server)
         self.assertIn('"cover": item.get("cover") if payload.cover is None else payload.cover', self.server)
 

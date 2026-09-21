@@ -67,40 +67,15 @@ class CanvasManagementI18nTests(unittest.TestCase):
         self.assertIn('"smart.summaryImageSingle"', resources)
         self.assertIn('en: "{count} image"', resources)
 
-    def test_classic_canvas_node_titles_and_accessible_names_are_localized(self):
-        script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
-        self.assertNotIn("node.type === 'prompt' ? 'Prompt'", script)
-        self.assertNotIn("node.type === 'image' ? 'Image'", script)
-        self.assertIn("node.type === 'prompt' ? tr('canvas.prompt')", script)
+    def test_retired_classic_canvas_page_is_localized(self):
         page = (ROOT / "static/canvas.html").read_text(encoding="utf-8")
-        for element_id in ("backToManagerBtn", "canvasLogToggle", "outputDownloadBtn"):
-            tag = re.search(rf'<button\b[^>]*\bid="{element_id}"[^>]*>', page)
-            self.assertIsNotNone(tag)
-            self.assertIn("data-i18n-aria-label", tag.group(0))
-
-    def test_classic_canvas_status_messages_use_translation_keys(self):
-        script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
-        for literal in (
-            "setStatus('Saving...')",
-            "setStatus('Synced')",
-            "setStatus('Saved')",
-            "setStatus('Ready')",
-            "setStatus('Sync failed')",
-            "setStatus('Moving to trash...')",
-        ):
-            self.assertNotIn(literal, script)
-        self.assertIn("setStatus(tr('canvas.saving'))", script)
-        self.assertIn("setStatus(tr('canvas.ready'))", script)
-
-    def test_classic_canvas_time_refreshes_when_language_changes(self):
-        script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
-        language_handlers = script[script.index("function applyLanguage") : script.index("const shell =")]
-        self.assertGreaterEqual(
-            language_handlers.count(
-                "currentCanvasTime.textContent = formatCanvasTime(canvas.updated_at || canvas.created_at)"
-            ),
-            2,
-        )
+        resources = (ROOT / "static/js/i18n/workspace.js").read_text(encoding="utf-8")
+        self.assertIn('data-i18n="workspace.retiredCanvasHeading"', page)
+        self.assertIn('data-i18n="workspace.retiredCanvasDescription"', page)
+        self.assertIn('data-i18n="workspace.backToCanvases"', page)
+        self.assertIn('"workspace.retiredCanvasHeading"', resources)
+        self.assertIn("Classic Canvas has been retired.", resources)
+        self.assertFalse((ROOT / "static/js/canvas.js").exists())
 
     def test_smart_canvas_default_titles_and_separators_are_localized(self):
         scripts = "\n".join(

@@ -88,8 +88,7 @@ ic-button.ws-trash-entry[size="m"]::part(base) { width:100%; min-height:var(--ui
 .ws-card-thumb::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, color-mix(in srgb, var(--ui-color-mask) 54%, transparent), transparent 44%); opacity:.74; }
 .ws-card-icon { width:var(--ui-icon-size-l); height:var(--ui-icon-size-l); flex:0 0 auto; border-radius:var(--ui-radius-s); display:flex; align-items:center; justify-content:center; background:var(--ui-color-surface-subtle); color:var(--ui-color-text-tertiary); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); font-size:var(--ui-font-size-4); }
 .ws-card-icon.icon-has-color { background:var(--ui-color-text-primary); color:var(--ui-color-surface); border-color:transparent; }
-.ws-card-kind { flex:0 1 auto; min-width:0; max-width:calc(100% - 36px); }
-.ws-card-kind::part(base),.ws-card-access::part(base),.ws-card-privacy::part(base) { min-block-size:1.5rem; block-size:1.5rem; font:var(--ui-text-caption); }
+.ws-card-access::part(base),.ws-card-privacy::part(base) { min-block-size:1.5rem; block-size:1.5rem; font:var(--ui-text-caption); }
 .ws-card-access ic-icon,.ws-card-privacy ic-icon,.ws-card-menu { --ic-icon-context-stroke-width:var(--ui-icon-stroke-width-m); }
 .ws-card-menu { margin-left:auto; flex:0 0 auto; --ic-icon-button-control-size:1.5rem; inline-size:1.5rem; block-size:1.5rem; }
 ic-icon-button.ws-card-menu::part(base) { min-inline-size:1.5rem; min-block-size:1.5rem; inline-size:1.5rem; block-size:1.5rem; }
@@ -165,7 +164,6 @@ ic-icon-button.ws-card-menu::part(base) { min-inline-size:1.5rem; min-block-size
     .ws-load-more-btn span { display:none; }
     .ws-card { width:260px; padding:var(--ui-space-0); gap:var(--ui-space-0); }
     .ws-card-top { gap:var(--ui-space-1); min-height:26px; }
-    .ws-card-kind { max-width:calc(100% - 32px); }
     .ws-card-title { font-size:var(--ui-font-size-3); }
     .ws-card-meta { padding:var(--ui-space-0); gap:var(--ui-space-1); }
     .ws-trash-list { grid-template-columns:1fr; padding:var(--ui-space-3); }

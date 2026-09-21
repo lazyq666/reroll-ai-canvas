@@ -127,70 +127,53 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         self.assertIn(".ws-board-empty-actions,.ws-topbar-right", script)
         self.assertIn(".ws-card,.ws-topbar-right", script)
 
-    def test_new_canvas_defaults_to_smart_canvas(self):
+    def test_new_canvas_has_no_kind_choice_and_always_creates_smart(self):
         page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
         list_script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
-        editor_script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
 
-        self.assertIn("let createKind = 'smart';", list_script)
-        self.assertIn("createKind = 'smart';", list_script)
-        self.assertIn(
-            '<ic-segmented-control id="createCanvasKind" label="画布类型" value="smart"',
-            page,
-        )
-        self.assertIn("let createCanvasKind = 'smart';", editor_script)
-        self.assertIn("function setCreateMode(active, kind='smart')", editor_script)
-
-    def test_open_canvas_does_not_call_legacy_touch_command(self):
-        editor_script = (ROOT / "static/js/canvas.js").read_text(
-            encoding="utf-8"
-        )
-
-        self.assertNotIn("touchCanvasOpened", editor_script)
-        self.assertNotIn("/touch`, {method:'POST'", editor_script)
+        self.assertNotIn('id="createCanvasKind"', page)
+        self.assertNotIn("createKind", list_script)
+        self.assertIn("kind: 'smart'", list_script)
+        self.assertNotIn("kind: 'classic'", list_script)
+        self.assertFalse((ROOT / "static/js/canvas.js").exists())
 
     def test_confirmation_actions_render_secondary_button_before_primary_button(self):
         page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
-        editor_script = (ROOT / "static/js/canvas.js").read_text(encoding="utf-8")
-
         ordered_pairs = (
             (page, 'id="newProjectCancel"', 'id="newProjectConfirm"'),
             (page, 'id="createCanvasCancel"', 'id="createCanvasConfirm"'),
-            (editor_script, 'class="canvas-cancel-btn"', 'class="canvas-confirm-btn"'),
         )
         for source, secondary, primary in ordered_pairs:
             with self.subTest(secondary=secondary, primary=primary):
                 self.assertLess(source.index(secondary), source.index(primary))
 
-    def test_editable_badge_is_separate_from_canvas_kind_badge(self):
+    def test_editable_badge_remains_without_canvas_kind_badge(self):
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")
 
-        self.assertIn('class="ws-card-kind ', script)
+        self.assertNotIn('class="ws-card-kind ', script)
         self.assertIn('class="ws-card-access"', script)
         self.assertIn("L('可编辑','Editable')", script)
         self.assertNotIn("L('能画'", script)
         self.assertIn(".ws-card-access", styles)
 
-    def test_smart_canvas_omits_kind_badge_while_classic_canvas_keeps_it(self):
+    def test_canvas_kind_badges_are_removed(self):
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
 
-        self.assertEqual(script.count("const canvasKindTag = isSmart"), 2)
-        self.assertEqual(script.count('class="ws-card-kind classic"'), 2)
-        self.assertNotIn('class="ws-card-kind smart"', script)
+        self.assertNotIn("canvasKindTag", script)
+        self.assertNotIn('class="ws-card-kind', script)
 
     def test_thumbnail_statuses_use_public_badges_and_icons(self):
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")
 
-        self.assertIn('<ic-badge class="ws-card-kind classic" kind="label" tone="neutral">', script)
         self.assertIn('<ic-badge class="ws-card-access" kind="label" tone="neutral">', script)
         self.assertIn('<ic-badge class="ws-card-privacy" kind="label" tone="neutral">', script)
         self.assertIn('<ic-icon name="edit" size="small"', script)
         self.assertIn('<ic-icon name="lock" size="x-small"', script)
         self.assertIn(".ws-card-access ic-icon,.ws-card-privacy ic-icon,.ws-card-menu { --ic-icon-context-stroke-width:var(--ui-icon-stroke-width-m); }", styles)
-        self.assertIn(".ws-card-kind::part(base),.ws-card-access::part(base),.ws-card-privacy::part(base) { min-block-size:1.5rem; block-size:1.5rem; font:var(--ui-text-caption); }", styles)
-        self.assertNotIn(".ws-card-kind.classic { background:", styles)
+        self.assertIn(".ws-card-access::part(base),.ws-card-privacy::part(base) { min-block-size:1.5rem; block-size:1.5rem; font:var(--ui-text-caption); }", styles)
+        self.assertNotIn(".ws-card-kind", styles)
         self.assertIn(".ws-card-menu { margin-left:auto;", styles)
         self.assertNotIn(".theme-dark .ws-card-kind", styles)
 
@@ -267,12 +250,10 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         self.assertIn("BoundedSemaphore(MEDIA_PREVIEW_BUILD_CONCURRENCY)", source)
         self.assertIn("with MEDIA_PREVIEW_BUILD_SEMAPHORE:", source)
 
-    def test_canvas_editors_return_to_a_fresh_canvas_list_page(self):
+    def test_smart_canvas_returns_to_a_fresh_canvas_list_page(self):
         expected = "&v=${Date.now()}"
-        for relative_path in ("static/js/canvas.js", "static/js/smart-canvas.js"):
-            with self.subTest(relative_path=relative_path):
-                script = (ROOT / relative_path).read_text(encoding="utf-8")
-                self.assertIn(expected, script)
+        script = (ROOT / "static/js/smart-canvas.js").read_text(encoding="utf-8")
+        self.assertIn(expected, script)
 
     def test_canvas_list_opens_fresh_editor_pages(self):
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")

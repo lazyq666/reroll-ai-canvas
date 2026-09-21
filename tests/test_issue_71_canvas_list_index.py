@@ -362,6 +362,7 @@ class CanvasListIndexContractTests(unittest.TestCase):
             json.dumps(
                 {
                     "id": "target-late",
+                    "kind": "smart",
                     "nodes": [{"id": "nested", "project": "other"}],
                     "project": "target",
                     "visibility": "shared",
