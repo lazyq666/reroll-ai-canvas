@@ -1420,7 +1420,11 @@ class CanvasGenerationApplyTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.applied)
         self.assertEqual(4, result.revision)
         self.assertEqual(
-            [{"url": "/assets/output/generated.png"}],
+            [{
+                "url": "/assets/output/generated.png",
+                "kind": "image",
+                "name": "image-01.png",
+            }],
             stored["nodes"][0]["images"],
         )
         self.assertEqual(
@@ -1755,7 +1759,11 @@ class CanvasSyncSqliteGenerationTests(unittest.IsolatedAsyncioTestCase):
         node = self.snapshot()["nodes"][0]
         self.assertEqual(
             node["images"],
-            [{"url": "/assets/output/generated.png"}],
+            [{
+                "url": "/assets/output/generated.png",
+                "kind": "image",
+                "name": "image-01.png",
+            }],
         )
         self.assertEqual(node["pending"], 0)
         self.assertNotIn("pendingTasks", node)

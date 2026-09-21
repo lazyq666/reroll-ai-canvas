@@ -98,6 +98,8 @@ Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期�
 
 一次运行的多个独立输出组成一个空间集合。Canvas Settings 保存横向或纵向布局，默认横向；创建 Pending 时冻结 `generationBatchLayout`，不按后来的设置改排。普通生成的新结果以实际输入父节点整体为来源，无外部父节点才用执行节点；“再次生成”则以点击节点为布局来源，旧结果不动、不复用，新结果从该节点右侧 G 开始，原参数和输入连接不变；横向放不下时换行，纵向放不下时换列，内部与外部间距共用 G = 4rem（64 世界单位）。跨次续行、续列只是软偏好，允许为了接近父节点及改善视口而打破旧起点对齐。空生成节点复用为第一项时保持身份及坐标，以其为固定首槽继续排列新增结果；容量使用发起时视口和稳定尺寸，输入关系不变。恢复和 Undo/Redo 保留已知位置；自动初始创建的并发竞争才重算新增集合。历史 `generationBatch*` 字段不改变领域中 Generation Batch 的定义。完整空间合同见[节点定位与自动避让](smart-canvas-node-auto-placement.md#4-生成结果与刚性集合)。
 
+新 Generation Output 在拆分前按结果集合初始化短文件名，并按图片、视频、音频各自从 01 连续编号，例如 `image-01.png`、`video-01.webm`、`audio-01.mp3`。扩展名来自实际媒体 URL / MIME / kind，不采用 Provider 的长文件名，也不由之后可编辑的显示名称决定媒体格式。恢复或重复发布合并到已有输出时，已有非空 `name` 属于用户内容，不得被默认名覆盖。详细交互、下载与并发定位合同见 [Smart Canvas 媒体命名与重命名](../active/2026-09-20-smart-canvas-media-naming.md)。
+
 Smart Canvas 用 Node 角色判断 Prompt Authoring 与 Generation Run 的基础资格。单选 Smart Group 或具有明确生成身份的 Generation Node 时 Composer 自动打开；这里包括生成中、生成失败和已完成的 Generation Output Node。普通 Image Node 不具备该资格，无论它是尚未上传的空媒体槽、图片、视频还是音频，也无论媒体来自上传、粘贴、拖入或导入。上传进行中和上传完成后的重绘可以保持当前 Selection，但不得因此打开 Composer 或启用 Generation Run。Frame、Text Annotation 等其他不支持角色、多选普通 Node 或清空 Selection 时 Composer 同样关闭。
 
 Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切换能力：通过 Quick Add 选择“视频”只决定初始 Generation Settings，不锁定后续模式；用户切回图片时，空闲空节点同步更新自身的生成类型。只有已经承载视频或音频、且没有图片媒体的 Generation Node 固定为视频生成。Generation Output 在创建、批量拆分和结果收尾时都必须保存与输出模式一致的明确生成身份；旧 Canvas 中已有可靠 Generation Output 证据但缺失该身份的节点，在加载规范化时按 `outputKind` 等结果证据补齐。普通媒体 Node 即使保存过旧 Prompt 草稿或 Generation Settings，也不会仅凭这些兼容数据恢复 Composer 资格；数据不迁移、不删除。Composer 可见性、运行按钮的基础资格和 `runGeneration()` 最终门禁消费同一角色资格，其他参考输入、Model Capability、Provider、权限和同步校验继续叠加。

@@ -1,18 +1,30 @@
-# Reroll AI Canvas
+<h1 align="center">
+  <img src="static/images/brand/logo.png" alt="Reroll AI Canvas" width="64" valign="middle" /> Reroll AI Canvas
+</h1>
 
-> 面向图片与视频生成的本地优先 AI 无限画布工作台。
-> 在一张可协作的画布里组织提示词、参考素材、生成流程与结果。
+<p align="center">
+  <strong>面向图片与视频生成的本地优先 AI 无限画布工作台。</strong><br />
+  在一张可协作的画布中组织提示词、参考素材、生成流程与结果。<br />
+  <sub>A local-first AI canvas for image and video generation, visual workflows, asset management, and small-team collaboration.</sub>
+</p>
 
-**Local-first AI canvas for image and video generation, visual workflows, asset management, and small-team collaboration.**
+<p align="center">
+  <a href="https://github.com/lazyq666/reroll-ai-canvas/actions/workflows/public-readiness.yml"><img src="https://github.com/lazyq666/reroll-ai-canvas/actions/workflows/public-readiness.yml/badge.svg" alt="Public readiness" /></a>
+  <img src="https://img.shields.io/badge/license-source--available-f59e0b?style=flat" alt="License: source-available" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-6366f1?style=flat" alt="Supported platforms: Windows, macOS, and Linux" />
+</p>
 
-[![Public readiness](https://github.com/lazyq666/reroll-ai-canvas/actions/workflows/public-readiness.yml/badge.svg)](https://github.com/lazyq666/reroll-ai-canvas/actions/workflows/public-readiness.yml)
+<p align="center">
+  <a href="#特色">特色</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#文档地图">文档地图</a> ·
+  <a href="#原项目与作者">原项目与作者</a> ·
+  <a href="#许可">许可</a>
+</p>
 
-[快速开始](#快速开始) · [产品导览](#产品导览) · [为什么选择-reroll](#为什么选择-reroll) · [文档](#文档) · [参与贡献](#参与贡献)
-
-<!-- IMAGE PLACEHOLDER: HERO / 1600x900 / 展示完整 Smart Canvas 工作区、节点关系与生成结果 -->
-> **配图占位｜Hero，建议 1600 × 900**
->
-> 展示完整 Smart Canvas：提示词节点、参考图片、生成节点、视频结果、Frame 与左侧工作台导航。
+<p align="center">
+  <img src="docs/assets/reroll-ai-canvas-overview.png" alt="Reroll AI Canvas Smart Canvas 工作区，展示提示词、媒体节点、连接、分区与批量运行" width="960" />
+</p>
 
 > [!NOTE]
 > Reroll AI Canvas 使用带非商业限制的源码公开许可（source-available），不是 OSI 定义的开源软件。使用、分发或二次开发前请阅读 [LICENSE](LICENSE)。
@@ -20,148 +32,134 @@
 > [!IMPORTANT]
 > 本项目基于 [hero8152/Infinite-Canvas](https://github.com/hero8152/Infinite-Canvas) 修改开发，是独立维护的非官方衍生版本。原作者、原项目链接、版权声明与许可要求均予以保留。
 
----
+## 特色
 
-## 什么是 Reroll AI Canvas
+<table>
+<tr>
+<td width="48%" valign="middle">
 
-Reroll AI Canvas 把 AI 图片与视频创作从“一个提示词输入框”扩展成可观察、可整理、可复用的视觉工作流。
+### 实时多人协作
 
-你可以在同一张 Smart Canvas 中放入提示词、图片、视频、音频与文字参考，通过节点连接组织生成关系；生成结果会回到画布和工作区资产库，而不是散落在不同平台的历史记录里。
+在同一张 Smart Canvas 中查看协作者和实时指针，并以接近 Figma 的选择、拖动、缩放、平移与快捷键习惯共同编辑。服务端权威 Revision 与结构化 Mutation 让并发修改可协调、可恢复。
 
-项目采用本地优先的数据方式：应用服务运行在自己的电脑上，画布与素材保存在用户选择的 Workspace；只有调用在线模型时，相关请求才会发送到所配置的 AI 服务商。
+[实时协作说明 →](docs/current/realtime-collaboration-performance.md)
 
-Reroll 面向个人创作者和可信的小团队，重点解决四件事：
+</td>
+<td width="52%">
 
-- **视觉化生成流程**：把提示词、参考素材、模型设置和生成结果放在同一空间里。
-- **接近设计工具的画布交互**：提供指针、抓手、框选、多选、Frame、Smart Group、右键菜单和快捷键。
-- **本地优先的素材与配置管理**：Workspace、资产库、生成历史和可迁移的 API 设置由用户掌控。
-- **小团队协作**：提供账号、角色、画布权限、只读分享与 Smart Canvas 实时同步。
+<!-- GIF PLACEHOLDER: 多位协作者的实时指针与画布编辑 -->
 
----
+</td>
+</tr>
+<tr>
+<td width="48%" valign="middle">
 
-## 产品导览
+### 账号、角色与分享
 
-### 核心页面
+内置管理员、设计师和访客角色，支持账号申请与审核、按 Project 授权、私有或共享 Canvas，以及可随时撤销的只读分享链接。权限边界覆盖页面入口、画布编辑与生成任务。
 
-| 工作台与项目入口 | Smart Canvas 创作空间 |
-| --- | --- |
-| **配图占位｜建议 1440 × 900**<br>展示工作台首页、画布列表、最近项目和主要功能入口。 | **配图占位｜建议 1440 × 900**<br>展示多种节点、Frame、连线、右键菜单和生成结果。 |
+[项目与权限地图 →](docs/PROJECT-MAP.md#用户角色与权限)
 
-<!-- IMAGE PLACEHOLDER: WORKBENCH / 1440x900 -->
-<!-- IMAGE PLACEHOLDER: SMART CANVAS / 1440x900 -->
+</td>
+<td width="52%">
 
-| API 与模型管理 | Workspace 资产库 |
-| --- | --- |
-| **配图占位｜建议 1440 × 900**<br>展示平台、协议、模型能力和密钥配置，不要在截图中暴露真实 Key。 | **配图占位｜建议 1440 × 900**<br>展示素材文件夹、批量导入、搜索、预览和拖入画布。 |
+<!-- GIF PLACEHOLDER: 账号申请、角色、Project 授权与只读分享的概念演示 -->
 
-<!-- IMAGE PLACEHOLDER: MODEL SETTINGS / 1440x900 -->
-<!-- IMAGE PLACEHOLDER: ASSET LIBRARY / 1440x900 -->
+</td>
+</tr>
+<tr>
+<td width="48%" valign="middle">
 
-### 1 · 在画布上组织生成流程
+### 内置创作工具
 
-- 支持图片、视频、音频、文字、提示词、生成、批处理、Frame 与 Smart Group 等节点。
-- 通过 Connection 表达输入、参考和结果之间的关系。
-- 支持选择、框选、多选、拖动、缩放、平移、复制、撤销和右键操作。
-- 远景缩放时自动简化媒体与节点细节，让大型画布仍能作为结构地图使用。
+从图片节点直接使用智能分层、角度控制、智能抠图、灯光参考、深度图和反推提示词。常用处理入口与结果都留在 Canvas 上，便于继续连接、比较和复用。
 
-<!-- IMAGE PLACEHOLDER: VISUAL WORKFLOW / 1600x900 / 展示“参考图 → 提示词 → 图片生成 → 视频生成”完整链路 -->
-> **配图占位｜Visual workflow，建议 1600 × 900**
->
-> 推荐展示一条可读的端到端链路：参考图 → 提示词 → 图片生成 → 视频生成 → 结果归档。
+[生成链路 →](docs/current/generation-pipeline.md)
 
-### 2 · 连接图片、视频与工作流模型
+</td>
+<td width="52%">
 
-Reroll 以 API 调用为主要方向，同时保留 CLI、本地工作流与原项目兼容能力。不同服务商的请求、状态、结果和错误会收敛到统一的 Generation Run 流程中。
+<!-- GIF PLACEHOLDER: 六种快速工具依次切换的剪辑 -->
 
-当前接入面包括：
+</td>
+</tr>
+<tr>
+<td width="48%" valign="middle">
 
-- OpenAI 兼容协议、Gemini、火山引擎及其他 HTTP API；
-- APIMART、RunningHub、ModelScope；
-- 即梦 CLI、Gemini / Antigravity CLI；
-- 本地或局域网 ComfyUI 工作流；
-- Codex CLI 的 GPT Image 2 helper（可选安装）。
+### 提示词模板库与资产库
 
-模型、地区、计费和内容规则由相应服务商决定。完整生成链路见[生成链路文档](docs/current/generation-pipeline.md)。
+在 Workspace 中整理可复用的 Prompt Template 与创作素材。搜索、预览并把模板或媒体带回当前工作流，减少重复输入和跨应用搬运。
 
-### 3 · 管理 Workspace 与创作素材
+[Workspace 资产库 →](docs/current/workspace-asset-library.md)
 
-- 用户自行选择 Workspace；它必须与 Git 源码仓库使用互不包含的独立目录，画布、素材和生成结果不会写入源码目录。
-- 资产库支持素材发现、文件夹分类、批量导入、搜索和复用。
-- 工作区内容可以迁移到其他目录或设备。
-- 在可用模型管理页的「API 与模型备份」统一导出密码加密包，迁移平台连接、API 密钥和所有模型的名称、排序、显隐及能力详情；包含 CLI 模型设置，CLI 登录需在目标设备重新完成。支持旧包导入。详见[备份与恢复说明](docs/current/api-settings-package.md)。
-- 账号与会话属于当前安装，不会因为切换 Workspace 而退出或改变角色。
+</td>
+<td width="52%">
 
-### 4 · 与小团队共同编辑
+<!-- GIF PLACEHOLDER: 提示词模板库与 Workspace 资产库 -->
 
-- 内置管理员、设计师和访客角色，以及账号申请、审核和禁用流程。
-- 画布可设为私有或共享，并可创建随时撤销的只读分享链接。
-- Smart Canvas 使用服务端权威 Revision 和结构化 Mutation 同步，避免“最后保存的人覆盖所有人”。
-- 当前产品体验与正式容量验收以同一画布 **10 名实时协作者**为目标。
+</td>
+</tr>
+<tr>
+<td width="48%" valign="middle">
 
-> 当前协作定位是可信小团队和单服务实例，不是大型互联网多租户 SaaS。容量、连接上限与已知风险见[实时协作性能与容量](docs/current/realtime-collaboration-performance.md)。
+### 局域网部署，本地优先
 
----
+Reroll 服务运行在自己的电脑上；Canvas、Managed Media 与生成历史保存在用户选择的 Workspace。默认可从可信局域网访问，只有调用在线模型时才把相关请求发送给所配置的 AI 服务商。
 
-## 为什么选择 Reroll
+[本机与局域网访问 →](docs/current/local-network-access.md)
 
-Reroll 没有试图替代原项目，而是在其创作能力之上，进一步加强了画布交互、团队协作、API 工作流和本地数据边界。
+</td>
+<td width="52%">
 
-| 方向 | 原项目 | Reroll AI Canvas |
-| --- | --- | --- |
-| 创作方式 | 功能丰富的 AI 无限画布 | 进一步强调可读的视觉工作流与设计工具式交互 |
-| 使用场景 | 更适合单机、单人创作 | 增加多账号、画布权限、只读分享和小团队实时协作 |
-| 模型接入 | API、ModelScope、即梦 CLI、ComfyUI | 保留兼容能力，并统一平台、模型与 Generation Run 管理 |
-| 数据管理 | 以当前设备内的数据和配置为主 | 增加可选择 Workspace、资产库和加密配置迁移 |
-| 启动维护 | 各平台独立脚本 | 提供统一的跨平台环境检查、依赖安装和启动入口 |
+<!-- GIF PLACEHOLDER: 本机 Workspace 与局域网设备访问 -->
 
-### 设计原则
+</td>
+</tr>
+<tr>
+<td width="48%" valign="middle">
 
-- **Canvas first**：工作流首先应该在空间关系上可读，而不是只存在于表单和日志里。
-- **Local first**：创作文件和工作区由用户选择位置，在线模型只是可替换的执行端。
-- **API first, not API only**：优先统一 API，同时保留 CLI、RunningHub、ModelScope 与 ComfyUI。
-- **Small-team ready**：权限、分享和同步是产品能力，不依赖共享同一台电脑。
-- **Recoverable by default**：网络重试、迟到结果和断线恢复不应重复计费或复活已删除节点。
+### 批量生成工作台
+
+将多模型、多任务的生成计划集中到独立工作台，持续跟踪队列、任务状态和结果；在 Smart Canvas 中也可以用“批量运行”节点按序替换变量并执行相邻生成流程。
+
+[批量运行节点 →](docs/current/smart-canvas-batch-run-node.md)
+
+</td>
+<td width="52%">
+
+<!-- GIF PLACEHOLDER: 批量生成工作台与结果画廊 -->
+
+</td>
+</tr>
+</table>
+
+**更多能力：** Frame 与 Smart Group、图片/视频/音频/文字节点、可读的 Connection、生成历史、模型与 API 管理、ComfyUI / RunningHub / ModelScope / CLI 兼容，以及可迁移的加密配置备份。
 
 ---
 
 ## 快速开始
 
-无需预先安装 Python。首次启动时，统一启动器会按需准备 Reroll 专用的 Python 3.12 环境、创建虚拟环境并安装锁定版本的依赖；它不会覆盖系统 Python。
+无需预先安装 Python。统一启动器会按需准备 Reroll 专用的 Python 3.12 环境、创建虚拟环境并安装锁定版本的依赖，不会覆盖系统 Python。
 
-### Windows 10/11
+### 1. 启动 Reroll
 
-双击：
+| 平台 | 快速启动器 |
+| --- | --- |
+| Windows 10/11 | 双击 `启动服务-Windows.bat`（Start Reroll for Windows） |
+| macOS | 首次使用时右键打开 `启动服务-macOS.command`，以后可直接双击（Start Reroll for macOS） |
+| Linux / 终端 | 运行 `bash 启动服务-macOS.command` |
 
-```text
-启动服务-Windows.bat
-```
-
-### macOS
-
-首次使用时右键打开，以后可直接双击：
-
-```text
-启动服务-macOS.command
-```
-
-### Linux 或终端
-
-```bash
-bash 启动服务-macOS.command
-```
-
-启动完成后访问 `http://127.0.0.1:3000/`。如果 3000 端口已被占用，启动器会自动尝试 3001、3002 等后续端口。
-
-启动器会在服务运行期间持续监督后端。建议在原启动窗口按 `Ctrl+C` 停止；关闭启动窗口、终端标签页或外层启动任务时，后端也会检测到监督关系断开并完成安全清理，包括释放端口与 Workspace 使用权。不要绕过统一启动入口直接运行后端，否则工作区切换等受控重启无法由启动器接续。
-
-### 首次设置
-
-1. 创建本机管理员账号。
-2. 选择一个 Workspace 父目录。
-3. 配置需要使用的 AI 平台与模型。
-4. 新建或打开 Smart Canvas，拖入参考素材并开始连接工作流。
+启动完成后访问 `http://127.0.0.1:3000/`。若 3000 端口已占用，启动器会自动尝试 3001、3002 等后续端口。
 
 > 首次启动需要联网下载运行环境和依赖。AI 生成是否需要联网，取决于你使用在线 API 还是本地 ComfyUI。
+
+### 2. 创建管理员并审核账号
+
+首次进入时创建本机管理员账号。之后，其他用户可以在登录页提交设计师账号申请；管理员在“账号管理”页面审核申请，并为设计师分配可访问的 Project。访客账号不能进入 Canvas 编辑或管理通道。
+
+### 3. 新建 Canvas
+
+选择 Workspace 后，在 Project 中新建 Smart Canvas。拖入参考素材、添加 Prompt 或 Generation Node，再用 Connection 组织输入、参考与结果之间的关系。
 
 ### 环境检查与依赖修复
 
@@ -175,65 +173,30 @@ bash 启动服务-macOS.command
 ./启动服务-macOS.command install --force
 ```
 
----
-
-## 工作方式
-
-```mermaid
-flowchart LR
-    USER[创作者 / 小团队] --> UI[浏览器工作台与 Smart Canvas]
-    UI <-->|HTTP / WebSocket| APP[本机 Reroll 服务]
-    APP --> WORKSPACE[用户选择的 Workspace<br/>画布 · 素材 · 生成历史]
-    APP --> STATE[本机 Instance / Device State<br/>账号 · 会话 · 本机配置]
-    APP --> PROVIDERS[AI Providers<br/>API · CLI · RunningHub · ModelScope · ComfyUI]
-```
-
-- **前端**可以理解为用户看到和操作的界面：工作台、Smart Canvas、设置页与资产库。
-- **后端**是运行在本机的服务层：负责权限、数据保存、协作同步和调用模型。
-- **Workspace**保存可迁移的创作内容；账号、会话和设备设置保留在当前安装中。
-- **Provider adapter**把不同 AI 平台的请求方式转换成 Reroll 统一的生成任务状态。
-
-更完整的产品边界、技术栈和代码阅读入口见[项目地图](docs/PROJECT-MAP.md)。
+启动器会在服务运行期间持续监督后端。建议在原启动窗口按 `Ctrl+C` 停止；关闭启动窗口、终端标签页或外层启动任务时，后端也会检测到监督关系断开并完成安全清理。不要绕过统一启动入口直接运行后端，否则 Workspace 切换等受控重启无法由启动器接续。
 
 ---
 
-## 数据、安全与部署边界
+## 文档地图
 
-- 服务默认监听 `0.0.0.0`，同一局域网内的设备可以通过启动器显示的局域网地址访问；修改监听配置后需要重启服务。
-- 如需仅允许本机访问，可在项目 `.env` 中设置 `INFINITE_CANVAS_HOST=127.0.0.1`。
-- 局域网访问不等于公网部署；只应在可信网络中开放，并继续使用 Reroll 的账号与权限控制。完整的监听、重启、防火墙和失败恢复规则见[本机与局域网访问](docs/current/local-network-access.md)。
-- 公网部署需要自行配置 HTTPS 反向代理、安全 Cookie、可信访问边界和备份策略。
+| 想了解什么 | 从这里开始 |
+| --- | --- |
+| 产品、设计与开发资料总入口 | [产品知识库](docs/README.md) |
+| 产品边界、角色、技术栈与代码责任 | [项目地图](docs/PROJECT-MAP.md) |
+| 统一的产品领域词汇 | [领域语言](CONTEXT.md) |
+| UI 原则、组件状态与交互验收 | [UI 设计与交互指南](docs/current/ui-design-guidelines.md) |
+| Generation Run、服务商适配与结果恢复 | [生成链路](docs/current/generation-pipeline.md) |
+| Workspace、实例数据、密钥与迁移边界 | [存储路径与迁移](docs/current/storage-layout-and-migration.md) |
+| 账号、局域网与部署注意事项 | [本机与局域网访问](docs/current/local-network-access.md) |
+| 贡献代码或文档 | [贡献指南](CONTRIBUTING.md) |
+| 安全问题的私密报告方式 | [安全政策](SECURITY.md) |
+
+### 数据与部署边界
+
+- 服务默认监听 `0.0.0.0`，便于同一可信局域网内的设备访问；如需仅允许本机访问，可在项目 `.env` 中设置 `INFINITE_CANVAS_HOST=127.0.0.1` 并重启。
+- 局域网访问不等于公网部署。公网环境需要自行配置 HTTPS 反向代理、安全 Cookie、可信访问边界和备份策略。
 - 当前协作服务按单个 Uvicorn Worker 设计，不支持多 Worker、多实例或跨服务器同步。
-- API Key、账号数据、分享令牌和用户素材有不同存储边界，详见[存储路径与旧数据迁移](docs/current/storage-layout-and-migration.md)。
-- 管理员在“可用模型管理”每个模型的“编辑”中维护能力；同一 Model ID 的选择会原子应用到关联平台。API 设置页拉取模型时，对 Dreamina、Gemini API 与 APIMART 顺带提取明确能力资料和待核对建议，失败不影响模型清单；没有独立检查入口、启动或定时资料采集。外部 AI 查找与能力数据导入已移除，能力缺口由管理员在模型详情中人工维护；已保存数据与来源记录继续保留。详见[模型能力说明](docs/active/2026-09-04-model-capability-catalog.md)。
-- 安全问题请不要公开披露，按 [SECURITY.md](SECURITY.md) 中的私密报告方式提交。
-
----
-
-## 已知边界
-
-已配置并核验的工作区可试用 Turso 云端记录模式：画布、生成历史和批量任务使用同一云端数据库，媒体继续由 OneDrive 同步。仅支持两台可信设备轮换，默认关闭；管理员设置入口默认隐藏，已启用的工作区自动显示，手动显示方式见[存储说明](docs/current/storage-layout-and-migration.md#可选-turso-云端记录试用)。首次及再次启用需要受控准备，关闭会导出最新数据并重启。第二设备与网络性能验收仍在进行，见[试用说明](docs/active/2026-09-07-optional-cloud-records-onedrive-media-spec.md)。
-
-云端模式退出后立即重启时，启动器可能等待上次占用记录过期，再自动继续。若仍提示工作区被占用，请退出已打开的 Reroll，等待 2 分钟后重新启动；该提示不表示一定有另一台设备在线。
-
-- 主要面向桌面浏览器，不承诺手机端或其他移动端布局。
-- 适合个人与可信小团队，不是成熟的互联网多租户 SaaS。
-- 当前不支持多 Worker、多实例和跨服务器协作。
-- 暂无完整的评论、跟随视角和长期版本历史系统。
-- Workspace 可以借助 OneDrive 等工具跨设备同步，但 Reroll 不负责第三方同步服务产生的文件冲突。
-- AI 服务的可用性、模型能力、价格和内容规则取决于各上游服务商。
-
----
-
-## 文档
-
-- [产品知识库](docs/README.md)：按角色查找产品、系统、功能规格与生命周期资料。
-- [项目地图](docs/PROJECT-MAP.md)：产品边界、技术栈、系统结构、功能覆盖和代码入口。
-- [UI 设计与交互指南](docs/current/ui-design-guidelines.md)：界面原则、组件状态和验收清单。
-- [生成链路](docs/current/generation-pipeline.md)：Generation Run、服务商适配、结果写回与恢复。
-- [Workspace 资产库](docs/current/workspace-asset-library.md)：素材发现、管理、本地引用与容量边界。
-- [实时协作性能与容量](docs/current/realtime-collaboration-performance.md)：10 人目标、连接上限与性能 Gate。
-- [公开项目身份](docs/current/public-project-identity.md)：品牌、仓库命名、许可定位与兼容标识。
+- Reroll 面向个人创作者与可信小团队，不是成熟的互联网多租户 SaaS。
 
 ---
 
@@ -243,12 +206,12 @@ flowchart LR
 
 - 提交前先搜索[已有 Issues](https://github.com/lazyq666/reroll-ai-canvas/issues)，避免重复。
 - Bug 请尽量提供可复现步骤、系统和浏览器版本；截图中不要包含 API Key、Cookie、私网地址或本机绝对路径。
-- 开始编码前请阅读[贡献指南](CONTRIBUTING.md)和项目根目录的 `AGENTS.md`。
-- 用户可见文案需要同时提供中文与英文，并接入共享 i18n 资源。
+- 开始编码前请阅读[贡献指南](CONTRIBUTING.md)和项目根目录的 [AGENTS.md](AGENTS.md)。
+- 产品中的用户可见文案需要同时提供中文与英文，并接入共享 i18n 资源。
 
 ---
 
-## 原项目、作者与传承
+## 原项目与作者
 
 - 原项目：[hero8152/Infinite-Canvas](https://github.com/hero8152/Infinite-Canvas)
 - 原作者 GitHub：[hero8152](https://github.com/hero8152)
