@@ -1,41 +1,60 @@
 (() => {
-  function firstGrapheme(value) {
-    const text = String(value || '').trim();
-    if (!text) return '';
-    try {
-      const segment = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-        .segment(text)[Symbol.iterator]().next().value;
-      return String(segment?.segment || '');
-    } catch (_) {
-      return Array.from(text)[0] || '';
+  const MANIFEST_URL = '/static/images/avatars/manifest.json';
+  const ASSET_ROOT = '/static/images/avatars/';
+  const assets = new Set();
+  let channel = null;
+
+  const ready = fetch(MANIFEST_URL, { cache: 'force-cache' })
+    .then(response => {
+      if (!response.ok) throw new Error('Account Avatar manifest is unavailable');
+      return response.json();
+    })
+    .then(payload => {
+      (Array.isArray(payload?.assets) ? payload.assets : []).forEach(asset => {
+        if (typeof asset === 'string' && asset && !asset.includes('/') && !asset.includes('\\')) assets.add(asset);
+      });
+      if (!assets.size) throw new Error('Account Avatar manifest is empty');
+      return Object.freeze([...assets]);
+    })
+    .catch(() => Object.freeze([]));
+
+  function fallback(element) {
+    delete element.dataset.avatarAsset;
+    const icon = document.createElement('ic-icon');
+    icon.setAttribute('name', 'account');
+    icon.setAttribute('size', 'small');
+    icon.setAttribute('aria-hidden', 'true');
+    element.replaceChildren(icon);
+  }
+
+  function render(element, asset) {
+    if (!assets.has(asset)) {
+      fallback(element);
+      return;
     }
-  }
-
-  function initial(user = {}) {
-    const grapheme = firstGrapheme(user.display_name) || firstGrapheme(user.username);
-    return /^[a-z]$/i.test(grapheme) ? grapheme.toLocaleUpperCase() : grapheme;
-  }
-
-  function normalizeSlot(value) {
-    const slot = Number(value);
-    return Number.isInteger(slot) && slot >= 1 && slot <= 10 ? slot : 1;
+    const image = document.createElement('img');
+    image.alt = '';
+    image.draggable = false;
+    image.decoding = 'async';
+    image.src = `${ASSET_ROOT}${encodeURIComponent(asset)}`;
+    image.addEventListener('error', () => {
+      if (element.dataset.avatarAssetRequest === asset) fallback(element);
+    }, { once: true });
+    element.dataset.avatarAsset = asset;
+    element.replaceChildren(image);
   }
 
   function apply(element, user = {}) {
     if (!element) return element;
+    const asset = String(user.avatar_asset || '');
     element.classList.add('ic-account-avatar');
     element.setAttribute('aria-hidden', 'true');
-    element.dataset.avatarColorSlot = String(normalizeSlot(user.avatar_color_slot));
-    const mark = initial(user);
-    if (mark) {
-      element.textContent = mark;
-    } else {
-      const icon = document.createElement('ic-icon');
-      icon.setAttribute('name', 'account');
-      icon.setAttribute('size', 'small');
-      icon.setAttribute('aria-hidden', 'true');
-      element.replaceChildren(icon);
-    }
+    element.dataset.avatarAssetRequest = asset;
+    if (user.id) element.dataset.accountUserId = String(user.id);
+    fallback(element);
+    ready.then(() => {
+      if (element.dataset.avatarAssetRequest === asset) render(element, asset);
+    });
     return element;
   }
 
@@ -43,5 +62,33 @@
     return apply(document.createElement(tag), user);
   }
 
-  window.InfiniteCanvasAccountAvatar = Object.freeze({ apply, create, initial, normalizeSlot });
+  function updateUser(user = {}) {
+    const id = String(user.id || '');
+    if (!id) return;
+    document.querySelectorAll('.ic-account-avatar[data-account-user-id]').forEach(element => {
+      if (element.dataset.accountUserId === id) apply(element, user);
+    });
+  }
+
+  function publish(user = {}) {
+    updateUser(user);
+    try { channel?.postMessage({ type: 'account-avatar-updated', user }); } catch (_) {}
+  }
+
+  try {
+    channel = new BroadcastChannel('reroll-account-avatar');
+    channel.addEventListener('message', event => {
+      if (event.data?.type === 'account-avatar-updated') updateUser(event.data.user);
+    });
+  } catch (_) {}
+
+  window.InfiniteCanvasAccountAvatar = Object.freeze({
+    apply,
+    create,
+    publish,
+    ready,
+    updateUser,
+    assetUrl: asset => assets.has(asset) ? `${ASSET_ROOT}${encodeURIComponent(asset)}` : '',
+    isValidAsset: asset => assets.has(String(asset || '')),
+  });
 })();

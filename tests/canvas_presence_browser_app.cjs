@@ -3,10 +3,11 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
+const avatarAssets = require('../static/images/avatars/manifest.json').assets;
 const names = ['林晓', 'Alex Chen', 'Maya', 'Jordan Lee', 'A Very Long Collaborator Display Name'];
 const members = names.map((name, index) => ({
   participant_id: `member-${index}`, display_name: name, username: `user-${index}`,
-  avatar_color_slot: index + 1, is_self: index === 4,
+  avatar_asset: avatarAssets[index], is_self: index === 4,
 }));
 const cards = [0, 1, 3, 5].map((count, index) => ({
   id: `canvas-${count}`, title: ['无人在线', '一个协作者', '三位协作者', '多人协作：一个用于验证省略显示的很长的画布标题'][index],

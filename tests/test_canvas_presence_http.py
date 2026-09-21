@@ -75,7 +75,7 @@ class CanvasPresenceHttpTests(unittest.TestCase):
                             self.assertEqual(set(summary), {shared})
                             self.assertEqual(len(summary[shared]), 1)
                             self.assertFalse(summary[shared][0]["is_self"])
-                            self.assertEqual(set(summary[shared][0]), {"participant_id", "display_name", "username", "avatar_color_slot", "is_self"})
+                            self.assertEqual(set(summary[shared][0]), {"participant_id", "display_name", "username", "avatar_asset", "is_self"})
                             main.AUTH_SYSTEM.set_user_project_ids(users["designer"]["id"], main.current_workspace_id(), [], actor_id=users["admin"]["id"])
                             self.assertEqual(client.post("/api/canvases/presence", json={"canvas_ids": ids}).json(), {"canvases": {}})
                             act_as("admin")

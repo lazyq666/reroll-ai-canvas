@@ -174,8 +174,8 @@ class CanvasRealtimeWebSocketTests(unittest.TestCase):
                         admin_presence = self.receive_type(admin_socket, "presence_snapshot")
                         self.assertEqual(len(admin_presence["members"]), 1)
                         self.assertEqual(
-                            admin_presence["members"][0]["avatar_color_slot"],
-                            admin["avatar_color_slot"],
+                            admin_presence["members"][0]["avatar_asset"],
+                            admin["avatar_asset"],
                         )
                         self.assertNotIn("role", admin_presence["members"][0])
 

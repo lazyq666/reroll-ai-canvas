@@ -31,7 +31,7 @@
   <link rel="stylesheet" href="/static/css/cli-updates.css?v=2026.09.04.3">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-114a31063892"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-d4134a80d227"></script>
 </head>
 <body>
   <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
@@ -97,7 +97,7 @@
           <ic-menu-item class="admin-settings-entry" value="comfyui-settings" kind="command" icon="workflow" label="工作流设置" data-i18n-label="common.comfyuiSettings" onclick="switchUI(this, 'comfyui-settings')"></ic-menu-item>
         </ic-menu>
 
-        <ic-menu id="account-menu" class="account-menu" label="账号" data-i18n-label="common.account" placement="inline-end" alignment="end" size="small" hidden>
+        <ic-menu id="account-menu" class="account-menu" label="账号" data-i18n-label="common.account" trigger="dropdown" selection="command" placement="inline-end" alignment="end" size="small" hidden>
           <ic-button id="account-menu-trigger" class="account-menu-trigger" slot="trigger" type="button" hierarchy="quiet" aria-haspopup="menu">
             <span id="account-trigger-avatar" class="ic-account-avatar" slot="start" aria-hidden="true"></span>
             <span class="account-trigger-copy">
@@ -105,6 +105,13 @@
               <ic-badge id="account-trigger-role" data-component-name="ic-badge-label-small" kind="label" size="small" tone="neutral">—</ic-badge>
             </span>
           </ic-button>
+          <section class="account-avatar-picker" aria-label="头像设置" data-i18n-aria-label="auth.avatarSettings">
+            <span id="account-menu-avatar" class="ic-account-avatar account-menu-avatar" aria-hidden="true"></span>
+            <ic-button id="account-random-avatar" type="button" size="small" hierarchy="secondary">
+              <span data-i18n="auth.randomAvatar">🎲 随机头像</span>
+            </ic-button>
+          </section>
+          <span role="separator" aria-hidden="true"></span>
           <ic-menu-item id="account-logout" value="logout" kind="command" icon="logout" tone="danger" label="退出登录" data-i18n-label="auth.logout"></ic-menu-item>
         </ic-menu>
       </div>

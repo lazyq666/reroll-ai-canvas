@@ -3,8 +3,8 @@
 - **Status**：Approved
 - **Feature ID**：F02 / F06 / F13
 - **Owners**：产品 / UI / 交互 / 前端 / 后端 / 测试
-- **Last verified**：2026-09-03
-- **Applies to**：GitHub Issue #196 首个版本，以及 Issue #20 的指针保留与画布列表在线成员更新
+- **Last verified**：2026-09-20
+- **Applies to**：GitHub Issue #196 首个版本、Issue #20 的指针保留与画布列表在线成员更新，以及 Linear LAZ-9 的 Account Avatar 图片资源迁移
 - **Supersedes**：无
 - **Superseded by**：无
 - **Related ADRs**：无
@@ -16,7 +16,7 @@
 
 Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复用现有 Canvas WebSocket，但不进入 Canvas SQLite、Canvas Revision、Canvas Mutation、历史或 Undo，也不占用持久操作的可靠队列。鼠标停止时不继续发送数据；服务端和客户端只保留最新坐标，使慢接收端丢弃过时指针而不拖慢文档操作。
 
-账号默认头像是另一项持久身份能力。账号数据库保存一个颜色槽位，全产品以浅色背景、高饱和度首字母呈现；Realtime Pointer 的颜色则按进入当前 Canvas 的顺序临时分配。功能默认启用，不提供运行期开关；若性能或质量 Gate 未通过，不合并该独立分支。
+Account Avatar 是另一项持久身份能力。账号数据库保存一个本地头像资源 key，全产品从统一资源清单渲染图片；Realtime Pointer 的颜色仍按进入当前 Canvas 的顺序临时分配。功能默认启用，不提供运行期开关；若性能或质量 Gate 未通过，不合并该独立分支。
 
 ## 2. Problem Statement
 
@@ -108,8 +108,8 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 ### Copy and internationalization
 
 - 使用服务端 `display_name`，为空时回退 `username`；不显示 Role。
-- 默认头像取显示名的第一个 Unicode Grapheme；拉丁字母转大写。仍不可用时取用户名，再不可用时显示通用人员图标。
-- Light 主题的头像字符使用对应色系 `400` 阶作为轻量身份标记；它不单独承担姓名传达，完整姓名由头像按钮的无障碍名称、Tooltip 和成员弹层提供。Dark 主题继续使用对应 `200` 阶。
+- Account Avatar 仅渲染 `/static/images/avatars/` 下、由 `manifest.json` 声明的本地图片。
+- 头像 key 无效、资源缺失或图片加载失败时显示通用账号图标，不显示姓名或用户名的首字符。完整姓名由头像按钮的无障碍名称、Tooltip 和成员弹层提供。
 - 动态姓名和 `+N` 不翻译；“你”等固定文字必须进入现有 i18n。
 - 姓名标签最大宽度 `160px`，超出使用省略号；工具提示和成员弹层提供完整姓名。
 
@@ -131,7 +131,7 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 3. 最近产生合格鼠标移动的连接更新该账号公开指针。控制连接离开捕获区、失焦、隐藏或断开时，只要该账号还有有效连接，就保留最后有效坐标；不回退到其他连接的旧坐标，新的有效移动才覆盖位置。最后一条连接离线时删除成员与指针。
 4. 自己的 Account Avatar 包含在成员组并固定最右；客户端不渲染自己的协作指针。
 5. Pointer 颜色由服务端按账号进入 Canvas 的顺序分配：从 1–10 中取第一个空闲槽，最后一条连接离开时释放，重进可以变化；超过 10 人后循环复用。
-6. Account Avatar 颜色与 Pointer 颜色独立。头像颜色随机分配并持久化；右上成员组的重叠头像使用 `1px` `--ui-color-border-secondary` 外环，成员弹层内的头像使用当前 Canvas 的 Pointer 颜色作为身份环。
+6. Account Avatar 图片与 Pointer 颜色独立。头像资源随机分配并持久化；右上成员组的重叠头像使用 `1px` `--ui-color-border-secondary` 外环，成员弹层内的头像使用当前 Canvas 的 Pointer 颜色作为身份环。
 7. Realtime Pointer 是约 `18px × 22px` 的常见斜向箭头，使用中等明度、高饱和度语义色、`1px` 白色轮廓和轻微主题阴影。姓名标签位于右下，背景沿用 Pointer 色并使用可读的对比文字。
 8. 最近更新的 Pointer 位于其他 Pointer 之上；允许指针和标签相互重叠，不做碰撞避让、轨迹、预测或点击动画。
 9. 客户端发送 Canvas 世界坐标。接收端按自己的 Canvas Viewport 投影；屏幕外指针隐藏，不显示边缘指示器。平移或缩放时立即重新投影，静止指针可重新进入视野，但姓名标签不因平移重新出现。
@@ -141,7 +141,7 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 13. 姓名标签在最后一次移动后 `1.5s` 淡出，静止 Pointer 保留且不产生服务器流量。
 14. `prefers-reduced-motion` 下位置更新直接跳转，淡出缩短或取消，不运行持续动画。
 15. 成员列表顺序按 Account 首次加入当前在线会话的顺序；自己的展示位置例外，但弹层仍以同一成员顺序列出所有人并标记自己。
-16. Account Avatar 的默认视觉应用于全产品已有的账号入口和账号管理界面，不在首版提供编辑或图片上传。
+16. Account Avatar 应用于全产品已有的账号入口、账号管理界面和 Presence。账号 Dropdown 提供「🎲 随机头像」，不提供上传能力。
 
 ## 8. Domain and state model
 
@@ -157,11 +157,11 @@ Realtime Presence 是与 Canvas 内容读写分离的瞬时数据流。它可复
 | Data | Authority | Boundary | Retention | Migration/recovery |
 | --- | --- | --- | --- | --- |
 | 在线成员、加入顺序、Pointer 颜色、公开坐标 | 当前服务进程 | Memory | 最后一条连接离开或进程退出即删除 | 连接恢复后由新 Snapshot 重建 |
-| `avatar_color_slot` | 账号数据库 | Instance State | 随 Account 保存 | 新列 `INTEGER NOT NULL DEFAULT 0`；旧账号启动迁移时随机回填 1–10；新账号注册时随机分配 |
+| `avatar_asset` | 账号数据库 | Instance State | 随 Account 保存 | 旧账号启动迁移时从合法资源清单随机回填一次；新账号创建时立即分配。旧字段 `avatar_color_slot` 暂时保留，但不再参与头像展示 |
 | Canvas 内容、Revision、历史 | 既有 Canvas Authority | Workspace Data | 保持既有规则 | Presence 不写入、不触碰 |
 | 浏览器 Pointer 状态 | 当前页面内存 | Device transient | 页面或连接生命周期 | 不写浏览器持久存储 |
 
-- 数据库只保存头像整数槽位，不保存 CSS Token 名称。槽位 `0` 仅用于迁移前哨，完成迁移后合法账号为 1–10。
+- 数据库只保存稳定的头像资源 key，不保存绝对路径。合法值来自 `static/images/avatars/manifest.json`。
 - 账号数据库不随 Workspace 搬迁，因此 Account Avatar 属于 Instance State。
 - 不持久化轨迹、最后位置、Presence 审计或活动时间；最后有效位置只保留在账号当前 Canvas 在线会话的内存中。旧分支可忽略新增账号列；首版不提供反向迁移或默认头像回滚。
 
@@ -177,7 +177,9 @@ Presence 复用现有 `/ws/canvases/{canvas_id}` JSON WebSocket。初始 Canvas 
 | `presence_batch` | Server | 携带变化参与者的最新 Cursor Version 和坐标 | 批次可发送给包括发送者在内的所有连接；客户端忽略自己 |
 | `presence_resync` | Client | 请求仅 Presence Snapshot | 不触发 Canvas Snapshot 或 Revision 变化 |
 
-Issue #20 增加只读 `POST /api/canvases/presence`，请求为 `{canvas_ids: string[]}`，最多 200 项。服务端通过既有授权列表投影筛选 Smart Canvas，排除无权访问、普通、已删除和不存在的 Canvas；返回 `{canvases: {canvas_id: members[]}}` 并设置 `Cache-Control: no-store`。已授权但无人在线返回空数组；未返回的 ID 不表示确定无人在线。成员只包含 `participant_id`、`display_name`、`username`、`avatar_color_slot` 和相对于请求者的 `is_self`。该查询不创建编辑连接、不广播成员加入、不保存在线状态。
+Issue #20 增加只读 `POST /api/canvases/presence`，请求为 `{canvas_ids: string[]}`，最多 200 项。服务端通过既有授权列表投影筛选 Smart Canvas，排除无权访问、普通、已删除和不存在的 Canvas；返回 `{canvases: {canvas_id: members[]}}` 并设置 `Cache-Control: no-store`。已授权但无人在线返回空数组；未返回的 ID 不表示确定无人在线。成员只包含 `participant_id`、`display_name`、`username`、`avatar_asset` 和相对于请求者的 `is_self`。该查询不创建编辑连接、不广播成员加入、不保存在线状态。
+
+`POST /api/auth/avatar/random` 只允许已登录账号调用。服务端从 `manifest.json` 声明的合法头像中排除当前头像后随机选择，原子写入 `avatar_asset`，并返回更新后的 public user。跨站写请求沿用现有保护规则。在线账号修改头像后，服务端向所在 Canvas 的连接发送新的 Presence Snapshot；Canvas List 在下一次 Presence 查询时取得新头像。
 
 新客户端暂停捕获时不再发送 `cursor: null`。服务端仍接收旧客户端的 null 消息，将其解释为暂停控制，保留账号最后有效坐标，以兼容尚未刷新的标签页。
 
@@ -213,7 +215,7 @@ Issue #20 增加只读 `POST /api/canvases/presence`，请求为 `{canvas_ids: s
 ## 13. Design system contract
 
 - 以 `static/css/design-tokens.css` 的现有颜色 Primitive 为基础定义 10 组协作者语义槽；不足时先增加 Primitive，再建立 Avatar 背景、Avatar 字符、Pointer 填充和 Pointer 对比文字的语义 Token，业务样式不得散落裸色值。
-- Account Avatar 使用浅色背景和中等明度、高饱和度字符；Realtime Pointer 使用中等明度、高饱和度填充。每槽在 Light/Dark 中都需达到既有文字、轮廓和 Focus 可见性规范。
+- Account Avatar 使用圆形裁切的本地图片；图片不可用时显示通用账号图标。Realtime Pointer 继续使用中等明度、高饱和度填充，并在 Light/Dark 中满足既有文字、轮廓和 Focus 可见性规范。
 - 成员组、工具提示、`+N`、只读弹层和 Focus 行为应复用现有 `ic-*` 公共组件与 Overlay 层级；Pointer Overlay 可作为 Smart Canvas Shell 的专用非交互层，位于 Canvas 内容之上、固定菜单/工具栏/Dialog/Toast 之下。
 - Pointer Overlay 必须位于 Canvas 世界变换之外，使用世界坐标到本机屏幕坐标投影，避免箭头尺寸随 Zoom 改变。
 - 自动化机器视觉覆盖关键几何、层级和 Token；人工视觉覆盖 Light/Dark、多人重叠、长姓名、`+N`、错误通知覆盖、Zoom/Pan 和 Reduced Motion。
@@ -223,7 +225,7 @@ Issue #20 增加只读 `POST /api/canvases/presence`，请求为 `{canvas_ids: s
 - 在现有 Canvas WebSocket 上增加独立 Presence 协议和房间内存状态，不创建新服务或新连接。
 - Connection Manager 保留可靠文档流，并为成员状态和 Cursor 增加可折叠的有界发送语义；高频坐标不可排在文档消息之前。
 - 前端 Presence Controller 负责能力握手、捕获区、5px 累计阈值、节流、Tab/Window 生命周期和协议；Presence Renderer 负责投影、插值、层级、头像组和无障碍。
-- 账号系统拥有 Avatar 颜色槽的创建和迁移；Design Token 层拥有槽位到具体主题颜色的映射。
+- 账号系统拥有 `avatar_asset` 的创建、迁移和随机修改；`static/images/avatars/manifest.json` 是前后端共用的合法头像资源清单。Pointer 颜色仍由 Presence 与 Design Token 负责。
 - 本决定可在独立分支整体舍弃，且没有跨服务或不可逆架构承诺，因此不新增 ADR。
 
 ## 15. Acceptance and testing
@@ -245,7 +247,7 @@ Issue #20 增加只读 `POST /api/canvases/presence`，请求为 `{canvas_ids: s
 | 成员版本缺口 | WebSocket 集成测试 | 只请求和替换 Presence Snapshot，不触发 Canvas Resync |
 | 慢客户端和过频发送 | WebSocket/负载测试 | 旧 Cursor 被覆盖；文档消息持续；滥用按规则降级 |
 | 权限撤销与无权角色 | WebSocket 集成测试 | 不可加入或继续 Presence，身份资料不可伪造 |
-| 账号迁移和默认头像 | 数据库/HTTP/UI 测试 | 旧账号回填 1–10，新账号随机持久化，全产品默认头像一致 |
+| 账号迁移和默认头像 | 数据库/HTTP/UI 测试 | 旧账号只回填一次合法头像资源，新账号创建时立即分配，随机修改后持久化，全产品头像来源一致 |
 | 配置边界 | 启动测试 | 50、100、500 合法；缺省为 100；非整数或越界启动失败 |
 | 目标负载 | 单服务 LAN 负载测试 | 全部性能与可靠性 Gate 达标，队列和 RSS 有界 |
 
@@ -268,7 +270,7 @@ Issue #20 增加只读 `POST /api/canvases/presence`，请求为 `{canvas_ids: s
 ## 16. Rollout, migration and rollback
 
 - 在独立分支和 Worktree 开发。视觉、协议、权限、迁移或负载任一 Gate 未通过时不得合并；产品可继续使用无此功能的原分支。
-- 发布时向前迁移账号数据库并随机回填旧账号颜色槽；不提供默认头像反向迁移。旧代码可忽略新增列。
+- 发布时向前迁移账号数据库，并为缺少 `avatar_asset` 的旧账号随机回填一次；不提供反向迁移。旧代码可忽略新增列。
 - 新客户端以收到 `presence_snapshot` 作为能力信号，兼容旧服务端；旧客户端必须可忽略新消息。
 - 首版没有运行时总开关，也不提供 Account Avatar 回滚。性能问题通过不合并或切回无功能分支处理。
 - 实现完成前规格保持 Active；只有自动化、双机 LAN 人工验收和负载 Gate 全部通过，才能标记 Implemented/Verified 并按文档毕业规则更新 Current Authority。

@@ -281,6 +281,24 @@ ic-menu-item[hidden],
   justify-content: center;
 }
 
+.account-menu-trigger .ic-account-avatar {
+  width: 35px;
+  height: 35px;
+}
+
+.account-avatar-picker {
+  display: grid;
+  justify-items: center;
+  gap: var(--ui-space-3);
+  min-width: 10rem;
+  padding: var(--ui-space-4);
+}
+
+.account-menu-avatar {
+  width: 80px;
+  height: 80px;
+}
+
 .sidebar:not(.is-pinned) .account-menu-trigger {
   width: var(--ui-control-height-m);
   min-width: var(--ui-control-height-m);
