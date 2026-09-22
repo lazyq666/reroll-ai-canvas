@@ -26,14 +26,9 @@ small,.muted{color:var(--ui-color-text-tertiary);font-size:12px;line-height:1.7}
 .asset svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.75;color:var(--ui-color-text-secondary)}
 .asset b{display:block;font-size:13px;font-weight:500}
 .services{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-ic-button.service{display:block;min-width:0}
-.service-content{display:flex;align-items:center;gap:10px;width:100%;white-space:normal;text-align:left;padding:8px 0}
-.service.selected{border-radius:var(--ui-radius-s);outline:1px solid var(--ui-color-text-primary)}
-.service img,.service .monogram{width:30px;height:30px;object-fit:contain;flex-shrink:0}
-.monogram{display:grid;place-items:center;background:var(--ui-color-surface-subtle);border-radius:8px;font-weight:700}
-.service b{font-size:13px}
-.service small{display:block;font-size:11px}
-.check{margin-left:auto}
+ic-checkbox.service[appearance="checkmark-end"][data-component-variant="list"]{display:block;width:100%;min-width:0;inline-size:100%}
+.service img,.service .monogram{width:20px;height:20px;object-fit:contain;flex-shrink:0}
+.monogram{display:grid;place-items:center;font-weight:600}
 .queue{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px;overflow-wrap:anywhere}
 .pill{font-size:11px;padding:5px 9px;border:1px solid var(--ui-color-border-secondary);border-radius:20px;color:var(--ui-color-text-secondary)}
 .pill.current{border-color:var(--ui-color-text-primary)}

@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from .onboarding_models import recommended_models
 from .auth_system import AuthSystem, _local_client, require_current_user
 
 SERVICES = {
@@ -162,15 +163,12 @@ def install_onboarding_routes(app: FastAPI, auth: AuthSystem, ports: OnboardingP
                         config["image_request_mode"] = test["image_request_mode"]
                     yield event("fetching")
                     models = await ports.models(config)
-                    selected = {field: list(dict.fromkeys(
-                        str(m).strip() for m in models.get(field, []) if isinstance(m, str) and m.strip()
-                    )) for field in MODEL_FIELDS}
                     if provider_id == "codex" and not status.get("image2_helper_installed"):
-                        selected["image_models"] = []
+                        models = {**models, "image_models": []}
+                    selected = recommended_models(models, service=provider_id)
                     if not any(selected.values()):
-                        yield event("error", code="no_models")
+                        yield event("error", code="no_models" if not any(models.get(field) for field in MODEL_FIELDS) else "no_recommended_models")
                         return
-                    selected["model_protocols"] = models.get("model_protocols", {})
                     saved = await ports.save(config, "", selected, expected=revision)
                     count = len(set(m for field in MODEL_FIELDS for m in saved.get(field, [])))
                     auth.record_onboarding_service(provider_id, {

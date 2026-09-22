@@ -23,6 +23,7 @@ class OnboardingTests(unittest.TestCase):
         self.calls = []
         self.valid = True
         self.empty_models = False
+        self.unrecommended_models = False
         self.cli = {"installed": True, "logged_in": True, "image2_helper_installed": True}
 
         async def save(config, key, models, *, expected=None):
@@ -44,7 +45,7 @@ class OnboardingTests(unittest.TestCase):
 
         async def models(config):
             self.calls.append("models")
-            return {"image_models": [] if self.empty_models else ["image-model"],
+            return {"image_models": [] if self.empty_models else ["flux-2" if self.unrecommended_models else "gpt-image-2"],
                     "chat_models": [], "video_models": []}
 
         async def cli_status(service):
@@ -105,6 +106,12 @@ class OnboardingTests(unittest.TestCase):
     def test_empty_model_result_does_not_complete(self):
         self.empty_models=True
         self.assertEqual("no_models",self.connect()[-1]["code"])
+        self.assertFalse(self.providers["apimart"]["enabled"])
+        self.assertEqual(409,self.client.post("/api/admin/onboarding/complete",json={}).status_code)
+
+    def test_no_recommended_models_does_not_enable_unrelated_models(self):
+        self.unrecommended_models=True
+        self.assertEqual("no_recommended_models",self.connect()[-1]["code"])
         self.assertFalse(self.providers["apimart"]["enabled"])
         self.assertEqual(409,self.client.post("/api/admin/onboarding/complete",json={}).status_code)
 

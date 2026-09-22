@@ -7346,10 +7346,8 @@ async def _save_onboarding_provider(config, api_key, models, *, expected=None):
         item = {**existing, **config}
         if models is not None:
             for field in ("image_models", "chat_models", "video_models"):
-                item[field] = list(dict.fromkeys(models[field] if config["id"] in {"codex", "jimeng", "gemini-cli"} else [*existing.get(field, []), *models[field]]))
-            item["model_protocols"] = {
-                **existing.get("model_protocols", {}), **models.get("model_protocols", {}),
-            }
+                item[field] = list(dict.fromkeys(models[field]))
+            item["model_protocols"] = models.get("model_protocols", {})
             item["enabled"] = True
         else:
             item["enabled"] = existing.get("enabled", False)

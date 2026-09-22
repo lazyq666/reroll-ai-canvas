@@ -6,14 +6,14 @@
   const $ = id => document.getElementById(id);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const catalog = [
-    {id:'apimart', name:'APIMart', description:'imagesVideo', mark:'A'},
-    {id:'modelscope', name:'ModelScope', description:'models', image:'modelscope.gif'},
-    {id:'runninghub', name:'RunningHub', description:'workflow', image:'RunningHub-B.png'},
-    {id:'volcengine', key:'volc', description:'imagesVideo', image:'volcengine-theme-light.svg'},
-    {id:'other', key:'other', description:'custom', mark:'+'},
-    {id:'jimeng', key:'jimeng', description:'imagesVideo', image:'jimeng.svg', cli:true},
-    {id:'codex', name:'GPT CLI', description:'textImage', image:'chatgpt.svg', cli:true},
-    {id:'gemini-cli', name:'Antigravity CLI', description:'models', image:'gemini.svg', cli:true},
+    {id:'apimart', name:'APIMart', mark:'A'},
+    {id:'modelscope', name:'ModelScope', image:'modelscope.gif'},
+    {id:'runninghub', name:'RunningHub', image:'RunningHub-B.png'},
+    {id:'volcengine', key:'volc', image:'volcengine-theme-light.svg'},
+    {id:'other', key:'other', mark:'+'},
+    {id:'jimeng', key:'jimeng', image:'jimeng.svg', cli:true},
+    {id:'codex', name:'GPT CLI', image:'chatgpt.svg', cli:true},
+    {id:'gemini-cli', name:'Antigravity CLI', image:'gemini.svg', cli:true},
   ];
   const getService = id => catalog.find(item => item.id === id);
   const name = item => item.key ? text(item.key) : item.name;
@@ -86,6 +86,10 @@
     not_installed:'onboarding.notInstalled', cli_outdated:'onboarding.cliOutdated', login_unverified:'onboarding.cliUnknown',
   };
   function fail(error,fallback='connection_failed') {
+    if(error?.status===401) {
+      stopWork();state.drafts={};state.account.password='';state.account.confirm='';
+      window.location.replace('/login');return;
+    }
     const code=error?.message || fallback;
     state.error=setupMessageKeys[code] || (window.StudioI18n.t('onboarding.'+code)!=='onboarding.'+code?'onboarding.'+code:'onboarding.'+fallback);
     state.busy=false; render();
@@ -105,16 +109,16 @@
     } else if(state.step===1) {
       html=title('workspace','workspaceSub')+'<section id="workspace-selection-step"><div class="info"><div class="assets">'+
         [['media','images'],['history','history'],['canvases','panels-top-left'],['reusable','shapes']].map(([key,icon])=>'<div class="asset"><i data-lucide="'+icon+'" aria-hidden="true"></i><b>'+text(key)+'</b></div>').join('')+
-        '</div></div><p class="muted">'+text('excluded')+'</p><ic-form-field class="field" label="'+escape(text('folder'))+'"><ic-input end-action id="workspace-directory" value="'+escape(state.directory)+'" '+(state.busy?'disabled':'')+'><ic-icon-button slot="end" id="choose-workspace-directory" icon="project" label="'+escape(text('choose'))+'" '+(state.busy?'disabled':'')+'></ic-icon-button></ic-input></ic-form-field>'+
+        '</div></div><p class="muted">'+text('excluded')+'</p><ic-form-field class="field" label="'+escape(text('folder'))+'"><ic-input end-action id="workspace-directory" value="'+escape(state.directory)+'" '+(state.busy?'disabled':'')+'><ic-icon-button slot="end" id="choose-workspace-directory" background="ghost" icon="project" label="'+escape(text('choose'))+'" '+(state.busy?'disabled':'')+'></ic-icon-button></ic-input></ic-form-field>'+
         (state.inspected?.kind==='existing'?'<ic-alert open tone="info">'+text('existing')+'</ic-alert>':'')+alert()+
         actions(back()+button('inspect-workspace',state.busy?'checking':state.inspected?.kind==='existing'?'open':'use',true))+'</section>';
     } else if(state.step===2) {
       html=title('selectTitle','selectSub')+
         (hasSource()?'<ic-alert open tone="success">'+text('existingConnected',{n:Object.keys(state.connected).length})+'</ic-alert>':'')+
         [false,true].map(cli=>'<h2>'+text(cli?'cli':'api')+'</h2><div class="services">'+catalog.filter(s=>!!s.cli===cli).map(s=>
-          '<ic-button class="service '+(state.selected.includes(s.id)?'selected':'')+'" hierarchy="secondary" data-service="'+s.id+'" toggle '+(state.selected.includes(s.id)?'pressed':'')+'><span class="service-content">'+
-          (s.image?'<img src="/static/images/providers/'+s.image+'" alt="">':'<span class="monogram">'+s.mark+'</span>')+
-          '<span><b>'+name(s)+'</b><small>'+text(s.description)+'</small></span><span class="check">'+(state.selected.includes(s.id)?'☑':'□')+'</span></span></ic-button>').join('')+'</div>').join('')+
+          '<ic-checkbox class="service" name="onboarding_service_'+s.id+'" label="'+escape(name(s))+'" appearance="checkmark-end" data-legal-combination="checkmark-end-label" data-component-variant="list" data-component-name="ic-checkbox-list" data-service="'+s.id+'" '+(state.selected.includes(s.id)?'checked':'')+'>'+
+          (s.image?'<img src="/static/images/providers/'+s.image+'" alt="">':'<span class="monogram" aria-hidden="true">'+s.mark+'</span>')+
+          '</ic-checkbox>').join('')+'</div>').join('')+
         alert()+actions((hasSource()?button('ready','showReady'): '<span></span>')+'<ic-button id="configure" hierarchy="primary" '+(!state.selected.length?'disabled':'')+'>'+text('configure',{n:state.selected.length})+'</ic-button>');
     } else if(state.step===3) {
       const service=current(),d=state.drafts[service.id] ||= {key:'',name:'',url:'',protocol:''};
@@ -162,8 +166,11 @@
     onInput('workspace-directory',value=>{state.directory=value;state.inspected=null});
     on('choose-workspace-directory',chooseDirectory);
     on('inspect-workspace',inspectWorkspace);
-    document.querySelectorAll('[data-service]').forEach(el=>el.addEventListener('click',()=>{
-      const id=el.dataset.service;state.selected=state.selected.includes(id)?state.selected.filter(v=>v!==id):[...state.selected,id];render();
+    document.querySelectorAll('[data-service]').forEach(el=>el.addEventListener('change',()=>{
+      const id=el.dataset.service;state.selected=state.selected.filter(v=>v!==id);
+      if(el.checked)state.selected.push(id);
+      $('configure').disabled=!state.selected.length;
+      $('configure').textContent=text('configure',{n:state.selected.length});
     }));
     on('configure',()=>{
       state.queue=[...state.selected];state.index=0;state.skipped=[];
@@ -294,7 +301,11 @@
         signal:pendingController.signal,
         body:JSON.stringify({service:service.id,name:draft.name,base_url:draft.url,api_key:draft.key,protocol:draft.protocol}),
       });
-      if(!response.ok){const data=await response.json();throw new Error(data.detail?.code||'connection_failed')}
+      if(!response.ok) {
+        const data=await response.json().catch(()=>({}));
+        const error=new Error(data.detail?.code||'connection_failed');
+        error.status=response.status;throw error;
+      }
       const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',complete=false;
       while(true) {
         const chunk=await reader.read();if(token!==epoch)return;
@@ -352,5 +363,5 @@
   });
   window.addEventListener('studio-lang-change',render);
   window.addEventListener('pagehide',()=>{stopWork();state.account.password='';state.account.confirm='';state.drafts={}});
-  Promise.all(['ic-input','ic-button','ic-card','ic-icon-button','ic-form-field','ic-select'].map(name=>customElements.whenDefined(name))).then(boot);
+  Promise.all(['ic-input','ic-button','ic-card','ic-icon-button','ic-form-field','ic-select','ic-checkbox'].map(name=>customElements.whenDefined(name))).then(boot);
 })();

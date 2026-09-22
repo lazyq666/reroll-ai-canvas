@@ -220,8 +220,8 @@ window.StudioI18n.register({
     "en": "Found {n} available models"
   },
   "onboarding.classification": {
-    "zh": "已自动识别模型类型，并启用可用模型。",
-    "en": "Model types identified and available models enabled."
+    "zh": "已按模型类型启用推荐模型。",
+    "en": "Recommended models enabled by type."
   },
   "onboarding.connected": {
     "zh": "已连接",
@@ -374,6 +374,10 @@ window.StudioI18n.register({
   "onboarding.finishFailed": {
     "zh": "暂时无法完成设置，请重试。",
     "en": "Could not finish setup. Please try again."
+  },
+  "onboarding.no_recommended_models": {
+    "zh": "连接成功，但未找到符合推荐范围的模型。请稍后配置并尝试其他服务。",
+    "en": "Connected, but no models match the recommended selection. Skip this service and try another."
   },
   "onboarding.noModels": {
     "zh": "连接成功，但没有发现可用模型。请重试或稍后在 API 设置中配置。",
