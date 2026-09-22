@@ -5831,6 +5831,7 @@ function syncRunButtonState(node=window.SmartCanvasModules.viewportSelection.sel
     runBtn.disabled = Boolean(composerSubmission) || !isSmartRunnableNode(node)
         || generationRun.status({node}).loopRunning
         || invalidVideoReferences;
+    composerPromptOptimizer?.refresh();
 }
 function canvasImageDragPayload(node, index=0){
     const img = node?.images?.[index];
@@ -9943,6 +9944,7 @@ function bindPromptNodeControls(el, node){
     bindPromptNodeInputThumbs(el, node);
     const textEl = el.querySelector('.prompt-node-text');
     bindPromptNodeRichEditor(el, node, textEl);
+
 }
 function bindSplitterNodeControls(el, node){
     const separatorEl = el.querySelector('.splitter-node-separator');
@@ -13355,6 +13357,7 @@ function updateComposer({skipDynamicParamsRefresh=false}={}){
     const node = window.SmartCanvasModules.viewportSelection.selection.node();
     window.SmartCanvasModules.promptGenerationComposer?.update(node);
     composer.inert = !isSmartRunnableNode(node);
+    composerPromptOptimizer?.refresh();
     syncRunButtonState(node);
     if(generationRun.status().silentSelection && !activeComposerSubject){
         hideInputTextPreviewTooltip();
@@ -13394,6 +13397,7 @@ function updateComposer({skipDynamicParamsRefresh=false}={}){
         loadPromptDraft(subject);
     }
     syncApiKindToggleVisibility();
+    composerPromptOptimizer?.refresh();
     syncRunButtonState(node);
     setPromptInputLocked(false);
     positionComposerForNode(node);
@@ -17337,6 +17341,73 @@ composerFocusBackdrop?.addEventListener('click', event => {
     event.preventDefault();
     event.stopPropagation();
 });
+async function requestPromptOptimization(context){
+    const settingsResponse = await fetch('/api/prompt-optimization-settings',{cache:'no-store',signal:AbortSignal.timeout(15000)});
+    if(!settingsResponse.ok) throw new Error('Prompt optimization settings unavailable');
+    const profiles = await settingsResponse.json();
+    const configuration = profiles[context.media];
+    if(!configuration) throw new Error('Missing media optimization profile');
+    const provider = configuration.provider || resolveChatProviderId('');
+    const model = configuration.model || resolveChatModel('',provider);
+    const preset = configuration.default_preset || 'smart';
+    const message = window.SmartCanvasModules.promptOptimize.instruction({
+        ...context,preset,customInstruction:configuration.instructions?.[preset] || ''
+    });
+    if(!smartCatalogEntry('text',provider,model)){
+        const error = new Error('No text model'); error.noTextModel = true; throw error;
+    }
+    const capabilities = window.SmartCanvasModules.modelCapabilities;
+    const capability = await capabilities.load(provider,model,'text.generate');
+    const validation = capabilities.validate(capability,{
+        inputs:{text:1,image:0,video:0},parameters:{history:[]},
+        catalogRevision:capability.catalog_revision
+    });
+    if(!validation.valid){
+        const error = new Error('Invalid optimization model capability');
+        error.optimizationMessage = capabilities.validationMessage(validation,tr('smart.optimize.failed'));
+        throw error;
+    }
+    const response = await fetch('/api/canvas-llm',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        signal:AbortSignal.timeout(120000),
+        body:JSON.stringify({message,provider,model,messages:[],images:[],videos:[],catalog_revision:capability.catalog_revision})
+    });
+    if(!response.ok){
+        const detail = await response.json().catch(()=>({}));
+        const error = new Error('Prompt optimization failed');
+        error.optimizationMessage = capabilities.errorMessage(detail.detail,tr('smart.optimize.failed'));
+        throw error;
+    }
+    const result = await response.json();
+    return result.text;
+}
+var composerPromptOptimizer = window.SmartCanvasModules.promptOptimize.mount({
+    editor:promptInput,
+    surface:composer,
+    button:document.getElementById('promptOptimizeBtn'),
+    menu:document.getElementById('promptOptimizeMenu'),
+    translate:tr,
+    key:() => `${canvasId}:${activeComposerNode()?.id || ''}:${settings.apiKind || 'image'}`,
+    media:() => settings.apiKind === 'video' ? 'video' : 'image',
+    model:() => (settings.apiKind === 'video' ? settings.videoModel : settings.model) || '',
+    editable:() => Boolean(canvasPersistence.editable() && isSmartRunnableNode(activeComposerNode()) && promptInput.dataset.promptLocked !== '1'),
+    text:() => promptAuthoring.characterText(promptInput),
+    plainText:element => promptAuthoring.plainText(element),
+    readRecord:() => activeComposerNode()?.promptOptimization?.[settings.apiKind === 'video' ? 'video' : 'image'],
+    writeRecord:record => {
+        const node = activeComposerNode();
+        if(!node) return;
+        const media = settings.apiKind === 'video' ? 'video' : 'image';
+        node.promptOptimization = {...node.promptOptimization};
+        if(record) node.promptOptimization[media] = record;
+        else delete node.promptOptimization[media];
+        if(!Object.keys(node.promptOptimization).length) delete node.promptOptimization;
+        canvasPersistence.schedule();
+    },
+    request:requestPromptOptimization,
+    error:error => toast(error.optimizationMessage || tr(error.noTextModel ? 'smart.optimize.noModel' : 'smart.optimize.failed'),{tone:'danger'})
+});
+new MutationObserver(() => composerPromptOptimizer.refresh()).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 promptInput.addEventListener('input', event => maybeOpenMentionPicker(promptInput, activeComposerNode(), {
     allowOpen:promptAuthoring.quickOpenIntent(event)
 }));

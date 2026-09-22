@@ -31,7 +31,7 @@
   <link rel="stylesheet" href="/static/css/cli-updates.css?v=2026.09.04.3">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-6985c915cf60"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-ed3909c36c84"></script>
 </head>
 <body>
   <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
@@ -95,6 +95,7 @@
           <ic-menu-item class="admin-settings-entry" value="api-settings" kind="command" icon="link" label="API 设置" data-i18n-label="common.apiSettings" onclick="switchUI(this, 'api-settings')"></ic-menu-item>
           <ic-menu-item class="admin-settings-entry" value="available-model-management" kind="command" icon="models" label="可用模型管理" data-i18n-label="common.modelManagement" onclick="switchUI(this, 'available-model-management')"></ic-menu-item>
           <ic-menu-item class="admin-settings-entry" value="comfyui-settings" kind="command" icon="workflow" label="工作流设置" data-i18n-label="common.comfyuiSettings" onclick="switchUI(this, 'comfyui-settings')"></ic-menu-item>
+          <ic-menu-item class="admin-settings-entry" value="prompt-optimization-settings" kind="command" icon="app" label="提示词优化" data-i18n-label="smart.optimize.settingsTitle" onclick="switchUI(this, 'prompt-optimization-settings')"></ic-menu-item>
         </ic-menu>
 
         <ic-menu id="account-menu" class="account-menu" label="账号" data-i18n-label="common.account" trigger="dropdown" selection="command" placement="inline-end" alignment="end" size="small" hidden>
@@ -127,6 +128,7 @@
       <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.09.01.5.1788439320" title="API 设置" data-i18n-title="common.apiSettings" scrolling="yes"></iframe>
       <iframe id="frame-available-model-management" data-src="/static/available-model-management.html?v=2026.09.01.5.1788439320" title="可用模型管理" data-i18n-title="common.modelManagement" scrolling="yes"></iframe>
       <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=2026.09.01.5.1788439320" title="工作流设置" data-i18n-title="common.comfyuiSettings" scrolling="yes"></iframe>
+      <iframe id="frame-prompt-optimization-settings" data-src="/static/prompt-optimization-settings.html?v=2026.09.01.5.1788439320" title="提示词优化" data-i18n-title="smart.optimize.settingsTitle" scrolling="yes"></iframe>
       <iframe id="frame-canvas" data-src="/static/canvas-list.html?v=2026.09.01.5.1788439320" title="画布" data-i18n-title="nav.canvas" scrolling="yes"></iframe>
     </main>
   </div>
@@ -138,7 +140,7 @@
 
   <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=ic-ui-9e5de786b163"></script>
   <script src="/static/js/studio-entry-motion.js?v=2026.09.01.5.1788439320" defer></script>
-  <script src="/static/js/studio-shell.js?v=2026.09.01.5.1788439320" defer></script>
+  <script src="/static/js/studio-shell.js?v=asset-a055199da38e" defer></script>
   <script src="/static/js/preferences.js?v=preferences-278263e2e773" defer></script>
   <script src="/static/js/account-avatar.js?v=account-avatar-d8d7445ac4c6" defer></script>
   <script src="/static/js/account-ui.js?v=2026.09.01.5.1788439320" defer></script>

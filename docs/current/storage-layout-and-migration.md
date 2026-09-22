@@ -41,6 +41,7 @@
 │   ├── canvas-content.sqlite3
 │   ├── generation-runs.sqlite3
 │   ├── storage-authority.json         # SQLite / 可选 Turso authority
+│   ├── prompt-optimization.json
 │   ├── api_providers.json
 │   ├── available_models.json
 │   ├── generation-history.json        # 仅 JSON authority 兼容期
@@ -384,3 +385,9 @@ SQLite 主文件、WAL 或 SHM。
 迁移后的旧表会补充内容关联：私有视图状态与分享记录写入来源 Workspace 的
 `workspace_id`，内容类型审计记录也补上同一标识；账号生命周期审计保持安装级，
 `workspace_id` 为空。
+
+### 提示词优化设置
+
+`data/prompt-optimization.json` 以 V2 格式分别保存图片、视频模块的优化文字 Model 标识、默认方案（`default_preset`，旧配置默认为 `smart`）与方案指令，属于非秘密 Generation Settings，不包含 Provider 连接或凭据。缺少文件时使用内置默认值；损坏文件保留并报错，保存采用原子替换。读取 V1 共享设置时复制到两个独立模块，图片模块排除镜头指令；读取不修改旧文件，下次保存写入 V2。管理员通过「提示词优化」设置页修改，设计师只读使用。详情与验收见[功能规格](../active/2026-09-21-composer-prompt-optimize-spec.md)。
+
+媒体节点的 `promptOptimization.image` / `.video` 保存 `sourceHtml`、`resultHtml`、`preset`，属于 Canvas 创作内容，随画布持久化。主动编辑对应提示词时清除该媒体的优化记录；旧节点无字段时不显示版本切换。
