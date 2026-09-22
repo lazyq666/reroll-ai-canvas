@@ -2173,7 +2173,7 @@
       "dependencies": []
     },
     "static/js/smart-canvas.js": {
-      "version": "asset-0a73456b9d46",
+      "version": "asset-a950f219aa01",
       "dependencies": [
         "static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js",
         "static/js/smart-canvas/grid-gif.js",
@@ -2634,7 +2634,7 @@
       ]
     },
     "static/smart-canvas.html": {
-      "version": "asset-f37f6249ebff",
+      "version": "asset-93603bf2e6f5",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/design-tokens.css",
@@ -2724,7 +2724,7 @@
       ]
     },
     "static/update-notes.json": {
-      "version": "asset-316d0021c9ef",
+      "version": "asset-0d8fed908402",
       "dependencies": []
     },
     "static/vendor/css/fonts.css": {

@@ -13360,6 +13360,7 @@ function setPromptNodeFocused(nodeId, focused){
         return false;
     }
     setPromptAuthoringFocused(false);
+    smartPlaybackPauseForInterruption('prompt-focus');
     document.dispatchEvent(new CustomEvent('ic-overlay-scope-activate', {
         detail:{scope:promptNodeFocusSurface},
     }));
@@ -13383,6 +13384,7 @@ function setPromptAuthoringFocused(focused){
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
     const fromRect = stateChanged && !reduceMotion ? composer?.getBoundingClientRect() : null;
     if(active){
+        smartPlaybackPauseForInterruption('composer-focus');
         document.dispatchEvent(new CustomEvent('ic-overlay-scope-activate', {
             detail:{scope:composer},
         }));
