@@ -39,6 +39,7 @@ class Issue161MediaComposerEligibilityTests(unittest.TestCase):
             ["node", "-e", """
 const assert = require('node:assert/strict');
 const runBtn = {dataset:{}};
+const composerPromptOptimizer = {refresh:() => {}};
 const settings = {engine:'api',apiKind:'image'};
 let composerSubmission = null;
 let invalidReferences = false;
