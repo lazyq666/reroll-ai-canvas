@@ -57,7 +57,7 @@ function smartModelCapabilityClean(value, providerId='', modelId='', operation='
 async function smartModelCapabilityLoad(providerId='', modelId='', operation='', context={}){
     const route = smartModelCapabilityContext(context);
     const key = smartModelCapabilityKey(providerId, modelId, operation, route);
-    if(smartModelCapabilityCache.has(key)) return smartModelCapabilityCache.get(key);
+    if(!context.refresh && smartModelCapabilityCache.has(key)) return smartModelCapabilityCache.get(key);
     const query = new URLSearchParams({
         provider_id:String(providerId || ''),
         model:String(modelId || ''),
@@ -65,7 +65,7 @@ async function smartModelCapabilityLoad(providerId='', modelId='', operation='',
         protocol:route.protocol,
         base_url:route.base_url
     });
-    const value = await fetch(`/api/model-capabilities?${query}`).then(async response => {
+    const value = await fetch(`/api/model-capabilities?${query}`,{signal:context.signal}).then(async response => {
         if(!response.ok) throw new Error(await response.text());
         return response.json();
     }).catch(() => smartModelCapabilityFallback(providerId, modelId, operation));
