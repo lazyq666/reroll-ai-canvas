@@ -15806,7 +15806,9 @@ function insertMentionToken(img, editor=promptQuickEditor()){
     bindSmartPreviewImageFallbacks(token);
     const spacer = document.createTextNode(' ');
     token.after(spacer);
-    range.setStartAfter(spacer);
+    // Keep the caret inside editable text. A host-level boundary after a
+    // non-editable token can offset Chromium's first IME composition range.
+    range.setStart(spacer, spacer.length);
     range.collapse(true);
     sel.removeAllRanges();
     sel.addRange(range);

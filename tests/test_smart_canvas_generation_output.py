@@ -294,7 +294,35 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
                 node:ambiguousUpload,
             }});
             const history = sandbox.nodes.find(node => node.isHistoryGroup);
+            source.manualInputRefs = [
+                {{url:'same.png',inputInstanceId:'ref-a',asset_uris:{{library:'asset-a'}}}},
+                {{url:'same.png',inputInstanceId:'ref-b'}},
+            ];
+            source.localTextRefs = [{{inputInstanceId:'text-a',textSnapshot:'Saved text'}}];
+            source.inputRefOrder = ['instance|ref-b','instance|ref-a'];
+            source.blockedInputRefs = ['removed-ref'];
+            const parallelOutputs = output.createPendingBatch({{
+                sourceNode:source, expectedCount:2,
+                inheritSourceConnections:true, outputKind:'image',
+            }});
+            const inherited = parallelOutputs.map(node => ({{
+                ids:node.manualInputRefs.map(ref => ref.inputInstanceId),
+                order:node.inputRefOrder,
+                blocked:node.blockedInputRefs,
+                text:node.localTextRefs[0].textSnapshot,
+            }}));
+            parallelOutputs[0].manualInputRefs[0].asset_uris.library = 'edited';
+            parallelOutputs[0].manualInputRefs.pop();
+            parallelOutputs[0].localTextRefs[0].textSnapshot = 'Edited text';
             process.stdout.write(JSON.stringify({{
+                parallelReferences:{{
+                    inherited,
+                    originalCount:source.manualInputRefs.length,
+                    siblingCount:parallelOutputs[1].manualInputRefs.length,
+                    originalAsset:source.manualInputRefs[0].asset_uris.library,
+                    siblingAsset:parallelOutputs[1].manualInputRefs[0].asset_uris.library,
+                    originalText:source.localTextRefs[0].textSnapshot,
+                }},
                 methods:['createPending','normalize','apply']
                     .filter(name => typeof output[name] === 'function'),
                 pending:{{
@@ -347,6 +375,18 @@ class SmartCanvasGenerationOutputTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
+        parallel = payload["parallelReferences"]
+        self.assertEqual(parallel["inherited"], [{
+            "ids": ["ref-a", "ref-b"],
+            "order": ["instance|ref-b", "instance|ref-a"],
+            "blocked": ["removed-ref"],
+            "text": "Saved text",
+        }] * 2)
+        self.assertEqual(parallel["originalCount"], 2)
+        self.assertEqual(parallel["siblingCount"], 2)
+        self.assertEqual(parallel["originalAsset"], "asset-a")
+        self.assertEqual(parallel["siblingAsset"], "asset-a")
+        self.assertEqual(parallel["originalText"], "Saved text")
         self.assertEqual(
             payload["methods"],
             ["createPending", "normalize", "apply"],

@@ -18,7 +18,7 @@ import { IcAspectRatioPicker, PROJECT_ASPECT_RATIO_PRESETS } from './aspect-rati
 import { IcGenerationSettingsPicker } from './generation-settings-picker.js?v=asset-3601f63a0e55';
 import { IcGenerationPending } from './generation-pending.js?v=asset-db751b27edca';
 import { IcGenerationRecovery } from './generation-recovery.js?v=asset-76ec9018f728';
-import { IcPromptComposer } from './prompt-composer.js?v=asset-62a72323609b';
+import { IcPromptComposer } from './prompt-composer.js?v=asset-43cdbed41d05';
 import { IcPromptTemplateLibrary } from './prompt-template-library.js?v=asset-0d8f1aff36de';
 import { IcImageEditModeToolbar, IcSmartCanvasDock, IcSmartNodeContextMenu, IcSmartNodeToolbar } from './blocks.js?v=asset-7a1e26b083da';
 import { CANVAS_NODE_KINDS, IcCanvasMultiSelection, IcCanvasNode, IcPromptNodeFocusSurface, renderCanvasNodeMarkup, renderReadOnlyPromptNodeBodyMarkup } from './nodes.js?v=asset-4cfa4e582618';
