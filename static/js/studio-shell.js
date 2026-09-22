@@ -4,9 +4,9 @@
   const LOCAL_NAV_COLLAPSED_KEY = 'studio_local_nav_collapsed';
   const SIDEBAR_PINNED_KEY = 'studio_sidebar_pinned';
   const DEFAULT_PAGE_ID = 'canvas';
-  const PAGE_IDS = ['zimage', 'enhance', 'klein', 'angle', 'online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings'];
+  const PAGE_IDS = ['zimage', 'enhance', 'klein', 'angle', 'online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
   const LOCAL_PAGE_IDS = ['zimage', 'enhance', 'klein', 'angle'];
-  const SETTINGS_PAGE_IDS = ['account-management', 'api-settings', 'available-model-management', 'comfyui-settings'];
+  const SETTINGS_PAGE_IDS = ['account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
   const CANVAS_EDITOR_PATHS = new Set(['/static/smart-canvas.html']);
 
   const tr = key => window.StudioI18n?.t?.(key) || key;

@@ -26,6 +26,7 @@
         run = card.querySelector('#runBtn');
         expand = card.querySelector('#composerFocusToggle');
         refsHost = card.querySelector('#inputThumbsRow');
+        card.querySelectorAll('#promptOptimizeBtn, #promptOptimizeMenu').forEach(element => element.remove());
         for(const element of card.querySelectorAll('[id]')) element.removeAttribute('id');
         for(const element of [editor,run,expand]){
             for(const attr of [...element.attributes]) if(attr.name.startsWith('data-i18n')) element.removeAttribute(attr.name);

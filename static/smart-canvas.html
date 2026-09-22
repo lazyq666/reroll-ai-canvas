@@ -33,9 +33,9 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/touch-mouse.js?v=2026.09.01.5.1788439320"></script>
-    <script src="/static/js/i18n.js?v=i18n-loader-5ba7422429ff"></script>
+    <script src="/static/js/i18n.js?v=i18n-loader-d3560fed8d18"></script>
     <script src="/static/js/model-vendor-icons.js?v=2026.09.01.5.1788439320"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-08970b6a52fb">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-84a8cea7c954">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=2026.09.01.5.1788439320">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=2026.09.01.5.1788439320">
@@ -88,6 +88,12 @@
                         <ic-icon-button id="composerTemplateBtn" class="composer-template-btn" type="button" size="small" hierarchy="quiet" icon="prompt-library" label="模板" data-i18n-label="smart.template" tooltip-placement="block-start" data-action-combination="quiet-icon-toggle" aria-controls="promptTemplateDialog" aria-expanded="false" toggle></ic-icon-button>
                     </div>
                     <div class="composer-actions">
+                        <ic-icon-button id="promptOptimizeBtn" type="button" size="small" hierarchy="quiet" icon="app" label="优化提示词" data-i18n-label="smart.optimize.action" tooltip-placement="block-start" disabled></ic-icon-button>
+                        <ic-menu id="promptOptimizeMenu" trigger="dropdown" selection="single" size="small" placement="block-start" alignment="end" label="切换提示词" data-i18n-label="smart.optimize.versions">
+                            <ic-icon-button slot="trigger" hidden type="button" size="small" hierarchy="quiet" icon="expand" label="切换提示词" data-i18n-label="smart.optimize.versions"></ic-icon-button>
+                            <ic-menu-item kind="radio" value="optimized" label="优化提示词 1" data-i18n-label="smart.optimize.versionOne"></ic-menu-item>
+                            <ic-menu-item kind="radio" value="original" label="原提示词" data-i18n-label="smart.optimize.original"></ic-menu-item>
+                        </ic-menu>
                         <ic-icon-button id="runBtn" class="run-btn" effect="metal" type="button" size="large" hierarchy="primary" icon="submit" label="运行" data-i18n-label="smart.run" tooltip-placement="block-start" data-action-combination="primary-icon-action"></ic-icon-button>
                     </div>
                 </div>
@@ -693,9 +699,10 @@
     <script src="/static/js/smart-canvas/generation-cascade.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=asset-dd104f696fc9"></script>
-    <script src="/static/js/smart-canvas/prompt-generation-composer.js"></script>
+    <script src="/static/js/smart-canvas/prompt-generation-composer.js?v=asset-86d6502c9b09"></script>
     <script src="/static/js/smart-canvas/media-naming.js"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-23d81c24ef37" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas/prompt-optimize.js?v=asset-113dfb456dfe"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-8905fecdf0ba" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
 </body>
 </html>

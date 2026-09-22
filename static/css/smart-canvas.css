@@ -1374,7 +1374,11 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .generation-failure-alert-queue .generation-failure-alert[data-ic-stack-index="0"][data-ic-stack-state="active"] { pointer-events:auto; }
 .selection-box { position:absolute; z-index:18; border:var(--ui-border-width-thin) solid var(--ui-color-border-selected); background:color-mix(in srgb, var(--ui-color-border-selected) 14%, transparent); border-radius:var(--ui-radius-s); pointer-events:none; display:none; }
 .theme-dark .selection-box { border-color:var(--ui-color-border-selected); background:color-mix(in srgb, var(--ui-color-border-selected) 14%, transparent); }
-.composer-actions { grid-area:run; display:flex; justify-content:flex-end; gap:var(--ui-space-1); }
+.composer-actions { grid-area:run; display:flex; align-items:center; align-self:center; justify-content:flex-end; gap:var(--ui-space-1); }
+.composer .param-row { align-self:center; }
+#promptOptimizeBtn, #promptOptimizeMenu > [slot="trigger"] { flex:0 0 auto; }
+#promptOptimizeBtn:not([disabled])::part(base), #promptOptimizeMenu > [slot="trigger"]::part(base) { color:var(--ui-color-text-secondary); }
+#promptOptimizeBtn > ic-icon, #promptOptimizeMenu > [slot="trigger"] > ic-icon { --ic-icon-size:var(--ui-icon-size-s); --ic-icon-stroke-width:var(--ui-icon-stroke-width-s); }
 .preview-icon-btn { width:var(--ui-icon-size-l); height:var(--ui-icon-size-l); border-radius:var(--ui-radius-s); display:inline-flex; align-items:center; justify-content:center; color:var(--ui-color-text-tertiary); background:var(--ui-color-surface); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); }
 .preview-icon-btn:hover { background:var(--ui-color-action-tertiary-hover); color:var(--ui-color-text-primary); }
 .image-edit-dialog { --ic-dialog-backdrop-color:var(--ui-color-backdrop); --ic-dialog-backdrop-filter:blur(4px); }
