@@ -151,6 +151,42 @@ class ApimartMidjourneyRoutingTests(unittest.TestCase):
         self.assertEqual(capture["json"]["model"], "gpt-image-2")
         self.assertEqual(image["value"], "https://example.test/gpt-image.png")
 
+    def test_image_task_completion_keeps_every_requested_output(self):
+        for count in (1, 2, 4):
+            for asynchronous in (False, True):
+                with self.subTest(count=count, asynchronous=asynchronous):
+                    provider = apimart_provider()
+                    capture = {}
+                    urls = [f"https://example.test/image-{i}.png" for i in range(count)]
+                    completed = {"data": {"status": "completed", "result": {
+                        "images": [{"url": urls}],
+                    }}}
+                    submitted = {"data": [{"status": "submitted", "task_id": "multi-image-task"}]}
+                    wait_for_task = AsyncMock(return_value=completed)
+                    checkpoint = unittest.mock.Mock()
+                    with (
+                        patch.object(main, "get_api_provider", return_value=provider),
+                        patch.object(main, "provider_env_key_value", return_value="test-api-key"),
+                        patch.object(main, "reference_to_data_url", return_value="data:image/png;base64,test"),
+                        patch.object(main.httpx, "AsyncClient", side_effect=lambda *args, **kwargs: FakeAsyncClient(
+                            capture, submitted if asynchronous else completed, *args, **kwargs,
+                        )) as client,
+                    ):
+                        result = asyncio.run(main._PROVIDER_RUNTIME.execute_image(
+                            "variants of a studio portrait", "1536x2048", "auto", "gpt-image-2",
+                            [{"url": "/assets/input/reference.png"}], "apimart",
+                            count=count, wait_for_task=wait_for_task, checkpoint=checkpoint,
+                        ))
+                    self.assertEqual(capture["json"]["n"], count)
+                    self.assertEqual([item["value"] for item in result.output.media], urls)
+                    client.assert_called_once()
+                    if asynchronous:
+                        wait_for_task.assert_awaited_once_with(unittest.mock.ANY, "multi-image-task", provider)
+                        checkpoint.assert_called_once()
+                    else:
+                        wait_for_task.assert_not_awaited()
+                        checkpoint.assert_not_called()
+
     def test_official_gpt_image_2_maps_transparent_png_contract(self):
         provider = apimart_provider()
         capture = {}
