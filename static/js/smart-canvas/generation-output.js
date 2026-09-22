@@ -183,6 +183,16 @@ function generationOutputParallelReferenceKind(sourceNode, outputKind='image'){
 function generationOutputBatchAnchor(sourceNode){
     return generationOutputIncomingAnchor(sourceNode,generationOutputIncomingConnections(sourceNode));
 }
+function generationOutputInheritAuthoringReferences(sourceNode, output){
+    // Parallel outputs inherit live Connections as well as the references
+    // authored locally. Run snapshots alone cannot supply these: live inputs
+    // intentionally take precedence over historical references in the Composer.
+    for(const key of ['manualInputRefs','localTextRefs','inputRefOrder','blockedInputRefs']){
+        if(Array.isArray(sourceNode[key])){
+            output[key] = generationOutputClonePersistentValue(sourceNode[key]);
+        }
+    }
+}
 function generationOutputCreatePendingBatch(sourceNode, expectedCount, meta, options={}){
     if(!sourceNode) return [];
     const count = Math.max(2,Math.min(8,Number(expectedCount) || 1));
@@ -246,6 +256,9 @@ function generationOutputCreatePendingBatch(sourceNode, expectedCount, meta, opt
             scale:MEDIA_NODE_DEFAULT_SCALE
         });
         if(parallelReferenceKind) output.referenceGenerationKind = parallelReferenceKind;
+        if((createParallelOutputs || options.connectSource === null) && output !== sourceNode){
+            generationOutputInheritAuthoringReferences(sourceNode, output);
+        }
         output._selectAfterRunId = options.selectOutput
             ? output.id
             : sourceNode.id;
@@ -332,6 +345,9 @@ function generationOutputCreatePending(sourceNode, expectedCount, meta, options=
         created_at:Date.now()
     };
     const inheritSourceConnections = options.inheritSourceConnections === true;
+    if(inheritSourceConnections || options.connectSource === null){
+        generationOutputInheritAuthoringReferences(sourceNode, output);
+    }
     const incomingConnections = inheritSourceConnections
         ? generationOutputIncomingConnections(sourceNode)
         : [];
