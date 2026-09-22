@@ -265,7 +265,7 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
         self.assertRegex(self.page, r"smart-canvas\.css\?v=[^\"']+")
         self.assertRegex(self.page, r"prompt-authoring\.js\?v=[^\"']+")
         self.assertRegex(self.page, r"smart-canvas\.js\?v=[^\"']+")
-        self.assertRegex(self.i18n_loader, r"const VERSION = 'i18n-[0-9a-f]{12}'")
+        self.assertRegex(self.i18n_loader, r"/static/js/i18n/smart-canvas\.js\?v=asset-[0-9a-f]{12}")
 
     def test_canvas_media_pagination_appends_without_replacing_visible_items(self):
         script = textwrap.dedent(

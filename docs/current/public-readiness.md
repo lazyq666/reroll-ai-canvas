@@ -12,7 +12,7 @@
 
 ## 开发、提交与发布
 
-开发仍默认使用当前本地目录和分支。先完成实现、测试、双语和资源生成，再审查并提交完整候选；共享工作区只提交自己的改动。提交前运行 `scripts/readiness_version.py --prepare YYYY.MM.DD.N`，采用当前上海日期及高于已发布版本的序号。它同步 VERSION、更新说明及现有分享页缓存合同；快照入口不自动修复文件。
+开发仍默认使用当前本地目录和分支。先完成实现、测试、双语和资源生成，再审查并提交完整候选；共享工作区只提交自己的改动。前端资源统一由 `scripts/sync_frontend_assets.py` 生成，见[资源版本合同](frontend-asset-versions.md)。提交前运行 `scripts/readiness_version.py --prepare YYYY.MM.DD.N`，采用当前上海日期及高于已发布版本的序号。它同步 VERSION 与更新说明；分享页和其他前端资源继续使用内容指纹。快照入口不自动修复文件。
 
 只验收、暂不推送时：
 
@@ -34,7 +34,7 @@ python3.12 scripts/readiness_publish.py HEAD --branch codex/my-change --report /
 
 ## Linux 合入门槛
 
-五个独立组由 [共享清单](../../scripts/readiness/manifest.json) 定义：公开及依赖审计、确定性 Python、Node 合同、核心 Chromium 浏览器、仓库资源与版本合同。前一组失败不遮挡其他组；缺少依赖的检查明确受阻。文档地图、i18n 缓存版本、Infinite Canvas UI 资源版本和更新源测试只由 Python 全量套件执行一次；仓库合同组保留独立的 vendor、i18n、UI 资源版本和发布版本命令，不再重复安装 Python 依赖。Python 默认套件跳过的浏览器合同由独立必需组实际执行，受控性能验收保留为功能规格的额外 Gate。
+五个独立组由 [共享清单](../../scripts/readiness/manifest.json) 定义：公开及依赖审计、确定性 Python、Node 合同、核心 Chromium 浏览器、仓库资源与版本合同。前一组失败不遮挡其他组；缺少依赖的检查明确受阻。文档地图、专用资源兼容入口和更新源测试由 Python 全量套件执行；仓库合同组保留独立的 vendor、i18n、统一前端资源与发布版本命令，不安装 Python 依赖。必需浏览器组安装锁定 Python 依赖以运行临时服务，并执行 UI 核心合同与保留旧缓存的升级回归；该回归验证普通刷新、依赖更新、生成结果命名、自动保存、WebSocket 同步和重新打开。Python 默认套件跳过的浏览器合同由此组实际执行，受控性能验收保留为功能规格的额外 Gate。
 
 工作流把执行器实际使用的 `READINESS_DOWNLOAD_CACHE` 固定到 runner 临时目录，并按操作系统、Python／Node／uv 版本及锁文件哈希持久化 uv、pip 与 npm 下载缓存。缓存只复用已下载内容；每轮仍按锁文件重新安装、校验并运行全部检查，缓存命中不能代替验收结果。每项命令的耗时进入报告和控制台状态；Python 套件另外记录最长的 20 个测试及耗时，只保留合法测试标识和数值，不上传原始输出。
 

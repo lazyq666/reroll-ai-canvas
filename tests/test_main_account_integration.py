@@ -362,7 +362,7 @@ class MainAccountIntegrationTests(unittest.TestCase):
                     second = main.versioned_static_html(source)
 
                 self.assertEqual(first, second)
-                self.assertIn("?v=2026.09.04.1", first)
+                self.assertEqual(source, first)
             finally:
                 unload_main()
 

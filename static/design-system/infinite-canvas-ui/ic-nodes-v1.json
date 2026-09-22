@@ -12,13 +12,13 @@
       "status": "implemented",
       "implementedOn": "2026-08-26",
       "evidence": [
-        "/static/js/infinite-canvas-ui/nodes.js",
-        "/static/js/infinite-canvas-ui/nodes/node.js",
-        "/static/js/infinite-canvas-ui/nodes/multi-selection.js",
-        "/static/js/infinite-canvas-ui/nodes/prompt-focus-surface.js",
-        "/static/js/infinite-canvas-ui/nodes/shared.js",
+        "/static/js/infinite-canvas-ui/nodes.js?v=asset-4cfa4e582618",
+        "/static/js/infinite-canvas-ui/nodes/node.js?v=asset-f42fcca007ad",
+        "/static/js/infinite-canvas-ui/nodes/multi-selection.js?v=asset-a5c281c03447",
+        "/static/js/infinite-canvas-ui/nodes/prompt-focus-surface.js?v=asset-f8a560bd24ec",
+        "/static/js/infinite-canvas-ui/nodes/shared.js?v=asset-a0fd8f408f53",
         "/static/smart-canvas.html?componentReview=nodes",
-        "/static/js/smart-canvas/node-review-fixture.js"
+        "/static/js/smart-canvas/node-review-fixture.js?v=asset-598295cffb82"
       ]
     },
     "live": {

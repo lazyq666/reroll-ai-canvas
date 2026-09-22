@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_url
 import json
 import subprocess
 import unittest
@@ -227,7 +228,7 @@ class SmartCanvasNodeComponentTests(unittest.TestCase):
                 self.assertIn(f"type:'{kind}'", self.node_review_fixture)
         self.assertEqual(self.node_review_fixture.count("id:'review-label-"), 10)
         self.assertEqual(self.node_review_fixture.count("id:'review-"), 37)
-        self.assertIn("url:'/static/images/test/fixture.svg'", self.node_review_fixture)
+        self.assertIn(f"url:'{asset_url('/static/images/test/fixture.svg')}'", self.node_review_fixture)
         self.assertIn("id:'review-prompt-generation-upstream-image'", self.node_review_fixture)
         self.assertIn("{from:'review-image-ready',to:'review-prompt-generation-upstream-image',kind:'input'}", self.node_review_fixture)
         self.assertIn("const SMART_UPLOAD_MAX_BYTES = 500 * 1024 * 1024", self.smart_canvas)

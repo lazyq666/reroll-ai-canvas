@@ -7,13 +7,13 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const catalog = [
     {id:'apimart', name:'APIMart', mark:'A'},
-    {id:'modelscope', name:'ModelScope', image:'modelscope.gif'},
-    {id:'runninghub', name:'RunningHub', image:'RunningHub-B.png'},
-    {id:'volcengine', key:'volc', image:'volcengine-theme-light.svg'},
+    {id:'modelscope', name:'ModelScope', image:'/static/images/providers/modelscope.gif?v=asset-38f8e5e8ce17'},
+    {id:'runninghub', name:'RunningHub', image:'/static/images/providers/RunningHub-B.png?v=asset-7a7a959db978'},
+    {id:'volcengine', key:'volc', image:'/static/images/providers/volcengine-theme-light.svg?v=asset-30b84f5159c0'},
     {id:'other', key:'other', mark:'+'},
-    {id:'jimeng', key:'jimeng', image:'jimeng.svg', cli:true},
-    {id:'codex', name:'GPT CLI', image:'chatgpt.svg', cli:true},
-    {id:'gemini-cli', name:'Antigravity CLI', image:'gemini.svg', cli:true},
+    {id:'jimeng', key:'jimeng', image:'/static/images/providers/jimeng.svg?v=asset-fe7127df2913', cli:true},
+    {id:'codex', name:'GPT CLI', image:'/static/images/providers/chatgpt.svg?v=asset-eafa1089c000', cli:true},
+    {id:'gemini-cli', name:'Antigravity CLI', image:'/static/images/providers/gemini.svg?v=asset-39d2ac073ff4', cli:true},
   ];
   const getService = id => catalog.find(item => item.id === id);
   const name = item => item.key ? text(item.key) : item.name;
@@ -117,7 +117,7 @@
         (hasSource()?'<ic-alert open tone="success">'+text('existingConnected',{n:Object.keys(state.connected).length})+'</ic-alert>':'')+
         [false,true].map(cli=>'<h2>'+text(cli?'cli':'api')+'</h2><div class="services">'+catalog.filter(s=>!!s.cli===cli).map(s=>
           '<ic-checkbox class="service" name="onboarding_service_'+s.id+'" label="'+escape(name(s))+'" appearance="checkmark-end" data-legal-combination="checkmark-end-label" data-component-variant="list" data-component-name="ic-checkbox-list" data-service="'+s.id+'" '+(state.selected.includes(s.id)?'checked':'')+'>'+
-          (s.image?'<img src="/static/images/providers/'+s.image+'" alt="">':'<span class="monogram" aria-hidden="true">'+s.mark+'</span>')+
+          (s.image?'<img src="'+s.image+'" alt="">':'<span class="monogram" aria-hidden="true">'+s.mark+'</span>')+
           '</ic-checkbox>').join('')+'</div>').join('')+
         alert()+actions((hasSource()?button('ready','showReady'): '<span></span>')+'<ic-button id="configure" hierarchy="primary" '+(!state.selected.length?'disabled':'')+'>'+text('configure',{n:state.selected.length})+'</ic-button>');
     } else if(state.step===3) {

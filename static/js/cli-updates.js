@@ -3,9 +3,9 @@
   const tr = key => window.StudioI18n?.t?.(key) || key;
   const trf = (key, values) => window.StudioI18n?.format?.(key, values) || tr(key);
   const iconSources = {
-    codex: '/static/images/providers/chatgpt.svg',
-    jimeng: '/static/images/providers/jimeng.svg',
-    'gemini-cli': '/static/images/providers/gemini.svg',
+    codex: '/static/images/providers/chatgpt.svg?v=asset-eafa1089c000',
+    jimeng: '/static/images/providers/jimeng.svg?v=asset-fe7127df2913',
+    'gemini-cli': '/static/images/providers/gemini.svg?v=asset-39d2ac073ff4',
   };
   const secondaryStates = new Set(['uncomparable', 'check_failed']);
   let snapshot = null;

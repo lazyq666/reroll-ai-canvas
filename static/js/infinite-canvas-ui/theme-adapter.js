@@ -2,7 +2,7 @@ const ADAPTER_MARKER = 'ic-foundations-v1';
 
 
 export const INFINITE_CANVAS_UI_FOUNDATIONS = Object.freeze({
-  source: '/static/css/design-tokens.css',
+  source: '/static/css/design-tokens.css?v=asset-b180cf511553',
   themes: Object.freeze(['light', 'dark']),
   densities: Object.freeze(['medium', 'small', 'large']),
   motion: Object.freeze(['standard', 'reduced']),

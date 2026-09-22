@@ -20,7 +20,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/selection-adjustment.js",
+        "/static/js/infinite-canvas-ui/selection-adjustment.js?v=asset-73a9a20cbe8f",
         "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
         "/tests/infinite_canvas_ui_selection_adjustment_browser_harness.html"
       ]
@@ -169,7 +169,7 @@
     "states": ["default", "hover", "focus-visible", "disabled", "invalid", "checked", "indeterminate"]
   },
   "legacyCoverage": {
-    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
     "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
     "sourceReviewStatus": "pending-human-confirmation",
     "directFamilyInstanceCount": 96,

@@ -1,0 +1,41 @@
+{
+  "pinned_trees": [
+    {
+      "path": "static/vendor/webawesome/3.10.0",
+      "reason": "Fixed third-party snapshot; see static/vendor/MANIFEST.md and THIRD_PARTY_NOTICES.md. Updates require deliberate lock review.",
+      "sha256": "6c2dcf7046955a3e42b80be8b04f011070bc66fb33f305a1213f0bf6d0b21339"
+    },
+    {
+      "path": "static/vendor/js",
+      "reason": "Fixed third-party snapshot; see static/vendor/MANIFEST.md and THIRD_PARTY_NOTICES.md. Updates require deliberate lock review.",
+      "sha256": "0ee783b6b4e09d28e34b80c5be183046c7e84dd4f5f408ec42dce3d20aacfbff"
+    },
+    {
+      "path": "static/vendor/gifenc",
+      "reason": "Fixed third-party snapshot; see static/vendor/MANIFEST.md and THIRD_PARTY_NOTICES.md. Updates require deliberate lock review.",
+      "sha256": "fff4de84a60f0d116e316c617ad3e15d5b1e811cdf16988357504a55caaef22c"
+    },
+    {
+      "path": "static/vendor/cropperjs",
+      "reason": "Fixed third-party snapshot; see static/vendor/MANIFEST.md and THIRD_PARTY_NOTICES.md. Updates require deliberate lock review.",
+      "sha256": "e97f02517fce712a4b7970f69e5f6db3535aaccaa5f94a5e4a4bb5d2a7a8f084"
+    },
+    {
+      "path": "static/vendor/libraries-motion",
+      "reason": "Fixed third-party snapshot; see static/vendor/MANIFEST.md and THIRD_PARTY_NOTICES.md. Updates require deliberate lock review.",
+      "sha256": "a1379f1ee842bda3f873dfac70719f8f3a134907467cac65c2b153250c1d2437"
+    }
+  ],
+  "excluded_files": {
+    "static/js/i18n/validate-i18n.js": "Node-only developer validator, never a browser dependency."
+  },
+  "excluded_directories": {
+    "static/prototypes/": "Throwaway visual prototypes, not product entry points."
+  },
+  "embedded_sources": [
+    "backend/infinite_canvas/app.py"
+  ],
+  "version_markers": {
+    "static/js/infinite-canvas-ui/VERSION": "static/js/infinite-canvas-ui/core.js"
+  }
+}

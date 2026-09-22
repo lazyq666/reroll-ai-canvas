@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_version
 import json
 import re
 import unittest
@@ -6,7 +7,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UI_ROOT = ROOT / "static" / "js" / "infinite-canvas-ui"
-UI_VERSION = (UI_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 ACTIONS_ROOT = UI_ROOT / "actions"
 ACTIONS_CONTRACT = ROOT / "static/design-system/infinite-canvas-ui/ic-actions-v1.json"
 SURFACE_MANIFEST = ROOT / "static/design-system/infinite-canvas-ui/surface-manifest.json"
@@ -30,11 +30,11 @@ class InfiniteCanvasUiActionsModuleTests(unittest.TestCase):
         cls.surface_app = SURFACE_APP.read_text(encoding="utf-8")
 
     def test_stable_entry_hides_the_family_file_layout(self):
-        self.assertIn(f"from './actions/index.js?v={UI_VERSION}'", self.entry)
+        self.assertIn(f"from './actions/index.js?v={asset_version('static/js/infinite-canvas-ui/actions/index.js')}'", self.entry)
         for public_class in ("IcButton", "IcIconButton", "IcVideoPlayButton", "IcButtonGroup"):
             self.assertIn(public_class, self.entry)
             self.assertIn(public_class, self.index)
-        self.assertIn(f"from './actions.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './actions.js?v={asset_version('static/js/infinite-canvas-ui/actions.js')}'", self.core)
 
     def test_each_public_control_has_one_family_implementation_file(self):
         self.assertIn("export class IcButton extends", self.button)

@@ -1,4 +1,4 @@
-const PLAY_BUTTON_ASSET = new URL('../../../images/ui/video-play-button.svg', import.meta.url).href;
+const PLAY_BUTTON_ASSET = new URL('../../../images/ui/video-play-button.svg?v=asset-2bd2374029a3', import.meta.url).href;
 
 const VALID_SIZES = new Set(['s', 'm']);
 

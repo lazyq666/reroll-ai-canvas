@@ -62,7 +62,7 @@ def main():
         os.environ['IC_RUN_BROWSER_TESTS'] = '1'
         if sys.platform == 'linux':
             os.environ['IC_BROWSER_NO_SANDBOX'] = '1'
-        targets = ['tests.test_infinite_canvas_ui_core']
+        targets = ['tests.test_infinite_canvas_ui_core', 'tests.test_frontend_assets.FrontendAssetBrowserTests']
     loader = unittest.TestLoader()
     suite = loader.discover('tests', top_level_dir='.') if targets == ['discover'] else loader.loadTestsFromNames(targets)
     result = unittest.TextTestRunner(verbosity=1, resultclass=TimedTestResult).run(suite)

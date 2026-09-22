@@ -4,7 +4,7 @@ import {
   setContractStatus,
   syncHiddenAccessibleName,
   withProjectEvents,
-} from './shared.js';
+} from './shared.js?v=asset-72cacddc4241';
 
 
 const TEXTAREA_RESIZE = new Set(['vertical', 'none']);

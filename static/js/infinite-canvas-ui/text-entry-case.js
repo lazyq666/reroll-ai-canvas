@@ -1,4 +1,4 @@
-import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-9e5de786b163';
+import '/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb';
 
 const params = new URLSearchParams(location.search);
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light';
@@ -171,4 +171,4 @@ if (document.documentElement.dataset.uiDensity === 'small') {
     composer.dataset.componentName = `${composer.dataset.componentName}-s`;
   }
 }
-await import('./component-name-tag.js');
+await import('./component-name-tag.js?v=asset-be87ef90d5dd');

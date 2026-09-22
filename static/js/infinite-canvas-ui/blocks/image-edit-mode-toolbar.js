@@ -1,4 +1,4 @@
-import { IcFloatingToolbar } from '../navigation-command/floating-toolbar.js';
+import { IcFloatingToolbar } from '../navigation-command/floating-toolbar.js?v=asset-d561c586ed34';
 
 const MODES = Object.freeze([
   ['preview', 'preview', 'smart.modePreview', '预览'],

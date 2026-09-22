@@ -3,9 +3,9 @@
     window.history.scrollRestoration = 'manual';
   }
 
-  const SURFACE_MANIFEST_URL = '/static/design-system/infinite-canvas-ui/surface-manifest.json';
-  const LEGACY_MANIFEST_URL = '/static/design-system/live-catalog/manifest.json';
-  const SEMANTIC_BASELINE_URL = '/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json';
+  const SURFACE_MANIFEST_URL = '/static/design-system/infinite-canvas-ui/surface-manifest.json?v=asset-0ba690a8cf1f';
+  const LEGACY_MANIFEST_URL = '/static/design-system/live-catalog/manifest.json?v=asset-6917c8f5370e';
+  const SEMANTIC_BASELINE_URL = '/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5';
   const model = window.InfiniteCanvasUiSurfaceModel;
   const tabs = [...document.querySelectorAll('[data-surface-tab]')];
   const panels = [...document.querySelectorAll('[data-surface-panel]')];
@@ -387,7 +387,7 @@
     if (!previewDocument.querySelector('link[data-ui-library-preview-style]')) {
       const stylesheet = previewDocument.createElement('link');
       stylesheet.rel = 'stylesheet';
-      stylesheet.href = '/static/css/ui-component-library-preview.css?v=2026.08.27.feedback-progress-surface.1';
+      stylesheet.href = '/static/css/ui-component-library-preview.css?v=asset-42f253972617';
       stylesheet.dataset.uiLibraryPreviewStyle = 'true';
       previewDocument.head?.append(stylesheet);
     }

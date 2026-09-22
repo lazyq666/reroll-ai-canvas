@@ -22,7 +22,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/text-entry.js",
+        "/static/js/infinite-canvas-ui/text-entry.js?v=asset-1f07f840d089",
         "/static/design-system/infinite-canvas-ui/text-entry.html",
         "/tests/infinite_canvas_ui_text_entry_browser_harness.html"
       ]
@@ -105,7 +105,7 @@
     "motion": ["standard", "reduced"]
   },
   "legacyCoverage": {
-    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
     "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
     "sourceReviewStatus": "pending-human-confirmation",
     "instanceCount": 179,

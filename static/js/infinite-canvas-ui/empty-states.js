@@ -1,4 +1,4 @@
-import './core.js?v=ic-ui-9e5de786b163';
+import './core.js?v=asset-5078f5fd88bb';
 
 await customElements.whenDefined('ic-icon');
 await customElements.whenDefined('ic-empty-state');

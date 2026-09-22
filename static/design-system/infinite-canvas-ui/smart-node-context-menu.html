@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Reroll UI · 节点右键菜单</title>
-  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <style>
     html,body{margin:0;min-height:100%;background:var(--ui-color-surface-canvas);color:var(--ui-color-text-primary);font-family:var(--ui-font-sans)}
     body{padding:var(--ui-space-6)}
@@ -29,9 +29,9 @@
     </article>
   </main>
   <script type="module">
-    await import('/static/js/infinite-canvas-ui/core.js?v=ic-ui-9e5de786b163');
+    await import('/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb');
     await customElements.whenDefined('ic-smart-node-context-menu');
-    await import('/static/js/infinite-canvas-ui/component-name-tag.js?v=ic-ui-9e5de786b163');
+    await import('/static/js/infinite-canvas-ui/component-name-tag.js?v=asset-be87ef90d5dd');
 
     const target = document.querySelector('#contextTarget');
     const menu = document.querySelector('#smartNodeContextMenu');

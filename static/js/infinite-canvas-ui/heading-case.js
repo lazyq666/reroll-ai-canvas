@@ -19,11 +19,11 @@ document.body.dataset.content = context.content;
 document.body.dataset.locale = context.locale;
 
 const [contract] = await Promise.all([
-  fetch('/static/design-system/infinite-canvas-ui/ic-heading-v1.json').then(response => {
+  fetch('/static/design-system/infinite-canvas-ui/ic-heading-v1.json?v=asset-90ff80da829a').then(response => {
     if (!response.ok) throw new Error(`Heading contract failed: HTTP ${response.status}`);
     return response.json();
   }),
-  import('/static/js/infinite-canvas-ui/core.js?v=ic-ui-9e5de786b163'),
+  import('/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb'),
 ]);
 await customElements.whenDefined('ic-heading');
 

@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_version
 import json
 import unittest
 from pathlib import Path
@@ -5,7 +6,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UI_ROOT = ROOT / "static" / "js" / "infinite-canvas-ui"
-UI_VERSION = (UI_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
 class FileMediaPlayerControlsTests(unittest.TestCase):
@@ -26,8 +26,8 @@ class FileMediaPlayerControlsTests(unittest.TestCase):
 
     def test_shared_player_is_a_family_owned_public_module(self):
         self.assertIn("export class IcMediaPlayerControls", self.player)
-        self.assertIn(f"./file-media-input/media-player-controls.js?v={UI_VERSION}", self.family)
-        self.assertIn(f"./file-media-input.js?v={UI_VERSION}", self.core)
+        self.assertIn(f"./file-media-input/media-player-controls.js?v={asset_version('static/js/infinite-canvas-ui/file-media-input/media-player-controls.js')}", self.family)
+        self.assertIn(f"./file-media-input.js?v={asset_version('static/js/infinite-canvas-ui/file-media-input.js')}", self.core)
         self.assertIn("define('ic-media-player-controls', IcMediaPlayerControls)", self.core)
         self.assertIn("IcMediaPlayerControls", self.core)
 

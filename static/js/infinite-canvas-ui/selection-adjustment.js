@@ -8,4 +8,4 @@ export {
   IcSelect,
   IcSlider,
   IcSwitch,
-} from './selection-adjustment/index.js?v=ic-ui-9e5de786b163';
+} from './selection-adjustment/index.js?v=asset-8312a0c05679';

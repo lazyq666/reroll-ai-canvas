@@ -91,3 +91,15 @@ inventory, workflow, or ruleset require behavioral acceptance, including remote
 cancellation/refusal experiments in an isolated acceptance repository. Production
 completion also needs a green PR, the final main push result and effective rule
 readback; local fixtures cannot substitute for those gates.
+
+## Frontend cache upgrades
+
+Run `ASSET_TEST_PYTHON=.venv/bin/python node tests/frontend_cache_upgrade_browser.cjs`
+after installing locked Python/Node dependencies and Playwright Chromium. This
+self-contained fixture starts its own temporary service, uses real HTTP cache
+and WebSockets, and checks old-cache upgrade behavior with fixed generation
+results. It does not require the application server or paid model access.
+The required Public readiness browser group runs it automatically. Generator
+contracts and the read-only resource inventory are covered by
+`python -m unittest tests.test_frontend_assets` and
+`python scripts/sync_frontend_assets.py --check`.

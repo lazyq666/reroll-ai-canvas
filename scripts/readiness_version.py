@@ -4,7 +4,6 @@ import datetime
 import json
 import re
 import subprocess
-import time
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
@@ -37,14 +36,8 @@ def prepare(root, value):
     notes = json.loads(notes_path.read_text())
     notes['version'] = value
     notes['updated_at'] = datetime.datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds')
-    share_path = root / 'static/share.html'
-    share, count = re.subn(r'(/static/(?:css/canvas-share\.css|js/canvas-share\.js)\?v=)[^"\s]+',
-                           lambda match: match[1] + value + '.' + str(int(time.time())), share_path.read_text())
-    if count != 2:
-        raise ValueError('expected both paired share asset references')
     (root / 'VERSION').write_text(value + '\n')
     notes_path.write_text(json.dumps(notes, ensure_ascii=False, indent=2) + '\n')
-    share_path.write_text(share)
 
 
 if __name__ == '__main__':

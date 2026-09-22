@@ -25,7 +25,7 @@ async function processGridGif({sourceUrl, rows, cols, delay, fillColor, signal, 
         try {
             if (signal?.aborted) { abort(); return; }
             signal?.addEventListener('abort', abort, {once:true});
-            worker = new Worker(new URL('./grid-gif-worker.js?v=4', import.meta.url), {type:'module'});
+            worker = new Worker(new URL('./grid-gif-worker.js?v=asset-70afe430d4e5', import.meta.url), {type:'module'});
             worker.onmessage = ({data}) => {
                 cleanup();
                 if (data.error) reject(fail(data.error));

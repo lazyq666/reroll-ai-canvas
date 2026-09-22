@@ -1,6 +1,6 @@
 import WaButton from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/button/button.js';
-import { withProjectEvents } from './shared.js';
-import { BUTTON_STYLES } from './styles.js';
+import { withProjectEvents } from './shared.js?v=asset-84acb0f53b28';
+import { BUTTON_STYLES } from './styles.js?v=asset-bfdbbb415bde';
 
 
 const BUTTON_HIERARCHIES = new Set(['primary', 'secondary', 'quiet']);

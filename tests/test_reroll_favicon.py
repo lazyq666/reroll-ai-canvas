@@ -1,10 +1,11 @@
+from tests.frontend_asset_helpers import asset_url
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FAVICON_PATH = "/static/images/brand/favicon.png"
-FAVICON_URL = f"{FAVICON_PATH}?v=2026.08.29.reroll.1"
+FAVICON_URL = asset_url(FAVICON_PATH)
 
 
 class RerollFaviconTests(unittest.TestCase):

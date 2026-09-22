@@ -12,6 +12,8 @@ Create an ADR when a decision constrains future implementation, establishes a sy
 
 [ADR-0013](0013-public-readiness-gates.md) records fixed-commit verification, independent checks, and enforced main rules without a standing bypass.
 
+[ADR-0015](0015-frontend-content-fingerprint-authority.md) establishes one content-fingerprint owner for frontend resources, dependency propagation and retained-cache upgrade verification.
+
 ## Naming
 
 [ADR-0012](0012-manual-workspace-media-cleanup.md) defines manual reclamation of

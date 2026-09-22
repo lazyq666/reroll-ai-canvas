@@ -1,5 +1,5 @@
 import * as THREE from '/static/vendor/js/three-0.160.0.module.js?v=2026.07.25.1';
-import './lighting-intent.js';
+import './lighting-intent.js?v=asset-e541ac1548b4';
 
 const Lighting = globalThis.InfiniteCanvasLightingIntent;
 const controllerByRoot = new WeakMap();

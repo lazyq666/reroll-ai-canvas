@@ -34,6 +34,7 @@
 ## 当前参考
 
 - [Public readiness 发布验收与 main 合入](current/public-readiness.md)
+- [前端资源版本与保留缓存升级](current/frontend-asset-versions.md)
 - [公开项目身份与兼容边界](current/public-project-identity.md)
 - [本机与局域网访问](current/local-network-access.md)
 - [ModelScope 镜像发布维护](current/ModelScope镜像发布维护.md)

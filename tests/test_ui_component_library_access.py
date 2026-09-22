@@ -132,7 +132,6 @@ class UiComponentLibraryEntryTests(unittest.TestCase):
         )
         self.assertIn('@app.get("/ui-component-library")', backend_main)
         self.assertIn('static_html_response("ui-component-library.html")', backend_main)
-        self.assertIn("(?:data-src|src|href)", backend_main)
         self.assertIn('"/ui-component-library"', auth_system)
 
     def test_catalog_runtime_assets_are_available_from_the_static_origin(self):

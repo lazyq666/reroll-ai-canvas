@@ -127,10 +127,11 @@ class CanvasShareUiTests(unittest.TestCase):
         self.assertIn('class="reference-generation-target node-drop-readonly"', self.script)
         self.assertIn("control.setAttribute('disabled', '')", self.script)
 
-    def test_share_assets_are_cache_busted_together(self):
-        version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertIn(f"/static/css/canvas-share.css?v={version}.", self.page)
-        self.assertIn(f"/static/js/canvas-share.js?v={version}.", self.page)
+    def test_share_assets_use_independent_content_fingerprints(self):
+        import hashlib
+        for name in ('css/canvas-share.css', 'js/canvas-share.js'):
+            version = 'asset-' + hashlib.sha256((ROOT / 'static' / name).read_bytes()).hexdigest()[:12]
+            self.assertIn(f'/static/{name}?v={version}', self.page)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json';
+const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json?v=asset-4ab2c8b0fb82';
 const host = document.querySelector('[data-selection-adjustment-contract]');
 const status = document.querySelector('[data-selection-adjustment-review-status]');
 const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');

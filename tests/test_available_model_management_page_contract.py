@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_url
 import json
 import re
 import unittest
@@ -80,7 +81,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn("window.ModelVendorIcons?.markup(", self.script)
         self.assertIn("identity.append(modelVendorIcon(model), modelNameInput(model))", self.script)
         self.assertIn("nameCell.append(identity, capabilityTags(model.model))", self.script)
-        self.assertIn("midjourney: { label: 'Midjourney', src: '/static/images/providers/midjourney.svg'", self.vendor_icons)
+        self.assertIn(f"midjourney: {{ label: 'Midjourney', src: '{asset_url('/static/images/providers/midjourney.svg')}'", self.vendor_icons)
         self.assertIn("if (/mid[-_ ]?journey/.test(value)) return 'midjourney';", self.vendor_icons)
         self.assertIn(".model-vendor-icon { width: 18px;", self.style)
         self.assertIn('img[data-monochrome="true"]', self.style)

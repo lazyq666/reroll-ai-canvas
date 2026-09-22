@@ -1,4 +1,6 @@
+import hashlib
 import json
+import re
 import subprocess
 import unittest
 from pathlib import Path
@@ -26,6 +28,18 @@ class MediaNamingTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
+
+    def test_generation_output_script_reference_matches_its_content(self):
+        # A cached pre-rename module can overwrite the server's short name
+        # with the provider filename when the browser saves completed output.
+        asset = ROOT / "static/js/smart-canvas/generation-output.js"
+        expected = "asset-" + hashlib.sha256(asset.read_bytes()).hexdigest()[:12]
+        reference = re.search(
+            r'/static/js/smart-canvas/generation-output\.js\?v=([^"\']+)',
+            PAGE.read_text(encoding="utf-8"),
+        )
+        self.assertIsNotNone(reference)
+        self.assertEqual(reference.group(1), expected)
 
     def test_download_name_uses_media_name_and_preserves_actual_format(self):
         start = self.source.index("function safeExportFileName")

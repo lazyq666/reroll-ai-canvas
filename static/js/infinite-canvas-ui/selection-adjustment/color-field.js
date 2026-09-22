@@ -1,5 +1,5 @@
 import WaColorPicker from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/color-picker/color-picker.js';
-import { applyContractState, withProjectEvents } from './shared.js';
+import { applyContractState, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
 
 
 export class IcColorField extends withProjectEvents(WaColorPicker, {

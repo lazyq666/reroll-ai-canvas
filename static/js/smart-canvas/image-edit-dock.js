@@ -1,4 +1,4 @@
-import './image-edit-controls.js?v=2026.08.16.1';
+import './image-edit-controls.js?v=asset-32b29b3b7861';
 
 const IMAGE_EDIT_DOCK_STYLE = `
   :host {
