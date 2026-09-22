@@ -145,6 +145,18 @@ export class IcPromptComposer extends HTMLElement {
       keyboardFocusPending = false;
     });
     this.addEventListener('blur', () => this.removeAttribute('data-keyboard-focus'));
+    this.addEventListener('paste', event => {
+      if (event.defaultPrevented || this.readOnly || !event.clipboardData) return;
+      // Media files belong to the page upload flow. Text belongs to this
+      // editor, and external HTML must never become prompt formatting.
+      if (event.clipboardData.files.length) return;
+      event.preventDefault();
+      const text = event.clipboardData.getData('text/plain');
+      if (!text) return;
+      // Native insertion preserves Selection, input events and the undo stack
+      // without rebuilding existing reference tokens.
+      this.ownerDocument.execCommand('insertText', false, text);
+    });
   }
 
   connectedCallback() {

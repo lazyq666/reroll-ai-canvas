@@ -1,4 +1,4 @@
-import './core.js?v=asset-5078f5fd88bb';
+import './core.js?v=asset-15ff4b583f9f';
 import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=asset-b6a51c897f96';
 
 const params = new URLSearchParams(location.search);

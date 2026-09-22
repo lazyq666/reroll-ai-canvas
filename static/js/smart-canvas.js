@@ -217,7 +217,7 @@ const smartPlaybackSession = {
     activeMedia:null,
     activeKey:'',
     previewKey:'',
-    previewTransfer:null,
+    previewPresentation:null,
     videoPreferences:{volume:1, muted:false, playbackRate:1},
     audioPreferences:{volume:1, muted:false, playbackRate:1}
 };
@@ -526,15 +526,12 @@ function bindSmartVideoFullscreenDoubleClick(video){
     if(!video || video.dataset.smartVideoFullscreenDblclickBound === '1') return;
     video.dataset.smartVideoFullscreenDblclickBound = '1';
     video.addEventListener('mousedown', event => {
+        if(video.dataset.smartPlaybackPreview === '1') return;
         if(event.detail >= 2) return;
         event.stopPropagation();
-        const state = captureMediaPlaybackState(video);
-        video._smartFullscreenPlaybackState = state;
-        setTimeout(() => {
-            if(video._smartFullscreenPlaybackState === state) delete video._smartFullscreenPlaybackState;
-        }, 400);
     }, true);
     video.addEventListener('click', event => {
+        if(video.dataset.smartPlaybackPreview === '1') return;
         event.stopPropagation();
         if(event.detail >= 2) return;
         if(video.dataset.inlineVideoActive === '1'){
@@ -573,6 +570,7 @@ function bindSmartVideoFullscreenDoubleClick(video){
         }, 220);
     }, true);
     video.addEventListener('dblclick', event => {
+        if(video.dataset.smartPlaybackPreview === '1') return;
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -585,6 +583,7 @@ function bindSmartVideoFullscreenDoubleClick(video){
         openSmartVideoFullscreen(nodeId, imageIndex);
     }, true);
     video.addEventListener('keydown', event => {
+        if(video.dataset.smartPlaybackPreview === '1') return;
         if(event.code !== 'Space' || video.dataset.inlineVideoActive !== '1') return;
         event.preventDefault();
         event.stopPropagation();
@@ -1461,12 +1460,13 @@ function toast(text, options={}){
                 ? options.headingFactory
                 : () => String(options.heading || tr('smart.error.unknown.title')),
             textFactory:typeof options.textFactory === 'function' ? options.textFactory : () => text,
+            actionLabelFactory:() => options.actionLabel ?? tr('smart.viewDetails'),
         };
         alert.className = 'generation-failure-alert';
         alert.dataset.componentName = 'ic-alert';
         alert.setAttribute('tone', options.tone || 'danger');
         alert.setAttribute('heading', state.headingFactory());
-        alert.setAttribute('action-label', tr('smart.viewDetails'));
+        if(state.actionLabelFactory()) alert.setAttribute('action-label', state.actionLabelFactory());
         alert.setAttribute('dismissible', '');
         alert.textContent = String(state.textFactory() || '');
         generationFailureAlertStates.set(alert, state);
@@ -1502,7 +1502,8 @@ function toast(text, options={}){
 function refreshPersistentToastLanguage(){
     generationFailureAlertStates.forEach((state, alert) => {
         alert.setAttribute('heading', state.headingFactory());
-        alert.setAttribute('action-label', tr('smart.viewDetails'));
+        if(state.actionLabelFactory()) alert.setAttribute('action-label', state.actionLabelFactory());
+        else alert.removeAttribute('action-label');
         alert.textContent = String(state.textFactory() || '');
     });
 }
@@ -6463,6 +6464,7 @@ function smartPlaybackPreferencesFor(media){
 function smartPlaybackRemember(media, explicitTarget=null){
     const target = explicitTarget || smartPlaybackTargetFromElement(media);
     if(!media || !target) return null;
+    if(!nodes.find(node => node.id === target.nodeId)?.images?.[target.imageIndex]) return null;
     const entry = smartPlaybackEntry(target.nodeId, target.imageIndex);
     const state = captureMediaPlaybackState(media);
     entry.currentTime = state.currentTime;
@@ -6482,6 +6484,8 @@ function smartPlaybackSetInlineActive(nodeId, imageIndex, active){
 }
 function smartPlaybackPauseMedia(media, options={}){
     if(!media) return null;
+    media._smartPlaybackIntent = {};
+    media._smartPlaybackRestoreCleanup?.();
     clearTimeout(media._smartPlaybackClickTimer);
     media._smartPlaybackClickTimer = null;
     const entry = smartPlaybackRemember(media);
@@ -6502,11 +6506,12 @@ function smartPlaybackPauseMedia(media, options={}){
 }
 function smartPlaybackClaim(media){
     const candidates = [
+        smartPlaybackSession.activeMedia,
         ...world.querySelectorAll('video[data-url],audio[data-url]'),
         document.getElementById('previewCurrentVideo')
     ].filter(Boolean);
     candidates.forEach(candidate => {
-        if(candidate === media || candidate.paused) return;
+        if(candidate === media || (candidate.paused && !candidate._smartPlaybackRestoreCleanup)) return;
         smartPlaybackPauseMedia(candidate);
     });
     smartPlaybackSession.activeMedia = media;
@@ -6514,6 +6519,8 @@ function smartPlaybackClaim(media){
 }
 function smartPlaybackRestoreEntry(media, entry, options={}){
     if(!media || !entry) return false;
+    media._smartPlaybackIntent = {};
+    media._smartPlaybackRestoreCleanup?.();
     clearTimeout(media._smartPlaybackClickTimer);
     media._smartPlaybackClickTimer = null;
     const preferences = smartPlaybackPreferencesFor(media);
@@ -6522,7 +6529,13 @@ function smartPlaybackRestoreEntry(media, entry, options={}){
     try { media.muted = Boolean(preferences.muted); } catch(e) {}
     try { media.playbackRate = Number(preferences.playbackRate) || 1; } catch(e) {}
     if(media.tagName?.toLowerCase?.() === 'video') media.loop = entry.loop !== false;
+    const cancel = () => {
+        media.removeEventListener('loadedmetadata', apply);
+        if(media._smartPlaybackRestoreCleanup === cancel) media._smartPlaybackRestoreCleanup = null;
+    };
     const apply = () => {
+        cancel();
+        if(!media.isConnected) return;
         const desiredTime = shouldPlay && entry.ended ? 0 : Math.max(0, Number(entry.currentTime) || 0);
         if(Math.abs(Number(media.currentTime || 0) - desiredTime) > 0.12){
             try { media.currentTime = desiredTime; } catch(e) {}
@@ -6538,7 +6551,10 @@ function smartPlaybackRestoreEntry(media, entry, options={}){
         }
     };
     if(media.readyState >= 1) apply();
-    else media.addEventListener('loadedmetadata', apply, {once:true});
+    else {
+        media._smartPlaybackRestoreCleanup = cancel;
+        media.addEventListener('loadedmetadata', apply, {once:true});
+    }
     return true;
 }
 function smartPlaybackBindMedia(media, nodeId='', imageIndex=0, options={}){
@@ -6557,11 +6573,15 @@ function smartPlaybackBindMedia(media, nodeId='', imageIndex=0, options={}){
     if(media.dataset.smartPlaybackBound === '1') return media;
     media.dataset.smartPlaybackBound = '1';
     media.addEventListener('play', () => {
+        if(media.paused || !media.isConnected) return;
         const current = smartPlaybackRemember(media);
         if(current){ current.paused = false; current.ended = false; }
         smartPlaybackClaim(media);
     });
-    media.addEventListener('pause', () => smartPlaybackRemember(media));
+    media.addEventListener('pause', () => {
+        if(media.paused) media._smartPlaybackIntent = {};
+        smartPlaybackRemember(media);
+    });
     media.addEventListener('timeupdate', () => smartPlaybackRemember(media));
     media.addEventListener('volumechange', () => smartPlaybackRemember(media));
     media.addEventListener('ratechange', () => smartPlaybackRemember(media));
@@ -6678,11 +6698,12 @@ function smartPlaybackReconcileSelection(){
 }
 function smartPlaybackPauseForInterruption(reason='interruption'){
     const candidates = [
+        smartPlaybackSession.activeMedia,
         ...world.querySelectorAll('video[data-url],audio[data-url]'),
         document.getElementById('previewCurrentVideo')
     ].filter(Boolean);
     candidates.forEach(media => {
-        if(media.paused) return;
+        if(media.paused && !media._smartPlaybackRestoreCleanup) return;
         smartPlaybackPauseMedia(media);
         media.dataset.smartPlaybackInterrupted = reason;
     });
@@ -6724,25 +6745,89 @@ function toggleSmartVideoLoop(nodeId, imageIndex=0){
     }
     return entry.loop;
 }
+function smartPlaybackMoveMedia(media, parent, before=null){
+    if(typeof parent.moveBefore === 'function' && media.isConnected && parent.isConnected){
+        parent.moveBefore(media, before);
+    } else {
+        parent.insertBefore(media, before);
+    }
+}
+function smartPlaybackMountPreviewVideo(nodeId, imageIndex=0){
+    const preview = document.getElementById('previewCurrentVideo');
+    if(!preview || smartPlaybackSession.previewPresentation) return preview;
+    const item = smartPlaybackItemElement(nodeId, imageIndex);
+    const video = item?.querySelector('video[data-inline-video-active="1"]')
+        || smartPlaybackActivateVideo(nodeId, imageIndex, {play:false});
+    if(!video) return preview;
+    clearTimeout(video._smartPlaybackClickTimer);
+    video._smartPlaybackClickTimer = null;
+    const placeholder = document.createElement('span');
+    placeholder.hidden = true;
+    video.before(placeholder);
+    smartPlaybackSession.previewPresentation = {
+        video, preview, placeholder,
+        id:video.getAttribute('id'), className:video.className, style:video.style.cssText
+    };
+    preview.removeAttribute('id');
+    video.id = 'previewCurrentVideo';
+    video.className = preview.className;
+    video.style.cssText = preview.style.cssText;
+    video.dataset.smartPlaybackPreview = '1';
+    smartPlaybackMoveMedia(video, preview.parentElement, preview);
+    return video;
+}
+function smartPlaybackReleasePreviewVideo({pause=false}={}){
+    const presentation = smartPlaybackSession.previewPresentation;
+    if(!presentation) return false;
+    const {video, preview, placeholder, id, className, style} = presentation;
+    const target = smartPlaybackTargetFromElement(video);
+    const source = nodes.find(node => node.id === target?.nodeId)?.images?.[target?.imageIndex];
+    const canReturn = placeholder.isConnected && source
+        && smartOriginalMediaUrl(source) === video.dataset.url;
+    if(pause || !canReturn) smartPlaybackPauseMedia(video);
+    smartPlaybackRemember(video);
+    video.onloadedmetadata = null;
+    video.onloadeddata = null;
+    if(id === null) video.removeAttribute('id');
+    else video.id = id;
+    video.className = className;
+    video.style.cssText = style;
+    delete video.dataset.smartPlaybackPreview;
+    preview.id = 'previewCurrentVideo';
+    if(canReturn){
+        smartPlaybackMoveMedia(video, placeholder.parentElement, placeholder);
+    } else {
+        video.removeAttribute('src');
+        video.load();
+        video.remove();
+    }
+    placeholder.remove();
+    smartPlaybackSession.previewPresentation = null;
+    smartPlaybackSession.previewKey = '';
+    return true;
+}
 function smartPlaybackPreparePreviewVideo(video, nodeId, imageIndex=0, options={}){
     if(!video) return false;
     const entry = smartPlaybackEntry(nodeId, imageIndex);
     const key = entry.key;
-    const transfer = smartPlaybackSession.previewTransfer;
-    const shouldPlay = transfer?.key === key ? !transfer.paused : options.previewSwitch === true;
-    smartPlaybackSession.previewTransfer = null;
     smartPlaybackSession.previewKey = key;
+    if(smartPlaybackSession.previewPresentation?.video === video){
+        if(options.previewSwitch === true) smartPlaybackRestoreEntry(video, entry, {play:true});
+        return video.loop;
+    }
     smartPlaybackBindMedia(video, nodeId, imageIndex, {preview:true});
-    smartPlaybackRestoreEntry(video, entry, {play:shouldPlay});
+    smartPlaybackRestoreEntry(video, entry, {play:options.previewSwitch === true});
     return entry.loop;
 }
 function smartPlaybackBeforePreviewSwitch(video){
+    if(smartPlaybackReleasePreviewVideo({pause:true})) return;
     if(!video || video.style.display === 'none' || !video.getAttribute('src')) return null;
     const entry = smartPlaybackRemember(video);
-    video.pause?.();
+    smartPlaybackPauseMedia(video);
     return entry;
 }
 function smartPlaybackClosePreviewVideo(video, nodeId, imageIndex=0){
+    if(smartPlaybackReleasePreviewVideo()) return true;
     if(!video || !nodeId) return false;
     const entry = smartPlaybackRemember(video, {
         nodeId:String(nodeId),
@@ -6750,24 +6835,20 @@ function smartPlaybackClosePreviewVideo(video, nodeId, imageIndex=0){
         key:smartPlaybackKey(nodeId, imageIndex)
     });
     if(!entry) return false;
-    const shouldResume = !entry.paused && !entry.ended;
-    video.pause?.();
-    entry.paused = !shouldResume;
+    smartPlaybackPauseMedia(video);
     smartPlaybackSession.previewKey = '';
-    if(selectedIds.length || selectedId !== String(nodeId)) return true;
-    smartPlaybackSetInlineActive(nodeId, imageIndex, true);
-    smartPlaybackActivateVideo(nodeId, imageIndex, {play:shouldResume});
     return true;
 }
 function smartPlaybackResetForCanvas(){
     const nextCanvasId = String(canvas?.id || canvasId || '');
     if(smartPlaybackSession.canvasId === nextCanvasId) return;
+    smartPlaybackReleasePreviewVideo({pause:true});
+    smartPlaybackPauseMedia(smartPlaybackSession.activeMedia);
     smartPlaybackSession.canvasId = nextCanvasId;
     smartPlaybackSession.entries.clear();
     smartPlaybackSession.activeMedia = null;
     smartPlaybackSession.activeKey = '';
     smartPlaybackSession.previewKey = '';
-    smartPlaybackSession.previewTransfer = null;
 }
 function smartPlaybackPruneEntries(){
     const valid = new Set();
@@ -6789,6 +6870,7 @@ function smartPlaybackPruneEntries(){
         toast(tr('smart.operationFailed'), {tone:'warning'});
     }
 }
+window.smartPlaybackMountPreviewVideo = smartPlaybackMountPreviewVideo;
 window.smartPlaybackPreparePreviewVideo = smartPlaybackPreparePreviewVideo;
 window.smartPlaybackBeforePreviewSwitch = smartPlaybackBeforePreviewSwitch;
 window.smartPlaybackClosePreviewVideo = smartPlaybackClosePreviewVideo;
@@ -6826,11 +6908,13 @@ function captureMediaPlaybackState(media){
 }
 function restoreMediaPlaybackState(media, state){
     if(!media || !state) return;
+    const playbackIntent = media._smartPlaybackIntent;
     try { media.playbackRate = state.playbackRate || 1; } catch(e) {}
     try { media.muted = state.muted; } catch(e) {}
     try { media.volume = state.volume; } catch(e) {}
     if(typeof state.loop === 'boolean' && media.tagName?.toLowerCase?.() === 'video') media.loop = state.loop;
     const applyTime = () => {
+        if(!media.isConnected || media._smartPlaybackIntent !== playbackIntent) return;
         if(Number.isFinite(state.currentTime) && state.currentTime >= 0 && Math.abs((media.currentTime || 0) - state.currentTime) > 0.2){
             try { media.currentTime = state.currentTime; } catch(e) {}
         }
@@ -6869,9 +6953,12 @@ function transplantSmartMediaElements(oldNodeEl, newNodeEl){
             return;
         }
         const state = captureMediaPlaybackState(oldMedia);
+        const playbackIntent = oldMedia._smartPlaybackIntent;
         newMedia.replaceWith(oldMedia);
         restoreMediaPlaybackState(oldMedia, state);
-        requestAnimationFrame(() => restoreMediaPlaybackState(oldMedia, state));
+        requestAnimationFrame(() => {
+            if(oldMedia._smartPlaybackIntent === playbackIntent) restoreMediaPlaybackState(oldMedia, state);
+        });
     });
 }
 function reconcileRunTimePill(oldNodeEl, newNodeEl){
@@ -8629,30 +8716,6 @@ function openSmartVideoFullscreen(nodeId, imageIndex=0){
     const node = nodes.find(candidate => candidate.id === nodeId);
     const index = Math.max(0, Number(imageIndex) || 0);
     if(mediaKindForItem(node?.images?.[index] || {}) !== 'video') return false;
-    const inlineVideo = [...world.querySelectorAll('[data-image-index]')]
-        .find(item => {
-            const ownerNodeId = item.dataset.refNodeId || item.closest('.image-node')?.dataset.id || '';
-            const ownerImageIndex = Number(item.dataset.refImageIndex ?? item.dataset.imageIndex ?? 0);
-            return ownerNodeId === String(nodeId) && ownerImageIndex === index;
-        })
-        ?.querySelector('video[data-inline-video-active="1"]') || null;
-    const playbackState = inlineVideo?._smartFullscreenPlaybackState || captureMediaPlaybackState(inlineVideo);
-    if(inlineVideo) delete inlineVideo._smartFullscreenPlaybackState;
-    const entry = inlineVideo
-        ? smartPlaybackRemember(inlineVideo, {nodeId:String(nodeId), imageIndex:index, key:smartPlaybackKey(nodeId, index)})
-        : smartPlaybackEntry(nodeId, index);
-    if(playbackState && entry){
-        entry.currentTime = playbackState.currentTime;
-        entry.paused = playbackState.paused;
-        entry.ended = playbackState.ended;
-        entry.loop = playbackState.loop;
-    }
-    if(inlineVideo) inlineVideo.pause();
-    if(entry && playbackState) entry.paused = playbackState.paused;
-    smartPlaybackSession.previewTransfer = {
-        key:smartPlaybackKey(nodeId, index),
-        paused:Boolean(entry?.paused)
-    };
     selectedId = nodeId;
     selectedIds = [];
     selectedImage = {nodeId, index};
@@ -9196,6 +9259,8 @@ function rememberInlineVideoActivations(){
 }
 function smartCanvasPinnedNodeIds(){
     const ids = new Set(canvasInteraction.active()?.nodeIds || []);
+    const previewNode = smartPlaybackSession.previewPresentation?.placeholder.closest('.image-node');
+    if(previewNode?.dataset.id) ids.add(previewNode.dataset.id);
     const focusedNode = document.activeElement?.closest?.('.image-node');
     if(focusedNode?.dataset?.id) ids.add(focusedNode.dataset.id);
     if(pendingSmartTextEditNodeId) ids.add(pendingSmartTextEditNodeId);
@@ -9562,6 +9627,7 @@ function render(options={}){
         const activeInteractionIds = canvasInteraction.active()?.nodeIds || [];
         const activeEditor = smartCanvasActiveEditorWithin(existing);
         const retainsInteractiveDom = Boolean(activeEditor)
+            || Boolean(existing?.contains(smartPlaybackSession.previewPresentation?.placeholder || null))
             || activeInteractionIds.includes(entry.node.id)
             || preserveMountedNodes;
         if(
@@ -15806,7 +15872,9 @@ function insertMentionToken(img, editor=promptQuickEditor()){
     bindSmartPreviewImageFallbacks(token);
     const spacer = document.createTextNode(' ');
     token.after(spacer);
-    range.setStartAfter(spacer);
+    // Keep the caret inside editable text. A host-level boundary after a
+    // non-editable token can offset Chromium's first IME composition range.
+    range.setStart(spacer, spacer.length);
     range.collapse(true);
     sel.removeAllRanges();
     sel.addRange(range);
@@ -17342,11 +17410,19 @@ composerFocusBackdrop?.addEventListener('click', event => {
     event.stopPropagation();
 });
 async function requestPromptOptimization(context){
-    const settingsResponse = await fetch('/api/prompt-optimization-settings',{cache:'no-store',signal:AbortSignal.timeout(15000)});
-    if(!settingsResponse.ok) throw new Error('Prompt optimization settings unavailable');
-    const profiles = await settingsResponse.json();
-    const configuration = profiles[context.media];
-    if(!configuration) throw new Error('Missing media optimization profile');
+    const {createError} = window.SmartCanvasModules.promptOptimize;
+    // Bound the whole attempt, including configuration and capability lookup.
+    const signal = AbortSignal.timeout(120000);
+    const settingsResponse = await fetch('/api/prompt-optimization-settings',{
+        cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])
+    });
+    if(!settingsResponse.ok) throw createError('settings',{httpStatus:settingsResponse.status});
+    const profiles = await settingsResponse.json().catch(error => {
+        if(error.name !== 'SyntaxError') throw error;
+        throw createError('settings');
+    });
+    const configuration = profiles?.[context.media];
+    if(!configuration) throw createError('settings');
     const provider = configuration.provider || resolveChatProviderId('');
     const model = configuration.model || resolveChatModel('',provider);
     const preset = configuration.default_preset || 'smart';
@@ -17354,32 +17430,61 @@ async function requestPromptOptimization(context){
         ...context,preset,customInstruction:configuration.instructions?.[preset] || ''
     });
     if(!smartCatalogEntry('text',provider,model)){
-        const error = new Error('No text model'); error.noTextModel = true; throw error;
+        throw createError('noModel');
     }
     const capabilities = window.SmartCanvasModules.modelCapabilities;
-    const capability = await capabilities.load(provider,model,'text.generate');
+    const capability = await capabilities.load(provider,model,'text.generate',{refresh:true,signal});
+    signal.throwIfAborted();
+    if(!capability.catalog_revision) throw createError('capability');
     const validation = capabilities.validate(capability,{
         inputs:{text:1,image:0,video:0},parameters:{history:[]},
         catalogRevision:capability.catalog_revision
     });
     if(!validation.valid){
-        const error = new Error('Invalid optimization model capability');
-        error.optimizationMessage = capabilities.validationMessage(validation,tr('smart.optimize.failed'));
-        throw error;
+        throw createError('request',{optimizationDetail:validation.errors[0]});
     }
     const response = await fetch('/api/canvas-llm',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        signal:AbortSignal.timeout(120000),
+        signal,
         body:JSON.stringify({message,provider,model,messages:[],images:[],videos:[],catalog_revision:capability.catalog_revision})
     });
     if(!response.ok){
         const detail = await response.json().catch(()=>({}));
-        const error = new Error('Prompt optimization failed');
-        error.optimizationMessage = capabilities.errorMessage(detail.detail,tr('smart.optimize.failed'));
-        throw error;
+        throw createError('request',{httpStatus:response.status,optimizationDetail:detail?.detail ?? detail});
     }
-    const result = await response.json();
+    const result = await response.json().catch(error => {
+        if(error.name !== 'SyntaxError') throw error;
+        throw createError('invalidResponse');
+    });
+    if(!result || typeof result.text !== 'string') throw createError('invalidResponse');
     return result.text;
+}
+function promptOptimizationErrorMessage(error){
+    const code = error.name === 'TimeoutError' || error.name === 'AbortError' ? 'timeout'
+        : error.name === 'TypeError' ? 'network' : error.optimizationCode;
+    let message;
+    if(['settings','noModel','capability','timeout','network','empty','references','invalidResponse'].includes(code)){
+        message = tr(`smart.optimize.${code}`);
+    } else {
+        const detail = error.optimizationDetail;
+        const extract = (value,depth=0) => {
+            if(typeof value === 'string') return value;
+            if(!value || typeof value !== 'object' || depth > 4) return '';
+            return ['message','detail','error','reason'].map(key => extract(value[key],depth+1)).filter(Boolean).join('\n');
+        };
+        const reason = generationFailureFeedback.safeText(extract(detail)).trim().slice(0,1200);
+        const classified = generationFailureFeedback.classify({technicalError:reason,httpStatus:error.httpStatus});
+        const fallback = classified.category !== 'unknown'
+            ? trf('smart.optimize.reasonWithAction',{reason:tr(classified.titleKey),action:tr(classified.actionKey)})
+            : reason ? trf('smart.optimize.providerError',{reason}) : tr('smart.optimize.failed');
+        message = window.SmartCanvasModules.modelCapabilities.errorMessage(
+            detail && typeof detail === 'object' ? detail : {},fallback
+        );
+        if(reason && classified.category !== 'unknown'){
+            message = trf('smart.optimize.providerDetails',{message,reason});
+        }
+    }
+    return error.httpStatus ? trf('smart.optimize.httpError',{message,status:error.httpStatus}) : message;
 }
 var composerPromptOptimizer = window.SmartCanvasModules.promptOptimize.mount({
     editor:promptInput,
@@ -17405,7 +17510,11 @@ var composerPromptOptimizer = window.SmartCanvasModules.promptOptimize.mount({
         canvasPersistence.schedule();
     },
     request:requestPromptOptimization,
-    error:error => toast(error.optimizationMessage || tr(error.noTextModel ? 'smart.optimize.noModel' : 'smart.optimize.failed'),{tone:'danger'})
+    error:error => toast('',{
+        persistent:true,tone:'danger',actionLabel:'',
+        headingFactory:() => tr('smart.optimize.failedTitle'),
+        textFactory:() => promptOptimizationErrorMessage(error)
+    })
 });
 new MutationObserver(() => composerPromptOptimizer.refresh()).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 promptInput.addEventListener('input', event => maybeOpenMentionPicker(promptInput, activeComposerNode(), {

@@ -203,7 +203,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-05cf08ffc1ab">
-  <script src="/static/js/i18n.js?v=asset-4abd12c3f8f6"></script>
+  <script src="/static/js/i18n.js?v=asset-b6276c08179b"></script>
 </head>
 <body class="runtime-page">
   <main class="runtime-shell">
@@ -220,7 +220,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-15ff4b583f9f"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
     const runtimeDetailFallback = document.getElementById('runtime-detail')?.textContent || '';
@@ -272,7 +272,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-05cf08ffc1ab">
-  <script src="/static/js/i18n.js?v=asset-4abd12c3f8f6"></script>
+  <script src="/static/js/i18n.js?v=asset-b6276c08179b"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -332,7 +332,7 @@ def _recovery_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-15ff4b583f9f"></script>
   <script>
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const input = document.getElementById('workspace-directory');
@@ -457,7 +457,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=asset-4abd12c3f8f6"></script>
+  <script src="/static/js/i18n.js?v=asset-b6276c08179b"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
@@ -493,7 +493,7 @@ def _workspace_move_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-15ff4b583f9f"></script>
   <script src="/static/js/workspace-move.js?v=asset-23ce42c27241" defer></script>
 </body>
 </html>"""

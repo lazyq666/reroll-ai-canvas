@@ -2599,7 +2599,7 @@ function openLayerDecompositionEditor({nodeId}={}){
     layerDecompositionEditNodeId = node.id;
     layerDecompositionView = {zoom:1, x:0, y:0, compare:false, position:50};
     disposePanoramaPreview();
-    document.getElementById('previewCurrentVideo')?.pause();
+    window.smartPlaybackBeforePreviewSwitch?.(document.getElementById('previewCurrentVideo'));
     document.getElementById('layerDecompositionEditorTools')?.removeAttribute('hidden');
     imageEditMode = 'layer-decomposition';
     cropState = null;
@@ -2671,7 +2671,8 @@ function openImageEditor(nodeId, imageIndex=0, options={}){
     disposePanoramaPreview();
     if(!previewSwitch) resetPreviewTransform();
     if(kind === 'video'){
-        const previewVideo = document.getElementById('previewCurrentVideo');
+        const previewVideo = window.smartPlaybackMountPreviewVideo?.(nodeId, imageIndex)
+            || document.getElementById('previewCurrentVideo');
         img.onload = null;
         img.onerror = null;
         img.removeAttribute('src');
@@ -2753,7 +2754,7 @@ function closeImageEditor(options={}){
     const img = document.getElementById('cropImage');
     const previewImage = document.getElementById('previewCurrentImage');
     const compareImage = document.getElementById('previewCompareImage');
-    const previewVideo = document.getElementById('previewCurrentVideo');
+    let previewVideo = document.getElementById('previewCurrentVideo');
     if(
         previewVideo
         && previewVideo.style.display !== 'none'
@@ -2764,6 +2765,7 @@ function closeImageEditor(options={}){
             cropState?.nodeId || previewNavState.nodeId,
             Number(cropState?.imageIndex ?? previewNavState.index ?? 0)
         );
+        previewVideo = document.getElementById('previewCurrentVideo');
     }
     img.onload = null; img.onerror = null; img.removeAttribute('src'); delete img.dataset.proxyFallbackTried; delete img.dataset.editorSrcToken; delete img.dataset.editorQuick; img.style.width = ''; img.style.height = ''; img.style.maxWidth = ''; img.style.maxHeight = '';
     [previewImage, compareImage].forEach(image => {
@@ -2808,7 +2810,9 @@ function cancelImageEdit(){
     if(imageEditMode === 'preview') return;
     setImageEditMode('preview', true);
 }
-imageEditModal?.addEventListener('ic-after-hide', () => {
+imageEditModal?.addEventListener('ic-after-hide', async () => {
+    // The public event can precede Lit's reflection of open=false to the attribute.
+    await imageEditModal.updateComplete;
     if(imageStudioReopenAfterHide && imageEditModal.classList.contains('open')){
         imageStudioReopenAfterHide = false;
         if(typeof imageEditModal.show === 'function') void imageEditModal.show();

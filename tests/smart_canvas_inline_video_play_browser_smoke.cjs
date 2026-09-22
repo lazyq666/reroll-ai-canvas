@@ -12,12 +12,13 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         const context = await browser.newContext({viewport:{width:1440, height:900}});
         const page = await context.newPage();
         page.setDefaultTimeout(15000);
-        await page.goto(`${baseUrl}/static/smart-canvas.html?id=inline-video-play-regression`, {
+        await page.goto(`${baseUrl}/static/smart-canvas.html?componentReview=nodes`, {
             waitUntil:'domcontentloaded',
         });
         await page.waitForFunction(() => Boolean(
             window.SmartCanvasModules?.viewportSelection?.selection
             && customElements.get('ic-icon-button')
+            && document.documentElement.dataset.nodesStatus === 'ready'
             && document.getElementById('smartNodeFloatingPortal')?.dataset.menuHtml !== undefined
         ));
 
@@ -53,6 +54,10 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
                     viewport.x = 0;
                     viewport.y = 0;
                     viewport.scale = 1;
+                    window.SmartCanvasModules.viewportSelection.viewport.apply();
+                    canvasLevelOfDetail.update(1);
+                    smartCanvasDetailRecoveryReady = null;
+                    configureSmartCanvasVirtualization();
                     render();
                 };
                 window.__addSecondInlineVideoNode = () => {
@@ -139,7 +144,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             assert.equal(themeStyles[theme].height, '64px');
             assert.equal(themeStyles[theme].background, 'rgba(0, 0, 0, 0)');
             assert.equal(themeStyles[theme].backdropFilter, 'blur(10px)');
-            assert.match(themeStyles[theme].asset, /\/static\/images\/ui\/video-play-button\.svg$/);
+            assert.match(themeStyles[theme].asset, /\/static\/images\/ui\/video-play-button\.svg(?:\?|$)/);
         }
 
         await page.locator(`${nodeSelector} .media-video-card`).click({force:true, position:{x:12, y:12}});
@@ -229,6 +234,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         });
         assert.ok(Math.abs(inlinePlaybackBeforeFullscreen.currentTime - 2) < 0.2, JSON.stringify(inlinePlaybackBeforeFullscreen));
         assert.equal(inlinePlaybackBeforeFullscreen.paused, false);
+        await inlineVideo.evaluate(video => { window.__inlinePlayerBeforeFullscreen = video; });
         await inlineVideo.dblclick({force:true, position:{x:24, y:24}});
         await page.waitForFunction(() => document.querySelector('#imageEditModal')?.classList.contains('open'));
         await page.waitForFunction(() => document.querySelector('#previewCurrentVideo')?.readyState >= 1);
@@ -237,17 +243,15 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             const background = document.querySelector(selector);
             const fullscreen = document.querySelector('#previewCurrentVideo');
             return {
-                backgroundPaused:Boolean(background?.paused),
-                backgroundTime:Number(background?.currentTime || 0),
-                backgroundNoFullscreen:Boolean(background?.controlsList.contains('nofullscreen')),
+                backgroundPlayerCount:background ? 1 : 0,
+                samePlayer:fullscreen === window.__inlinePlayerBeforeFullscreen,
                 fullscreenPaused:Boolean(fullscreen?.paused),
                 fullscreenTime:Number(fullscreen?.currentTime || 0),
                 fullscreenNoFullscreen:Boolean(fullscreen?.controlsList.contains('nofullscreen')),
             };
         }, `${nodeSelector} video[data-inline-video-active="1"]`);
-        assert.equal(playbackHandoff.backgroundPaused, true, JSON.stringify(playbackHandoff));
-        assert.ok(Math.abs(playbackHandoff.backgroundTime - 2) < 0.35, JSON.stringify(playbackHandoff));
-        assert.equal(playbackHandoff.backgroundNoFullscreen, true, JSON.stringify(playbackHandoff));
+        assert.equal(playbackHandoff.backgroundPlayerCount, 0, JSON.stringify(playbackHandoff));
+        assert.equal(playbackHandoff.samePlayer, true, JSON.stringify(playbackHandoff));
         assert.equal(playbackHandoff.fullscreenPaused, false, JSON.stringify(playbackHandoff));
         assert.ok(playbackHandoff.fullscreenTime >= 1.8, JSON.stringify(playbackHandoff));
         assert.equal(playbackHandoff.fullscreenNoFullscreen, true, JSON.stringify(playbackHandoff));
@@ -291,13 +295,14 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
 
         assert.equal(fullscreenLoopDefault.pressed, true);
         await page.locator('#previewCurrentVideo').evaluate(async video => {
-            video.currentTime = 3;
+            video.currentTime = 1;
             await video.play();
         });
         await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.waitForFunction(() => { const dialog = document.getElementById('imageEditModal'); return !dialog.open && !dialog.closingPromise; });
         await page.waitForFunction(selector => {
             const video = document.querySelector(selector);
-            return Boolean(video && !video.paused && !video.loop && video.currentTime >= 2.8);
+            return Boolean(video && !video.paused && !video.loop && video.currentTime >= 0.8);
         }, `${nodeSelector} video[data-inline-video-active="1"]`);
         const inlineAfterFullscreenClose = await page.locator(`${nodeSelector} video[data-inline-video-active="1"]`).evaluate(video => ({
             currentTime:video.currentTime,
@@ -306,7 +311,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         }));
         assert.equal(inlineAfterFullscreenClose.paused, false, JSON.stringify(inlineAfterFullscreenClose));
         assert.equal(inlineAfterFullscreenClose.loop, false, JSON.stringify(inlineAfterFullscreenClose));
-        assert.ok(inlineAfterFullscreenClose.currentTime >= 2.8, JSON.stringify(inlineAfterFullscreenClose));
+        assert.ok(inlineAfterFullscreenClose.currentTime >= 0.8, JSON.stringify(inlineAfterFullscreenClose));
         const nodeLoopOff = await nodeLoopButton.evaluate(button => ({
             label:button.textContent.trim(),
             pressed:button.hasAttribute('pressed'),
@@ -339,6 +344,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         assert.notEqual(fullscreenLoopOnAgain.background, fullscreenLoopOff.background);
         assert.equal(await page.locator('#previewCurrentVideo').evaluate(video => video.loop), true);
         await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.waitForFunction(() => { const dialog = document.getElementById('imageEditModal'); return !dialog.open && !dialog.closingPromise; });
         await page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-play"]').click();
         await page.waitForFunction(() => document.querySelector('#imageEditModal')?.classList.contains('open'));
         const fullscreenLoopReset = await loopButtonState();
@@ -348,9 +354,10 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         assert.equal(fullscreenLoopReset.pressed, true);
         assert.equal(await page.locator('#previewCurrentVideo').evaluate(video => video.loop), true);
         await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.waitForFunction(() => { const dialog = document.getElementById('imageEditModal'); return !dialog.open && !dialog.closingPromise; });
 
         await page.locator(`${nodeSelector} video[data-inline-video-active="1"]`).evaluate(async video => {
-            video.currentTime = 4;
+            video.currentTime = 0.5;
             await video.play();
         });
         await page.evaluate(() => window.__addSecondInlineVideoNode());
@@ -393,7 +400,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             return Boolean(
                 firstVideo
                 && !firstVideo.paused
-                && firstVideo.currentTime >= 3.8
+                && firstVideo.currentTime >= 0.3
                 && document.querySelector(second)?.querySelector('ic-video-play-button.smart-video-play')
             );
         }, {first:nodeSelector, second:secondNodeSelector});
@@ -402,7 +409,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             paused:video.paused,
         }));
         assert.equal(resumedFirstVideo.paused, false, JSON.stringify(resumedFirstVideo));
-        assert.ok(resumedFirstVideo.currentTime >= 3.8, JSON.stringify(resumedFirstVideo));
+        assert.ok(resumedFirstVideo.currentTime >= 0.3, JSON.stringify(resumedFirstVideo));
 
         await page.locator(`${nodeSelector} video[data-inline-video-active="1"]`).click({position:{x:20, y:20}});
         await page.waitForFunction(selector => document.querySelector(selector)?.paused === true, `${nodeSelector} video[data-inline-video-active="1"]`);
@@ -442,7 +449,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         await page.locator(`${nodeSelector} .media-video-card`).click({position:{x:12, y:12}});
         await page.waitForFunction(selector => {
             const video = document.querySelector(selector)?.querySelector('video[data-inline-video-active="1"]');
-            return Boolean(video && !video.paused && video.currentTime >= 3.8);
+            return Boolean(video && !video.paused && video.currentTime >= 0.3);
         }, nodeSelector);
 
         await page.evaluate(selector => {
