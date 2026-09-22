@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -11,14 +12,18 @@ from infinite_canvas.providers import cli_impl
 
 class OnboardingAdapterTests(unittest.TestCase):
     def setUp(self):
+        environment = patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(ensure_test_workspace)
+        self.addCleanup(environment.stop)
         self.tmp=tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.addCleanup(unload_main)
         self.main,_=integration.MainAccountIntegrationTests._load_main(self.tmp.name)
         self.main.AUTH_SYSTEM.create_initial_admin(username='designer',password='sample-password',start_onboarding=True)
         self.client=TestClient(self.main.app)
+        self.addCleanup(lambda: self.client.close())
         self.client.post('/api/auth/login',json={'username':'designer','password':'sample-password'})
-
-    def tearDown(self):
-        self.client.close();unload_main();self.tmp.cleanup();ensure_test_workspace()
 
     def connect(self,service):
         with patch.object(self.main,'test_provider_connection',AsyncMock(return_value={'ok':True})),patch.object(self.main,'fetch_upstream_models_from_payload',AsyncMock(return_value={'image_models':['gpt-image-2'],'chat_models':[],'video_models':[]})):
