@@ -2868,6 +2868,8 @@ async def generate_http_provider_image(
             task_result = await (wait_for_task or wait_for_image_task)(
                 client, task_id, provider
             )
+            if requested_count > 1:
+                return extract_images(task_result), task_result
             return extract_image(task_result), task_result
         except HTTPException as exc:
             setattr(exc, "upstream_task_id", task_id)
