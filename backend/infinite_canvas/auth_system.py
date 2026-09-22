@@ -49,6 +49,7 @@ PUBLIC_EXACT_PATHS = {
     "/api/setup",
     "/api/setup/status",
     "/api/setup/select-directory",
+    "/api/setup/prepare-directory",
     "/api/setup/inspect-workspace",
     "/api/setup/open-workspace",
     "/login",
@@ -174,7 +175,9 @@ class AuthSystem:
         registration_enabled: bool = True,
         secure_directory: bool = False,
         legacy_workspace_id: str = "legacy-workspace",
+        onboarding_scope: str = "default",
     ) -> None:
+        self.onboarding_scope = onboarding_scope
         self.database_path = Path(database_path)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.secure_directory = bool(secure_directory)
@@ -262,6 +265,12 @@ class AuthSystem:
                     updated_at INTEGER NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS onboarding_progress (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    pending INTEGER NOT NULL DEFAULT 1,
+                    services_json TEXT NOT NULL DEFAULT '{}'
+                );
+
                 CREATE TABLE IF NOT EXISTS sessions (
                     token_hash TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -337,6 +346,17 @@ class AuthSystem:
                 );
                 """
             )
+            # Preserve older singleton progress records; add ownership without
+            # replacing tables or changing primary keys.
+            if "scope" not in self._table_columns(connection, "onboarding_progress"):
+                connection.execute("SAVEPOINT onboarding_scope_upgrade")
+                try:
+                    connection.execute("ALTER TABLE onboarding_progress ADD COLUMN scope TEXT NOT NULL DEFAULT 'default'")
+                    connection.execute("UPDATE onboarding_progress SET scope = ?", (self.onboarding_scope,))
+                    connection.execute("RELEASE SAVEPOINT onboarding_scope_upgrade")
+                except Exception:
+                    connection.execute("ROLLBACK TO SAVEPOINT onboarding_scope_upgrade")
+                    raise
             self._migrate_account_avatar_schema(connection)
             self._migrate_workspace_scoped_schema(connection)
             connection.executescript(
@@ -603,6 +623,35 @@ class AuthSystem:
         )
         return user
 
+    def onboarding_status(self) -> Dict[str, Any]:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT pending, services_json FROM onboarding_progress WHERE id = 1 AND scope = ?",
+                (self.onboarding_scope,),
+            ).fetchone()
+        return {"pending": bool(row and row["pending"]),
+                "services": json.loads(row["services_json"]) if row else {}}
+
+    def record_onboarding_service(self, provider_id: str, result: Dict[str, Any]) -> None:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT services_json FROM onboarding_progress WHERE id = 1 AND scope = ?",
+                (self.onboarding_scope,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("onboarding_not_started")
+            services = json.loads(row["services_json"])
+            services[provider_id] = result
+            connection.execute(
+                "UPDATE onboarding_progress SET services_json = ? WHERE id = 1 AND scope = ?",
+                (json.dumps(services), self.onboarding_scope),
+            )
+
+    def finish_onboarding(self) -> None:
+        with self._connect() as connection:
+            connection.execute("UPDATE onboarding_progress SET pending = 0 WHERE id = 1 AND scope = ?", (self.onboarding_scope,))
+
     def needs_initial_setup(self) -> bool:
         with self._connect() as connection:
             return not bool(
@@ -615,6 +664,7 @@ class AuthSystem:
         username: str,
         password: str,
         display_name: str = "",
+        start_onboarding: bool = False,
     ) -> Dict[str, Any]:
         """Create the first administrator from user-supplied credentials."""
         username = str(username or "").strip()
@@ -648,6 +698,11 @@ class AuthSystem:
                     now,
                 ),
             )
+            if start_onboarding:
+                connection.execute(
+                    "INSERT INTO onboarding_progress (id, pending, scope) VALUES (1, 1, ?)",
+                    (self.onboarding_scope,),
+                )
             row = connection.execute(
                 "SELECT * FROM users WHERE id = ?", (user_id,)
             ).fetchone()
@@ -1528,6 +1583,7 @@ def install_auth_routes(
         Callable[[str], Dict[str, Any]]
     ] = None,
     initial_directory_picker: Optional[Callable[[], str]] = None,
+    initial_directory_preparer: Optional[Callable[[str], str]] = None,
     initial_setup_status_provider: Optional[
         Callable[[], Dict[str, Any]]
     ] = None,
@@ -1540,6 +1596,7 @@ def install_auth_routes(
     user_enricher: Optional[
         Callable[[Dict[str, Any]], Dict[str, Any]]
     ] = None,
+    onboarding_enabled: bool = False,
     avatar_change_handler: Optional[
         Callable[[Dict[str, Any]], Any]
     ] = None,
@@ -1608,6 +1665,7 @@ def install_auth_routes(
                 username=username,
                 password=payload.password,
                 display_name=payload.display_name,
+                start_onboarding=onboarding_enabled,
             )
         except (OSError, RuntimeError, ValueError) as exc:
             return setup_error(409, "workspace_setup_failed", str(exc))
@@ -1640,6 +1698,22 @@ def install_auth_routes(
         if not selected:
             return setup_error(400, "directory_required", "未选择目录")
         return {"workspace_directory": selected}
+
+    @app.post("/api/setup/prepare-directory")
+    async def prepare_initial_directory(payload: WorkspaceSelectionRequest, request: Request):
+        if not _local_client(request):
+            return setup_error(403, "local_client_required", "只能在本机创建目录")
+        if _cross_site_write(request, "POST"):
+            return setup_error(403, "cross_site_rejected", "已拒绝跨站目录创建请求")
+        if not auth.needs_initial_setup():
+            return setup_error(409, "setup_already_complete", "初始化已经完成")
+        if initial_directory_preparer is None:
+            return setup_error(503, "workspace_setup_unavailable", "目录创建不可用")
+        try:
+            directory = initial_directory_preparer(payload.workspace_directory)
+        except (OSError, RuntimeError, ValueError):
+            return setup_error(409, "workspace_directory_unavailable", "无法创建目录，请检查位置和权限")
+        return {"workspace_directory": directory}
 
     @app.post("/api/setup/inspect-workspace")
     async def inspect_initial_workspace(
@@ -1967,6 +2041,7 @@ def install_access_control(
                 "/api/setup",
                 "/api/setup/status",
                 "/api/setup/select-directory",
+                "/api/setup/prepare-directory",
                 "/api/setup/inspect-workspace",
                 "/api/setup/open-workspace",
             }
@@ -2005,6 +2080,8 @@ def install_access_control(
                         status_code=403, content={"detail": "当前账号无权访问工作台资源"}
                     )
                 return RedirectResponse(url="/login?reason=no-access", status_code=303)
+            if path in {"/", "/static/index.html", "/static/canvas-list.html"} and user.get("role") == "admin" and auth.onboarding_status()["pending"]:
+                return RedirectResponse(url="/setup", status_code=303)
             if _is_admin_only(path, method) and user.get("role") != "admin":
                 if path.startswith("/api/"):
                     return JSONResponse(
@@ -2020,6 +2097,7 @@ def auth_from_environment(
     *,
     workspace_directory: Path | str | None = None,
     workspace_id: str = "",
+    onboarding_scope: str = "default",
 ) -> AuthSystem:
     """Build the global AuthSystem from the single Instance State seam."""
 
@@ -2052,6 +2130,7 @@ def auth_from_environment(
         registration_enabled=registration_enabled,
         secure_directory=True,
         legacy_workspace_id=workspace_id,
+        onboarding_scope=onboarding_scope,
     )
     auth.instance_state = state
     auth.migration_status = preparation.migration_status

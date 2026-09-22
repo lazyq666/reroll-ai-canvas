@@ -1597,6 +1597,25 @@ class WorkspaceService:
             warnings=tuple(dict.fromkeys(warnings)),
         )
 
+    def prepare_initial_directory(self, directory: object) -> str:
+        """Create only the user-confirmed folder; inspection remains read-only."""
+        if not str(directory or "").strip():
+            raise WorkspaceStorageError("请选择工作区目录")
+        candidate = self._storage.validate_workspace_parent(Path(str(directory)).expanduser().resolve())
+        self._storage.validate_pair(candidate / "data", candidate / "assets", require_existing=False)
+        if candidate.exists():
+            if not candidate.is_dir():
+                raise WorkspaceStorageError("所选位置不是可用目录")
+            return str(candidate)
+        ancestor = candidate.parent
+        while not ancestor.exists() and ancestor != ancestor.parent:
+            ancestor = ancestor.parent
+        capability = self._storage_classifier(ancestor)
+        if not capability.supported:
+            raise WorkspaceStorageError("不支持此存储位置，请选择本机可写目录")
+        candidate.mkdir(parents=True, exist_ok=True)
+        return str(candidate)
+
     def prepare_initial(self, directory: object) -> Workspace:
         """Create/adopt an account-less Workspace after a fresh inspection."""
 

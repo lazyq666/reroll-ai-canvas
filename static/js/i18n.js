@@ -3,6 +3,7 @@
         '/static/js/i18n-core.js?v=asset-976eaa307e53',
         '/static/js/i18n/common.js?v=asset-0100c38624da',
         '/static/js/i18n/auth.js?v=asset-2ba9c7942691',
+        '/static/js/i18n/onboarding.js?v=asset-bbaaeb73ef47',
         '/static/js/i18n/workspace.js?v=asset-e7df5eb37a5a',
         '/static/js/i18n/model-management.js?v=asset-1bf67142968a',
         '/static/js/i18n/preferences.js?v=asset-cd5d16f96ff2',

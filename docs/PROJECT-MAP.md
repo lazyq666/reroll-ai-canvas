@@ -108,6 +108,7 @@ backend/
 ├── main.py                     FastAPI 组合根和仍待迁出的兼容路由
 └── infinite_canvas/
     ├── auth_system.py          Account、Session、Role、Share、Project Grant
+    ├── onboarding.py           首次服务连接、进度与完成条件
     ├── canvas_permissions.py   Project 与 Canvas 可见性规则
     ├── canvas_store.py         Canvas SQLite 权威存储和投影
     ├── canvas_sync.py          Canvas 命令、Revision、Mutation、冲突、通知与统一 Generation History 接口
@@ -225,7 +226,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 
 | ID | 功能域 | 覆盖 | 当前入口或首要缺口 |
 | --- | --- | --- | --- |
-| F01 | 启动、初始化与 Application Runtime | `partial` | [ADR-0008](adr/0008-lan-access-by-default.md)与[本机与局域网访问](current/local-network-access.md)定义默认监听、仅本机覆盖与重启/失败恢复；Runtime/Bootstrap 仍缺完整端到端 Current 规格 |
+| F01 | 启动、初始化与 Application Runtime | `partial` | [首次设置与逐服务连接](active/2026-09-21-first-run-onboarding.md)已实现并通过隔离验收，真实供应商与跨平台验收待完成； [ADR-0008](adr/0008-lan-access-by-default.md)与[本机与局域网访问](current/local-network-access.md)定义默认监听、仅本机覆盖与重启/失败恢复；Runtime/Bootstrap 仍缺完整端到端 Current 规格 |
 | F02 | Account、Role、Project 权限与 Share | `partial` | [Canvas 分享只读内容完整性](current/canvas-share-read-only-content-parity.md)已有 Current；`auth_system.py`、`canvas_permissions.py` 仍缺完整 Current 权限矩阵 |
 | F03 | Workspace 与四类数据边界 | `current` | [ADR-0001](adr/0001-workspace-data-boundary.md)、[ADR-0006](adr/0006-explicit-workspace-creation-during-recovery.md)、[存储与迁移](current/storage-layout-and-migration.md)；恢复阶段可显式创建新 Workspace，#179 Phase 1/2 与历史停服迁移已交付，其余升级恢复 Gate 仍见 Active Spec；[可选云端记录与 OneDrive 媒体](active/2026-09-07-optional-cloud-records-onedrive-media-spec.md)已接入运行时、设置开关和可恢复迁移，完成本机真实迁移试用；第二设备、网络性能、身份映射及发布 Gate 未完成，默认本地合同不变 |
 | F04 | Project、Canvas List、Trash 与内容管理 | `gap` | `canvas_list_index.py`、`canvas_store.py`；缺完整状态与权限规格 |

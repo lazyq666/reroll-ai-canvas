@@ -2771,6 +2771,7 @@ AUTH_SYSTEM = auth_from_environment(
         else None
     ),
     workspace_id=CURRENT_WORKSPACE_ID,
+    onboarding_scope=str(Path(BASE_DIR).resolve()),
 )
 
 
@@ -2888,7 +2889,7 @@ def initial_workspace_status() -> Dict[str, Any]:
         "workspace_configured": WORKSPACE_CONFIGURED,
         "workspace_error": WORKSPACE_CONFIGURATION_ERROR,
         "configured_workspace_directory": (
-            WORKSPACE_STORAGE.configured_parent_hint()
+            WORKSPACE_STORAGE.configured_parent_hint() or str(Path.home() / "Documents" / "Reroll")
         ),
     }
     if WORKSPACE_CONFIGURATION_ERROR:
@@ -2905,9 +2906,11 @@ install_auth_routes(
     AUTH_SYSTEM,
     before_delete=reassign_deleted_account_canvases,
     initial_setup_configurator=configure_initial_workspace,
+    onboarding_enabled=True,
     initial_directory_picker=choose_workspace_parent_directory,
     initial_setup_status_provider=initial_workspace_status,
     initial_workspace_inspector=inspect_initial_workspace,
+    initial_directory_preparer=WORKSPACE_SERVICE.prepare_initial_directory,
     initial_workspace_opener=open_initial_workspace,
     user_enricher=enrich_current_workspace_user,
     avatar_change_handler=PRESENCE_MANAGER.update_member_identity,
@@ -6421,7 +6424,7 @@ async def generate_ai_image(
 @app.get("/setup")
 async def setup_page():
     response = static_html_response("setup.html")
-    response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: https:; frame-ancestors 'none'"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
@@ -7296,6 +7299,86 @@ async def fetch_upstream_models_from_payload(payload: TestConnectionPayload):
         base_url=payload.base_url,
         protocol=_provider_implementation.protocol_from_payload(payload),
     )
+
+
+# First-run service orchestration reuses the production Provider storage and inspectors.
+from infinite_canvas.onboarding import OnboardingPorts, install_onboarding_routes
+
+
+async def _save_onboarding_provider(config, api_key, models, *, expected=None):
+    with GLOBAL_CONFIG_LOCK:
+        providers = load_api_providers()
+        existing = next((p for p in providers if p["id"] == config["id"]), {})
+        if expected is not None and _onboarding_provider_fingerprint(existing) != expected:
+            raise RuntimeError("Provider configuration changed during validation")
+        item = {**existing, **config}
+        if models is not None:
+            for field in ("image_models", "chat_models", "video_models"):
+                item[field] = list(dict.fromkeys(models[field]))
+            item["model_protocols"] = models.get("model_protocols", {})
+            item["enabled"] = True
+        else:
+            item["enabled"] = existing.get("enabled", False)
+        if api_key:
+            item["api_key"] = api_key
+            if config["id"] == "runninghub":
+                item["wallet_api_key"] = api_key
+        payloads = [
+            ApiProviderPayload(**(item if p["id"] == item["id"] else p))
+            for p in providers
+        ]
+        if not existing:
+            payloads.append(ApiProviderPayload(**item))
+        await save_providers(payloads)
+        return next(provider for provider in load_api_providers() if provider["id"] == item["id"])
+
+
+def _onboarding_provider_fingerprint(provider):
+    fields = ("id", "base_url", "protocol", "image_request_mode",
+              "image_models", "chat_models", "video_models", "enabled")
+    snapshot = {field: provider.get(field) for field in fields}
+    snapshot["credential"] = provider_env_key_value(provider["id"])
+    if provider["id"] == "runninghub":
+        snapshot["wallet_credential"] = runninghub_wallet_key_value()
+    return hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
+
+
+async def _test_onboarding_provider(config):
+    if config["id"] == "runninghub":
+        # A public model registry does not validate the user's credential.
+        key = provider_env_key_value(config["id"])
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(
+                config["base_url"].rstrip("/") + "/uc/openapi/accountStatus",
+                headers={"Authorization": "Bearer " + key}, json={"apikey": key},
+            )
+        payload = response.json() if response.is_success else {}
+        return {"ok": response.is_success and payload.get("code") == 0
+                and isinstance(payload.get("data"), dict), "protocol": "runninghub"}
+    return await test_provider_connection(TestConnectionPayload(
+        provider_id=config["id"], base_url=config["base_url"],
+        protocol=config["protocol"], image_request_mode=config.get("image_request_mode", "openai"),
+    ))
+
+
+async def _models_onboarding_provider(config):
+    return await fetch_upstream_models_from_payload(TestConnectionPayload(
+        provider_id=config["id"], base_url=config["base_url"],
+        protocol=config["protocol"], image_request_mode=config.get("image_request_mode", "openai"),
+    ))
+
+
+async def _onboarding_cli_status(service):
+    return await _PROVIDER_INSPECTORS.status(service)
+
+
+install_onboarding_routes(app, AUTH_SYSTEM, OnboardingPorts(
+    load=load_api_providers, save=_save_onboarding_provider,
+    test=_test_onboarding_provider, models=_models_onboarding_provider,
+    cli_status=_onboarding_cli_status, fingerprint=_onboarding_provider_fingerprint,
+    workspace=initial_workspace_status,
+))
+
 
 @app.get("/api/providers/{provider_id}/fetch-models")
 async def fetch_upstream_models(provider_id: str):

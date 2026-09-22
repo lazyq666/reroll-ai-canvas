@@ -41,6 +41,29 @@ class WorkspaceServiceTests(unittest.TestCase):
             for path in sorted(directory.rglob("*"))
         ]
 
+    def test_confirmed_initial_directory_preserves_inspection_and_rejects_unsafe_paths(self):
+        from infinite_canvas.workspace_storage import WorkspaceStorageError
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            source=root/"source"
+            source.mkdir()
+            (source/".git").mkdir()
+            storage=WorkspaceStorage(source,state_dir=root/"state")
+            local=WorkspaceLocationCapability(kind="local",label="Local",supported=True)
+            service=WorkspaceService(storage,storage_classifier=lambda _path:local)
+            destination=root/"new"/"workspace"
+            self.assertEqual("unavailable",service.inspect(destination).status)
+            self.assertFalse(destination.exists())
+            self.assertEqual(str(destination.resolve()),service.prepare_initial_directory(destination))
+            self.assertEqual([],list(destination.iterdir()))
+            self.assertEqual("empty",service.inspect(destination).status)
+            self.assertFalse(storage.settings_file.exists())
+            with self.assertRaises(WorkspaceStorageError):service.prepare_initial_directory(source/"workspace")
+            network=WorkspaceLocationCapability(kind="network",label="Network",supported=False)
+            blocked=WorkspaceService(storage,storage_classifier=lambda _path:network)
+            with self.assertRaises(WorkspaceStorageError):blocked.prepare_initial_directory(root/"network-folder")
+            self.assertFalse((root/"network-folder").exists())
+
     def test_current_workspace_exposes_business_locations_from_one_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

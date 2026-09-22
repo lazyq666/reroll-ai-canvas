@@ -154,6 +154,8 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 
 ### Instance State
 
+首次设置进度 `onboarding_progress` 保存在 `auth.db`，按发起设置的安装目录限定作用范围；只记录完成状态和服务配置指纹，不含明文密钥，不随 Workspace 迁移。行为与待验收项见[首次设置规格](../active/2026-09-21-first-run-onboarding.md)。
+
 默认位于操作系统的兼容状态根目录 `Infinite Canvas` 中，其 `instance-state/` 由同一设备上的
 多个源码目录服务共享：
 
