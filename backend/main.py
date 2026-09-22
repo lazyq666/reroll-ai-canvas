@@ -154,6 +154,7 @@ from infinite_canvas.design_tokens import (
 )
 from infinite_canvas.cli_updates import build_default_manager as build_cli_update_manager
 from infinite_canvas.generation_settings import GenerationSettingsService
+from infinite_canvas.prompt_optimization import (PromptOptimizationSettings, load_settings as load_prompt_optimization_settings, save_settings as save_prompt_optimization_settings)
 from infinite_canvas.image_capabilities import (
     ImageCapabilityRegistry,
     intersect_capabilities,
@@ -7000,6 +7001,21 @@ async def ai_config():
         "ms_chat_models": MODELSCOPE_CHAT_MODELS,
         "has_ms_key": bool(modelscope_api_key()),
     }
+
+@app.get("/api/prompt-optimization-settings")
+async def get_prompt_optimization_settings():
+    require_current_user("admin", "designer")
+    with GLOBAL_CONFIG_LOCK:
+        return load_prompt_optimization_settings(Path(api_providers_file()).with_name("prompt-optimization.json")).model_dump()
+
+
+@app.put("/api/prompt-optimization-settings")
+async def put_prompt_optimization_settings(payload: PromptOptimizationSettings):
+    require_current_user("admin")
+    with GLOBAL_CONFIG_LOCK:
+        save_prompt_optimization_settings(Path(api_providers_file()).with_name("prompt-optimization.json"), payload)
+    return payload.model_dump()
+
 
 @app.get("/api/models")
 async def ai_models():

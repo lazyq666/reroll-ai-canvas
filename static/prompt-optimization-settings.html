@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="settings" data-studio-scale="off">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
+    <title data-i18n="smart.optimize.settingsTitle">提示词优化</title>
+    <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
+    <script>
+        (function(){
+            try {
+                document.documentElement.dataset.studioFitScale = 'off';
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
+    <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
+    <script src="/static/js/i18n.js?v=asset-67e414635cb4"></script>
+    <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
+    <link rel="stylesheet" href="/static/css/prompt-optimization-settings.css?v=asset-8c3a3a15eff9">
+</head>
+<body>
+<main class="optimization-settings">
+  <ic-heading level="1" data-i18n="smart.optimize.settingsTitle" data-i18n-subtitle="smart.optimize.settingsSubtitle" subtitle="选择文字模型，编辑优化指令。">提示词优化</ic-heading>
+  <ic-alert id="settingsMessage" tone="neutral" role="status" data-i18n="smart.optimize.loadingSettings">正在加载优化设置…</ic-alert>
+  <ic-button id="reloadSettings" hierarchy="secondary" data-i18n="smart.optimize.retrySettings" hidden>重新加载</ic-button>
+  <section id="settingsForm" class="optimization-form" inert>
+    <ic-select id="optimizationMedia" value="image" label="优化模块" data-i18n-label="smart.optimize.media">
+      <option value="image" data-i18n="smart.optimize.image">图片生成</option>
+      <option value="video" data-i18n="smart.optimize.video">视频生成</option>
+    </ic-select>
+    <ic-select id="optimizationModel" name="optimization-model" label="优化使用的文字模型" data-i18n-label="smart.optimize.model"></ic-select>
+    <ic-select id="optimizationPreset" name="optimization-preset" label="默认优化方案" data-i18n-label="smart.optimize.editPreset" value="smart">
+      <option value="smart" data-i18n="smart.optimize.smart">智能优化</option>
+      <option value="preserve" data-i18n="smart.optimize.preserve">保持原意</option>
+      <option value="visual" data-i18n="smart.optimize.visual">视觉增强</option>
+      <option value="camera" data-i18n="smart.optimize.camera">镜头增强</option>
+    </ic-select>
+    <ic-textarea id="optimizationInstructions" name="optimization-instructions" rows="9" resize="vertical" label="优化指令" data-i18n-label="smart.optimize.instructions" aria-describedby="instructionsHint"></ic-textarea>
+    <p id="instructionsHint" data-i18n="smart.optimize.instructionsHint">描述此模块应如何改写提示词。原文、媒体类型及素材引用保护由系统自动附加。</p>
+    <div class="optimization-actions">
+      <ic-button id="restoreInstructions" hierarchy="secondary" data-i18n="smart.optimize.restoreRule">恢复默认指令</ic-button>
+      <ic-button id="saveOptimizationSettings" hierarchy="primary" data-i18n="smart.optimize.saveSettings">保存设置</ic-button>
+    </div>
+  </section>
+</main>
+<script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb"></script>
+<script src="/static/js/smart-canvas/prompt-optimize.js?v=asset-113dfb456dfe"></script>
+<script src="/static/js/prompt-optimization-settings.js?v=asset-8f529a51945e" defer></script>
+</body>
+</html>

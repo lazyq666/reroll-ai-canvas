@@ -1,0 +1,7 @@
+* { box-sizing:border-box; }
+body { margin:0; background:var(--ui-color-surface-canvas); color:var(--ui-color-text-primary); font:var(--ui-text-body); }
+.optimization-settings { max-width:56rem; margin:0 auto; padding:var(--ui-space-8) var(--ui-space-6); display:grid; gap:var(--ui-space-6); }
+.optimization-form { display:grid; gap:var(--ui-space-4); min-width:0; }
+.optimization-form p { margin:0; color:var(--ui-color-text-secondary); font:var(--ui-text-body); }
+.optimization-actions { display:flex; flex-wrap:wrap; justify-content:space-between; gap:var(--ui-space-3); }
+[hidden] { display:none !important; }

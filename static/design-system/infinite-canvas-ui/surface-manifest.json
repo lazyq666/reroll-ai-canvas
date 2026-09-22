@@ -53,7 +53,7 @@
   "surfaces": {
     "legacy": {
       "label": "Legacy Inventory",
-      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-189f0bea70b7",
+      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-6917c8f5370e",
       "sourceRevision": "sha256:bd91c5975e2c367e2aa7dd96f20bb9972b308fb5c8a2572ca9c96ca30c8335a2",
       "candidateCount": 573,
       "instanceCount": 1144,
@@ -514,7 +514,7 @@
       "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
       "classificationStatus": "pending-human-confirmation",
       "classifiedInstanceCount": 1712,
-      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-189f0bea70b7",
+      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-6917c8f5370e",
       "instanceIdentity": "candidate-id plus stable file, source kind and DOM path; display line is diagnostic only",
       "outcomes": [
         {

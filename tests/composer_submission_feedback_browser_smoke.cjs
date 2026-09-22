@@ -56,13 +56,18 @@ async function stopManualServer(child) {
 }
 
 
-async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', failure=false, offline=false, keyboard=false, theme='light', empty=false, priorAlert=false, expanded=true}={}) {
+async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', failure=false, offline=false, keyboard=false, theme='light', empty=false, priorAlert=false, expanded=true,optimize=false}={}) {
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   const shouldRetry = failure;
   let requests = 0;
   const pageErrors=[];
   page.on('pageerror', error => pageErrors.push(error.message));
+  await page.route('**/api/local-generation-submissions',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({enabled:false})}));
+  if(optimize){
+    await page.route('**/api/prompt-optimization-settings',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({version:2,image:{provider:'test',model:'test-text',instructions:{}}})}));
+    await page.route('**/api/canvas-llm',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({text:'Preserve my composer prompt with clearer lighting'})}));
+  }
   let release;
   const gate = new Promise(resolve => { release = resolve; });
   await page.route('**/api/canvas-image-tasks', async route => {
@@ -97,6 +102,12 @@ async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', 
       if(priorAlert) toast('Earlier generation failed', {persistent:true,tone:'danger'});
       if(offline) generationRunOnline = () => false;
     }, {count,lang,theme,offline,empty,priorAlert});
+    if(optimize){
+      await page.evaluate(()=>{const original=smartCatalogEntry;smartCatalogEntry=(kind,...args)=>kind==='text'?{model_id:'test-text'}:original(kind,...args);});
+      await page.locator('#promptOptimizeBtn').getByRole('button').click();
+      await page.waitForFunction(()=>promptInput.textContent.includes('clearer lighting'));
+      assert.equal(await page.locator('#promptOptimizeBtn').getByRole('button').isEnabled(),false);
+    }
     if(expanded){
       await page.locator('#composerFocusToggle').click();
       await page.waitForFunction(() => composer.classList.contains('focused'));
@@ -159,6 +170,17 @@ async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', 
       assert.equal(await message.textContent(), translated);
       await page.screenshot({path:`/tmp/composer-feedback-${count}-${theme}-${offline ? 'offline' : status}.png`});
     }
+    if(optimize){
+      await page.evaluate(()=>{selectedId='';updateComposer();selectedId='generator-source';updateComposer();});
+      assert.equal(await page.locator('#promptOptimizeMenu [slot="trigger"]').isVisible(),true,'original switch survives generation submission and returning to source');
+      assert.equal(await page.locator('#promptOptimizeBtn').getByRole('button').isEnabled(),false);
+      await page.locator('#promptOptimizeMenu [slot="trigger"]').getByRole('button').click();
+      await page.locator('#promptOptimizeMenu ic-menu-item[value="original"]').click();
+      assert.equal(await page.locator('#promptInput').textContent(),'Preserve my composer prompt');
+      await page.locator('#promptOptimizeMenu [slot="trigger"]').getByRole('button').click();
+      await page.locator('#promptOptimizeMenu ic-menu-item[value="optimized"]').click();
+      assert.equal(await page.locator('#promptInput').textContent(),'Preserve my composer prompt with clearer lighting');
+    }
     assert.equal(requests, offline ? 0 : shouldRetry ? 2 : 1);
     assert.deepEqual(pageErrors,[]);
   } finally { release(); await page.close(); }
@@ -171,10 +193,10 @@ async function scenario(context, baseUrl, {count=1, status='queued', lang='zh', 
     browser = await chromium.launch({headless:true,executablePath:browserExecutable});
     const context = await browser.newContext({viewport:{width:1440,height:1000}});
     for(const options of [
-      {expanded:false}, {expanded:false,count:3}, {expanded:false,failure:true},
+      {optimize:true}, {expanded:false}, {expanded:false,count:3}, {expanded:false,failure:true},
       {}, {count:3,lang:'en',theme:'dark',keyboard:true}, {status:'running'},
       {failure:true}, {count:3,failure:true}, {offline:true}, {empty:true}, {priorAlert:true},
     ]) await scenario(context,server.url,options);
-    console.log('PASS: Composer loading, duplicate guard, acceptance before completion, queue/submitted/offline feedback, failure preservation, batch, keyboard, Light/Dark, language switching');
+    console.log('PASS: Optimized prompt survives generation submission and return; Composer loading, duplicate guard, acceptance before completion, queue/submitted/offline feedback, failure preservation, batch, keyboard, Light/Dark, language switching');
   } finally { await browser?.close(); await stopManualServer(server.child); }
 })().catch(error => { console.error(error); process.exitCode=1; });

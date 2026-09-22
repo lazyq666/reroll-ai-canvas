@@ -91,6 +91,7 @@ ADMIN_ONLY_HTML = {
     "/static/api-settings.html",
     "/static/available-model-management.html",
     "/static/comfyui-settings.html",
+    "/static/prompt-optimization-settings.html",
     "/static/ui-component-library.html",
 }
 

@@ -113,7 +113,8 @@ class StudioShellUiRegressionTests(unittest.TestCase):
             'data-i18n-aria-label="common.mainContent"',
         ):
             self.assertIn(attribute, self.page)
-        self.assertEqual(10, self.page.count("data-i18n-title="))
+        self.assertEqual(11, self.page.count("data-i18n-title="))
+        self.assertIn('data-i18n-title="smart.optimize.settingsTitle"', self.page)
 
     def test_collapsed_sidebar_hides_account_copy_and_centers_vertical_utilities(self):
         self.assertIn(".sidebar:not(.is-pinned) .account-trigger-copy", self.styles)
