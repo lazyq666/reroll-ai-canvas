@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_version
 import re
 import unittest
 from pathlib import Path
@@ -11,7 +12,6 @@ MATRIX_PRESENTATION = ROOT / "static" / "js" / "ui-component-library" / "matrix-
 NAVIGATION_COMMAND = ROOT / "static" / "js" / "infinite-canvas-ui" / "navigation-command.js"
 NAVIGATION_COMMAND_ROOT = ROOT / "static" / "js" / "infinite-canvas-ui" / "navigation-command"
 CORE = ROOT / "static" / "js" / "infinite-canvas-ui" / "core.js"
-UI_VERSION = (ROOT / "static" / "js" / "infinite-canvas-ui" / "VERSION").read_text(encoding="utf-8").strip()
 NAVIGATION_COMMAND_CASE = ROOT / "static" / "design-system" / "infinite-canvas-ui" / "navigation-command-case.html"
 STYLE = ROOT / "static" / "css" / "ui-component-library.css"
 PREVIEW_STYLE = ROOT / "static" / "css" / "ui-component-library-preview.css"
@@ -364,7 +364,7 @@ class UiComponentLibraryPageTests(unittest.TestCase):
         self.assertIn("window.addEventListener('popstate'", self.surface_app)
         self.assertIn("const initialReview = targetReviewFromHash() || 'actions'", self.surface_app)
         self.assertIn("switchTargetReview(initialReview)", self.surface_app)
-        self.assertIn(f"./navigation-command.js?v={UI_VERSION}", self.core)
+        self.assertIn(f"./navigation-command.js?v={asset_version('static/js/infinite-canvas-ui/navigation-command.js')}", self.core)
 
     def test_design_token_explorer_removes_redundant_supporting_copy(self):
         for redundant in (

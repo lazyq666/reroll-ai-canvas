@@ -1,4 +1,4 @@
-import { validOwnershipBoundaries, rowBoundaryY, ownershipRowBand} from '/static/js/smart-canvas/sprite-ownership.js?v=2';
+import { validOwnershipBoundaries, rowBoundaryY, ownershipRowBand} from '/static/js/smart-canvas/sprite-ownership.js?v=asset-3411e5472274';
 
 const COLORS = ['#ffb64f','#60d9f5','#c09bff','#7be0ae'];
 const copy = value => JSON.parse(JSON.stringify(value));

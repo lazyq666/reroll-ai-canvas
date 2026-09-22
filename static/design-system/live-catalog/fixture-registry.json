@@ -39,8 +39,8 @@
       "fixture": {
         "adapter": "primary-button",
         "stylesheets": [
-          "/static/css/design-tokens.css",
-          "/static/css/smart-canvas.css"
+          "/static/css/design-tokens.css?v=asset-b180cf511553",
+          "/static/css/smart-canvas.css?v=asset-c34b40717801"
         ],
         "markup": "<div class=\"shell\"><div id=\"composer\" class=\"composer open\"><div class=\"composer-card\"><div class=\"composer-actions\"><button id=\"runBtn\" class=\"run-btn\" type=\"button\"><i data-lucide=\"sparkles\"></i><span>运行</span></button></div></div></div></div>",
         "rootSelector": "#runBtn",

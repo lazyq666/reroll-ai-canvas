@@ -1,6 +1,6 @@
 const params=new URLSearchParams(location.search); const locale=params.get('locale')||'zh-CN'; const long=params.get('content')==='long'; document.documentElement.lang=locale; document.documentElement.dataset.uiTheme=params.get('theme')||'light'; document.documentElement.dataset.uiDensity=params.get('density')||'medium'; document.documentElement.dataset.uiMotion=params.get('motion')||'standard'; document.body.style.maxWidth=params.get('viewport')==='narrow'?'360px':'none';
 document.documentElement.style.setProperty('--ui-library-matrix-cell-min-width','320px'); document.documentElement.style.setProperty('--ui-library-matrix-cell-min-height','120px');
-await import('/static/js/infinite-canvas-ui/core.js?v=ic-ui-9e5de786b163'); await Promise.all(['ic-menu','ic-menu-item','ic-popover','ic-confirm-popover','ic-tooltip','ic-mention-picker','ic-thumb-hovercard'].map(tag=>customElements.whenDefined(tag)));
+await import('/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb'); await Promise.all(['ic-menu','ic-menu-item','ic-popover','ic-confirm-popover','ic-tooltip','ic-mention-picker','ic-thumb-hovercard'].map(tag=>customElements.whenDefined(tag)));
 window.StudioI18n.set(locale.startsWith('zh') ? 'zh' : 'en'); const tr=key=>window.StudioI18n.t(key);
 const zh=locale.startsWith('zh'); const label=(a,b)=>zh?a:b; const suffix=long?label('——这是一段用于验证窄容器和中文长文本换行的完整说明',' — a deliberately long label used to verify wrapping in constrained professional-tool surfaces'):'';
 document.querySelector('[data-live-root]').innerHTML=`<section class="thumb-hovercard-case" data-thumb-hovercard-kind="image" data-copy-value="ic-thumb-hovercard" data-copy-kind="组件名"><h2>${label('图片预览','Image preview')}</h2><button class="thumb-hovercard-trigger"><ic-icon name="image" aria-hidden="true"></ic-icon>${label('悬停预览图片','Hover to preview image')}</button></section>
@@ -97,7 +97,7 @@ confirmTrigger.onclick=()=>confirmPopover.show(confirmTrigger); confirmPopover.a
 contextTarget.addEventListener('contextmenu',event=>{event.preventDefault();contextMenu.show(contextTarget);}); contextTarget.addEventListener('keydown',event=>{if((event.shiftKey&&event.key==='F10')||event.key==='ContextMenu'){event.preventDefault();contextMenu.show(contextTarget);}});
 iconlessContextTarget.addEventListener('contextmenu',event=>{event.preventDefault();iconlessContextMenu.showAt(event.clientX,event.clientY,iconlessContextTarget);}); iconlessContextTarget.addEventListener('keydown',event=>{if((event.shiftKey&&event.key==='F10')||event.key==='ContextMenu'){event.preventDefault();const rect=iconlessContextTarget.getBoundingClientRect();iconlessContextMenu.showAt(rect.left,rect.bottom,iconlessContextTarget);}});
 singleMenu.addEventListener('ic-select',event=>{const item=event.composedPath().find(node=>node?.localName==='ic-menu-item');if(item)singleTrigger.textContent=`${label('布局：','Layout: ')}${item.getAttribute('label')}`;});
-await import('./component-name-tag.js');
+await import('./component-name-tag.js?v=asset-be87ef90d5dd');
 await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 referenceGenerateMenu.show(referenceGenerateTrigger);
 referenceGenerateTrigger.setAttribute('aria-expanded','true');

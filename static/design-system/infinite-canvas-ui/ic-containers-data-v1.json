@@ -16,12 +16,12 @@
   },
   "review": {
     "contract": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "同意 Containers/Data 判断 1–10，并确认 25 个通用 Legacy 映射；31 个领域实例保持原处置。", "confirmedOn": "2026-08-09", "evidence": "User explicitly replied ‘同意 开始开发’ after reviewing the ten enumerated judgments and Legacy mapping."},
-    "implementation": {"status": "implemented", "implementedOn": "2026-08-09", "evidence": ["/static/js/infinite-canvas-ui/containers-data.js", "/static/design-system/infinite-canvas-ui/containers-data.html"]},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-09", "evidence": ["/static/js/infinite-canvas-ui/containers-data.js?v=asset-37c3b467193e", "/static/design-system/infinite-canvas-ui/containers-data.html"]},
     "live": {"status": "confirmed", "reviewer": "User (Codex task)", "confirmedOn": "2026-08-10", "note": "验收通过。", "evidence": "/docs/design-system/verification/containers-data-browser.json"},
     "migration": {"status": "confirmed", "confirmedOn": "2026-08-10", "evidence": "Second human Gate approved Containers/Data migration eligibility; no business page migration was performed."}
   },
   "legacyCoverage": {
-    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
     "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
     "sourceReviewStatus": "pending-human-confirmation",
     "evidenceInstanceCount": 56,

@@ -44,8 +44,8 @@ class PublicSourceHygieneTests(unittest.TestCase):
                     matches = TASK_ID.findall(line)
                     if not matches:
                         continue
-                    if path == ROOT / "static/api-settings.html" and any(
-                        stylesheet in line for stylesheet in allowed_api_stylesheets
+                    if path in {ROOT / "static/api-settings.html", ROOT / "static/frontend-assets.json"} and any(
+                        stylesheet.lstrip("/") in line for stylesheet in allowed_api_stylesheets
                     ):
                         continue
                     violations.append(

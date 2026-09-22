@@ -1,4 +1,4 @@
-import './core.js';
+import './core.js?v=asset-5078f5fd88bb';
 await Promise.all([
   import('../smart-canvas/generation-failure-feedback.js?v=asset-4d192a74b065'),
   import('../smart-canvas/generation-log-modal.js?v=asset-ad3879b87435'),
@@ -55,8 +55,8 @@ aiProcessorDialog.groups = [{ id:'image-reverse', name:locale === 'en' ? 'Revers
   { id:'photo', name:'摄影复刻', subtitle:'镜头、机位、光线与后期', prompt:'请还原摄影提示词' },
 ]}];
 aiProcessorDialog.models = [
-  { id:'gemini-2.5-pro', name:'Gemini 2.5 Pro', iconSrc:'/static/images/providers/gemini.svg', iconMonochrome:true },
-  { id:'gpt-5.5', name:'GPT-5.5', iconSrc:'/static/images/providers/chatgpt.svg', iconMonochrome:true },
+  { id:'gemini-2.5-pro', name:'Gemini 2.5 Pro', iconSrc:'/static/images/providers/gemini.svg?v=asset-39d2ac073ff4', iconMonochrome:true },
+  { id:'gpt-5.5', name:'GPT-5.5', iconSrc:'/static/images/providers/chatgpt.svg?v=asset-eafa1089c000', iconMonochrome:true },
   { id:'qwen3-vl-plus', name:'Qwen3 VL Plus', icon:'sparkles' },
 ];
 if (locale === 'en') aiProcessorDialog.sourceAlt = 'Modern glass cabin in a sunset valley';
@@ -119,7 +119,7 @@ const generationLogFixture = [
     createdAt:generationNow.getTime(), durationMs:18700, platform:'APIMART', model:'GPT Image 2',
     prompt:locale === 'en' ? 'A transparent fragrance bottle on a warm stone plinth. Sunset rim light with crisp material detail.' : '透明玻璃香水瓶置于暖色岩石台面。日落侧逆光，材质细节清晰。',
     request:{size:'2048x2048', provider_id:'apimart', model:'gpt-image-2'},
-    refs:[{url:'/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg', name:'fragrance-reference.svg'}],
+    refs:[{url:'/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg?v=asset-039aaa3990b2', name:'fragrance-reference.svg'}],
     outputs:[], tasks:[{status:'failed', upstreamTaskId:'task_apimart_841739', runMs:18700, httpStatus:400, errorCode:'invalid_resolution', technicalError:'HTTP 400 · Unsupported size: 2048x2048.'}],
     error:'HTTP 400 · Unsupported size: 2048x2048.',
   },
@@ -127,8 +127,8 @@ const generationLogFixture = [
     id:'preview-success', runId:'generation-run-8f31-71d2', nodeId:'preview-generic-8f31', nodeType:'smart-image', status:'success',
     createdAt:generationYesterday.getTime(), durationMs:36200, platform:'Gemini', model:'Nano Banana Pro',
     prompt:locale === 'en' ? 'A modern glass cabin in a twilight valley. Warm interior light and atmospheric mountain depth.' : '暮色山谷中的现代玻璃屋。室内暖光，远处山体保留空气透视。',
-    request:{size:'1536x1024'}, refs:[{url:'/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg', name:'cabin-reference.svg'}],
-    outputs:[{url:'/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg', kind:'image', width:1536, height:1024}], tasks:[{status:'succeeded', runMs:36200}],
+    request:{size:'1536x1024'}, refs:[{url:'/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg?v=asset-039aaa3990b2', name:'cabin-reference.svg'}],
+    outputs:[{url:'/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg?v=asset-039aaa3990b2', kind:'image', width:1536, height:1024}], tasks:[{status:'succeeded', runMs:36200}],
   },
   {
     id:'preview-old-success', runId:'generation-run-31c8-884a', nodeId:'preview-old-31c8', nodeType:'smart-image', status:'success',
@@ -204,4 +204,4 @@ for (const dialog of document.querySelectorAll('ic-confirmation-dialog')) dialog
 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 const ready = [...document.querySelectorAll('ic-dialog,ic-confirmation-dialog,ic-ai-processor-dialog')].every(dialog => dialog.dataset.icContractStatus === 'ready');
 document.documentElement.dataset.dialogCaseStatus = ready ? 'ready' : 'failed';
-await import('./component-name-tag.js');
+await import('./component-name-tag.js?v=asset-be87ef90d5dd');

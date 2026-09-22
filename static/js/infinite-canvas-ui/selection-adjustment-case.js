@@ -1,4 +1,4 @@
-import '/static/js/infinite-canvas-ui/core.js?v=ic-ui-9e5de786b163';
+import '/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb';
 
 const params = new URLSearchParams(location.search);
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light';
@@ -25,10 +25,10 @@ const sizeArticles = render => sizes.map(size => `
   </article>
 `).join('');
 const modelOptions = `
-  <option value="gpt-image-2" data-start-icon-src="/static/images/providers/chatgpt.svg" data-start-icon-monochrome selected>GPT Image 2</option>
-  <option value="seedream-4-5" data-start-icon-src="/static/images/providers/doubao.svg">Seedream 4.5</option>
-  <option value="flux-1-1-pro" data-start-icon-src="/static/images/providers/flux.svg" data-start-icon-monochrome>FLUX 1.1 Pro</option>
-  <option value="imagen-4" data-start-icon-src="/static/images/providers/gemini.svg" data-start-icon-monochrome>Imagen 4</option>
+  <option value="gpt-image-2" data-start-icon-src="/static/images/providers/chatgpt.svg?v=asset-eafa1089c000" data-start-icon-monochrome selected>GPT Image 2</option>
+  <option value="seedream-4-5" data-start-icon-src="/static/images/providers/doubao.svg?v=asset-14ef96341f24">Seedream 4.5</option>
+  <option value="flux-1-1-pro" data-start-icon-src="/static/images/providers/flux.svg?v=asset-a0b5fed35e0c" data-start-icon-monochrome>FLUX 1.1 Pro</option>
+  <option value="imagen-4" data-start-icon-src="/static/images/providers/gemini.svg?v=asset-39d2ac073ff4" data-start-icon-monochrome>Imagen 4</option>
   <option value="qwen-image" data-start-icon="image">Qwen Image</option>
 `;
 const selectOptions = '<option value="png" selected>PNG</option><option value="webp">WebP</option><option value="avif">AVIF</option>';
@@ -205,4 +205,4 @@ document.querySelector('[data-case-status]').textContent = ready
   ? (zh ? '选择与调节分类及尺寸已就绪' : 'Selection categories and sizes are ready')
   : (zh ? '选择与调节合同失败' : 'Selection contract failed');
 document.documentElement.dataset.selectionAdjustmentCaseStatus = ready ? 'ready' : 'failed';
-await import('./component-name-tag.js');
+await import('./component-name-tag.js?v=asset-be87ef90d5dd');

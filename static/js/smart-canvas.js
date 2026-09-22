@@ -127,7 +127,7 @@ const generationFailureAlertQueue = document.getElementById('generationFailureAl
 const generationFailureAlertStates = new Map();
 const pendingGenerationFailureAlerts = [];
 let generationFailureAlertStack = null;
-const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=ic-ui-9e5de786b163')
+const generationFailureAlertStackReady = import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=asset-b6a51c897f96')
     .then(({createStackedFeedbackQueue}) => {
         generationFailureAlertStack = createStackedFeedbackQueue({
             edge:'start',
@@ -12409,7 +12409,7 @@ async function convertSmartVideoToGif(node, imageIndex){
     videoGifPending.add(node.id); render();
     toast(tr('smart.gif.videoConverting'));
     try {
-        const {createVideoGif}=await import('/static/js/smart-canvas/video-gif.js?v=4');
+        const {createVideoGif}=await import('/static/js/smart-canvas/video-gif.js?v=asset-ce0655d4fe21');
         const result=await createVideoGif({sourceUrl:displayMediaUrl(imageForDisplay(node.images[imageIndex]))});
         await publishGifResult(context,result,true);
     } finally { videoGifPending.delete(node.id); render(); }
@@ -12417,7 +12417,7 @@ async function convertSmartVideoToGif(node, imageIndex){
 async function submitGridGifProcessor(context, settings){
     const source=nodes.find(item=>item.id===context.sourceNodeId);
     if(source?.images?.[context.imageIndex]?.url!==context.originalSourceUrl) throw new Error(tr('smart.reversePromptSourceUnavailable'));
-    const {createGridGif}=await import('/static/js/smart-canvas/grid-gif.js?v=4');
+    const {createGridGif}=await import('/static/js/smart-canvas/grid-gif.js?v=asset-e4a9c8e1f594');
     const result=await createGridGif({sourceUrl:context.sourceUrl,...settings});
     return publishGifResult(context,result);
 }

@@ -1,5 +1,5 @@
 import WaCheckbox from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/checkbox/checkbox.js';
-import { applyContractState, CHECKBOX_APPEARANCES, withProjectEvents } from './shared.js';
+import { applyContractState, CHECKBOX_APPEARANCES, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
 
 
 export class IcCheckbox extends withProjectEvents(WaCheckbox, {

@@ -1,5 +1,5 @@
-import './core.js?v=ic-ui-9e5de786b163';
-import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=ic-ui-9e5de786b163';
+import './core.js?v=asset-5078f5fd88bb';
+import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=asset-b6a51c897f96';
 
 const params = new URLSearchParams(location.search);
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light';
@@ -115,4 +115,4 @@ for (const button of document.querySelectorAll('[data-toast-trigger]')) {
 await Promise.all([...document.querySelectorAll('ic-alert,ic-badge,ic-button,ic-loading,ic-progress,ic-skeleton,ic-generation-pending,ic-generation-recovery')].map(element => new Promise(resolve => requestAnimationFrame(resolve))));
 const ready = [...document.querySelectorAll('ic-alert,ic-badge,ic-button,ic-loading,ic-progress,ic-skeleton,ic-generation-pending,ic-generation-recovery')].every(element => element.dataset.icContractStatus === 'ready');
 document.documentElement.dataset.feedbackProgressCaseStatus = ready ? 'ready' : 'failed';
-await import('./component-name-tag.js');
+await import('./component-name-tag.js?v=asset-be87ef90d5dd');

@@ -1,4 +1,4 @@
-import { layerDraft, normalizedBBox, LAYER_PRESETS, MAX_LAYER_REGIONS, clone } from './layer-state.js';
+import { layerDraft, normalizedBBox, LAYER_PRESETS, MAX_LAYER_REGIONS, clone } from './layer-state.js?v=asset-01ac374fc789';
 import { CropperHandle, CropperSelection } from '../../../vendor/cropperjs/2.2.0/cropper.esm.js';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));

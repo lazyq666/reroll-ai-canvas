@@ -1,5 +1,5 @@
 import WaButtonGroup from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/button-group/button-group.js';
-import { BUTTON_GROUP_STYLES } from './styles.js';
+import { BUTTON_GROUP_STYLES } from './styles.js?v=asset-bfdbbb415bde';
 
 
 export class IcButtonGroup extends WaButtonGroup {

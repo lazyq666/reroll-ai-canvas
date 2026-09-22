@@ -1,4 +1,4 @@
-const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-dialog-v1.json';
+const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-dialog-v1.json?v=asset-0a81c1d6b87b';
 const host = document.querySelector('[data-dialog-contract]');
 const status = document.querySelector('[data-dialog-review-status]');
 

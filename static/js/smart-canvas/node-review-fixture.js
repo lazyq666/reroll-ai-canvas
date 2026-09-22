@@ -54,7 +54,7 @@
             logs:[],
             nodes:[
                 {id:'review-label-image',type:'smart-text',title:'Image Node label',text:'图像/媒体节点 / Image Node\nImage · Empty · Video · Audio',textSize:'small',x:-240,y:225,w:240,h:92},
-                {id:'review-image-ready',type:'smart-image',title:'Image · Ready',x:340,y:80,w:260,h:168,images:[{url:'/static/images/test/fixture.svg',name:'fixture.svg',kind:'image',natural_w:1076,natural_h:704}]},
+                {id:'review-image-ready',type:'smart-image',title:'Image · Ready',x:340,y:80,w:260,h:168,images:[{url:'/static/images/test/fixture.svg?v=asset-4b70428f6ea7',name:'fixture.svg',kind:'image',natural_w:1076,natural_h:704}]},
                 {id:'review-image-empty',type:'smart-image',title:'Image · Empty',x:720,y:80,w:260,h:178,images:[]},
                 {id:'review-image-video',type:'smart-image',title:'Video · Playing',x:340,y:300,w:300,h:190,images:[{url:'/static/images/test/fixture.mp4',name:'fixture.mp4',kind:'video',natural_w:736,natural_h:414,_inlineVideoActive:true}]},
                 {id:'review-image-audio',type:'smart-image',title:'Audio · Ready',x:720,y:300,w:300,h:190,images:[{url:'/static/images/test/fixture.mp4',name:'fixture.mp4 · AAC audio',kind:'audio'}]},
@@ -63,7 +63,7 @@
                 {id:'review-generation-image',type:'smart-image',title:'Generation · Image',referenceGenerationKind:'image',generationOutputNode:true,runSettings:{engine:'api',apiKind:'image',provider_id:'component-review',model:'review-image-1',count:1},x:300,y:680,w:300,h:220,images:[]},
                 {id:'review-generation-video',type:'smart-image',title:'Generation · Video',referenceGenerationKind:'video',generationOutputNode:true,runSettings:{engine:'api',apiKind:'video',provider_id:'component-review',model:'review-video-1',count:1},x:630,y:680,w:300,h:220,images:[]},
                 {id:'review-generation-pending',type:'smart-image',title:'Generation · Generating',referenceGenerationKind:'image',generationOutputNode:true,runSettings:{engine:'api',apiKind:'image',provider_id:'component-review',model:'review-image-1',count:1},pending:1,runStartedAt:Date.now()-15000,x:960,y:680,w:300,h:220,images:[]},
-                {id:'review-generation-result',type:'smart-image',title:'Generation · Result',referenceGenerationKind:'image',generationOutputNode:true,runSettings:{engine:'api',apiKind:'image',provider_id:'component-review',model:'review-image-1',count:1},x:1290,y:680,w:260,h:168,images:[{url:'/static/images/test/fixture.svg',name:'fixture.svg',kind:'image',natural_w:1076,natural_h:704}]},
+                {id:'review-generation-result',type:'smart-image',title:'Generation · Result',referenceGenerationKind:'image',generationOutputNode:true,runSettings:{engine:'api',apiKind:'image',provider_id:'component-review',model:'review-image-1',count:1},x:1290,y:680,w:260,h:168,images:[{url:'/static/images/test/fixture.svg?v=asset-4b70428f6ea7',name:'fixture.svg',kind:'image',natural_w:1076,natural_h:704}]},
                 {id:'review-generation-failed',type:'smart-image',title:'Generation · Failed',referenceGenerationKind:'image',generationOutputNode:true,generationRunFeedback:{successfulCount:0,failedCount:1,reasonCategories:['unsupported_size']},x:1580,y:680,w:300,h:220,images:[]},
 
                 {id:'review-label-prompt',type:'smart-text',title:'Prompt Node label',text:'提示词节点 / Prompt Node\nFilled · Empty',textSize:'small',x:-240,y:1085,w:220,h:76},
@@ -86,7 +86,7 @@
 
                 {id:'review-label-group',type:'smart-text',title:'Smart Group Node label',text:'编组 / Smart Group\nEmpty · Media',textSize:'small',x:-240,y:2505,w:220,h:76},
                 {id:'review-group-empty',type:'smart-group',title:'Smart Group · Empty',x:340,y:2400,w:300,h:220,images:[],items:[]},
-                {id:'review-group-media',type:'smart-group',title:'Smart Group · Media',x:720,y:2400,w:300,h:220,images:[{url:'/static/images/brand/logo.png',name:'group-image.png',kind:'image',natural_w:512,natural_h:330}],items:[]},
+                {id:'review-group-media',type:'smart-group',title:'Smart Group · Media',x:720,y:2400,w:300,h:220,images:[{url:'/static/images/brand/logo.png?v=asset-7bd591a5ba1d',name:'group-image.png',kind:'image',natural_w:512,natural_h:330}],items:[]},
 
                 {id:'review-label-frame',type:'smart-text',title:'Frame label',text:'分区 / Frame\nViolet · Blue',textSize:'small',x:-240,y:2835,w:220,h:76},
                 {id:'review-frame-violet',type:'smart-frame',title:'Frame · Violet',x:340,y:2730,w:300,h:220,items:[],frameColor:'violet'},

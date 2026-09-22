@@ -16,7 +16,7 @@
   },
   "review": {
     "contract": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "同意", "confirmedOn": "2026-08-09", "evidence": "User explicitly approved judgments 1–11, the deterministic 51-instance Legacy evidence, and the recommended ic-menu disposition for the interactive layout chooser."},
-    "implementation": {"status": "implemented", "implementedOn": "2026-08-23", "evidence": ["/static/js/infinite-canvas-ui/menu-popover.js", "/static/js/infinite-canvas-ui/mention-picker.js", "/static/js/infinite-canvas-ui/core.js"]},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-23", "evidence": ["/static/js/infinite-canvas-ui/menu-popover.js?v=asset-db929ea5acca", "/static/js/infinite-canvas-ui/mention-picker.js?v=asset-6bd99e387f2f", "/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb"]},
     "live": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "验收通过；2026-08-23 指定将 Mention Picker 收录到菜单、浮层与提示", "confirmedOn": "2026-08-23", "evidence": "Menu/Popover/Tooltip live matrix remains confirmed; the Mention Picker addition has a dedicated Chrome contract covering geometry, Arrow navigation, Pointer selection, ARIA and wheel containment."},
     "migration": {"status": "confirmed", "evidence": "/docs/design-system/verification/menu-popover-browser.json"}
   },
@@ -183,7 +183,7 @@
     {"instanceId": "legacy.db6407a6591884d6.1", "baselineTarget": "tooltip.tooltip", "evidence": "The source toggles an open layout-choice surface on activation.", "confirmedDisposition": "ic-menu", "reason": "The user approved the recommended Menu mapping; interactive content is prohibited in ic-tooltip."}
   ],
   "legacyCoverage": {
-    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
     "baselineRevision": "sha256:0dc5bd24c92e14ebaef22794cbe34dee41d03a7cf722d326fc1467a1e532965d",
     "sourceReviewStatus": "pending-human-confirmation",
     "instanceCount": 46,

@@ -42,6 +42,13 @@ Install their locked development dependencies with `npm ci`. Browser tests are
 targeted gates rather than one global suite; see [`tests/README.md`](tests/README.md)
 for the runnable entry points and preview-server pairings.
 
+After editing frontend assets or references, run
+`python3.12 scripts/sync_frontend_assets.py` and include its generated changes.
+`python3.12 scripts/sync_frontend_assets.py --check` is the read-only release
+gate. Use literal local URLs for modules, loaders, Workers and CSS dependencies;
+see [Frontend asset versions](docs/current/frontend-asset-versions.md) for coverage,
+vendor exclusions and retained-cache upgrade verification.
+
 ## Verification
 
 Run narrow tests while developing, then the repository checks appropriate to
@@ -83,8 +90,9 @@ leave release verification incomplete.
 Prepare the release metadata before committing with
 `python3.12 scripts/readiness_version.py --prepare YYYY.MM.DD.N`, using the
 current Asia/Shanghai date and a sequence greater than every published version.
-This updates VERSION, update notes and the paired share-page cache references;
-snapshot verification never generates or repairs these files.
+This updates VERSION and update notes. Share-page resources use the same content
+fingerprints as other frontend assets; release numbers do not overwrite them.
+Snapshot verification never generates or repairs these files.
 The candidate publisher runs isolated snapshot checks and pushes only that commit
 to a PR reference without changing your local branch or worktree:
 

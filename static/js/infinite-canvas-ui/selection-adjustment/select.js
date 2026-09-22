@@ -6,7 +6,7 @@ import {
   SELECT_HIERARCHIES,
   SELECT_SIZES,
   withProjectEvents,
-} from './shared.js';
+} from './shared.js?v=asset-43b40b4ea1f9';
 
 
 export class IcSelect extends withProjectEvents(WaSelect, {

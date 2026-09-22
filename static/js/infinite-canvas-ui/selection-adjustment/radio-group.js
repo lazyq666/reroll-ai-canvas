@@ -1,5 +1,5 @@
 import WaRadioGroup from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/radio-group/radio-group.js';
-import { applyContractState, RADIO_GROUP_APPEARANCES, withProjectEvents } from './shared.js';
+import { applyContractState, RADIO_GROUP_APPEARANCES, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
 
 
 export class IcRadioGroup extends withProjectEvents(WaRadioGroup, {

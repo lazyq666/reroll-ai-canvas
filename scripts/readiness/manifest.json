@@ -165,6 +165,31 @@
     ],
     "browser-core": [
       {
+        "id": "uv",
+        "argv": [
+          "{tools_python}",
+          "-m",
+          "pip",
+          "install",
+          "uv==0.10.0"
+        ]
+      },
+      {
+        "id": "install",
+        "needs": [
+          "uv"
+        ],
+        "argv": [
+          "{uv}",
+          "pip",
+          "sync",
+          "--python",
+          "{python}",
+          "--require-hashes",
+          "requirements.lock.txt"
+        ]
+      },
+      {
         "id": "npm-ci",
         "argv": [
           "npm",
@@ -188,7 +213,8 @@
       {
         "id": "browser-contract",
         "needs": [
-          "chromium-install"
+          "chromium-install",
+          "install"
         ],
         "argv": [
           "{python}",
@@ -213,18 +239,10 @@
         ]
       },
       {
-        "id": "ui-version",
+        "id": "frontend-assets",
         "argv": [
           "{python}",
-          "scripts/sync_infinite_canvas_ui_version.py",
-          "--check"
-        ]
-      },
-      {
-        "id": "account-avatar-version",
-        "argv": [
-          "{python}",
-          "scripts/sync_account_avatar_asset_version.py",
+          "scripts/sync_frontend_assets.py",
           "--check"
         ]
       },

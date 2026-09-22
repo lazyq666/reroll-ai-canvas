@@ -1,5 +1,5 @@
 import WaSlider from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/slider/slider.js';
-import { applyContractState, withProjectEvents } from './shared.js';
+import { applyContractState, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
 
 
 export class IcSlider extends withProjectEvents(WaSlider, {

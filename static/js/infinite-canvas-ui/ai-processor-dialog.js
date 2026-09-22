@@ -1,7 +1,7 @@
-import { IcDialog } from './dialog.js';
-import { ensureAiProcessorDialogStyles } from './ai-processor-dialog/styles.js';
-import { GridGifControls } from './ai-processor-dialog/grid-gif.js?v=ic-ui-9e5de786b163';
-import { LayerAuthoring } from './ai-processor-dialog/layer-authoring.js';
+import { IcDialog } from './dialog.js?v=asset-85d552251014';
+import { ensureAiProcessorDialogStyles } from './ai-processor-dialog/styles.js?v=asset-222bbf35423b';
+import { GridGifControls } from './ai-processor-dialog/grid-gif.js?v=asset-cf731149a610';
+import { LayerAuthoring } from './ai-processor-dialog/layer-authoring.js?v=asset-d13a2522ec01';
 
 ensureAiProcessorDialogStyles();
 
@@ -630,7 +630,7 @@ export class IcAiProcessorDialog extends IcDialog {
   async mountAngleController(){
     const root=this.bodyElement.querySelector('[data-angle-controller]');
     if(!root) return;
-    const module=await import('../angle-3d.js?v=2026.08.17.2');
+    const module=await import('../angle-3d.js?v=asset-75845909921a');
     if(!root.isConnected||this.processor!=='angle-control') return;
     this.angleController=module.createAngleCameraController(root,{sourceImage:this.sourceImage,promptInput:this.bodyElement.querySelector('[data-angle-prompt]'),promptSuffix:ANGLE_PROMPT_SUFFIX});
     root.addEventListener('angle-controller-change',event=>{
@@ -643,7 +643,7 @@ export class IcAiProcessorDialog extends IcDialog {
     const mountToken=++this.lightingMountToken;
     const root=this.bodyElement.querySelector('[data-lighting-controller]');
     if(!root) return;
-    const {createLightingReferenceController}=await import('/static/js/smart-canvas/lighting-reference-controller.js?v=2026.08.30.i18n-audit.1');
+    const {createLightingReferenceController}=await import('/static/js/smart-canvas/lighting-reference-controller.js?v=asset-10add99bbadd');
     if(mountToken!==this.lightingMountToken||!root.isConnected||this.processor!=='lighting-reference') return;
     this.lightingController=createLightingReferenceController(root,{intent:this.lightingIntent});
     this.lightingControllerRoot=root;
