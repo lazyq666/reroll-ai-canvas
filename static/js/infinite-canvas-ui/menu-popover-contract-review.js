@@ -1,4 +1,4 @@
-const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-730456da8198';
+const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-f9a1e4a0af9d';
 const host = document.querySelector('[data-menu-popover-contract]');
 const status = document.querySelector('[data-menu-popover-review-status]');
 const escapeHtml = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');

@@ -1,4 +1,4 @@
-import './core.js?v=asset-5078f5fd88bb';
+import './core.js?v=asset-15ff4b583f9f';
 
 const DEFAULTS = Object.freeze({
   count: 8,

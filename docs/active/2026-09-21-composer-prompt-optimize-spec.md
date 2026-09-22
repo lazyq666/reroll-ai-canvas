@@ -1,8 +1,9 @@
 # Composer 提示词优化
 
-- Status：Implemented（真实 Provider 调用通过，2026-09-22 用户验收通过，待 PR 合入）
+- Status：Implemented（原功能已合入；失败反馈修复待评审）
 - Feature ID：F05
 - Issue：[GitHub #117](https://github.com/lazyq666/reroll-ai-canvas/issues/117)，维护者任务 LAZ-37
+- 失败反馈修复：[GitHub #123](https://github.com/lazyq666/reroll-ai-canvas/issues/123)
 - Domain terms：Canvas、Node、Prompt、Generation Settings、Model
 - Related ADR：[UI 模块责任](../adr/0002-ui-family-module-ownership.md)
 
@@ -24,6 +25,8 @@ V1 不提供优化中心、新建自定义方案、历史列表或差异弹窗�
 - 成功直接替换输入，相邻箭头显示版本切换菜单，不增加 Composer 高度。生成提交、切换节点、返回原 Composer 或重载页面后，仍可在保存的两个版本间切换。输入未再次编辑时，Cmd/Ctrl+Z 切回原文并保留优化结果。
 - 首次优化保存原始输入；未编辑结果时再次优化仍基于原始输入。用户编辑后重置起点。
 - 切回原文恢复首次优化前的内容和素材引用。失败保留输入，可重试；两分钟未完成视为本次等待失败，不自动重试。
+- 当前节点的优化失败进入右上角常驻、可关闭的 `ic-alert` 队列；已有生成失败提示不得屏蔽这次失败。标题明确为「提示词优化失败」，正文区分设置或模型信息加载失败、无可用文字模型、网络断开、等待超时、空回复、无效回复格式和素材引用变化。服务端错误显示本地化原因、HTTP 状态和经过脱敏的服务说明；通用的 HTTP 分类不得覆盖具体服务说明。没有对应画布生成日志时不显示「查看详情」。语言切换同步更新仍在显示的提示。
+- 每次手动优化重新获取文字模型能力和目录版本；临时加载失败后重试可恢复，不复用失败或过期快照。两分钟等待上限覆盖设置读取、模型信息读取和优化请求，设置读取另有 15 秒上限。
 - 请求期间发生编辑、切换节点或图片／视频类型变化时，旧结果不可覆盖当前内容。
 - 素材引用转为占位符发给文字模型，必须完整返回后才应用结果；返回的 HTML 只作为文字显示。
 - 文案有中英文；使用现有 `ic-icon-button`、`ic-menu` 和 `ic-button`，继承 Light/Dark、键盘菜单和焦点合同。
@@ -38,15 +41,17 @@ V1 不提供优化中心、新建自定义方案、历史列表或差异弹窗�
 
 - `node tests/prompt_optimize_state.test.cjs`：通过。覆盖重复提交、原文复用、编辑失效、节点守卫、撤销和媒体方案边界。
 - `node static/js/i18n/validate-i18n.js`：通过。
-- `node tests/prompt_optimize_browser_smoke.cjs`：通过；真实页面发出 8 次模拟优化请求，无页面异常。覆盖普通提示词节点与文本生成入口排除、原文复用、版本切换、重复优化禁用、节点记录恢复、失败、编辑与节点切换守卫、空输入、引用与 HTML 文本处理、缺少文字模型、中英文、键盘菜单、Light/Dark、900px 窗口。
+- `node tests/prompt_optimize_browser_smoke.cjs`：通过；真实页面发出 10 次模拟优化请求，无页面异常。覆盖普通提示词节点与文本生成入口排除、原文复用、版本切换、重复优化禁用、节点记录恢复、编辑与节点切换守卫、空输入、引用与 HTML 文本处理、缺少文字模型、中英文、键盘菜单、Light/Dark、900px 窗口；同时验证已有失败提示时优化 Alert 仍可见、关闭、语言切换、限流、设置加载失败、断网、超时和空回复。
+- `node tests/prompt_optimization_request.test.cjs`：覆盖临时模型信息加载失败后的重试、目录版本刷新、请求截止时间、服务端状态与错误详情、无效响应、错误说明脱敏及语言切换。优化失败不自动重发模型请求。
 - Python 3.12 文档、i18n 缓存、样式缓存检查 9 项通过；相关 Composer、快捷入口和字符计数回归 56 项通过。Infinite Canvas UI 资源版本检查通过。
-- 真实文字 Provider 调用已验证，2026-09-22 用户确认验收通过；待 PR 合入与发布检查，不视为已发布。
+- 原功能的真实文字 Provider 调用及用户验收已于 2026-09-22 完成，PR #118 已合入。#123 使用模拟故障完成本地回归；本次修复未调用真实 Provider，发布状态以该 Issue 关联 PR 的验收与合入记录为准。
 
 ## 设置接口与验收补充
 
 - `GET /api/prompt-optimization-settings`：Administrator / Designer 读取。缺少文件返回内置默认设置，损坏文件报错而不静默覆盖。
 - `PUT /api/prompt-optimization-settings`：仅 Administrator 保存；结构为 `version: 2`，包含独立的 `image`、`video` 对象，各自保存 `default_preset`、`provider`、`model`、`instructions`。图片指令键为 `smart`、`preserve`、`visual`，视频额外包含 `camera`；拒绝未知字段及超长内容。读取旧版 `version: 1` 时将原配置复制到两模块，图片排除镜头规则；读取不改写原文件，下次保存写入 V2。
 - 优化仍通过现有 `/api/canvas-llm`，提交前加载并校验所选文字模型的 `text.generate` 能力，携带 `catalog_revision`。目录过期时显示现有本地化更新提示。请求不发送图片或视频字节，引用以占位符保护。
+- `/api/canvas-llm` 的空模型输出返回空 `text`，由优化界面显示失败并保留原文；服务端不得把错误说明填充成可应用的优化结果。
 - `tests/prompt_optimization_settings_browser.cjs`：设置保存与重载、切换模块与方案保留草稿、独立模型与指令保存、语言切换、保存失败保留草稿通过。
 - `tests/test_prompt_optimization_settings.py`：工作区隔离、原子读写、损坏检测、字段限制，以及真实路由的未登录／管理员／设计师权限通过，共 5 项。
 - 媒体 Composer 浏览器测试覆盖优化前隐藏、成功后显示、主动编辑后隐藏，以及配置指令和模型实际进入优化请求。

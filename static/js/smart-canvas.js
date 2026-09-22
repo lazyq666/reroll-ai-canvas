@@ -1460,12 +1460,13 @@ function toast(text, options={}){
                 ? options.headingFactory
                 : () => String(options.heading || tr('smart.error.unknown.title')),
             textFactory:typeof options.textFactory === 'function' ? options.textFactory : () => text,
+            actionLabelFactory:() => options.actionLabel ?? tr('smart.viewDetails'),
         };
         alert.className = 'generation-failure-alert';
         alert.dataset.componentName = 'ic-alert';
         alert.setAttribute('tone', options.tone || 'danger');
         alert.setAttribute('heading', state.headingFactory());
-        alert.setAttribute('action-label', tr('smart.viewDetails'));
+        if(state.actionLabelFactory()) alert.setAttribute('action-label', state.actionLabelFactory());
         alert.setAttribute('dismissible', '');
         alert.textContent = String(state.textFactory() || '');
         generationFailureAlertStates.set(alert, state);
@@ -1501,7 +1502,8 @@ function toast(text, options={}){
 function refreshPersistentToastLanguage(){
     generationFailureAlertStates.forEach((state, alert) => {
         alert.setAttribute('heading', state.headingFactory());
-        alert.setAttribute('action-label', tr('smart.viewDetails'));
+        if(state.actionLabelFactory()) alert.setAttribute('action-label', state.actionLabelFactory());
+        else alert.removeAttribute('action-label');
         alert.textContent = String(state.textFactory() || '');
     });
 }
@@ -15870,7 +15872,9 @@ function insertMentionToken(img, editor=promptQuickEditor()){
     bindSmartPreviewImageFallbacks(token);
     const spacer = document.createTextNode(' ');
     token.after(spacer);
-    range.setStartAfter(spacer);
+    // Keep the caret inside editable text. A host-level boundary after a
+    // non-editable token can offset Chromium's first IME composition range.
+    range.setStart(spacer, spacer.length);
     range.collapse(true);
     sel.removeAllRanges();
     sel.addRange(range);
@@ -17406,11 +17410,19 @@ composerFocusBackdrop?.addEventListener('click', event => {
     event.stopPropagation();
 });
 async function requestPromptOptimization(context){
-    const settingsResponse = await fetch('/api/prompt-optimization-settings',{cache:'no-store',signal:AbortSignal.timeout(15000)});
-    if(!settingsResponse.ok) throw new Error('Prompt optimization settings unavailable');
-    const profiles = await settingsResponse.json();
-    const configuration = profiles[context.media];
-    if(!configuration) throw new Error('Missing media optimization profile');
+    const {createError} = window.SmartCanvasModules.promptOptimize;
+    // Bound the whole attempt, including configuration and capability lookup.
+    const signal = AbortSignal.timeout(120000);
+    const settingsResponse = await fetch('/api/prompt-optimization-settings',{
+        cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])
+    });
+    if(!settingsResponse.ok) throw createError('settings',{httpStatus:settingsResponse.status});
+    const profiles = await settingsResponse.json().catch(error => {
+        if(error.name !== 'SyntaxError') throw error;
+        throw createError('settings');
+    });
+    const configuration = profiles?.[context.media];
+    if(!configuration) throw createError('settings');
     const provider = configuration.provider || resolveChatProviderId('');
     const model = configuration.model || resolveChatModel('',provider);
     const preset = configuration.default_preset || 'smart';
@@ -17418,32 +17430,61 @@ async function requestPromptOptimization(context){
         ...context,preset,customInstruction:configuration.instructions?.[preset] || ''
     });
     if(!smartCatalogEntry('text',provider,model)){
-        const error = new Error('No text model'); error.noTextModel = true; throw error;
+        throw createError('noModel');
     }
     const capabilities = window.SmartCanvasModules.modelCapabilities;
-    const capability = await capabilities.load(provider,model,'text.generate');
+    const capability = await capabilities.load(provider,model,'text.generate',{refresh:true,signal});
+    signal.throwIfAborted();
+    if(!capability.catalog_revision) throw createError('capability');
     const validation = capabilities.validate(capability,{
         inputs:{text:1,image:0,video:0},parameters:{history:[]},
         catalogRevision:capability.catalog_revision
     });
     if(!validation.valid){
-        const error = new Error('Invalid optimization model capability');
-        error.optimizationMessage = capabilities.validationMessage(validation,tr('smart.optimize.failed'));
-        throw error;
+        throw createError('request',{optimizationDetail:validation.errors[0]});
     }
     const response = await fetch('/api/canvas-llm',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        signal:AbortSignal.timeout(120000),
+        signal,
         body:JSON.stringify({message,provider,model,messages:[],images:[],videos:[],catalog_revision:capability.catalog_revision})
     });
     if(!response.ok){
         const detail = await response.json().catch(()=>({}));
-        const error = new Error('Prompt optimization failed');
-        error.optimizationMessage = capabilities.errorMessage(detail.detail,tr('smart.optimize.failed'));
-        throw error;
+        throw createError('request',{httpStatus:response.status,optimizationDetail:detail?.detail ?? detail});
     }
-    const result = await response.json();
+    const result = await response.json().catch(error => {
+        if(error.name !== 'SyntaxError') throw error;
+        throw createError('invalidResponse');
+    });
+    if(!result || typeof result.text !== 'string') throw createError('invalidResponse');
     return result.text;
+}
+function promptOptimizationErrorMessage(error){
+    const code = error.name === 'TimeoutError' || error.name === 'AbortError' ? 'timeout'
+        : error.name === 'TypeError' ? 'network' : error.optimizationCode;
+    let message;
+    if(['settings','noModel','capability','timeout','network','empty','references','invalidResponse'].includes(code)){
+        message = tr(`smart.optimize.${code}`);
+    } else {
+        const detail = error.optimizationDetail;
+        const extract = (value,depth=0) => {
+            if(typeof value === 'string') return value;
+            if(!value || typeof value !== 'object' || depth > 4) return '';
+            return ['message','detail','error','reason'].map(key => extract(value[key],depth+1)).filter(Boolean).join('\n');
+        };
+        const reason = generationFailureFeedback.safeText(extract(detail)).trim().slice(0,1200);
+        const classified = generationFailureFeedback.classify({technicalError:reason,httpStatus:error.httpStatus});
+        const fallback = classified.category !== 'unknown'
+            ? trf('smart.optimize.reasonWithAction',{reason:tr(classified.titleKey),action:tr(classified.actionKey)})
+            : reason ? trf('smart.optimize.providerError',{reason}) : tr('smart.optimize.failed');
+        message = window.SmartCanvasModules.modelCapabilities.errorMessage(
+            detail && typeof detail === 'object' ? detail : {},fallback
+        );
+        if(reason && classified.category !== 'unknown'){
+            message = trf('smart.optimize.providerDetails',{message,reason});
+        }
+    }
+    return error.httpStatus ? trf('smart.optimize.httpError',{message,status:error.httpStatus}) : message;
 }
 var composerPromptOptimizer = window.SmartCanvasModules.promptOptimize.mount({
     editor:promptInput,
@@ -17469,7 +17510,11 @@ var composerPromptOptimizer = window.SmartCanvasModules.promptOptimize.mount({
         canvasPersistence.schedule();
     },
     request:requestPromptOptimization,
-    error:error => toast(error.optimizationMessage || tr(error.noTextModel ? 'smart.optimize.noModel' : 'smart.optimize.failed'),{tone:'danger'})
+    error:error => toast('',{
+        persistent:true,tone:'danger',actionLabel:'',
+        headingFactory:() => tr('smart.optimize.failedTitle'),
+        textFactory:() => promptOptimizationErrorMessage(error)
+    })
 });
 new MutationObserver(() => composerPromptOptimizer.refresh()).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 promptInput.addEventListener('input', event => maybeOpenMentionPicker(promptInput, activeComposerNode(), {
