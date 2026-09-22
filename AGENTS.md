@@ -34,6 +34,6 @@ Before pushing to a project remote, changing the readiness workflow, inventory o
 
 Before every push to any project remote, update the root `VERSION` using the existing `YYYY.MM.DD.daily-sequence` rule (for example, `2026.08.30.1`, then `2026.08.30.2` for another push on the same day). The new version must be strictly greater than the previously published version. Synchronize `static/update-notes.json` so its `version` exactly matches `VERSION`, and verify the pair with `python3 -m unittest tests.test_update_sources` before pushing.
 
-### Infinite Canvas UI asset version
+### Frontend asset versions
 
-Whenever a change touches `static/js/infinite-canvas-ui/`, `static/css/design-tokens.css`, `static/css/webawesome-engine.css`, or a reference to an Infinite Canvas UI JavaScript module, run `python3 scripts/sync_infinite_canvas_ui_version.py` after the final content edit and include its generated `VERSION` and query-string updates. Completion requires `python3 scripts/sync_infinite_canvas_ui_version.py --check` to exit successfully.
+After changing local frontend assets, their references, or embedded page markup, run `python3 scripts/sync_frontend_assets.py` after the final content edit and include every generated reference, marker and inventory update. Completion requires `python3 scripts/sync_frontend_assets.py --check`. Use complete literal local asset URLs so imports, dynamic loaders, Workers and CSS dependencies are discoverable. Read [Frontend asset versions](docs/current/frontend-asset-versions.md) when adding a loader, changing exclusions or debugging an upgrade. The former UI and avatar commands delegate to this same owner.

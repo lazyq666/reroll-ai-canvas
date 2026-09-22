@@ -1,4 +1,4 @@
-import { IcToolbar } from '../navigation-command/toolbar.js';
+import { IcToolbar } from '../navigation-command/toolbar.js?v=asset-94d0d12a5407';
 
 
 export class IcSmartCanvasDock extends IcToolbar {

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Smart Canvas 生成失败反馈测试环境</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <style>
     body { margin:0; color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
     main { width:min(64rem, calc(100% - 2 * var(--ui-space-5))); margin:var(--ui-space-7) auto; display:grid; gap:var(--ui-space-5); }
@@ -46,11 +46,11 @@
       <pre id="details-output"></pre>
     </section>
   </main>
-  <script src="/static/js/i18n-core.js"></script>
-  <script src="/static/js/i18n/smart-canvas.js"></script>
-  <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=asset-f8ed00bb3876"></script>
+  <script src="/static/js/i18n-core.js?v=asset-976eaa307e53"></script>
+  <script src="/static/js/i18n/smart-canvas.js?v=asset-d6b821d5bd0e"></script>
+  <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=asset-4d192a74b065"></script>
   <script type="module">
-    await import('/static/js/infinite-canvas-ui/core.js?v=ic-ui-9e5de786b163');
+    await import('/static/js/infinite-canvas-ui/core.js?v=asset-5078f5fd88bb');
     await Promise.all(['ic-button', 'ic-alert'].map(tag => customElements.whenDefined(tag)));
     const feedback = window.SmartCanvasModules.generationFailureFeedback;
     const tr = key => window.StudioI18n.t(key);

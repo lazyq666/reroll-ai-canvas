@@ -49,7 +49,7 @@ export async function createVideoGif({sourceUrl}) {
         const {width, height, frames} = videoGifPlan(video.duration, video.videoWidth, video.videoHeight);
         const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d', {willReadFrequently:true});
-        try { worker = new Worker(new URL('./video-gif-worker.js?v=1', import.meta.url), {type:'module'}); }
+        try { worker = new Worker(new URL('./video-gif-worker.js?v=asset-05b51c08164c', import.meta.url), {type:'module'}); }
         catch (error) { throw failure('videoEncodeFailed', error); }
         const send = (data, transfer = []) => new Promise((resolve, reject) => {
             const timer = setTimeout(() => reject(failure('videoEncodeFailed')), 30000);

@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_version
 import unittest
 from pathlib import Path
 
@@ -18,7 +19,7 @@ class Issue170CanvasGridComponentTests(unittest.TestCase):
         entry = ENTRY.read_text(encoding="utf-8")
         core = CORE.read_text(encoding="utf-8")
 
-        self.assertEqual("export { IcCanvasGrid } from './canvas-grid/canvas-grid.js';", entry.strip())
+        self.assertEqual(f"export {{ IcCanvasGrid }} from './canvas-grid/canvas-grid.js?v={asset_version('static/js/infinite-canvas-ui/canvas-grid/canvas-grid.js')}';", entry.strip())
         self.assertIn("export class IcCanvasGrid extends HTMLElement", source)
         self.assertIn("var(--ui-color-surface-canvas)", source)
         self.assertIn("var(--ui-color-border-canvas-grid)", source)

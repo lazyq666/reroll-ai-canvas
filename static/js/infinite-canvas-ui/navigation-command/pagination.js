@@ -1,4 +1,4 @@
-import { contractState } from './shared.js';
+import { contractState } from './shared.js?v=asset-9224845d05d6';
 
 
 export class IcPagination extends HTMLElement {

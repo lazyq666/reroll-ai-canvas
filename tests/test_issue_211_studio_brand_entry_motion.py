@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_url
 import unittest
 from pathlib import Path
 
@@ -60,10 +61,10 @@ class StudioBrandEntryMotionTests(unittest.TestCase):
         self.assertIn('aria-hidden="true"', self.page)
 
     def test_normal_playback_has_no_static_logo_under_the_video(self):
-        self.assertNotIn('poster="/static/images/brand/logo.svg"', self.page)
+        self.assertNotIn(f'poster="{asset_url('/static/images/brand/logo.svg')}"', self.page)
         self.assertIn("background: none", self.style)
         self.assertIn(".studio-entry-motion.has-media-error .studio-entry-mark-frame", self.style)
-        self.assertIn("background: url('/static/images/brand/logo.svg')", self.style)
+        self.assertIn(f"background: url('{asset_url('/static/images/brand/logo.svg')}')", self.style)
 
     def test_video_surface_is_removed_before_the_mark_moves_or_fades(self):
         self.assertIn("async function resolveVideoToStaticMark()", self.script)

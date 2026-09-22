@@ -1,4 +1,4 @@
-import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/generation-option-order.js?v=ic-ui-0e81b6afe7d8';
+import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/generation-option-order.js?v=asset-c2726cd96df4';
 
 (() => {
   const tr = (key) => window.StudioI18n?.t?.(key) || key;

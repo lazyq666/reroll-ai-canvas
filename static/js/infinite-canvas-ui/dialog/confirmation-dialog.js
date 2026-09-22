@@ -1,5 +1,5 @@
-import { IcDialog } from './dialog.js';
-import { CONSEQUENCES } from './shared.js';
+import { IcDialog } from './dialog.js?v=asset-6bb342b0feec';
+import { CONSEQUENCES } from './shared.js?v=asset-47bcd0176fe3';
 
 
 export class IcConfirmationDialog extends IcDialog {

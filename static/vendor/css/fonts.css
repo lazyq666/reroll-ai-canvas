@@ -3,7 +3,7 @@
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src: url('/static/vendor/fonts/inter-5.ttf') format('truetype');
+  src: url('/static/vendor/fonts/inter-5.ttf?v=asset-d0f4bc7faca4') format('truetype');
 }
 
 @font-face {
@@ -11,7 +11,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/static/vendor/fonts/inter-4.ttf') format('truetype');
+  src: url('/static/vendor/fonts/inter-4.ttf?v=asset-1b08e7fc267a') format('truetype');
 }
 
 @font-face {
@@ -19,7 +19,7 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/static/vendor/fonts/inter-3.ttf') format('truetype');
+  src: url('/static/vendor/fonts/inter-3.ttf?v=asset-8c883f63b2c4') format('truetype');
 }
 
 @font-face {
@@ -27,7 +27,7 @@
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/static/vendor/fonts/inter-2.ttf') format('truetype');
+  src: url('/static/vendor/fonts/inter-2.ttf?v=asset-e7a1aaf7eda9') format('truetype');
 }
 
 @font-face {
@@ -35,7 +35,7 @@
   font-style: normal;
   font-weight: 800;
   font-display: swap;
-  src: url('/static/vendor/fonts/inter-1.ttf') format('truetype');
+  src: url('/static/vendor/fonts/inter-1.ttf?v=asset-eec66af7f233') format('truetype');
 }
 
 @font-face {
@@ -43,7 +43,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/static/vendor/fonts/jetbrains-mono-7.ttf') format('truetype');
+  src: url('/static/vendor/fonts/jetbrains-mono-7.ttf?v=asset-44ce4a84f20d') format('truetype');
 }
 
 @font-face {
@@ -51,7 +51,7 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/static/vendor/fonts/jetbrains-mono-6.ttf') format('truetype');
+  src: url('/static/vendor/fonts/jetbrains-mono-6.ttf?v=asset-a1d92abc6b02') format('truetype');
 }
 
 @font-face {
@@ -59,7 +59,7 @@
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src: url('/static/vendor/fonts/space-grotesk-9.ttf') format('truetype');
+  src: url('/static/vendor/fonts/space-grotesk-9.ttf?v=asset-2f29b31d803a') format('truetype');
 }
 
 @font-face {
@@ -67,7 +67,7 @@
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/static/vendor/fonts/space-grotesk-10.ttf') format('truetype');
+  src: url('/static/vendor/fonts/space-grotesk-10.ttf?v=asset-3e699ead1876') format('truetype');
 }
 
 @font-face {
@@ -75,5 +75,5 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/static/vendor/fonts/space-grotesk-8.ttf') format('truetype');
+  src: url('/static/vendor/fonts/space-grotesk-8.ttf?v=asset-3e756954468f') format('truetype');
 }

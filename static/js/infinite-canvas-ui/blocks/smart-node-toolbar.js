@@ -1,4 +1,4 @@
-import { IcFloatingToolbar } from '../navigation-command/floating-toolbar.js';
+import { IcFloatingToolbar } from '../navigation-command/floating-toolbar.js?v=asset-d561c586ed34';
 
 export class IcSmartNodeToolbar extends IcFloatingToolbar {
   connectedCallback() {

@@ -1,6 +1,6 @@
 (() => {
-  const ASSET_VERSION = 'account-avatar-d8d7445ac4c6';
-  const MANIFEST_URL = '/static/images/avatars/manifest.json?v=account-avatar-d8d7445ac4c6';
+  const ASSET_VERSION = 'asset-a8a0ed23b7e4';
+  const MANIFEST_URL = '/static/images/avatars/manifest.json?v=asset-0f2c77be2450';
   const ASSET_ROOT = '/static/images/avatars/';
   const assets = new Set();
   let channel = null;

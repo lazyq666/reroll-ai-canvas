@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_version
 import re
 import json
 import unittest
@@ -7,7 +8,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "static"
 UI_ROOT = STATIC / "js" / "infinite-canvas-ui"
-UI_VERSION = (UI_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
 class Issue86ScrollbarFoundationTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class Issue86ScrollbarFoundationTests(unittest.TestCase):
         cls.surface_manifest = json.loads((STATIC / "design-system" / "infinite-canvas-ui" / "surface-manifest.json").read_text(encoding="utf-8"))
 
     def test_core_installs_one_shared_light_and_shadow_dom_foundation(self):
-        self.assertIn(f"from './scrollbar.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './scrollbar.js?v={asset_version('static/js/infinite-canvas-ui/scrollbar.js')}'", self.core)
         self.assertIn("ensureScrollbarStyles();", self.core)
         self.assertIn("refreshScrollbarStyles();", self.core)
         self.assertIn("new CSSStyleSheet()", self.scrollbar)
@@ -91,7 +91,7 @@ class Issue86ScrollbarFoundationTests(unittest.TestCase):
         self.assertIn('data-component-name="ic-scrollbar"', self.scrollbar_case)
         for scenario in ("vertical", "horizontal", "shadow", "hidden"):
             self.assertIn(f'data-scrollbar-sample="{scenario}"', self.scrollbar_case)
-        self.assertIn(f"from './core.js?v={UI_VERSION}'", self.scrollbar_case_app)
+        self.assertIn(f"from './core.js?v={asset_version('static/js/infinite-canvas-ui/core.js')}'", self.scrollbar_case_app)
         self.assertIn("shadowHost.attachShadow({ mode: 'open' })", self.scrollbar_case_app)
         self.assertIn("shadowFoundationInstalled", self.scrollbar_case_app)
         self.assertIn("hiddenScrollable", self.scrollbar_case_app)

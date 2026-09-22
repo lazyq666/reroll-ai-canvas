@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_url
 import unittest
 from pathlib import Path
 
@@ -39,8 +40,8 @@ class DesignTokenExplorerTests(unittest.TestCase):
         page = PAGE.read_text(encoding="utf-8")
         app = APP.read_text(encoding="utf-8")
 
-        self.assertIn('/static/css/design-tokens.css', page)
-        self.assertIn("const SOURCE_URL = '/static/css/design-tokens.css'", app)
+        self.assertIn(f'{asset_url('/static/css/design-tokens.css')}', page)
+        self.assertIn(f"const SOURCE_URL = '{asset_url('/static/css/design-tokens.css')}'", app)
         self.assertIn("fetch(SOURCE_URL, { cache: 'no-store' })", app)
         self.assertIn('function parseTokens(cssText)', app)
         self.assertIn('liveSource.textContent = cssText', app)

@@ -207,6 +207,7 @@ Reroll 服务运行在自己的电脑上；Canvas、Managed Media 与生成历�
 - 提交前先搜索[已有 Issues](https://github.com/lazyq666/reroll-ai-canvas/issues)，避免重复。
 - Bug 请尽量提供可复现步骤、系统和浏览器版本；截图中不要包含 API Key、Cookie、私网地址或本机绝对路径。
 - 开始编码前请阅读[贡献指南](CONTRIBUTING.md)和项目根目录的 [AGENTS.md](AGENTS.md)。
+- 前端资源修改后，运行 `python3.12 scripts/sync_frontend_assets.py` 并提交生成的引用更新。升级后的页面通过普通刷新加载新代码，未变化的资源继续复用缓存；规则与验收见[前端资源版本](docs/current/frontend-asset-versions.md)。
 - 产品中的用户可见文案需要同时提供中文与英文，并接入共享 i18n 资源。
 
 ---

@@ -2170,12 +2170,12 @@ function providerDragAttrs(item){
     return ` draggable="true" data-provider-id="${id}" ondragstart="handleProviderDragStart(event,'${id}')" ondragover="handleProviderDragOver(event,'${id}')" ondrop="handleProviderDrop(event,'${id}')" ondragend="handleProviderDragEnd()"`;
 }
 const PROVIDER_ICON_ASSETS = Object.freeze({
-    chatgpt:'/static/images/providers/chatgpt.svg',
-    doubao:'/static/images/providers/doubao.svg',
-    flux:'/static/images/providers/flux.svg',
-    gemini:'/static/images/providers/gemini.svg',
-    grok:'/static/images/providers/grok.svg',
-    jimeng:'/static/images/providers/jimeng.svg'
+    chatgpt:'/static/images/providers/chatgpt.svg?v=asset-eafa1089c000',
+    doubao:'/static/images/providers/doubao.svg?v=asset-14ef96341f24',
+    flux:'/static/images/providers/flux.svg?v=asset-a0b5fed35e0c',
+    gemini:'/static/images/providers/gemini.svg?v=asset-39d2ac073ff4',
+    grok:'/static/images/providers/grok.svg?v=asset-647dd4e7bd70',
+    jimeng:'/static/images/providers/jimeng.svg?v=asset-fe7127df2913'
 });
 const PROVIDER_ICON_ALIASES = Object.freeze({
     chatgpt:new Set(['chatgpt', 'openai', 'codex']),
@@ -2211,8 +2211,8 @@ function renderProviderList(){
                 <span class="provider-nav-item provider-nav-banner ${stateClass}" data-value="${tabValue}">
                     <span class="provider-nav-banner-inner">
                         <span class="provider-logo-wrap">
-                            <img src="/static/images/providers/modelscope.gif" alt="ModelScope" class="ms-icon-light">
-                            <img src="/static/images/providers/modelscope-1.gif" alt="ModelScope" class="ms-icon-dark">
+                            <img src="/static/images/providers/modelscope.gif?v=asset-38f8e5e8ce17" alt="ModelScope" class="ms-icon-light">
+                            <img src="/static/images/providers/modelscope-1.gif?v=asset-cee529c910b2" alt="ModelScope" class="ms-icon-dark">
                             <span class="provider-logo-fallback">ModelScope</span>
                         </span>
                         <!-- Brand-only navigation item; no status badge. -->
@@ -2225,8 +2225,8 @@ function renderProviderList(){
                 <span class="provider-nav-item provider-nav-banner ${stateClass}" data-value="${tabValue}">
                     <span class="provider-nav-banner-inner">
                         <span class="provider-logo-wrap">
-                            <img src="/static/images/providers/RunningHub-B.png" alt="RunningHub" class="runninghub-icon ms-icon-light">
-                            <img src="/static/images/providers/RunningHub-W.png" alt="RunningHub" class="runninghub-icon ms-icon-dark">
+                            <img src="/static/images/providers/RunningHub-B.png?v=asset-7a7a959db978" alt="RunningHub" class="runninghub-icon ms-icon-light">
+                            <img src="/static/images/providers/RunningHub-W.png?v=asset-72ce8c3c3601" alt="RunningHub" class="runninghub-icon ms-icon-dark">
                             <span class="provider-logo-fallback">RunningHub</span>
                         </span>
                         <!-- Brand-only navigation item; no status badge. -->
@@ -2239,8 +2239,8 @@ function renderProviderList(){
                 <span class="provider-nav-item provider-nav-banner ${stateClass}" data-value="${tabValue}">
                     <span class="provider-nav-banner-inner">
                         <span class="provider-logo-wrap">
-                            <img src="/static/images/providers/volcengine-theme-light.svg" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-light">
-                            <img src="/static/images/providers/volcengine-theme-dark.svg" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-dark">
+                            <img src="/static/images/providers/volcengine-theme-light.svg?v=asset-30b84f5159c0" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-light">
+                            <img src="/static/images/providers/volcengine-theme-dark.svg?v=asset-5c07bfa906f5" alt="${escapeAttr(tr('api.volcengine'))}" class="volcengine-icon ms-icon-dark">
                             <span class="provider-logo-fallback">${escapeHtml(tr('api.volcengine'))}</span>
                         </span>
                         <!-- Brand-only navigation item; no status badge. -->

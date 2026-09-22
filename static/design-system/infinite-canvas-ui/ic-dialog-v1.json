@@ -30,7 +30,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/dialog.js",
+        "/static/js/infinite-canvas-ui/dialog.js?v=asset-85d552251014",
         "/static/design-system/infinite-canvas-ui/dialog.html",
         "/tests/infinite_canvas_ui_dialog_browser_harness.html"
       ]
@@ -230,7 +230,7 @@
     "interaction": ["keyboard", "focus-visible", "escape", "backdrop", "focus-return", "aria", "contrast"]
   },
   "legacyCoverage": {
-    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+    "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
     "baselineRevision": "sha256:1f0a5588a0a90e7f6ab77cda9eeab14509570c2b53904176247fced1a415b507",
     "sourceReviewStatus": "pending-human-confirmation",
     "instanceCount": 32,

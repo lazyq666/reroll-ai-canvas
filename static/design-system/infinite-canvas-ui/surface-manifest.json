@@ -53,7 +53,7 @@
   "surfaces": {
     "legacy": {
       "label": "Legacy Inventory",
-      "manifest": "/static/design-system/live-catalog/manifest.json",
+      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-6917c8f5370e",
       "sourceRevision": "sha256:bd91c5975e2c367e2aa7dd96f20bb9972b308fb5c8a2572ca9c96ca30c8335a2",
       "candidateCount": 573,
       "instanceCount": 1144,
@@ -103,7 +103,7 @@
       },
       "scrollbar": {
         "fixture": "/static/design-system/infinite-canvas-ui/scrollbar.html",
-        "implementation": "/static/js/infinite-canvas-ui/scrollbar.js",
+        "implementation": "/static/js/infinite-canvas-ui/scrollbar.js?v=asset-8d85878aaeb6",
         "implementationStatus": "implemented",
         "liveReviewStatus": "pending-human-confirmation",
         "caseCount": 4,
@@ -121,7 +121,7 @@
         ]
       },
       "heading": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-heading-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-heading-v1.json?v=asset-90ff80da829a",
         "fixture": "/static/design-system/infinite-canvas-ui/heading.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/heading-case.html",
         "contractReviewStatus": "pending-human-confirmation",
@@ -134,7 +134,7 @@
         ]
       },
       "actions": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-ad5b0a9f5878",
         "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/actions-contract.html",
@@ -153,7 +153,7 @@
         ]
       },
       "selectionAdjustment": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json?v=asset-4ab2c8b0fb82",
         "fixture": "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/selection-adjustment-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/selection-adjustment-contract.html",
@@ -178,7 +178,7 @@
         ]
       },
       "feedbackProgress": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-feedback-progress-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-feedback-progress-v1.json?v=asset-23ab4ceb162e",
         "fixture": "/static/design-system/infinite-canvas-ui/feedback-progress.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/feedback-progress-case.html",
         "contractReviewStatus": "confirmed",
@@ -197,7 +197,7 @@
         ]
       },
       "nodes": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-nodes-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-nodes-v1.json?v=asset-59635afd5e3c",
         "fixture": "/static/smart-canvas.html?componentReview=nodes",
         "contractReviewStatus": "confirmed",
         "implementationStatus": "implemented",
@@ -226,7 +226,7 @@
         ]
       },
       "dialog": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-dialog-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-dialog-v1.json?v=asset-0a81c1d6b87b",
         "fixture": "/static/design-system/infinite-canvas-ui/dialog.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/dialog-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/dialog-contract.html",
@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-730456da8198",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",
@@ -265,7 +265,7 @@
         ]
       },
       "navigationCommand": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-navigation-command-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-navigation-command-v1.json?v=asset-bae26b6cfb5f",
         "fixture": "/static/design-system/infinite-canvas-ui/navigation-command.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/navigation-command-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/navigation-command-contract.html",
@@ -288,7 +288,7 @@
         ]
       },
       "containersData": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-containers-data-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-containers-data-v1.json?v=asset-42c41a8540a9",
         "fixture": "/static/design-system/infinite-canvas-ui/containers-data.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/containers-data-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/containers-data-contract.html",
@@ -308,7 +308,7 @@
         ]
       },
       "fileMediaInput": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-file-media-input-v1.json",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-file-media-input-v1.json?v=asset-ca9b51279ec1",
         "fixture": "/static/design-system/infinite-canvas-ui/file-media-input.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/file-media-input-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/file-media-input-contract.html",
@@ -511,10 +511,10 @@
     },
     "migration": {
       "label": "Migration Map",
-      "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
+      "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
       "classificationStatus": "pending-human-confirmation",
       "classifiedInstanceCount": 1712,
-      "instanceSource": "/static/design-system/live-catalog/manifest.json",
+      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-6917c8f5370e",
       "instanceIdentity": "candidate-id plus stable file, source kind and DOM path; display line is diagnostic only",
       "outcomes": [
         {

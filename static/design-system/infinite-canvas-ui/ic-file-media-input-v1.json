@@ -11,7 +11,7 @@
   },
   "review": {
     "contract": {"status": "confirmed", "reviewer": "User (Issue #145 follow-up)", "confirmedOn": "2026-08-25"},
-    "implementation": {"status": "implemented", "implementedOn": "2026-08-25", "evidence": ["/static/js/infinite-canvas-ui/file-media-input.js", "/tests/infinite_canvas_ui_file_media_input_browser_harness.html"]},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-25", "evidence": ["/static/js/infinite-canvas-ui/file-media-input.js?v=asset-3afbfbd03078", "/tests/infinite_canvas_ui_file_media_input_browser_harness.html"]},
     "live": {"status": "confirmed", "reviewer": "Codex visual QA", "confirmedOn": "2026-08-25", "note": "Component Library Light, Dark and 430px narrow screenshots inspected; shared player and file/media browser contracts passed."},
     "migration": {"status": "implemented", "evidence": "Command pickers remain hidden; Smart Canvas node uses node Surface; RunningHub non-image inputs use media slots."}
   },

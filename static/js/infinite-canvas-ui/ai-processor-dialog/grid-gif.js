@@ -1,5 +1,5 @@
-import {analyzeGridGif, gridGifErrorMessage} from '/static/js/smart-canvas/grid-gif.js?v=4';
-import {SpriteAuthoring} from './sprite-authoring.js';
+import {analyzeGridGif, gridGifErrorMessage} from '/static/js/smart-canvas/grid-gif.js?v=asset-e4a9c8e1f594';
+import {SpriteAuthoring} from './sprite-authoring.js?v=asset-2b00e9a3510a';
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const PRESETS = ['1x2','2x1','2x2','2x3','3x2','3x3','4x4'];

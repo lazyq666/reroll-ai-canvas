@@ -1,5 +1,5 @@
 import WaInput from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/input/input.js';
-import { applyContractState, withProjectEvents } from './shared.js';
+import { applyContractState, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
 
 
 export class IcNumberInput extends withProjectEvents(WaInput, {

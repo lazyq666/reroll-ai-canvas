@@ -1,15 +1,15 @@
 (() => {
   const icons = Object.freeze({
-    midjourney: { label: 'Midjourney', src: '/static/images/providers/midjourney.svg', monochrome: true },
-    openai: { label: 'OpenAI', src: '/static/images/providers/chatgpt.svg', monochrome: true },
-    gemini: { label: 'Google Gemini', src: '/static/images/providers/gemini.svg', monochrome: true },
-    grok: { label: 'xAI Grok', src: '/static/images/providers/grok.svg', monochrome: true },
-    flux: { label: 'Black Forest Labs', src: '/static/images/providers/flux.svg', monochrome: true },
-    doubao: { label: '豆包', src: '/static/images/providers/doubao.svg' },
-    jimeng: { label: '即梦', src: '/static/images/providers/jimeng.svg', monochrome: true },
-    modelscope: { label: 'ModelScope', src: '/static/images/providers/modelscope.gif', brandMark: true },
-    volcengine: { label: '火山引擎', src: '/static/images/providers/volcengine-theme-light.svg', brandMark: true },
-    runninghub: { label: 'RunningHub', src: '/static/images/providers/RunningHub-B.png', brandMark: true },
+    midjourney: { label: 'Midjourney', src: '/static/images/providers/midjourney.svg?v=asset-79508a652339', monochrome: true },
+    openai: { label: 'OpenAI', src: '/static/images/providers/chatgpt.svg?v=asset-eafa1089c000', monochrome: true },
+    gemini: { label: 'Google Gemini', src: '/static/images/providers/gemini.svg?v=asset-39d2ac073ff4', monochrome: true },
+    grok: { label: 'xAI Grok', src: '/static/images/providers/grok.svg?v=asset-647dd4e7bd70', monochrome: true },
+    flux: { label: 'Black Forest Labs', src: '/static/images/providers/flux.svg?v=asset-a0b5fed35e0c', monochrome: true },
+    doubao: { label: '豆包', src: '/static/images/providers/doubao.svg?v=asset-14ef96341f24' },
+    jimeng: { label: '即梦', src: '/static/images/providers/jimeng.svg?v=asset-fe7127df2913', monochrome: true },
+    modelscope: { label: 'ModelScope', src: '/static/images/providers/modelscope.gif?v=asset-38f8e5e8ce17', brandMark: true },
+    volcengine: { label: '火山引擎', src: '/static/images/providers/volcengine-theme-light.svg?v=asset-30b84f5159c0', brandMark: true },
+    runninghub: { label: 'RunningHub', src: '/static/images/providers/RunningHub-B.png?v=asset-7a7a959db978', brandMark: true },
   });
   const styles = Object.freeze(['auto', 'outline', 'filled']);
   let outlineFilterSequence = 0;

@@ -1,4 +1,4 @@
-import {automaticOwnershipBoundaries, validOwnershipBoundaries, createOwnershipResolver} from './sprite-ownership.js?v=2';
+import {automaticOwnershipBoundaries, validOwnershipBoundaries, createOwnershipResolver} from './sprite-ownership.js?v=asset-3411e5472274';
 
 // Pure geometry: no grid boundary participates in extracting a sprite.
 const CORE_ALPHA = 8;

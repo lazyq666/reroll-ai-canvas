@@ -1,5 +1,5 @@
 import { GIFEncoder, quantize, applyPalette } from '/static/vendor/gifenc/1.0.3/gifenc.esm.js';
-import {extractSpriteFrames, spriteFramePixels} from './sprite-components.js?v=2';
+import {extractSpriteFrames, spriteFramePixels} from './sprite-components.js?v=asset-a47163fe8e7b';
 
 // Encode off the UI thread, retaining only one uncompressed frame at a time.
 self.onmessage = ({data:{bitmap, rows, cols, delay, fillColor, analyzeOnly, boundaries, anchors, transparent = false}}) => {

@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_version
 import re
 import json
 import unittest
@@ -6,7 +7,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UI_ROOT = ROOT / "static" / "js" / "infinite-canvas-ui"
-UI_VERSION = (UI_ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
 class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
@@ -18,7 +18,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
     def test_text_entry_has_a_stable_entry_and_per_control_files(self):
         entry = (UI_ROOT / "text-entry.js").read_text(encoding="utf-8")
         index = (UI_ROOT / "text-entry" / "index.js").read_text(encoding="utf-8")
-        self.assertIn(f"from './text-entry/index.js?v={UI_VERSION}'", entry)
+        self.assertIn(f"from './text-entry/index.js?v={asset_version('static/js/infinite-canvas-ui/text-entry/index.js')}'", entry)
         for public_class, filename in (
             ("IcInput", "input.js"),
             ("IcTextarea", "textarea.js"),
@@ -27,7 +27,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
             implementation = (UI_ROOT / "text-entry" / filename).read_text(encoding="utf-8")
             self.assertIn(f"export class {public_class}", implementation)
             self.assertIn(public_class, index)
-        self.assertIn(f"from './text-entry.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './text-entry.js?v={asset_version('static/js/infinite-canvas-ui/text-entry.js')}'", self.core)
 
     def test_text_entry_and_prompt_styles_are_owned_locally(self):
         styles = (UI_ROOT / "text-entry" / "styles.js").read_text(encoding="utf-8")
@@ -53,7 +53,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
     def test_selection_adjustment_has_a_stable_entry_and_per_control_files(self):
         entry = (UI_ROOT / "selection-adjustment.js").read_text(encoding="utf-8")
         index = (UI_ROOT / "selection-adjustment" / "index.js").read_text(encoding="utf-8")
-        self.assertIn(f"from './selection-adjustment/index.js?v={UI_VERSION}'", entry)
+        self.assertIn(f"from './selection-adjustment/index.js?v={asset_version('static/js/infinite-canvas-ui/selection-adjustment/index.js')}'", entry)
         for public_class, filename in (
             ("IcCheckbox", "checkbox.js"),
             ("IcRadio", "radio.js"),
@@ -67,7 +67,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
             implementation = (UI_ROOT / "selection-adjustment" / filename).read_text(encoding="utf-8")
             self.assertIn(f"export class {public_class}", implementation)
             self.assertIn(public_class, index)
-        self.assertIn(f"from './selection-adjustment.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './selection-adjustment.js?v={asset_version('static/js/infinite-canvas-ui/selection-adjustment.js')}'", self.core)
 
     def test_selection_adjustment_styles_are_owned_locally(self):
         styles = (UI_ROOT / "selection-adjustment" / "styles.js").read_text(encoding="utf-8")
@@ -97,12 +97,12 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
         index = (UI_ROOT / "dialog" / "index.js").read_text(encoding="utf-8")
         dialog = (UI_ROOT / "dialog" / "dialog.js").read_text(encoding="utf-8")
         confirmation = (UI_ROOT / "dialog" / "confirmation-dialog.js").read_text(encoding="utf-8")
-        self.assertIn(f"from './dialog/index.js?v={UI_VERSION}'", entry)
+        self.assertIn(f"from './dialog/index.js?v={asset_version('static/js/infinite-canvas-ui/dialog/index.js')}'", entry)
         self.assertIn("export class IcDialog", dialog)
         self.assertIn("export class IcConfirmationDialog", confirmation)
         self.assertIn("IcDialog", index)
         self.assertIn("IcConfirmationDialog", index)
-        self.assertIn(f"from './dialog.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './dialog.js?v={asset_version('static/js/infinite-canvas-ui/dialog.js')}'", self.core)
 
     def test_dialog_and_ai_processor_styles_are_owned_locally(self):
         dialog_styles = (UI_ROOT / "dialog" / "styles.js").read_text(encoding="utf-8")
@@ -137,7 +137,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
     def test_navigation_command_has_a_stable_entry_and_per_control_files(self):
         entry = (UI_ROOT / "navigation-command.js").read_text(encoding="utf-8")
         index = (UI_ROOT / "navigation-command" / "index.js").read_text(encoding="utf-8")
-        self.assertIn(f"from './navigation-command/index.js?v={UI_VERSION}'", entry)
+        self.assertIn(f"from './navigation-command/index.js?v={asset_version('static/js/infinite-canvas-ui/navigation-command/index.js')}'", entry)
         for public_class, filename in (
             ("IcTabs", "tabs.js"),
             ("IcSegmentedControl", "segmented-control.js"),
@@ -152,7 +152,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
             implementation = (UI_ROOT / "navigation-command" / filename).read_text(encoding="utf-8")
             self.assertIn(f"export class {public_class}", implementation)
             self.assertIn(public_class, index)
-        self.assertIn(f"from './navigation-command.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './navigation-command.js?v={asset_version('static/js/infinite-canvas-ui/navigation-command.js')}'", self.core)
 
     def test_blocks_have_one_public_entry_and_locally_owned_implementations(self):
         entry = (UI_ROOT / "blocks.js").read_text(encoding="utf-8")
@@ -162,7 +162,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
         canvas_dock = (UI_ROOT / "blocks" / "smart-canvas-dock.js").read_text(encoding="utf-8")
         node_context_menu = (UI_ROOT / "blocks" / "smart-node-context-menu.js").read_text(encoding="utf-8")
         node_toolbar = (UI_ROOT / "blocks" / "smart-node-toolbar.js").read_text(encoding="utf-8")
-        self.assertIn(f"from './blocks/index.js?v={UI_VERSION}'", entry)
+        self.assertIn(f"from './blocks/index.js?v={asset_version('static/js/infinite-canvas-ui/blocks/index.js')}'", entry)
         self.assertIn("IcImageEditModeToolbar", index)
         self.assertIn("IcSmartCanvasDock", index)
         self.assertIn("IcSmartNodeContextMenu", index)
@@ -175,7 +175,7 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
         self.assertIn("ic-smart-canvas-dock", styles)
         self.assertIn("ic-smart-node-context-menu", styles)
         self.assertIn("ic-smart-node-toolbar", styles)
-        self.assertIn(f"from './blocks.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './blocks.js?v={asset_version('static/js/infinite-canvas-ui/blocks.js')}'", self.core)
         self.assertIn("define('ic-smart-node-context-menu', IcSmartNodeContextMenu)", self.core)
 
     def test_canvas_navigation_has_a_stable_entry_and_owned_minimap(self):
@@ -183,10 +183,10 @@ class InfiniteCanvasUiFamilyModulesTests(unittest.TestCase):
         index = (UI_ROOT / "canvas-navigation" / "index.js").read_text(encoding="utf-8")
         minimap = (UI_ROOT / "canvas-navigation" / "smart-minimap.js").read_text(encoding="utf-8")
         smart_canvas = (ROOT / "static/css/smart-canvas.css").read_text(encoding="utf-8")
-        self.assertIn(f"from './canvas-navigation/index.js?v={UI_VERSION}'", entry)
+        self.assertIn(f"from './canvas-navigation/index.js?v={asset_version('static/js/infinite-canvas-ui/canvas-navigation/index.js')}'", entry)
         self.assertIn("IcSmartMinimap", index)
         self.assertIn("export class IcSmartMinimap", minimap)
-        self.assertIn(f"from './canvas-navigation.js?v={UI_VERSION}'", self.core)
+        self.assertIn(f"from './canvas-navigation.js?v={asset_version('static/js/infinite-canvas-ui/canvas-navigation.js')}'", self.core)
         self.assertIn("define('ic-smart-minimap', IcSmartMinimap)", self.core)
         self.assertNotIn(".smart-minimap-content", smart_canvas)
         self.assertNotIn(".smart-minimap-viewport", smart_canvas)

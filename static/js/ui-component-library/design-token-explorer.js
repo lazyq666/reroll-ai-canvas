@@ -1,5 +1,5 @@
 (() => {
-  const SOURCE_URL = '/static/css/design-tokens.css';
+  const SOURCE_URL = '/static/css/design-tokens.css?v=asset-b180cf511553';
   const WORKBENCH_URL = '/api/admin/design-tokens';
   const tokenNameCollator = new Intl.Collator('en', {
     numeric: true,

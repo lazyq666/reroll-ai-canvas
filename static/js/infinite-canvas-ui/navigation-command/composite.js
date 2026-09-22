@@ -1,4 +1,4 @@
-import { moveComposite } from './shared.js';
+import { moveComposite } from './shared.js?v=asset-9224845d05d6';
 
 
 export class IcComposite extends HTMLElement {

@@ -1,4 +1,4 @@
-const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-navigation-command-v1.json';
+const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-navigation-command-v1.json?v=asset-bae26b6cfb5f';
 const host = document.querySelector('[data-navigation-command-contract]');
 const status = document.querySelector('[data-navigation-command-review-status]');
 const escapeHtml = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');

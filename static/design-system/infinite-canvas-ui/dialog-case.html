@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dialog Case</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
   <style>
     body { margin:0; padding:var(--ui-space-4); color:var(--ui-color-text-primary); background:var(--ui-color-surface-canvas); font-family:var(--ui-font-sans); }
@@ -75,7 +75,7 @@
   <ic-dialog id="compact-import" data-component-name="ic-dialog-compact-task" label="导入节点包" size="small" variant="compact" dismiss-policy="explicit" data-action-combination="medium-explicit-task"><span slot="label" class="compact-modal-heading" data-legal-combination="h2-with-subtitle"><span>导入节点包</span><span>上传 JSON 或包含资源的 ZIP 节点包，内容会追加到当前画布。</span></span><div class="compact-modal-dropzone" role="button" tabindex="0">支持 JSON、ZIP，最大 500 MB</div><ic-button slot="footer" hierarchy="secondary" data-close data-copy="cancel">取消</ic-button><ic-button slot="footer" hierarchy="primary">继续</ic-button></ic-dialog>
   <ic-confirmation-dialog id="neutral-confirm" label="应用这些设置？" description="可以稍后再次修改。" confirm-label="应用" cancel-label="取消" consequence="neutral"></ic-confirmation-dialog>
   <ic-confirmation-dialog id="danger-confirm" label="永久删除这个画布？" description="删除后无法恢复。" confirm-label="永久删除" cancel-label="取消" consequence="destructive"></ic-confirmation-dialog>
-  <ic-ai-processor-dialog id="reverse-prompt-dialog" data-component-name="ic-ai-processor-dialog" processor="reverse-prompt" source-image="/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg" source-alt="日落山谷中的现代玻璃小屋" source-width="800" source-height="1000"></ic-ai-processor-dialog>
+  <ic-ai-processor-dialog id="reverse-prompt-dialog" data-component-name="ic-ai-processor-dialog" processor="reverse-prompt" source-image="/static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg?v=asset-039aaa3990b2" source-alt="日落山谷中的现代玻璃小屋" source-width="800" source-height="1000"></ic-ai-processor-dialog>
   <ic-dialog id="generation-log-preview" class="generation-log-modal" label="生成日志" size="large" dismiss-policy="light">
     <div class="generation-log-dialog">
       <div class="generation-log-master-detail">
@@ -90,6 +90,6 @@
     </div>
     </div>
   </ic-dialog>
-  <script type="module" src="/static/js/infinite-canvas-ui/dialog-case.js?v=ic-ui-9e5de786b163"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/dialog-case.js?v=asset-83bed59ca6f9"></script>
 </body>
 </html>

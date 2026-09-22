@@ -1,4 +1,4 @@
-import { setContractStatus } from './shared.js';
+import { setContractStatus } from './shared.js?v=asset-72cacddc4241';
 
 
 export class IcFormField extends HTMLElement {

@@ -1,3 +1,4 @@
+from tests.frontend_asset_helpers import asset_url
 import json
 import re
 import unittest
@@ -170,12 +171,11 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
             asset = ROOT / "static" / "images" / "providers" / f"{name}.svg"
             self.assertTrue(asset.exists(), name)
             self.assertIn("<svg", asset.read_text(encoding="utf-8"))
-            self.assertIn(f"{name}:'/static/images/providers/{name}.svg'", self.script)
+            self.assertIn(f"{name}:'{asset_url('/static/images/providers/' + name + '.svg')}'", self.script)
         for name in ("jimeng", "chatgpt", "gemini"):
-            self.assertIn(f'src="/static/images/providers/{name}.svg"', self.page)
-        self.assertRegex(
-            self.page,
-            r'class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/providers/jimeng\.svg"',
+            self.assertIn(f'src="{asset_url('/static/images/providers/' + name + '.svg')}"', self.page)
+        self.assertIn(
+            f'class="provider-platform-icon provider-platform-icon-monochrome" src="{asset_url('/static/images/providers/jimeng.svg')}"', self.page,
         )
         provider_list = self.script[
             self.script.index("function renderProviderList()"):

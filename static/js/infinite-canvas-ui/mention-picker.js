@@ -1,10 +1,10 @@
-import { closeTopLayer, openTopLayer } from './overlay-layer.js?v=ic-ui-9e5de786b163';
+import { closeTopLayer, openTopLayer } from './overlay-layer.js?v=asset-93234911c8e7';
 import {
   ANCHORED_OVERLAY_MOTION_STYLES,
   nextOverlayPaint,
   setOverlayInteraction,
   waitForOverlayMotion,
-} from './overlay-motion.js?v=ic-ui-9e5de786b163';
+} from './overlay-motion.js?v=asset-5525a54e7698';
 
 const NAVIGATION_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape']);
 const PLACEMENTS = new Set(['block-start', 'block-end', 'overlay-block-end']);

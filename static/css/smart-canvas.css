@@ -1,4 +1,4 @@
-@import url('/static/vendor/css/fonts.css?v=2026.05.22.1');
+@import url('/static/vendor/css/fonts.css?v=asset-41041ff51b56');
 * { box-sizing:border-box; }
 body { margin:var(--ui-space-0); height:100vh; overflow:hidden; color:var(--ui-color-text-primary); font-family:var(--ui-font-sans); background:var(--ui-color-surface-canvas); }
 html.smart-canvas-booting body * { visibility:hidden !important; }

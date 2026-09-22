@@ -1,5 +1,5 @@
-import { IcComposite } from './composite.js';
-import { COMPONENT_SIZES, contractState, moveComposite, NAVIGATION_SIZE_STYLES, ORIENTATIONS } from './shared.js';
+import { IcComposite } from './composite.js?v=asset-6c8360b1eab0';
+import { COMPONENT_SIZES, contractState, moveComposite, NAVIGATION_SIZE_STYLES, ORIENTATIONS } from './shared.js?v=asset-9224845d05d6';
 
 
 export class IcTabs extends IcComposite {

@@ -42,6 +42,7 @@ from io import BytesIO
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from infinite_canvas.frontend_assets import FrontendStaticFiles
 from fastapi.responses import FileResponse, Response, StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -2934,7 +2935,7 @@ async def cloud_write_admission(request: Request, call_next):
                 return await cloud_storage_error(request, error)
     return await call_next(request)
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", FrontendStaticFiles(directory=STATIC_DIR), name="static")
 app.mount(
     "/assets",
     StaticFiles(
@@ -2966,58 +2967,9 @@ def current_app_version():
         return ""
 
 def versioned_static_html(html: str) -> str:
-    version = current_app_version()
-    if not version:
-        return html
-    safe_version = urllib.parse.quote(version, safe="._-")
-    pattern = re.compile(
-        r'(?P<prefix>(?:data-src|src|href)=["\']|@import\s+url\(["\'])'
-        r'(?P<path>/static/[^"\')?#]+(?:\.(?:js|css|html)))'
-        r'(?P<query>\?[^"\')#]*)?'
-        r'(?P<fragment>#[^"\')]*)?',
-        re.I,
-    )
-
-    def replace(match):
-        path_url = match.group("path")
-        existing_query_parts = [
-            part for part in (match.group("query") or "")[1:].split("&") if part
-        ]
-        fingerprint_prefix = ""
-        if path_url.startswith("/static/js/infinite-canvas-ui/"):
-            fingerprint_prefix = "ic-ui-"
-        elif path_url == "/static/js/i18n.js":
-            fingerprint_prefix = "i18n-loader-"
-        elif path_url in {
-            "/static/css/account-avatar.css",
-            "/static/js/account-avatar.js",
-            "/static/js/canvas-list-presence.js",
-            "/static/js/smart-canvas/realtime-presence.js",
-        }:
-            fingerprint_prefix = "account-avatar-"
-        if fingerprint_prefix and any(
-            urllib.parse.unquote_plus(part.partition("=")[0]) == "v"
-            and urllib.parse.unquote_plus(part.partition("=")[2]).startswith(
-                fingerprint_prefix
-            )
-            for part in existing_query_parts
-        ):
-            # These assets use content-derived fingerprints synchronized with
-            # their dependent module graphs. Replacing one with the application
-            # version would make the graph inconsistent.
-            return match.group(0)
-        query_parts = [
-            part
-            for part in existing_query_parts
-            if urllib.parse.unquote_plus(part.partition("=")[0]) != "v"
-        ]
-        query_parts.append(f"v={safe_version}")
-        return (
-            f"{match.group('prefix')}{path_url}?{'&'.join(query_parts)}"
-            f"{match.group('fragment') or ''}"
-        )
-
-    return pattern.sub(replace, html)
+    # URLs are generated and verified before release. Preserve the complete
+    # dependency graph rather than replacing content identities at request time.
+    return html
 
 def static_html_response(filename: str):
     path = os.path.join(STATIC_DIR, filename)

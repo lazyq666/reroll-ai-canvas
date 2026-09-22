@@ -1,5 +1,5 @@
-import { IcComposite } from './composite.js';
-import { contractState } from './shared.js';
+import { IcComposite } from './composite.js?v=asset-6c8360b1eab0';
+import { contractState } from './shared.js?v=asset-9224845d05d6';
 
 
 export class IcFloatingToolbar extends IcComposite {
