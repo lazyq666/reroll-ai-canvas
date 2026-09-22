@@ -2173,7 +2173,7 @@
       "dependencies": []
     },
     "static/js/smart-canvas.js": {
-      "version": "asset-1d43072dd195",
+      "version": "asset-dd09ffa0e179",
       "dependencies": [
         "static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js",
         "static/js/smart-canvas/grid-gif.js",
@@ -2303,7 +2303,7 @@
       "dependencies": []
     },
     "static/js/smart-canvas/image-studio.js": {
-      "version": "asset-42a10f737603",
+      "version": "asset-0e3332ef620f",
       "dependencies": []
     },
     "static/js/smart-canvas/layer-decomposition-draft.js": {
@@ -2634,7 +2634,7 @@
       ]
     },
     "static/smart-canvas.html": {
-      "version": "asset-aa971f057659",
+      "version": "asset-616b80b782e9",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/design-tokens.css",
@@ -2724,7 +2724,7 @@
       ]
     },
     "static/update-notes.json": {
-      "version": "asset-b7426db48e10",
+      "version": "asset-381bb0ed0d98",
       "dependencies": []
     },
     "static/vendor/css/fonts.css": {
