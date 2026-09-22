@@ -3,6 +3,8 @@ import json
 import subprocess
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 from tests.runtime_env import ensure_test_workspace
 
 ensure_test_workspace()
@@ -11,6 +13,15 @@ import main
 ROOT = Path(__file__).resolve().parents[1]
 
 class PromptOptimizationRequestTests(unittest.IsolatedAsyncioTestCase):
+    async def test_empty_model_output_stays_empty_for_client_failure_handling(self):
+        result = SimpleNamespace(text='  ', model='text-model', raw_usage={}, expose_raw=False)
+        with (
+            patch.object(main, '_canvas_llm_run', new=AsyncMock(return_value=object())),
+            patch.object(main, '_run_generation_inline', new=AsyncMock(return_value=result)),
+        ):
+            response = await main.canvas_llm(main.CanvasLLMRequest(message='A sunset', model='text-model'))
+        self.assertEqual(response['text'], '', 'An error explanation must not become an optimized prompt')
+
     async def test_optimization_request_passes_real_text_capability_validation(self):
         capability = await main.model_capability('codex', 'gpt-5.5', 'text.generate')
         script = r"""

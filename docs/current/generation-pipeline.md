@@ -154,6 +154,7 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 | ComfyUI | `POST /api/canvas-comfy-tasks` | 后台任务，前端轮询 |
 | API 视频 | `POST /api/canvas-video-tasks` | 后台任务，先返回 task ID；前端通过 `GET /api/canvas-video-tasks/{task_id}` 轮询 |
 | Prompt/LLM 节点 | `POST /api/canvas-llm-tasks` | 后台任务，前端轮询 |
+| Composer 提示词优化 | `POST /api/canvas-llm` | 同步返回文字，失败保留输入；空模型输出保留空 `text`，由界面显示失败，不把错误说明当成优化结果 |
 | Image Studio 本地深度图 | `POST /api/smart-canvas/depth-map` | 后台 Generation Run，前端按图片 task ID 轮询 |
 | RunningHub 直接工作流 | 前端提交并轮询 RunningHub 路由 | 完成后由前端统一成 completed |
 | ModelScope 专用前端模式 | 前端调用对应 ModelScope 路由 | 完成后由前端统一成 completed |
