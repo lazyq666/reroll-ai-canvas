@@ -1793,9 +1793,16 @@ function canvasPersistenceConnect(){
     };
     return true;
 }
-function canvasPersistenceRequestResync(_reason=''){
+function canvasPersistenceRequestResync(reason=''){
     if(canvasPersistenceSocket){
-        canvasPersistenceSocket.close(4000,'resync');
+        // Only fixed diagnostic categories cross the transport; rejected payloads
+        // and arbitrary server error text must never become close reasons.
+        const knownReasons = new Set([
+            'queued-revision-gap', 'revision-gap', 'mutation-rejected',
+            'invalid-message', 'heartbeat-revision', 'heartbeat-timeout', 'legacy-update'
+        ]);
+        canvasPersistenceSocket.close(4000,
+            knownReasons.has(reason) ? `resync:${reason}` : 'resync');
     } else {
         canvasPersistenceConnect();
     }

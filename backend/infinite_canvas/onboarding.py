@@ -5,7 +5,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
@@ -34,6 +34,10 @@ class ConnectRequest(BaseModel):
     base_url: str = Field(default="", max_length=2048)
     api_key: str = Field(default="", max_length=8192)
     protocol: str = ""
+
+
+class CompleteRequest(BaseModel):
+    intent: Literal["connected", "defer"] = "connected"
 
 
 @dataclass
@@ -184,10 +188,10 @@ def install_onboarding_routes(app: FastAPI, auth: AuthSystem, ports: OnboardingP
                                  headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
     @app.post("/api/admin/onboarding/complete")
-    async def complete(request: Request):
+    async def complete(request: Request, payload: CompleteRequest):
         authorize(request)
         async with lock:
-            if not connected():
+            if payload.intent == "connected" and not connected():
                 raise HTTPException(409, detail={"code": "no_source"})
             auth.finish_onboarding()
         return {"next_url": "/static/canvas-list.html"}

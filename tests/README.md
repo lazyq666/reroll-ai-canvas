@@ -58,6 +58,24 @@ remain opt-in because they require credentials, existing data, controlled
 hardware, or visual judgment. The relevant Current or Active specification
 defines when one of those gates is required.
 
+The self-contained LAZ-61 presence regression needs no existing accounts or
+Provider credentials:
+
+```bash
+node tests/realtime_presence_browser_smoke.cjs
+node tests/realtime_presence_live_browser.cjs
+```
+
+The live test starts `realtime_presence_live_app.py` on loopback port 18861,
+creates seven accounts in a temporary instance, and opens eight isolated
+browser sessions. It checks 60 seconds of application heartbeats, account-level
+deduplication, ten real reconnect cycles, stable avatar images and an open
+overflow list, and unchanged Canvas Revision during the Presence exercise.
+The server, accounts and workspace are removed on exit. `PYTHON`,
+`SMART_CANVAS_BROWSER` and `PRESENCE_LIVE_PORT` override local executables/port;
+`PRESENCE_LIVE_STEADY_MS` and `PRESENCE_LIVE_CHURN_ROUNDS` adjust repetition.
+This regression does not replace the original Canvas or two-device LAN gates.
+
 ## Committed-snapshot readiness
 
 Use Python 3.12 and Node 24 for the release candidate and follow the
@@ -103,3 +121,12 @@ The required Public readiness browser group runs it automatically. Generator
 contracts and the read-only resource inventory are covered by
 `python -m unittest tests.test_frontend_assets` and
 `python scripts/sync_frontend_assets.py --check`.
+
+Run `ASSET_TEST_PYTHON=.venv/bin/python node tests/frontend_update_browser.cjs`
+for the long-open-page update prompt. It checks normal reload with cache enabled,
+acknowledged Canvas saves, offline/generation/save-timeout guards, snoozing,
+independent browser sessions, parent/child coordination, keyboard, languages and
+themes. Screenshots are written to `/tmp/frontend-update-light.png` and
+`/tmp/frontend-update-dark.png`. `IC_BROWSER_BIN` can select an installed Chromium
+browser. `python -m unittest tests.test_frontend_update_api` verifies the real
+authenticated version API across admin and designer accounts.

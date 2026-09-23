@@ -120,8 +120,8 @@ window.StudioI18n.register({
     "en": "Unsupported storage. Choose a local or external drive."
   },
   "onboarding.selectSub": {
-    "zh": "选择你已经有账号、API Key 或本机登录的服务。可以多选，之后也可以继续添加。",
-    "en": "Choose services you already have an account, API key or local sign-in for. Select more than one, or add others later."
+    "zh": "选择你已经有账号、API Key 或本机登录的服务。可以多选，也可以稍后配置，先进入 Reroll。",
+    "en": "Choose services you already have an account, API key or local sign-in for. Select multiple services, or set them up later and explore Reroll first."
   },
   "onboarding.selectTitle": {
     "zh": "你现在使用哪些 AI 服务？",
@@ -288,12 +288,12 @@ window.StudioI18n.register({
     "en": "Administrator created"
   },
   "onboarding.noSource": {
-    "zh": "还差一个可用的 AI 服务",
-    "en": "Connect one AI service to continue"
+    "zh": "基础设置已完成",
+    "en": "Basic setup is complete"
   },
   "onboarding.noSourceSub": {
-    "zh": "至少连接一个生成来源，就可以开始创作。其他服务可以以后配置。",
-    "en": "Connect at least one generation source to start creating. Set up the others later."
+    "zh": "你可以先创建画布、导入和整理素材。需要 AI 生成时，再到「API 设置」连接服务。",
+    "en": "You can create canvases, import media and organize your work now. Connect a service in API settings when you need AI generation."
   },
   "onboarding.retry": {
     "zh": "返回连接服务",
@@ -330,6 +330,14 @@ window.StudioI18n.register({
   "onboarding.startCreating": {
     "zh": "开始创作",
     "en": "Start creating"
+  },
+  "onboarding.enterReroll": {
+    "zh": "进入 Reroll",
+    "en": "Open Reroll"
+  },
+  "onboarding.configureServices": {
+    "zh": "配置 AI 服务",
+    "en": "Set up AI services"
   },
   "onboarding.keyHint": {
     "zh": "密钥仅保存到这台设备。",
@@ -448,8 +456,8 @@ window.StudioI18n.register({
     "en": "Complete setup on the computer running Reroll."
   },
   "onboarding.no_source": {
-    "zh": "至少连接一个可用的 AI 服务后才能开始创作。",
-    "en": "Connect at least one usable AI service before you start creating."
+    "zh": "已连接的服务配置发生变化。请重新连接，或选择「稍后配置」进入 Reroll。",
+    "en": "Your connected service configuration has changed. Reconnect, or choose Set up later to open Reroll."
   },
   "onboarding.onboarding_finished": {
     "zh": "引导已经完成。",

@@ -103,6 +103,52 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual({"apimart"}, set(self.client.get("/api/admin/onboarding").json()["services"]))
         self.assertEqual(200, self.client.post("/api/admin/onboarding/complete", json={}).status_code)
 
+    def test_explicit_defer_without_services_survives_restart_and_login(self):
+        response = self.client.post("/api/admin/onboarding/complete", json={"intent": "defer"})
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("/static/canvas-list.html", response.json()["next_url"])
+        self.assertFalse(AuthSystem(self.auth.database_path).onboarding_status()["pending"])
+        self.assertEqual({}, self.providers)
+        self.client.post("/api/auth/logout")
+        self.client.post("/api/auth/login", json={"username": "designer", "password": "sample-password"})
+        for path in ("/", "/static/canvas-list.html"):
+            self.assertNotEqual("/setup", self.client.get(path, follow_redirects=False).headers.get("location"))
+        self.assertEqual(200, self.client.post("/api/admin/onboarding/complete", json={"intent": "defer"}).status_code)
+
+    def test_defer_after_failure_preserves_existing_configuration(self):
+        self.connect()
+        self.valid = False
+        self.connect("modelscope")
+        before = json.dumps(self.providers, sort_keys=True)
+        records = self.auth.onboarding_status()["services"]
+        self.assertEqual(200, self.client.post("/api/admin/onboarding/complete", json={"intent": "defer"}).status_code)
+        self.assertEqual(before, json.dumps(self.providers, sort_keys=True))
+        self.assertEqual(records, self.auth.onboarding_status()["services"])
+
+    def test_failed_only_service_can_be_deferred_without_becoming_connected(self):
+        self.valid = False
+        self.connect()
+        self.assertEqual(200, self.client.post("/api/admin/onboarding/complete", json={"intent": "defer"}).status_code)
+        self.assertEqual({}, self.client.get("/api/admin/onboarding").json()["services"])
+
+    def test_unknown_completion_intent_cannot_bypass_source_check(self):
+        self.assertEqual(422, self.client.post("/api/admin/onboarding/complete", json={"intent": "anything"}).status_code)
+        self.assertTrue(self.auth.onboarding_status()["pending"])
+
+    def test_defer_keeps_access_controls(self):
+        payload = {"intent": "defer"}
+        self.assertEqual(403, self.client.post("/api/admin/onboarding/complete", json=payload,
+                                             headers={"Origin": "https://external.example"}).status_code)
+        with TestClient(self.app, client=("192.168.1.9", 1234)) as remote:
+            remote.post("/api/auth/login", json={"username": "designer", "password": "sample-password"})
+            self.assertEqual(403, remote.post("/api/admin/onboarding/complete", json=payload).status_code)
+        self.client.post("/api/auth/logout")
+        self.assertEqual(401, self.client.post("/api/admin/onboarding/complete", json=payload).status_code)
+        self.auth.create_user(username="viewer", password="sample-password", role="designer")
+        self.client.post("/api/auth/login", json={"username": "viewer", "password": "sample-password"})
+        self.assertEqual(403, self.client.post("/api/admin/onboarding/complete", json=payload).status_code)
+        self.assertTrue(self.auth.onboarding_status()["pending"])
+
     def test_empty_model_result_does_not_complete(self):
         self.empty_models=True
         self.assertEqual("no_models",self.connect()[-1]["code"])

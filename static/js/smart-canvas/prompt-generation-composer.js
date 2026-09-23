@@ -333,6 +333,12 @@
     }
     global.SmartCanvasModules = global.SmartCanvasModules || {};
     global.SmartCanvasModules.promptGenerationComposer = Object.freeze({update,position,focus,owns,submit,persist,
+        preparePageRefresh:() => {
+            if(composing || submitting.size) return false;
+            if(root && !root.hidden && eligible(current())) persist();
+            return !conflict && drafts.size === 0;
+        },
+        pageRefreshBlocked:() => Boolean(composing || submitting.size || conflict || drafts.size),
         expand:node => { if(targetId !== node.id) focus(node); return setExpanded(true); },
         refresh:() => { if(targetId) update(current()); },
         editorFor:node => node?.id === targetId ? editor : null

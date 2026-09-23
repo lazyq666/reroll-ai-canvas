@@ -6,6 +6,7 @@ WebSockets, production generation settlement and mutation rules remain real.
 from __future__ import annotations
 
 import contextlib
+import asyncio
 import copy
 import json
 from pathlib import Path
@@ -17,10 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'backend'), str(ROOT / 'scripts')]
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, JSONResponse
 import uvicorn
 
-from infinite_canvas.frontend_assets import FrontendStaticFiles
+from infinite_canvas.frontend_assets import FrontendStaticFiles, frontend_revision
 from infinite_canvas.canvas_realtime import apply_operation, enable_realtime, public_snapshot
 from sync_frontend_assets import AssetGraph
 
@@ -67,6 +68,8 @@ def create_fixture(directory):
     static = FrontendStaticFiles(directory=old / 'static')
     state = {'phase': 'old', 'broken': False, 'canvas': None, 'mutations': [], 'tasks': [], 'requests': []}
     sockets = set()
+    mutation_gate = asyncio.Event()
+    mutation_gate.set()
     disk = directory / 'canvas.json'
     app = FastAPI()
 
@@ -86,6 +89,19 @@ def create_fixture(directory):
         persist()
 
     reset()
+
+    @app.post('/fixture/options')
+    async def options(request: Request):
+        values = await request.json()
+        state.update({key: values[key] for key in ('app_info_error', 'version') if key in values})
+        if 'hold_mutations' in values:
+            mutation_gate.clear() if values['hold_mutations'] else mutation_gate.set()
+        if 'disconnect' in values:
+            state['disconnect'] = values['disconnect']
+            if values['disconnect']:
+                for socket in list(sockets):
+                    await socket.close(code=1001)
+        return {'ok': True}
 
     @app.middleware('http')
     async def record(request, call_next):
@@ -121,6 +137,9 @@ def create_fixture(directory):
 
     @app.websocket('/ws/canvases/{canvas_id}')
     async def canvas_socket(socket: WebSocket, canvas_id: str):
+        if state.get('disconnect'):
+            await socket.close(code=1008)
+            return
         await socket.accept()
         sockets.add(socket)
         await socket.send_json({'type': 'canvas_snapshot', 'canvas_id': canvas_id,
@@ -132,6 +151,7 @@ def create_fixture(directory):
                 if message['type'] == 'ping':
                     await socket.send_json({'type': 'pong', 'revision': public_snapshot(state['canvas'])['revision']})
                 elif message['type'] == 'canvas_mutation':
+                    await mutation_gate.wait()
                     result = apply_operation(state['canvas'], message['operation'], actor_id='fixture-admin')
                     state['mutations'].append(copy.deepcopy(message['operation']))
                     persist()
@@ -146,6 +166,13 @@ def create_fixture(directory):
 
     @app.api_route('/api/{path:path}', methods=['GET', 'POST', 'PATCH'])
     async def api(path: str, request: Request):
+        if path == 'app-info':
+            if state.get('app_info_error'):
+                return Response(status_code=503)
+            release = old if state['phase'] == 'old' else new
+            return JSONResponse({'version': state.get('version', '2026.09.23.1'),
+                                 'frontend_revision': frontend_revision(release / 'static/frontend-assets.json')},
+                                headers={'Cache-Control': 'no-store'})
         if path == 'canvases/upgrade-fixture':
             return {'canvas': public_snapshot(json.loads(disk.read_text()))}
         if path == 'auth/me':

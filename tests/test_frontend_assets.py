@@ -198,6 +198,19 @@ class FrontendAssetBrowserTests(unittest.TestCase):
 
 
 class FrontendHttpCacheTests(unittest.TestCase):
+    def test_revision_tracks_manifest_content_and_handles_missing_inventory(self):
+        from infinite_canvas.frontend_assets import frontend_revision
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / 'frontend-assets.json'
+            self.assertEqual(frontend_revision(manifest), '')
+            manifest.write_text('{"release":"old"}')
+            old = frontend_revision(manifest)
+            self.assertEqual(len(old), 64)
+            os.utime(manifest, ns=(1, 1))
+            self.assertEqual(frontend_revision(manifest), old, 'mtime is not revision authority')
+            manifest.write_text('{"release":"new"}')
+            self.assertNotEqual(frontend_revision(manifest), old, 'Same-size live updates invalidate cache')
+
     def test_html_revalidates_and_fingerprinted_resources_remain_cacheable(self):
         from fastapi import FastAPI
         from fastapi.testclient import TestClient

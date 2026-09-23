@@ -42,7 +42,7 @@ from io import BytesIO
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from infinite_canvas.frontend_assets import FrontendStaticFiles
+from infinite_canvas.frontend_assets import FrontendStaticFiles, frontend_revision
 from fastapi.responses import FileResponse, Response, StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -524,6 +524,9 @@ async def canvas_realtime_endpoint(
         return
     if session is None:
         return
+    connected_at = time.monotonic()
+    close_code = 1006
+    close_category = "transport"
     try:
         while True:
             raw = await websocket.receive_text()
@@ -540,6 +543,7 @@ async def canvas_realtime_endpoint(
             try:
                 async with MEDIA_CLEANUP_GATE.activity():
                     if CLOUD_TRANSITION_PUBLISHED:
+                        close_code, close_category = 1012, "cloud-transition"
                         await websocket.close(code=1012)
                         return
                     await CANVAS_SYNC.receive_realtime(
@@ -550,16 +554,35 @@ async def canvas_realtime_endpoint(
                     )
             except TursoError as exc:
                 print(f"Canvas cloud storage unavailable: {exc.code}")
+                close_code, close_category = 1013, "cloud-storage"
                 await websocket.close(code=1013, reason=exc.code)
                 return
             except CanvasSyncError as exc:
-                await websocket.close(code=1011 if exc.status_code >= 500 else 4403)
+                close_code = 1011 if exc.status_code >= 500 else 4403
+                close_category = "canvas-sync"
+                await websocket.close(code=close_code)
                 return
-    except WebSocketDisconnect:
-        pass
+    except WebSocketDisconnect as exc:
+        close_code = exc.code
+        # Client close text is untrusted and can contain secrets. Retain only
+        # the finite categories emitted by our own reconnect paths.
+        if exc.reason in {
+            "resync", "manual-retry", "resync:queued-revision-gap",
+            "resync:revision-gap", "resync:mutation-rejected",
+            "resync:invalid-message", "resync:heartbeat-revision",
+            "resync:heartbeat-timeout", "resync:legacy-update",
+        }:
+            close_category = exc.reason
     except Exception as exc:
+        close_category = "exception"
         print(f"Canvas realtime error ({canvas_id}): {exc}")
     finally:
+        logging.getLogger("uvicorn.error").info(
+            "canvas_realtime_closed time=%s account_id=%s canvas_id=%s code=%s category=%s duration_ms=%s",
+            datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            session.actor_id, session.canvas_id, close_code, close_category,
+            round((time.monotonic() - connected_at) * 1000),
+        )
         await CANVAS_SYNC.close_realtime(session)
 
 
@@ -3081,7 +3104,10 @@ def parse_prompt_template_markdown(text: str):
 
 @app.get("/api/app-info")
 def app_info():
-    return {"version": current_app_version()}
+    return JSONResponse({
+        "version": current_app_version(),
+        "frontend_revision": frontend_revision(Path(STATIC_DIR) / "frontend-assets.json"),
+    }, headers={"Cache-Control": "no-store"})
 
 def connectivity_probe(name: str, url: str, timeout: float = 5.0) -> Dict[str, Any]:
     started = time.time()

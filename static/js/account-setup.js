@@ -119,7 +119,7 @@
           '<ic-checkbox class="service" name="onboarding_service_'+s.id+'" label="'+escape(name(s))+'" appearance="checkmark-end" data-legal-combination="checkmark-end-label" data-component-variant="list" data-component-name="ic-checkbox-list" data-service="'+s.id+'" '+(state.selected.includes(s.id)?'checked':'')+'>'+
           (s.image?'<img src="'+s.image+'" alt="">':'<span class="monogram" aria-hidden="true">'+s.mark+'</span>')+
           '</ic-checkbox>').join('')+'</div>').join('')+
-        alert()+actions((hasSource()?button('ready','showReady'): '<span></span>')+'<ic-button id="configure" hierarchy="primary" '+(!state.selected.length?'disabled':'')+'>'+text('configure',{n:state.selected.length})+'</ic-button>');
+        alert()+actions(button('ready',hasSource()?'showReady':'later')+'<ic-button id="configure" hierarchy="primary" '+(!state.selected.length?'disabled':'')+'>'+text('configure',{n:state.selected.length})+'</ic-button>');
     } else if(state.step===3) {
       const service=current(),d=state.drafts[service.id] ||= {key:'',name:'',url:'',protocol:''};
       html='<div class="queue">'+state.queue.map((id,i)=>'<span class="pill '+(i===state.index?'current':'')+'">'+(state.connected[id]?'✓ ':state.skipped.includes(id)?'○ ':'')+name(getService(id))+'</span>').join('')+'</div><p class="muted">'+text('position',{n:state.index+1,total:state.queue.length})+'</p><h1 tabindex="-1">'+name(service)+'</h1>';
@@ -140,11 +140,11 @@
       if(state.stage) html+='<div class="ic-progress" role="status">'+text(state.stage==='complete'?'classified':state.stage,{n:state.count})+(state.stage==='complete'?'<small>'+text('classification')+'</small>':'')+'</div>';
       html+=actions(button('skip','later')+'<small>'+text('state',{n:Object.keys(state.connected).length,s:state.skipped.length})+'</small>');
     } else {
-      html='<div class="ready-mark">'+(hasSource()?'✓':'○')+'</div>'+title(hasSource()?'readyTitle':'noSource',hasSource()?'readySub':'noSourceSub')+
+      html='<div class="ready-mark">✓</div>'+title(hasSource()?'readyTitle':'noSource',hasSource()?'readySub':'noSourceSub')+
         result('✓ '+text('created'),state.account.username)+result('✓ '+text('pathReady'),state.directory)+
         Object.entries(state.connected).map(([id,item])=>result('✓ '+(getService(id)?name(getService(id)):item.name),text('modelCount',{n:item.count}))).join('')+
         state.skipped.filter(id=>!state.connected[id]).map(id=>result('○ '+name(getService(id)),text('skipped'))).join('')+
-        '<p class="muted">'+text('advanced')+'</p>'+alert()+actions(button(hasSource()?'start-creating':'choose-services',hasSource()?'startCreating':'retry',true));
+        '<p class="muted">'+text('advanced')+'</p>'+alert()+actions(button('choose-services','configureServices')+button('start-creating','enterReroll',true));
     }
     $('setup-content').innerHTML=html;
     window.lucide.createIcons({root:$('setup-content')});
@@ -153,7 +153,7 @@
   function bind() {
     on('reload',boot); on('restart',restart);
     on('back',()=>setStep(state.step-1));
-    on('ready',()=>setStep(4)); on('choose-services',()=>setStep(2));
+    on('ready',()=>{state.skipped=[...new Set([...state.skipped,...state.selected.filter(id=>!state.connected[id])])];setStep(4)}); on('choose-services',()=>setStep(2));
     const adminNext=event=>{
       event?.preventDefault();
       const a=state.account; a.username=inputValue('setup-username');a.password=inputValue('setup-password');a.confirm=inputValue('setup-password-confirm');
@@ -190,8 +190,10 @@
     on('skip',()=>{if(state.busy)return;state.skipped.push(current().id);nextService()});
     on('install',()=>{state.help=true;render()});on('recheck',enterService);on('login',startLogin);
     on('start-creating',async()=>{
+      if(state.busy)return;
+      const intent=hasSource()?'connected':'defer';
       state.busy=true;state.error='';render();
-      try{const result=await request('/api/admin/onboarding/complete',{});sessionStorage.removeItem(queueKey());window.location.assign(result.next_url)}
+      try{const result=await request('/api/admin/onboarding/complete',{intent});sessionStorage.removeItem(queueKey());window.location.assign(result.next_url)}
       catch(error){if(error.message==='no_source'){await boot()}fail(error,'finishFailed')}
     });
   }
