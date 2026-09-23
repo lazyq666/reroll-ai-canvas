@@ -132,9 +132,9 @@ async function videoScenario(context, baseUrl) {
     const url=new URL(route.request().url());
     if(url.searchParams.get('operation')!=='video.generate') return route.continue();
     await route.fulfill({json:{provider_id:'manual-mock',model_id:url.searchParams.get('model'),operation:'video.generate',capability_schema_version:1,catalog_revision:'laz51',support_state:'supported',
-      inputs:{text:{minimum:0,maximum:1},image:{minimum:0,maximum:8},video:{minimum:0,maximum:0},audio:{minimum:0,maximum:0}},
+      inputs:{text:{minimum:0,maximum:1},image:{minimum:0,maximum:8},video:{minimum:0,maximum:1},audio:{minimum:0,maximum:0}},
       output:{kind:'video',count:{minimum:1,maximum:1}},parameters:{duration_seconds:{type:'integer',minimum:1,maximum:10},aspect_ratio:{type:'enum',values:['16:9']},resolution:{type:'enum',values:['720p']}},
-      media_contract:{known:true,commands:{multimodal2video:{image:{minimum:0,maximum:8},duration_seconds:{minimum:1,maximum:10},aspect_ratios:['16:9'],video_resolutions:['720p']}}}}});
+      media_contract:{known:true,commands:{multimodal2video:{image:{minimum:0,maximum:8},video:{minimum:0,maximum:1},duration_seconds:{minimum:1,maximum:10},aspect_ratios:['16:9'],video_resolutions:['720p']}}}}});
   });
   await page.route('**/api/canvas-video-tasks',async route=>{
     requests.push(route.request().postDataJSON());
@@ -175,6 +175,32 @@ async function videoScenario(context, baseUrl) {
   assert.deepEqual(await thumbnails.evaluateAll(items=>items.map(el=>el.dataset.inputInstanceId || el.dataset.outputId || `${el.dataset.nodeId}|${el.dataset.imageIndex}`)),submittedIds,'Keep reference instance identity and order, including identical URLs');
   await page.evaluate(()=>window.StudioI18n.set('en'));
   assert.deepEqual(await thumbnails.evaluateAll(items=>items.map(el=>el.getAttribute('label'))),['Image 1','Image 2','Image 3']);
+  await page.evaluate(()=>{
+    const source=nodes.find(n=>n.id==='media-a');
+    nodes.push({
+      id:'completed-video',type:'smart-image',x:850,y:120,w:240,h:160,
+      generationOutputNode:true,referenceGenerationKind:'video',outputKind:'video',
+      images:[{url:'/static/images/test/fixture.mp4',kind:'video',name:'Finished video'}],
+      runSettings:{...source.runSettings},promptDraftText:'Edit finished video'
+    });
+    selectedId='completed-video';selectedIds=[];selectedImage={nodeId:'',index:-1};render();updateComposer();
+  });
+  await page.locator('#promptInput').fill('Edit finished video');
+  await page.locator('#runBtn').click();
+  await page.waitForFunction(()=>!runBtn.loading);
+  assert.equal(requests.length,3);
+  const completedVideoEdit=await page.evaluate(targetId=>({
+    original:nodes.find(n=>n.id==='completed-video'),
+    target:nodes.find(n=>n.id===targetId),
+    connectedToOriginal:canvas.connections.some(link=>link.from==='completed-video' && link.to===targetId)
+  }),requests[2].node_id);
+  assert.equal(completedVideoEdit.original.images[0].url,'/static/images/test/fixture.mp4');
+  assert.equal(completedVideoEdit.original.pendingTasks?.length || 0,0,'Finished video remains finished');
+  assert.notEqual(requests[2].node_id,'completed-video','Editing a finished video submits into a new node');
+  assert.equal(completedVideoEdit.target?.id,requests[2].node_id);
+  assert.equal(completedVideoEdit.target?.outputKind,'video');
+  assert.equal(completedVideoEdit.target?.pendingTasks?.length,1,'New video node shows the running task');
+  assert.equal(completedVideoEdit.connectedToOriginal,false,'Independent video runs do not become reference inputs');
   await page.evaluate(()=>applyTheme('dark'));
   await page.evaluate(id=>{
     const node=nodes.find(n=>n.id===id);

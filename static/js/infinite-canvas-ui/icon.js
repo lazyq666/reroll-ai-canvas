@@ -82,6 +82,8 @@ export const IC_ICON_NAMES = Object.freeze({
   'omni-reference': 'Atom',
   play: 'Play',
   pause: 'Pause',
+  'play-filled': 'Play',
+  'pause-filled': 'Pause',
   volume: 'Volume2',
   'volume-muted': 'VolumeX',
   people: 'Users',
@@ -140,6 +142,12 @@ export const IC_ICON_NAMES = Object.freeze({
 });
 
 const CUSTOM_ICON_PATHS = Object.freeze({
+  'play-filled': [
+    'M240,128a15.74,15.74,0,0,1-7.6,13.51L88.32,229.65a16,16,0,0,1-16.2.3A15.86,15.86,0,0,1,64,216.13V39.87a15.86,15.86,0,0,1,8.12-13.82,16,16,0,0,1,16.2.3L232.4,114.49A15.74,15.74,0,0,1,240,128Z',
+  ],
+  'pause-filled': [
+    'M216,48V208a16,16,0,0,1-16,16H160a16,16,0,0,1-16-16V48a16,16,0,0,1,16-16h40A16,16,0,0,1,216,48ZM96,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V48A16,16,0,0,0,96,32Z',
+  ],
   'depth-map':[
     'M12 3L20 7L12 11L4 7L12 3Z',
     'M4 12L12 16L20 12',
@@ -261,10 +269,11 @@ export class IcIcon extends HTMLElement {
 
     const customPaths = CUSTOM_ICON_PATHS[semanticName];
     if (customPaths) {
+      const filled = semanticName === 'play-filled' || semanticName === 'pause-filled';
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('viewBox', '0 0 24 24');
-      svg.setAttribute('fill', 'none');
-      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('viewBox', filled ? '0 0 256 256' : '0 0 24 24');
+      svg.setAttribute('fill', filled ? 'currentColor' : 'none');
+      svg.setAttribute('stroke', filled ? 'none' : 'currentColor');
       svg.setAttribute('stroke-linecap', 'round');
       svg.setAttribute('stroke-linejoin', 'round');
       svg.setAttribute('aria-hidden', 'true');

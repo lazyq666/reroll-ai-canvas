@@ -400,7 +400,7 @@ console.log(JSON.stringify(targets));
             delete_selected_start,
         )
         delete_image_start = self.script.index("function deleteImage")
-        delete_image_end = self.script.index("\nasync function renameSmartNodeImage", delete_image_start)
+        delete_image_end = self.script.index("\nfunction renameSmartNodeImage", delete_image_start)
         functions = (
             self.script[target_start:target_end]
             + "\n"
@@ -476,7 +476,7 @@ console.log(JSON.stringify({{afterMediaDelete, afterMemberDelete:{{nodes, select
     def test_removing_one_of_two_generated_images_keeps_media_display_size(self):
         delete_image_start = self.script.index("function deleteImage")
         delete_image_end = self.script.index(
-            "\nasync function renameSmartNodeImage",
+            "\nfunction renameSmartNodeImage",
             delete_image_start,
         )
         delete_image = self.script[delete_image_start:delete_image_end]

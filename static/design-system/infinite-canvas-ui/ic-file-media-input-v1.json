@@ -11,7 +11,7 @@
   },
   "review": {
     "contract": {"status": "confirmed", "reviewer": "User (Issue #145 follow-up)", "confirmedOn": "2026-08-25"},
-    "implementation": {"status": "implemented", "implementedOn": "2026-08-25", "evidence": ["/static/js/infinite-canvas-ui/file-media-input.js?v=asset-3afbfbd03078", "/tests/infinite_canvas_ui_file_media_input_browser_harness.html"]},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-25", "evidence": ["/static/js/infinite-canvas-ui/file-media-input.js?v=asset-52f0eeec6878", "/tests/infinite_canvas_ui_file_media_input_browser_harness.html"]},
     "live": {"status": "confirmed", "reviewer": "Codex visual QA", "confirmedOn": "2026-08-25", "note": "Component Library Light, Dark and 430px narrow screenshots inspected; shared player and file/media browser contracts passed."},
     "migration": {"status": "implemented", "evidence": "Command pickers remain hidden; Smart Canvas node uses node Surface; RunningHub non-image inputs use media slots."}
   },
@@ -45,12 +45,12 @@
       "invariants": ["Behavior policy never creates a visual shape.", "compact is a clickable, keyboard-operable and drop-scoped Surface.", "node keeps its Surface drop-scoped, opens the picker only from its shared primary ic-button, and inherits the caller cursor outside that button.", "compact renders only upload icon and label."]
     },
     {
-      "tag": "ic-media-player-controls", "purpose": "Shared audio/video playback controls over one slotted native media engine.",
-      "requiredAttributes": ["kind", "label"], "attributes": ["kind", "label", "disabled"],
-      "slots": ["media: exactly one native video or audio element matching kind"], "properties": ["media"], "methods": ["play", "pause", "togglePlayback"], "events": ["ic-playback-error", "ic-contract-error"],
-      "semanticDimensions": {"kind": ["video", "audio"], "state": ["paused", "playing", "muted", "disabled", "contract-error"]},
-      "legalCombinations": [{"id": "media-player-video", "kind": "video"}, {"id": "media-player-audio", "kind": "audio"}],
-      "invariants": ["The native media element owns decoding, buffering and playback; its browser controls are disabled.", "Both kinds share play/pause, seek, elapsed/duration and mute/unmute only, composed from public ic-* controls.", "Both kinds use a vertical control gradient from fully transparent at the top to var(--ui-color-mask) at the bottom. The token remains the endpoint color rather than owning gradient structure. Both use white controls and a full-width seek row; volume sliders, fullscreen and Picture in Picture are intentionally absent.", "Keyboard and accessible names come from ic-icon-button and ic-slider; the control strip never covers the slot delete action."]
+      "tag": "ic-media-player-controls", "purpose": "Shared audio/video playback controls over one native media engine; node variant binds an existing sibling video.",
+      "requiredAttributes": ["kind", "label"], "attributes": ["kind", "label", "disabled", "variant", "expanded"],
+      "slots": ["media: exactly one native video or audio element matching kind in default variant; node variant uses the media property"], "properties": ["media"], "methods": ["play", "pause", "togglePlayback"], "events": ["ic-playback-error", "ic-contract-error", "ic-expand-request", "ic-loop-request"],
+      "semanticDimensions": {"variant": ["default", "node"], "kind": ["video", "audio"], "state": ["paused", "playing", "muted", "disabled", "contract-error"]},
+      "legalCombinations": [{"id": "media-player-video", "kind": "video"}, {"id": "media-player-audio", "kind": "audio"}, {"id": "media-player-node", "kind": "video", "variant": "node"}],
+      "invariants": ["The native media element owns decoding, buffering and playback; its browser controls are disabled.", "Default variants share play/pause, seek, elapsed/duration and mute/unmute only, composed from public ic-* controls.", "Node video variant accepts an existing video through the writable media property; compact pill controls and bottom seek bar emit ic-expand-request and ic-loop-request for caller-owned presentation and loop state. The same component travels with its engine into the full-screen preview, using expanded for the collapse action. Pointer clicks have no focus ring; native focus-visible retains keyboard focus. It never creates or reloads a media engine.", "Default variants use a vertical control gradient from fully transparent at the top to var(--ui-color-mask) at the bottom. The token remains the endpoint color rather than owning gradient structure. Both use white controls and a full-width seek row; volume sliders, fullscreen and Picture in Picture are intentionally absent.", "Keyboard and accessible names come from ic-icon-button and ic-slider; the control strip never covers the slot delete action."]
     },
     {
       "tag": "ic-media-slot", "purpose": "One media/file slot with in-place lifecycle and actions.",

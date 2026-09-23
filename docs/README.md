@@ -108,12 +108,12 @@ flowchart LR
 - 一条长期事实只在一个权威位置定义，其他文档只链接。
 - 新功能先写 Active Spec；完成实现不等于 Current，必须先通过风险相称的验证。
 - Verified 后提炼稳定行为到 `current/`，原计划进入 `archive/` 或由 Git 历史保存。
-- 公开 GitHub Issues 是需求、Bug、调查和开发任务面向贡献者的事实来源；维护者可另用私有项目看板，仓库不再维护重复 `roadmap.md`。
-- 临时 Handoff 不作为长期文档类型。仍在进行的交接应放在当前 Issue/PR；稳定规则进入 Spec，提交和分支上下文留在 Git。
+- Linear 是需求、Bug、调查和开发任务的跟踪位置；仓库不再维护重复 `roadmap.md`。
+- 临时 Handoff 不作为长期文档类型。仍在进行的交接应放在对应的 Linear 任务或 PR；稳定规则进入 Spec，提交和分支上下文留在 Git。
 - 新增、删除或改名领域概念时更新 `CONTEXT.md`；实现和文件路径不得写入词汇定义。
 - 新增/删除页面、公共 API/WebSocket、Provider 类别、主要模块或 Current Spec 时更新 `PROJECT-MAP.md`。
 - 发现文档与代码不一致时标记 `drift`，通过最高外部测试接缝确认现状，再由承诺负责人决定目标行为。
 
 ## 当前计划在哪里
 
-需求、Bug、调查和开发任务统一进入公开 GitHub Issues；维护者可在私有项目看板中按 `Todo → In Progress → Review → Done` 管理。`docs/active/` 只保存需要长期评审的功能规格，不保存任务板镜像、跨电脑分支指令或临时聊天交接。
+需求、Bug、调查和开发任务在 Linear 中跟踪；已有 GitHub Issues 保留为历史参考，新工作无需创建 GitHub Issue。`docs/active/` 只保存需要长期评审的功能规格，不保存任务板镜像、跨电脑分支指令或临时聊天交接。

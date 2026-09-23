@@ -1,6 +1,16 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "common.media.play": { zh: "播放", en: "Play" },
+        "common.media.pause": { zh: "暂停", en: "Pause" },
+        "common.media.seek": { zh: "播放进度", en: "Playback position" },
+        "common.media.mute": { zh: "静音", en: "Mute" },
+        "common.media.unmute": { zh: "取消静音", en: "Unmute" },
+        "common.media.expand": { zh: "全屏播放", en: "Fullscreen playback" },
+        "common.media.collapse": { zh: "退出全屏", en: "Exit fullscreen" },
+        "common.media.loopOn": { zh: "开启循环播放", en: "Turn loop on" },
+        "common.media.loopOff": { zh: "关闭循环播放", en: "Turn loop off" },
+        "common.media.videoPlayer": { zh: "视频播放器", en: "Video player" },
         "common.apiSettings": { zh: "API 设置", en: "API settings" },
         "common.comfyuiSettings": { zh: "工作流设置", en: "Workflow settings" },
         "common.darkMode": { zh: "切换到深色模式", en: "Switch to dark mode" },

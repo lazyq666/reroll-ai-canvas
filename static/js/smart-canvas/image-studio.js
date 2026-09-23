@@ -40,32 +40,6 @@ function setImageStudioToggleState(controlOrId, pressed){
     control.pressed = Boolean(pressed);
     control.toggleAttribute('pressed', Boolean(pressed));
 }
-function syncPreviewVideoLoopControl(enabled=false){
-    const button = document.getElementById('previewVideoLoopBtn');
-    if(!button) return;
-    const active = Boolean(enabled);
-    setImageStudioToggleState(button, active);
-    button.setAttribute('hierarchy', 'secondary');
-    button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    const syncSelectedSurface = () => {
-        const base = button.shadowRoot?.querySelector('[part~="base"]');
-        if(!base) return;
-        const selected = Boolean(button.pressed && button.hasAttribute('pressed'));
-        base.style.backgroundColor = selected ? '#141414' : '';
-        base.style.color = selected ? '#ffffff' : '';
-        base.style.borderColor = selected ? 'transparent' : '';
-    };
-    syncSelectedSurface();
-    button.updateComplete?.then(syncSelectedSurface);
-    const icon = button.querySelector('ic-icon');
-    if(icon) icon.setAttribute('name', active ? 'check' : 'loop');
-    const label = button.querySelector('[data-video-loop-label]');
-    if(label){
-        const key = active ? 'smart.action.autoLoopOn' : 'smart.action.autoLoop';
-        label.setAttribute('data-i18n', key);
-        label.textContent = tr(active ? 'smart.action.autoLoopOn' : 'smart.action.autoLoop');
-    }
-}
 function setImageStudioApplyButton(label, icon='edit'){
     const button = document.getElementById('imageEditApplyBtn');
     if(!button) return;
@@ -646,7 +620,6 @@ function setImageEditMode(mode, userTouched=false){
     if(previewDownloadAllBtn) previewDownloadAllBtn.style.display = isPreview && !isVideoPreview && previewDownloadGroupItems().length > 1 ? 'inline-flex' : 'none';
     if(modeBar) modeBar.style.display = isVideoPreview ? 'none' : '';
     if(videoFrameTools) videoFrameTools.style.display = isVideoPreview && isPreview ? 'flex' : 'none';
-    if(isVideoPreview) syncPreviewVideoLoopControl(Boolean(document.getElementById('previewCurrentVideo')?.loop));
     if(zoomLabel) zoomLabel.style.display = isVideoPreview ? 'none' : '';
     previewTools?.toggleAttribute('hidden', !isPreview || panoramaState.enabled);
     if(previewZoomControls) previewZoomControls.style.display = isVideoPreview ? 'none' : 'flex';
@@ -1376,15 +1349,6 @@ function currentPreviewVideo(){
     if(!imageStudioDialogOpen()) return null;
     if(mediaKindForItem(currentEditImage().image || {}) !== 'video') return null;
     return document.getElementById('previewCurrentVideo');
-}
-function togglePreviewVideoLoop(){
-    const video = currentPreviewVideo();
-    if(!video) return false;
-    const enabled = typeof window.smartPlaybackTogglePreviewLoop === 'function'
-        ? window.smartPlaybackTogglePreviewLoop(video)
-        : (video.loop = !video.loop);
-    syncPreviewVideoLoopControl(enabled);
-    return enabled;
 }
 function videoFrameStep(){
     const image = currentEditImage().image || {};
@@ -2685,11 +2649,8 @@ function openImageEditor(nodeId, imageIndex=0, options={}){
             updatePreviewNavButtons();
             refreshIcons();
         }
-        const loopEnabled = typeof window.smartPlaybackPreparePreviewVideo === 'function'
-            ? window.smartPlaybackPreparePreviewVideo(previewVideo, nodeId, imageIndex, {previewSwitch})
-            : true;
+        window.smartPlaybackPreparePreviewVideo?.(previewVideo, nodeId, imageIndex, {previewSwitch});
         if(previewVideo && typeof window.smartPlaybackPreparePreviewVideo !== 'function') previewVideo.loop = true;
-        syncPreviewVideoLoopControl(loopEnabled);
         return;
     }
     const primaryEditorSrc = displayMediaUrl(image);
@@ -2780,7 +2741,6 @@ function closeImageEditor(options={}){
     if(previewVideo){
         previewVideo.pause?.();
         previewVideo.loop = false;
-        syncPreviewVideoLoopControl(false);
         previewVideo.onloadedmetadata = null;
         previewVideo.onloadeddata = null;
         previewVideo.removeAttribute('src');

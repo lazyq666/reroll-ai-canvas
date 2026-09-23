@@ -6,11 +6,7 @@ Unless the user explicitly requests a new worktree and branch, perform developme
 
 ### Issue tracker
 
-Bugs, requirements, and development tasks are tracked as public GitHub Issues in `lazyq666/reroll-ai-canvas`. Maintainers may mirror them to a private planning board.
-
-Project workflow: `Todo` → `In Progress` → `Review` → `Done`.
-
-Before creating an issue, search existing open and closed issues to avoid duplicates. Maintainers who use the private planning board add each new tracked issue there with status `Todo`. See `docs/agents/issue-tracker.md`.
+Bugs, requirements, investigations, and development tasks are tracked in Linear. Do not require a GitHub Issue for new work. Before creating a Linear issue, search existing work to avoid duplicates. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
 
@@ -18,7 +14,7 @@ This repository uses a single-context domain layout. Read the root `CONTEXT.md` 
 
 ### Completion documentation
 
-Before declaring a feature, bug fix, behavior removal, public configuration change, or responsibility-moving refactor complete, reconcile the delivered behavior with its tests, GitHub Issue, and authoritative documentation. Apply the change-type matrix and graduation gates in `docs/agents/change-documentation.md`; update only the authorities whose facts changed.
+Before declaring a feature, bug fix, behavior removal, public configuration change, or responsibility-moving refactor complete, reconcile the delivered behavior with its tests, tracked Linear work when applicable, and authoritative documentation. Apply the change-type matrix and graduation gates in `docs/agents/change-documentation.md`; update only the authorities whose facts changed.
 
 ### Product copy and i18n
 

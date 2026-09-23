@@ -56,37 +56,38 @@ const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
         await renameItem.waitFor({state:'visible'});
         assert.equal(await renameItem.getAttribute('label'),'重命名');
         await renameItem.click();
-        const dialog = page.locator('#smartAssetNameDialog');
-        const input = page.locator('#smartAssetNameInput');
-        const nativeInput = input.locator('input');
-        await page.waitForFunction(() => {
-            const host=document.querySelector('#smartAssetNameDialog');
-            const rect=host?.shadowRoot?.querySelector('[part="dialog"]')?.getBoundingClientRect();
-            return host?.open && host.dataset.motionState==='open' && rect?.width>0 && rect?.height>0;
-        });
+        const input = target.locator('.image-name-editor');
+        await input.waitFor({state:'visible'});
+        await page.waitForFunction(() => document.activeElement?.classList.contains('image-name-editor'));
         const initial = await input.evaluate(control => ({
             value:control.value,
-            selected:control.input?.selectionStart === 0 && control.input?.selectionEnd === control.value.length,
-            title:control.closest('ic-dialog')?.label || '',
-            label:control.closest('ic-form-field')?.getAttribute('label') || '',
+            selected:control.selectionStart === 0 && control.selectionEnd === control.value.length,
+            focused:document.activeElement === control,
+            label:control.getAttribute('aria-label'),
+            identity:control.closest('.image-name-badge')?.querySelector('.image-name-badge-identity')?.textContent,
+            icon:control.closest('.image-name-badge')?.querySelector('ic-icon')?.getAttribute('name'),
+            border:getComputedStyle(control).borderTopWidth,
+            width:control.getBoundingClientRect().width,
+            badgeWidth:control.closest('.image-name-badge')?.getBoundingClientRect().width,
         }));
-        assert.deepEqual(initial,{value:'second',selected:true,title:'重命名素材',label:'素材名称'});
-
-        await nativeInput.fill('伪装.mp3');
-        await dialog.locator('ic-button[hierarchy="primary"]').click();
-        assert.equal(await dialog.getAttribute('open') !== null,true,'invalid extension closed the dialog');
-        assert.match(
-            await dialog.locator('ic-form-field').getAttribute('validation'),
-            /\.png/,
-        );
-
-        await nativeInput.fill('角色.v2');
+        assert.equal(initial.value,'second');
+        assert.equal(initial.selected,true);
+        assert.equal(initial.focused,true);
+        assert.equal(initial.label,'素材名称');
+        assert.equal(initial.identity,'AI 生成 · ');
+        assert.equal(initial.icon,'image');
+        assert.equal(initial.border,'0px');
+        assert.ok(initial.width > 0);
+        await input.fill('伪装.mp3');
+        await input.press('Enter');
+        assert.equal(await input.isVisible(),true,'invalid extension ended editing');
+        await input.fill('角色.v2');
         await page.evaluate(() => {
             const node=nodes.find(item=>item.id==='rename-target');
             node.images=[node.images[1],node.images[0]];
         });
-        await nativeInput.press('Enter');
-        await dialog.waitFor({state:'detached'});
+        await input.press('Enter');
+        await input.waitFor({state:'detached'});
         const renamed = await page.evaluate(() => {
             const node=nodes.find(item=>item.id==='rename-target');
             return {
@@ -100,24 +101,50 @@ const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
         assert.equal(renamed.download,'角色.v2.png');
 
         await page.evaluate(() => window.StudioI18n.set('en'));
-        await page.locator('.image-node[data-id="rename-target"] [data-image-index="0"]').click({button:'right'});
-        await renameItem.waitFor({state:'visible'});
-        assert.equal(await renameItem.getAttribute('label'),'Rename');
-        await renameItem.click();
-        await page.waitForFunction(() => {
-            const host=document.querySelector('#smartAssetNameDialog');
-            const rect=host?.shadowRoot?.querySelector('[part="dialog"]')?.getBoundingClientRect();
-            return host?.open && host.dataset.motionState==='open' && rect?.width>0 && rect?.height>0;
+        const renamedBadge = page.locator('.image-node[data-id="rename-target"] [data-image-index="0"] .image-name-badge');
+        await renamedBadge.dblclick();
+        const englishInput = renamedBadge.locator('.image-name-editor');
+        assert.equal(await englishInput.getAttribute('aria-label'),'Media name');
+        await englishInput.fill('Discard me');
+        await englishInput.press('Escape');
+        assert.equal(await page.evaluate(() => nodes[0].images[0].name),'角色.v2.png');
+        await renamedBadge.dblclick();
+        await renamedBadge.locator('.image-name-editor').fill('Canvas click');
+        await page.locator('#world').click({position:{x:5,y:5},force:true});
+        assert.equal(await page.evaluate(() => nodes[0].images[0].name),'Canvas click.png');
+
+        await page.evaluate(({png}) => {
+            nodes[0].generationOutputNode = false;
+            nodes[0].uploadedAttachment = true;
+            nodes[0].images = [{url:png,kind:'image',name:'imported.png'}];
+            selectedId = 'rename-target';
+            selectedIds = [];
+            selectedImage = {nodeId:'rename-target',index:0};
+            render();
+        },{png});
+        const geometry = async () => page.evaluate(() => {
+            const node = document.querySelector('.image-node[data-id="rename-target"]');
+            const badge = node.querySelector('.image-name-badge-outside');
+            const media = node.querySelector('.node-img');
+            const editor = badge.querySelector('.image-name-editor');
+            const toolbar = document.querySelector('#smartNodeFloatingPortal');
+            return {
+                badgeTop:badge.getBoundingClientRect().top,
+                mediaTop:media.getBoundingClientRect().top,
+                editorTop:editor?.getBoundingClientRect().top,
+                editorBottom:editor?.getBoundingClientRect().bottom,
+                toolbarBottom:toolbar.classList.contains('open') ? toolbar.getBoundingClientRect().bottom : null,
+            };
         });
-        assert.deepEqual(await input.evaluate(control => ({
-            title:control.closest('ic-dialog')?.label || '',
-            label:control.closest('ic-form-field')?.getAttribute('label') || '',
-        })),{title:'Rename media',label:'Media name'});
-        await dialog.locator('ic-button[hierarchy="secondary"]').click();
-        await dialog.waitFor({state:'detached'});
+        const beforeEdit = await geometry();
+        await page.evaluate(() => renameSmartNodeImage('rename-target',0));
+        const afterEdit = await geometry();
+        assert.ok(Math.abs(beforeEdit.badgeTop-afterEdit.badgeTop) < 1, JSON.stringify({beforeEdit,afterEdit}));
+        assert.ok(afterEdit.editorBottom < afterEdit.mediaTop, JSON.stringify(afterEdit));
+        assert.ok(afterEdit.toolbarBottom < afterEdit.editorTop, JSON.stringify(afterEdit));
 
         assert.deepEqual(pageErrors,[]);
-        console.log(JSON.stringify({initial,renamed,languageSwitch:true,pageErrors},null,2));
+        console.log(JSON.stringify({initial,renamed,geometry:{beforeEdit,afterEdit},languageSwitch:true,pageErrors},null,2));
     } finally {
         await browser.close();
     }

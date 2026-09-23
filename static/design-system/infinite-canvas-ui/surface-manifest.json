@@ -53,7 +53,7 @@
   "surfaces": {
     "legacy": {
       "label": "Legacy Inventory",
-      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-6917c8f5370e",
+      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-5d6b0022f2ec",
       "sourceRevision": "sha256:bd91c5975e2c367e2aa7dd96f20bb9972b308fb5c8a2572ca9c96ca30c8335a2",
       "candidateCount": 573,
       "instanceCount": 1144,
@@ -134,7 +134,7 @@
         ]
       },
       "actions": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-ad5b0a9f5878",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-69181e13e05e",
         "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/actions-contract.html",
@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-f9a1e4a0af9d",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-9aa067a4bad0",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",
@@ -308,7 +308,7 @@
         ]
       },
       "fileMediaInput": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-file-media-input-v1.json?v=asset-ca9b51279ec1",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-file-media-input-v1.json?v=asset-ca65ce936963",
         "fixture": "/static/design-system/infinite-canvas-ui/file-media-input.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/file-media-input-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/file-media-input-contract.html",
@@ -514,7 +514,7 @@
       "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
       "classificationStatus": "pending-human-confirmation",
       "classifiedInstanceCount": 1712,
-      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-6917c8f5370e",
+      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-5d6b0022f2ec",
       "instanceIdentity": "candidate-id plus stable file, source kind and DOM path; display line is diagnostic only",
       "outcomes": [
         {

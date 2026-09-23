@@ -362,8 +362,10 @@ export class IcMentionPicker extends HTMLElement {
         }
         .media-columns {
           width:100%;
-          columns:var(--ic-mention-picker-card-width, 5.625rem);
-          column-gap:var(--ui-space-2);
+          display:grid;
+          grid-template-columns:repeat(auto-fill,var(--ic-mention-picker-card-width, 5.625rem));
+          align-items:start;
+          gap:var(--ui-space-2);
         }
         .media-leading {
           width:100%;
@@ -380,11 +382,10 @@ export class IcMentionPicker extends HTMLElement {
           width:100%;
           height:auto;
           min-height:0;
-          margin:0 0 var(--ui-space-2);
+          margin:0;
           padding:0;
           display:inline-flex;
           grid-template-columns:none;
-          break-inside:avoid;
           overflow:hidden;
           border-color:var(--ui-color-border-secondary);
           border-radius:var(--ui-radius-xs);

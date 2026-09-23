@@ -85,7 +85,7 @@ Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期�
 
 `runGeneration()` 是 Smart Canvas 的主要生成入口。它会：
 
-1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。先按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，最后追加输入框手写正文，即「文本 1 → 文本 2 → … → 手写内容」。各段以两个换行连接并跳过空段与重复文本。手写正文为空时只使用文本引用；没有文本引用时只使用手写正文。生成请求与「查看生成信息」使用同一份组装后的提示词；已有生成记录保留当次请求快照，不按新规则重排。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。媒体 `@` 引用的编号映射说明继续保留在用户需求正文之外。
+1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。先按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，最后追加输入框手写正文，即「文本 1 → 文本 2 → … → 手写内容」。各段以两个换行连接并跳过空段与重复文本。手写正文为空时只使用文本引用；没有文本引用时只使用手写正文。生成请求与「查看生成信息」使用同一份组装后的提示词；已有生成记录保留当次请求快照，不按新规则重排。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。媒体 `@` 引用按图片、视频、音频分别编号，例如「图1」「视频1」「音频1」；编号映射说明以「参考素材：」开头，按视频生成请求的图片、视频、音频分组顺序列出，并保留在用户需求正文之外。Composer 缩略图继续保留用户排列顺序，同类型内的编号与提交顺序一致。
 2. 对需要 Prompt 的运行做前置校验：空提示词时“运行”仍可点击，点击后提示“请输入提示词”；TXT 解码失败、单文件超过 1MB、合计超过 2MB，或引用媒体类型不被最终 Model Capability 支持时同样明确列出原因。校验失败不创建 Pending Node，也不提交 Provider 请求。
 3. 通过 Generation Settings 生成不可变的运行快照，并冻结本次使用的 Model Operation、能力 Schema 版本和目录 Revision。
 4. 根据同一 Model Capability Catalog 检查输入类型与数量、画幅、Resolution Tier、视频时长和输出数量；前端预检后，服务端在 Provider Adapter 前再次校验。
@@ -110,6 +110,10 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 
 从生成中的媒体 Composer 编辑后再次提交，新建并列 Pending Node 同时继承当前入向输入关系、手动引用、本地 TXT、引用顺序和已移除引用记录。它们作为新节点的独立编辑状态保存；同 URL 的不同 Reference Input Instance 保持各自身份。混合连线输入与手动引用时，Composer 必须完整显示本次提交的参考素材，切换节点或重载后保持一致，编辑新节点的引用不改变原运行。运行快照仍只用于历史与恢复，不能为了补齐显示而重新引入已经断开连接的历史输入。`tests/laz_51_composer_browser_smoke.cjs` 覆盖生成中切换视频模型、提交、显示、同 URL 引用、重载和独立移除。
 
+已完成的媒体 Generation Output 从 Composer 再次提交时也新建并列 Pending Node；原结果继续显示且不进入生成中状态。没有入向连接的原节点与新节点保持独立，不把旧视频自动接为新运行的参考输入。
+
+已完成且具备生成信息的图片、视频结果在节点工具栏和右键菜单提供「继续编辑」。点击后在原节点旁创建并选中独立的空生成节点，焦点进入 Composer；该动作不提交 Generation Run。新节点优先复制 `generationInputSnapshot` 的完整提示词、参考素材及设置，旧数据回退到 `runModelPrompt` / `runPrompt`、`runInputRefs` / `runPromptRefs` 和 `runSettings`，不读取后来修改的提示词草稿。新节点继承原节点现有的入向父级连接，包括 `input`、`flow`、旧 `inputNodeIds` 和连接指定的输出身份；不复制出向关系，不把原结果接为输入，也不修改原连接。已经通过继承连接提供的参考素材不再额外复制为手动引用，其余历史素材保留为独立手动引用；同 URL 的不同引用实例仍分别保留。提示词从当次完整请求恢复；与继承的上游文字完全匹配的开头段落由连接提供，不重复留在草稿正文中，TXT 等未由连接提供的内容继续保留。父级输入沿用普通连接的实时行为；断开新节点的父级连接不影响原节点。新节点及其入向连接通过同一次画布变更创建。新节点没有旧输出、运行状态和生成历史，随画布保存并使用公共节点创建的撤销/重做流程。单结果提交复用该空节点，多图提交沿用空节点作为首槽的规则；取消编辑时可保留草稿或删除节点。原结果的直接编辑、再次生成和查看生成信息入口保持原有行为。缺少生成信息或仍在排队的节点不提供该动作。真实页面验收入口为 `tests/continue_editing_manual_server.py` 和 `tests/continue_editing_browser_checks.js`，覆盖草稿独立性、输入恢复、图片/视频、语言切换、父级连接、输入去重和显式提交后复用节点。`tests/continue_editing_connections.test.cjs` 覆盖显式与旧父级关系、输出身份保留和原连接隔离。
+
 已完成的 Generation Output 把可展示和可复用的运行信息保存在输出 Node 上，而不是另建一份“生成信息弹窗记录”：`runPrompt` / `runModelPrompt` 保存展示与模型提示词，`runInputRefs` / `runPromptRefs` 和 `generationInputSnapshot.refs` 保存参考素材快照，`runSettings` 保存设置，`runAt`、`runStartedAt`、`runFinishedAt` 和 `runElapsedMs` 保存运行时间。打开 Canvas 时，这些字段随 Node 一起读取并经过旧数据规范化；用户触发“查看生成信息”时，前端直接读取内存中的 Node，不再单独请求 Generation History。弹窗展示生成时间、生成时长、引擎、模型、提示词、与当前 Generation Output 类型相关的设置摘要，以及输入图片；视频时长只为视频 Generation Output 展示。输入图片优先读取冻结的 `generationInputSnapshot.refs`，旧数据回退到 `runInputRefs` / `runPromptRefs`，并保留具有不同 `inputInstanceId` 的重复引用实例。
 
 画布级“日志”面板读取的是独立持久化的 Generation History，不依赖 Canvas 公共快照中的 `logs` 字段。图片、视频和文本生成都通过 `POST /api/canvases/{canvas_id}/logs` 写最终记录；用户打开日志 Modal 时，前端才通过 `GET /api/canvases/{canvas_id}/logs` 按需读取最近 50 条完整日志，单条完整记录也可通过 `GET /api/canvases/{canvas_id}/logs/{log_id}` 读取。Modal 把每条记录映射为一个对应 Node 的任务，左侧按真实日期分组并以“任务状态 · Prompt 第一句”识别记录，右侧展示该任务的完整信息。右侧标题所需的 Node 自定义名称由 `nodeId` 在当前 Canvas 中解析，缺失时只用保存的 Prompt 第一句回退，不新增 AI 标题字段。Reference Input Instance 直接读取日志 `refs` 快照并支持预览，技术详情默认收起，安全诊断不复制 Prompt、素材内容、凭据或图片二进制。浏览器不判断 Workspace 的存储类型，也不把页面内刚产生的日志加入 Canvas Snapshot、Canvas Mutation、Revision 或撤销历史；实时对账因此不能清空日志。SQLite 权威 Workspace 将记录写入 `canvas_logs`、`generation_log_payloads` 和 `generation_log_outputs`，并按稳定 Generation Run ID 幂等对账。尚未完成受控切换的旧 Workspace 只在服务端通过同一接口使用临时 JSON 适配，供迁移前保留数据；旧 `logs` 仍是迁移输入和回滚导出内容，不是第二套浏览器合同。
@@ -133,6 +137,8 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 - `generationInputSnapshot`：提示词、参考素材和设置快照；
 - `generationBatchLayout` / `generationBatchSourceNodeId`：多输出批次实际采用的方向与来源身份；
 - Pending、running、开始时间等表现状态。
+
+视频生成设置含明确画幅（如 `9:16`）时，Pending Node 的占位尺寸按该画幅确定，优先于输入素材或来源 Node 的尺寸；“保持原图”与“自适应”等非固定画幅继续使用现有来源尺寸规则。复制尚在生成中的视频 Node 时，副本保留生成配方和引用，但不沿用原节点的临时占位尺寸；依据副本的画幅设置重新计算尺寸。并行运行继承输入连接时，Pending Node 仍保留提示词里的媒体 Mention Token 展示快照；复制后可继续看到缩略图，解析输入时不重复加入同一引用。
 
 这些状态会先保存到服务端，并等待实时协作同步完成。只有服务端已经知道“这个节点现在
 认这次 operation”之后，才会真正提交生成请求。这样可避免供应商很快返回，而服务端还
