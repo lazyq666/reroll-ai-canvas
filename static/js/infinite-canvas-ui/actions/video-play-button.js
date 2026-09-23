@@ -1,5 +1,3 @@
-const PLAY_BUTTON_ASSET = new URL('../../../images/ui/video-play-button.svg?v=asset-2bd2374029a3', import.meta.url).href;
-
 const VALID_SIZES = new Set(['s', 'm']);
 
 export class IcVideoPlayButton extends HTMLElement {
@@ -23,27 +21,25 @@ export class IcVideoPlayButton extends HTMLElement {
         :host([hidden]) { display:none!important; }
         [part="base"] {
           position:relative;
-          display:block;
+          display:grid;
+          place-items:center;
           width:100%;
           height:100%;
           padding:0;
           overflow:visible;
           border:0;
           border-radius:var(--ui-radius-pill);
-          background:transparent;
+          background:rgb(0 0 0 / 25%);
+          color:var(--ui-color-text-white);
           backdrop-filter:blur(10px);
           -webkit-backdrop-filter:blur(10px);
           cursor:pointer;
         }
         [part="asset"] {
-          position:absolute;
-          inset:-1.0416667%;
-          display:block;
-          width:102.0833334%;
-          height:102.0833334%;
-          max-width:none;
+          width:40%;
+          height:40%;
           pointer-events:none;
-          user-select:none;
+          --ui-icon-size:100%;
         }
         [part="base"]:focus-visible {
           outline:var(--ui-focus-ring);
@@ -55,7 +51,7 @@ export class IcVideoPlayButton extends HTMLElement {
         }
         :host([data-ic-contract-status="invalid"]) { opacity:.55; pointer-events:none; }
       </style>
-      <button part="base" type="button"><img part="asset" src="${PLAY_BUTTON_ASSET}" alt="" draggable="false"></button>
+      <button part="base" type="button"><ic-icon part="asset" name="play-filled" size="large" aria-hidden="true"></ic-icon></button>
     `;
     this.button = this.shadowRoot.querySelector('button');
   }

@@ -23,32 +23,14 @@ class Issue199VideoPlaybackTests(unittest.TestCase):
         start = self.script.index("function smartVideoPlayerHtml(url, attrs='')")
         end = self.script.index("function smartVideoPlayButtonHtml", start)
         source = self.script[start:end]
-        self.assertIn('controls autoplay loop playsinline', source)
+        self.assertIn('loop playsinline', source)
+        self.assertNotIn(' controls ', source)
+        self.assertNotIn('controls autoplay', source)
         self.assertIn('controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"', source)
         self.assertIn(
             'controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"',
             self.html,
         )
-
-    def test_fullscreen_video_tools_offer_an_explicit_loop_toggle(self):
-        self.assertIn('id="previewVideoLoopBtn"', self.html)
-        self.assertIn('toggle onclick="togglePreviewVideoLoop()"', self.html)
-        self.assertIn('data-i18n="smart.action.autoLoop"', self.html)
-        self.assertIn(
-            '"smart.action.autoLoop": { zh: "自动循环", en: "Auto loop" }',
-            self.i18n,
-        )
-        self.assertIn(
-            '"smart.action.autoLoopOn": { zh: "循环已开启", en: "Loop on" }',
-            self.i18n,
-        )
-        self.assertIn("function togglePreviewVideoLoop()", self.studio)
-        self.assertIn("video.loop = !video.loop", self.studio)
-        self.assertIn("function syncPreviewVideoLoopControl(enabled=false)", self.studio)
-        self.assertIn("button.setAttribute('hierarchy', 'secondary')", self.studio)
-        self.assertNotIn("button.setAttribute('hierarchy', active ? 'primary' : 'secondary')", self.studio)
-        self.assertIn("icon.setAttribute('name', active ? 'check' : 'loop')", self.studio)
-        self.assertIn("label.textContent = tr(active ? 'smart.action.autoLoopOn' : 'smart.action.autoLoop')", self.studio)
 
     def test_playback_session_is_keyed_by_node_media_instance(self):
         self.assertIn("const smartPlaybackSession =", self.script)
@@ -57,13 +39,13 @@ class Issue199VideoPlaybackTests(unittest.TestCase):
         self.assertIn("smartPlaybackSession.entries", self.script)
         self.assertNotIn("states.set(`${tag}:${url}`", self.script)
 
-    def test_selection_and_interruption_rules_use_one_coordinator(self):
+    def test_hover_and_interruption_rules_use_one_coordinator(self):
         self.assertIn("function smartPlaybackActivateVideo(nodeId, imageIndex=0", self.script)
-        self.assertIn("function smartPlaybackPauseForSelection", self.script)
         self.assertIn("function smartPlaybackPauseForInterruption", self.script)
-        self.assertIn("video._smartPlaybackClickTimer = setTimeout", self.script)
-        self.assertIn("clearTimeout(video._smartPlaybackClickTimer)", self.script)
-        self.assertIn("event.code !== 'Space'", self.script)
+        self.assertIn("el.addEventListener('pointerenter'", self.script)
+        self.assertIn("smartPlaybackActivateVideo(id, nodeVideoIndex, {play:true})", self.script)
+        self.assertIn("el.addEventListener('pointerleave'", self.script)
+        self.assertIn("smartPlaybackPauseMedia(video)", self.script)
         self.assertIn("document.addEventListener('visibilitychange'", self.script)
         self.assertIn("smartPlaybackPauseForInterruption('visibility')", self.script)
 
@@ -77,7 +59,6 @@ class Issue199VideoPlaybackTests(unittest.TestCase):
         self.assertIn("key:'video-loop'", self.script)
         self.assertIn("function toggleSmartVideoLoop(nodeId, imageIndex=0)", self.script)
         self.assertIn("window.smartPlaybackTogglePreviewLoop", self.script)
-        self.assertIn("smartPlaybackTogglePreviewLoop(video)", self.studio)
 
     def test_fullscreen_playback_takes_over_the_inline_playback_state(self):
         start = self.script.index("function openSmartVideoFullscreen(nodeId, imageIndex=0)")
@@ -117,7 +98,9 @@ class Issue199VideoPlaybackTests(unittest.TestCase):
         self.assertIn("默认开启", self.guidelines)
         self.assertIn("双击 Video", self.guidelines)
         self.assertIn("加载或重绘时不自动播放", self.guidelines)
-        self.assertIn("按 Node 媒体实例保留当前进度", self.guidelines)
+        self.assertIn("悬停在节点上即从该媒体实例保存的进度播放", self.guidelines)
+        self.assertIn("离开节点即暂停并停留在当前画面", self.guidelines)
+        self.assertIn("进入应用内全屏后立即播放", self.guidelines)
         self.assertIn("任一时刻只允许一处播放", self.guidelines)
         self.assertIn("关闭或返回后不自动恢复", self.guidelines)
 

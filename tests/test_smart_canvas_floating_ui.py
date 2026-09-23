@@ -115,6 +115,8 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
     def test_image_toolbar_groups_specialist_tools_and_pins_current_image(self):
         start = self.script.index("function smartNodeToolbarText(")
         end = self.script.index("function duplicateSmartNodeMediaToCanvas(", start)
+        snapshot_start = self.script.index("function smartNodeHasRegenerationSnapshot(")
+        snapshot_end = self.script.index("function smartContextMediaTarget(", snapshot_start)
         script = f"""
             const assert = require('node:assert/strict');
             global.window = {{}};
@@ -127,6 +129,7 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
             const smartNodeToolbarImageIndex = () => 1;
             const imageForDisplay = item => item;
             const mediaKindForItem = item => item.kind;
+            {self.script[snapshot_start:snapshot_end]}
             {self.script[start:end]}
             const html = smartNodeToolbarHtml({{id:'two-images', type:'smart-image', images:[
                 {{url:'one.png', kind:'image'}}, {{url:'two.png', kind:'image'}}
@@ -137,6 +140,9 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
                 ['angle-control', 'grid-gif', 'lighting-reference']);
             assert.match(html, /data-smart-node-tools data-node-id="two-images" data-media-index="1"/);
             assert.match(html, /slot="trigger" aria-haspopup="menu" aria-expanded="false"/);
+            const generated = smartNodeToolbarHtml({{id:'generated', type:'smart-image',
+                runSettings:{{}}, runPrompt:'Original prompt', images:[{{url:'result.png', kind:'image'}}]}});
+            assert.match(generated, /data-smart-node-action="continue-editing"/);
             const audio = smartNodeToolbarHtml({{id:'audio', type:'smart-image', images:[
                 {{url:'one.mp3', kind:'audio'}}, {{url:'two.mp3', kind:'audio'}}
             ]}});

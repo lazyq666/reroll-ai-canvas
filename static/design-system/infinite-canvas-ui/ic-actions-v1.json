@@ -14,8 +14,8 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/actions.js?v=asset-5f35e438f60f",
-        "/static/js/infinite-canvas-ui/actions/video-play-button.js?v=asset-64991104271a",
+        "/static/js/infinite-canvas-ui/actions.js?v=asset-da9cdfb560fb",
+        "/static/js/infinite-canvas-ui/actions/video-play-button.js?v=asset-9967cc73e443",
         "/static/js/infinite-canvas-ui/theme-adapter.js?v=asset-91786900b295",
         "/static/design-system/infinite-canvas-ui/actions.html"
       ]
@@ -363,7 +363,7 @@
     },
     {
       "tag": "ic-video-play-button",
-      "purpose": "Trigger video playback from a cover using the Figma-defined circular play treatment.",
+      "purpose": "Trigger video playback from a cover using the supplied filled Play SVG icon on a translucent circular surface.",
       "useWhen": [
         "A video cover needs the product-standard play action before the native player is visible."
       ],
@@ -376,13 +376,13 @@
       "attributes": ["label", "size", "disabled"],
       "semanticDimensions": {
         "size": ["small", "medium"],
-        "content": ["figma-play-asset"]
+        "content": ["play-filled"]
       },
       "invariants": [
-        "medium is the default and renders the Figma main-controller treatment at 4rem.",
-        "small renders the same asset at 32px for thumbnail video covers.",
+        "medium is the default and renders the circular Play button at 4rem.",
+        "small renders the same Lucide icon treatment at 32px for thumbnail video covers.",
         "label is always forwarded to the internal native button as its accessible action name.",
-        "The action only enters playback; browser-native video controls remain responsible for playback after activation."
+        "The action only enters playback; the shared ic-media-player-controls component owns playback controls after activation."
       ]
     },
     {

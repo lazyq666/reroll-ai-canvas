@@ -14,13 +14,13 @@
 </head>
 <body>
   <ic-prompt-composer id="promptInput" class="fixture" contenteditable="true" aria-label="Composer">
-    <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
+    正文 <span class="mention-image-token" contenteditable="false"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt=""><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
   </ic-prompt-composer>
   <ic-prompt-composer class="fixture prompt-node-text prompt-node-control" contenteditable="true" aria-label="提示词节点">
-    <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
+    正文 <span class="mention-image-token" contenteditable="false"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt=""><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
   </ic-prompt-composer>
   <ic-prompt-composer class="fixture prompt-node-control prompt-llm-instruction" contenteditable="true" aria-label="提示词生成节点">
-    <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
+    正文 <span class="mention-image-token" contenteditable="false"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt=""><span class="mention-token-label">图片1</span></span> <span class="mention-image-token" contenteditable="false"><span class="mention-token-label">图片2</span></span>
   </ic-prompt-composer>
   <pre id="results"></pre>
   <script type="module">
@@ -29,16 +29,44 @@
     await customElements.whenDefined('ic-prompt-composer');
     await paint();
 
+    const styleProbe = document.createElement('span');
+    styleProbe.style.cssText = 'color:var(--ui-color-icon-tertiary);border-radius:var(--ui-radius-xs)';
+    document.body.append(styleProbe);
+    const expectedColor = getComputedStyle(styleProbe).color;
+    const expectedRadius = getComputedStyle(styleProbe).borderRadius;
+    styleProbe.remove();
     const contexts = [...document.querySelectorAll('ic-prompt-composer')].map(editor => {
       const tokens = [...editor.querySelectorAll('.mention-image-token')];
       const firstRect = tokens[0].getBoundingClientRect();
       const secondRect = tokens[1].getBoundingClientRect();
       const style = getComputedStyle(tokens[0]);
+      const editorStyle = getComputedStyle(editor);
+      const image = tokens[0].querySelector('img');
+      const imageStyle = getComputedStyle(image);
+      const bodyRange = document.createRange();
+      bodyRange.setStart(editor.firstChild, editor.firstChild.textContent.indexOf('正文'));
+      bodyRange.setEnd(editor.firstChild, editor.firstChild.textContent.indexOf('正文') + 2);
+      const labelRange = document.createRange();
+      labelRange.selectNodeContents(tokens[0].querySelector('.mention-token-label'));
+      const bodyRect = bodyRange.getBoundingClientRect();
+      const labelRect = labelRange.getBoundingClientRect();
       return {
         label: editor.getAttribute('aria-label'),
         marginInlineStart: style.marginInlineStart,
         marginInlineEnd: style.marginInlineEnd,
         visualGap: secondRect.left - firstRect.right,
+        background: style.backgroundColor,
+        borderWidth: style.borderTopWidth,
+        fontSize: style.fontSize,
+        editorFontSize: editorStyle.fontSize,
+        color: style.color,
+        expectedColor,
+        imageHeight: image.getBoundingClientRect().height,
+        textLineHeight: parseFloat(editorStyle.lineHeight),
+        labelTextOffset: (labelRect.top + labelRect.bottom - bodyRect.top - bodyRect.bottom) / 2,
+        radius: style.borderRadius,
+        imageRadius: imageStyle.borderRadius,
+        expectedRadius,
         spacer: tokens[0].nextSibling?.nodeType === Node.TEXT_NODE
           ? tokens[0].nextSibling.textContent
           : null,
@@ -51,8 +79,30 @@
       )),
       oneAuthoredSpaceRemains: contexts.every(context => context.spacer === ' '),
       visualGapIsOneTextSpace: contexts.every(context => context.visualGap > 2 && context.visualGap <= 6),
+      inlineMentionVisualStyle: contexts.every(context => (
+        context.background === 'rgba(0, 0, 0, 0)'
+        && context.borderWidth === '0px'
+        && context.fontSize === context.editorFontSize
+        && context.color === context.expectedColor
+        && Math.abs(context.imageHeight - (context.textLineHeight - 2)) <= 1
+        && context.radius === context.expectedRadius
+        && context.imageRadius === context.expectedRadius
+      )),
+      labelTextAligned: contexts.every(context => Math.abs(context.labelTextOffset) <= 0.6),
     };
-    document.querySelector('#results').textContent = JSON.stringify({ checks, contexts });
+    document.documentElement.dataset.uiTheme = 'dark';
+    await paint();
+    document.body.append(styleProbe);
+    const darkColor = getComputedStyle(styleProbe).color;
+    styleProbe.remove();
+    const darkContexts = [...document.querySelectorAll('ic-prompt-composer')].map(editor => {
+      const token = editor.querySelector('.mention-image-token');
+      const style = getComputedStyle(token);
+      return { color: style.color, background: style.backgroundColor, borderWidth: style.borderTopWidth };
+    });
+    checks.darkMentionVisualStyle = darkContexts.every(context => context.color === darkColor
+      && context.background === 'rgba(0, 0, 0, 0)' && context.borderWidth === '0px');
+    document.querySelector('#results').textContent = JSON.stringify({ checks, contexts, darkContexts });
     document.documentElement.dataset.issue109Status = Object.values(checks).every(Boolean)
       ? 'passed'
       : 'failed';

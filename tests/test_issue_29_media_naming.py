@@ -80,7 +80,7 @@ console.log(JSON.stringify({{cases,validation}}));
 
     def test_rename_target_is_relocated_by_stable_identity(self):
         start = self.source.index("function smartMediaRenameLocator")
-        end = self.source.index("async function renameSmartNodeImage", start)
+        end = self.source.index("function renameSmartNodeImage", start)
         functions = self.source[start:end]
         payload = self.run_node(
             f"""
@@ -112,7 +112,7 @@ console.log(JSON.stringify({{moved:moved?.index,referenced:referenced?.index,amb
             self.source,
         )
         self.assertIn("if(action === 'rename-media')", self.source)
-        self.assertIn("title:tr('smart.renameMedia')", self.source)
+        self.assertIn("input.setAttribute('aria-label', tr('smart.mediaName'))", self.source)
         self.assertIn("SmartCanvasModules.mediaNaming", self.source)
         self.assertIn(
             '/static/js/smart-canvas/media-naming.js',

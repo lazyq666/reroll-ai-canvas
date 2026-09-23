@@ -882,6 +882,8 @@ async function runGeneration(options={}){
         if(!nodeEligibility.runnable) return false;
     }
     const sourceInFlight = smartNodeInFlight(node);
+    const completedOutputHasMedia = node.generationOutputNode === true
+        && (node.images || []).some(item => item?.url);
     const runContext = activeGenerationCascadeModule()?.context?.() || null;
     const requestedOutpaintWidth = Math.round(Number(options.outpaintSize?.width) || 0);
     const requestedOutpaintHeight = Math.round(Number(options.outpaintSize?.height) || 0);
@@ -959,14 +961,15 @@ async function runGeneration(options={}){
         return queued;
     };
     if(!generationRunOnline()){
-        if(!sourceInFlight) return queueLocally(node);
-        const inheritSourceConnections = generationRunHasIncomingSourceConnection(node);
+        if(!sourceInFlight && !completedOutputHasMedia) return queueLocally(node);
+        const inheritSourceConnections = completedOutputHasMedia
+            || generationRunHasIncomingSourceConnection(node);
         const queuedNode = generationOutputModule.createPending({
             sourceNode:node,
             placementViewport:options.placementViewport,
             expectedCount:1,
             meta:inheritSourceConnections ? stripRunInputMeta(meta) : meta,
-            connectSource:inheritSourceConnections ? options.connectSource : null,
+            connectSource:completedOutputHasMedia ? null : options.connectSource,
             selectOutput:true,
             outputKind:logKind,
             refs,
@@ -989,12 +992,12 @@ async function runGeneration(options={}){
     let branchNodes = [];
     const groupRun = generationRunContainerModule.isGroup(node);
     const inheritParallelSourceConnections = Boolean(
-        generationRunHasIncomingSourceConnection(node)
+        (generationRunHasIncomingSourceConnection(node) || completedOutputHasMedia)
         && !groupRun
         && options.createOutput !== true
         && (
             sourceInFlight
-            || (nodeHasImages && node.generationOutputNode === true)
+            || completedOutputHasMedia
         )
     );
     const createSiblingOutputFromInputs = Boolean(
@@ -1005,7 +1008,9 @@ async function runGeneration(options={}){
         || groupRun
         || options.createOutput === true
         || createSiblingOutputFromInputs;
-    const parallelConnectSource = sourceInFlight
+    const parallelConnectSource = completedOutputHasMedia
+        ? null
+        : sourceInFlight
         && !inheritParallelSourceConnections
         ? null
         : groupRun

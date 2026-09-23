@@ -24,7 +24,7 @@ class Issue128WorkspaceAssetUiTests(unittest.TestCase):
         self.assertIn("{value:'canvas', label:tr('smart.currentCanvas')}", SCRIPT)
         self.assertIn("{value:'assets', label:tr('smart.workspaceAssetLibrary')}", SCRIPT)
         self.assertNotIn("value.slice(0, 60)", PICKER)
-        self.assertIn("columns:var(--ic-mention-picker-card-width, 5.625rem)", PICKER)
+        self.assertIn("grid-template-columns:repeat(auto-fill,var(--ic-mention-picker-card-width, 5.625rem))", PICKER)
         self.assertIn('<div class="media-columns"></div>', PICKER)
         self.assertIn("const optionContainer = this.mediaMode", PICKER)
         self.assertIn("optionContainer.append(option)", PICKER)

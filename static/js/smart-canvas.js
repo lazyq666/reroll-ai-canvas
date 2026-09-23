@@ -516,11 +516,41 @@ function smartVideoFallbackHtml(url, attrs=''){
 function smartVideoPlayerHtml(url, attrs=''){
     const original = smartOriginalMediaUrl(url);
     const safe = escapeHtml(displayMediaUrl({url:original}));
-    return `<video src="${safe}" data-url="${escapeAttr(original)}" data-inline-video-active="1" controls autoplay loop playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"${attrs ? ` ${attrs}` : ''}></video>`;
+    return `<video src="${safe}" data-url="${escapeAttr(original)}" data-inline-video-active="1" loop playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"${attrs ? ` ${attrs}` : ''}></video>`;
 }
 function smartVideoPlayButtonHtml(options={}){
     const thumbnail = Boolean(options.thumbnail);
     return `<ic-video-play-button class="smart-video-play${thumbnail ? ' thumb-video-play' : ''}"${thumbnail ? ' size="s"' : ''} label="${escapeAttr(tr('canvas.play'))}" data-component-name="ic-video-play-button"></ic-video-play-button>`;
+}
+function bindSmartVideoNodeControls(video, {expanded=false}={}){
+    if(!video || (!expanded && (video.dataset.inlineVideoActive !== '1' || video.dataset.smartPlaybackPreview === '1'))) return;
+    const root = video.closest(expanded ? '.preview-frame' : '.media-video-card,.video-thumb');
+    if(!root) return;
+    let controls = root.querySelector('ic-media-player-controls[variant="node"]');
+    if(!controls){
+        controls = document.createElement('ic-media-player-controls');
+        controls.setAttribute('kind', 'video');
+        controls.setAttribute('variant', 'node');
+        controls.setAttribute('label', tr('common.media.videoPlayer'));
+        controls.setAttribute('data-i18n-label', 'common.media.videoPlayer');
+        controls.media = video;
+        controls.addEventListener('ic-expand-request', () => {
+            const target = smartPlaybackTargetFromElement(controls.media);
+            if(controls.hasAttribute('expanded')) imageStudio.close();
+            else if(target) openSmartVideoFullscreen(target.nodeId, target.imageIndex);
+        });
+        controls.addEventListener('ic-loop-request', () => {
+            const target = smartPlaybackTargetFromElement(controls.media);
+            if(target) toggleSmartVideoLoop(target.nodeId, target.imageIndex);
+        });
+        root.append(controls);
+    } else if(controls.media !== video){
+        controls.media = video;
+    }
+    controls.hidden = false;
+    controls.toggleAttribute('expanded', expanded);
+    video.controls = false;
+    return controls;
 }
 function bindSmartVideoFullscreenDoubleClick(video){
     if(!video || video.dataset.smartVideoFullscreenDblclickBound === '1') return;
@@ -535,27 +565,15 @@ function bindSmartVideoFullscreenDoubleClick(video){
         event.stopPropagation();
         if(event.detail >= 2) return;
         if(video.dataset.inlineVideoActive === '1'){
-            const rect = video.getBoundingClientRect();
-            const nativeControlsHeight = Math.min(64, rect.height * 0.3);
-            if(event.clientY >= rect.bottom - nativeControlsHeight) return;
-            clearTimeout(video._smartPlaybackClickTimer);
-            const initialPaused = Boolean(video.paused);
-            video._smartPlaybackClickTimer = setTimeout(() => {
-                video._smartPlaybackClickTimer = null;
-                if(Boolean(video.paused) !== initialPaused) return;
-                if(initialPaused){
-                    const target = smartPlaybackTargetFromElement(video);
-                    if(target){
-                        smartPlaybackRestoreEntry(
-                            video,
-                            smartPlaybackEntry(target.nodeId, target.imageIndex),
-                            {play:true}
-                        );
-                    }
-                } else {
-                    smartPlaybackPauseMedia(video);
+                const target = smartPlaybackTargetFromElement(video);
+                if(target && (
+                    selectedId !== target.nodeId
+                    || selectedIds.length
+                    || selectedImage.nodeId !== target.nodeId
+                    || selectedImage.index !== target.imageIndex
+                )){
+                    smartPlaybackSelectAndPlayVideo(target.nodeId, target.imageIndex);
                 }
-            }, 220);
             return;
         }
         event.preventDefault();
@@ -581,14 +599,6 @@ function bindSmartVideoFullscreenDoubleClick(video){
         const nodeId = item?.dataset?.refNodeId || nodeEl?.dataset?.id || '';
         const imageIndex = Number(item?.dataset?.refImageIndex ?? item?.dataset?.imageIndex ?? 0);
         openSmartVideoFullscreen(nodeId, imageIndex);
-    }, true);
-    video.addEventListener('keydown', event => {
-        if(video.dataset.smartPlaybackPreview === '1') return;
-        if(event.code !== 'Space' || video.dataset.inlineVideoActive !== '1') return;
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation?.();
-        smartPlaybackToggleSelectedVideo();
     }, true);
 }
 function smartActivateVideoPreview(target, options={}){
@@ -6356,15 +6366,16 @@ function imageNameBadgeHtml(img, options={}){
     const name = imageNameLabel(img);
     const outsideClass = options.outside ? ' image-name-badge-outside' : '';
     const icon = {image:'image',video:'video',audio:'audio-lines'}[mediaKindForItem(img)];
-    if(!icon) return `<span class="image-name-badge${outsideClass}" data-image-name="1" title="${escapeAttr(name)}">${escapeHtml(name)}</span>`;
+    if(!icon) return `<span class="image-name-badge${outsideClass}" data-image-name="1" title="${escapeAttr(name)}"><span class="image-name-badge-copy"><span class="image-name-badge-name">${escapeHtml(name)}</span></span></span>`;
     const node = options.node;
     const generated = img.generatedResult === true || (
         img.generatedResult !== false
         && node?.uploadedAttachment !== true
         && (node?.generationOutputNode === true || node?.generationOperationId || node?.generationBatchId)
     );
-    const label = `${tr(generated ? 'smart.mediaAiGenerated' : 'smart.mediaImported')} · ${name}`;
-    return `<span class="image-name-badge${outsideClass}" data-image-name="1" title="${escapeAttr(label)}"><ic-icon name="${icon}" size="x-small" aria-hidden="true"></ic-icon><span class="image-name-badge-copy">${escapeHtml(label)}</span></span>`;
+    const identity = tr(generated ? 'smart.mediaAiGenerated' : 'smart.mediaImported');
+    const label = `${identity} · ${name}`;
+    return `<span class="image-name-badge${outsideClass}" data-image-name="1" title="${escapeAttr(label)}"><ic-icon name="${icon}" size="x-small" aria-hidden="true"></ic-icon><span class="image-name-badge-copy"><span class="image-name-badge-identity">${escapeHtml(identity)} · </span><span class="image-name-badge-name">${escapeHtml(name)}</span></span></span>`;
 }
 function thumbDisplaySize(img, maxSize){
     const limit = Math.max(28, Math.round(Number(maxSize) || 96));
@@ -6566,6 +6577,7 @@ function smartPlaybackBindMedia(media, nodeId='', imageIndex=0, options={}){
     media.dataset.mediaNodeId = target.nodeId;
     media.dataset.mediaImageIndex = String(target.imageIndex);
     if(options.preview) media.dataset.smartPlaybackPreview = '1';
+    bindSmartVideoNodeControls(media);
     const preferences = smartPlaybackPreferencesFor(media);
     try { media.volume = Math.max(0, Math.min(1, Number(preferences.volume ?? 1))); } catch(e) {}
     try { media.muted = Boolean(preferences.muted); } catch(e) {}
@@ -6599,6 +6611,9 @@ function smartPlaybackBindMedia(media, nodeId='', imageIndex=0, options={}){
             && media.dataset.inlineVideoActive === '1'
         ){
             smartPlaybackSetInlineActive(target.nodeId, target.imageIndex, false);
+            // Keep render's activation snapshot from reviving the failed player.
+            delete media.dataset.inlineVideoActive;
+            smartPlaybackPauseMedia(media);
             const nodeElement = media.closest?.('.image-node');
             if(nodeElement) nodeElement._smartCanvasRenderSignature = '';
             if(smartPlaybackSession.activeMedia === media){
@@ -6645,6 +6660,7 @@ function smartPlaybackPauseForSelection(nextNodeId='', nextImageIndex=-1){
         ? smartPlaybackKey(nextNodeId, nextImageIndex)
         : '';
     world.querySelectorAll('video[data-inline-video-active="1"],audio[data-url]').forEach(media => {
+        if(media.tagName.toLowerCase() === 'video') return;
         const target = smartPlaybackTargetFromElement(media);
         if(target?.key === keepKey) return;
         smartPlaybackPauseMedia(media, {restoreCover:media.tagName.toLowerCase() === 'video'});
@@ -6658,39 +6674,15 @@ function smartPlaybackSelectAndPlayVideo(nodeId, imageIndex=0){
     selectedImage = {nodeId:selectedId, index};
     generationRun.noteManualSelection();
     render();
-    return smartPlaybackActivateVideo(selectedId, index, {play:true});
-}
-function smartPlaybackSelectedVideoTarget(){
-    if(!selectedId || selectedIds.length) return null;
-    const node = nodes.find(candidate => candidate.id === selectedId);
-    if(!node) return null;
-    const selectedIndex = selectedImage.nodeId === node.id
-        ? Math.max(0, Number(selectedImage.index) || 0)
-        : -1;
-    const imageIndex = mediaKindForItem(node.images?.[selectedIndex] || {}) === 'video'
-        ? selectedIndex
-        : (node.images || []).findIndex(image => mediaKindForItem(image) === 'video');
-    return imageIndex >= 0 ? {nodeId:node.id, imageIndex} : null;
-}
-function smartPlaybackToggleSelectedVideo(){
-    const target = smartPlaybackSelectedVideoTarget();
-    if(!target) return false;
-    const item = smartPlaybackItemElement(target.nodeId, target.imageIndex);
-    const video = item?.querySelector?.('video[data-inline-video-active="1"]');
-    if(!video){
-        smartPlaybackActivateVideo(target.nodeId, target.imageIndex, {play:true});
-        return true;
-    }
-    if(video.paused){
-        smartPlaybackRestoreEntry(video, smartPlaybackEntry(target.nodeId, target.imageIndex), {play:true});
-    } else {
-        smartPlaybackPauseMedia(video);
-    }
-    return true;
+    const item = smartPlaybackItemElement(selectedId, index);
+    return item?.closest('.image-node')?.matches(':hover')
+        ? smartPlaybackActivateVideo(selectedId, index, {play:true})
+        : null;
 }
 function smartPlaybackReconcileSelection(){
     const soleNodeId = selectedIds.length === 0 ? selectedId : '';
     world.querySelectorAll('video[data-inline-video-active="1"],audio[data-url]').forEach(media => {
+        if(media.tagName.toLowerCase() === 'video') return;
         const target = smartPlaybackTargetFromElement(media);
         if(target?.nodeId && target.nodeId === soleNodeId) return;
         smartPlaybackPauseMedia(media, {restoreCover:media.tagName.toLowerCase() === 'video'});
@@ -6740,9 +6732,6 @@ function toggleSmartVideoLoop(nodeId, imageIndex=0){
         });
     document.querySelectorAll(`[data-smart-node-action="video-loop"][data-node-id="${CSS.escape(String(nodeId))}"]`)
         .forEach(button => syncSmartNodeVideoLoopControl(button, entry.loop));
-    if(smartPlaybackSession.previewKey === key && typeof syncPreviewVideoLoopControl === 'function'){
-        syncPreviewVideoLoopControl(entry.loop);
-    }
     return entry.loop;
 }
 function smartPlaybackMoveMedia(media, parent, before=null){
@@ -6764,8 +6753,9 @@ function smartPlaybackMountPreviewVideo(nodeId, imageIndex=0){
     const placeholder = document.createElement('span');
     placeholder.hidden = true;
     video.before(placeholder);
+    const controls = bindSmartVideoNodeControls(video);
     smartPlaybackSession.previewPresentation = {
-        video, preview, placeholder,
+        video, preview, placeholder, controls,
         id:video.getAttribute('id'), className:video.className, style:video.style.cssText
     };
     preview.removeAttribute('id');
@@ -6774,12 +6764,17 @@ function smartPlaybackMountPreviewVideo(nodeId, imageIndex=0){
     video.style.cssText = preview.style.cssText;
     video.dataset.smartPlaybackPreview = '1';
     smartPlaybackMoveMedia(video, preview.parentElement, preview);
+    preview.parentElement.querySelectorAll('ic-media-player-controls').forEach(stale => {
+        if(stale !== controls) stale.remove();
+    });
+    if(controls) smartPlaybackMoveMedia(controls, preview.parentElement, preview);
+    bindSmartVideoNodeControls(video, {expanded:true});
     return video;
 }
 function smartPlaybackReleasePreviewVideo({pause=false}={}){
     const presentation = smartPlaybackSession.previewPresentation;
     if(!presentation) return false;
-    const {video, preview, placeholder, id, className, style} = presentation;
+    const {video, preview, placeholder, controls, id, className, style} = presentation;
     const target = smartPlaybackTargetFromElement(video);
     const source = nodes.find(node => node.id === target?.nodeId)?.images?.[target?.imageIndex];
     const canReturn = placeholder.isConnected && source
@@ -6796,7 +6791,10 @@ function smartPlaybackReleasePreviewVideo({pause=false}={}){
     preview.id = 'previewCurrentVideo';
     if(canReturn){
         smartPlaybackMoveMedia(video, placeholder.parentElement, placeholder);
+        if(controls) smartPlaybackMoveMedia(controls, placeholder.parentElement, placeholder);
+        bindSmartVideoNodeControls(video);
     } else {
+        controls?.remove();
         video.removeAttribute('src');
         video.load();
         video.remove();
@@ -6812,22 +6810,27 @@ function smartPlaybackPreparePreviewVideo(video, nodeId, imageIndex=0, options={
     const key = entry.key;
     smartPlaybackSession.previewKey = key;
     if(smartPlaybackSession.previewPresentation?.video === video){
-        if(options.previewSwitch === true) smartPlaybackRestoreEntry(video, entry, {play:true});
+        smartPlaybackRestoreEntry(video, entry, {play:true});
         return video.loop;
     }
     smartPlaybackBindMedia(video, nodeId, imageIndex, {preview:true});
-    smartPlaybackRestoreEntry(video, entry, {play:options.previewSwitch === true});
+    bindSmartVideoNodeControls(video, {expanded:true});
+    smartPlaybackRestoreEntry(video, entry, {play:true});
     return entry.loop;
 }
 function smartPlaybackBeforePreviewSwitch(video){
     if(smartPlaybackReleasePreviewVideo({pause:true})) return;
+    const controls = video?.parentElement?.querySelector('ic-media-player-controls');
+    if(controls) controls.hidden = true;
     if(!video || video.style.display === 'none' || !video.getAttribute('src')) return null;
     const entry = smartPlaybackRemember(video);
     smartPlaybackPauseMedia(video);
     return entry;
 }
 function smartPlaybackClosePreviewVideo(video, nodeId, imageIndex=0){
-    if(smartPlaybackReleasePreviewVideo()) return true;
+    if(smartPlaybackReleasePreviewVideo({pause:true})) return true;
+    const controls = video?.parentElement?.querySelector('ic-media-player-controls');
+    if(controls) controls.hidden = true;
     if(!video || !nodeId) return false;
     const entry = smartPlaybackRemember(video, {
         nodeId:String(nodeId),
@@ -8476,7 +8479,7 @@ function jimengPendingBodyHtml(node, layout){
 function beginSmartFrameTitleEdit(nodeId){
     const node = nodes.find(item => item.id === nodeId && smartContainer.isFrame(item));
     const title = world.querySelector(`.image-node[data-id="${CSS.escape(nodeId)}"] .node-title`);
-    if(!node || !title) return;
+    if(!node || !title || typeof title.finishSmartFrameTitleEdit === 'function') return;
     const original = String(node.title || tr('smart.frameDefault'));
     delete title.dataset.frameTitleEditFinished;
     delete title.dataset.cancelEdit;
@@ -8495,7 +8498,9 @@ function beginSmartFrameTitleEdit(nodeId){
         const value = cancelled ? original : String(title.textContent || '').trim();
         title.onkeydown = null;
         title.onblur = null;
+        document.removeEventListener('pointerdown', onOutsidePointerDown, true);
         title.removeAttribute('contenteditable');
+        delete title.finishSmartFrameTitleEdit;
         if(document.activeElement === title) title.blur();
         if(!cancelled && value && value !== original){
             canvasMutation.history({action:'push'});
@@ -8505,9 +8510,15 @@ function beginSmartFrameTitleEdit(nodeId){
         if(options.render !== false) render();
         return true;
     };
+    const onOutsidePointerDown = event => {
+        if(title.contains(event.target) || event.target.closest?.('input,textarea,[contenteditable="true"]')) return;
+        finish(false);
+    };
+    document.addEventListener('pointerdown', onOutsidePointerDown, true);
     title.finishSmartFrameTitleEdit = finish;
     title.onkeydown = event => {
         event.stopPropagation();
+        if(event.isComposing) return;
         if(event.key === 'Enter'){
             event.preventDefault();
             title.blur();
@@ -8517,7 +8528,10 @@ function beginSmartFrameTitleEdit(nodeId){
             title.blur();
         }
     };
-    title.onblur = () => finish(title.dataset.cancelEdit === '1');
+    title.onblur = event => {
+        if(event.relatedTarget?.closest?.('input,textarea,[contenteditable="true"]')) return;
+        finish(title.dataset.cancelEdit === '1');
+    };
 }
 function finishActiveSmartFrameTitleEdit(nodeId, options={}){
     const title = world.querySelector(
@@ -8695,7 +8709,27 @@ function smartNodeToolbarHtml(node){
                 downloadAction
             ]
             : [downloadAction];
+    if(['image','video'].includes(kind) && smartNodeHasRegenerationSnapshot(node)){
+        actions.unshift({key:'continue-editing', icon:'edit', label:tr('smart.continueEditing'), enabled:true});
+    }
     return smartNodeToolbarActionsHtml(node, actions);
+}
+function continueEditingSmartNode(node){
+    const draft = window.SmartCanvasModules.generationOutput.continueEditing({source:node});
+    if(!draft) return;
+    updateComposer();
+    promptInput.focus({preventScroll:true});
+    requestAnimationFrame(() => {
+        if(selectedId !== draft.id) return;
+        const rect = nodeRect(draft);
+        const scale = Math.max(0.01, viewport.scale);
+        const editorHeight = (composer.offsetHeight + 14) / scale;
+        const visibleNodeHeight = Math.min(rect.height, Math.max(24, shell.clientHeight / scale - editorHeight - 48));
+        window.SmartCanvasModules.viewportSelection.viewport.reveal({
+            x:rect.x, y:rect.y + rect.height - visibleNodeHeight,
+            width:rect.width, height:visibleNodeHeight + editorHeight
+        });
+    });
 }
 function duplicateSmartNodeMediaToCanvas(node, imageIndex){
     const source = node?.images?.[imageIndex];
@@ -8725,6 +8759,7 @@ function openSmartVideoFullscreen(nodeId, imageIndex=0){
 function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, triggerButton=null){
     const node = nodes.find(n => n.id === nodeId);
     if(!node) return;
+    if(action === 'continue-editing'){ continueEditingSmartNode(node); return; }
     if(nodeKinds.isLayerDecomposition(node)){
         if(action === 'preview') imageStudio.open({nodeId, mode:'layer-decomposition'});
         else if(action === 'download-psd') void window.SmartCanvasModules.layeredPsd.download({canvasId, nodeId, button:triggerButton});
@@ -8911,7 +8946,16 @@ function positionSmartNodeFloatingPortal(
     }
     const anchorX = viewport.x + (rect.x + rect.width / 2) * viewport.scale;
     const menuWidth = smartNodeFloatingPortal.offsetWidth || 0;
-    const anchorY = nodeTop - 8;
+    const outsideBadge = node?.id
+        ? world.querySelector(`.image-node[data-id="${CSS.escape(node.id)}"] .image-name-badge-outside:not(.run-time-pill)`)
+        : null;
+    const badgeTop = outsideBadge?.getClientRects().length
+        ? outsideBadge.getBoundingClientRect().top
+        : null;
+    const shellTop = shell.getBoundingClientRect().top;
+    const anchorY = badgeTop != null
+        ? Math.min(nodeTop - 8, badgeTop - shellTop - 6)
+        : nodeTop - 8;
     const minX = 14 + menuWidth / 2;
     const maxX = Math.max(minX, shell.clientWidth - 14 - menuWidth / 2);
     smartNodeFloatingPortal.classList.remove('place-below');
@@ -11155,8 +11199,16 @@ function bindNodeEvents(){
             if(timer) clearTimeout(timer);
             smartNodeQuickAddPreviewExitTimers.delete(el);
             setQuickAddPreview(true);
+            if(nodeVideoIndex >= 0 && !smartPlaybackSession.previewPresentation){
+                smartPlaybackActivateVideo(id, nodeVideoIndex, {play:true});
+            }
         });
         el.addEventListener('pointerleave', event => {
+            if(nodeVideoIndex >= 0 && !smartPlaybackSession.previewPresentation){
+                el.querySelectorAll('video[data-inline-video-active="1"]').forEach(video => {
+                    smartPlaybackPauseMedia(video);
+                });
+            }
             const enteringQuickAddZone = [...el.querySelectorAll('.smart-node-quick-add-zone')]
                 .some(zone => {
                     const rect = zone.getBoundingClientRect();
@@ -11457,11 +11509,13 @@ function bindNodeEvents(){
             const targetNodeId = item?.dataset.refNodeId || id;
             const imageIndex = Number(item?.dataset.refImageIndex ?? item?.dataset.imageIndex ?? 0);
             badge.addEventListener('mousedown', e => {
+                if(e.target.closest('.image-name-editor')){ e.stopPropagation(); return; }
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
             }, true);
             badge.addEventListener('click', e => {
+                if(e.target.closest('.image-name-editor')){ e.stopPropagation(); return; }
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -11472,7 +11526,7 @@ function bindNodeEvents(){
                 e.stopImmediatePropagation();
                 clearImageClickTimer();
                 suppressImageClickUntil = Date.now() + 260;
-                renameSmartNodeImage(targetNodeId, imageIndex);
+                renameSmartNodeImage(targetNodeId, imageIndex, badge);
             }, true);
         });
         el.querySelectorAll('.smart-video-play').forEach(btn => {
@@ -11513,7 +11567,7 @@ function bindNodeEvents(){
                 e.preventDefault();
             });
             item.addEventListener('mousedown', e => {
-                if(e.target.closest('audio')) return;
+                if(e.target.closest('audio,ic-media-player-controls')) return;
                 if(e.target.closest('video') && e.detail < 2) return;
                 if(e.button !== 0 || e.target.closest('.image-name-badge')) return;
                 if(e.detail < 2) return;
@@ -11533,7 +11587,7 @@ function bindNodeEvents(){
                 imageStudio.open({nodeId:target.targetNodeId, imageIndex:target.imageIndex});
             }, true);
             item.addEventListener('click', e => {
-                if(e.target.closest('video,audio')) return;
+                if(e.target.closest('video,audio,ic-media-player-controls')) return;
                 if(e.target.closest('.image-name-badge')) return;
                 e.preventDefault();
                 e.stopPropagation();
@@ -11575,7 +11629,7 @@ function bindNodeEvents(){
                 }, 220);
             });
         item.addEventListener('dblclick', e => {
-            if(e.target.closest('video,audio')) return;
+            if(e.target.closest('video,audio,ic-media-player-controls')) return;
             if(e.target.closest('.image-name-badge')) return;
             e.preventDefault();
             e.stopPropagation();
@@ -11751,6 +11805,9 @@ function smartContextMenuSections(state){
         primary.push(smartContextMenuItem('noop', node.queued ? tr('smart.contextQueued') : tr('smart.contextGenerating'), 'loading', '', {disabled:true}));
         if(smartRecoverableImageTask(node)) primary.push(smartContextMenuItem('query-result', tr('smart.contextQueryResult'), 'refresh'));
     } else if(smartNodeHasRegenerationSnapshot(node)){
+        if(editable && mediaItems.some(item => ['image','video'].includes(mediaKindForItem(item)))){
+            primary.push(smartContextMenuItem('continue-editing', tr('smart.continueEditing'), 'edit'));
+        }
         primary.push(smartContextMenuItem('regenerate', tr('smart.contextRegenerate'), 'refresh'));
         primary.push(smartContextMenuItem('view-run-info', tr('smart.contextRunInfo'), 'info'));
         if(node.runPrompt || node.runModelPrompt) primary.push(smartContextMenuItem('copy-run-prompt', tr('smart.contextCopyRunPrompt'), 'copy'));
@@ -12805,6 +12862,7 @@ async function runSmartContextMenuAction(action, state){
         }
         return;
     }
+    if(action === 'continue-editing'){ continueEditingSmartNode(node); return; }
     if(action === 'regenerate'){ await generationRun.regenerate({nodeId:node.id}); return; }
     if(action === 'view-run-info'){
         openSmartContextResult({title:tr('smart.contextRunInfo'), status:'', text:smartRunInfoText(node), applyText:node.runPrompt || node.runModelPrompt || '', inputImages:smartRunInfoInputImages(node), readOnly:true, allowApply:true, allowCreate:false, copy:true});
@@ -13066,7 +13124,7 @@ function smartFindMediaRenameTarget(node, locator){
         mediaKindForItem
     );
 }
-async function renameSmartNodeImage(nodeId, imageIndex){
+function renameSmartNodeImage(nodeId, imageIndex, sourceBadge=null){
     const node = nodes.find(n => n.id === nodeId);
     const index = Math.max(0, Number(imageIndex) || 0);
     const image = node?.images?.[index];
@@ -13077,39 +13135,73 @@ async function renameSmartNodeImage(nodeId, imageIndex){
     }
     const locator = smartMediaRenameLocator(image);
     const current = mediaNameBodyForItem(image);
-    const name = await openAssetNameDialog({
-        title:tr('smart.renameMedia'),
-        value:current,
-        placeholder:tr('smart.mediaName'),
-        cancelValue:null,
-        validate:value => validateMediaNameInput(value,image).error
+    const badge = sourceBadge || world.querySelector(`.image-node[data-id="${CSS.escape(nodeId)}"] [data-image-index="${index}"] .image-name-badge`);
+    if(!badge || badge.querySelector('.image-name-editor')) return;
+    const originalMarkup = badge.innerHTML;
+    const input = document.createElement('input');
+    input.className = 'image-name-editor';
+    input.type = 'text';
+    input.value = current;
+    input.setAttribute('aria-label', tr('smart.mediaName'));
+    const nameElement = badge.querySelector('.image-name-badge-name');
+    if(!nameElement) return;
+    nameElement.replaceWith(input);
+    badge.classList.add('editing');
+    positionSmartNodeFloatingPortal();
+    const finish = cancelled => {
+        if(!input.isConnected) return;
+        if(!cancelled){
+            const liveNode = nodes.find(n => n.id === nodeId);
+            const target = smartFindMediaRenameTarget(liveNode,locator);
+            if(!liveNode || !target){ toast(tr('smart.mediaRenameTargetMissing')); cancelled = true; }
+            else if(canvasPersistence.editable?.() === false){ toast(tr('smart.mediaRenameReadOnly')); cancelled = true; }
+            else {
+                const validated = validateMediaNameInput(input.value.trim(),target.item);
+                if(validated.error){
+                    toast(validated.error);
+                    input.focus({preventScroll:true});
+                    return;
+                }
+                if(validated.name !== String(target.item.name || '').trim()){
+                    canvasMutation.history({action:'push'});
+                    target.item.name = validated.name;
+                    selectedId = liveNode.id;
+                    selectedIds = [];
+                    selectedImage = {nodeId:liveNode.id, index:target.index};
+                    canvasPersistence.schedule();
+                }
+            }
+        }
+        document.removeEventListener('pointerdown', onOutsidePointerDown, true);
+        input.removeEventListener('keydown', onKeyDown);
+        badge.classList.remove('editing');
+        badge.innerHTML = originalMarkup;
+        render();
+    };
+    const onOutsidePointerDown = event => {
+        if(badge.contains(event.target) || event.target.closest?.('input,textarea,[contenteditable="true"]')) return;
+        finish(false);
+    };
+    const onKeyDown = event => {
+        event.stopPropagation();
+        if(event.isComposing) return;
+        if(event.key === 'Enter'){
+            event.preventDefault();
+            finish(false);
+        } else if(event.key === 'Escape'){
+            event.preventDefault();
+            finish(true);
+        }
+    };
+    input.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onOutsidePointerDown, true);
+    input.focus({preventScroll:true});
+    input.select();
+    requestAnimationFrame(() => {
+        if(!input.isConnected) return;
+        input.focus({preventScroll:true});
+        input.select();
     });
-    if(name === null) return;
-    const entered = String(name || '').trim();
-    if(entered === current) return;
-    const liveNode = nodes.find(n => n.id === nodeId);
-    const target = smartFindMediaRenameTarget(liveNode,locator);
-    if(!liveNode || !target){
-        toast(tr('smart.mediaRenameTargetMissing'));
-        return;
-    }
-    if(typeof canvasPersistence !== 'undefined' && canvasPersistence.editable?.() === false){
-        toast(tr('smart.mediaRenameReadOnly'));
-        return;
-    }
-    const validated = validateMediaNameInput(entered,target.item);
-    if(validated.error){
-        toast(validated.error);
-        return;
-    }
-    if(validated.name === String(target.item.name || '').trim()) return;
-    canvasMutation.history({action:'push'});
-    target.item.name = validated.name;
-    selectedId = liveNode.id;
-    selectedIds = [];
-    selectedImage = {nodeId:liveNode.id, index:target.index};
-    render();
-    canvasPersistence.schedule();
 }
 let lastComposerNodeId = '';
 let lastComposerModeConstraint = '';
@@ -14380,6 +14472,12 @@ function expectedOutputSize(sourceSettings=settings){
 }
 function explicitRequestOutputSizeForPending(sourceSettings=settings){
     sourceSettings = sourceSettings || settings;
+    if(isApiLikeEngine(sourceSettings.engine) && sourceSettings.apiKind === 'video'){
+        const ratio = String(sourceSettings.videoAspect || '').match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+        if(ratio && Number(ratio[1]) > 0 && Number(ratio[2]) > 0){
+            return {w:Number(ratio[1]), h:Number(ratio[2])};
+        }
+    }
     if(isApiLikeEngine(sourceSettings.engine) && sourceSettings.apiKind !== 'video'){
         const parsed = parseSizeValue(sizeForRun(sourceSettings));
         if(parsed) return {w:Number(parsed.width) || 1024, h:Number(parsed.height) || 1024};
@@ -14465,7 +14563,7 @@ function mentionTokenHtml(img){
 }
 function mentionTokenMediaHtml(img, kind=mediaKindForItem(img)){
     if(kind === 'audio'){
-        return `<div class="mention-audio-thumb"><i data-lucide="file-audio"></i></div>`;
+        return `<span class="mention-audio-thumb" aria-hidden="true"></span>`;
     }
     if(kind === 'video'){
         return smartVideoPreviewHtml(img, 512, 'alt=""');
@@ -14555,7 +14653,11 @@ function stripRunInputMeta(meta){
     const cleanPrompt = meta.promptText || meta.displayPrompt || meta.prompt || '';
     return {
         ...meta,
-        promptHtml:escapeHtml(cleanPrompt),
+        // Incoming connections own the references; keep the authored token's
+        // visual snapshot so a parallel output and its duplicate stay editable.
+        promptHtml:String(meta.promptHtml || '').includes('mention-image-token')
+            ? meta.promptHtml
+            : escapeHtml(cleanPrompt),
         promptText:cleanPrompt,
         promptRefs:[],
         inputRefs:meta.inputRefs || meta.promptRefs || [],
@@ -16902,10 +17004,6 @@ window.addEventListener('keydown', e => {
     if(e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey && !isEditableTarget(e.target)){
         if(smartMultiInputOwnsSpace(e)) return;
         if(e.repeat) return;
-        if(smartPlaybackToggleSelectedVideo()){
-            e.preventDefault();
-            return;
-        }
         e.preventDefault();
         smartSpacePan = true;
         closeSmartNodeContextMenu();

@@ -2,11 +2,11 @@
 
 Use this checklist before declaring any feature implementation, bug fix, behavior removal, public configuration change, migration, or responsibility-moving refactor complete.
 
-The objective is reconciliation: implementation, tests, the tracked GitHub Issue, and authoritative documents must describe the same observable product. Updating every document is not the objective. Apply every relevant row below and leave unrelated authorities unchanged.
+The objective is reconciliation: implementation, tests, tracked Linear work when applicable, and authoritative documents must describe the same observable product. Updating every document is not the objective. Apply every relevant row below and leave unrelated authorities unchanged.
 
 ## 1. Establish the delivered contract
 
-1. Read the tracked Issue and the relevant Active or Current specification.
+1. Read the tracked Linear issue, when one exists, and the relevant Active or Current specification.
 2. Compare the implemented user-visible behavior, permissions, failure and recovery states, public API/WebSocket/Provider contracts, data ownership, limits, and configuration with those sources.
 3. Resolve disagreement explicitly:
    - change the implementation when it violates the approved contract;
@@ -20,7 +20,7 @@ Completion criterion: every changed observable contract is either reconciled or 
 | Change | Required authority update | Completion criterion |
 | --- | --- | --- |
 | New or changed user-visible behavior | Relevant Feature Spec in `docs/active/` or Current document in `docs/current/` | Goals, non-goals, actors, states, failure/recovery, constraints and acceptance describe the delivered behavior |
-| Bug fix that restores an existing Current contract | Regression test and tracked Issue; keep the Current spec unchanged | The test goes red on the bug and passes on the fix; the Issue explains the corrected behavior |
+| Bug fix that restores an existing Current contract | Regression test and tracked Linear issue when applicable; keep the Current spec unchanged | The test goes red on the bug and passes on the fix; the tracked work explains the corrected behavior |
 | Bug reveals that the Current contract was wrong or incomplete | Current reference plus regression test | The corrected rule and its acceptance scenario are both recorded |
 | New, renamed or removed domain concept | Root `CONTEXT.md` | One canonical term and any rejected ambiguous synonym are defined without implementation details |
 | Durable architecture, data-boundary or security tradeoff | Relevant accepted ADR, or a new/superseding ADR under `docs/adr/` | Decision, alternatives, consequences and supersession are explicit |
@@ -31,7 +31,7 @@ Completion criterion: every changed observable contract is either reconciled or 
 | Storage path, migration or Workspace/Instance/Device/Cache ownership changes | Relevant ADR and `docs/current/storage-layout-and-migration.md` | Ownership, migration, rollback and secret/content boundaries agree with code and tests |
 | Generation lifecycle, Provider recovery or output-delivery changes | `docs/current/generation-pipeline.md` or its Active replacement | Run states, idempotency, recovery and target guards match observable behavior |
 | Removal or deprecation | Relevant map/Current links and regression tests preventing accidental restoration | Current navigation no longer advertises the removed behavior; unique rationale is archived only when still useful |
-| Implementation-only refactor with no contract, terminology, architecture or responsibility change | No product-document edit | Existing contract tests pass; the Issue or PR records the implementation change |
+| Implementation-only refactor with no contract, terminology, architecture or responsibility change | No product-document edit | Existing contract tests pass; the Linear issue or PR records the implementation change |
 
 ## 3. Graduate development documents
 
@@ -57,7 +57,7 @@ Completion criterion: a reader can reach the Current behavior and representative
 
 1. Run the narrow regression tests for the changed behavior and the documentation knowledge-map tests. Add broader suites in proportion to risk.
 2. Check changed Markdown links and remove references to deleted or moved documents.
-3. Record the test commands, results, remaining gates and any known drift in the Issue or PR.
-4. Follow `docs/agents/issue-tracker.md`: move ready work to `Review`; move it to `Done` and close the Issue only after merge and verification.
+3. Record the test commands, results, remaining gates and any known drift in the Linear issue or PR.
+4. Follow `docs/agents/issue-tracker.md`: move tracked work to `Review` when ready; move it to `Done` after merge and verification.
 
-Completion criterion: the final handoff names the authoritative documents changed, tests run, gates still pending, and Issue/Project state. A task with stale Current documentation or an unrecorded required gate is not complete.
+Completion criterion: the final handoff names the authoritative documents changed, tests run, gates still pending, and Linear status when applicable. A task with stale Current documentation or an unrecorded required gate is not complete.

@@ -11,10 +11,11 @@ if(!promptAuthoringContainerModule) throw new Error('Smart Container Module fail
 const promptAuthoringFallbacks = Object.freeze({
     'smart.kindAudio':'音频',
     'smart.kindImage':'图片',
+    'smart.kindVideo':'视频',
     'canvas.imageNumber':'图{number}',
     'smart.mediaNumber':'{kind}{count}',
-    'smart.referenceMapLine':'图{number}：{name}',
-    'smart.refMapHeader':'下面是参考图编号：',
+    'smart.referenceMapLine':'{label}：{name}',
+    'smart.refMapHeader':'参考素材：',
     'smart.refUserNeed':'用户需求：',
     'smart.localTextTooLarge':'本次生成合并的 TXT 文本超过 2MB'
 });
@@ -32,6 +33,23 @@ function promptAuthoringText(key, values={}){
         (result,[name,value]) => result.replaceAll(`{${name}}`, String(value)),
         text
     );
+}
+function promptAuthoringMediaKind(ref){
+    const kind = ref.kind || mediaKindForItem(ref);
+    return ['image','video','audio'].includes(kind) ? kind : 'image';
+}
+function promptAuthoringReferenceLabels(refs){
+    const counts = {image:0,video:0,audio:0};
+    return refs.map(ref => {
+        const kind = promptAuthoringMediaKind(ref);
+        const number = ++counts[kind];
+        return kind === 'image'
+            ? promptAuthoringText('canvas.imageNumber', {number})
+            : promptAuthoringText('smart.mediaNumber', {
+                kind:promptAuthoringText(kind === 'video' ? 'smart.kindVideo' : 'smart.kindAudio'),
+                count:number
+            });
+    });
 }
 
 function promptAuthoringQuickTrigger(text='', caret=0){
@@ -288,8 +306,9 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
             role:promptAuthoringMigrationReferenceRole(index, frameRoles)
         }));
     let hasMentionToken = false;
+    const referenceLabels = promptAuthoringReferenceLabels(refs);
     const refMap = new Map();
-    refs.forEach((img, index) => refMap.set(inputRefKey(img), index + 1));
+    refs.forEach((img, index) => refMap.set(inputRefKey(img), referenceLabels[index]));
     let body = '';
     parts.forEach(part => {
         if(part.type === 'text'){
@@ -303,7 +322,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
             body += `@${part.name || promptAuthoringText('smart.kindImage')}`;
             return;
         }
-        body += promptAuthoringText('canvas.imageNumber', {number: refMap.get(mentionedKey)});
+        body += refMap.get(mentionedKey);
     });
     body = promptAuthoringNormalizeMigrationPrompt(body);
     const textRefs = promptAuthoringTextReferences(node, context);
@@ -315,7 +334,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
     const displayPrompt = originalPrompt || body;
     const resolvedRefs = refs.map((img, index) => ({
         url:img.url,
-        name:img.name || promptAuthoringText('canvas.imageNumber', {number: index + 1}),
+        name:img.name || referenceLabels[index],
         kind:img.kind || mediaKindForItem(img),
         nodeId:img.nodeId || '',
         imageIndex:img.imageIndex ?? '',
@@ -330,7 +349,11 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
         role:img.role || `image_${index + 1}`
     }));
     if(hasMentionToken && refs.length){
-        const mapText = refs.map((img, i) => promptAuthoringText('smart.referenceMapLine', {number: i + 1, name: img.name || promptAuthoringText('smart.mediaNumber', {kind: promptAuthoringText('smart.kindImage'), count: i + 1})})).join('\n');
+        const providerKindOrder = {image:0,video:1,audio:2};
+        const mapText = refs.map((img, index) => ({img,label:referenceLabels[index],index}))
+            .sort((a,b) => providerKindOrder[promptAuthoringMediaKind(a.img)] - providerKindOrder[promptAuthoringMediaKind(b.img)] || a.index - b.index)
+            .map(({img,label}) => promptAuthoringText('smart.referenceMapLine', {label,name:img.name || label}))
+            .join('\n');
         return {
             prompt:`${promptAuthoringText('smart.refMapHeader')}\n${mapText}\n\n${promptAuthoringText('smart.refUserNeed')}\n${body}`,
             displayPrompt,

@@ -116,6 +116,24 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             },
         });
 
+        const frameTitle = page.locator('.image-node[data-id="frame-a"] .node-title');
+        await frameTitle.dblclick();
+        assert.equal(await frameTitle.getAttribute('contenteditable'),'true');
+        assert.equal(await page.evaluate(() => window.getSelection()?.toString()),'旧分区');
+        await frameTitle.fill('放弃修改');
+        await frameTitle.press('Escape');
+        assert.equal(await page.evaluate(() => nodes.find(node => node.id === 'frame-a').title),'旧分区');
+        await frameTitle.dblclick();
+        await frameTitle.fill('空白处完成');
+        await page.locator('#world').click({position:{x:5,y:5},force:true});
+        assert.equal(await page.evaluate(() => nodes.find(node => node.id === 'frame-a').title),'空白处完成');
+        await page.evaluate(() => {
+            selectedId = 'frame-a';
+            selectedIds = [];
+            render();
+            syncSmartNodeFloatingPortal();
+        });
+
         await page.locator('#smartNodeFloatingPortal [data-smart-frame-action="rename"]').click();
         await page.waitForFunction(() => document.querySelector('.image-node[data-id="frame-a"] .node-title')?.isContentEditable);
         await page.locator('.image-node[data-id="frame-a"] .node-title').evaluate(title => {

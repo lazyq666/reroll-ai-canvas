@@ -37,6 +37,11 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
             const video = document.querySelector(`${selector} video[data-inline-video-active]`);
             return video && video.readyState >= 2 && !video.paused;
         }, node);
+        await page.evaluate(() => {
+            selectedId = 'laz-52-video';
+            selectedImage = {nodeId:selectedId, index:0};
+            render();
+        });
         await page.locator(`${node} video`).evaluate(async video => {
             video.currentTime = 1;
             await new Promise(resolve => video.addEventListener('seeked', resolve, {once:true}));
@@ -58,7 +63,8 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
         }));
         assert.equal(expanded.samePlayer, true, `Full screen must keep the same player: ${JSON.stringify(expanded)}`);
         assert.equal(expanded.paused, false);
-        assert.deepEqual(expanded.events, [], 'Changing presentation must not pause, reload or seek');
+        assert.equal(expanded.events.some(type => ['emptied', 'loadstart', 'seeking'].includes(type)), false,
+            'Changing presentation must not reload or seek');
         await page.locator('#imageEditModal').getByRole('button', {name:/^(关闭|Close)$/}).click();
         await page.waitForFunction(() => !document.getElementById('imageEditModal')?.classList.contains('open'));
         await page.waitForTimeout(300);
@@ -71,11 +77,11 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
             events:window.__laz52Events,
         }), node);
         assert.equal(returned.samePlayer, true, JSON.stringify(returned));
-        assert.equal(returned.paused, false);
+        assert.equal(returned.paused, true);
         assert.equal(returned.visible, true);
         assert.equal(returned.volume, 0.4);
         assert.equal(returned.rate, 1.25);
-        assert.deepEqual(returned.events, []);
+        assert.equal(returned.events.at(-1), 'pause');
         await page.locator(`${node} video`).evaluate(video => video.pause());
         assert.equal(await page.evaluate(() => [...document.querySelectorAll('video,audio')].some(media => !media.paused)), false,
             'Pausing the visible player must leave no hidden playback');
@@ -85,7 +91,7 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
         await page.locator(`${node} video`).dblclick({position:{x:24, y:24}});
         await page.waitForFunction(() => document.getElementById('imageEditModal').classList.contains('open'));
         assert.equal(await page.evaluate(() => document.getElementById('previewCurrentVideo') === window.__laz52Video), true);
-        assert.equal(await page.evaluate(() => window.__laz52Video.paused), true);
+        assert.equal(await page.evaluate(() => window.__laz52Video.paused), false);
         await page.evaluate(() => {
             for(let i = 0; i < 5; i++){
                 window.SmartCanvasModules.imageStudio.close();
@@ -93,8 +99,8 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
             }
         });
         await page.waitForTimeout(350);
-        assert.equal(await page.evaluate(() => window.__laz52Video.paused), true);
-        assert.ok(Math.abs(await page.evaluate(() => window.__laz52Video.currentTime) - pausedTime) < 0.1);
+        assert.equal(await page.evaluate(() => window.__laz52Video.paused), false);
+        assert.ok(await page.evaluate(() => window.__laz52Video.currentTime) >= pausedTime);
 
         // Redraw and language/theme changes must not create another player behind the dialog.
         for(const [theme, lang] of [['light','zh'], ['dark','en']]){
@@ -107,10 +113,10 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
             await page.waitForTimeout(150);
             assert.equal(await page.evaluate(() => document.getElementById('previewCurrentVideo') === window.__laz52Video), true);
             assert.equal(await page.locator(`${node} video`).count(), 0);
-            assert.equal(await page.locator('#previewVideoLoopBtn').innerText(), lang === 'en' ? 'Loop on' : '循环已开启');
+            assert.equal(await page.locator('.preview-frame ic-media-player-controls [data-loop]').getAttribute('label'), lang === 'en' ? 'Turn loop off' : '关闭循环播放');
         }
         await page.screenshot({path:'/tmp/laz-52-fullscreen.png'});
-        await page.locator('#previewVideoLoopBtn').click();
+        await page.locator('.preview-frame ic-media-player-controls [data-loop]').click();
         assert.equal(await page.evaluate(() => window.__laz52Video.loop), false);
         await page.evaluate(async () => {
             await window.__laz52Video.play();
@@ -136,7 +142,7 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
             }
         });
         await page.waitForTimeout(150);
-        assert.equal(await page.locator(`${node} video`).evaluate(video => video === window.__laz52Video && !video.paused), true);
+        assert.equal(await page.locator(`${node} video`).evaluate(video => video === window.__laz52Video && video.paused), true);
 
         // The same URL in another media instance has its own playback state.
         await page.evaluate(() => {
