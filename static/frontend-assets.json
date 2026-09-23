@@ -2,7 +2,7 @@
   "schema_version": 1,
   "assets": {
     "static/account-management.html": {
-      "version": "asset-de0729cf965f",
+      "version": "asset-2ff374335a4d",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/account-management.css",
@@ -17,7 +17,7 @@
       ]
     },
     "static/angle.html": {
-      "version": "asset-5197aaf276c8",
+      "version": "asset-d4dd5f4d2f53",
       "dependencies": [
         "static/css/angle.css",
         "static/css/design-tokens.css",
@@ -33,7 +33,7 @@
       ]
     },
     "static/api-settings.html": {
-      "version": "asset-8e645ae5b141",
+      "version": "asset-1ba4b259394a",
       "dependencies": [
         "static/css/api-settings-t18.css",
         "static/css/api-settings-t19.css",
@@ -55,7 +55,7 @@
       ]
     },
     "static/available-model-management.html": {
-      "version": "asset-e3d956554cb8",
+      "version": "asset-ddf42607325b",
       "dependencies": [
         "static/css/available-model-management.css",
         "static/css/design-tokens.css",
@@ -72,7 +72,7 @@
       ]
     },
     "static/canvas-list.html": {
-      "version": "asset-18bb8f7f1067",
+      "version": "asset-9166f54c8b64",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/canvas-list.css",
@@ -90,7 +90,7 @@
       ]
     },
     "static/canvas.html": {
-      "version": "asset-e9a33f10b896",
+      "version": "asset-826cf50de0d6",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/images/brand/favicon.png",
@@ -100,7 +100,7 @@
       ]
     },
     "static/comfyui-settings.html": {
-      "version": "asset-aaf9796d32cf",
+      "version": "asset-06c12f712c64",
       "dependencies": [
         "static/css/comfyui-settings.css",
         "static/css/design-tokens.css",
@@ -445,7 +445,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/generation-failure-feedback.html": {
-      "version": "asset-a473507bbe58",
+      "version": "asset-31ae375ac055",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/i18n-core.js",
@@ -602,7 +602,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/menu-popover-case.html": {
-      "version": "asset-c8ce4b15e60b",
+      "version": "asset-5e94c0b6f2fb",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/i18n-core.js",
@@ -729,7 +729,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/smart-node-toolbar.html": {
-      "version": "asset-7fbc6ffa8612",
+      "version": "asset-7e6efd101d5d",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/i18n.js",
@@ -846,7 +846,7 @@
       "dependencies": []
     },
     "static/enhance.html": {
-      "version": "asset-1fff0367363e",
+      "version": "asset-0a8dc6f946e0",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/enhance.css",
@@ -1074,7 +1074,7 @@
       "dependencies": []
     },
     "static/index.html": {
-      "version": "asset-aaa7af437cd8",
+      "version": "asset-bf9b3e448dd3",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/cli-updates.css",
@@ -1237,7 +1237,7 @@
       "dependencies": []
     },
     "static/js/i18n.js": {
-      "version": "asset-cfd47b720041",
+      "version": "asset-56737f0e0453",
       "dependencies": [
         "static/js/cloud-records.js",
         "static/js/i18n-core.js",
@@ -1306,7 +1306,7 @@
       "dependencies": []
     },
     "static/js/i18n/smart-canvas.js": {
-      "version": "asset-103254c5bb2a",
+      "version": "asset-a09f4423d435",
       "dependencies": []
     },
     "static/js/i18n/studio.js": {
@@ -2372,7 +2372,7 @@
       ]
     },
     "static/js/smart-canvas/prompt-authoring.js": {
-      "version": "asset-48e93e64b7f7",
+      "version": "asset-cab8ef736c30",
       "dependencies": []
     },
     "static/js/smart-canvas/prompt-generation-composer.js": {
@@ -2513,7 +2513,7 @@
       "dependencies": []
     },
     "static/klein.html": {
-      "version": "asset-31445200946d",
+      "version": "asset-6d03407f0caf",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/klein.css",
@@ -2527,7 +2527,7 @@
       ]
     },
     "static/login.html": {
-      "version": "asset-d2a7ac02046f",
+      "version": "asset-e13e7ebe9ca8",
       "dependencies": [
         "static/css/account-login.css",
         "static/css/design-tokens.css",
@@ -2541,7 +2541,7 @@
       ]
     },
     "static/online.html": {
-      "version": "asset-0857b047961d",
+      "version": "asset-c089c486d347",
       "dependencies": [
         "static/css/batch-generation.css",
         "static/css/design-tokens.css",
@@ -2559,7 +2559,7 @@
       ]
     },
     "static/prompt-optimization-settings.html": {
-      "version": "asset-dba7eaf5ee00",
+      "version": "asset-c0545db9b648",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/prompt-optimization-settings.css",
@@ -2599,7 +2599,7 @@
       "dependencies": []
     },
     "static/setup.html": {
-      "version": "asset-f14a8537cb0b",
+      "version": "asset-fcd4832280fb",
       "dependencies": [
         "static/css/account-login.css",
         "static/css/account-setup.css",
@@ -2614,7 +2614,7 @@
       ]
     },
     "static/share.html": {
-      "version": "asset-68fa00cada1e",
+      "version": "asset-60ecca126185",
       "dependencies": [
         "static/css/canvas-share.css",
         "static/css/design-tokens.css",
@@ -2634,7 +2634,7 @@
       ]
     },
     "static/smart-canvas.html": {
-      "version": "asset-e65293d65690",
+      "version": "asset-391208e0a019",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/design-tokens.css",
@@ -2783,7 +2783,7 @@
       "dependencies": []
     },
     "static/zimage.html": {
-      "version": "asset-dd294f913021",
+      "version": "asset-17bfd9ed57ba",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/zimage.css",

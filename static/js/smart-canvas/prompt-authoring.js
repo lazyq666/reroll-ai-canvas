@@ -14,9 +14,6 @@ const promptAuthoringFallbacks = Object.freeze({
     'smart.kindVideo':'视频',
     'canvas.imageNumber':'图{number}',
     'smart.mediaNumber':'{kind}{count}',
-    'smart.referenceMapLine':'{label}：{name}',
-    'smart.refMapHeader':'参考素材：',
-    'smart.refUserNeed':'用户需求：',
     'smart.localTextTooLarge':'本次生成合并的 TXT 文本超过 2MB'
 });
 const promptCharacterSegmenter = new Intl.Segmenter(undefined, {
@@ -362,23 +359,6 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
         ),
         role:img.role || `image_${index + 1}`
     }));
-    if(hasMentionToken && refs.length && !dreaminaAllAround){
-        const providerKindOrder = {image:0,video:1,audio:2};
-        const mapText = refs.map((img, index) => ({img,label:referenceLabels[index],index}))
-            .sort((a,b) => providerKindOrder[promptAuthoringMediaKind(a.img)] - providerKindOrder[promptAuthoringMediaKind(b.img)] || a.index - b.index)
-            .map(({img,label}) => promptAuthoringText('smart.referenceMapLine', {label,name:img.name || label}))
-            .join('\n');
-        return {
-            prompt:`${promptAuthoringText('smart.refMapHeader')}\n${mapText}\n\n${promptAuthoringText('smart.refUserNeed')}\n${body}`,
-            displayPrompt,
-            refs:resolvedRefs,
-            textRefs:textRefs.map(ref => ({...ref})),
-            localTextRefs,
-            textInputs,
-            validationErrors,
-            mentioned:true
-        };
-    }
     return {
         prompt:body,
         displayPrompt,
@@ -387,7 +367,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
         localTextRefs,
         textInputs,
         validationErrors,
-        mentioned:false
+        mentioned:hasMentionToken
     };
 }
 function resolvePromptAuthoringFromNodeDraft(node, defaultImages, context=null, sourceSettings=settings){
