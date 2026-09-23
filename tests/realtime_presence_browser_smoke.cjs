@@ -183,6 +183,58 @@ async function pointerContrastRatios(page) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const { page, errors } = await installPage(context);
 
+    await page.waitForFunction(() => [...document.querySelectorAll('#presenceMembers .presence-avatar-button img')]
+      .every(image => image.complete && image.naturalWidth > 0));
+    const churn = await page.evaluate(avatarAsset => {
+      const buttons = [...document.querySelectorAll('#presenceMembers .presence-avatar-button')];
+      const images = buttons.map(button => button.querySelector('img'));
+      const focused = buttons.at(-1);
+      focused.focus();
+      const socket = window.__presenceSockets[0];
+      socket.serverSend({ type: 'presence_join', protocol_version: 1, membership_version: 8,
+        member: { participant_id: 'participant-churn', display_name: 'Churn', username: 'churn',
+          avatar_asset: avatarAsset, pointer_color_slot: 8, cursor: null, cursor_version: 0 } });
+      socket.serverSend({ type: 'presence_leave', protocol_version: 1, membership_version: 9,
+        participant_id: 'participant-churn' });
+      return { retained: buttons.every(button => button.isConnected),
+        imagesRetained: images.every(image => image?.isConnected),
+        focusRetained: document.activeElement === focused };
+    }, avatarAssets[0]);
+    assert.deepEqual(churn, { retained: true, imagesRetained: true, focusRetained: true },
+      'LAZ-61: membership churn must preserve stable avatar elements, images and focus');
+
+    await page.evaluate(() => {
+      window.__languageImages = [...document.querySelectorAll('#presenceMembers img')];
+      window.StudioI18n.set('en');
+    });
+    assert.match(await page.locator('#presenceMembers .presence-avatar-button').last().getAttribute('aria-label'), /You/i);
+    await page.evaluate(() => window.StudioI18n.set('zh'));
+    assert.match(await page.locator('#presenceMembers .presence-avatar-button').last().getAttribute('aria-label'), /你/);
+    assert.equal(await page.evaluate(() => window.__languageImages.every(image => image.isConnected)), true);
+
+    // Also cover the original 2 -> 3 -> 2 member case, where no overflow exists.
+    await page.evaluate(snapshotMembers => {
+      const socket = window.__presenceSockets[0];
+      socket.serverSend({ type: 'presence_snapshot', protocol_version: 1, membership_version: 20,
+        self_participant_id: 'participant-self', members: snapshotMembers.slice(0, 2) });
+    }, members);
+    await page.waitForFunction(() => document.querySelectorAll('#presenceMembers img').length === 2);
+    const smallChurn = await page.evaluate(newMember => {
+      const stable = [...document.querySelectorAll('#presenceMembers .presence-avatar-button')];
+      const images = stable.map(button => button.querySelector('img'));
+      stable.at(-1).focus();
+      const socket = window.__presenceSockets[0];
+      socket.serverSend({ type: 'presence_join', protocol_version: 1, membership_version: 21, member: newMember });
+      socket.serverSend({ type: 'presence_leave', protocol_version: 1, membership_version: 22, participant_id: newMember.participant_id });
+      return { retained: stable.every(button => button.isConnected), images: images.every(image => image.isConnected),
+        focus: document.activeElement === stable.at(-1) };
+    }, member(3));
+    assert.deepEqual(smallChurn, { retained: true, images: true, focus: true });
+    await page.evaluate(snapshotMembers => window.__presenceSockets[0].serverSend({
+      type: 'presence_snapshot', protocol_version: 1, membership_version: 9,
+      self_participant_id: 'participant-self', members: snapshotMembers,
+    }), members);
+
     const group = await page.locator('#presenceMembers').evaluate(host => {
       const rect = host.getBoundingClientRect();
       const overlay = document.getElementById('presencePointerOverlay');
@@ -281,7 +333,7 @@ async function pointerContrastRatios(page) {
     });
 
     await page.evaluate(avatarAsset => window.__presenceSockets[0].serverSend({
-      type: 'presence_join', protocol_version: 1, membership_version: 9,
+      type: 'presence_join', protocol_version: 1, membership_version: 12,
       member: { participant_id: 'participant-gap', display_name: 'Gap', username: 'gap', avatar_asset: avatarAsset, pointer_color_slot: 1, cursor: null, cursor_version: 0 },
     }), avatarAssets[0]);
     const afterGap = await sentPresence(page);
@@ -292,6 +344,26 @@ async function pointerContrastRatios(page) {
       fs.mkdirSync(evidenceDir, { recursive: true });
       await page.screenshot({ path: path.join(evidenceDir, 'presence-light.png') });
     }
+    // A keyed renderer must still refresh changed profiles after a resnapshot.
+    await page.evaluate(({ snapshotMembers, asset }) => {
+      const buttons = [...document.querySelectorAll('#presenceMembers .presence-avatar-button')];
+      window.__unchangedSelfImage = buttons.at(-1).querySelector('img');
+      window.__changedMemberButton = buttons.find(button => button.getAttribute('aria-label').startsWith('A Very Long'));
+      window.__changedMemberImage = window.__changedMemberButton.querySelector('img');
+      const updated = snapshotMembers.map(member => member.participant_id === 'participant-2'
+        ? { ...member, display_name: 'Updated Profile', avatar_asset: asset } : member);
+      window.__presenceSockets[0].serverSend({ type: 'presence_snapshot', protocol_version: 1,
+        membership_version: 10, self_participant_id: 'participant-self', members: updated });
+    }, { snapshotMembers: members, asset: avatarAssets.at(-1) });
+    await page.waitForFunction(() => {
+      const image = window.__changedMemberButton.querySelector('img');
+      return image && image !== window.__changedMemberImage && image.complete && image.naturalWidth > 0;
+    });
+    assert.deepEqual(await page.evaluate(() => ({
+      sameButton: window.__changedMemberButton.isConnected,
+      updatedName: window.__changedMemberButton.getAttribute('aria-label'),
+      selfImageRetained: window.__unchangedSelfImage.isConnected,
+    })), { sameButton: true, updatedName: 'Updated Profile', selfImageRetained: true });
     assert.deepEqual(errors, []);
     await context.close();
 

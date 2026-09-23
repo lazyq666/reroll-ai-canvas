@@ -60,6 +60,13 @@
 
 云端存储不可用时，实时通道以 `1013` 和 `cloud_storage_*` 原因码关闭；服务内部错误以 `1011` 关闭，不映射为账号编辑权限丢失。客户端保留待确认操作，重连取得快照后按原 Operation ID 核对。画布列表的读取失败与无项目空状态分开显示。
 
+已建立的画布实时连接结束时，服务通过 `uvicorn.error` 的 INFO 日志输出一条
+`canvas_realtime_closed` 诊断：UTC 时间、账号 ID、画布 ID、关闭码、固定原因分类和连接持续时间。
+不记录 Cookie、会话令牌、客户端任意关闭文本、消息内容或媒体。客户端主动重同步仍使用
+`4000`，其关闭原因仅携带允许的固定分类（例如 `resync:heartbeat-timeout`、
+`resync:heartbeat-revision`、`resync:revision-gap`）；未识别的原因退回 `resync`。
+诊断不改变断线、账号在线状态或重连时序。连接建立前的拒绝不属于此结束日志。
+
 Canvas Sync 不回调 `main.py` 的旧实现。文件系统、通知与账号分享/审计分别通过
 Workspace content、Connection Manager 和 Auth System adapter 完成。
 

@@ -14308,7 +14308,13 @@ function setSmartDropCopyEffect(e, includeAsset=false){
         e.dataTransfer.dropEffect = 'copy';
     }
 }
+let smartUploadsInFlight = 0;
 async function uploadFiles(files){
+    smartUploadsInFlight += 1;
+    try { return await uploadSmartFiles(files); }
+    finally { smartUploadsInFlight -= 1; }
+}
+async function uploadSmartFiles(files){
     const supported = [...(files || [])].filter(isSupportedUploadFile).slice(0, SMART_UPLOAD_MAX);
     if(!supported.length) return [];
     const form = new FormData();
@@ -18095,6 +18101,27 @@ function loadSmartCanvasNodeReview(){
     document.documentElement.dataset.nodesStatus = 'ready';
     document.body.dataset.componentReviewStatus = 'ready';
 }
+// Upgrade prompts must use the same acknowledged save boundary as generation.
+window.SmartCanvasModules.pageRefreshBlocked = () => {
+    if(!canvasPersistence.online()) return 'frontendUpdate.unsynced';
+    if(smartUploadsInFlight || window.SmartCanvasModules.canvasInteraction?.active()
+        || nodes.some(node => smartNodeInFlight(node) || node.textGenerationPending)
+        || window.SmartCanvasModules.promptGenerationComposer?.pageRefreshBlocked()) return 'frontendUpdate.busy';
+    return '';
+};
+window.SmartCanvasModules.preparePageRefresh = async () => {
+    const blocked = window.SmartCanvasModules.pageRefreshBlocked();
+    if(blocked) throw new Error(blocked);
+    savePromptDraftForCurrent();
+    if(!flushLayerDecompositionDraft()
+        || window.SmartCanvasModules.promptGenerationComposer?.preparePageRefresh() === false){
+        throw new Error('frontendUpdate.busy');
+    }
+    await canvasPersistence.checkpoint({timeout:5000});
+    const afterSave = window.SmartCanvasModules.pageRefreshBlocked();
+    if(afterSave) throw new Error(afterSave);
+};
+
 window.onload = async () => {
     const opening = window.SmartCanvasModules?.canvasOpening;
     const requiredUiReady = Boolean(

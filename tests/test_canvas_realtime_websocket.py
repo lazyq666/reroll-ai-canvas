@@ -17,6 +17,51 @@ ensure_test_workspace()
 
 
 class CanvasRealtimeWebSocketTests(unittest.TestCase):
+    def test_disconnect_diagnostics_keep_only_allowlisted_categories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            previous_state = os.environ.get("INFINITE_CANVAS_STATE_DIR")
+            os.environ["INFINITE_CANVAS_STATE_DIR"] = str(root / "state")
+            configure_test_workspace(root / "workspace", root / "state")
+            unload_main()
+            try:
+                main = importlib.import_module("main")
+                user = main.AUTH_SYSTEM.create_user(
+                    username="diagnostics-admin", password="test-password", role="admin",
+                )
+                with TestClient(main.app) as client:
+                    client.post("/api/auth/login", json={
+                        "username": user["username"], "password": "test-password",
+                    })
+                    canvas = client.post("/api/canvases", json={
+                        "title": "Diagnostics", "kind": "smart",
+                    }).json()["canvas"]
+                    for reason, category in (
+                        ("resync:heartbeat-revision", "resync:heartbeat-revision"),
+                        ("secret-token-and-private-message", "transport"),
+                    ):
+                        with self.assertLogs("uvicorn.error", level="INFO") as captured:
+                            with client.websocket_connect(
+                                f"/ws/canvases/{canvas['id']}?layout_gap=64&client_id=diagnostics"
+                            ) as socket:
+                                self.receive_type(socket, "presence_snapshot")
+                                socket.close(code=4000, reason=reason)
+                        records = [line for line in captured.output if "canvas_realtime_closed" in line]
+                        self.assertEqual(len(records), 1)
+                        self.assertIn(f"account_id={user['id']}", records[0])
+                        self.assertIn(f"canvas_id={canvas['id']}", records[0])
+                        self.assertIn(f"code=4000 category={category}", records[0])
+                        self.assertIn("duration_ms=", records[0])
+                        self.assertNotIn("secret-token", records[0])
+                        self.assertNotIn("test-password", records[0])
+            finally:
+                unload_main()
+                if previous_state is None:
+                    os.environ.pop("INFINITE_CANVAS_STATE_DIR", None)
+                else:
+                    os.environ["INFINITE_CANVAS_STATE_DIR"] = previous_state
+                ensure_test_workspace()
+
     @staticmethod
     def receive_type(socket, expected_type):
         while True:

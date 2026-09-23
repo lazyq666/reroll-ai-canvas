@@ -1,18 +1,30 @@
 # 前端资源版本与升级缓存
 
 > Status: Current  
-> Last verified: 2026-09-22（本地受控验收；发布仍遵守 Public readiness）  
+> Last verified: 2026-09-23（本地受控验收；发布仍遵守 Public readiness）
 > Owners: 前端 / 测试与发布  
 > Feature: F14  
-> Tracked by: [Issue #119](https://github.com/lazyq666/reroll-ai-canvas/issues/119)、[LAZ-49](https://linear.app/lazyq/issue/LAZ-49)
+> Tracked by: [Issue #119](https://github.com/lazyq666/reroll-ai-canvas/issues/119)、[LAZ-49](https://linear.app/lazyq/issue/LAZ-49)、[LAZ-63](https://linear.app/lazyq/issue/LAZ-63)
 
 ## 用户行为
 
 升级后，正常打开或刷新页面即可加载与当前代码一致的资源，无须清除浏览器缓存。内容指纹是文件内容的稳定标识；内容或依赖变化会生成新的 `?v=asset-…` 地址。未受影响的资源地址保持不变。
 
-HTML 页面要求重新验证缓存；带内容指纹的静态资源允许长期缓存。启动、页面请求和发布检查均不改写源码。长期打开的旧标签页不会被强制刷新；工作中的安全升级提示另行设计。
+HTML 页面要求重新验证缓存；带内容指纹的静态资源允许长期缓存。启动、页面请求和发布检查均不改写源码。长期打开的工作台或独立 Smart Canvas 页面检测到更新后提示用户确认刷新，不自动刷新。
 
 本机制不改变媒体命名规则，不重命名历史结果或磁盘文件。生成结果继续遵守[媒体命名合同](../active/2026-09-20-smart-canvas-media-naming.md)。
+
+## 长期打开页面的更新提醒
+
+工作台与独立 Smart Canvas 由 `static/js/frontend-update.js` 检测当前连接的同一服务器。`GET /api/app-info` 保留 `version`，增加 `frontend_revision`（生成清单原始字节的 SHA-256；清单不可读时为空），响应使用 `Cache-Control: no-store`。该接口只读；文件元数据只负责使摘要缓存失效，不参与资源版本计算。
+
+- 第一次成功请求建立基线；前台页面每 60 秒检查一次，窗口重新获得焦点、恢复可见或联网时也检查。隐藏页面暂停检查；单次请求最多等待 8 秒，请求失败不产生更新提示。
+- 应用版本或生成清单摘要变化时，显示“刷新到新版 / 稍后提醒”。稍后或关闭弹窗对同一个更新延后 10 分钟；不同更新可以再次提醒。服务器回到基线时关闭提示。
+- 同源内嵌 Smart Canvas 不再创建检测器，由顶层工作台提示一次并检查所有内嵌画布。不同浏览器会话各自决定刷新时间；一个人的刷新不会刷新其他人的页面。
+- 确认刷新会先提交当前画布草稿，再等待 Canvas Sync 的服务器确认，最多等待 5 秒。正在生成、上传、活动交互、存在未解决的文字草稿冲突、其他弹窗未关闭、画布离线或保存超时，均保留当前页面并给出原因。等待后再次检查页面、活动状态及待保存状态，避免中途发生的变化被跳过。
+- 服务器仍可连接且画布已同步后，执行普通网页刷新，依靠内容指纹加载新版资源。其他页面尚未提交的表单仍需用户先完成；提示正文明确说明该边界。文案支持中文、英文，复用公共 Confirmation Dialog 的主题、焦点与键盘交互。
+
+本功能首次部署前已打开的旧页面没有检测器，必须先普通刷新一次。首次成功检测之前发生的更新不会被追溯识别。此机制不下载或安装服务器软件，也不比较其他独立安装与远程发布站的版本；它不能证明 [LAZ-61](https://linear.app/lazyq/issue/LAZ-61) 历史断线的原因。
 
 ## 唯一生成入口
 
@@ -58,6 +70,9 @@ python3.12 scripts/sync_frontend_assets.py --check
 
 ```bash
 ASSET_TEST_PYTHON=.venv/bin/python node tests/frontend_cache_upgrade_browser.cjs
+ASSET_TEST_PYTHON=.venv/bin/python node tests/frontend_update_browser.cjs
 ```
+
+[更新提醒浏览器回归](../../tests/frontend_update_browser.cjs)使用同一临时服务，在保留缓存的旧页面上切换版本，覆盖资源变化、版本变化、请求失败、稍后提醒、键盘、双语、Light/Dark、断线、生成与保存超时保护，以及保存确认后刷新加载新代码和双会话/父子页面协调。[API 回归](../../tests/test_frontend_update_api.py)验证真实登录的管理员及两个设计师收到一致版本信息。
 
 [Public readiness](public-readiness.md)的仓库合同组执行统一只读检查，必需浏览器组执行缓存升级回归。合并后的 main 检查与生效规则回读仍是发布完成条件，本地通过不替代这些条件。

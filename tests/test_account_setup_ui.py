@@ -25,7 +25,7 @@ class AccountSetupUiTests(unittest.TestCase):
         self.assertIn('<ic-icon-button id="back" icon="back" label=',self.script)
 
     def test_completion_uses_server_readiness_and_navigation(self):
-        self.assertIn("request('/api/admin/onboarding/complete',{})",self.script)
+        self.assertIn("request('/api/admin/onboarding/complete',{intent})",self.script)
         self.assertIn('window.location.assign(result.next_url)',self.script)
         self.assertNotIn('demo-',self.script)
 

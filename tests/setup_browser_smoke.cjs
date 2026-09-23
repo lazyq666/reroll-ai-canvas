@@ -45,7 +45,9 @@ function startServer(state, port = 0) {
       return response.end(JSON.stringify(failed?{stage:'error',code:payload.service==='other'?'auto_failed':'connection_failed'}:{stage:'complete',provider_id:payload.service,count:3})+'\n');
     }
     if(url.pathname === '/api/admin/onboarding/complete') {
-      if(!Object.keys(state.services||{}).length)return json(response,409,{detail:{code:'no_source'}});
+      const payload=await requestBody(request);
+      state.completionIntent=payload.intent||'connected';
+      if(state.completionIntent!=='defer'&&!Object.keys(state.services||{}).length)return json(response,409,{detail:{code:'no_source'}});
       state.completed=true;return json(response,200,{next_url:'/static/canvas-list.html'});
     }
     if(url.pathname === '/static/canvas-list.html') {
@@ -261,12 +263,37 @@ async function main() {
     await click(cdp,sessionId,'#login');
     await waitFor(cdp,sessionId,"Boolean(document.querySelector('#start-creating'))",'CLI login and Ready');
     await evaluate(cdp,sessionId,"window.StudioI18n.set('en')");
-    await waitFor(cdp,sessionId,"document.querySelector('#start-creating').textContent==='Start creating'",'English completion');
+    await waitFor(cdp,sessionId,"document.querySelector('#start-creating').textContent==='Open Reroll'",'English completion');
     await click(cdp,sessionId,'#setup-theme');
     await cdp.send('Emulation.setDeviceMetricsOverride',{width:375,height:812,deviceScaleFactor:1,mobile:false},sessionId);
     const narrow=await evaluate(cdp,sessionId,"document.documentElement.scrollWidth<=document.documentElement.clientWidth");
     await click(cdp,sessionId,'#start-creating');
     await waitFor(cdp,sessionId,"Boolean(document.querySelector('#canvas-list-destination'))",'canvas list');
+    const connectedCompleted=state.completed&&state.completionIntent==='connected';
+    const apiAndCliConnected=Object.keys(state.services).length===2;
+    state.completed=false;state.services={};
+    await cdp.send('Page.navigate',{url:`http://127.0.0.1:${port}/setup`},sessionId);
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#ready'))",'zero service skip');
+    await click(cdp,sessionId,'#ready');
+    await waitFor(cdp,sessionId,"document.querySelector('h1')?.textContent==='Basic setup is complete'",'zero service completion');
+    await evaluate(cdp,sessionId,"window.StudioI18n.set('zh')");
+    await waitFor(cdp,sessionId,"document.querySelector('#start-creating')?.textContent==='进入 Reroll'",'Chinese completion');
+    const zeroSourceNarrow=await evaluate(cdp,sessionId,"document.documentElement.scrollWidth<=document.documentElement.clientWidth");
+    await click(cdp,sessionId,'#choose-services');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#configure'))",'configure later return');
+    await click(cdp,sessionId,'[data-service="apimart"]');
+    await click(cdp,sessionId,'#configure');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#api-key')?.shadowRoot)",'deferred API form');
+    await setValue(cdp,sessionId,'#api-key','fail');
+    await click(cdp,sessionId,'#connect');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('ic-alert[open]'))",'failed only service');
+    await click(cdp,sessionId,'#skip');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#start-creating'))",'all skipped');
+    await click(cdp,sessionId,'#start-creating');
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#canvas-list-destination'))",'deferred canvas list');
+    const deferredCompleted=state.completed&&state.completionIntent==='defer'&&!Object.keys(state.services).length;
+    await cdp.send('Page.navigate',{url:`http://127.0.0.1:${port}/setup`},sessionId);
+    await waitFor(cdp,sessionId,"Boolean(document.querySelector('#canvas-list-destination'))",'completed setup revisit');
     const consoleErrors = cdp.events.flatMap(event => (
       event.method === 'Runtime.exceptionThrown'
         ? [event.params.exceptionDetails?.exception?.description || event.params.exceptionDetails?.text]
@@ -277,7 +304,7 @@ async function main() {
     report={checks:{administratorFirst,inlinePicker,noPreselection,inputRetained,narrow,
       inspectionBeforeSetup:state.inspections.length>=2&&state.setups.length===1,
       resumedAfterRestart:state.restarts===1,
-      apiAndCliConnected:Object.keys(state.services).length===2,
+      apiAndCliConnected,connectedCompleted,deferredCompleted,zeroSourceNarrow,
       completed:state.completed,console:consoleErrors.length===0},consoleErrors};
 
   } finally {

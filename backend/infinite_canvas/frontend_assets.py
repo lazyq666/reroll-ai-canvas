@@ -1,8 +1,25 @@
 """HTTP caching for explicitly generated frontend URLs; never rewrites sources."""
 import re
+import hashlib
+from functools import lru_cache
+from pathlib import Path
 
 from starlette.datastructures import QueryParams
 from starlette.staticfiles import StaticFiles
+
+
+@lru_cache(maxsize=4)
+def _manifest_revision(path: str, modified: int, size: int) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def frontend_revision(manifest: Path) -> str:
+    """Read the generated inventory, using file metadata only to invalidate cache."""
+    try:
+        stat = manifest.stat()
+        return _manifest_revision(str(manifest), stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return ""
 
 
 class FrontendStaticFiles(StaticFiles):

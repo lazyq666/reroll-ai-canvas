@@ -1,5 +1,13 @@
 (function(){
     window.StudioI18n?.register({
+        "frontendUpdate.title": { zh: "Reroll 已有新版", en: "A new version of Reroll is ready" },
+        "frontendUpdate.description": { zh: "刷新即可加载新版。刷新前会等待画布保存，请先完成其他页面中尚未提交的操作。", en: "Refresh to load the new version. Canvas changes will be saved first. Finish any unsubmitted work on other pages before continuing." },
+        "frontendUpdate.refresh": { zh: "刷新到新版", en: "Refresh to update" },
+        "frontendUpdate.later": { zh: "稍后提醒", en: "Remind me later" },
+        "frontendUpdate.saving": { zh: "正在确认保存…", en: "Checking saved changes…" },
+        "frontendUpdate.busy": { zh: "请先完成当前编辑或等待生成结束，再尝试刷新。当前页面已保留。", en: "Finish the current edit or wait for generation to complete, then try again. Your page has been kept open." },
+        "frontendUpdate.unsynced": { zh: "画布尚未完成同步，暂未刷新。请检查连接，待保存完成后重试。", en: "Canvas changes have not finished syncing, so the page was not refreshed. Check your connection and try again after saving." },
+        "frontendUpdate.unavailable": { zh: "暂时无法连接服务器，当前页面已保留。请稍后重试。", en: "The server is temporarily unavailable. Your page has been kept open. Try again shortly." },
         "runtime.startingTitle": { zh: "Reroll 正在启动", en: "Reroll is starting" },
         "runtime.reconnectTitle": { zh: "需要重新连接工作区", en: "Reconnect your workspace" },
         "runtime.restartWaitingTitle": { zh: "正在等待安全重启", en: "Waiting for a safe restart" },

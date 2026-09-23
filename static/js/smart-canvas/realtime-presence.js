@@ -36,6 +36,9 @@
     let accumulatedDistance = 0;
     let pointerActive = false;
     let overflowPopover = null;
+    let memberGroup = null;
+    const memberItems = new Map();
+    const popoverRows = new Map();
 
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const trf = (key, values = {}) => {
@@ -161,30 +164,84 @@
     }
 
     function renderMemberPopover(popover, ordered) {
-        const list = document.createElement('div');
-        list.className = 'presence-member-list';
-        list.setAttribute('role', 'list');
-        ordered.forEach(member => {
-            const row = document.createElement('div');
-            row.className = 'presence-member-row';
-            row.setAttribute('role', 'listitem');
-            const avatar = window.InfiniteCanvasAccountAvatar?.create?.(member)
-                || document.createElement('span');
-            avatar.dataset.pointerColorSlot = String(member.pointer_color_slot || 1);
-            const name = document.createElement('span');
-            name.className = 'presence-member-name';
+        let list = popover.querySelector('.presence-member-list');
+        if (!list) {
+            list = document.createElement('div');
+            list.className = 'presence-member-list';
+            list.setAttribute('role', 'list');
+            popover.appendChild(list);
+        }
+        const rows = ordered.map(member => {
+            let row = popoverRows.get(member.participant_id);
+            if (!row) {
+                row = document.createElement('div');
+                row.className = 'presence-member-row';
+                row.setAttribute('role', 'listitem');
+                const avatar = window.InfiniteCanvasAccountAvatar?.create?.(member)
+                    || document.createElement('span');
+                const name = document.createElement('span');
+                name.className = 'presence-member-name';
+                row.append(avatar, name);
+                popoverRows.set(member.participant_id, row);
+            }
+            const avatar = row.firstElementChild;
+            updateAvatar(avatar, member);
+            const name = row.querySelector('.presence-member-name');
             name.textContent = displayName(member);
             name.title = displayName(member);
-            row.append(avatar, name);
+            let you = row.querySelector('.presence-member-you');
             if (member.participant_id === selfParticipantId) {
-                const you = document.createElement('span');
-                you.className = 'presence-member-you';
+                if (!you) {
+                    you = document.createElement('span');
+                    you.className = 'presence-member-you';
+                    row.appendChild(you);
+                }
                 you.textContent = tr('smart.presenceYou');
-                row.appendChild(you);
+            } else {
+                you?.remove();
             }
-            list.appendChild(row);
+            return row;
         });
-        popover.replaceChildren(popover.querySelector('[slot="trigger"]'), list);
+        reconcileChildren(list, rows);
+        for (const [id] of popoverRows) {
+            if (!members.has(id)) popoverRows.delete(id);
+        }
+    }
+
+    function updateAvatar(avatar, member) {
+        // apply() deliberately shows a fallback while loading a changed image.
+        // Do not restart it for membership, name or language-only updates.
+        if (avatar.dataset.avatarAssetRequest !== String(member.avatar_asset || '')) {
+            window.InfiniteCanvasAccountAvatar?.apply?.(avatar, member);
+        }
+        avatar.dataset.pointerColorSlot = String(member.pointer_color_slot || 1);
+    }
+
+    function reconcileChildren(parent, children) {
+        const retained = new Set(children);
+        [...parent.children].forEach(child => { if (!retained.has(child)) child.remove(); });
+        children.forEach((child, index) => {
+            const before = parent.children[index] || null;
+            if (before === child) return;
+            if (parent.moveBefore && child.parentNode === parent) parent.moveBefore(child, before);
+            else parent.insertBefore(child, before);
+        });
+    }
+
+    function memberItem(member) {
+        let item = memberItems.get(member.participant_id);
+        if (!item) {
+            item = avatarButton(member, { listItem: true });
+            memberItems.set(member.participant_id, item);
+        }
+        const name = displayName(member);
+        const label = member.participant_id === selfParticipantId
+            ? `${name} · ${tr('smart.presenceYou')}` : name;
+        const button = item.querySelector('button');
+        button.setAttribute('aria-label', label);
+        item.querySelector('ic-tooltip').setAttribute('content', label);
+        updateAvatar(button.firstElementChild, member);
+        return item;
     }
 
     function renderMembers() {
@@ -193,6 +250,10 @@
             overflowPopover?.hide?.('programmatic');
             membersHost.hidden = true;
             membersHost.replaceChildren();
+            memberGroup = null;
+            overflowPopover = null;
+            memberItems.clear();
+            popoverRows.clear();
             return;
         }
         const ordered = [...members.values()];
@@ -201,40 +262,52 @@
         const directOtherCount = Math.max(0, 5 - (own ? 1 : 0));
         const visibleOthers = others.slice(0, directOtherCount);
         const hiddenCount = Math.max(0, others.length - visibleOthers.length);
-        const group = document.createElement('div');
-        group.className = 'presence-avatar-strip';
-        group.setAttribute('role', 'list');
+        if (!memberGroup) {
+            memberGroup = document.createElement('div');
+            memberGroup.className = 'presence-avatar-strip';
+            memberGroup.setAttribute('role', 'list');
+            membersHost.appendChild(memberGroup);
+        }
+        const children = [];
         if (hiddenCount) {
-            const popover = document.createElement('ic-popover');
-            popover.className = 'presence-overflow-popover';
-            popover.setAttribute('label', tr('smart.presenceMemberList'));
-            popover.setAttribute('content', 'interactive');
-            popover.setAttribute('dismiss-policy', 'light');
-            popover.setAttribute('focus-policy', 'move-into');
-            popover.setAttribute('placement', 'block-end');
-            popover.setAttribute('alignment', 'end');
-            const trigger = document.createElement('button');
-            trigger.type = 'button';
-            trigger.slot = 'trigger';
-            trigger.className = 'presence-overflow-button';
+            if (!overflowPopover) {
+                const popover = document.createElement('ic-popover');
+                popover.className = 'presence-overflow-popover';
+                popover.setAttribute('label', tr('smart.presenceMemberList'));
+                popover.setAttribute('content', 'interactive');
+                popover.setAttribute('dismiss-policy', 'light');
+                popover.setAttribute('focus-policy', 'move-into');
+                popover.setAttribute('placement', 'block-end');
+                popover.setAttribute('alignment', 'end');
+                const trigger = document.createElement('button');
+                trigger.type = 'button';
+                trigger.slot = 'trigger';
+                trigger.className = 'presence-overflow-button';
+                trigger.setAttribute('aria-expanded', 'false');
+                trigger.addEventListener('click', () => {
+                    if (popover.hasAttribute('open')) popover.hide('toggle');
+                    else popover.show(trigger);
+                });
+                popover.appendChild(trigger);
+                overflowPopover = popover;
+            }
+            const trigger = overflowPopover.querySelector('[slot="trigger"]');
             trigger.textContent = `+${hiddenCount}`;
             trigger.setAttribute('aria-label', trf('smart.presenceOverflow', { n: hiddenCount }));
-            trigger.setAttribute('aria-expanded', 'false');
-            trigger.addEventListener('click', () => {
-                if (popover.hasAttribute('open')) popover.hide('toggle');
-                else popover.show(trigger);
-            });
-            popover.appendChild(trigger);
-            renderMemberPopover(popover, ordered);
-            group.appendChild(popover);
-            overflowPopover = popover;
+            overflowPopover.setAttribute('label', tr('smart.presenceMemberList'));
+            renderMemberPopover(overflowPopover, ordered);
+            children.push(overflowPopover);
         } else {
             overflowPopover?.hide?.('programmatic');
             overflowPopover = null;
+            popoverRows.clear();
         }
-        visibleOthers.slice().reverse().forEach(member => group.appendChild(avatarButton(member, { listItem: true })));
-        if (own) group.appendChild(avatarButton(own, { listItem: true }));
-        membersHost.replaceChildren(group);
+        visibleOthers.slice().reverse().forEach(member => children.push(memberItem(member)));
+        if (own) children.push(memberItem(own));
+        reconcileChildren(memberGroup, children);
+        for (const [id, item] of memberItems) {
+            if (!children.includes(item)) memberItems.delete(id);
+        }
         membersHost.hidden = false;
     }
 
