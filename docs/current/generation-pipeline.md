@@ -108,6 +108,8 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 
 选中正在运行或排队的可生成节点时，节点悬浮菜单提供“创建副本”和“再次生成”。“再次生成”从 `generationInputSnapshot` 读取冻结的提示词、参考素材和 Generation Settings；Prompt Authoring 中之后发生的编辑不改变这份运行快照。
 
+从生成中的媒体 Composer 编辑后再次提交，新建并列 Pending Node 同时继承当前入向输入关系、手动引用、本地 TXT、引用顺序和已移除引用记录。它们作为新节点的独立编辑状态保存；同 URL 的不同 Reference Input Instance 保持各自身份。混合连线输入与手动引用时，Composer 必须完整显示本次提交的参考素材，切换节点或重载后保持一致，编辑新节点的引用不改变原运行。运行快照仍只用于历史与恢复，不能为了补齐显示而重新引入已经断开连接的历史输入。`tests/laz_51_composer_browser_smoke.cjs` 覆盖生成中切换视频模型、提交、显示、同 URL 引用、重载和独立移除。
+
 已完成的 Generation Output 把可展示和可复用的运行信息保存在输出 Node 上，而不是另建一份“生成信息弹窗记录”：`runPrompt` / `runModelPrompt` 保存展示与模型提示词，`runInputRefs` / `runPromptRefs` 和 `generationInputSnapshot.refs` 保存参考素材快照，`runSettings` 保存设置，`runAt`、`runStartedAt`、`runFinishedAt` 和 `runElapsedMs` 保存运行时间。打开 Canvas 时，这些字段随 Node 一起读取并经过旧数据规范化；用户触发“查看生成信息”时，前端直接读取内存中的 Node，不再单独请求 Generation History。弹窗展示生成时间、生成时长、引擎、模型、提示词、与当前 Generation Output 类型相关的设置摘要，以及输入图片；视频时长只为视频 Generation Output 展示。输入图片优先读取冻结的 `generationInputSnapshot.refs`，旧数据回退到 `runInputRefs` / `runPromptRefs`，并保留具有不同 `inputInstanceId` 的重复引用实例。
 
 画布级“日志”面板读取的是独立持久化的 Generation History，不依赖 Canvas 公共快照中的 `logs` 字段。图片、视频和文本生成都通过 `POST /api/canvases/{canvas_id}/logs` 写最终记录；用户打开日志 Modal 时，前端才通过 `GET /api/canvases/{canvas_id}/logs` 按需读取最近 50 条完整日志，单条完整记录也可通过 `GET /api/canvases/{canvas_id}/logs/{log_id}` 读取。Modal 把每条记录映射为一个对应 Node 的任务，左侧按真实日期分组并以“任务状态 · Prompt 第一句”识别记录，右侧展示该任务的完整信息。右侧标题所需的 Node 自定义名称由 `nodeId` 在当前 Canvas 中解析，缺失时只用保存的 Prompt 第一句回退，不新增 AI 标题字段。Reference Input Instance 直接读取日志 `refs` 快照并支持预览，技术详情默认收起，安全诊断不复制 Prompt、素材内容、凭据或图片二进制。浏览器不判断 Workspace 的存储类型，也不把页面内刚产生的日志加入 Canvas Snapshot、Canvas Mutation、Revision 或撤销历史；实时对账因此不能清空日志。SQLite 权威 Workspace 将记录写入 `canvas_logs`、`generation_log_payloads` 和 `generation_log_outputs`，并按稳定 Generation Run ID 幂等对账。尚未完成受控切换的旧 Workspace 只在服务端通过同一接口使用临时 JSON 适配，供迁移前保留数据；旧 `logs` 仍是迁移输入和回滚导出内容，不是第二套浏览器合同。
@@ -152,6 +154,7 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 | ComfyUI | `POST /api/canvas-comfy-tasks` | 后台任务，前端轮询 |
 | API 视频 | `POST /api/canvas-video-tasks` | 后台任务，先返回 task ID；前端通过 `GET /api/canvas-video-tasks/{task_id}` 轮询 |
 | Prompt/LLM 节点 | `POST /api/canvas-llm-tasks` | 后台任务，前端轮询 |
+| Composer 提示词优化 | `POST /api/canvas-llm` | 同步返回文字，失败保留输入；空模型输出保留空 `text`，由界面显示失败，不把错误说明当成优化结果 |
 | Image Studio 本地深度图 | `POST /api/smart-canvas/depth-map` | 后台 Generation Run，前端按图片 task ID 轮询 |
 | RunningHub 直接工作流 | 前端提交并轮询 RunningHub 路由 | 完成后由前端统一成 completed |
 | ModelScope 专用前端模式 | 前端调用对应 ModelScope 路由 | 完成后由前端统一成 completed |

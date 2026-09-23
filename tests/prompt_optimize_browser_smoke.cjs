@@ -46,14 +46,15 @@ function startServer(){
     const browser = await chromium.launch({headless:true,executablePath:CHROME});
     const page = await browser.newPage({viewport:{width:1180,height:760}});
     const errors=[]; page.on('pageerror',error=>{errors.push(error.message);console.error(error.message);});
-    const requests=[]; let reply='A luminous sunset', fail=false, hold=null;
-    await page.route('**/api/prompt-optimization-settings',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({version:2,image:{provider:'test-provider',model:'test-model',instructions:{smart:'Keep the mood quiet.'}},video:{provider:'video-provider',model:'video-model',instructions:{smart:'Keep motion continuous.'}}})}));
+    const requests=[]; let reply='A luminous sunset', fail=false, hold=null, settingsFail=false, networkFail=false;
+    await page.route('**/api/prompt-optimization-settings',route=>route.fulfill({status:settingsFail?503:200,contentType:'application/json',body:JSON.stringify({version:2,image:{provider:'test-provider',model:'test-model',instructions:{smart:'Keep the mood quiet.'}},video:{provider:'video-provider',model:'video-model',instructions:{smart:'Keep motion continuous.'}}})}));
     await page.route('**/api/model-capabilities?**',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({catalog_revision:'optimization-catalog',support_state:'unknown',inputs:{},parameters:{history:{type:'array',maximum:20}}})}));
     await page.route('**/api/canvas-llm',async route=>{
         requests.push(route.request().postDataJSON());
         assert.equal(requests.at(-1).catalog_revision,'optimization-catalog');
+        if(networkFail) return route.abort('connectionfailed');
         if(hold) await hold;
-        await route.fulfill({status:fail?500:200,contentType:'application/json',body:JSON.stringify({text:reply})});
+        await route.fulfill({status:fail?429:200,contentType:'application/json',body:JSON.stringify(fail?{detail:'Rate limit exceeded'}:{text:reply})});
     });
     try {
         await page.goto(`http://127.0.0.1:${server.address().port}/static/smart-canvas.html?id=optimize-test&componentReview=nodes`,{waitUntil:'domcontentloaded'});
@@ -78,6 +79,16 @@ function startServer(){
         await page.evaluate(()=>{selectedId='optimize-image';updateComposer();});
         const editor=page.locator('#promptInput');
         const optimize=page.locator('#promptOptimizeBtn').getByRole('button');
+        const currentAlert=page.locator('#generationFailureAlertQueue ic-alert[data-ic-stack-index="0"]:not([data-ic-stack-state="exiting"])');
+        const checkFailure=async (messageKey)=>{
+            await page.waitForFunction(()=>!document.querySelector('#promptOptimizeBtn').loading);
+            await currentAlert.waitFor({state:'visible'});
+            assert.equal(await currentAlert.getAttribute('heading'),await page.evaluate(()=>tr('smart.optimize.failedTitle')));
+            assert.ok((await currentAlert.textContent()).includes(await page.evaluate(key=>tr(key),messageKey)));
+            assert.equal(await currentAlert.getAttribute('action-label'),null,'Do not show a details action without a generation log');
+            assert.equal(await currentAlert.getAttribute('data-ic-contract-status'),'ready','Failure alert must satisfy the public component contract');
+            assert.equal(await optimize.isEnabled(),true,'Failure permits a manual retry');
+        };
         const switchPrompt=async value=>{
             await page.locator('#promptOptimizeMenu [slot="trigger"]').getByRole('button').click();
             await page.locator(`#promptOptimizeMenu ic-menu-item[value="${value}"]`).click();
@@ -111,9 +122,35 @@ function startServer(){
         const unavailableCount=requests.length;
         await optimize.click();await page.waitForFunction(()=>!document.querySelector('#promptOptimizeBtn').loading);
         assert.equal(requests.length,unavailableCount);
+        await checkFailure('smart.optimize.noModel');
         await page.evaluate(()=>{smartCatalogEntry=()=>({model_id:'test-model'});});
+        await page.evaluate(()=>toast('Existing generation failure',{persistent:true,tone:'danger'}));
+        const alertCount=await page.locator('#generationFailureAlertQueue ic-alert').count();
         fail=true;await optimize.click();await page.waitForFunction(()=>!document.querySelector('#promptOptimizeBtn').loading);
+        assert.equal(await page.locator('#generationFailureAlertQueue ic-alert').count(),alertCount+1,'Optimization failure must show an alert even when a generation failure is already visible');
+        await checkFailure('smart.error.rate_limited.title');
+        assert.ok((await currentAlert.textContent()).includes('429'));
+        for(const language of ['en','zh']){
+            await page.evaluate(language=>StudioI18n.set(language),language);
+            await checkFailure('smart.error.rate_limited.title');
+        }
+        for(const theme of ['light','dark']){
+            await page.evaluate(theme=>applyTheme(theme),theme);
+            await page.screenshot({path:`/tmp/prompt-optimize-failure-${theme}.png`,animations:'disabled'});
+        }
+        await currentAlert.getByRole('button').click();
+        await page.waitForFunction(count=>document.querySelectorAll('#generationFailureAlertQueue ic-alert').length===count,alertCount);
         assert.equal(await editor.textContent(),'My new prompt');fail=false;
+        settingsFail=true;await optimize.click();await checkFailure('smart.optimize.settings');settingsFail=false;
+        networkFail=true;await optimize.click();await checkFailure('smart.optimize.network');networkFail=false;
+        await page.evaluate(()=>{
+            window.originalOptimizationTimeout=AbortSignal.timeout;
+            AbortSignal.timeout=ms=>ms===120000 ? AbortSignal.abort(new DOMException('Timed out','TimeoutError')) : window.originalOptimizationTimeout(ms);
+        });
+        await optimize.click();await checkFailure('smart.optimize.timeout');
+        await page.evaluate(()=>{AbortSignal.timeout=window.originalOptimizationTimeout;delete window.originalOptimizationTimeout;});
+        reply='';await optimize.click();await checkFailure('smart.optimize.empty');
+        assert.equal(await editor.textContent(),'My new prompt');reply='Changed';
         let release;hold=new Promise(resolve=>{release=resolve;});
         await optimize.click();await page.waitForFunction(()=>document.querySelector('#promptOptimizeBtn').loading);
         await editor.fill('Edited while loading');release();hold=null;
@@ -144,6 +181,7 @@ function startServer(){
         reply='Missing reference';const original=await editor.innerHTML();await editor.dispatchEvent('input');await optimize.click();
         await page.waitForFunction(()=>!document.querySelector('#promptOptimizeBtn').loading);
         assert.equal(await editor.innerHTML(),original);
+        await checkFailure('smart.optimize.references');
         await editor.fill('A small cabin beside a quiet lake');
         reply='A small wooden cabin beside a quiet lake, warm window light reflected in still water.';
         await optimize.click();await page.waitForFunction(()=>document.querySelector('#promptInput').textContent.includes('warm window'));

@@ -9145,7 +9145,7 @@ async def canvas_llm(payload: CanvasLLMRequest):
         payload,
     )
     response_payload = {
-        "text": result.text.strip() or "接口返回了空回复。",
+        "text": result.text.strip(),
         "model": result.model,
         "raw_usage": result.raw_usage,
     }

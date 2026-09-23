@@ -83,10 +83,10 @@ class Issue199VideoPlaybackTests(unittest.TestCase):
         start = self.script.index("function openSmartVideoFullscreen(nodeId, imageIndex=0)")
         end = self.script.index("function runSmartNodeToolbarAction", start)
         source = self.script[start:end]
-        self.assertIn("captureMediaPlaybackState(inlineVideo)", source)
-        self.assertIn("inlineVideo.pause", source)
-        self.assertIn("smartPlaybackSession.previewTransfer", source)
-        self.assertIn("smartPlaybackRemember(inlineVideo", source)
+        self.assertNotIn(".pause()", source)
+        self.assertNotIn("previewTransfer", source)
+        self.assertIn("smartPlaybackMountPreviewVideo", self.studio)
+        self.assertIn("smartPlaybackReleasePreviewVideo", self.script)
         self.assertIn("smartPlaybackPreparePreviewVideo", self.studio)
 
     def test_fullscreen_video_uses_the_media_session_loop_state(self):
