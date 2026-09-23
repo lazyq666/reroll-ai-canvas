@@ -1,7 +1,7 @@
 (function(){
     const scripts = [
         '/static/js/i18n-core.js?v=asset-976eaa307e53',
-        '/static/js/i18n/common.js?v=asset-0100c38624da',
+        '/static/js/i18n/common.js?v=asset-7ab45e9a34a3',
         '/static/js/i18n/auth.js?v=asset-2ba9c7942691',
         '/static/js/i18n/onboarding.js?v=asset-bbaaeb73ef47',
         '/static/js/i18n/workspace.js?v=asset-e7df5eb37a5a',
@@ -14,8 +14,7 @@
         '/static/js/i18n/studio.js?v=asset-34fb7359684e',
         '/static/js/i18n/api-settings.js?v=asset-f28dcf5d22d3',
         '/static/js/i18n/canvas.js?v=asset-c67be66a8f33',
-        '/static/js/i18n/smart-canvas.js?v=asset-e02fe28378ca',
-
+        '/static/js/i18n/smart-canvas.js?v=asset-6711cdcc656d',
         '/static/js/i18n/comfyui-settings.js?v=asset-e76b21e14c6a',
     ];
     const tags = scripts.map(src => '<script src="' + src + '"></script>').join('');

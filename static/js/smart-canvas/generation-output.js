@@ -53,6 +53,64 @@ function generationOutputClonePersistentValue(value){
     if(value === undefined) return undefined;
     return JSON.parse(JSON.stringify(value));
 }
+function generationOutputContinueEditing(source){
+    if(!source || !smartNodeHasRegenerationSnapshot(source)
+        || !(source.images || []).some(item => item?.url)
+        || smartNodeInFlight(source)
+        || window.SmartCanvasModules.canvasPersistence.editable?.() === false) return null;
+    const snapshot = source.generationInputSnapshot || {};
+    const runSettings = generationOutputClonePersistentValue(snapshot.settings || source.runSettings);
+    const refs = generationOutputClonePersistentValue(snapshot.refs || source.runInputRefs || source.runPromptRefs || [])
+        .filter(ref => ref?.url);
+    const incoming = generationOutputIncomingConnections(source).filter(connection =>
+        connection.from !== source.id && nodes.some(node => node.id === connection.from)
+    );
+    // Connected inputs stay connected; only the remaining snapshot media become
+    // manual references. Instance identity preserves deliberate duplicate media.
+    const connectedRefs = incoming.length ? activeInputImagesFor(source) : [];
+    const connectedKeys = new Set(connectedRefs.map(inputRefKey));
+    const manualRefs = refs.filter(ref => !connectedKeys.has(inputRefKey(ref)));
+    let prompt = String(snapshot.prompt ?? source.runModelPrompt ?? source.runPrompt ?? '');
+    if(incoming.length){
+        const textRefs = promptAuthoringTextReferences(source);
+        const prefix = promptAuthoringJoinUnique(promptAuthoringOrderedTextInputs(source, textRefs, [], null).map(ref => ref.text));
+        // Frozen prompts already include upstream text. Leave that text to the
+        // inherited connections rather than submitting the same prefix twice.
+        if(prefix){
+            const header = prompt.match(/^(?:参考素材：|References:)\n[\s\S]*?\n\n(?:用户需求：|User request:)\n/);
+            const offset = header ? header[0].length : 0;
+            const body = prompt.slice(offset);
+            if(body === prefix || body.startsWith(`${prefix}\n\n`)){
+                prompt = prompt.slice(0, offset) + body.slice(prefix.length).replace(/^\n\n/, '');
+            }
+        }
+    }
+    const kind = runSettings.apiKind === 'video' ? 'video' : 'image';
+    const box = pendingBoxSize(1, {settings:runSettings, refs});
+    const draft = {
+        id:uid('smart'), type:'smart-image', x:0, y:0,
+        title:tr(kind === 'video' ? 'smart.referenceVideoNode' : 'smart.referenceImageNode'),
+        referenceGenerationKind:kind,
+        images:[], w:box.w, h:box.h, scale:MEDIA_NODE_DEFAULT_SCALE,
+        promptDraftHtml:escapeHtml(prompt), promptDraftText:prompt,
+        runSettings, manualInputRefs:manualRefs,
+        inputRefOrder:[...refs.map(inputRefKey), ...(source.inputRefOrder || []).filter(key => String(key).startsWith('text|'))],
+        blockedInputRefs:generationOutputClonePersistentValue(source.blockedInputRefs || []),
+        created_at:Date.now()
+    };
+    const placement = {anchor:{kind:'source',sourceNodeId:source.id},relation:'downstream',arrangement:'single'};
+    if(incoming.length){
+        return generationOutputMutationModule.createBatch({
+            drafts:[draft], intent:placement,
+            connections:generationOutputCloneIncomingConnections(incoming, [draft]),
+            options:{select:true,reveal:true}
+        })[0] || null;
+    }
+    return generationOutputMutationModule.create({
+        kind:'prepared', data:{node:draft},
+        options:{select:true,reveal:true,placement}
+    });
+}
 function generationOutputCopyInfo(source,target){
     GENERATION_OUTPUT_INFO_KEYS.forEach(key => {
         if(!Object.prototype.hasOwnProperty.call(source || {},key)) return;
@@ -560,6 +618,19 @@ function generationOutputPrepareDuplicate(source, copy){
         if(Array.isArray(copy.runPromptRefs)){
             copy.runPromptRefs = recipeRefs.map(ref => ({...ref}));
         }
+    }
+    if(!copy.images.length && (source.pending || source.queued || source.running
+        || source.jimengPending || source.pendingTasks?.length)
+        && generationOutputReferenceKind(source) === 'video'){
+        const box = pendingBoxSize(1, {
+            settings:copy.runSettings || source.runSettings,
+            refs:recipeRefs
+        });
+        copy.w = box.w;
+        copy.h = box.h;
+        delete copy.generationMediaW;
+        delete copy.generationMediaH;
+        delete copy.generationStableOuterSize;
     }
     copy.copiedGenerationRecipe = Boolean(
         copy.recipeSourceRefs.length
@@ -1261,6 +1332,9 @@ window.SmartCanvasModules.generationOutput = Object.freeze({
     },
     prepareDuplicate({source=null,copy=null}={}){
         return generationOutputPrepareDuplicate(source, copy);
+    },
+    continueEditing({source=null}={}){
+        return generationOutputContinueEditing(source);
     },
     migrateLegacyGroups(){
         return generationOutputMigrateLegacyGroups();

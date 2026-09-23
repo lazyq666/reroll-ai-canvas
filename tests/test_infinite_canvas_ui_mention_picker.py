@@ -87,7 +87,7 @@ class InfiniteCanvasUiMentionPickerTests(unittest.TestCase):
             '<ic-segmented-control data-source-tabs',
             'size="small"',
             "inline-size:max-content",
-            "columns:var(--ic-mention-picker-card-width, 5.625rem)",
+            "grid-template-columns:repeat(auto-fill,var(--ic-mention-picker-card-width, 5.625rem))",
             '<div class="media-columns"></div>',
             ".media-columns {",
             "const optionContainer = this.mediaMode",
@@ -136,7 +136,7 @@ class InfiniteCanvasUiMentionPickerTests(unittest.TestCase):
         self.assertEqual(
             {
                 "itemField": "leading",
-                "layout": "row-major-before-masonry",
+                "layout": "row-major-before-grid",
                 "cardWidth": "4.0625rem",
                 "visualModel": "ic-reference-thumbnail",
             },

@@ -33,14 +33,13 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-e6d2c6ce8387"></script>
-
+    <script src="/static/js/i18n.js?v=asset-d82e63f81c07"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-a4ef401310f4">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-85ffab2e5441">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=asset-7ce1a37af323">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-15ff4b583f9f" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-8573b550d04e" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=asset-3b9958511af0"></script>
 </head>
 <body>
@@ -282,7 +281,6 @@
                             </ic-tabs>
                         </div>
                         <div id="videoFrameTools" class="video-frame-tools image-preview-command-section" style="display:none">
-                            <ic-button id="previewVideoLoopBtn" type="button" size="small" hierarchy="secondary" aria-pressed="false" toggle onclick="togglePreviewVideoLoop()"><ic-icon name="loop" size="small" slot="start" aria-hidden="true"></ic-icon><span data-video-loop-label data-i18n="smart.action.autoLoop">自动循环</span></ic-button>
                             <ic-button type="button" size="small" hierarchy="secondary" onclick="exportVideoFrame('first')"><ic-icon name="first-last-frames" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportFirstFrame">导出首帧</span></ic-button>
                             <ic-button type="button" size="small" hierarchy="primary" onclick="exportVideoFrame('current')"><ic-icon name="extract-frame" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportCurrentFrame">导出当前帧</span></ic-button>
                             <ic-button type="button" size="small" hierarchy="secondary" onclick="exportVideoFrame('last')"><ic-icon name="first-last-frames" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportLastFrame">导出尾帧</span></ic-button>
@@ -483,7 +481,7 @@
                             <ic-media-container id="previewMediaContainer" class="preview-media-container" label="媒体预览" data-i18n-label="smart.mediaPreview" kind="image" fit="contain" aspect="auto" state="ready">
                             <div id="previewFrame" class="preview-frame">
                                 <img id="previewCurrentImage" class="preview-current" alt="current">
-                                <video id="previewCurrentVideo" class="preview-current preview-current-video" controls preload="metadata" crossorigin="anonymous" playsinline disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback nofullscreen" style="display:none"></video>
+                                <video id="previewCurrentVideo" class="preview-current preview-current-video" preload="metadata" crossorigin="anonymous" playsinline disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback nofullscreen" style="display:none"></video>
                                 <div id="panoramaStage" class="panorama-stage" style="display:none">
                                     <canvas id="panoramaCanvas"></canvas>
                                     <ic-loading id="panoramaLoading" class="panorama-loading" label="加载中..." data-i18n-label="smart.panoramaLoading" presentation="region"></ic-loading>
@@ -677,7 +675,7 @@
     <script src="/static/js/smart-canvas/smart-container.js?v=asset-96a4fd4f079d"></script>
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=asset-3bc4d815dfaa"></script>
     <script src="/static/js/smart-canvas/layered-psd.js?v=asset-a58dda539415"></script>
-    <script src="/static/js/smart-canvas/image-studio.js?v=asset-0e3332ef620f"></script>
+    <script src="/static/js/smart-canvas/image-studio.js?v=asset-22aa882351e0"></script>
     <script src="/static/js/smart-canvas/model-capabilities.js?v=asset-607b0a75b8d6"></script>
     <script src="/static/js/smart-canvas/layer-decomposition-draft.js?v=asset-e87514b42788"></script>
 <script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-ade3bb1f18df"></script>
@@ -692,9 +690,9 @@
     <script src="/static/js/smart-canvas/generation-log-modal.js?v=asset-ad3879b87435"></script>
     <script src="/static/js/smart-canvas/task-modals.js?v=asset-23795c520673"></script>
     <script src="/static/js/smart-canvas/generation-pending.js?v=asset-23ee9884ec27"></script>
-    <script src="/static/js/smart-canvas/generation-output.js?v=asset-d1c34ab1de77"></script>
+    <script src="/static/js/smart-canvas/generation-output.js?v=asset-cca6791e1709"></script>
     <script src="/static/js/smart-canvas/smart-matting.js?v=asset-7f3272467cb9"></script>
-    <script src="/static/js/smart-canvas/generation-run.js?v=asset-a07f298586ea"></script>
+    <script src="/static/js/smart-canvas/generation-run.js?v=asset-b63c6d074c28"></script>
     <script src="/static/js/smart-canvas/generation-recovery.js?v=asset-2cee7eb24597"></script>
     <script src="/static/js/smart-canvas/smart-depth-map.js?v=asset-a1abdb90e5d1"></script>
     <script src="/static/js/smart-canvas/generation-cascade.js?v=asset-c858c55ec4a5"></script>
@@ -703,7 +701,7 @@
     <script src="/static/js/smart-canvas/prompt-generation-composer.js?v=asset-86d6502c9b09"></script>
     <script src="/static/js/smart-canvas/media-naming.js?v=asset-3bba39c64ca8"></script>
     <script src="/static/js/smart-canvas/prompt-optimize.js?v=asset-984c9818dcc6"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-a950f219aa01" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-b65762cfe814" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
 </body>
 </html>

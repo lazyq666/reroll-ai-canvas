@@ -117,14 +117,14 @@ async function main() {
         visible: Boolean(rect && rect.width > 0 && rect.height > 0),
         width: rect?.width || 0,
         height: rect?.height || 0,
-        assetSource: asset?.getAttribute('src') || '',
-        assetLoaded: Boolean(asset?.complete && asset?.naturalWidth > 0),
+        assetSource: asset?.getAttribute('name') || '',
+        assetLoaded: Boolean(asset?.shadowRoot?.querySelector('svg')),
       };
     })()`);
     if (
       !videoPlayButton.sectionPresent || !videoPlayButton.upgraded || !videoPlayButton.visible
       || videoPlayButton.width !== 64 || videoPlayButton.height !== 64
-      || !videoPlayButton.assetSource.endsWith('/static/images/ui/video-play-button.svg')
+      || videoPlayButton.assetSource !== 'play-filled'
       || !videoPlayButton.assetLoaded
     ) {
       throw new Error(`Video play button is missing from the visible Actions page: ${JSON.stringify(videoPlayButton)}`);

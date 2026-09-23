@@ -115,13 +115,11 @@ async function settled(page) {
         await peer.goto(url);
         await ready(peer);
         assert.deepEqual(await peer.evaluate(() => nodes.find(item=>item.id==='target').images.map(item=>item.name)), names);
-        // Rename through the real dialog, then verify a live peer and reopen.
+        // Rename in place, then verify a live peer and reopen.
         await page.evaluate(() => { renameSmartNodeImage('target', 0); });
-        const dialog = page.locator('#smartAssetNameDialog');
-        await dialog.waitFor({state:'attached'});
-        await page.waitForFunction(() => document.querySelector('#smartAssetNameDialog')?.dataset.motionState === 'open');
-        await page.locator('#smartAssetNameInput input').fill('Manual name');
-        await dialog.locator('ic-button[hierarchy="primary"]').click();
+        const nameInput = page.locator('.image-node[data-id="target"] .image-name-editor');
+        await nameInput.fill('Manual name');
+        await nameInput.press('Enter');
         await page.waitForFunction(() => nodes.find(item=>item.id==='target').images[0].name==='Manual name.png');
         await peer.waitForFunction(() => nodes.find(item=>item.id==='target').images[0].name==='Manual name.png');
         // Replay the same provider artifact via the production settlement path.

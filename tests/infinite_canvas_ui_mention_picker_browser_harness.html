@@ -229,6 +229,14 @@
     referenceStyleProbe.remove();
     report.checks.referencedMediaUsesRowMajorOrder = Math.abs(firstReferencedRect.top - secondReferencedRect.top) <= 1
       && secondReferencedRect.left > firstReferencedRect.right;
+    const regularRects = masonryOptions.slice(2, 6).map(option => option.getBoundingClientRect());
+    report.checks.regularMediaUsesRowMajorOrder = regularRects.length === 4
+      && regularRects.slice(0, 3).every(rect => Math.abs(rect.top - regularRects[0].top) <= 1)
+      && regularRects[1].left > regularRects[0].right
+      && regularRects[2].left > regularRects[1].right
+      && Math.abs(regularRects[3].left - regularRects[0].left) <= 1
+      && regularRects[3].top > regularRects[0].top;
+    report.observations.regularMediaOrder = regularRects.map(rect => ({ left: rect.left, top: rect.top }));
     report.checks.referencedMediaUsesCompactWidth = Math.abs(firstReferencedRect.width - 65) <= 1
       && Math.abs(secondReferencedRect.width - 65) <= 1;
     report.checks.referencedMediaUsesReferenceThumbnailStyle = masonryOptions.slice(0, 2).every(option => {

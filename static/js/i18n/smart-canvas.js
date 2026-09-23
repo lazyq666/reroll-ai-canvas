@@ -637,6 +637,7 @@
         "smart.contextCopyAsImageDone": { zh: "图片已复制", en: "Image copied" },
         "smart.contextCopyAsImageFailed": { zh: "当前浏览器无法复制此图片", en: "This image could not be copied" },
         "smart.contextRegenerate": { zh: "再次生成", en: "Generate again" },
+        "smart.continueEditing": { zh: "继续编辑", en: "Continue editing" },
         "smart.contextRegenerateStarted": { zh: "已按原参数再次生成", en: "Regeneration started with the original settings" },
         "smart.contextRunInfo": { zh: "查看生成信息", en: "View generation info" },
         "smart.contextCopyRunPrompt": { zh: "复制生成提示词", en: "Copy generation prompt" },

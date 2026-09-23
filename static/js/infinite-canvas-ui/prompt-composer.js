@@ -28,7 +28,7 @@ function ensurePromptComposerStyles() {
       font-family: var(--ui-font-sans);
       font-size: var(--ui-font-size-3);
       font-weight: var(--ui-font-weight-regular);
-      line-height: var(--ui-line-height-body);
+      line-height: 1.7;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       transition: color var(--ui-motion-duration-fast) var(--ui-motion-ease-standard);
@@ -58,20 +58,22 @@ function ensurePromptComposerStyles() {
     ic-prompt-composer[contenteditable="false"] * { cursor: default; }
 
     ic-prompt-composer .mention-image-token {
-      block-size: 1.5rem;
+      box-sizing: border-box;
+      block-size: 1lh;
       max-inline-size: 8.25rem;
       margin-inline: var(--ui-space-0);
-      padding: var(--ui-space-0) var(--ui-space-2) var(--ui-space-0) var(--ui-space-1);
-      border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
-      border-radius: var(--ui-radius-pill);
+      padding: 0;
+      border: 0;
+      border-radius: var(--ui-radius-xs);
       display: inline-flex;
       align-items: center;
       gap: var(--ui-space-1);
       vertical-align: middle;
-      color: var(--ui-color-text-primary);
-      background: var(--ui-color-surface-subtle);
-      font-size: var(--ui-font-size-1);
-      font-weight: var(--ui-font-weight-medium);
+      color: var(--ui-color-icon-tertiary);
+      background: transparent;
+      font-size: inherit;
+      font-weight: inherit;
+      line-height: inherit;
       white-space: nowrap;
       cursor: default;
     }
@@ -82,18 +84,46 @@ function ensurePromptComposerStyles() {
       text-overflow: ellipsis;
     }
 
+    ic-prompt-composer .mention-image-token > span:last-child {
+      position: relative;
+      top: -1px;
+    }
+
+    ic-prompt-composer .mention-image-token :is(img, video) {
+      box-sizing: border-box;
+      inline-size: calc(1lh - 2px);
+      block-size: calc(1lh - 2px);
+      border: 0;
+      border-radius: var(--ui-radius-xs);
+      background: transparent;
+    }
+
     ic-prompt-composer .mention-audio-thumb {
-      inline-size: 1.125rem;
-      block-size: 1.125rem;
+      box-sizing: border-box;
+      inline-size: calc(1lh - 2px);
+      block-size: calc(1lh - 2px);
       flex: 0 0 auto;
-      border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
-      border-radius: var(--ui-radius-pill);
+      border: 0;
+      border-radius: var(--ui-radius-xs);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: var(--ui-color-text-tertiary);
-      background: var(--ui-color-surface);
-      font-size: var(--ui-font-size-1);
+      color: var(--ui-color-icon-tertiary);
+      background: transparent;
+      font-size: inherit;
+    }
+
+    ic-prompt-composer .mention-image-token[data-kind="audio"] .mention-audio-thumb::before {
+      content: '';
+      inline-size: 2px;
+      block-size: 8px;
+      border-radius: var(--ui-radius-pill);
+      background: currentColor;
+      box-shadow: -4px 2px currentColor, 4px -2px currentColor;
+    }
+
+    ic-prompt-composer .mention-image-token[data-kind="audio"] .mention-audio-thumb > * {
+      display: none;
     }
   `;
   document.head.append(stylesheet);

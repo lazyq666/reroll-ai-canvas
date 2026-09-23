@@ -6,8 +6,8 @@ repository's non-commercial derivative license. Read [`LICENSE`](LICENSE) and
 
 ## Before changing code
 
-1. Search open and closed GitHub Issues. Discuss material behavior or
-   architecture changes in an Issue before implementation.
+1. Search existing Linear work when available. Discuss material behavior or
+   architecture changes in a Linear issue before implementation.
 2. Read [`CONTEXT.md`](CONTEXT.md), [`docs/PROJECT-MAP.md`](docs/PROJECT-MAP.md),
    and the relevant Current/Active specification and ADR.
 3. Never commit credentials, `.env` files, Workspace data, generated user
@@ -73,8 +73,8 @@ gates remain required when the relevant Feature Spec calls for them.
 Follow [`docs/agents/change-documentation.md`](docs/agents/change-documentation.md):
 update only the authorities whose facts changed, graduate verified Active
 specifications, and remove implementation diaries that no longer carry unique
-rationale. A completed change must reconcile code, tests, its GitHub Issue,
-and authoritative documentation.
+rationale. A completed change must reconcile code, tests, tracked Linear work
+when applicable, and authoritative documentation.
 
 Keep pull requests focused, describe security and data-boundary effects, list
 the exact verification performed, and identify every remaining gate.
@@ -103,8 +103,9 @@ python3.12 scripts/readiness_publish.py HEAD --branch codex/my-change --report /
 If remote main or the destination advances, update the release version, commit
 and revalidate. main moving during the final network push can leave the PR branch
 published with an incomplete result; GitHub's strict PR gate enforces freshness
-at merge time. Keep the Issue open until the final main check succeeds. Changes
-to workflow, inventory or expected rules must be identified in the PR description.
+at merge time. Keep tracked Linear work in progress until the final main check
+succeeds. Changes to workflow, inventory or expected rules must be identified
+in the PR description.
 
 Dependabot groups Pydantic and pydantic-core because their runtime versions are
 coupled. The same-stem `requirements.lock.in` / `requirements.lock.txt` pair makes

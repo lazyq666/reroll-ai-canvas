@@ -2,7 +2,7 @@
 
 This directory stores durable, repository-wide architecture decisions for Infinite Canvas.
 
-Create an ADR when a decision constrains future implementation, establishes a system boundary, or chooses between meaningful alternatives. Routine implementation details belong in code, pull requests, or GitHub Issues instead.
+Create an ADR when a decision constrains future implementation, establishes a system boundary, or chooses between meaningful alternatives. Routine implementation details belong in code, pull requests, or Linear issues instead.
 
 ## Spatial operation intent
 
