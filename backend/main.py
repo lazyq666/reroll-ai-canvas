@@ -161,9 +161,17 @@ from infinite_canvas.image_capabilities import (
     normalize_image_aspect,
 )
 from infinite_canvas.image_materialization import materialize_image_cover
+from infinite_canvas.image_repair import (
+    ImageRepairError,
+    validate_recipe as validate_repair_recipe,
+    open_media as open_repair_media,
+    compose_repair,
+    repair_layers,
+)
 from infinite_canvas.layered_psd import (
     LayeredPsdError,
     build_layer_decomposition_psd,
+    build_rgba_psd,
 )
 from infinite_canvas.model_capabilities import (
     CAPABILITY_SCHEMA_VERSION,
@@ -3817,6 +3825,7 @@ class OnlineImageRequest(BaseModel):
     node_id: str = ""
     generation_operation_id: str = ""
     generation_request_index: int = 0
+    local_repair: Optional[dict] = None
 
 
 class LayerDecompositionRequest(BaseModel):
@@ -4826,6 +4835,24 @@ async def materialize_generation_image(
     if not result.cropped:
         return source_url
     return output_url_for(filename, "output")
+
+async def materialize_image_repair(patch_url: str, recipe: dict, *, stable_id: str) -> tuple[str, dict]:
+    value = {**recipe, "patch": {"url": patch_url}}
+    image, frozen = await asyncio.to_thread(compose_repair, value, output_file_from_url)
+    safe_id = re.sub(r"[^a-zA-Z0-9._-]+", "_", stable_id).strip("._")
+    filename = f"repair_{safe_id or uuid.uuid4().hex}.png"
+    destination = output_path_for(filename, "output")
+    temporary = f"{destination}.{uuid.uuid4().hex}.tmp"
+    def write():
+        try:
+            image.save(temporary, format="PNG")
+            os.replace(temporary, destination)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+    await asyncio.to_thread(write)
+    return output_url_for(filename, "output"), frozen
+
 
 def image_has_alpha(img: Image.Image) -> bool:
     if img.mode in ("RGBA", "LA"):
@@ -7654,6 +7681,19 @@ def _online_image_run(payload, *, publication="online-image"):
         reference_aspect_ratio = (
             f"{reference_width}:{reference_height}"
         )
+    repair = None
+    if getattr(payload, "local_repair", None) is not None:
+        require_current_user("admin", "designer")
+        load_canvas(payload.canvas_id, write=True)
+        if int(payload.n) != 1 or len(image_inputs) != 1:
+            raise HTTPException(status_code=422, detail={"code": "repair_invalid"})
+        try:
+            repair = validate_repair_recipe(payload.local_repair, require_patch=False)
+            source = open_repair_media(repair["source"], output_file_from_url)
+            if source.size != (repair["width"], repair["height"]):
+                raise ImageRepairError("repair_source_changed")
+        except ImageRepairError as exc:
+            raise HTTPException(status_code=422, detail={"code": str(exc)}) from exc
     return ImageRun(
         prompt=payload.prompt,
         settings={
@@ -7672,6 +7712,7 @@ def _online_image_run(payload, *, publication="online-image"):
                 "capability_schema_version"
             ],
             "operation": operation,
+            **({"local_repair": repair} if repair else {}),
         },
         references=tuple(image_inputs),
         count=int(payload.n),
@@ -9796,6 +9837,62 @@ def get_canvas(canvas_id: str):
     return {"canvas": canvas}
 
 
+class ImageRepairAdjustmentRequest(BaseModel):
+    image_index: int = Field(default=0, ge=0)
+    expected_url: str = Field(min_length=1, max_length=4096)
+    transform: dict
+    feather: float = Field(ge=0)
+
+
+class ImageRepairPsdRequest(BaseModel):
+    image_index: int = Field(default=0, ge=0)
+    source_name: str = Field(default="Original", max_length=255)
+    patch_name: str = Field(default="Repair", max_length=255)
+
+
+def saved_image_repair(canvas_id: str, node_id: str, image_index: int):
+    document = load_canvas(canvas_id, write=True)
+    node = next((item for item in document.get("nodes", []) if item.get("id") == node_id), None)
+    images = node.get("images", []) if node else []
+    if (not isinstance(images, list) or not 0 <= image_index < len(images)
+            or not isinstance(images[image_index], dict)
+            or not isinstance(images[image_index].get("local_repair"), dict)):
+        raise HTTPException(status_code=404, detail={"code": "repair_not_found"})
+    return node, images[image_index]
+
+
+@app.post("/api/canvases/{canvas_id}/image-repairs/{node_id}/render")
+async def render_image_repair(canvas_id: str, node_id: str, payload: ImageRepairAdjustmentRequest):
+    _node, media = saved_image_repair(canvas_id, node_id, payload.image_index)
+    if media.get("url") != payload.expected_url:
+        raise HTTPException(status_code=409, detail={"code": "repair_conflict"})
+    recipe = {**media["local_repair"], "transform": payload.transform, "feather": payload.feather}
+    try:
+        url, frozen = await materialize_image_repair(recipe["patch"]["url"], recipe, stable_id=uuid.uuid4().hex)
+    except (ImageRepairError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail={"code": "repair_invalid"}) from exc
+    return {"image": {"url": url, "kind": "image", "name": media.get("name", ""), "natural_w": frozen["width"], "natural_h": frozen["height"], "local_repair": frozen}}
+
+
+@app.post("/api/canvases/{canvas_id}/image-repairs/{node_id}/psd")
+async def export_image_repair_psd(canvas_id: str, node_id: str, payload: ImageRepairPsdRequest):
+    node, media = saved_image_repair(canvas_id, node_id, payload.image_index)
+    def build():
+        recipe, source, patch, bounds = repair_layers(media["local_repair"], output_file_from_url)
+        return build_rgba_psd(recipe["width"], recipe["height"], [
+            {"name": payload.source_name, "image": source, "bounds": (0, 0, source.width, source.height)},
+            {"name": payload.patch_name, "image": patch, "bounds": bounds},
+        ], title=node.get("title") or "repair")
+    try:
+        exported = await asyncio.to_thread(build)
+    except (ImageRepairError, LayeredPsdError) as exc:
+        raise HTTPException(status_code=422, detail={"code": "repair_export_failed"}) from exc
+    return Response(content=exported.content, media_type="image/vnd.adobe.photoshop", headers={
+        "Content-Disposition": f"attachment; filename=repair.psd; filename*=UTF-8''{urllib.parse.quote(exported.filename)}",
+        "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+    })
+
+
 @app.post(
     "/api/canvases/{canvas_id}/layer-decompositions/{node_id}/psd"
 )
@@ -11659,6 +11756,7 @@ _GENERATION_OUTPUT_PORTS = GenerationOutputPorts(
     save_asset=_provider_implementation.save_remote_asset_to_output,
     save_text=_provider_implementation.save_comfy_text_output,
     materialize_image=materialize_generation_image,
+    compose_image_repair=materialize_image_repair,
 )
 
 _GENERATION_EFFECTS = (
@@ -11689,6 +11787,7 @@ _GENERATION_EFFECTS = (
             save_asset=_provider_implementation.save_remote_asset_to_output,
             save_text=_provider_implementation.save_comfy_text_output,
             materialize_image=materialize_generation_image,
+            compose_image_repair=materialize_image_repair,
         )
     )
 )

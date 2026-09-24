@@ -3396,6 +3396,7 @@ class GenerationOutputPorts:
     save_asset: Callable[..., Awaitable[str]] | None = None
     save_text: Callable[..., str] | None = None
     materialize_image: Callable[..., Awaitable[str]] | None = None
+    compose_image_repair: Callable[..., Awaitable[tuple[str, dict]]] | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -3617,9 +3618,18 @@ class WorkspaceGenerationEffects:
                         raise GenerationRunConflict(
                             "Generation Output 画幅物化失败"
                         )
+                repair = None
+                if request.settings.get("local_repair"):
+                    if not callable(self._ports.compose_image_repair):
+                        raise GenerationRunConflict("Image repair composition is unavailable")
+                    local_url, repair = await self._ports.compose_image_repair(
+                        local_url, request.settings["local_repair"], stable_id=stable_id
+                    )
                 provider_source_urls.append(provider_source_url)
                 local_urls.append(local_url)
                 local_item = self._ports.image_meta(local_url, image_value)
+                if repair:
+                    local_item["local_repair"] = repair
                 if processor_metadata:
                     local_item["image_processor"] = copy.deepcopy(
                         processor_metadata

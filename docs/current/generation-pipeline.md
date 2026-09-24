@@ -629,3 +629,11 @@ APIMart 文档声明：`size` 覆盖提示词中的 `--ar`；`hd` / `--hd` 仅�
 Turso 异常恢复的固定回归入口：`tests.test_turso_generation_reliability`；真实批量页面的
 单次查询失败恢复及中英状态切换：`tests/turso_batch_detail_browser.cjs`，使用
 `tests.batch_generation_browser_app` 临时工作区，禁止将测试提交指向真实 Provider。
+
+## 局部修复的交付扩展（Active）
+
+[局部修复规格](../active/2026-09-24-local-image-repair.md)记录已实现、等待真实模型验收的扩展。
+普通 `image.edit` 请求可附带冻结的 `local_repair` 参数；仅裁剪图作为 Provider 参考图。
+结果物化阶段保存生成补丁，再按原图像素坐标合成为 PNG；Canvas、History 和任务结果
+的 `image_items` 一起携带原图、补丁及调整参数。现有 Run ID、Operation ID、恢复和 Target Guard 继续生效。
+后续位置、等比缩放与羽化调整只重新合成托管素材，不创建 Generation Run。

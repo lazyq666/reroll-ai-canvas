@@ -2584,6 +2584,7 @@ function openLayerDecompositionEditor({nodeId}={}){
     return true;
 }
 function openImageEditor(nodeId, imageIndex=0, options={}){
+    window.SmartCanvasModules.imageRepair?.reset();
     const node = nodes.find(n => n.id === nodeId);
     const image = imageForDisplay(node?.images?.[imageIndex]);
     if(!image?.url) return;
@@ -2699,6 +2700,7 @@ function openImageEditor(nodeId, imageIndex=0, options={}){
     }
 }
 function closeImageEditor(options={}){
+    window.SmartCanvasModules.imageRepair?.reset();
     imageStudioReopenAfterHide = false;
     cleanupSmartLogPreviewNode();
     imageStudioTransitionRequest += 1;
@@ -3124,6 +3126,9 @@ window.SmartCanvasModules.imageStudio = Object.freeze({
         };
     },
     open({nodeId, imageIndex=0, mode='preview', groupAware=true}={}){
+        if(mode==='local-repair' || (mode==='preview' && nodes.find(node=>node.id===nodeId)?.images?.[imageIndex]?.local_repair)){
+            return window.SmartCanvasModules.imageRepair.open({nodeId,imageIndex});
+        }
         if(mode === 'layer-decomposition') return openLayerDecompositionEditor({nodeId});
         if(mode === 'preview'){
             return groupAware
