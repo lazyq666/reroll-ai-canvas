@@ -91,9 +91,9 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
         buttonCount:8,
         buttonContracts:Array(8).fill('ready'),
         dividerCount:1,
-        actions:['generate-image', 'layer-decomposition', 'matting', 'outpaint', 'reverse-prompt', 'more-tools', 'edit', 'download'],
-        labels:['生成图片/视频', '智能分层', '抠图', '扩图', '反推提示词', '更多', '编辑', '下载'],
-        icons:['online-generate', 'layers', 'cut', 'fit', 'reverse-prompt', 'more', 'edit', 'download'],
+        actions:['generate-image', 'layer-decomposition', 'local-repair', 'outpaint', 'reverse-prompt', 'more-tools', 'edit', 'download'],
+        labels:['生成图片/视频', '智能分层', '局部修复', '扩图', '反推提示词', '更多', '编辑', '下载'],
+        icons:['online-generate', 'layers', 'pencil', 'fit', 'reverse-prompt', 'more', 'edit', 'download'],
     });
 
     const moreTools = page.locator('#smartNodeFloatingPortal [data-smart-node-action="more-tools"]');
@@ -117,7 +117,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
     await moreTools.click();
     assert.equal(await toolsMenu.getAttribute('open'), '');
     assert.deepEqual(await toolsMenu.locator('ic-menu-item').evaluateAll(items => items.map(item => item.getAttribute('value'))),
-        ['angle-control', 'grid-gif', 'lighting-reference']);
+        ['matting', 'angle-control', 'grid-gif', 'lighting-reference']);
     await page.keyboard.press('End');
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('value')), 'lighting-reference');
     await page.keyboard.press('Escape');

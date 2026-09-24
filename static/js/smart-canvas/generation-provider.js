@@ -227,13 +227,16 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         throw new Error(tr('smart.errNoApiModel'));
     }
     const capabilityModule = window.SmartCanvasModules.imageCapabilities;
-    const capability = capabilityModule?.current?.(runSettings.provider_id, runSettings.model);
+    let capability = capabilityModule?.current?.(runSettings.provider_id, runSettings.model);
     const imageReferences = imageRefsOnly(refs, null);
     const operation = imageReferences.length ? 'image.edit' : 'image.generate';
     const modelCapabilityModule = window.SmartCanvasModules.modelCapabilities;
     const modelCapability = modelCapabilityModule
         ? await modelCapabilityModule.load(runSettings.provider_id, runSettings.model, operation)
         : capability?.model_capability;
+    if(context.localRepair && modelCapability?.media_contract){
+        capability = capabilityModule.clean({...modelCapability.media_contract,model_capability:modelCapability},runSettings.provider_id,runSettings.model);
+    }
     const resolvedOutput = capabilityModule?.resolveForSubmission?.(
         runSettings,
         imageReferences,
@@ -294,6 +297,7 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         reference_images:referenceImages,
         catalog_revision:modelCapability?.catalog_revision || capability?.catalog_revision || ''
     };
+    if(context.localRepair) payload.local_repair = context.localRepair;
     const submitted = await generationProviderPostTask('/api/canvas-image-tasks', {
         ...payload,
         ...generationProviderRunIdentity(context)

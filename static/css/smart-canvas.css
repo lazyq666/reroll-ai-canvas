@@ -699,6 +699,20 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .layer-decomposition-item { position:absolute; min-width:0; min-height:0; margin:0; border:0; border-radius:0; background:transparent; overflow:visible; pointer-events:none; }
 .layer-decomposition-item > img { width:100%; height:100%; display:block; object-fit:fill; background:transparent; pointer-events:none; }
 .layer-decomposition-item.is-hidden { opacity:0; }
+.image-repair-editor[hidden],.image-repair-fields[hidden] { display:none; }
+.image-repair-editor { position:absolute; inset:0; display:grid; grid-template-columns:minmax(0,1fr) 20rem; gap:var(--ui-space-6); padding:var(--ui-space-16) var(--ui-space-6) var(--ui-space-6); box-sizing:border-box; }
+.image-repair-viewport { min-width:0; min-height:0; display:grid; place-items:center; overflow:hidden; }
+#imageRepairCanvas { display:block; max-width:100%; max-height:100%; touch-action:none; cursor:crosshair; box-shadow:var(--ui-shadow-raised); background:repeating-conic-gradient(var(--ui-color-surface-subtle) 0 25%,var(--ui-color-surface) 0 50%) 50% / 1rem 1rem; }
+#imageRepairCanvas:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
+.image-repair-panel { display:flex; flex-direction:column; gap:var(--ui-space-3); overflow:auto; padding:var(--ui-space-4); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-m); background:var(--ui-color-surface-floating); }
+.image-repair-panel p { margin:0; color:var(--ui-color-text-secondary); font:var(--ui-text-caption); }
+.image-repair-fields { display:flex; flex-direction:column; gap:var(--ui-space-4); }
+.image-repair-row { display:flex; align-items:center; gap:var(--ui-space-2); }
+.image-repair-row ic-select,.image-repair-row ic-number-input { flex:1; min-width:0; }
+#imageRepairCropPreview { width:100%; max-height:8rem; object-fit:contain; background:var(--ui-color-surface-subtle); }
+#imageRepairCropSize { color:var(--ui-color-text-secondary); font:var(--ui-text-caption); }
+#imageEditModal.local-repair-mode #imageEditModeToolbar,#imageEditModal.local-repair-mode #imageEditWorkbench,#imageEditModal.local-repair-mode .image-edit-stage-inner,#imageEditModal.local-repair-mode #layerDecompositionEditor,#imageEditModal.local-repair-mode #imageStudioResolutionNotice { display:none!important; }
+@media(max-width:760px) { .image-repair-editor { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(12rem,1fr) minmax(0,1fr); gap:var(--ui-space-3); padding:var(--ui-space-12) var(--ui-space-3) var(--ui-space-3); } }
 .layer-decomposition-editor[hidden] { display:none; }
 .layer-decomposition-editor { position:absolute; inset:0; display:grid; grid-template-columns:9rem minmax(0,1fr) 9rem; gap:var(--ui-space-4); padding:calc(var(--ui-space-8) + var(--ui-control-height-l)) var(--ui-space-4) calc(var(--ui-space-16) + var(--ui-control-height-l)) var(--ui-space-4); box-sizing:border-box; }
 .layer-decomposition-editor-canvas { grid-column:2; display:grid; min-width:0; min-height:0; place-items:center; overflow:hidden; }

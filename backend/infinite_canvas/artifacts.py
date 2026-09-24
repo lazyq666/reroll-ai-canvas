@@ -46,6 +46,7 @@ APPLICATION_UPDATE_RUNTIME_FILES = frozenset(
         "backend/infinite_canvas/generation_run_store.py",
         "backend/infinite_canvas/generation_settings.py",
         "backend/infinite_canvas/image_capabilities.py",
+        "backend/infinite_canvas/image_repair.py",
         "backend/infinite_canvas/installation.py",
         "backend/infinite_canvas/instance_state.py",
         "backend/infinite_canvas/legacy_migration.py",

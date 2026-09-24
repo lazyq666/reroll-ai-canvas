@@ -337,6 +337,26 @@ def _build_psd(width: int, height: int, layers: list[_Layer]) -> bytes:
     )
 
 
+def build_rgba_psd(width: int, height: int, layers: list[dict], *, title: str = "") -> LayeredPsdResult:
+    """Encode already-resolved RGBA layers without coupling to a node kind."""
+    width = _integer(width, minimum=1, maximum=PSD_MAX_DIMENSION)
+    height = _integer(height, minimum=1, maximum=PSD_MAX_DIMENSION)
+    if width * height > PSD_MAX_CANVAS_PIXELS or not 1 <= len(layers) <= PSD_MAX_LAYERS:
+        raise LayeredPsdError("node_invalid")
+    resolved = []
+    pixels = 0
+    for index, layer in enumerate(layers):
+        left, top, right, bottom = layer["bounds"]
+        if not (0 <= left < right <= width and 0 <= top < bottom <= height):
+            raise LayeredPsdError("node_invalid")
+        image = layer["image"]
+        pixels += image.width * image.height
+        if image.mode != "RGBA" or image.size != (right-left, bottom-top) or pixels > PSD_MAX_LAYER_PIXELS:
+            raise LayeredPsdError("node_invalid")
+        resolved.append(_Layer(name=str(layer["name"])[:255], bounds=tuple(layer["bounds"]), z_index=index, hidden=False, image=image))
+    return LayeredPsdResult(content=_build_psd(width, height, resolved), filename=_filename(title))
+
+
 def build_layer_decomposition_psd(
     canvas: Mapping[str, Any],
     node_id: str,
@@ -363,4 +383,5 @@ __all__ = [
     "LayeredPsdError",
     "LayeredPsdResult",
     "build_layer_decomposition_psd",
+    "build_rgba_psd",
 ]

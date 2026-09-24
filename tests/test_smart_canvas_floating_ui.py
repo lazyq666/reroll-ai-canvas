@@ -135,9 +135,9 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
                 {{url:'one.png', kind:'image'}}, {{url:'two.png', kind:'image'}}
             ]}});
             assert.deepEqual([...html.matchAll(/data-smart-node-action="([^"]+)"/g)].map(m => m[1]),
-                ['generate-image', 'layer-decomposition', 'matting', 'outpaint', 'reverse-prompt', 'more-tools', 'edit', 'download']);
+                ['generate-image', 'layer-decomposition', 'local-repair', 'outpaint', 'reverse-prompt', 'more-tools', 'edit', 'download']);
             assert.deepEqual([...html.matchAll(/<ic-menu-item kind="command" value="([^"]+)"/g)].map(m => m[1]),
-                ['angle-control', 'grid-gif', 'lighting-reference']);
+                ['matting', 'angle-control', 'grid-gif', 'lighting-reference']);
             assert.match(html, /data-smart-node-tools data-node-id="two-images" data-media-index="1"/);
             assert.match(html, /slot="trigger" aria-haspopup="menu" aria-expanded="false"/);
             const generated = smartNodeToolbarHtml({{id:'generated', type:'smart-image',

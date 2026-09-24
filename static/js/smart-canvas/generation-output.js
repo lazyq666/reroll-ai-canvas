@@ -1010,6 +1010,7 @@ function generationOutputNormalize(outputs=[], kind='image', options={}){
             : source.name || '';
         if(name) normalized.name = name;
         if(generatedResult) normalized.generatedResult = true;
+        if(source.local_repair) normalized.local_repair = generationOutputClonePersistentValue(source.local_repair);
         return stripImageGenerationMeta(
             copyMediaSizeFields(source, normalized)
         );

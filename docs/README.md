@@ -47,6 +47,7 @@
 - [存储路径与旧数据迁移](current/storage-layout-and-migration.md)
 - [工作区资产库与 Smart Canvas 本地引用](current/workspace-asset-library.md)
 - [Generation Run 生成链路](current/generation-pipeline.md)
+- [局部修复（已实现，待真实模型验收）](active/2026-09-24-local-image-repair.md)
 - [Canvas Mutation 单 Node 移动快速通道](current/canvas-mutation-single-node-move-fast-path.md)
 - [Canvas Sync 实施合同](current/canvas-sync-implementation.md)
 - [Smart Canvas 节点自动避让](current/smart-canvas-node-auto-placement.md)

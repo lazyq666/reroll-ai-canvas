@@ -438,6 +438,7 @@ async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings
             canvasId,
             nodeId:node.id,
             operationId:generationOperationId,
+            localRepair:node.localRepairRequest || null,
             localSubmission
         }
     });
@@ -945,6 +946,7 @@ async function runGeneration(options={}){
             allowAttachment:Boolean(options.allowAttachment),
             createOutput:Boolean(options.createOutput),
             connectSource:options.connectSource,
+            localRepair:options.localRepair || null,
             outpaintSize
         }
     };
@@ -1067,6 +1069,8 @@ async function runGeneration(options={}){
         branchNodes = branchNode ? [branchNode] : [];
     }
     const pendingNode = branchNode || node;
+    if(options.localRepair) pendingNode.localRepairRequest = generationRunClone(options.localRepair);
+    else delete pendingNode.localRepairRequest;
     const pendingNodes = branchNodes.length ? branchNodes : [pendingNode];
     pendingNodes.forEach(target => {
         target.outputKind = logKind;
@@ -1407,6 +1411,7 @@ async function regenerateGenerationRun(nodeId){
         inheritSourceConnections
     });
     if(!pending) throw new Error('Regeneration Output Node could not be created');
+    if(source.localRepairRequest) pending.localRepairRequest = generationRunClone(source.localRepairRequest);
     pending.outputKind = kind;
     delete pending.generationRunFeedback;
     const submissionSnapshot = generationOutputModule.submissionSnapshot({node:pending});
@@ -1531,7 +1536,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
         }
         return runGeneration({node, onAccepted, onQueued, onLocalAccepted});
     },
-    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},onAccepted=null,throwOnSubmissionFailure=true}={}){
+    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,onAccepted=null,throwOnSubmissionFailure=true}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
         const targetWidth=Math.round(Number(width)||0);
         const targetHeight=Math.round(Number(height)||0);
@@ -1541,6 +1546,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             node,
             allowAttachment:true,
             createOutput:true,
+            localRepair,
             runSettings:{...runSettings},
             onAccepted,
             throwOnSubmissionFailure,

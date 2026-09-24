@@ -6283,6 +6283,7 @@ function resultMediaUrls(result){
                 const url = value.url || value.path || value.src || value.uri;
                 if(url){
                     const item = {url, kind:value.kind || value.type || value.mediaKind || '', name:value.name || value.filename || ''};
+                    if(value.local_repair) item.local_repair = JSON.parse(JSON.stringify(value.local_repair));
                     ['natural_w','natural_h','width','height','w','h','layout_w','layout_h'].forEach(key => {
                         const n = Number(value[key]);
                         if(Number.isFinite(n) && n > 0) item[key] = n;
@@ -8696,10 +8697,11 @@ function smartNodeToolbarHtml(node){
             ? [
                 {key:'generate-image', icon:'online-generate', label:tr('smart.action.generateMedia'), enabled:true},
                 {key:'layer-decomposition', icon:'layers', label:tr('smart.layerDecomposition'), enabled:true},
-                {key:'matting', icon:'cut', label:tr('smart.matting'), enabled:true},
+                {key:'local-repair', icon:'pencil', label:tr('smart.repair.title'), enabled:true},
                 {key:'outpaint', icon:'fit', label:tr('canvas.modeOutpaint'), enabled:true},
                 {key:'reverse-prompt', icon:'reverse-prompt', label:tr('smart.contextReversePrompt'), enabled:true},
                 {key:'more-tools', icon:'more', label:tr('smart.action.moreTools'), enabled:true, items:[
+                    {key:'matting', icon:'cut', label:tr('smart.matting'), enabled:true},
                     {key:'angle-control', icon:'angle-control', label:tr('nav.angle'), enabled:true},
                     {key:'grid-gif', icon:'play', label:tr('smart.gif.menu'), enabled:true},
                     {key:'lighting-reference', icon:'lighting-reference', label:tr('smart.contextLightingReference'), enabled:true}
@@ -8858,6 +8860,10 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, tri
     }
     if(action === 'matting'){
         smartMatting.run({node, imageIndex:index});
+        return;
+    }
+    if(action === 'local-repair'){
+        void imageStudio.open({nodeId,imageIndex:index,mode:'local-repair'});
         return;
     }
 }
@@ -18036,7 +18042,8 @@ window.addEventListener('studio-lang-change', () => {
     renderInputThumbsRow(window.SmartCanvasModules.viewportSelection.selection.node());
     syncPromptCharacterCount(promptInput);
     if(imageStudio.isOpen()){
-        setImageEditMode(imageEditMode);
+        if(imageEditMode==='local-repair') window.SmartCanvasModules.imageRepair.translate();
+        else setImageEditMode(imageEditMode);
     }
     if(isPromptTemplatePanelOpen()) renderPromptTemplatePanel();
     if(smartLogModal?.hasAttribute('open')) renderSmartCanvasLog();

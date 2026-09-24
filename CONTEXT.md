@@ -370,6 +370,10 @@ _Avoid_: Managed Media, Reference Input Instance, Asset File
 围绕一个 Node 媒体进行预览和变换的专注编辑空间。
 _Avoid_: Preview Modal, Asset Library
 
+**Local Image Repair（局部修复）**:
+围绕原图的局部选区生成修复图，并保留原图、修复图及其位置、缩放和边缘融合关系的 Canvas 操作；修复结果可继续调整。
+_Avoid_: Smart Matting, Layer Decomposition, 全图重新生成
+
 **Smart Matting（智能抠图）**:
 从一个图像中分离前景并产生新 Generation Output 的 Canvas 操作。
 _Avoid_: Brush Stroke, Manual Crop
