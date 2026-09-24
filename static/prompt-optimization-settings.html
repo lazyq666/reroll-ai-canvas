@@ -20,7 +20,7 @@
     </script>
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-a44f3a89667c"></script>
+    <script src="/static/js/i18n.js?v=asset-9e5134f1ffca"></script>
     <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
     <link rel="stylesheet" href="/static/css/prompt-optimization-settings.css?v=asset-8c3a3a15eff9">
 </head>
@@ -33,6 +33,7 @@
     <ic-select id="optimizationMedia" value="image" label="优化模块" data-i18n-label="smart.optimize.media">
       <option value="image" data-i18n="smart.optimize.image">图片生成</option>
       <option value="video" data-i18n="smart.optimize.video">视频生成</option>
+      <option value="repair" data-i18n="smart.repair.title">局部修复</option>
     </ic-select>
     <ic-select id="optimizationModel" name="optimization-model" label="优化使用的文字模型" data-i18n-label="smart.optimize.model"></ic-select>
     <ic-select id="optimizationPreset" name="optimization-preset" label="默认优化方案" data-i18n-label="smart.optimize.editPreset" value="smart">
@@ -43,6 +44,7 @@
     </ic-select>
     <ic-textarea id="optimizationInstructions" name="optimization-instructions" rows="9" resize="vertical" label="优化指令" data-i18n-label="smart.optimize.instructions" aria-describedby="instructionsHint"></ic-textarea>
     <p id="instructionsHint" data-i18n="smart.optimize.instructionsHint">描述此模块应如何改写提示词。原文、媒体类型及素材引用保护由系统自动附加。</p>
+    <ic-textarea id="repairSuffix" rows="5" resize="vertical" label="统一后缀" data-i18n-label="smart.repair.suffix" hidden></ic-textarea>
     <div class="optimization-actions">
       <ic-button id="restoreInstructions" hierarchy="secondary" data-i18n="smart.optimize.restoreRule">恢复默认指令</ic-button>
       <ic-button id="saveOptimizationSettings" hierarchy="primary" data-i18n="smart.optimize.saveSettings">保存设置</ic-button>
@@ -50,7 +52,8 @@
   </section>
 </main>
 <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-8573b550d04e"></script>
+<script src="/static/js/smart-canvas/image-repair-presets.js?v=asset-aa7054499530"></script>
 <script src="/static/js/smart-canvas/prompt-optimize.js?v=asset-984c9818dcc6"></script>
-<script src="/static/js/prompt-optimization-settings.js?v=asset-8f529a51945e" defer></script>
+<script src="/static/js/prompt-optimization-settings.js?v=asset-b926d0631a56" defer></script>
 </body>
 </html>

@@ -33,9 +33,9 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-a44f3a89667c"></script>
+    <script src="/static/js/i18n.js?v=asset-9e5134f1ffca"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-34bdc7272166">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-48e1dbf4160f">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=asset-7ce1a37af323">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
@@ -474,32 +474,35 @@
                                 <ic-icon-button id="imageRepairClear" icon="delete" size="s" hierarchy="quiet" label="清空" data-i18n-label="canvas.clear"></ic-icon-button>
                             </div>
                             <ic-slider id="imageRepairBrushSize" label="笔刷大小" data-i18n-label="canvas.brushSize" min="4" max="160" value="42" step="1"></ic-slider>
-                            <ic-select id="imageRepairModel" label="模型" data-i18n-label="smart.model" name="repair-model"></ic-select>
-                            <div class="image-repair-row">
-                                <ic-select id="imageRepairRatio" label="画幅" data-i18n-label="smart.repair.ratio" name="repair-ratio"></ic-select>
-                                <ic-select id="imageRepairResolution" label="分辨率" data-i18n-label="smart.repair.resolution" name="repair-resolution"></ic-select>
+                            <div class="image-repair-controls">
+                                <ic-select id="imageRepairModel" class="catalog-model-select" aria-label="模型" data-i18n-aria-label="smart.model" name="repair-model" hierarchy="quiet" placement="top" data-component-variant="model-picker" data-legal-combination="model-picker-vertical-manual-label"></ic-select>
+                                <ic-generation-settings-picker id="imageRepairSettings" label="尺寸选择" data-i18n-label="smart.sizeSelection" ratio-label="画幅" data-i18n-ratio-label="smart.repair.ratio" resolution-label="分辨率" data-i18n-resolution-label="smart.repair.resolution" adaptive-label="自动取景" data-i18n-adaptive-label="smart.repair.automatic" hide-quality></ic-generation-settings-picker>
+                                <ic-select id="imageRepairCount" class="generation-count-select" name="repair-count" aria-label="生成数量" data-i18n-aria-label="smart.count" hierarchy="quiet" size="small" placement="top" data-component-variant="generation-count"></ic-select>
                             </div>
+                            <ic-switch id="imageRepairTransparent" size="s" label="透明 PNG" data-i18n-label="smart.transparentPng" hidden></ic-switch>
                             <canvas id="imageRepairCropPreview" aria-label="裁剪预览" data-i18n-aria-label="smart.repair.cropPreview"></canvas>
                             <small id="imageRepairCropSize"></small>
+                            <div id="imageRepairPresets" class="image-repair-presets" role="group" aria-label="修复预设" data-i18n-aria-label="smart.repair.presets"></div>
                             <ic-textarea id="imageRepairPrompt" label="修复要求" data-i18n-label="smart.repair.prompt" placeholder="描述需要修改的内容" data-i18n-placeholder="smart.repair.promptPlaceholder" rows="4" resize="vertical"></ic-textarea>
                             <ic-button id="imageRepairGenerate" hierarchy="primary" data-i18n="smart.repair.generate">生成修复图</ic-button>
                         </div>
                         <div id="imageRepairAdjustment" class="image-repair-fields" hidden>
+                            <ic-select id="imageRepairResult" name="repair-result" label="修复结果" data-i18n-label="smart.repair.result" hidden></ic-select>
                             <div class="image-repair-row">
                                 <ic-number-input id="imageRepairX" name="repair-x" label="水平位置" data-i18n-label="smart.repair.x" step="1" size="s"></ic-number-input>
                                 <ic-number-input id="imageRepairY" name="repair-y" label="垂直位置" data-i18n-label="smart.repair.y" step="1" size="s"></ic-number-input>
                             </div>
                             <ic-slider id="imageRepairScale" label="修复图缩放" data-i18n-label="smart.repair.scale" min="25" max="200" value="100" step="1"></ic-slider>
+                            <small data-i18n="smart.repair.featherHint">沿四条边用柔边画笔擦除。数值为画笔直径，中心区域保持可见。</small>
                             <ic-slider id="imageRepairFeather" label="边缘羽化" data-i18n-label="smart.repair.feather" min="0" max="100" value="16" step="1"></ic-slider>
                             <div class="image-repair-row">
-                                <ic-button id="imageRepairReset" hierarchy="secondary" size="s" data-i18n="smart.repair.reset">重置调整</ic-button>
-                                <ic-button id="imageRepairCompare" hierarchy="secondary" size="s" toggle data-i18n="smart.compareSource">对比原图</ic-button>
+                                <ic-icon-button id="imageRepairReset" icon="restore" hierarchy="quiet" size="s" label="重置调整" data-i18n-label="smart.repair.reset"></ic-icon-button>
+                                <ic-icon-button id="imageRepairCompare" icon="layout-horizontal" hierarchy="quiet" size="s" toggle label="对比原图" data-i18n-label="smart.compareSource"></ic-icon-button>
                             </div>
                             <ic-button id="imageRepairSave" hierarchy="primary" data-i18n="smart.confirmChanges">确认修改</ic-button>
                             <ic-button id="imageRepairPsd" hierarchy="secondary" data-i18n="smart.downloadPsd">下载 PSD</ic-button>
                             <ic-button id="imageRepairNew" hierarchy="quiet" data-i18n="smart.repair.another">修复另一处</ic-button>
                         </div>
-                        <ic-button id="imageRepairClose" hierarchy="quiet" size="s" data-i18n="common.close">关闭</ic-button>
                     </aside>
                 </section>
                     <div id="imageStudioResolutionNotice" class="image-studio-resolution-notice" role="status" hidden></div>
@@ -719,9 +722,10 @@
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=asset-3bc4d815dfaa"></script>
     <script src="/static/js/smart-canvas/layered-psd.js?v=asset-a58dda539415"></script>
     <script src="/static/js/smart-canvas/image-studio.js?v=asset-9f353cde2780"></script>
-    <script src="/static/js/smart-canvas/image-repair-geometry.js?v=asset-a83f8aff9701"></script>
-    <script src="/static/js/smart-canvas/image-repair.js?v=asset-56786426973f"></script>
-    <script src="/static/js/smart-canvas/model-capabilities.js?v=asset-607b0a75b8d6"></script>
+    <script src="/static/js/smart-canvas/image-repair-presets.js?v=asset-aa7054499530"></script>
+<script src="/static/js/smart-canvas/image-repair-geometry.js?v=asset-7a2f731d7512"></script>
+    <script src="/static/js/smart-canvas/image-repair.js?v=asset-136110821c45"></script>
+    <script src="/static/js/smart-canvas/model-capabilities.js?v=asset-dfcb603edebb"></script>
     <script src="/static/js/smart-canvas/layer-decomposition-draft.js?v=asset-e87514b42788"></script>
 <script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-ade3bb1f18df"></script>
     <script src="/static/js/smart-canvas/image-capabilities.js?v=asset-86ebfe841b25"></script>
@@ -730,14 +734,14 @@
     <script src="/static/js/smart-canvas/generation-settings.js?v=asset-27fc43257aad"></script>
     <script src="/static/js/smart-canvas/prompt-authoring.js?v=asset-cab8ef736c30"></script>
     <script src="/static/js/smart-canvas/local-generation-submissions.js?v=asset-d38a67f47829"></script>
-    <script src="/static/js/smart-canvas/generation-provider.js?v=asset-78e4914d0254"></script>
+    <script src="/static/js/smart-canvas/generation-provider.js?v=asset-fe1ccaeb4cf5"></script>
     <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=asset-4d192a74b065"></script>
     <script src="/static/js/smart-canvas/generation-log-modal.js?v=asset-ad3879b87435"></script>
     <script src="/static/js/smart-canvas/task-modals.js?v=asset-23795c520673"></script>
     <script src="/static/js/smart-canvas/generation-pending.js?v=asset-23ee9884ec27"></script>
     <script src="/static/js/smart-canvas/generation-output.js?v=asset-646c8e7dcd76"></script>
     <script src="/static/js/smart-canvas/smart-matting.js?v=asset-7f3272467cb9"></script>
-    <script src="/static/js/smart-canvas/generation-run.js?v=asset-eca35c459c62"></script>
+    <script src="/static/js/smart-canvas/generation-run.js?v=asset-3321912fed53"></script>
     <script src="/static/js/smart-canvas/generation-recovery.js?v=asset-2cee7eb24597"></script>
     <script src="/static/js/smart-canvas/smart-depth-map.js?v=asset-a1abdb90e5d1"></script>
     <script src="/static/js/smart-canvas/generation-cascade.js?v=asset-c858c55ec4a5"></script>
@@ -746,7 +750,7 @@
     <script src="/static/js/smart-canvas/prompt-generation-composer.js?v=asset-5690381d136d"></script>
     <script src="/static/js/smart-canvas/media-naming.js?v=asset-3bba39c64ca8"></script>
     <script src="/static/js/smart-canvas/prompt-optimize.js?v=asset-984c9818dcc6"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-4336d27984e3" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-4a0770a5d6ba" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
     <script src="/static/js/frontend-update.js?v=asset-c1175e39026f" defer></script>
 </body>

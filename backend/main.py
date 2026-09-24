@@ -34,7 +34,7 @@ import math
 import shlex
 import functools
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Literal
 from threading import BoundedSemaphore, Lock, RLock, Thread
 import httpx
 from PIL import Image, ImageOps
@@ -7685,7 +7685,7 @@ def _online_image_run(payload, *, publication="online-image"):
     if getattr(payload, "local_repair", None) is not None:
         require_current_user("admin", "designer")
         load_canvas(payload.canvas_id, write=True)
-        if int(payload.n) != 1 or len(image_inputs) != 1:
+        if len(image_inputs) != 1:
             raise HTTPException(status_code=422, detail={"code": "repair_invalid"})
         try:
             repair = validate_repair_recipe(payload.local_repair, require_patch=False)
@@ -9838,6 +9838,7 @@ def get_canvas(canvas_id: str):
 
 
 class ImageRepairAdjustmentRequest(BaseModel):
+    recipe_version: Optional[Literal[2]] = None
     image_index: int = Field(default=0, ge=0)
     expected_url: str = Field(min_length=1, max_length=4096)
     transform: dict
@@ -9867,6 +9868,8 @@ async def render_image_repair(canvas_id: str, node_id: str, payload: ImageRepair
     if media.get("url") != payload.expected_url:
         raise HTTPException(status_code=409, detail={"code": "repair_conflict"})
     recipe = {**media["local_repair"], "transform": payload.transform, "feather": payload.feather}
+    if payload.recipe_version is not None:
+        recipe["version"] = payload.recipe_version
     try:
         url, frozen = await materialize_image_repair(recipe["patch"]["url"], recipe, stable_id=uuid.uuid4().hex)
     except (ImageRepairError, KeyError) as exc:

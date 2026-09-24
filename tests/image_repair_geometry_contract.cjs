@@ -22,14 +22,34 @@ for(const region of [
     assert.ok(box.x<=region.x && box.y<=region.y);
     assert.ok(box.x+box.width>=region.x+region.width && box.y+box.height>=region.y+region.height);
 }
+const region={x:400,y:300,width:100,height:100};
+const padded=geometry.crop(region,1000,800,['1:1']);
+assert.equal(padded.width,170); // 35% context on each side.
+assert.equal(geometry.crop({x:400,y:300,width:10,height:10},1000,800,['1:1']).width,74);
+const enlarged=geometry.resize(padded,2,region);
+assert.equal(enlarged.width,340);
+assert.equal(enlarged.x+enlarged.width/2,padded.x+padded.width/2);
+assert.ok(geometry.resize(enlarged,.001,region).width>=100);
+const limited=geometry.resize(padded,100000,region);
+assert.ok(limited.width*limited.height<=40000000&&limited.width<=30000);
+assert.equal(geometry.edge(padded,{x:padded.x,y:padded.y+40},5),'w');
+assert.equal(geometry.edge(padded,{x:padded.x+40,y:padded.y+40},5),'');
+assert.equal(geometry.edge(padded,{x:padded.x,y:padded.y},5),'nw');
 assert.equal(geometry.crop({x:100,y:100,width:100,height:50},1000,800,['1:1','16:9'],'16:9').ratio,'16:9');
 assert.equal(geometry.nearestResolution({width:600,height:400},['1K','2K','4K']),'1K');
 assert.equal(geometry.nearestResolution({width:1700,height:1200},['1K','2K','4K']),'2K');
 assert.equal(geometry.nearestResolution({width:3200,height:2000},['1K','2K','4K']),'4K');
-assert.equal(geometry.featherAlpha(20,20,5)[0],26);
+assert.equal(geometry.featherAlpha(20,20,5)[0],2);
 assert.equal(geometry.featherAlpha(20,20,5)[10*20+10],255);
 assert.equal(geometry.featherAlpha(20,20,0)[0],255);
 assert.deepEqual(geometry.scaled({x:10,y:10,width:20,height:10},2),{x:0,y:5,width:40,height:20});
+// A diameter-40 edge brush affects only the inner 20 px, never the center.
+const edgeMask=geometry.featherAlpha(100,80,40);
+assert.equal(edgeMask[40*100+20],255);
+assert.equal(edgeMask[40*100+50],255);
+assert.ok(edgeMask[40*100]<2);
+assert.ok(edgeMask[40*100+9]<edgeMask[40*100+15]);
+assert.equal(edgeMask[40*100],edgeMask[40*100+99]);
 // Exercise the real transport normalizer: editable metadata must survive polling.
 const fs=require('node:fs'),vm=require('node:vm');
 const host=fs.readFileSync(require('node:path').join(__dirname,'../static/js/smart-canvas.js'),'utf8');

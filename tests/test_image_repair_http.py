@@ -80,6 +80,18 @@ class ImageRepairHttpTests(unittest.TestCase):
             self.assertEqual((255, 0, 0, 255), image.getpixel((50, 45)))
         self.assertEqual(before, self.client.get(f'/api/canvases/{self.canvas_id}').json())
 
+    def test_adjustment_upgrades_legacy_mask_only_on_explicit_save(self):
+        before = self.client.get(f'/api/canvases/{self.canvas_id}').json()
+        response = self.client.post(self.base + '/render', json={**self.body, 'recipe_version': 2, 'feather': 40})
+        self.assertEqual(200, response.status_code, response.text)
+        media = response.json()['image']
+        self.assertEqual(2, media['local_repair']['version'])
+        self.assertEqual(40, media['local_repair']['feather'])
+        with Image.open(self.main.output_file_from_url(media['url'])) as image:
+            self.assertEqual((255, 0, 0, 255), image.convert('RGBA').getpixel((50, 45)))
+        self.assertEqual(before, self.client.get(f'/api/canvases/{self.canvas_id}').json())
+        self.assertEqual(422, self.client.post(self.base + '/render', json={**self.body, 'recipe_version': 3}).status_code)
+
     def test_export_has_original_and_feathered_patch_and_no_canvas_changes(self):
         before = self.client.get(f'/api/canvases/{self.canvas_id}').json()
         response = self.client.post(self.base + '/psd', json={'source_name': '原图', 'patch_name': '修复图'})
@@ -115,7 +127,7 @@ class ImageRepairHttpTests(unittest.TestCase):
                     response = self.client.post(self.base + suffix, json=body)
                     self.assertEqual(status, response.status_code, response.text)
 
-    def test_generation_freezes_repair_and_rejects_multiple_outputs(self):
+    def test_generation_freezes_repair_and_respects_count_and_reference_limits(self):
         provider = dict(id='apimart', name='APIMart', base_url='https://api.apimart.ai',
                         protocol='apimart', image_request_mode='openai', image_models=['gpt-image-2'])
         payload = self.main.OnlineImageRequest(
@@ -136,6 +148,17 @@ class ImageRepairHttpTests(unittest.TestCase):
             payload.local_repair['crop']['x'] = 99
             self.assertEqual(20, run.settings['local_repair']['crop']['x'])
             payload.n = 2
+            self.assertEqual(2, self.main._online_image_run(payload).count)
+            payload.n = 9
             with self.assertRaises(HTTPException) as rejected:
                 self.main._online_image_run(payload)
             self.assertEqual(422, rejected.exception.status_code)
+            payload.n = 1
+            payload.reference_images = payload.reference_images * 2
+            with self.assertRaises(HTTPException) as rejected:
+                self.main._online_image_run(payload)
+            self.assertEqual(422, rejected.exception.status_code)
+
+    def test_generation_accepts_current_soft_brush_recipe(self):
+        self.recipe['version'] = 2
+        self.test_generation_freezes_repair_and_respects_count_and_reference_limits()

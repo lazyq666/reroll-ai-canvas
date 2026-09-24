@@ -86,7 +86,13 @@ async function generationProviderPostTask(endpoint, payload, context={}){
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(payload)
     });
-    if(!response.ok) throw new Error(await smartResponseErrorMessage(response, tr('smart.errRunFailed')));
+    if(!response.ok){
+        const data = await response.clone().json().catch(() => null);
+        const error = new Error(await smartResponseErrorMessage(response, tr('smart.errRunFailed')));
+        error.status = response.status;
+        error.code = data?.detail?.code || data?.error?.code || data?.code || '';
+        throw error;
+    }
     return response.json();
 }
 async function generationProviderCreateComfyTask(payload, context={}){
