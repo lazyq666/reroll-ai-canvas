@@ -13,6 +13,8 @@ Administrator 和获授权 Designer 可在图片、视频 Composer 内把粗略�
 
 V1 不提供优化中心、新建自定义方案、历史列表或差异弹窗。设置菜单在「工作流设置」下一项提供「提示词优化」入口。Administrator 可分别配置「图片生成」和「视频生成」模块的文字 Model 与优化指令，并恢复当前模块的默认指令。设置页可分别选择图片与视频的默认优化方案，并编辑该方案指令；选择在保存后生效，旧设置默认智能优化。切换模块保留各自草稿。Designer 可执行优化，但不可打开设置页或保存设置。
 
+「局部修复」模块同页管理六个修复预设及公共后缀，不调用优化模型；行为与默认提示词见[局部修复规格](2026-09-24-local-image-repair.md)。
+
 设置保存到 Workspace Data，整个工作区共享。未指定 Model 时沿用现有默认文字模型选择规则；明确选择的 Model 不可用时不静默切换其他模型。每次优化读取当前已保存设置，因此保存后下一次优化生效。空白指令回退内置规则；每个方案最多 6000 个字符。设置加载失败时禁用编辑并允许重试，保存失败保留页面草稿。
 
 ## 交互合同
@@ -33,7 +35,7 @@ V1 不提供优化中心、新建自定义方案、历史列表或差异弹窗�
 
 ## 实现责任
 
-`static/js/smart-canvas/prompt-optimize.js` 管理方案、优化状态、引用恢复和撤销。`smart-canvas.js` 提供当前节点、编辑权限、模型调用和保存端口。`prompt-optimization-settings.html` / `.js` 提供管理员设置页，后端 `prompt_optimization.py` 校验并原子保存到工作区 `data/prompt-optimization.json`；该文件只包含模型标识与方案指令，不保存 Provider 连接或凭据。原文、最近一次优化结果与方案保存到媒体节点的 `promptOptimization.image` / `.video`，各包含 `sourceHtml`、`resultHtml`、`preset`；切换媒体类型相互隔离。与现有提示词草稿一起经 Canvas 保存通道持久化。旧节点无此字段时按未优化处理，旧普通 Prompt Node 的媒体偏好不再使用。正在执行的请求只存在页面内存，离开节点后结果不可覆盖其他节点。
+`static/js/smart-canvas/prompt-optimize.js` 管理方案、优化状态、引用恢复和撤销。`smart-canvas.js` 提供当前节点、编辑权限、模型调用和保存端口。`prompt-optimization-settings.html` / `.js` 提供管理员设置页，后端 `prompt_optimization.py` 校验并原子保存到工作区 `data/prompt-optimization.json`；该文件只包含模型标识、方案指令及局部修复预设，不保存 Provider 连接或凭据。原文、最近一次优化结果与方案保存到媒体节点的 `promptOptimization.image` / `.video`，各包含 `sourceHtml`、`resultHtml`、`preset`；切换媒体类型相互隔离。与现有提示词草稿一起经 Canvas 保存通道持久化。旧节点无此字段时按未优化处理，旧普通 Prompt Node 的媒体偏好不再使用。正在执行的请求只存在页面内存，离开节点后结果不可覆盖其他节点。
 
 图片默认规则聚焦静态构图、光线与材质；视频默认规则聚焦动作、时序、镜头与连续性。执行优化时严格读取对应媒体模块的配置。目标图片／视频模型与实际执行优化的文字模型相互独立。
 
@@ -49,7 +51,7 @@ V1 不提供优化中心、新建自定义方案、历史列表或差异弹窗�
 ## 设置接口与验收补充
 
 - `GET /api/prompt-optimization-settings`：Administrator / Designer 读取。缺少文件返回内置默认设置，损坏文件报错而不静默覆盖。
-- `PUT /api/prompt-optimization-settings`：仅 Administrator 保存；结构为 `version: 2`，包含独立的 `image`、`video` 对象，各自保存 `default_preset`、`provider`、`model`、`instructions`。图片指令键为 `smart`、`preserve`、`visual`，视频额外包含 `camera`；拒绝未知字段及超长内容。读取旧版 `version: 1` 时将原配置复制到两模块，图片排除镜头规则；读取不改写原文件，下次保存写入 V2。
+- `PUT /api/prompt-optimization-settings`：仅 Administrator 保存；结构为 `version: 2`，包含独立的 `image`、`video` 对象，各自保存 `default_preset`、`provider`、`model`、`instructions`；另有可选 `repair` 对象保存局部修复六项正文及公共后缀，缺省或 `null` 使用内置内容。图片指令键为 `smart`、`preserve`、`visual`，视频额外包含 `camera`；拒绝未知字段及超长内容。读取旧版 `version: 1` 时将原配置复制到两模块，图片排除镜头规则；读取不改写原文件，下次保存写入 V2。
 - 优化仍通过现有 `/api/canvas-llm`，提交前加载并校验所选文字模型的 `text.generate` 能力，携带 `catalog_revision`。目录过期时显示现有本地化更新提示。请求不发送图片或视频字节，引用以占位符保护。
 - `/api/canvas-llm` 的空模型输出返回空 `text`，由优化界面显示失败并保留原文；服务端不得把错误说明填充成可应用的优化结果。
 - `tests/prompt_optimization_settings_browser.cjs`：设置保存与重载、切换模块与方案保留草稿、独立模型与指令保存、语言切换、保存失败保留草稿通过。

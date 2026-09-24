@@ -1885,3 +1885,9 @@ ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected)::before
 .text-generation-composer.text-composer-expanded { position:relative !important; inset:auto !important; width:100% !important; height:min(660px,70dvh); translate:none; transform:none; }
 .text-composer-error:not([hidden]), .text-composer-conflict:not([hidden]) { margin-top:var(--ui-space-2); }
 .text-composer-conflict { display:flex; gap:var(--ui-space-2); flex-wrap:wrap; }
+
+.image-repair-controls,.image-repair-presets { display:flex; flex-wrap:wrap; align-items:center; gap:var(--ui-space-2); min-width:0; }
+.image-repair-controls .catalog-model-select { max-width:100%; min-width:0; }
+.image-repair-fields small { color:var(--ui-color-text-secondary); font:var(--ui-text-caption); }
+#imageRepairTransparent[hidden],#imageRepairResult[hidden] { display:none; }
+.image-repair-panel { min-height:0; overscroll-behavior:contain; }

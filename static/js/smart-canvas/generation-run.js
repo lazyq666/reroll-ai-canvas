@@ -212,6 +212,7 @@ function generationRunFailureDetail(error=null){
     return window.SmartCanvasModules.generationFailureFeedback.classify({
         technicalError:error?.message || String(error || ''),
         httpStatus:error?.status || diagnostics?.http_status || 0,
+        errorCode:error?.code || diagnostics?.error_code || '',
         providerId:diagnostics?.provider_id || '',
         billingEvidence:diagnostics?.billing_evidence || {},
     });
@@ -235,6 +236,7 @@ function generationRunReportFailure({run, runMs=0, error=null}={}){
         status:'failed',
         technicalError:detail.technicalError,
         httpStatus:detail.httpStatus,
+        errorCode:detail.errorCode,
         providerId:detail.providerId,
         billingEvidence:detail.billingEvidence,
     };
@@ -498,6 +500,7 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
             nodeIds:slots.map(slot => slot.id),
             generationBatchId:slots[0].generationBatchId || '',
             operationId:generationOperationId,
+            localRepair:slots[0].localRepairRequest || null,
             localSubmission
         }
     });
@@ -1069,10 +1072,10 @@ async function runGeneration(options={}){
         branchNodes = branchNode ? [branchNode] : [];
     }
     const pendingNode = branchNode || node;
-    if(options.localRepair) pendingNode.localRepairRequest = generationRunClone(options.localRepair);
-    else delete pendingNode.localRepairRequest;
     const pendingNodes = branchNodes.length ? branchNodes : [pendingNode];
     pendingNodes.forEach(target => {
+        if(options.localRepair) target.localRepairRequest = generationRunClone(options.localRepair);
+        else delete target.localRepairRequest;
         target.outputKind = logKind;
         delete target.generationRunFeedback;
     });
@@ -1411,12 +1414,12 @@ async function regenerateGenerationRun(nodeId){
         inheritSourceConnections
     });
     if(!pending) throw new Error('Regeneration Output Node could not be created');
-    if(source.localRepairRequest) pending.localRepairRequest = generationRunClone(source.localRepairRequest);
     pending.outputKind = kind;
     delete pending.generationRunFeedback;
     const submissionSnapshot = generationOutputModule.submissionSnapshot({node:pending});
     const pendingNodes = batchNodes.length ? batchNodes : [pending];
     pendingNodes.forEach(target => {
+        if(source.localRepairRequest) target.localRepairRequest = generationRunClone(source.localRepairRequest);
         target.pending = useBatchOutputs
             ? 1
             : Math.max(1,Number(expectedCount) || 1);

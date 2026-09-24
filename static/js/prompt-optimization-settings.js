@@ -4,6 +4,7 @@
     const byId = id => document.getElementById(id);
     const media = byId('optimizationMedia'), model = byId('optimizationModel'), preset = byId('optimizationPreset'), instructions = byId('optimizationInstructions');
     const form = byId('settingsForm'), save = byId('saveOptimizationSettings'), message = byId('settingsMessage'), reload = byId('reloadSettings');
+    const repair = window.SmartCanvasModules.imageRepairPresets, suffix = byId('repairSuffix');
     const defaults = window.SmartCanvasModules.promptOptimize.defaults;
     let draft, models=[], active='smart', activeMedia='image', messageKey='smart.optimize.loadingSettings', saving=false;
     function notify(key,tone='neutral'){
@@ -11,6 +12,7 @@
     }
     function capture(){
         if(!draft) return;
+        if(activeMedia==='repair'){draft.repair[active]=instructions.value;draft.repair.suffix=suffix.value;return;}
         const profile=draft[activeMedia];
         profile.instructions[active]=instructions.value;
         if(model.value==='__unavailable__') return;
@@ -19,6 +21,17 @@
     }
     function render(){
         if(!draft) return;
+        const isRepair=activeMedia==='repair';
+        model.hidden=isRepair;suffix.hidden=!isRepair;
+        const bind=(element,attribute,key)=>{element.setAttribute('data-i18n-'+attribute,key);element.setAttribute(attribute,tr(key));};
+        bind(preset,'label',isRepair?'smart.repair.presets':'smart.optimize.editPreset');
+        bind(instructions,'label',isRepair?'smart.repair.presetBody':'smart.optimize.instructions');
+        const hint=byId('instructionsHint'), hintKey=isRepair?'smart.repair.settingsHint':'smart.optimize.instructionsHint';
+        hint.setAttribute('data-i18n',hintKey);hint.textContent=tr(hintKey);
+        if(isRepair){
+            preset.replaceChildren(...repair.keys.map(key=>new Option(tr('smart.repair.preset.'+key),key)));
+            preset.syncOptions();preset.value=active;instructions.value=draft.repair[active];suffix.value=draft.repair.suffix;return;
+        }
         const profile=draft[activeMedia];
         model.replaceChildren(new Option(tr('smart.optimize.autoModel'),'__default__'));
         for(const entry of models) model.append(new Option(`${entry.provider_name || entry.provider_id} · ${entry.name || entry.model}`,entry.id));
@@ -37,35 +50,38 @@
             const responses=await Promise.all([fetch('/api/prompt-optimization-settings'),fetch('/api/available-models')]);
             if(responses.some(response=>!response.ok)) throw new Error('Settings unavailable');
             const [configuration,catalog]=await Promise.all(responses.map(response=>response.json()));
-            draft=configuration;
+            draft=configuration;draft.repair=repair.resolve(draft.repair);
             for(const kind of ['image','video']){
                 draft[kind].default_preset=defaults[kind][draft[kind].default_preset] ? draft[kind].default_preset : 'smart';
                 draft[kind].instructions=Object.fromEntries(Object.entries(defaults[kind]).map(([key,value])=>[key,draft[kind].instructions?.[key]?.trim() ? draft[kind].instructions[key] : value]));
             }
-            active=draft[activeMedia].default_preset;models=catalog.models?.text || [];render();form.inert=false;message.hidden=true;
+            active=activeMedia==='repair'?repair.keys[0]:draft[activeMedia].default_preset;models=catalog.models?.text || [];render();form.inert=false;message.hidden=true;
         } catch(error){notify('smart.optimize.loadFailed','danger');reload.hidden=false;}
     }
     media.addEventListener('change',()=>{
-        if(!draft || !defaults[media.value]) return;
-        capture();activeMedia=media.value;active=draft[activeMedia].default_preset;render();
+        if(!draft || (!defaults[media.value] && media.value!=='repair')) return;
+        capture();activeMedia=media.value;active=activeMedia==='repair'?repair.keys[0]:draft[activeMedia].default_preset;render();
     });
     preset.addEventListener('change',()=>{
+        if(activeMedia==='repair'){capture();active=preset.value;instructions.value=draft.repair[active];return;}
         if(!draft || !defaults[activeMedia][preset.value]) return;
         capture();active=preset.value;draft[activeMedia].default_preset=active;instructions.value=draft[activeMedia].instructions[active];
     });
     instructions.addEventListener('input',capture);
+    suffix.addEventListener('input',capture);
     model.addEventListener('change',capture);
-    byId('restoreInstructions').addEventListener('click',()=>{instructions.value=defaults[activeMedia][active];capture();});
+    byId('restoreInstructions').addEventListener('click',()=>{instructions.value=activeMedia==='repair'?repair.defaults(active):defaults[activeMedia][active];if(activeMedia==='repair')suffix.value=repair.defaults('suffix');capture();});
     save.addEventListener('click',async()=>{
         if(saving || !draft) return;
         capture();
+        if(Object.values(draft.repair).some(value=>[...value].length>6000)){notify('smart.optimize.ruleTooLong','danger');return;}
         if(['image','video'].some(kind=>Object.values(draft[kind].instructions).some(value=>[...value].length>6000))){notify('smart.optimize.ruleTooLong','danger');return;}
         if(['image','video'].some(kind=>draft[kind].provider && !models.some(entry=>entry.provider_id===draft[kind].provider && entry.model===draft[kind].model))){notify('smart.optimize.unavailableModel','danger');return;}
         saving=true;save.loading=true;form.inert=true;
         try {
             const response=await fetch('/api/prompt-optimization-settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});
             if(!response.ok) throw new Error('Save failed');
-            draft=await response.json();notify('smart.optimize.savedSettings','success');
+            draft=await response.json();notify(activeMedia==='repair'?'smart.repair.settingsSaved':'smart.optimize.savedSettings','success');
         } catch(error){notify('smart.optimize.saveFailed','danger');}
         finally {saving=false;save.loading=false;form.inert=false;}
     });

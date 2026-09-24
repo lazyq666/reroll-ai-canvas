@@ -214,6 +214,10 @@ function smartModelCapabilityErrorMessage(error={}, fallback=''){
     const field = translate(`smart.capabilityField.${String(error.field || 'unknown')}`);
     const values = {field,actual:error.actual ?? '—',minimum:error.minimum ?? '—',maximum:error.maximum ?? '—'};
     const keys = {
+        repair_invalid:'smart.repair.invalid',
+        repair_media_missing:'smart.repair.mediaMissing',
+        repair_source_changed:'smart.repair.sourceChanged',
+        repair_too_large:'smart.repair.tooLarge',
         catalog_changed:'smart.capabilityCatalogChanged',
         input_invalid:'smart.capabilityInputInvalid',
         input_minimum:'smart.capabilityInputMinimum',

@@ -4,7 +4,7 @@ import json
 import os
 import uuid
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class OptimizationInstructions(BaseModel):
@@ -27,11 +27,22 @@ class VideoOptimizationProfile(ImageOptimizationProfile):
     default_preset: Literal["smart", "preserve", "visual", "camera"] = "smart"
     instructions: VideoOptimizationInstructions = Field(default_factory=VideoOptimizationInstructions)
 
+class RepairPresets(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    hand: Optional[str] = Field(default=None, max_length=6000)
+    fingers: Optional[str] = Field(default=None, max_length=6000)
+    limbs: Optional[str] = Field(default=None, max_length=6000)
+    smearing: Optional[str] = Field(default=None, max_length=6000)
+    fabric: Optional[str] = Field(default=None, max_length=6000)
+    noise: Optional[str] = Field(default=None, max_length=6000)
+    suffix: Optional[str] = Field(default=None, max_length=6000)
+
 class PromptOptimizationSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
     version: Literal[2] = 2
     image: ImageOptimizationProfile = Field(default_factory=ImageOptimizationProfile)
     video: VideoOptimizationProfile = Field(default_factory=VideoOptimizationProfile)
+    repair: RepairPresets = Field(default_factory=RepairPresets)
 
     @model_validator(mode="before")
     @classmethod

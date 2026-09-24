@@ -34,6 +34,21 @@ class PromptOptimizationSettingsTests(unittest.TestCase):
             settings.image.instructions.smart='Image only'
             self.assertEqual(settings.video.instructions.smart,'Custom rule')
             self.assertEqual(json.loads(path.read_text()),legacy)
+    def test_repair_presets_defaults_validation_and_persistence(self):
+        settings=PromptOptimizationSettings.model_validate({'version':2})
+        self.assertIsNone(settings.repair.hand)
+        settings.repair.hand='Custom repair'
+        settings.repair.suffix=''
+        with tempfile.TemporaryDirectory() as temporary:
+            path=Path(temporary)/'settings.json'
+            save_settings(path,settings)
+            restored=load_settings(path)
+            self.assertEqual(restored.repair.hand,'Custom repair')
+            self.assertEqual(restored.repair.suffix,'')
+        for repair in ({'hand':'x'*6001},{'unknown':'x'},{'suffix':12}):
+            with self.assertRaises(ValidationError):
+                PromptOptimizationSettings.model_validate({'repair':repair})
+
     def test_corruption_is_not_silently_replaced_with_defaults(self):
         with tempfile.TemporaryDirectory() as temporary:
             path=Path(temporary)/'prompt-optimization.json';path.write_text('{bad')

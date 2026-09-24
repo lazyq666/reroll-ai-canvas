@@ -14190,7 +14190,8 @@ async function smartResponseErrorMessage(response, fallback=tr('canvas.requestFa
         if(typeof detail === 'string') return detail || fallback;
         if(Array.isArray(detail)) return detail.map(item => item?.msg || item?.message || String(item)).join('\n') || fallback;
         if(detail && typeof detail === 'object' && detail.code){
-            return window.SmartCanvasModules?.modelCapabilities?.errorMessage?.(detail, fallback) || fallback;
+            const reason = detail.message || detail.code || fallback;
+            return window.SmartCanvasModules?.modelCapabilities?.errorMessage?.(detail, reason) || reason;
         }
     } catch(_) {}
     try {
@@ -17839,7 +17840,7 @@ document.getElementById('previewStage').addEventListener('mousedown', event => {
     previewPanDrag = {clientX:event.clientX, clientY:event.clientY, startX:previewPan.x, startY:previewPan.y};
 });
 document.getElementById('imageEditStage').addEventListener('mousedown', event => {
-    if(imageEditMode === 'preview' || event.button !== 0) return;
+    if(imageEditMode === 'preview' || imageEditMode === 'local-repair' || event.button !== 0) return;
     if(event.target.closest('.image-edit-actions, .crop-box, .crop-handle')) return;
     if(event.target.closest('#editDrawCanvas, #editTextCanvas, .edit-text-inline') && imageEditMode !== 'crop') return;
     const stage = event.currentTarget;
@@ -17959,7 +17960,7 @@ function imagePreviewWheelZoomFactor(deltaY){
     return Math.exp(-normalizedDelta * IMAGE_PREVIEW_WHEEL_ZOOM_SENSITIVITY);
 }
 document.getElementById('imageEditStage').addEventListener('wheel', event => {
-    if(!cropState) return;
+    if(!cropState || imageEditMode === 'local-repair') return;
     event.preventDefault();
     event.stopPropagation();
     if(imageEditMode === 'preview'){

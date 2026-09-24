@@ -47,6 +47,26 @@ class ImageRepairTests(unittest.TestCase):
         self.assertEqual((255, 0, 0, 13), patch.getpixel((0, 0)))
         self.assertEqual((255, 0, 0, 128), patch.getpixel((10, 10)))
 
+    def test_soft_edge_brush_preserves_center_and_matches_browser(self):
+        import json
+        import subprocess
+        from infinite_canvas.image_repair import feather_alpha
+        width, height, diameter = 100, 80, 40
+        image = Image.new('RGBA', (width, height), (120, 80, 40, 255))
+        result = feather_alpha(image, diameter)
+        self.assertLess(result.getpixel((0, 40))[3], 2)
+        self.assertEqual(result.getpixel((20, 40)), (120, 80, 40, 255))
+        self.assertEqual(result.getpixel((50, 40)), (120, 80, 40, 255))
+        script = "require('./static/js/smart-canvas/image-repair-geometry.js');console.log(JSON.stringify([...globalThis.SmartCanvasModules.imageRepairGeometry.featherAlpha(100,80,40)]))"
+        browser = json.loads(subprocess.check_output(['node', '-e', script], cwd=Path(__file__).resolve().parents[1]))
+        self.assertEqual(list(result.getchannel('A').tobytes()), browser)
+        self.recipe.update(version=2, feather=10)
+        Image.new('RGBA', (20, 20), (255, 0, 0, 128)).save(self.root / 'patch.png')
+        _, _, patch, _ = repair_layers(self.recipe, self.resolve)
+        self.assertEqual(patch.getpixel((10, 10)), (255, 0, 0, 128))
+        self.assertEqual(patch.getpixel((5, 10)), (255, 0, 0, 128))
+        self.assertEqual(patch.getpixel((0, 0))[3], 0)
+
     def test_shift_scale_and_clip_use_original_pixels(self):
         self.recipe['transform'] = dict(x=-10, y=60, width=40, height=40)
         self.recipe['feather'] = 0
@@ -64,7 +84,7 @@ class ImageRepairTests(unittest.TestCase):
 
     def test_missing_or_changed_media_and_invalid_geometry_rejected(self):
         cases = [
-            {'width': 101}, {'version': 2}, {'feather': float('nan')},
+            {'width': 101}, {'version': 3}, {'feather': float('nan')},
             {'source': {'url': 'https://elsewhere/image.png'}},
             {'patch': {'url': '/assets/missing.png'}},
             {'transform': dict(x=100, y=0, width=20, height=20)},
@@ -81,6 +101,28 @@ class ImageRepairTests(unittest.TestCase):
 
 
 class ImageRepairPublicationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_multiple_outputs_keep_separate_patches_and_composites(self):
+        recipe = {'version': 2, 'source': {'url': '/assets/source.png'}}
+        frozen = copy.deepcopy(recipe)
+        async def save(value, **kwargs):
+            return value['value']
+        async def compose(url, value, *, stable_id):
+            return f'/assets/composite-{stable_id}.png', {**copy.deepcopy(value), 'patch': {'url': url}}
+        effects = WorkspaceGenerationEffects(GenerationOutputPorts(
+            save_image=save, image_meta=lambda url, _: {'url': url}, extract_images=lambda _: [],
+            compose_image_repair=compose,
+        ), publication=Mock())
+        patches = tuple(f'/assets/patch-{i}.png' for i in range(3))
+        result = await effects.prepare('repair-multiple', ImageRun(
+            prompt='fix', count=3, settings={'local_repair': recipe}, publication='online-image',
+        ), ProviderOutput(media=patches, raw={}))
+        items = result.result['image_items']
+        self.assertEqual(3, len({item['url'] for item in items}))
+        self.assertEqual(list(patches), [item['local_repair']['patch']['url'] for item in items])
+        self.assertEqual(frozen, recipe)
+        items[0]['local_repair']['source']['url'] = '/assets/changed.png'
+        self.assertEqual('/assets/source.png', items[1]['local_repair']['source']['url'])
+
     async def test_history_canvas_and_result_publish_composite_with_editable_recipe(self):
         calls = []
         recipe = {'version': 1, 'source': {'url': '/assets/source.png'}}

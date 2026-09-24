@@ -634,6 +634,10 @@ Turso 异常恢复的固定回归入口：`tests.test_turso_generation_reliabili
 
 [局部修复规格](../active/2026-09-24-local-image-repair.md)记录已实现、等待真实模型验收的扩展。
 普通 `image.edit` 请求可附带冻结的 `local_repair` 参数；仅裁剪图作为 Provider 参考图。
+输出数量受模型能力和画布数量上限约束。同次多张请求沿用输出槽位和 Generation Batch 身份，
+每个结果节点保留修复请求，重新生成时继续传递配方；每张补丁分别合成，使用独立媒体身份。
+调整面板可切换同次生成的可用修复结果，草稿与确认保存各自独立。
 结果物化阶段保存生成补丁，再按原图像素坐标合成为 PNG；Canvas、History 和任务结果
 的 `image_items` 一起携带原图、补丁及调整参数。现有 Run ID、Operation ID、恢复和 Target Guard 继续生效。
-后续位置、等比缩放与羽化调整只重新合成托管素材，不创建 Generation Run。
+提交被服务端接受后关闭局部修复面板，生成完成不自动重开；失败前未被接受的提交保留编辑草稿和面板。
+后续位置、等比缩放与羽化调整只重新合成托管素材，不创建 Generation Run。V2 修复配方中的羽化为沿四边擦除的柔边画笔直径；旧 V1 配方继续按原算法合成，用户确认调整时才升级。预览、PNG 与 PSD 共用相同的 Alpha 规则。

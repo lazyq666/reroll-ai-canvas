@@ -40,7 +40,7 @@
         "adapter": "primary-button",
         "stylesheets": [
           "/static/css/design-tokens.css?v=asset-b180cf511553",
-          "/static/css/smart-canvas.css?v=asset-34bdc7272166"
+          "/static/css/smart-canvas.css?v=asset-48e1dbf4160f"
         ],
         "markup": "<div class=\"shell\"><div id=\"composer\" class=\"composer open\"><div class=\"composer-card\"><div class=\"composer-actions\"><button id=\"runBtn\" class=\"run-btn\" type=\"button\"><i data-lucide=\"sparkles\"></i><span>运行</span></button></div></div></div></div>",
         "rootSelector": "#runBtn",
