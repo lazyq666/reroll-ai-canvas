@@ -1,5 +1,5 @@
 (() => {
-  const MANIFEST_URL = '/static/design-system/live-catalog/manifest.json?v=asset-944e13f964db';
+  const MANIFEST_URL = '/static/design-system/live-catalog/manifest.json?v=asset-f597a3f6b3af';
   const SANDBOX_URL = '/static/design-system/live-catalog/sandbox.html?v=2026.08.07.3';
   const protocol = window.UiComponentSandboxProtocol;
   const decisionApi = window.UiComponentDecisionStore;

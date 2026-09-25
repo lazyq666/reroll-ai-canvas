@@ -13,6 +13,7 @@
     function busy(value){
         if(!session) return;
         session.busy=value;
+        $('CompareHandle').setAttribute('aria-disabled',String(value));
         $('Editor').querySelectorAll('ic-select,ic-slider,ic-number-input,ic-textarea,ic-button,ic-icon-button,ic-switch,ic-generation-settings-picker').forEach(el=>{
             el.disabled=value;el.toggleAttribute('disabled',value);
         });
@@ -80,14 +81,6 @@
         if(!s.model.imageCapability.supports_transparent_png)s.transparentPng=false;
         updateCrop(true,true); saveDraft();
     }
-    function resultChoices(s){
-        const current=nodes.find(node=>node.id===s.nodeId);
-        const candidates=current?.generationBatchId
-            ? nodes.filter(node=>node.generationBatchId===current.generationBatchId).sort((a,b)=>(a.generationSlotIndex||0)-(b.generationSlotIndex||0))
-            : current?[current]:[];
-        return candidates.flatMap(node=>(node.images||[]).flatMap((media,imageIndex)=>media.local_repair&&media.url
-            ? [{nodeId:node.id,imageIndex,value:JSON.stringify([node.id,imageIndex])}]:[]));
-    }
     function syncSelect(id,options,value){
         const select=$(id),markup=options.map(option=>`<option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}</option>`).join('')+'<ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>';
         if(select.dataset.options!==markup){select.innerHTML=markup;select.dataset.options=markup;select.syncOptions?.();}
@@ -97,6 +90,8 @@
         const s=session; if(!s) return;
         $('Authoring').hidden=Boolean(s.recipe);
         $('Adjustment').hidden=!s.recipe;
+        $('CompareHandle').hidden=!s.recipe||!s.compare;
+        $('CompareHandle').setAttribute('aria-disabled',String(s.busy));
         $('Heading').textContent=text(s.recipe?'adjust':'title');
         $('Heading').setAttribute('data-i18n',`smart.repair.${s.recipe?'adjust':'title'}`);
         $('Generate').disabled=Boolean(s.busy||!s.source||!s.box||!s.model||!String($('Prompt').value||'').trim());
@@ -108,10 +103,10 @@
             $('Settings').ratio=s.ratio||'adaptive';$('Settings').resolution=s.resolution||'';
             $('CropSize').textContent=s.box?trf('smart.repair.cropSize',{width:s.box.width,height:s.box.height,ratio:s.box.ratio}):text('selectRegion');
             $('CropPreview').hidden=!s.box;
+            const scope=geometry.relativeBounds(bounds(),s.box);
+            $('Scope').hidden=!scope;
+            $('Scope').textContent=scope?trf('smart.repair.scope',scope):'';
         } else {
-            const choices=resultChoices(s);
-            $('Result').hidden=choices.length<2;
-            syncSelect('Result',choices.map((choice,index)=>({...choice,label:trf('smart.repair.resultIndex',{index:index+1,count:choices.length})})),JSON.stringify([s.nodeId,s.imageIndex]));
             const box=s.recipe.transform;
             $('Scale').setAttribute('max',String(Math.floor(Math.min(2,Math.sqrt(40000000/(s.recipe.crop.width*s.recipe.crop.height)),30000/Math.max(s.recipe.crop.width,s.recipe.crop.height))*100)));
             control('X',box.x); control('Y',box.y);
@@ -145,7 +140,7 @@
     }
     function draw(){
         const s=session;if(!s?.source) return;
-        const viewport=$('Canvas').parentElement;
+        const viewport=$('Frame').parentElement;
         const box=!s.recipe&&s.box;
         const x=box?Math.min(0,box.x-8):0,y=box?Math.min(0,box.y-8):0;
         s.view=gesture?.view||{x,y,width:(box?Math.max(s.width,box.x+box.width+8):s.width)-x,height:(box?Math.max(s.height,box.y+box.height+8):s.height)-y};
@@ -155,10 +150,13 @@
         canvas.style.width=`${Math.max(1,view.width*fit)}px`;canvas.style.height=`${Math.max(1,view.height*fit)}px`;
         const ctx=canvas.getContext('2d');ctx.translate(-view.x*scale,-view.y*scale);ctx.drawImage(s.source,0,0,s.width*scale,s.height*scale);
         if(s.recipe){
-            if(!s.compare && s.patch){
+            if(s.patch){
+                ctx.save();
+                if(s.compare){ctx.beginPath();ctx.rect(s.width*scale*s.comparePos/100,0,s.width*scale,s.height*scale);ctx.clip();}
                 const box=s.recipe.transform;
                 ctx.drawImage(patchPreview(s,scale),box.x*scale,box.y*scale,box.width*scale,box.height*scale);
-                ctx.strokeStyle='#a5a5a5';ctx.lineWidth=1;ctx.setLineDash([6,4]);ctx.strokeRect(box.x*scale,box.y*scale,box.width*scale,box.height*scale);
+                if(!s.compare){ctx.strokeStyle='#a5a5a5';ctx.lineWidth=1;ctx.setLineDash([6,4]);ctx.strokeRect(box.x*scale,box.y*scale,box.width*scale,box.height*scale);}
+                ctx.restore();
             }
         } else {
             ctx.save();ctx.scale(scale,scale);ctx.lineCap='round';ctx.lineJoin='round';
@@ -189,9 +187,11 @@
         if(!media?.url || mediaKindForItem(media)!=='image') return;
         if(session) saveDraft();
         gesture=null;
+        $('Frame').style.setProperty('--compare-pos','50%');
+        $('CompareHandle').setAttribute('aria-valuenow','50');
         openImageEditor(nodeId,imageIndex);
         setImageEditMode('preview');
-        const s=session={nodeId,imageIndex,media:clone(media),expectedUrl:media.url,strokes:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&media.local_repair?clone(media.local_repair):null,compare:false,dirty:false,models:[],count:1};
+        const s=session={nodeId,imageIndex,media:clone(media),expectedUrl:media.url,strokes:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&media.local_repair?clone(media.local_repair):null,compare:false,comparePos:50,dirty:false,models:[],count:1};
         setImageStudioToggleState($('Brush'),true);setImageStudioToggleState($('Rectangle'),false);
         imageEditMode='local-repair';imageEditModeTouched=true;
         imageEditModal.classList.add('local-repair-mode');$('Editor').hidden=false;
@@ -257,7 +257,7 @@
     }
     function reset(){
         if(!session)return;
-        saveDraft();session=null;gesture=null;
+        saveDraft();session=null;gesture=null;comparePointer=null;
         $('Editor').hidden=true;imageEditModal.classList.remove('local-repair-mode');
     }
     function point(event,clipped=true){
@@ -331,11 +331,6 @@
         if(!session||session.busy)return;
         session.count=Math.max(1,Math.min(session.maximumCount||1,Math.round(Number($('Count').value)||1)));sync();saveDraft();
     });
-    $('Result').addEventListener('change',()=>{
-        if(!session?.recipe||session.busy)return;
-        const choice=resultChoices(session).find(item=>item.value===$('Result').value);
-        if(choice)void open(choice);
-    });
     $('Settings').addEventListener('ic-change',event=>{
         if(!session||session.busy)return;
         if(event.detail.field==='ratio'){session.ratio=event.detail.value==='adaptive'?'':event.detail.value;updateCrop();}
@@ -352,6 +347,39 @@
     $('Reset').addEventListener('click',()=>{session.recipe.transform=clone(session.recipe.crop);session.recipe.feather=Math.round(Math.min(session.recipe.crop.width,session.recipe.crop.height)*.06);adjusted();saveDraft();});
     $('Compare').addEventListener('click',()=>{session.compare=!session.compare;sync();redraw();});
     $('New').addEventListener('click',async()=>{const s=session;if(await save())void open({nodeId:s.nodeId,imageIndex:s.imageIndex,fresh:true});});
+    function setComparePosition(value){
+        if(!session?.compare||session.busy)return;
+        session.comparePos=Math.max(0,Math.min(100,value));
+        $('Frame').style.setProperty('--compare-pos',`${session.comparePos}%`);
+        $('CompareHandle').setAttribute('aria-valuenow',String(Math.round(session.comparePos)));
+        redraw();
+    }
+    let comparePointer=null;
+    function moveCompare(event){
+        const rect=$('Canvas').getBoundingClientRect();
+        setComparePosition((event.clientX-rect.left)/Math.max(1,rect.width)*100);
+    }
+    $('CompareHandle').addEventListener('pointerdown',event=>{
+        if(!session?.compare||session.busy||event.button!==0)return;
+        event.preventDefault();event.stopPropagation();
+        comparePointer=event.pointerId;$('CompareHandle').focus();
+        $('CompareHandle').setPointerCapture(event.pointerId);moveCompare(event);
+    });
+    $('CompareHandle').addEventListener('pointermove',event=>{
+        if(comparePointer!==event.pointerId)return;
+        event.preventDefault();event.stopPropagation();moveCompare(event);
+    });
+    for(const type of ['pointerup','pointercancel','lostpointercapture'])$('CompareHandle').addEventListener(type,event=>{
+        if(comparePointer!==event.pointerId)return;
+        event.stopPropagation();comparePointer=null;
+        if($('CompareHandle').hasPointerCapture(event.pointerId))$('CompareHandle').releasePointerCapture(event.pointerId);
+    });
+    $('CompareHandle').addEventListener('keydown',event=>{
+        if(!session?.compare||session.busy)return;
+        const value={ArrowLeft:session.comparePos-(event.shiftKey?10:1),ArrowRight:session.comparePos+(event.shiftKey?10:1),Home:0,End:100}[event.key];
+        if(value===undefined)return;
+        event.preventDefault();event.stopPropagation();setComparePosition(value);
+    });
     function blob(canvas){return new Promise((resolve,reject)=>canvas.toBlob(result=>result?resolve(result):reject(new Error(text('loadFailed'))),'image/png'));}
     async function generate(){
         const s=session;if(!s?.box||!s.model||s.busy)return;
@@ -374,8 +402,8 @@
             const settings={engine:'api',apiKind:'image',provider_id:s.model.provider_id,model:s.model.model,ratio:window.SmartCanvasModules.imageCapabilities.standardToRatioKey(box.ratio)||box.ratio,resolution:String(s.resolution).toLowerCase(),count:s.count||1,quality:'auto',transparentPng:s.transparentPng===true&&s.model.imageCapability.supports_transparent_png===true};
             await window.SmartCanvasModules.generationRun.processor({
                 nodeId:s.nodeId,imageIndex:s.imageIndex,input:{...input,natural_w:box.width,natural_h:box.height},width:box.width,height:box.height,
-                prompt,runSettings:settings,localRepair:recipe,
-                onAccepted:()=>{if(session===s)window.SmartCanvasModules.imageStudio.close();}
+                prompt:[prompt,trf('smart.repair.scopeInstruction',geometry.relativeBounds(bounds(),box))].join('\n\n'),runSettings:settings,localRepair:recipe,
+                onPrepared:()=>{if(session===s)window.SmartCanvasModules.imageStudio.close();}
             });
             if(session===s)message('failed');
         } catch(error){if(session===s)message(error.message===text('sourceChanged')?'sourceChanged':'failed');}
@@ -415,7 +443,7 @@
         finally {if(session===s)busy(false);}
     }
     $('Generate').addEventListener('click',()=>void generate());$('Save').addEventListener('click',()=>void save());$('Psd').addEventListener('click',()=>void downloadPsd());
-    new ResizeObserver(redraw).observe($('Canvas').parentElement);
+    new ResizeObserver(redraw).observe($('Frame').parentElement);
     function translate(){if(session){$('Status').textContent=text(session.message||'selectHint');sync();redraw();}}
     window.addEventListener('studio-lang-change',translate);
     window.SmartCanvasModules.imageRepair=Object.freeze({open,reset,translate});

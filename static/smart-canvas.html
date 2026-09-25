@@ -33,9 +33,9 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-9e5134f1ffca"></script>
+    <script src="/static/js/i18n.js?v=asset-229960edad6d"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-48e1dbf4160f">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-980ce191fdea">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=asset-7ce1a37af323">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
@@ -461,7 +461,10 @@
             <div id="imageEditStage" class="image-edit-stage">
                 <section id="imageRepairEditor" class="image-repair-editor" hidden aria-label="局部修复" data-i18n-aria-label="smart.repair.title">
                     <div class="image-repair-viewport">
-                        <canvas id="imageRepairCanvas" tabindex="0" aria-label="局部修复预览" data-i18n-aria-label="smart.repair.canvas"></canvas>
+                        <div id="imageRepairFrame" class="image-repair-frame">
+                            <canvas id="imageRepairCanvas" tabindex="0" aria-label="局部修复预览" data-i18n-aria-label="smart.repair.canvas"></canvas>
+                            <div id="imageRepairCompareHandle" class="preview-compare-handle" role="slider" tabindex="0" aria-label="拖动对比" data-i18n-aria-label="smart.compareDrag" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" hidden></div>
+                        </div>
                     </div>
                     <aside class="image-repair-panel">
                         <strong id="imageRepairHeading" data-i18n="smart.repair.title">局部修复</strong>
@@ -483,11 +486,11 @@
                             <canvas id="imageRepairCropPreview" aria-label="裁剪预览" data-i18n-aria-label="smart.repair.cropPreview"></canvas>
                             <small id="imageRepairCropSize"></small>
                             <div id="imageRepairPresets" class="image-repair-presets" role="group" aria-label="修复预设" data-i18n-aria-label="smart.repair.presets"></div>
+                            <small id="imageRepairScope" hidden></small>
                             <ic-textarea id="imageRepairPrompt" label="修复要求" data-i18n-label="smart.repair.prompt" placeholder="描述需要修改的内容" data-i18n-placeholder="smart.repair.promptPlaceholder" rows="4" resize="vertical"></ic-textarea>
                             <ic-button id="imageRepairGenerate" hierarchy="primary" data-i18n="smart.repair.generate">生成修复图</ic-button>
                         </div>
                         <div id="imageRepairAdjustment" class="image-repair-fields" hidden>
-                            <ic-select id="imageRepairResult" name="repair-result" label="修复结果" data-i18n-label="smart.repair.result" hidden></ic-select>
                             <div class="image-repair-row">
                                 <ic-number-input id="imageRepairX" name="repair-x" label="水平位置" data-i18n-label="smart.repair.x" step="1" size="s"></ic-number-input>
                                 <ic-number-input id="imageRepairY" name="repair-y" label="垂直位置" data-i18n-label="smart.repair.y" step="1" size="s"></ic-number-input>
@@ -723,8 +726,8 @@
     <script src="/static/js/smart-canvas/layered-psd.js?v=asset-a58dda539415"></script>
     <script src="/static/js/smart-canvas/image-studio.js?v=asset-9f353cde2780"></script>
     <script src="/static/js/smart-canvas/image-repair-presets.js?v=asset-aa7054499530"></script>
-<script src="/static/js/smart-canvas/image-repair-geometry.js?v=asset-7a2f731d7512"></script>
-    <script src="/static/js/smart-canvas/image-repair.js?v=asset-136110821c45"></script>
+<script src="/static/js/smart-canvas/image-repair-geometry.js?v=asset-d19a20dfc8eb"></script>
+    <script src="/static/js/smart-canvas/image-repair.js?v=asset-c7470f4ad907"></script>
     <script src="/static/js/smart-canvas/model-capabilities.js?v=asset-dfcb603edebb"></script>
     <script src="/static/js/smart-canvas/layer-decomposition-draft.js?v=asset-e87514b42788"></script>
 <script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-ade3bb1f18df"></script>
@@ -741,7 +744,7 @@
     <script src="/static/js/smart-canvas/generation-pending.js?v=asset-23ee9884ec27"></script>
     <script src="/static/js/smart-canvas/generation-output.js?v=asset-646c8e7dcd76"></script>
     <script src="/static/js/smart-canvas/smart-matting.js?v=asset-7f3272467cb9"></script>
-    <script src="/static/js/smart-canvas/generation-run.js?v=asset-3321912fed53"></script>
+    <script src="/static/js/smart-canvas/generation-run.js?v=asset-370906ba4ed8"></script>
     <script src="/static/js/smart-canvas/generation-recovery.js?v=asset-2cee7eb24597"></script>
     <script src="/static/js/smart-canvas/smart-depth-map.js?v=asset-a1abdb90e5d1"></script>
     <script src="/static/js/smart-canvas/generation-cascade.js?v=asset-c858c55ec4a5"></script>

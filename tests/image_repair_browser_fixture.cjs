@@ -5,12 +5,12 @@ const path = require('node:path');
 const {apiPayload} = require('./issue_31_layer_decomposition_browser_smoke.cjs');
 const root = path.resolve(__dirname, '..');
 const id = 'image-repair-browser';
-const source = {id:'layer-source',type:'smart-image',x:180,y:120,w:500,h:250,images:[{url:'/assets/source.png',media_id:'layer-source-media',name:'Layer fixture',kind:'image',natural_w:1000,natural_h:800}]};
+const source = {id:'layer-source',type:'smart-image',generationOutputNode:true,x:180,y:120,w:500,h:250,images:[{url:'/assets/source.png',media_id:'layer-source-media',name:'Layer fixture',kind:'image',natural_w:1000,natural_h:800}]};
 let canvas = {id,title:'Layer Dialog Test',project:'default',revision:1,nodes:[source],connections:[],settings:{},logs:[]};
-const mutationReceiptDelayMs = 0;
+const mutationReceiptDelayMs = 350;
 const mutations = [], submissions = [], psdExports = [];
 let repairSettings={version:2,image:{provider:'',model:'',instructions:{}},video:{provider:'',model:'',instructions:{}},repair:{}};
-let rejectNext=false,taskPolls=0;
+let rejectNext=false,taskPolls=0,submissionReplies=0;
 const mutationReceipts = new Map();
 function apply(changes) {
   for (const item of changes.canvas_updates || []) {
@@ -52,7 +52,7 @@ const server=http.createServer(async(req,res)=>{
  const url=new URL(req.url,'http://127.0.0.1');
  const send=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
  if(url.pathname==='/fixture/reject-next'){rejectNext=true;return send({ok:true});}
- if(url.pathname==='/fixture/state')return send({canvas,mutations,submissions,psdExports});
+ if(url.pathname==='/fixture/state')return send({canvas,mutations,submissions,psdExports,submissionReplies});
  if(url.pathname==='/fixture/mutation') {
   let raw='';for await(const part of req)raw+=part;
   const operation=JSON.parse(raw).operation;
@@ -80,7 +80,7 @@ const server=http.createServer(async(req,res)=>{
   if(url.pathname===`/api/canvases/${id}`)return send({canvas});
   if(url.pathname==='/api/ai/upload') return send({files:[{url:'/assets/upload.png',name:'repair-input.png',kind:'image'}]});
   if(url.pathname==='/api/canvas-image-tasks'&&req.method==='POST') {
-   let raw='';for await(const p of req)raw+=p;const request=JSON.parse(raw);if(rejectNext){rejectNext=false;return send({detail:{code:'repair_invalid'}},422);}submissions.push(request);taskPolls=0;
+   let raw='';for await(const p of req)raw+=p;const request=JSON.parse(raw);await new Promise(resolve=>setTimeout(resolve,600));submissionReplies++;if(rejectNext){rejectNext=false;return send({detail:{code:'repair_invalid'}},422);}submissions.push(request);taskPolls=0;
    return send({task_id:'repair-task',status:'queued'});
   }
   if(url.pathname==='/api/canvas-image-tasks/repair-task') {

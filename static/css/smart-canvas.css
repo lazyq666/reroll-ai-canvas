@@ -1889,5 +1889,9 @@ ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected)::before
 .image-repair-controls,.image-repair-presets { display:flex; flex-wrap:wrap; align-items:center; gap:var(--ui-space-2); min-width:0; }
 .image-repair-controls .catalog-model-select { max-width:100%; min-width:0; }
 .image-repair-fields small { color:var(--ui-color-text-secondary); font:var(--ui-text-caption); }
-#imageRepairTransparent[hidden],#imageRepairResult[hidden] { display:none; }
+#imageRepairTransparent[hidden],#imageRepairScope[hidden] { display:none; }
 .image-repair-panel { min-height:0; overscroll-behavior:contain; }
+
+.image-repair-frame { position:relative; min-width:0; min-height:0; }
+#imageRepairCompareHandle:not([hidden]) { display:block; }
+#imageRepairCompareHandle:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
