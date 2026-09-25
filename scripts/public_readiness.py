@@ -208,9 +208,11 @@ def run_group(root, group, base, head=None, timeout=1800):
         scratch = Path(temp)
         env = clean_environment(scratch)
         runtime, tooling = scratch / 'runtime', scratch / 'tooling'
-        venv.EnvBuilder(with_pip=False).create(runtime)
+        # Standalone macOS Python locates libpython relative to its executable.
+        # Preserve that relationship instead of copying the binary into scratch.
+        venv.EnvBuilder(with_pip=False, symlinks=True).create(runtime)
         if any('{tools_python}' in item['argv'] for item in entries):
-            venv.EnvBuilder(with_pip=True).create(tooling)
+            venv.EnvBuilder(with_pip=True, symlinks=True).create(tooling)
         values = {'python': str(runtime / 'bin/python'), 'tools_python': str(tooling / 'bin/python'),
                   'uv': str(tooling / 'bin/uv'), 'base': report['base_sha'] or ''}
         env['PATH'] = str(runtime / 'bin') + os.pathsep + env['PATH']

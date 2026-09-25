@@ -7,7 +7,9 @@ from pathlib import Path
 
 
 def pins(text):
-    return dict(re.findall(r'^([\w.-]+)==([^\s\\]+)', text, re.M))
+    # pip-tools retains extras while uv emits the underlying distribution name.
+    # The resolver still verifies the extras' transitive dependencies below.
+    return dict(re.findall(r'^([\w.-]+)(?:\[[^\]\r\n]+\])?==([^\s\\]+)', text, re.M))
 
 
 def verify(uv, root):
