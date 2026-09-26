@@ -45,11 +45,19 @@ async function openFirstEntry(browser, options = {}) {
     theme: options.colorScheme || 'light',
     language: options.language || 'zh',
   });
-  if (options.failMedia) {
-    await page.route('**/reroll-logo-motion-transparent.webm', route => route.abort('failed'));
+  if (options.failRuntime) {
+    await page.route('**/static/js/studio-entry-motion.js*', route => route.abort('failed'));
+  }
+  if (options.slowBootMs) {
+    await page.route('**/api/auth/me', async route => {
+      await new Promise(resolve => setTimeout(resolve, options.slowBootMs));
+      await route.continue();
+    });
   }
   await page.goto(`${baseUrl}/studio`, { waitUntil: 'domcontentloaded', timeout: 15000 });
-  await page.waitForFunction(() => !document.documentElement.classList.contains('studio-route-booting'));
+  if (!options.slowBootMs) {
+    await page.waitForFunction(() => !document.documentElement.classList.contains('studio-route-booting'));
+  }
   return { context, page, errors };
 }
 
@@ -61,25 +69,29 @@ async function openFirstEntry(browser, options = {}) {
     const standard = await openFirstEntry(browser, { language: 'en' });
     const initial = await standard.page.evaluate(() => ({
       state: document.getElementById('studioEntryMotion')?.dataset.entryState,
+      runtime: document.getElementById('studioEntryMotion')?.dataset.entryRuntime,
       pointerEvents: getComputedStyle(document.getElementById('studioEntryMotion')).pointerEvents,
-      videoSource: document.querySelector('#studioEntryLogoMotion source')?.getAttribute('src'),
-      wordSource: document.querySelector('.studio-entry-word')?.getAttribute('src'),
+      markPath: Boolean(document.getElementById('studioEntryMarkPath')),
+      videoCount: document.querySelectorAll('video').length,
+      wordSource: document.querySelector('img.studio-entry-word')?.getAttribute('src')?.split('?')[0] || 'inlined',
       statusText: document.querySelector('.studio-entry-status')?.textContent,
       statusFits: document.querySelector('.studio-entry-status')?.scrollWidth
         <= document.querySelector('.studio-entry-status')?.clientWidth,
     }));
     assert.equal(initial.state, 'mark');
+    assert.equal(initial.runtime, 'ready');
     assert.equal(initial.pointerEvents, 'none');
-    assert.equal(initial.videoSource, '/static/images/brand/reroll-logo-motion-transparent.webm');
-    assert.equal(initial.wordSource, '/static/images/brand/word.svg');
+    assert.equal(initial.markPath, true);
+    assert.equal(initial.videoCount, 0);
+    assert.ok(['/static/images/brand/word.svg', 'inlined'].includes(initial.wordSource));
     assert.equal(initial.statusText, 'Preparing your creative space…');
     assert.equal(initial.statusFits, true);
 
-    await standard.page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'wordmark', null, { timeout: 8000 });
-    await standard.page.waitForTimeout(1700);
+    await standard.page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'wordmark', null, { timeout: 4000 });
+    await standard.page.waitForTimeout(800);
     await standard.page.screenshot({ path: screenshots.wordmark });
     await standard.page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'docked', null, { timeout: 4000 });
-    await standard.page.waitForTimeout(850);
+    await standard.page.waitForTimeout(660);
     const terminal = await standard.page.evaluate(() => {
       const box = element => {
         const rect = element.getBoundingClientRect();
@@ -92,15 +104,19 @@ async function openFirstEntry(browser, options = {}) {
         word: box(document.querySelector('.studio-entry-word-frame')),
         pinned: document.getElementById('studioSidebar').classList.contains('is-pinned'),
         state: document.getElementById('studioEntryMotion').dataset.entryState,
+        glyphs: document.querySelectorAll('#studioEntryWordMask g').length,
       };
     });
-    assert.equal(terminal.state, 'docked');
+    assert.equal(terminal.state, 'finished');
+    assert.equal(terminal.glyphs, 5);
     assert.equal(terminal.pinned, true);
     assert.ok(Math.abs(terminal.lockup.x - terminal.target.x) <= 0.25);
     assert.ok(Math.abs(terminal.lockup.y - terminal.target.y) <= 0.25);
     assert.ok(Math.abs(terminal.lockup.width - terminal.target.width) <= 0.25);
     assert.ok(Math.abs(terminal.lockup.height - terminal.target.height) <= 0.25);
-    assert.ok(Math.abs(terminal.word.height - terminal.target.height) <= 0.25);
+    // The docked word keeps wordmark.svg's own proportions: 73.68 × 22.69 at 112px.
+    assert.ok(Math.abs(terminal.word.width - 73.68 * terminal.target.width / 112) <= 0.25);
+    assert.ok(Math.abs(terminal.word.height - 22.69 * terminal.target.width / 112) <= 0.25);
     await standard.page.screenshot({ path: screenshots.terminal });
 
     await standard.page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 5000 });
@@ -165,23 +181,41 @@ async function openFirstEntry(browser, options = {}) {
     assert.deepEqual(interruptedReload.errors, []);
     await interruptedReload.context.close();
 
-    const failed = await openFirstEntry(browser, { failMedia: true });
-    await failed.page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 10000 });
+    const failed = await openFirstEntry(browser, { failRuntime: true });
+    await failed.page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 3000 });
     assert.deepEqual(failed.errors, []);
     await failed.context.close();
+
+    const slow = await openFirstEntry(browser, { slowBootMs: 4000 });
+    await slow.page.waitForFunction(() => {
+      const root = document.getElementById('studioEntryMotion');
+      return root?.classList.contains('is-loading')
+        && Number(getComputedStyle(root.querySelector('.studio-entry-status')).opacity) > 0.95;
+    }, null, { timeout: 6000 });
+    const slowLoading = await slow.page.evaluate(() => ({
+      state: document.getElementById('studioEntryMotion')?.dataset.entryState,
+      booting: document.documentElement.classList.contains('studio-route-booting'),
+    }));
+    assert.deepEqual(slowLoading, { state: 'wordmark', booting: true });
+    await slow.page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 9000 });
+    const slowStates = await slow.page.evaluate(() => window.__entryStates);
+    assert.deepEqual([...new Set(slowStates)], ['mark', 'wordmark', 'docked', 'finished']);
+    assert.deepEqual(slow.errors, []);
+    await slow.context.close();
 
     const reduced = await openFirstEntry(browser, { reducedMotion: 'reduce', colorScheme: 'dark' });
     const reducedState = await reduced.page.evaluate(() => ({
       state: document.getElementById('studioEntryMotion')?.dataset.entryState,
-      videoDisplay: getComputedStyle(document.querySelector('.studio-entry-lockup')).display,
+      lockupDisplay: getComputedStyle(document.querySelector('.studio-entry-lockup')).display,
       staticDisplay: getComputedStyle(document.querySelector('.studio-entry-reduced-lockup')).display,
+      markPath: document.getElementById('studioEntryMarkPath')?.getAttribute('d'),
     }));
-    assert.deepEqual(reducedState, { state: 'reduced', videoDisplay: 'none', staticDisplay: 'block' });
+    assert.deepEqual(reducedState, { state: 'reduced', lockupDisplay: 'none', staticDisplay: 'block', markPath: '' });
     await reduced.page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 3000 });
     assert.deepEqual(reduced.errors, []);
     await reduced.context.close();
 
-    process.stdout.write(`${JSON.stringify({ ok: true, browser: browserName, initial, terminal, completion, newTab: newTabResult, reload, restarted: restartedResult, interruptedReload: interruptedReloadResult, failedMedia: true, reducedMotion: true, screenshots: Object.values(screenshots) }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({ ok: true, browser: browserName, initial, terminal, completion, newTab: newTabResult, reload, restarted: restartedResult, interruptedReload: interruptedReloadResult, failedRuntime: true, slowBoot: slowLoading, reducedMotion: true, screenshots: Object.values(screenshots) }, null, 2)}\n`);
   } finally {
     await browser.close();
   }

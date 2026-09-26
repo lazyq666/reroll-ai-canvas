@@ -210,6 +210,16 @@ class InfiniteCanvasUiBrowserContractTests(unittest.TestCase):
             report["accessibility"],
         )
 
+    def test_ic_loading_brand_animation_runs_pauses_and_respects_reduced_motion(self):
+        result = self.run_browser_contract()
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        report = json.loads(result.stdout)
+        self.assertTrue(report["checks"]["brandLoading"], report["observations"]["brandLoadingState"])
+        self.assertIn(
+            {"role": "status", "name": "Loading canvas"},
+            report["accessibility"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

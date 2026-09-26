@@ -45,6 +45,9 @@
     </ic-dialog>
     <div id="light-scrollbar-probe" class="scrollbar-probe"><div class="scrollbar-probe-content"></div></div>
     <div id="hidden-scrollbar-probe" class="scrollbar-probe scrollbar-probe-hidden"><div class="scrollbar-probe-content"></div></div>
+    <div id="brand-loading-host" style="position: fixed; top: 0; right: 0; padding: 1rem;">
+      <ic-loading id="invalid-loading" label="Loading" loading-animation="orb"></ic-loading>
+    </div>
     <pre id="ic-results"></pre>
 
     <script type="module">
@@ -237,6 +240,48 @@
           HTMLDialogElement: typeof HTMLDialogElement !== 'undefined',
         };
 
+        await customElements.whenDefined('ic-loading');
+        const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+        // Attach fresh so the first frame is observed as the loader starts.
+        const brandLoading = document.createElement('ic-loading');
+        brandLoading.id = 'brand-loading';
+        brandLoading.setAttribute('label', 'Loading canvas');
+        brandLoading.setAttribute('presentation', 'region');
+        brandLoading.setAttribute('loading-animation', 'brand');
+        document.querySelector('#brand-loading-host').prepend(brandLoading);
+        const invalidLoading = document.querySelector('#invalid-loading');
+        const brandPath = () => brandLoading.shadowRoot.querySelector('.brand path')?.getAttribute('d') || '';
+        const isLogo = d => d.startsWith('M3 71C3 33 34 2 72 2H106');
+        const brandStart = brandPath();
+        await pause(450);
+        const brandLater = brandPath();
+        brandLoading.hidden = true;
+        await pause(150);
+        const brandHiddenA = brandPath();
+        await pause(250);
+        const brandHiddenB = brandPath();
+        brandLoading.hidden = false;
+        document.documentElement.dataset.uiMotion = 'reduced';
+        brandLoading.setAttribute('label', 'Loading canvas');
+        await pause(250);
+        const brandReduced = brandPath();
+        delete document.documentElement.dataset.uiMotion;
+        const brandMark = brandLoading.shadowRoot.querySelector('.brand').getBoundingClientRect();
+        const brandLabel = brandLoading.shadowRoot.querySelector('.label').getBoundingClientRect();
+        const brandLoadingState = {
+          contract: brandLoading.dataset.icContractStatus,
+          invalidReason: invalidLoading.dataset.icContractReason || '',
+          role: brandLoading.getAttribute('role'),
+          name: brandLoading.getAttribute('aria-label'),
+          startsOnLogo: isLogo(brandStart),
+          animates: brandLater !== brandStart && brandLater.length > 0,
+          pausedWhileHidden: brandHiddenA === brandHiddenB,
+          reducedIsStatic: isLogo(brandReduced),
+          markSize: [brandMark.width, brandMark.height],
+          labelBelowMark: brandLabel.top >= brandMark.bottom - 1,
+          spinnerAbsent: !brandLoading.shadowRoot.querySelector('.spinner'),
+        };
+
         const report = {
           engine: INFINITE_CANVAS_UI_ENGINE,
           checks: {
@@ -287,6 +332,18 @@
               darkScrollbar.thumbBackground !== lightScrollbar.thumbBackground &&
               hiddenScrollbar.standardWidth === 'none' &&
               hiddenScrollbar.display === 'none',
+            brandLoading:
+              brandLoadingState.contract === 'ready' &&
+              brandLoadingState.invalidReason === 'loading-animation must be spinner or brand' &&
+              brandLoadingState.role === 'status' &&
+              brandLoadingState.name === 'Loading canvas' &&
+              brandLoadingState.startsOnLogo &&
+              brandLoadingState.animates &&
+              brandLoadingState.pausedWhileHidden &&
+              brandLoadingState.reducedIsStatic &&
+              brandLoadingState.markSize.join() === '40,40' &&
+              brandLoadingState.labelBelowMark &&
+              brandLoadingState.spinnerAbsent,
           },
           observations: {
             platformFeatures,
@@ -324,6 +381,7 @@
             darkScrollbar,
             expectedDarkThumb,
             hiddenScrollbar,
+            brandLoadingState,
           },
         };
         resultsElement.textContent = JSON.stringify(report);

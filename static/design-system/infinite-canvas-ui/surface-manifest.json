@@ -178,7 +178,7 @@
         ]
       },
       "feedbackProgress": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-feedback-progress-v1.json?v=asset-23ab4ceb162e",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-feedback-progress-v1.json?v=asset-da6916241908",
         "fixture": "/static/design-system/infinite-canvas-ui/feedback-progress.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/feedback-progress-case.html",
         "contractReviewStatus": "confirmed",
@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-9aa067a4bad0",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-2e249f59d362",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",

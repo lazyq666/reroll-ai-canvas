@@ -16,43 +16,43 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
       localStorage.setItem('studio_theme', 'dark');
     });
     await page.goto(`${baseUrl}/studio`, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await page.waitForFunction(() => {
-      const video = document.getElementById('studioEntryLogoMotion');
-      return video?.readyState >= 2 && video.currentTime > 0.05;
-    }, null, { timeout: 5000 });
-    const layers = await page.evaluate(() => {
+    // The mark is one traced vector path redrawn every frame; there is no
+    // video surface and no static logo underneath it.
+    await page.waitForFunction(() => (document.getElementById('studioEntryMarkPath')?.getAttribute('d') || '').length > 0, null, { timeout: 5000 });
+    const layers = await page.evaluate(async () => {
       const root = document.getElementById('studioEntryMotion');
+      const path = document.getElementById('studioEntryMarkPath');
       const frame = document.querySelector('.studio-entry-mark-frame');
-      const video = document.getElementById('studioEntryLogoMotion');
+      const first = path.getAttribute('d');
+      await new Promise(resolve => setTimeout(resolve, 200));
       return {
         state: root?.dataset.entryState,
-        mediaError: root?.classList.contains('has-media-error'),
+        animating: path.getAttribute('d') !== first,
         frameBackground: getComputedStyle(frame).backgroundImage,
-        poster: video?.getAttribute('poster') || '',
-        videoOpacity: getComputedStyle(video).opacity,
+        videoCount: document.querySelectorAll('video').length,
+        markColor: getComputedStyle(path).fill,
+        textColor: getComputedStyle(root).color,
       };
     });
     assert.equal(layers.state, 'mark');
-    assert.equal(layers.mediaError, false);
+    assert.equal(layers.animating, true);
     assert.equal(layers.frameBackground, 'none');
-    assert.equal(layers.poster, '');
-    assert.equal(layers.videoOpacity, '1');
-    await page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'wordmark', null, { timeout: 8000 });
-    const resolved = await page.evaluate(() => {
-      const root = document.getElementById('studioEntryMotion');
-      const frame = document.querySelector('.studio-entry-mark-frame');
-      return {
-        state: root?.dataset.entryState,
-        resolvedMark: root?.classList.contains('has-resolved-mark'),
-        connectedVideoCount: frame?.querySelectorAll('video').length,
-        frameBackground: getComputedStyle(frame).backgroundImage,
-      };
-    });
-    assert.equal(resolved.state, 'wordmark');
-    assert.equal(resolved.resolvedMark, true);
-    assert.equal(resolved.connectedVideoCount, 0);
-    assert.match(resolved.frameBackground, /logo\.svg/);
-    await page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'finished', null, { timeout: 6000 });
+    assert.equal(layers.videoCount, 0);
+    assert.equal(layers.markColor, layers.textColor);
+    await page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'wordmark', null, { timeout: 4000 });
+    await page.waitForTimeout(900);
+    const wordmark = await page.evaluate(() => ({
+      glyphs: document.querySelectorAll('#studioEntryWordMask g').length,
+      wordFill: document.querySelector('svg.studio-entry-word > rect')?.getAttribute('fill'),
+      wordColor: getComputedStyle(document.querySelector('svg.studio-entry-word')).color,
+      rootColor: getComputedStyle(document.getElementById('studioEntryMotion')).color,
+      fallbackImage: Boolean(document.querySelector('img.studio-entry-word')),
+    }));
+    assert.equal(wordmark.glyphs, 5);
+    assert.equal(wordmark.wordFill, 'currentColor');
+    assert.equal(wordmark.wordColor, wordmark.rootColor);
+    assert.equal(wordmark.fallbackImage, false);
+    await page.waitForFunction(() => document.getElementById('studioEntryMotion')?.dataset.entryState === 'finished', null, { timeout: 4000 });
     await page.waitForTimeout(320);
     const fading = await page.evaluate(() => {
       const box = element => {
@@ -63,6 +63,7 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
         target: box(document.querySelector('.sidebar-logo-wordmark')),
         lockup: box(document.querySelector('.studio-entry-lockup')),
         mark: box(document.querySelector('.studio-entry-mark-frame')),
+        path: document.getElementById('studioEntryMarkPath').getAttribute('d'),
       };
     });
     await page.screenshot({ path: '/tmp/issue-211-brand-entry-fading-dark.png' });
@@ -70,15 +71,16 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
     assert.ok(Math.abs(fading.lockup.y - fading.target.y) <= 0.25);
     assert.ok(Math.abs(fading.lockup.width - fading.target.width) <= 0.25);
     assert.ok(Math.abs(fading.mark.width - 30.07) <= 0.25);
-    await page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 6000 });
+    assert.match(fading.path, /^M3 71C3 33 34 2 72 2H106/);
+    await page.waitForFunction(() => !document.getElementById('studioEntryMotion'), null, { timeout: 3000 });
     await page.screenshot({ path: '/tmp/issue-211-brand-entry-finished-dark.png' });
     const finished = await page.evaluate(() => ({
       dark: document.documentElement.classList.contains('studio-theme-dark'),
       overlay: Boolean(document.getElementById('studioEntryMotion')),
-      topLevelVideoCount: document.querySelectorAll('body > video, body > section video').length,
+      videoCount: document.querySelectorAll('video').length,
     }));
-    assert.deepEqual(finished, { dark: true, overlay: false, topLevelVideoCount: 0 });
-    process.stdout.write(`${JSON.stringify({ ok: true, layers, resolved, fading, finished, screenshots: ['/tmp/issue-211-brand-entry-fading-dark.png', '/tmp/issue-211-brand-entry-finished-dark.png'] }, null, 2)}\n`);
+    assert.deepEqual(finished, { dark: true, overlay: false, videoCount: 0 });
+    process.stdout.write(`${JSON.stringify({ ok: true, layers, wordmark, fading: { ...fading, path: undefined }, finished, screenshots: ['/tmp/issue-211-brand-entry-fading-dark.png', '/tmp/issue-211-brand-entry-finished-dark.png'] }, null, 2)}\n`);
     await context.close();
   } finally {
     await browser.close();

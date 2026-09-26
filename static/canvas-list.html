@@ -63,7 +63,7 @@
                     <ic-button id="newCanvasBtn" class="ws-primary-btn" type="button" hierarchy="primary"><ic-icon slot="start" name="add" aria-hidden="true"></ic-icon><span data-i18n="workspace.newCanvas">新建画布</span></ic-button>
                 </ic-toolbar>
                 <div id="boardWorld" class="ws-board-world"></div>
-                <ic-loading id="boardLoading" class="ws-board-loading" label="正在加载画布" presentation="region"></ic-loading>
+                <ic-loading id="boardLoading" class="ws-board-loading" label="正在加载画布" presentation="region" loading-animation="brand"></ic-loading>
                 <ic-empty-state id="boardEmptyHint" class="ws-board-empty hidden" title="暂无画布" label="画布列表为空">
                     <ic-icon slot="illustration" name="pointer" size="large" aria-hidden="true"></ic-icon>
                     <span data-i18n="workspace.createFirst">为当前项目创建第一块画布</span>
@@ -106,7 +106,7 @@
         </div>
     </ic-popover>
 
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-8573b550d04e"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-c685fa46365b"></script>
     <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db"></script>
     <script src="/static/js/canvas-list-presence.js?v=asset-1b9a85388f49"></script>
     <script src="/static/js/canvas-list.js?v=asset-db6f833049cf"></script>

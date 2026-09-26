@@ -263,7 +263,7 @@ Issue #196 的[实时在场状态、指针与账号头像](active/2026-08-29-sma
 
 Issue #20 扩展上述[实时在场状态规格](active/2026-08-29-smart-canvas-realtime-presence.md)：连接有效时保留最后有效指针；新增只读 `POST /api/canvases/presence`，通过既有授权列表投影与内存成员状态，向画布卡片内容区右侧提供在线摘要。列表查询不加入编辑房间，不返回坐标，不写 Canvas 内容或更新时间。回归入口为 `tests/test_canvas_presence_http.py` 与 `tests/canvas_presence_browser_smoke.cjs`。
 
-Issue #211 的[工作台品牌入场动画](active/2026-08-29-issue-211-studio-brand-entry-motion.md)为 F01 / F13 增加每个标签页首次已登录进入时的品牌呈现：透明流体 Logo 与 `word.svg` 收束到真实 App Shell 侧栏 wordmark；媒体失败、Reduced Motion 和窄屏均不阻断身份与路由初始化。该行为仍等待跨平台透明 VP9 Alpha 人工确认，Windows 由 Issue #213 跟踪，因此保持 Active。
+Issue #211 的[工作台品牌入场动画](active/2026-08-29-issue-211-studio-brand-entry-motion.md)为 F01 / F13 增加每个标签页首次已登录进入时的品牌呈现：矢量流体 Logo 与 `word.svg` 在 4 秒内收束到真实 App Shell 侧栏 wordmark，启动较慢时在文字旁运行品牌加载循环；运行时加载失败、Reduced Motion 和窄屏均不阻断身份与路由初始化。Logo 几何与加载循环由 `static/js/infinite-canvas-ui/brand-motion.js` 统一持有，`ic-loading` 的 `loading-animation="brand"` 复用同一实现。该行为仍等待 Firefox / WebKit Smoke 与 Windows / Linux 真实设备人工确认，因此保持 Active。
 
 Issue #23 的[分区大图下载](active/2026-09-03-smart-canvas-frame-image-export-spec.md)为 Implemented：单选分区可按原布局下载 1× / 2× PNG，包含图片、文字标注、画笔与分区背景，排除提示词卡片、连线和视频封面。`frame-image-export.js` 拥有只读快照的测量、原图绘制及资源清理，`frame-image-export-host.js` 集中负责生产布局快照、Dialog、任务生命周期与下载，对工具栏只公开打开入口；macOS 实际 PNG 回归通过，Windows 及复杂原图容量人工 Gate 仍待验证，因此保持 Active。
 
