@@ -25,7 +25,7 @@
     "implementation": {
       "status": "implemented",
       "implementedOn": "2026-08-09",
-      "evidence": ["/static/js/infinite-canvas-ui/feedback-progress.js?v=asset-b8fe375daef1", "/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=asset-b6a51c897f96", "/static/design-system/infinite-canvas-ui/feedback-progress.html", "/tests/infinite_canvas_ui_feedback_progress_browser_harness.html"]
+      "evidence": ["/static/js/infinite-canvas-ui/feedback-progress.js?v=asset-22aaa6b66aec", "/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=asset-b6a51c897f96", "/static/design-system/infinite-canvas-ui/feedback-progress.html", "/tests/infinite_canvas_ui_feedback_progress_browser_harness.html"]
     },
     "live": {
       "status": "confirmed",
@@ -129,8 +129,10 @@
       "tag": "ic-loading",
       "purpose": "Communicate an indeterminate busy operation with a stable accessible label.",
       "requiredAttributes": ["label"],
-      "semanticDimensions": {"presentation": ["inline", "region"]},
-      "motion": "The spinner uses the existing calm continuous rotation only while busy; Reduced Motion stops rotation and preserves a visibly asymmetric static ring.",
+      "optionalAttributes": ["loading-animation"],
+      "semanticDimensions": {"presentation": ["inline", "region"], "loading-animation": ["spinner", "brand"]},
+      "motion": "The spinner uses the existing calm continuous rotation only while busy; Reduced Motion stops rotation and preserves a visibly asymmetric static ring. loading-animation=brand draws the Reroll mark's fluid loop (logo, four dots, ring, logo; 2 s; a quarter turn clockwise) as a traced vector path that starts on the exact logo, pauses while hidden, off-screen or in a background tab, and shows the static logo under Reduced Motion.",
+      "animationRule": "Use loading-animation=brand only for content loading such as opening a canvas, a shared canvas, an archive or a panorama, normally with presentation=region; keep the spinner for generation, processing and compact inline busy states.",
       "prohibitedUses": ["known-percentage", "decorative-spinner", "skeleton-layout", "empty-content"]
     },
     {

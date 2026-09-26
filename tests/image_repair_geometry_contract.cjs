@@ -62,3 +62,9 @@ assert.equal(JSON.stringify(result[0].local_repair),JSON.stringify(recipe));
 result[0].local_repair.source.url='changed';
 assert.equal(recipe.source.url,'/assets/original.png');
 console.log('Image repair geometry and result transport contract passed.');
+
+// Coordinates must be relative to the actual submitted crop, including transparent padding.
+assert.deepEqual(geometry.relativeBounds({x:100,y:200,width:200,height:100},{x:0,y:100,width:400,height:400}),{left:25,top:25,right:75,bottom:50});
+assert.deepEqual(geometry.relativeBounds({x:0,y:0,width:100,height:100},{x:-100,y:-50,width:400,height:200}),{left:25,top:25,right:50,bottom:75});
+assert.deepEqual(geometry.relativeBounds({x:0,y:0,width:100,height:100},{x:0,y:0,width:100,height:100}),{left:0,top:0,right:100,bottom:100});
+assert.equal(geometry.relativeBounds(null,{width:1,height:1}),null);

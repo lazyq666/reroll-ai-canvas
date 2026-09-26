@@ -27,7 +27,7 @@ const [contract] = await Promise.all([
     if (!response.ok) throw new Error(`Actions contract failed: HTTP ${response.status}`);
     return response.json();
   }),
-  import('/static/js/infinite-canvas-ui/core.js?v=asset-8573b550d04e'),
+  import('/static/js/infinite-canvas-ui/core.js?v=asset-262aee243b7e'),
 ]);
 await Promise.all([
   customElements.whenDefined('ic-button'),

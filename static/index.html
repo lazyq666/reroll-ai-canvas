@@ -20,34 +20,34 @@
       } catch (_) {}
       document.documentElement.classList.toggle('studio-entry-motion-skip', reloading || entrySeen);
       document.documentElement.classList.add('studio-route-booting');
+      // The entry layer must never outlive a motion runtime that failed to load.
+      addEventListener('DOMContentLoaded', () => setTimeout(() => {
+        const entry = document.getElementById('studioEntryMotion');
+        if (entry && !entry.dataset.entryRuntime) entry.remove();
+      }, 1000), { once: true });
     })();
   </script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/account-avatar.css?v=asset-e1cd44d31e57">
   <link rel="stylesheet" href="/static/css/studio-shell.css?v=asset-03d51f9c3544">
-  <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=asset-882709c41300">
+  <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=asset-4ae7afe6226b">
   <link rel="stylesheet" href="/static/css/preferences.css?v=asset-2f0141ea1d6e">
   <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-30d7ea9927c7">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-9e5134f1ffca"></script>
+    <script src="/static/js/i18n.js?v=asset-229960edad6d"></script>
 </head>
 <body>
   <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
     <div class="studio-entry-grid"></div>
     <div class="studio-entry-lockup">
-      <div class="studio-entry-mark-frame">
-        <video id="studioEntryLogoMotion" class="studio-entry-logo-motion" autoplay muted playsinline preload="auto">
-          <source src="/static/images/brand/reroll-logo-motion-transparent.webm" type="video/webm">
-        </video>
-      </div>
-      <div class="studio-entry-word-frame">
-        <div class="studio-entry-word-reveal">
-          <img class="studio-entry-word" src="/static/images/brand/word.svg?v=asset-5c0e02d8f799" alt="">
-        </div>
-        <span class="studio-entry-word-scan" aria-hidden="true"><i></i><i></i><i></i></span>
-      </div>
+      <span class="studio-entry-mark-frame">
+        <svg class="studio-entry-mark" viewBox="0 0 355 355" focusable="false"><path id="studioEntryMarkPath" fill="currentColor" fill-rule="evenodd" d=""></path></svg>
+      </span>
+      <span class="studio-entry-word-frame">
+        <img class="studio-entry-word" src="/static/images/brand/word.svg?v=asset-5c0e02d8f799" alt="">
+      </span>
       <p class="studio-entry-status" data-i18n="common.preparingCreativeSpace">正在准备你的创作空间…</p>
     </div>
     <img class="studio-entry-reduced-lockup" src="/static/images/brand/wordmark.svg?v=asset-f1849d59e65e" alt="">
@@ -138,8 +138,8 @@
     <div id="cliUpdateList" class="cli-update-list"></div>
   </ic-dialog>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-8573b550d04e"></script>
-  <script src="/static/js/studio-entry-motion.js?v=asset-df1e0b6a38e0" defer></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-262aee243b7e"></script>
+  <script type="module" src="/static/js/studio-entry-motion.js?v=asset-be9d77ac1c16"></script>
   <script src="/static/js/studio-shell.js?v=asset-a055199da38e" defer></script>
   <script src="/static/js/preferences.js?v=asset-278263e2e773" defer></script>
   <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db" defer></script>

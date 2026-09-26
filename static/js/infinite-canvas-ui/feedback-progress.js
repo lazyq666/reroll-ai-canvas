@@ -2,6 +2,8 @@ import { activeOverlayScope, closeTopLayer, openTopLayer } from './overlay-layer
 import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback-queue.js?v=asset-b6a51c897f96';
 
 import { connectGenerationOrb, disconnectGenerationOrb } from './generation-orb.js?v=asset-f0901e6016db';
+import { LOADER_VIEWBOX, LOGO_PATH } from './brand-motion.js?v=asset-e0ba2ddc4250';
+import { attachBrandLoader } from './feedback-progress/brand-loader.js?v=asset-2714de699d0d';
 
 const TONES = new Set(['neutral', 'info', 'success', 'warning', 'danger']);
 const BADGE_KINDS = new Set(['label', 'count', 'status']);
@@ -332,26 +334,47 @@ export class IcToast extends IcFeedbackElement {
   }
 }
 
+const LOADING_ANIMATIONS = new Set(['spinner', 'brand']);
+
 export class IcLoading extends IcFeedbackElement {
-  static observedAttributes = ['label', 'presentation'];
+  static observedAttributes = ['label', 'presentation', 'loading-animation'];
   validateContract() {
     const presentation = this.getAttribute('presentation') || 'inline';
     if (!this.getAttribute('label')?.trim()) return 'label is required for ic-loading';
+    if (!LOADING_ANIMATIONS.has(this.getAttribute('loading-animation') || 'spinner')) return 'loading-animation must be spinner or brand';
     return ['inline', 'region'].includes(presentation) ? '' : 'presentation must be inline or region';
+  }
+  disconnectedCallback() {
+    this._detachBrand?.();
+    this._detachBrand = null;
   }
   render() {
     contractState(this, this.validateContract());
+    this._detachBrand?.();
+    this._detachBrand = null;
     const label = this.getAttribute('label')?.trim() || '';
+    const brand = this.getAttribute('loading-animation') === 'brand';
     this.setAttribute('role', 'status');
     this.setAttribute('aria-label', label);
+    const indicator = brand
+      ? `<span class="brand" part="spinner" aria-hidden="true"><svg viewBox="${LOADER_VIEWBOX.join(' ')}" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${LOGO_PATH}"></path></svg></span>`
+      : '<span class="spinner" part="spinner" aria-hidden="true"></span>';
     this.shadowRoot.innerHTML = `<style>${sharedStyles}
       :host { display:inline-flex; align-items:center; gap:var(--ui-space-2); }
       .spinner { width:1em; height:1em; border:var(--ui-border-width-strong) solid var(--ui-color-border-secondary); border-top-color:var(--ui-color-text-primary); border-radius:50%; animation:ic-spin calc(var(--ui-motion-duration-slow) * 4) linear infinite; }
+      .brand { display:block; flex:none; width:1.5em; height:1.5em; color:var(--ui-color-text-primary); }
+      .brand svg { display:block; width:100%; height:100%; overflow:visible; }
+      :host([loading-animation="brand"][presentation="region"]) { flex-direction:column; justify-content:center; gap:var(--ui-space-3); }
+      :host([loading-animation="brand"][presentation="region"]) .brand { width:var(--ui-control-height-l); height:var(--ui-control-height-l); }
       .label { overflow-wrap:anywhere; }
       @keyframes ic-spin { to { transform:rotate(360deg); } }
       @media (prefers-reduced-motion:reduce) { .spinner { animation:none; border-top-color:var(--ui-color-border-primary, var(--ui-color-text-tertiary)); } }
       :host-context([data-ui-motion="reduced"]) .spinner { animation:none; border-top-color:var(--ui-color-border-primary, var(--ui-color-text-tertiary)); }
-    </style><span class="spinner" part="spinner" aria-hidden="true"></span><span class="label" part="label">${label}</span>`;
+    </style>${indicator}<span class="label" part="label">${label}</span>`;
+    if (brand) {
+      const mark = this.shadowRoot.querySelector('.brand');
+      this._detachBrand = attachBrandLoader(mark, mark.querySelector('path'));
+    }
   }
 }
 

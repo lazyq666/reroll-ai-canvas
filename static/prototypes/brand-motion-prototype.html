@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Reroll 品牌动效</title>
+  <link rel="icon" href="/static/images/brand/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/prototypes/brand-motion-prototype.css">
+</head>
+<body>
+  <!-- PROTOTYPE: Vector startup (≤ 4 s) and loading motion for the Reroll mark, driven by /static/js/infinite-canvas-ui/brand-motion.js. -->
+  <header class="proto-bar">
+    <div class="proto-title">
+      <strong>Reroll 品牌动效</strong>
+      <span>启动 3.38 秒 · 加载循环 2 秒 · 纯矢量，无视频</span>
+    </div>
+    <div class="proto-controls" role="toolbar" aria-label="预览控制">
+      <button id="replayButton" type="button" class="is-primary">重播启动</button>
+      <button id="playButton" type="button" aria-pressed="true">暂停</button>
+      <div class="segmented" role="group" aria-label="播放速度">
+        <button type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button type="button" data-speed="0.5" aria-pressed="false">0.5×</button>
+        <button type="button" data-speed="0.2" aria-pressed="false">0.2×</button>
+      </div>
+      <label class="toggle"><input id="slowBootToggle" type="checkbox"> 模拟慢启动</label>
+      <label class="toggle"><input id="reducedToggle" type="checkbox"> 减少动态效果</label>
+      <button id="themeButton" type="button" aria-pressed="false">深色</button>
+    </div>
+  </header>
+
+  <main class="proto-main">
+    <section class="proto-section" aria-labelledby="startupHeading">
+      <div class="section-head">
+        <h2 id="startupHeading">启动动画</h2>
+        <p>四颗液滴顺时针旋入 → 相邻液滴以短粗液桥连成带孔的环 → 孔洞闭合成一个液体，液体单向流动，缓缓扭转并向对角线倾斜，没有来回晃动 → 边旋转边展开：对角线拉开，两侧芽体收颈断开成两个圆点，旋转缓缓停在标志上 → 字母逐个浮现 → 收入侧栏。拓扑：4 → 环 → 1 → 3。全程缓入缓出，无回弹。</p>
+      </div>
+      <div class="stage" id="stage">
+        <div class="mock-app" id="mockApp" aria-hidden="true">
+          <aside class="mock-rail">
+            <div class="mock-logo-area"><span class="mock-wordmark" id="dockTarget"></span></div>
+            <i class="mock-nav is-active"></i><i class="mock-nav"></i><i class="mock-nav"></i><i class="mock-nav is-bottom"></i>
+          </aside>
+          <div class="mock-header"><b></b><span></span><em></em></div>
+          <div class="mock-canvas">
+            <article class="mock-card"><span></span><b></b><small></small></article>
+            <article class="mock-card"><span></span><b></b><small></small></article>
+            <article class="mock-card is-new"><i>＋</i></article>
+          </div>
+        </div>
+        <div class="entry-overlay" id="entryOverlay" aria-hidden="true">
+          <div class="entry-grid" id="entryGrid"></div>
+          <div class="entry-lockup" id="entryLockup">
+            <span class="entry-mark" id="entryMark"></span>
+            <span class="entry-word-clip" id="entryWordClip"><span class="entry-word" id="entryWord"></span></span>
+            <p class="entry-status" id="entryStatus">正在准备你的创作空间…</p>
+          </div>
+          <span class="entry-reduced" id="entryReduced"></span>
+        </div>
+      </div>
+      <div class="timeline" id="timeline">
+        <div class="timeline-track" id="timelineTrack"></div>
+        <input id="scrubber" type="range" min="0" max="3380" step="1" value="0" aria-label="启动时间轴">
+        <output id="timeReadout" for="scrubber">0 ms</output>
+      </div>
+    </section>
+
+    <section class="proto-section" aria-labelledby="loaderHeading">
+      <div class="section-head">
+        <h2 id="loaderHeading">加载动画</h2>
+        <p>一个连续循环：标志 → 四个圆点 → 成环 → 标志。颈部被拉长、黏着一段后才断开成四个圆点；圆点向内汇拢，相接时像液滴一样瞬间融合成带孔的环；新的颈部从另一条对角闭合孔洞，两颗圆点拖着拉长的液桥离开，再断开回到精确的标志。每圈顺时针转四分之一圈且从不停下：在标志上最慢，成环时最快。</p>
+      </div>
+      <div class="loader-grid">
+        <div class="loader-hero">
+          <span class="brand-loader" data-size="168"></span>
+          <div class="phase-chips" aria-hidden="true">
+            <span data-phase="dots">四个圆点</span><span data-phase="ring">成环</span><span data-phase="logo">回到标志</span>
+          </div>
+          <div class="loader-scrub">
+            <input id="loaderScrubber" type="range" min="0" max="2000" step="1" value="0" aria-label="加载循环时间轴">
+            <output id="loaderReadout" for="loaderScrubber">跟随播放</output>
+          </div>
+        </div>
+        <div class="loader-sizes">
+          <div class="size-row" data-surface="page">
+            <figure><span class="brand-loader" data-size="16"></span><figcaption>16</figcaption></figure>
+            <figure><span class="brand-loader" data-size="24"></span><figcaption>24</figcaption></figure>
+            <figure><span class="brand-loader" data-size="32"></span><figcaption>32</figcaption></figure>
+            <figure><span class="brand-loader" data-size="48"></span><figcaption>48</figcaption></figure>
+            <figure><span class="brand-loader" data-size="72"></span><figcaption>72</figcaption></figure>
+          </div>
+          <div class="size-row is-inverse">
+            <figure><span class="brand-loader" data-size="16"></span><figcaption>16</figcaption></figure>
+            <figure><span class="brand-loader" data-size="24"></span><figcaption>24</figcaption></figure>
+            <figure><span class="brand-loader" data-size="32"></span><figcaption>32</figcaption></figure>
+            <figure><span class="brand-loader" data-size="48"></span><figcaption>48</figcaption></figure>
+            <figure><span class="brand-loader" data-size="72"></span><figcaption>72</figcaption></figure>
+          </div>
+          <div class="context-row">
+            <div class="context-region" role="status" aria-label="正在载入画布…">
+              <span class="brand-loader" data-size="40"></span>
+              <span>正在载入画布…</span>
+            </div>
+            <button class="context-button" type="button" disabled>
+              <span class="brand-loader" data-size="16"></span>
+              <span>生成中</span>
+            </button>
+            <div class="context-node" role="status" aria-label="排队中">
+              <span class="brand-loader" data-size="28"></span>
+              <span><b>节点 · 生成图像</b><small>排队中</small></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="proto-section" aria-labelledby="specHeading">
+      <div class="section-head">
+        <h2 id="specHeading">时间与规则</h2>
+      </div>
+      <div class="spec-grid">
+        <table class="spec-table">
+          <thead><tr><th>启动阶段</th><th>时间</th><th>缓动</th></tr></thead>
+          <tbody>
+            <tr><td>四颗液滴顺时针旋入</td><td>0 – 520 ms</td><td>三次缓出</td></tr>
+            <tr><td>相邻液滴连成带孔的环</td><td>480 – 660 ms</td><td>平滑阶跃</td></tr>
+            <tr><td>孔洞闭合，合为一体</td><td>640 – 820 ms</td><td>三次缓入缓出</td></tr>
+            <tr><td>液体单向流动：扭转并向对角线倾斜</td><td>700 – 1080 ms</td><td>平滑阶跃，无往复</td></tr>
+            <tr><td>边旋转边展开，芽体收颈断开</td><td>780 – 1600 ms</td><td>正弦缓入缓出</td></tr>
+            <tr><td>整体顺时针旋转 225°，缓缓停止</td><td>0 – 1600 ms</td><td>缓出（1.6 次幂），无过冲</td></tr>
+            <tr><td>标志左移；字母逐个浮现（间隔 55 ms）</td><td>1450 – 2220 ms</td><td>三次缓出</td></tr>
+            <tr><td>收入侧栏</td><td>2450 – 3100 ms</td><td>三次缓入缓出</td></tr>
+            <tr><td>遮罩淡出，工作台接管</td><td>2930 – 3380 ms</td><td>三次缓出</td></tr>
+          </tbody>
+        </table>
+        <ul class="spec-notes">
+          <li><b>总时长 3.38 秒</b>，满足 4 秒以内；启动未就绪时，标志在文字旁切换为加载循环并显示“正在准备你的创作空间…”，就绪后在下一圈结束、回到精确标志时收入侧栏（最多等 2 秒）。</li>
+          <li><b>加载循环 2 秒</b>：颈部拉伸断开（0–0.24 s）→ 四个圆点（0.24–0.96 s）→ 成环（0.96–1.33 s）→ 回到标志（1.33–2 s），每圈顺时针 90°。拓扑依次为 3 → 4 → 环 → 1 → 3，孔洞只闭合一次，不会闪烁或出现多余碎片。分离时液桥更宽、保持更久，形成明显的拉伸黏连；相接时则在接近后约 40 ms 内瞬间融合。所有动作都留在 24 单位的边距内。</li>
+          <li><b>动态语言</b>：只用缓入缓出，没有过冲、压扁或弹跳；形状只在几乎相接时才连桥，所以液桥总是短而粗，断开时收颈而不是拉丝。</li>
+          <li><b>纯矢量</b>：标志建模为四个距离场形状；移动中用多项式平滑并集形成液桥，静止时切回原稿的圆形圆角。每帧追踪零等值线为单个 SVG 路径，任意尺寸清晰，颜色继承 <code>currentColor</code>。</li>
+          <li><b>终态精确</b>：静止帧的颈部圆角半径为 62.5（原稿为 62 / 63），结束时替换为原始 <code>logo.svg</code> 路径。</li>
+          <li><b>减少动态效果</b>：启动直接显示静态组合标后淡出；加载只保留静态标志的透明度呼吸。</li>
+          <li><b>性能</b>：启动帧约 2 ms（最多 120 格）；加载帧按尺寸缓存路径，多个实例共享一个 rAF。</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/static/prototypes/brand-motion-prototype.js"></script>
+</body>
+</html>

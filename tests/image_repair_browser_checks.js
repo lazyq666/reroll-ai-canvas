@@ -10,6 +10,7 @@ window.runImageRepairChecks = async function(){
         throw new Error(message);
     };
     const edit=(id,value,event='change')=>{$(id).value=String(value);$(id).dispatchEvent(new Event(event,{bubbles:true}));};
+    const canvasDataForConnections=()=>canvas;
     const state=()=>fetch('/fixture/state').then(r=>r.json());
     const canvasDataForRepairDiagnostics=()=>canvas.logs.find(log=>log.tasks?.some(task=>task.errorCode==='repair_invalid'));
     const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -82,9 +83,14 @@ window.runImageRepairChecks = async function(){
         assert($('Prompt').value==='Remove the dark mark','prompt draft survives reopen');
         assert(!$('Close'),'no text close button');
         await fetch('/fixture/reject-next',{method:'POST'});
+        const failedIds=new Set(nodes.map(n=>n.id)),repliesBefore=(await state()).submissionReplies;
         $('Generate').click();
-        await until(()=>$('Status').textContent===tr('smart.repair.failed'),'submission failure shown');
-        assert(!$('Editor').hidden&&$('Prompt').value==='Remove the dark mark','submission failure retains editor and prompt');
+        await until(()=>$('Editor').hidden,'front-end preparation closes before rejected submission');
+        assert((await state()).submissionReplies===repliesBefore,'closes before server reply');
+        await until(()=>canvasDataForRepairDiagnostics(),'background rejection recorded');
+        assert(nodes.filter(n=>!failedIds.has(n.id)).length===3&&nodes.filter(n=>!failedIds.has(n.id)).every(n=>n.generationRunFeedback),'failed output nodes remain with feedback');
+        await open('layer-source');
+        assert($('Prompt').value==='Remove the dark mark','source draft remains available after background failure');
         const failure=canvasDataForRepairDiagnostics();
         assert(failure?.tasks?.[0]?.httpStatus===422&&failure.tasks[0].errorCode==='repair_invalid','submission diagnostics retain status and code');
         for(const lang of ['en','zh']){
@@ -93,9 +99,10 @@ window.runImageRepairChecks = async function(){
             assert(reason===tr('smart.repair.invalid')&&reason!==tr('smart.errRunFailed'),'repair error follows language');
         }
         const before=(await state()).submissions.length;
-        const previousIds=new Set(nodes.map(n=>n.id));
+        const previousIds=new Set(nodes.map(n=>n.id)),successReplies=(await state()).submissionReplies;
         $('Generate').click();
-        await until(()=>$('Editor').hidden,'accepted submission closes editor');
+        await until(()=>$('Editor').hidden,'prepared submission closes editor');
+        assert((await state()).submissionReplies===successReplies,'success view closes before server acceptance');
         assert(!nodes.some(n=>!previousIds.has(n.id)&&n.images?.some(i=>i.local_repair)),'closes before generation completes');
         await until(()=>nodes.some(n=>!previousIds.has(n.id)&&n.images?.some(i=>i.local_repair)),'result delivered in background');
         assert($('Editor').hidden,'completed generation does not reopen editor');
@@ -109,20 +116,44 @@ window.runImageRepairChecks = async function(){
         const result=nodes.findLast(n=>!previousIds.has(n.id)&&n.images?.some(i=>i.local_repair));
         assert(result&&result.id!=='layer-source','original kept with separate output');
         assert(request.local_repair.version===2,'new soft brush recipe');
+        const rectangleDraft=nodes.find(n=>n.id==='layer-source').localRepairDrafts['layer-source-media'];
+        const rectanglePoints=rectangleDraft.strokes[0].points;
+        const selection={x:Math.min(...rectanglePoints.map(p=>p.x)),y:Math.min(...rectanglePoints.map(p=>p.y)),width:Math.abs(rectanglePoints[1].x-rectanglePoints[0].x),height:Math.abs(rectanglePoints[1].y-rectanglePoints[0].y)};
+        const expectedScope=trf('smart.repair.scopeInstruction',window.SmartCanvasModules.imageRepairGeometry.relativeBounds(selection,request.local_repair.crop));
+        assert(request.prompt==='Remove the dark mark\n\n'+expectedScope,'exact rectangle coordinates appended once after user prompt');
         await open(result.id);
-        assert(!$('Result').hidden&&$('Result').querySelectorAll('option').length===3,'same-run repair results can be switched');
-        const originalChoice=$('Result').value,otherChoice=[...$('Result').querySelectorAll('option')].find(option=>option.value!==originalChoice).value;
-        const originalX=Number($('X').value);
-        edit('X',originalX+11);
-        edit('Result',otherChoice);
-        await until(()=>$('Status').textContent===tr('smart.repair.adjustHint'),'switch result');
-        assert(Number($('X').value)===originalX,'other result has independent transform');
-        edit('X',originalX+22);
-        edit('Result',originalChoice);
-        await until(()=>$('Status').textContent===tr('smart.repair.adjustHint'),'switch back');
-        assert(Number($('X').value)===originalX+11,'switch preserves per-result draft');
-        assert($('Reset').localName==='ic-icon-button'&&$('Compare').localName==='ic-icon-button','shared icon actions');
-        $('Compare').click();assert($('Compare').pressed,'compare toggle');$('Compare').click();
+        const issues=[];
+        if($('Result'))issues.push('cross-result selector remains');
+        if(!request.prompt.includes('100%'))issues.push('submitted prompt lacks crop-relative repair coordinates');
+        const outputs=nodes.filter(n=>!previousIds.has(n.id)&&n.images?.some(i=>i.local_repair));
+        if(!outputs.every(n=>canvasDataForConnections().connections.some(c=>c.from==='layer-source'&&c.to===n.id)))issues.push('repair outputs lack direct source connections');
+        $('Compare').click();
+        if(!$('CompareHandle')||$('CompareHandle').hidden)issues.push('comparison has no draggable divider');
+        assert(!issues.length,issues.join('; '));
+        assert($('Compare').pressed,'compare toggle');
+        const handle=$('CompareHandle');
+        assert(handle.getAttribute('aria-valuenow')==='50','comparison starts centered');
+        handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+        assert(handle.getAttribute('aria-valuenow')==='51','comparison supports keyboard');
+        handle.dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}));
+        await settle();
+        const repaired=canvas.getContext('2d').getImageData(470,490,1,1).data.slice();
+        handle.dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}));
+        await settle();
+        const original=canvas.getContext('2d').getImageData(470,490,1,1).data;
+        assert(original[0]===69&&repaired[0]!==original[0],'divider reveals source on left and repair on right');
+        const savedX=Number($('X').value),handleRect=canvas.getBoundingClientRect();
+        const captureHandle=handle.setPointerCapture;handle.setPointerCapture=()=>{};
+        for(const [type,fraction] of [['pointerdown',.5],['pointermove',.25],['pointerup',.25]])handle.dispatchEvent(new PointerEvent(type,{pointerId:4,button:0,bubbles:true,clientX:handleRect.left+handleRect.width*fraction}));
+        handle.setPointerCapture=captureHandle;
+        assert(handle.getAttribute('aria-valuenow')==='25'&&Number($('X').value)===savedX,'divider drag does not move repair');
+        $('Compare').click();
+        assert(handle.hidden,'divider hides when comparison is off');
+        const other=outputs.find(n=>n.id!==result.id),originalX=Number($('X').value);
+        edit('X',originalX+11);editor.close();await open(other.id);
+        assert(Number($('X').value)===originalX,'other node retains independent transform');
+        editor.close();await open(result.id);
+        assert(Number($('X').value)===originalX+11,'node keeps its adjustment draft');
         const initialX=Number($('X').value);
         canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
         assert(Number($('X').value)===initialX+1,'keyboard adjusts patch without navigating images');
@@ -151,6 +182,7 @@ window.runImageRepairChecks = async function(){
         editor.close();
         await window.SmartCanvasModules.generationRun.regenerate({nodeId:result.id});
         const regenerated=(await state()).submissions.at(-1);
+        assert(regenerated.prompt===request.prompt,'regeneration preserves scope without appending twice');
         assert(regenerated.local_repair.source.url==='/assets/source.png','regeneration preserves repair composition');
         const legacyDiameter=nodes.find(n=>n.id===result.id).images[0].local_repair.feather*2;
         window.SmartCanvasModules.canvasMutation.update({nodeId:result.id,mutate:node=>{node.images[0].local_repair.version=1;delete node.localRepairAdjustmentDrafts;},options:{render:false,select:false}});
@@ -160,7 +192,61 @@ window.runImageRepairChecks = async function(){
         assert(Number($('Feather').value)===legacyDiameter,'legacy draft does not double diameter again');
         $('Save').click();await until(()=>$('Status').textContent===tr('smart.repair.saved'),'save upgraded mask');
         assert(nodes.find(n=>n.id===result.id).images[0].local_repair.version===2,'explicit save upgrades recipe');
-        report.textContent='PASS: submit close/failure, soft edge mask, icon actions, frame resize, presets, transparent PNG, draft, save, i18n, PSD';
+        // Repair a generated result with one brush stroke and one output: direct parent must be this result.
+        $('New').click();await until(()=>!$('Authoring').hidden,'fresh repair opens');
+        await until(()=>$('Status').textContent!==tr('smart.repair.loading'),'fresh repair loaded');
+        $('Clear').click();$('Brush').click();edit('Count',1);
+        const brushRect=canvas.getBoundingClientRect(),oldCapture=canvas.setPointerCapture;canvas.setPointerCapture=()=>{};
+        for(const [type,x,y] of [['pointerdown',.45,.5],['pointermove',.49,.55],['pointerup',.49,.55]])canvas.dispatchEvent(new PointerEvent(type,{pointerId:8,button:0,bubbles:true,clientX:brushRect.left+x*brushRect.width,clientY:brushRect.top+y*brushRect.height}));
+        canvas.setPointerCapture=oldCapture;
+        edit('Prompt','Repair the mark','input');$('Prompt').dispatchEvent(new Event('change',{bubbles:true}));
+        const draft=Object.values(nodes.find(n=>n.id===result.id).localRepairDrafts)[0],stroke=draft.strokes[0],radius=stroke.size/2;
+        const left=Math.min(...stroke.points.map(p=>p.x))-radius,top=Math.min(...stroke.points.map(p=>p.y))-radius;
+        const brushSelection={x:left,y:top,width:Math.max(...stroke.points.map(p=>p.x))+radius-left,height:Math.max(...stroke.points.map(p=>p.y))+radius-top};
+        const relative=window.SmartCanvasModules.imageRepairGeometry.relativeBounds(brushSelection,draft.box);
+        for(const lang of ['zh','en']){
+            window.StudioI18n.set(lang);
+            assert($('Scope').textContent===trf('smart.repair.scope',relative),'range hint follows language');
+        }
+        await settle();
+        assert(!$('Generate').disabled,'brush submission enabled');
+        const singleFailedIds=new Set(nodes.map(n=>n.id));
+        await fetch('/fixture/reject-next',{method:'POST'});$('Generate').click();
+        await until(()=>$('Editor').hidden,'single repair closes before background rejection');
+        await until(()=>nodes.some(n=>!singleFailedIds.has(n.id)&&n.generationRunFeedback),'single rejected repair keeps failed node');
+        assert(nodes.filter(n=>!singleFailedIds.has(n.id)).length===1,'single failed output retained');
+        await open(result.id);
+        // The result opens adjustment; return to its saved authoring draft.
+        $('New').click();await until(()=>!$('Authoring').hidden,'retry authoring opens');
+        await until(()=>$('Status').textContent!==tr('smart.repair.loading'),'retry draft loaded');
+        assert($('Prompt').value==='Repair the mark','single submission draft retained');
+        const nextIds=new Set(nodes.map(n=>n.id));$('Generate').click();
+        await until(()=>$('Editor').hidden,'brush accepted and editor closed');
+        await until(()=>nodes.some(n=>!nextIds.has(n.id)&&n.images?.some(i=>i.local_repair)),'single brush result delivered');
+        const brushRequest=(await state()).submissions.at(-1),brushResult=nodes.find(n=>!nextIds.has(n.id)&&n.images?.some(i=>i.local_repair));
+        assert(brushRequest.n===1&&brushRequest.prompt==='Repair the mark\n\n'+trf('smart.repair.scopeInstruction',relative),'brush extent and English scope submitted');
+        assert(canvasDataForConnections().connections.some(c=>c.from===result.id&&c.to===brushResult.id),'single repair connects to immediate generated parent');
+        await until(async()=>(await state()).canvas.connections.some(c=>c.from===result.id&&c.to===brushResult.id),'source link persisted');
+        await open(brushResult.id);
+        assert(!$('Result'),'single repair has no cross-result selector');
+        // Freeze the submitted scope even if the active editor disappears or changes during upload.
+        for(const reopen of [false,true]){
+            editor.close();await open('layer-source');edit('Count',1);
+            const frozenDraft=nodes.find(n=>n.id==='layer-source').localRepairDrafts['layer-source-media'];
+            const frozenScope=trf('smart.repair.scopeInstruction',window.SmartCanvasModules.imageRepairGeometry.relativeBounds(selection,frozenDraft.box));
+            const previousSubmissions=(await state()).submissions.length,uploadIds=new Set(nodes.map(n=>n.id));
+            await fetch('/fixture/hold-upload',{method:'POST'});$('Generate').click();
+            await until(async()=>(await state()).uploadWaiting,'crop upload is held');
+            editor.close();
+            if(reopen)await open(result.id);
+            await fetch('/fixture/release-upload',{method:'POST'});
+            await until(async()=>(await state()).submissions.length===previousSubmissions+1,'closed editor upload still submits');
+            const frozenRequest=(await state()).submissions.at(-1);
+            assert(frozenRequest.prompt==='Remove the dark mark\n\n'+frozenScope,'upload keeps the original selection scope');
+            assert($('Editor').hidden===!reopen,'old upload leaves the new editor alone');
+            await until(()=>nodes.some(n=>!uploadIds.has(n.id)&&n.images?.some(i=>i.local_repair)),'closed editor upload result delivered');
+        }
+        report.textContent='PASS: rectangle/brush scope, single/batch parent links, split comparison, independent nodes, submit close/failure, soft edge mask, icon actions, frame resize, presets, transparent PNG, draft, save, i18n, PSD';
     } catch(error){report.textContent='FAIL: '+error.message;console.error(error);}
 };
 

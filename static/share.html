@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-  <script src="/static/js/i18n.js?v=asset-9e5134f1ffca"></script>
+  <script src="/static/js/i18n.js?v=asset-229960edad6d"></script>
   <meta name="robots" content="noindex,nofollow">
   <title data-i18n="share.pageTitle">画布分享 · Reroll</title>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
-  <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-48e1dbf4160f">
-  <link rel="stylesheet" href="/static/css/canvas-share.css?v=asset-acd4e638edb3">
+  <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-980ce191fdea">
+  <link rel="stylesheet" href="/static/css/canvas-share.css?v=asset-ec313736dd0b">
 </head>
 <body>
   <header class="share-bar">
@@ -20,7 +20,7 @@
   </header>
   <main id="share-viewport" aria-label="只读画布" data-i18n-aria-label="share.readOnlyCanvas">
     <div id="share-stage"><svg id="share-links" width="1" height="1" aria-hidden="true"></svg><div id="share-nodes"></div></div>
-    <ic-loading id="share-loading" presentation="region" label="正在载入画布…" data-i18n-label="share.loading"></ic-loading>
+    <ic-loading id="share-loading" presentation="region" loading-animation="brand" label="正在载入画布…" data-i18n-label="share.loading"></ic-loading>
     <ic-alert id="share-error" tone="danger" hidden><span class="share-error-copy"><span class="share-error-title" data-i18n="share.openFailed">无法打开此画布</span><span id="share-error-detail"></span></span></ic-alert>
     <ic-card id="share-minimap" class="minimap" size="small" label="导航地图" title="导航地图" data-i18n-label="share.minimap" data-i18n-title="share.minimap">
       <div id="share-minimap-content" class="minimap-content">
@@ -36,7 +36,7 @@
       </div>
     </div>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-8573b550d04e"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-262aee243b7e"></script>
   <script src="/static/js/smart-image-resolution.js?v=asset-f08dc59d06a1" defer></script>
   <script src="/static/js/smart-canvas/node-geometry.js?v=asset-534d3fdd9af7" defer></script>
   <script src="/static/js/smart-canvas/canvas-level-of-detail.js?v=asset-3cc99bd3433d" defer></script>

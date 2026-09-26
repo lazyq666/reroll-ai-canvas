@@ -122,7 +122,7 @@ async function waitForHarness(cdp, sessionId) {
 async function accessibilityControls(cdp, sessionId) {
   const tree = await cdp.send('Accessibility.getFullAXTree', {}, sessionId);
   return tree.nodes
-    .filter(node => !node.ignored && ['button', 'textbox', 'dialog'].includes(node.role?.value))
+    .filter(node => !node.ignored && ['button', 'textbox', 'dialog', 'status'].includes(node.role?.value))
     .map(node => ({ role: node.role.value, name: node.name?.value || '' }));
 }
 
