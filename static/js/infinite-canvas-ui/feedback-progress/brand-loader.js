@@ -83,6 +83,10 @@ function ensureObservers() {
   if (intersection) return;
   reducedQuery = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null;
   reducedQuery?.addEventListener?.('change', refreshMotionPreference);
+  const motionObserver = new MutationObserver(refreshMotionPreference);
+  motionObserver.observe(document.documentElement, {
+    attributes: true, attributeFilter: ['data-ui-motion'], subtree: true,
+  });
   document.addEventListener('visibilitychange', schedule);
   intersection = new IntersectionObserver(entries => {
     for (const entry of entries) {

@@ -3,7 +3,7 @@ import { createStackedFeedbackQueue } from './feedback-progress/stacked-feedback
 
 import { connectGenerationOrb, disconnectGenerationOrb } from './generation-orb.js?v=asset-f0901e6016db';
 import { LOADER_VIEWBOX, LOGO_PATH } from './brand-motion.js?v=asset-e0ba2ddc4250';
-import { attachBrandLoader } from './feedback-progress/brand-loader.js?v=asset-e841e6f09c8a';
+import { attachBrandLoader } from './feedback-progress/brand-loader.js?v=asset-2714de699d0d';
 
 const TONES = new Set(['neutral', 'info', 'success', 'warning', 'danger']);
 const BADGE_KINDS = new Set(['label', 'count', 'status']);

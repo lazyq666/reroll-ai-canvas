@@ -295,6 +295,7 @@ Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 的验收入
 - 邻近单个危险入口、且后果可用短文解释的确认使用公共 `ic-confirm-popover`：Surface 继续使用普通 Border、Surface、Radius 与 Popover Shadow Token，只有最终确认按钮使用 Danger Tone；初始 Focus 落在取消，`Escape` 与点击外部均按取消处理并把 Focus 返回 Trigger。Popover 打开时拥有第一层 `Escape`，必须拦截该次按键，只关闭自身，不得同时关闭承载它的 Modal、Menu 或其他 UI；影响整个任务或需要较长说明的确认继续使用 `ic-confirmation-dialog`。
 - 搜索框不能仅因位于 Overlay 顶部而自动获得焦点，除非用户明确执行搜索或输入任务。
 - 快捷键不能在文本编辑、菜单锁定或模态任务中误触发画布命令。
+- 局部修复的原图对比沿用 Image Studio 的可拖动竖直分隔线：左侧原图、右侧修复预览，默认居中；复用 `ic-icon-button` 切换对比状态，分隔线支持键盘左右键、Shift 加速及 Home/End，拖动不移动补丁或改写修复参数。调整视图只编辑当前节点，其他结果通过画布节点打开。
 - Image Studio 打开时拥有当前模态任务的撤销历史：在画笔模式、且 Focus 不位于可编辑控件时，`Command/Ctrl + Z` 撤销最近一次绘制，`Command/Ctrl + Shift + Z` 重做；两者都不得改动 Smart Canvas Mutation 历史。其他模式继续阻止这组按键落到 Smart Canvas；关闭工作室后，快捷键归还 Smart Canvas。文字或表单控件正在编辑时保留原生输入撤销。
 - Smart Canvas 在非文本编辑、非菜单锁定且非模态任务中，将 `Command/Ctrl + +`、`Command/Ctrl + =` 与数字小键盘 `Add` 解释为围绕 Canvas Viewport 中心放大，将 `Command/Ctrl + -` 与数字小键盘 `Subtract` 解释为围绕中心缩小；键盘缩放复用 Canvas Settings 的缩放速度。页面级浏览器缩放继续由全局守卫取消，但守卫不得停止事件传播或代替 Smart Canvas 修改 Viewport。
 - 容器级 Enter、Space、Paste、Context Menu 或 Drag 快捷逻辑必须识别原生控件与 `ic-*` 自定义控件边界；不得把自定义输入或按钮误判成卡片、页面或 Canvas 空白区域。

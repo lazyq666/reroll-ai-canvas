@@ -16,7 +16,7 @@
   },
   "review": {
     "contract": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "同意", "confirmedOn": "2026-08-09", "evidence": "User explicitly approved judgments 1–11, the deterministic 51-instance Legacy evidence, and the recommended ic-menu disposition for the interactive layout chooser."},
-    "implementation": {"status": "implemented", "implementedOn": "2026-08-23", "evidence": ["/static/js/infinite-canvas-ui/menu-popover.js?v=asset-db929ea5acca", "/static/js/infinite-canvas-ui/mention-picker.js?v=asset-49e806f064f3", "/static/js/infinite-canvas-ui/core.js?v=asset-c685fa46365b"]},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-23", "evidence": ["/static/js/infinite-canvas-ui/menu-popover.js?v=asset-db929ea5acca", "/static/js/infinite-canvas-ui/mention-picker.js?v=asset-49e806f064f3", "/static/js/infinite-canvas-ui/core.js?v=asset-262aee243b7e"]},
     "live": {"status": "confirmed", "reviewer": "User (Codex task)", "note": "验收通过；2026-08-23 指定将 Mention Picker 收录到菜单、浮层与提示", "confirmedOn": "2026-08-23", "evidence": "Menu/Popover/Tooltip live matrix remains confirmed; the Mention Picker addition has a dedicated Chrome contract covering geometry, Arrow navigation, Pointer selection, ARIA and wheel containment."},
     "migration": {"status": "confirmed", "evidence": "/docs/design-system/verification/menu-popover-browser.json"}
   },

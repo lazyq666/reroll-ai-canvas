@@ -2,6 +2,16 @@
 (function(root){
     'use strict';
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    function relativeBounds(selection, box){
+        if(!selection || !box || !(box.width>0 && box.height>0)) return null;
+        const percent=(value,start,size)=>Math.round(clamp((value-start)/size*100,0,100)*100)/100;
+        return {
+            left:percent(selection.x,box.x,box.width),
+            top:percent(selection.y,box.y,box.height),
+            right:percent(selection.x+selection.width,box.x,box.width),
+            bottom:percent(selection.y+selection.height,box.y,box.height)
+        };
+    }
     function preferredModel(entries){
         const score = entry => {
             const name = `${entry.name || ''} ${entry.model || ''}`.toLowerCase();
@@ -70,5 +80,5 @@
         return {x:Math.round(current.x+(current.width-width)/2),y:Math.round(current.y+(current.height-height)/2),width,height};
     }
     root.SmartCanvasModules = root.SmartCanvasModules || {};
-    root.SmartCanvasModules.imageRepairGeometry = Object.freeze({crop,resize,edge,nearestResolution,preferredModel,featherAlpha,scaled});
+    root.SmartCanvasModules.imageRepairGeometry = Object.freeze({relativeBounds,crop,resize,edge,nearestResolution,preferredModel,featherAlpha,scaled});
 })(typeof window==='undefined'?globalThis:window);

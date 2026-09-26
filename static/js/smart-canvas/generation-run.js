@@ -1013,7 +1013,10 @@ async function runGeneration(options={}){
         || groupRun
         || options.createOutput === true
         || createSiblingOutputFromInputs;
-    const parallelConnectSource = completedOutputHasMedia
+    // Repair derives from this image even when it is itself a generated output.
+    const parallelConnectSource = options.localRepair
+        ? true
+        : completedOutputHasMedia
         ? null
         : sourceInFlight
         && !inheritParallelSourceConnections
@@ -1110,6 +1113,7 @@ async function runGeneration(options={}){
         await options.onAccepted?.(detail);
     };
     try {
+        options.onPrepared?.({node:pendingNode,nodes:pendingNodes});
         const result = useBatchOutputs
             ? await submitAndSettleGenerationProviderBatch(
                 branchNodes,
@@ -1219,7 +1223,7 @@ async function runGeneration(options={}){
             delete target._runMetaTargetId;
         });
         const shouldQueueRun = Boolean(
-            e?.generationSyncPending || !generationRunOnline()
+            !options.localRepair && (e?.generationSyncPending || !generationRunOnline())
         );
         if(shouldQueueRun){
             if(branchNode && !useBatchOutputs){
@@ -1257,7 +1261,7 @@ async function runGeneration(options={}){
             pendingNodes.forEach(target => {
                 target.generationRunFeedback = generationRunNodeFailureFeedback(e);
             });
-        } else if(branchNode && inheritParallelSourceConnections){
+        } else if(branchNode && (inheritParallelSourceConnections || options.localRepair)){
             branchNode.generationRunFeedback = generationRunNodeFailureFeedback(e);
         } else if(branchNode){
             generationRunMutationModule.remove({
@@ -1539,7 +1543,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
         }
         return runGeneration({node, onAccepted, onQueued, onLocalAccepted});
     },
-    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,onAccepted=null,throwOnSubmissionFailure=true}={}){
+    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
         const targetWidth=Math.round(Number(width)||0);
         const targetHeight=Math.round(Number(height)||0);
@@ -1550,6 +1554,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             allowAttachment:true,
             createOutput:true,
             localRepair,
+            onPrepared,
             runSettings:{...runSettings},
             onAccepted,
             throwOnSubmissionFailure,

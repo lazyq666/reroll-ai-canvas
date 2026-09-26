@@ -262,10 +262,13 @@
         const brandHiddenB = brandPath();
         brandLoading.hidden = false;
         document.documentElement.dataset.uiMotion = 'reduced';
-        brandLoading.setAttribute('label', 'Loading canvas');
         await pause(250);
         const brandReduced = brandPath();
+        await pause(250);
+        const brandReducedLater = brandPath();
         delete document.documentElement.dataset.uiMotion;
+        await pause(450);
+        const brandResumed = brandPath();
         const brandMark = brandLoading.shadowRoot.querySelector('.brand').getBoundingClientRect();
         const brandLabel = brandLoading.shadowRoot.querySelector('.label').getBoundingClientRect();
         const brandLoadingState = {
@@ -276,7 +279,7 @@
           startsOnLogo: isLogo(brandStart),
           animates: brandLater !== brandStart && brandLater.length > 0,
           pausedWhileHidden: brandHiddenA === brandHiddenB,
-          reducedIsStatic: isLogo(brandReduced),
+          reducedIsStatic: isLogo(brandReduced) && brandReducedLater === brandReduced && brandResumed !== brandReduced,
           markSize: [brandMark.width, brandMark.height],
           labelBelowMark: brandLabel.top >= brandMark.bottom - 1,
           spinnerAbsent: !brandLoading.shadowRoot.querySelector('.spinner'),

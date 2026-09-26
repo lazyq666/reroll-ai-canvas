@@ -98,3 +98,5 @@ Logo 由共享的矢量动效模块逐帧绘制为单个 SVG 路径，不再使�
 - `node tests/issue_211_studio_brand_entry_layer_browser_smoke.cjs`：Dark 播放阶段 Mark 路径逐帧变化、颜色等于语义文字色、Mark Frame 无背景、页面无 Video；文字为 `currentColor` 遮罩；`finished` 淡出至 `320ms` 时 Lockup 仍位于目标且 Mark 为 `30.11px`、路径为原始 Logo；工作台揭示后无残留。
 
 Remaining gates：Firefox 与 WebKit 引擎的同一套浏览器 Smoke，以及 Windows / Linux 真实设备的帧率与 Reduced Motion 人工确认。原 Issue #213 跟踪的透明 VP9 Alpha 解码问题随视频移除不再适用。功能保持 Active `Implemented / Review`，不在这些门槛完成前晋升 Current。
+
+PR 合入回归（2026-09-26）：品牌加载器观察 `data-ui-motion` 的即时变化，无需重建组件即可切换到静态标志，恢复正常偏好后继续动画。核心浏览器测试移除修改 label 触发重建的干扰，先复现失败，再通过切换、静态保持与恢复检查；9 项核心合同和 6 项品牌运动 Node 测试通过。上述跨引擎及真机门槛仍保留。

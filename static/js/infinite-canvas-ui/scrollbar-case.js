@@ -1,4 +1,4 @@
-import { INFINITE_CANVAS_UI_SCROLLBAR } from './core.js?v=asset-c685fa46365b';
+import { INFINITE_CANVAS_UI_SCROLLBAR } from './core.js?v=asset-262aee243b7e';
 
 const status = document.querySelector('[data-scrollbar-status]');
 const vertical = document.querySelector('[data-scrollbar-vertical]');
