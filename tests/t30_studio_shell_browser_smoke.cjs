@@ -12,24 +12,27 @@ const combinations = [
   { name: 'narrow-dark', theme: 'dark', viewport: { width: 390, height: 844 } },
 ];
 
-async function openShell(browser, combination, role = 'admin', activePage = 'zimage') {
+async function openShell(browser, combination, role = 'admin', activePage = 'canvas') {
   const context = await browser.newContext({ viewport: combination.viewport });
   await context.addCookies([{ name: 't30-role', value: role, url: baseUrl }]);
   const page = await context.newPage();
+  page.setDefaultTimeout(15000);
   const consoleErrors = [];
   const pageErrors = [];
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', error => pageErrors.push(String(error)));
   await page.addInitScript(({ theme, activePage }) => {
+    if (window.top !== window) return;
     localStorage.clear();
     sessionStorage.clear();
     localStorage.setItem('studio_theme', theme);
+    localStorage.setItem('studio_brand_entry_seen', '1');
     localStorage.setItem('studio_active_page', activePage);
   }, { theme: combination.theme, activePage });
   await page.goto(`${baseUrl}/studio`, { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.waitForFunction(() => !document.documentElement.classList.contains('studio-route-booting'), null, { timeout: 15000 });
   await page.waitForFunction(() => customElements.get('ic-menu') && document.querySelector('.stage iframe.active'), null, { timeout: 15000 });
-  await page.waitForFunction(() => [...document.querySelectorAll('.sidebar-logo-image')]
+  if (!combination.name.startsWith('narrow-')) await page.waitForFunction(() => [...document.querySelectorAll('.sidebar-logo-image')]
     .some(image => image.getBoundingClientRect().width > 0), null, { timeout: 15000 });
   return { context, page, consoleErrors, pageErrors };
 }
@@ -65,19 +68,25 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
         const logoRect = logo.getBoundingClientRect();
         const sidebarRect = document.getElementById('studioSidebar').getBoundingClientRect();
         const sidebarStyle = getComputedStyle(document.getElementById('studioSidebar'));
+        const sizeProbe = document.createElement('div');
+        sizeProbe.style.cssText = 'position:absolute;visibility:hidden;width:var(--ui-control-height-m)';
+        document.getElementById('studioSidebar').append(sizeProbe);
+        const expectedControlSize = Number.parseFloat(getComputedStyle(sizeProbe).width);
+        sizeProbe.remove();
         const logoBaseStyle = getComputedStyle(logo.shadowRoot.querySelector('[part="base"]'));
         const logoImages = [...logo.querySelectorAll('.sidebar-logo-image')];
-        const logoImage = logoImages.find(image => image.getBoundingClientRect().width > 0);
+        const logoImage = logoImages.find(image => image.getBoundingClientRect().width > 0) || logoImages[1];
         const logoImageRect = logoImage.getBoundingClientRect();
         const logoImageStyle = getComputedStyle(logoImage);
         return {
+          expectedControlSize,
+          expectedForeground: sidebarStyle.color,
           settings: control('#settings-fold-toggle'),
           language: control('#lang-toggle-btn'),
           account: control('#account-menu-trigger'),
           primaryNavigation: [
             control('ic-nav-item[data-page="canvas"]', true),
             control('ic-nav-item[data-page="online"]', true),
-            control('#local-nav-disclosure', true),
           ],
           navigationOrder: [...document.querySelector('.global-navigation').children].map(node => node.dataset?.page || node.id || node.localName),
           tooltipComponent: document.getElementById('sidebar-tooltip')?.localName,
@@ -91,7 +100,7 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
             - Number.parseFloat(sidebarStyle.borderLeftWidth)
             - Number.parseFloat(sidebarStyle.borderRightWidth)
           )) < 1,
-          logoAsset: logoImage?.getAttribute('src'),
+          logoAsset: new URL(logoImage.src).pathname,
           logoCenterX: logoRect.left + logoRect.width / 2,
           logoImageHeight: logoImageRect.height,
           logoCentered: Math.abs((logoRect.left + logoRect.width / 2) - (sidebarRect.left + sidebarRect.width / 2)) < 1,
@@ -183,10 +192,9 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
       const themeToggled = !combination.name.startsWith('narrow-');
       if (themeToggled) await page.locator('#theme-toggle-btn').click();
       if (themeToggled) {
-        await page.locator('#local-nav-disclosure').click();
+        await page.locator('#sidebarLogoToggle').click();
         await page.waitForFunction(() => (
           document.getElementById('studioSidebar').classList.contains('is-pinned')
-          && document.getElementById('local-nav-disclosure').hasAttribute('open')
         ));
         await page.waitForTimeout(500);
       }
@@ -219,13 +227,11 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
         const stage = document.querySelector('.stage').getBoundingClientRect();
         const logo = document.getElementById('sidebarLogoToggle');
         const logoImages = [...logo.querySelectorAll('.sidebar-logo-image')];
-        const logoImage = logoImages.find(image => image.getBoundingClientRect().width > 0);
+        const logoImage = logoImages.find(image => image.getBoundingClientRect().width > 0) || logoImages[0];
         const logoImageRect = logoImage.getBoundingClientRect();
         const logoRect = logo.getBoundingClientRect();
         const language = document.getElementById('lang-toggle-btn').getBoundingClientRect();
         const theme = document.getElementById('theme-toggle-btn').getBoundingClientRect();
-        const localDisclosure = document.getElementById('local-nav-disclosure');
-        const localItems = [...localDisclosure.querySelectorAll('ic-nav-item')];
         const strokeProbe = document.createElement('span');
         strokeProbe.hidden = true;
         const strokeSizes = ['x-small', 'small', 'medium', 'large', 'x-large'];
@@ -249,16 +255,13 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
           horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           effectiveTheme: window.StudioTheme.get(),
           logoRestored: logo.localName === 'ic-button'
-            && logoImage.getAttribute('src') === '/static/images/brand/wordmark.svg'
-            && logoImages.some(image => image.getAttribute('src') === '/static/images/brand/logo.svg'),
+            && new URL(logoImage.src).pathname === '/static/images/brand/wordmark.svg'
+            && logoImages.some(image => new URL(image.src).pathname === '/static/images/brand/logo.svg'),
           logoVisible: logoImageRect.width > 0 && logoImageRect.height > 0,
           logoCenterX: logoRect.left + logoRect.width / 2,
           logoCentered: Math.abs((logoRect.left + logoRect.width / 2) - (sidebar.left + sidebar.width / 2)) < 1,
           utilityOrientation: document.querySelector('.shell-utilities').getAttribute('orientation'),
           utilitiesVertical: language.height === 0 || theme.top >= language.bottom,
-          localGroupExpanded: localDisclosure.hasAttribute('open'),
-          localToggleIcon: localDisclosure.shadowRoot.querySelector('ic-icon')?.getAttribute('name'),
-          localChildrenIconless: localItems.every(item => !item.hasAttribute('icon')),
           sidebarIconStrokeWidths,
         };
       });
@@ -306,20 +309,19 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
       || (item.themeToggled && !item.logoVisible)
       || item.utilityOrientation !== 'vertical'
       || !item.utilitiesVertical
-      || !item.localChildrenIconless
       || item.editorFullscreen.sidebarDisplay !== 'none'
       || !item.editorFullscreen.stageFillsShell
       || !item.canvasListSidebarRestored
       || (item.name.startsWith('narrow-')
-        ? (item.collapsedShell.settings.width !== 40 || item.collapsedShell.settings.height !== 40 || !item.collapsedShell.settings.iconCentered)
+        ? (item.collapsedShell.settings.width !== item.collapsedShell.expectedControlSize || item.collapsedShell.settings.height !== item.collapsedShell.expectedControlSize || !item.collapsedShell.settings.iconCentered)
         : (item.collapsedShell.settings.width !== item.collapsedShell.language.width
           || item.collapsedShell.settings.height !== item.collapsedShell.language.height
           || item.collapsedShell.settings.iconCentered !== item.collapsedShell.language.iconCentered))
       || item.collapsedShell.account.width !== item.collapsedShell.account.height
       || !item.collapsedShell.account.iconCentered
-      || item.collapsedShell.primaryNavigation.slice(0, item.name.startsWith('narrow-') ? 2 : 3).some(control => control.width !== 40 || control.height !== 40 || !control.iconCentered)
-      || item.collapsedShell.primaryNavigation.slice(0, item.name.startsWith('narrow-') ? 2 : 3).some(control => control.color !== (item.theme === 'dark' ? 'rgb(255, 255, 255)' : 'rgb(15, 15, 15)'))
-      || item.collapsedShell.navigationOrder.join(',') !== 'canvas,online,ic-divider,local-nav-disclosure'
+      || item.collapsedShell.primaryNavigation.some(control => control.width !== item.collapsedShell.expectedControlSize || control.height !== item.collapsedShell.expectedControlSize || !control.iconCentered)
+      || item.collapsedShell.primaryNavigation.some(control => control.color !== item.collapsedShell.expectedForeground)
+      || item.collapsedShell.navigationOrder.join(',') !== 'canvas,online'
       || item.collapsedShell.tooltipComponent !== 'ic-tooltip'
       || item.collapsedShell.nativeTooltipCount !== 0
       || item.collapsedShell.logoPaddingBlock.some(value => value !== '0px')
@@ -334,7 +336,6 @@ async function openShell(browser, combination, role = 'admin', activePage = 'zim
       || (item.themeToggled && !item.logoCentered)
       || (item.themeToggled && (item.canvasTooltip.component !== 'ic-tooltip' || item.canvasTooltip.content !== '画布'))
       || (item.themeToggled && (item.settingsTooltip.component !== 'ic-tooltip' || item.settingsTooltip.content !== '设置' || item.settingsTooltip.position !== 'fixed'))
-      || (item.themeToggled && (!item.localGroupExpanded || item.localToggleIcon !== 'project'))
       || item.sidebarIconStrokeWidths.some(width => width !== 1.5)
       || (item.themeToggled ? item.effectiveTheme === item.theme : item.effectiveTheme !== item.theme)
       || (item.name.startsWith('narrow-') && (!item.narrowOrder || item.sidebarHeight !== 72))

@@ -14,6 +14,16 @@ npm ci
 npm test
 ```
 
+## Local tool retirement
+
+```bash
+.venv/bin/python -m unittest tests.test_local_tools_retirement
+node tests/local_tools_retirement_contract.cjs
+node tests/local_tools_retirement_browser.cjs
+```
+
+The browser test uses the production Canvas page with an isolated local API fixture; no Provider credentials or existing Workspace data are required. The shell navigation is covered by the T30 server/test pair below.
+
 ## Browser tests
 
 Files ending in `_browser_smoke.cjs` are targeted acceptance gates rather than
@@ -23,25 +33,22 @@ terminal:
 
 | Preview server | Browser test |
 | --- | --- |
-| `angle_workbench_browser_app.cjs` | `angle_workbench_browser_smoke.cjs` |
 | `canvas_list_content_management_browser_app.cjs` | `canvas_list_content_management_browser_smoke.cjs` |
-| `enhance_workbench_browser_app.cjs` | `enhance_workbench_browser_smoke.cjs` |
 | `t21_canvas_list_browser_app.cjs` | `t21_canvas_list_browser_smoke.cjs`, `canvas_list_viewport_interaction_browser_smoke.cjs` |
 | `t30_studio_shell_browser_app.cjs` | `t30_studio_shell_browser_smoke.cjs` and the Studio Shell issue regressions |
-| `zimage_workbench_browser_app.cjs` | `zimage_workbench_browser_smoke.cjs` |
 
 For example:
 
 ```bash
 npx playwright install chromium
-node tests/angle_workbench_browser_app.cjs
+node tests/t30_studio_shell_browser_app.cjs
 ```
 
 Then, in another terminal:
 
 ```bash
 SMART_CANVAS_BROWSER="$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")" \
-  node tests/angle_workbench_browser_smoke.cjs
+  node tests/t30_studio_shell_browser_smoke.cjs
 ```
 
 The core public-component browser contract is automated in GitHub Actions. Run
@@ -126,7 +133,27 @@ Run `ASSET_TEST_PYTHON=.venv/bin/python node tests/frontend_update_browser.cjs`
 for the long-open-page update prompt. It checks normal reload with cache enabled,
 acknowledged Canvas saves, offline/generation/save-timeout guards, snoozing,
 independent browser sessions, parent/child coordination, keyboard, languages and
-themes. Screenshots are written to `/tmp/frontend-update-light.png` and
+themes. The compact notice also checks no modal backdrop or focus takeover,
+background controls, green notification dot, navigation-map clearance, close snoozing
+and narrow-window layout. Screenshots are written to `/tmp/frontend-update-light.png` and
 `/tmp/frontend-update-dark.png`. `IC_BROWSER_BIN` can select an installed Chromium
 browser. `python -m unittest tests.test_frontend_update_api` verifies the real
 authenticated version API across admin and designer accounts.
+
+### Canvas loading feedback
+
+Run `node tests/canvas_list_loading_browser.cjs` for mutually exclusive loading,
+empty, access and failure states on the real Canvas list, including delayed project
+responses, refresh, project switching and Chinese/English updates. Set
+`CANVAS_LIST_LOADING_SCREENSHOT` to save the pending-state screenshot.
+Run `node tests/issue_195_smart_canvas_opening_browser_smoke.cjs` for progressive
+Canvas opening, including stable loading position/size across phases and matching
+static/animated brand bounds when the shared UI module arrives.
+
+Run `node tests/canvas_opening_shell_browser.cjs` for the complete App Shell →
+Canvas list → Smart Canvas path with both expanded and collapsed navigation.
+It measures the brand indicator and iframe bounds from Boot through readiness,
+then verifies that returning to the list preserves the sidebar preference.
+`node tests/canvas_opening_shell_browser.cjs --serve` exposes the same real-page
+fixture for the Chrome browser plugin; the hidden `#openingShellResult` output
+contains the measured bounds and pass/fail verdict after opening the fixture Canvas.

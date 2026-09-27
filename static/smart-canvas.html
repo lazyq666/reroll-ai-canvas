@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>html.smart-canvas-booting body *{visibility:hidden!important}</style>
+    <script>try { if(window.parent !== window) window.parent.syncStudioCanvasFrameLayout?.(window); } catch (_) {}</script>
+    <style>html.smart-canvas-booting body *{visibility:hidden!important}html.smart-canvas-booting #canvasOpeningLoading,html.smart-canvas-booting #canvasOpeningLoading *{visibility:visible!important}</style>
     <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
     <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
     <title data-i18n="smart.title">智能画布</title>
@@ -33,14 +34,15 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-229960edad6d"></script>
+    <script src="/static/js/i18n.js?v=asset-26175754df27"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-980ce191fdea">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-6f658fcb29c4">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=asset-7ce1a37af323">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-262aee243b7e" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-92138d839445" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=asset-3b9958511af0"></script>
+    <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
 </head>
 <body>
     <main id="canvasOpeningError" class="canvas-opening-error" role="alert" aria-hidden="true">
@@ -54,7 +56,12 @@
             </div>
         </div>
     </main>
-    <p id="canvasOpeningStatus" class="canvas-opening-status" role="status" aria-live="polite" data-i18n="smart.openingPreparing">正在准备画布…</p>
+    <div id="canvasOpeningLoading" class="canvas-opening-loading">
+        <ic-loading class="canvas-opening-brand" loading-animation="brand" label="正在准备画布…" data-i18n-label="smart.openingPreparing" aria-hidden="true">
+            <span class="canvas-opening-brand-fallback" aria-hidden="true"></span>
+        </ic-loading>
+        <p id="canvasOpeningStatus" class="canvas-opening-status" role="status" aria-live="polite" data-i18n="smart.openingPreparing">正在准备画布…</p>
+    </div>
     <div id="shell" class="shell" tabindex="0" aria-label="智能画布" data-i18n-aria-label="smart.title">
         <ic-canvas-grid id="smartCanvasGrid"></ic-canvas-grid>
         <div id="world" class="world"></div>
@@ -714,47 +721,47 @@
     <script src="/static/js/smart-canvas/multi-input-controller.js?v=asset-b3f27635d76c"></script>
     <script src="/static/js/smart-canvas/canvas-virtualization.js?v=asset-6da6d836a672"></script>
     <script src="/static/js/smart-canvas/image-studio-geometry.js?v=asset-83c8576685dd"></script>
-    <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=asset-1ce8f50e0870"></script>
+    <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=asset-3ea6dabaab01"></script>
     <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=asset-684f7db10eb0"></script>
     <script src="/static/js/smart-canvas/canvas-opening.js?v=asset-ab2391dd4e02"></script>
     <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-b465f5b987f4"></script>
-    <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-e0ba8ae1f087"></script>
+    <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-4e6f041502d5"></script>
     <script src="/static/js/smart-canvas/realtime-presence.js?v=asset-582e326a9e7f"></script>
     <script src="/static/js/smart-canvas/canvas-mutation.js?v=asset-d6c95b230a90"></script>
     <script src="/static/js/smart-canvas/smart-container.js?v=asset-96a4fd4f079d"></script>
     <script src="/static/js/smart-canvas/canvas-interaction.js?v=asset-3bc4d815dfaa"></script>
     <script src="/static/js/smart-canvas/layered-psd.js?v=asset-a58dda539415"></script>
-    <script src="/static/js/smart-canvas/image-studio.js?v=asset-9f353cde2780"></script>
-    <script src="/static/js/smart-canvas/image-repair-presets.js?v=asset-aa7054499530"></script>
-<script src="/static/js/smart-canvas/image-repair-geometry.js?v=asset-d19a20dfc8eb"></script>
-    <script src="/static/js/smart-canvas/image-repair.js?v=asset-28c7a4fbe8d6"></script>
-    <script src="/static/js/smart-canvas/model-capabilities.js?v=asset-dfcb603edebb"></script>
+    <script src="/static/js/smart-canvas/image-studio.js?v=asset-dafc39b6d24b"></script>
+    <script src="/static/js/smart-canvas/image-repair-presets.js?v=asset-1ce4c133ec11"></script>
+<script src="/static/js/smart-canvas/image-repair-geometry.js?v=asset-54fc342216ab"></script>
+    <script src="/static/js/smart-canvas/image-repair.js?v=asset-b514fdc2f166"></script>
+    <script src="/static/js/smart-canvas/model-capabilities.js?v=asset-146f9e65d584"></script>
     <script src="/static/js/smart-canvas/layer-decomposition-draft.js?v=asset-e87514b42788"></script>
 <script src="/static/js/smart-canvas/layer-decomposition.js?v=asset-ade3bb1f18df"></script>
     <script src="/static/js/smart-canvas/image-capabilities.js?v=asset-86ebfe841b25"></script>
     <script src="/static/js/smart-canvas/reference-instances.js?v=asset-ab9b4b9a10ca"></script>
     <script src="/static/js/smart-canvas/video-capabilities.js?v=asset-a05e774ca1b9"></script>
-    <script src="/static/js/smart-canvas/generation-settings.js?v=asset-27fc43257aad"></script>
-    <script src="/static/js/smart-canvas/prompt-authoring.js?v=asset-cab8ef736c30"></script>
+    <script src="/static/js/smart-canvas/generation-settings.js?v=asset-f422881b77df"></script>
+    <script src="/static/js/smart-canvas/prompt-authoring.js?v=asset-b8348f56ef76"></script>
     <script src="/static/js/smart-canvas/local-generation-submissions.js?v=asset-d38a67f47829"></script>
-    <script src="/static/js/smart-canvas/generation-provider.js?v=asset-fe1ccaeb4cf5"></script>
+    <script src="/static/js/smart-canvas/generation-provider.js?v=asset-7b0bf1e5e5e7"></script>
     <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=asset-4d192a74b065"></script>
     <script src="/static/js/smart-canvas/generation-log-modal.js?v=asset-ad3879b87435"></script>
     <script src="/static/js/smart-canvas/task-modals.js?v=asset-23795c520673"></script>
     <script src="/static/js/smart-canvas/generation-pending.js?v=asset-23ee9884ec27"></script>
-    <script src="/static/js/smart-canvas/generation-output.js?v=asset-646c8e7dcd76"></script>
+    <script src="/static/js/smart-canvas/generation-output.js?v=asset-5e85194c917a"></script>
     <script src="/static/js/smart-canvas/smart-matting.js?v=asset-7f3272467cb9"></script>
-    <script src="/static/js/smart-canvas/generation-run.js?v=asset-370906ba4ed8"></script>
-    <script src="/static/js/smart-canvas/generation-recovery.js?v=asset-2cee7eb24597"></script>
+    <script src="/static/js/smart-canvas/generation-run.js?v=asset-05415945676a"></script>
+    <script src="/static/js/smart-canvas/generation-recovery.js?v=asset-e219c5166654"></script>
     <script src="/static/js/smart-canvas/smart-depth-map.js?v=asset-a1abdb90e5d1"></script>
     <script src="/static/js/smart-canvas/generation-cascade.js?v=asset-c858c55ec4a5"></script>
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=asset-3f13fc51a50e"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=asset-dd104f696fc9"></script>
     <script src="/static/js/smart-canvas/prompt-generation-composer.js?v=asset-5690381d136d"></script>
-    <script src="/static/js/smart-canvas/media-naming.js?v=asset-3bba39c64ca8"></script>
+    <script src="/static/js/smart-canvas/media-naming.js?v=asset-cda8bca65681"></script>
     <script src="/static/js/smart-canvas/prompt-optimize.js?v=asset-984c9818dcc6"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-4a0770a5d6ba" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-bd585d106b5c" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
-    <script src="/static/js/frontend-update.js?v=asset-c1175e39026f" defer></script>
+    <script src="/static/js/frontend-update.js?v=asset-01a1219e75dd" defer></script>
 </body>
 </html>

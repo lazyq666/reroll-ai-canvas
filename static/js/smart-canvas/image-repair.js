@@ -69,7 +69,7 @@
         const capability=s.model.capability;
         s.maximumCount=Math.min(8,window.SmartCanvasModules.modelCapabilities.outputCountMaximum(capability,1));
         s.count=Math.max(1,Math.min(s.maximumCount,Math.round(Number(s.count)||1)));
-        s.ratios=capability.media_contract?.aspect_ratios || capability.parameters?.aspect_ratio?.values || [];
+        s.ratios=geometry.allowedRatios(capability.media_contract?.aspect_ratios || capability.parameters?.aspect_ratio?.values);
         s.tiers=capability.media_contract?.resolution_tiers || capability.parameters?.resolution_tier?.values || [];
         if(!s.ratios.includes(s.ratio)) s.ratio='';
         $('Settings').setAttribute('ratio-presets',['adaptive',...s.ratios].join(','));
@@ -129,11 +129,15 @@
         ctx.drawImage(img,(img.naturalWidth-sw)/2,(img.naturalHeight-sh)/2,sw,sh,x,y,w,h);
     }
     function patchPreview(s,scale){
-        const box=s.recipe.transform, w=Math.max(1,Math.round(box.width*scale)),h=Math.max(1,Math.round(box.height*scale));
+        const box=s.recipe.transform;
+        scale=Math.min(scale,4096/Math.max(box.width,box.height));
+        const w=Math.max(1,Math.round(box.width*scale)),h=Math.max(1,Math.round(box.height*scale));
         const key=[w,h,s.recipe.feather].join(':');
         if(s.patchCache?.key===key) return s.patchCache.canvas;
         const canvas=document.createElement('canvas'); canvas.width=w;canvas.height=h;
-        const ctx=canvas.getContext('2d');paintCover(ctx,s.patch,0,0,w,h);
+        const ctx=canvas.getContext('2d');
+        if(s.recipe.preserve_geometry)ctx.drawImage(s.patch,0,0,w,h);
+        else paintCover(ctx,s.patch,0,0,w,h);
         const data=ctx.getImageData(0,0,w,h),alpha=geometry.featherAlpha(w,h,s.recipe.feather*scale);
         for(let i=0;i<alpha.length;i++) data.data[i*4+3]=Math.floor(data.data[i*4+3]*alpha[i]/255);
         ctx.putImageData(data,0,0);s.patchCache={key,canvas};return canvas;
@@ -145,7 +149,8 @@
         const x=box?Math.min(0,box.x-8):0,y=box?Math.min(0,box.y-8):0;
         s.view=gesture?.view||{x,y,width:(box?Math.max(s.width,box.x+box.width+8):s.width)-x,height:(box?Math.max(s.height,box.y+box.height+8):s.height)-y};
         const view=s.view,fit=Math.min(viewport.clientWidth/view.width,viewport.clientHeight/view.height,1);
-        const scale=Math.min(1,1600/Math.max(view.width,view.height));
+        // Rerasterize from the source as details are enlarged, with bounded preview memory.
+        const scale=Math.min(1,Math.min(4096,1600*Math.max(1,s.zoom))/Math.max(view.width,view.height));
         const canvas=$('Canvas'); canvas.width=Math.max(1,Math.round(view.width*scale));canvas.height=Math.max(1,Math.round(view.height*scale));
         canvas.style.width=`${Math.max(1,view.width*fit)}px`;canvas.style.height=`${Math.max(1,view.height*fit)}px`;
         const ctx=canvas.getContext('2d');ctx.translate(-view.x*scale,-view.y*scale);ctx.drawImage(s.source,0,0,s.width*scale,s.height*scale);
@@ -187,11 +192,12 @@
         if(!media?.url || mediaKindForItem(media)!=='image') return;
         if(session) saveDraft();
         gesture=null;
+        $('Frame').style.transform='';
         $('Frame').style.setProperty('--compare-pos','50%');
         $('CompareHandle').setAttribute('aria-valuenow','50');
         openImageEditor(nodeId,imageIndex);
         setImageEditMode('preview');
-        const s=session={nodeId,imageIndex,media:clone(media),expectedUrl:media.url,strokes:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&media.local_repair?clone(media.local_repair):null,compare:false,comparePos:50,dirty:false,models:[],count:1};
+        const s=session={nodeId,imageIndex,media:clone(media),expectedUrl:media.url,strokes:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&media.local_repair?clone(media.local_repair):null,compare:false,comparePos:50,dirty:false,models:[],count:1,zoom:1,panX:0,panY:0};
         setImageStudioToggleState($('Brush'),true);setImageStudioToggleState($('Rectangle'),false);
         imageEditMode='local-repair';imageEditModeTouched=true;
         imageEditModal.classList.add('local-repair-mode');$('Editor').hidden=false;
@@ -229,7 +235,7 @@
                 s.models=(await Promise.all(entries.map(async entry=>{
                     try {
                         const capability=await window.SmartCanvasModules.modelCapabilities.load(entry.provider_id,entry.model,'image.edit');
-                        if(Number(capability.inputs?.image?.maximum||0)<1)return null;
+                        if(Number(capability.inputs?.image?.maximum||0)<1 || !geometry.allowedRatios(capability.media_contract?.aspect_ratios || capability.parameters?.aspect_ratio?.values).length)return null;
                         const imageCapability=await window.SmartCanvasModules.imageCapabilities.load(entry.provider_id,entry.model);
                         return {...entry,capability,imageCapability};
                     } catch(_error){return null;}
@@ -273,9 +279,23 @@
         s.recipe.feather=Math.min(Math.floor(Math.min(box.width,box.height)),Math.max(0,Math.round(s.recipe.feather)));
         s.dirty=true;sync();redraw();
     }
+    $('Frame').parentElement.addEventListener('wheel',event=>{
+        const s=session;if(!s?.source)return;
+        event.preventDefault();event.stopPropagation();
+        // Keep the projection fixed throughout drawing, crop resizing and comparison drags.
+        if(s.busy||gesture||comparePointer!==null||!event.deltaY)return;
+        const zoom=Math.max(.15,Math.min(6,s.zoom*(event.deltaY<0?1.12:1/1.12)));
+        const factor=zoom/s.zoom;
+        const rect=$('Frame').getBoundingClientRect();
+        s.panX+=(event.clientX-rect.left-rect.width/2)*(1-factor);
+        s.panY+=(event.clientY-rect.top-rect.height/2)*(1-factor);
+        s.zoom=zoom;
+        $('Frame').style.transform=`translate(${s.panX}px,${s.panY}px) scale(${zoom})`;
+        redraw();
+    },{passive:false});
     $('Canvas').addEventListener('pointerdown',event=>{
         const s=session;if(!s?.source||s.busy||event.button!==0)return;
-        event.preventDefault();$('Canvas').focus();$('Canvas').setPointerCapture(event.pointerId);
+        event.preventDefault();$('Canvas').focus({preventScroll:true});$('Canvas').setPointerCapture(event.pointerId);
         const p=point(event,false);
         if(s.recipe){gesture={id:event.pointerId,start:p,box:clone(s.recipe.transform)};}
         else {
@@ -362,7 +382,7 @@
     $('CompareHandle').addEventListener('pointerdown',event=>{
         if(!session?.compare||session.busy||event.button!==0)return;
         event.preventDefault();event.stopPropagation();
-        comparePointer=event.pointerId;$('CompareHandle').focus();
+        comparePointer=event.pointerId;$('CompareHandle').focus({preventScroll:true});
         $('CompareHandle').setPointerCapture(event.pointerId);moveCompare(event);
     });
     $('CompareHandle').addEventListener('pointermove',event=>{
@@ -399,7 +419,7 @@
                 const uploaded=await uploadCroppedBlob(await blob(original),'repair-source.png');if(!uploaded?.url)throw new Error(text('failed'));source={...source,url:uploaded.url};
             }
             if(!validSource(s))throw new Error(text('sourceChanged'));
-            const recipe={version:2,source,width:s.width,height:s.height,crop:box,transform:box,feather:Math.round(Math.min(box.width,box.height)*.06)};
+            const recipe={version:2,preserve_geometry:true,source,width:s.width,height:s.height,crop:box,transform:box,feather:Math.round(Math.min(box.width,box.height)*.06)};
             const settings={engine:'api',apiKind:'image',provider_id:s.model.provider_id,model:s.model.model,ratio:window.SmartCanvasModules.imageCapabilities.standardToRatioKey(box.ratio)||box.ratio,resolution:String(s.resolution).toLowerCase(),count:s.count||1,quality:'auto',transparentPng:s.transparentPng===true&&s.model.imageCapability.supports_transparent_png===true};
             await window.SmartCanvasModules.generationRun.processor({
                 nodeId:s.nodeId,imageIndex:s.imageIndex,input:{...input,natural_w:box.width,natural_h:box.height},width:box.width,height:box.height,

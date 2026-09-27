@@ -12,6 +12,11 @@ if(!generationOutputMutationModule) throw new Error('Canvas Mutation Module fail
 const GENERATION_OUTPUT_GALLERY_MIGRATION_VERSION = 2;
 const GENERATION_OUTPUT_INFO_KEYS = Object.freeze([
     'runSettings',
+    'aiProcessorKind',
+    'aiProcessorPostprocess',
+    'localRepairRequest',
+    'lightingPrompt',
+    'metadata',
     'runModelPrompt',
     'runPrompt',
     'runInputRefs',
@@ -1009,6 +1014,24 @@ function generationOutputNormalize(outputs=[], kind='image', options={}){
             ? generationOutputDefaultName(source, url, itemKind, ordinal)
             : source.name || '';
         if(name) normalized.name = name;
+        const naming = window.SmartCanvasModules.mediaNaming;
+        const owner = options.node;
+        if(defaultName && naming && owner){
+            const peers = typeof nodes !== 'undefined' ? nodes : [owner];
+            const previous = peers.filter(peer => peer.id === owner.id || (owner.generationOperationId && peer.generationOperationId === owner.generationOperationId))
+                .flatMap(peer => peer.images || []).find(media => media.url === (source.originalOutputUrl || url) && (media.kind || 'image') === itemKind);
+            if(previous?.name || source.autoName){
+                normalized.name = previous?.name || source.name;
+                if(previous?.autoName || source.autoName) normalized.autoName = generationOutputClonePersistentValue(previous?.autoName || source.autoName);
+            } else {
+                naming.assign(normalized, {
+                    prefix:source.local_repair ? 'repair' : naming.generationPrefix(owner,itemKind),
+                    canvas:typeof canvas !== 'undefined' ? canvas : null,
+                    nodes:peers,
+                    id:`${owner.generationOperationId || owner.id}:${url}`
+                });
+            }
+        }
         if(generatedResult) normalized.generatedResult = true;
         if(source.local_repair) normalized.local_repair = generationOutputClonePersistentValue(source.local_repair);
         return stripImageGenerationMeta(
@@ -1248,7 +1271,8 @@ function generationOutputApply(options={}){
         kind,
         {
             generatedResult:options.generatedResult,
-            defaultName:options.defaultName
+            defaultName:options.defaultName,
+            node
         }
     );
     if(strategy === 'replace'){

@@ -3334,6 +3334,7 @@ class ProviderGenerationExecutor:
                 settings.get("wait_for_task"),
                 count=max(1, min(8, int(request.count or 1))),
                 **transparent_kwargs,
+                **({"preserve_geometry": True} if (settings.get("local_repair") or {}).get("preserve_geometry") else {}),
                 **operation_kwargs,
                 **checkpoint_kwargs(execute_image),
             )
@@ -3608,7 +3609,8 @@ class WorkspaceGenerationEffects:
                     or target_aspect_ratio
                 ).strip()
                 materialize = self._ports.materialize_image
-                if materialization_aspect_ratio and callable(materialize):
+                preserve_geometry = (request.settings.get("local_repair") or {}).get("preserve_geometry")
+                if materialization_aspect_ratio and callable(materialize) and not preserve_geometry:
                     local_url = await materialize(
                         provider_source_url,
                         target_aspect_ratio=materialization_aspect_ratio,

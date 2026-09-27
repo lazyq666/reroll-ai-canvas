@@ -2,31 +2,26 @@
   "schemaVersion": 7,
   "sourceRevision": "sha256:bd91c5975e2c367e2aa7dd96f20bb9972b308fb5c8a2572ca9c96ca30c8335a2",
   "scan": {
-    "topLevelHtmlCount": 16,
+    "topLevelHtmlCount": 12,
     "topLevelHtml": [
       "static/account-management.html",
-      "static/angle.html",
       "static/api-settings.html",
       "static/available-model-management.html",
       "static/canvas-list.html",
       "static/canvas.html",
       "static/comfyui-settings.html",
-      "static/enhance.html",
       "static/index.html",
-      "static/klein.html",
       "static/login.html",
       "static/online.html",
       "static/setup.html",
       "static/share.html",
-      "static/smart-canvas.html",
-      "static/zimage.html"
+      "static/smart-canvas.html"
     ],
-    "firstPartyCssCount": 24,
-    "firstPartyJsCount": 59,
+    "firstPartyCssCount": 20,
+    "firstPartyJsCount": 55,
     "graphicAssetCount": 19,
     "files": [
       "static/account-management.html",
-      "static/angle.html",
       "static/api-settings.html",
       "static/available-model-management.html",
       "static/canvas-list.html",
@@ -36,7 +31,6 @@
       "static/css/account-management.css",
       "static/css/account-setup.css",
       "static/css/account-ui.css",
-      "static/css/angle.css",
       "static/css/api-settings-t18.css",
       "static/css/api-settings-t19.css",
       "static/css/api-settings.css",
@@ -47,16 +41,12 @@
       "static/css/canvas.css",
       "static/css/comfyui-settings.css",
       "static/css/design-tokens.css",
-      "static/css/enhance.css",
-      "static/css/klein.css",
       "static/css/model-vendor-icons.css",
       "static/css/online-workbench.css",
       "static/css/preferences.css",
       "static/css/runtime-recovery.css",
       "static/css/smart-canvas.css",
       "static/css/theme.css",
-      "static/css/zimage.css",
-      "static/enhance.html",
       "static/images/providers/RunningHub-B.png",
       "static/images/providers/RunningHub-W.png",
       "static/images/providers/chatgpt.svg",
@@ -77,7 +67,6 @@
       "static/js/account-setup.js",
       "static/js/account-ui.js",
       "static/js/angle-3d.js",
-      "static/js/angle.js",
       "static/js/api-settings.js",
       "static/js/available-model-management.js",
       "static/js/batch-generation.js",
@@ -85,7 +74,6 @@
       "static/js/canvas-share.js",
       "static/js/canvas.js",
       "static/js/comfyui-settings.js",
-      "static/js/enhance.js",
       "static/js/history-bulk-manager.js",
       "static/js/i18n/api-settings.js",
       "static/js/i18n/auth.js",
@@ -103,7 +91,6 @@
       "static/js/i18n-core.js",
       "static/js/i18n.js",
       "static/js/image-preview.js",
-      "static/js/klein.js",
       "static/js/ltx-director-timeline.js",
       "static/js/model-vendor-icons.js",
       "static/js/page-zoom-guard.js",
@@ -130,8 +117,6 @@
       "static/js/smart-image-resolution.js",
       "static/js/theme.js",
       "static/js/touch-mouse.js",
-      "static/js/zimage.js",
-      "static/klein.html",
       "static/login.html",
       "static/online.html",
       "static/runninghub/thumbnails/workflow-2058541134623891458.jpg",
@@ -141,8 +126,7 @@
       "static/runninghub/thumbnails/workflow-2064542485938008065.jpg",
       "static/setup.html",
       "static/share.html",
-      "static/smart-canvas.html",
-      "static/zimage.html"
+      "static/smart-canvas.html"
     ],
     "lucideIconUsageCount": 308,
     "inlineSvgUsageCount": 39
@@ -156,7 +140,7 @@
     "similarity_group_count": 58
   },
   "completionSummary": {
-    "verifiedLive": 573,
+    "verifiedLive": 569,
     "inventoryOnly": 0,
     "fixtureFailed": 0,
     "stale": 0,
@@ -178,10 +162,10 @@
       "id": "buttons-actions",
       "label": "按钮与动作",
       "counts": {
-        "total": 225,
+        "total": 224,
         "notStarted": 0,
         "inProgress": 0,
-        "completed": 225,
+        "completed": 224,
         "stale": 0
       }
     },
@@ -211,10 +195,10 @@
       "id": "feedback-status",
       "label": "反馈与状态",
       "counts": {
-        "total": 33,
+        "total": 32,
         "notStarted": 0,
         "inProgress": 0,
-        "completed": 33,
+        "completed": 32,
         "stale": 0
       }
     },
@@ -222,10 +206,10 @@
       "id": "overlays-dialogs",
       "label": "浮层与弹窗",
       "counts": {
-        "total": 35,
+        "total": 34,
         "notStarted": 0,
         "inProgress": 0,
-        "completed": 35,
+        "completed": 34,
         "stale": 0
       }
     },
@@ -233,10 +217,10 @@
       "id": "containers-data",
       "label": "容器与数据展示",
       "counts": {
-        "total": 25,
+        "total": 24,
         "notStarted": 0,
         "inProgress": 0,
-        "completed": 25,
+        "completed": 24,
         "stale": 0
       }
     },
@@ -253,39 +237,11 @@
     }
   ],
   "contexts": {
-    "context.03301486bd129b01": {
-      "sourceEntry": "static/angle.html",
-      "stylesheets": [
-        "/static/css/design-tokens.css?v=asset-b180cf511553",
-        "/static/css/theme.css?v=asset-f59222b3057c",
-        "/static/css/angle.css?v=asset-fab048acd459"
-      ],
-      "inlineStyles": [],
-      "htmlAttributes": {
-        "lang": "zh-CN",
-        "data-ui-scope": "generation"
-      },
-      "bodyAttributes": {}
-    },
-    "context.201d3b82249e9f7e": {
-      "sourceEntry": "static/klein.html",
-      "stylesheets": [
-        "/static/css/design-tokens.css?v=asset-b180cf511553",
-        "/static/css/theme.css?v=asset-f59222b3057c",
-        "/static/css/klein.css?v=asset-f3a5f99d9c31"
-      ],
-      "inlineStyles": [],
-      "htmlAttributes": {
-        "lang": "zh-CN",
-        "data-ui-scope": "generation"
-      },
-      "bodyAttributes": {}
-    },
     "context.28b3318bba669095": {
       "sourceEntry": "static/smart-canvas.html",
       "stylesheets": [
         "/static/css/design-tokens.css?v=asset-b180cf511553",
-        "/static/css/smart-canvas.css?v=asset-980ce191fdea",
+        "/static/css/smart-canvas.css?v=asset-6f658fcb29c4",
         "/static/css/model-vendor-icons.css?v=asset-105bebbed5a6"
       ],
       "inlineStyles": [],
@@ -339,19 +295,6 @@
       "htmlAttributes": {
         "lang": "zh-CN",
         "data-ui-scope": "generation"
-      },
-      "bodyAttributes": {}
-    },
-    "context.657b1d35d834ee2a": {
-      "sourceEntry": "static/zimage.html",
-      "stylesheets": [
-        "/static/css/design-tokens.css?v=asset-b180cf511553",
-        "/static/css/zimage.css?v=asset-105d8a429e2f"
-      ],
-      "inlineStyles": [],
-      "htmlAttributes": {
-        "lang": "zh-CN",
-        "data-ui-scope": "zimage"
       },
       "bodyAttributes": {}
     },
@@ -5321,7 +5264,7 @@
         ],
         "stylesheets": [
           "/static/css/design-tokens.css?v=asset-b180cf511553",
-          "/static/css/smart-canvas.css?v=asset-980ce191fdea"
+          "/static/css/smart-canvas.css?v=asset-6f658fcb29c4"
         ]
       }
     },
@@ -23199,89 +23142,6 @@
       }
     },
     {
-      "id": "inventory.77cadca174ca376f",
-      "inventoryVariantId": "77cadca174ca376f",
-      "label": "Button · .nav-fold-toggle",
-      "categoryId": "buttons-actions",
-      "targetId": "button.toggle",
-      "componentType": "Button",
-      "subtype": "toggle action",
-      "size": "normal",
-      "contentForm": "icon-inline",
-      "instanceCount": 1,
-      "scope": "shared-candidate",
-      "trust": "verified-live",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "inventoryKind": "component-variant",
-      "sources": [
-        {
-          "file": "static/index.html",
-          "line": 1461,
-          "dom_path": ".app-shell > studioSidebar > .nav-fold-toggle",
-          "context": "<button class=\"nav-fold-toggle\" id=\"local-nav-toggle\" type=\"button\" onclick=\"toggleLocalNav()\" aria-expanded=\"false\" title=\"展开本地功能\" data-i18n-title=\"common.expandLocalTools\">",
-          "surface": "主界面",
-          "area": "页面操作区",
-          "scenario": "在主界面的页面操作区中，用户通过“展开本地功能”执行操作。",
-          "source": "html",
-          "id": "local-nav-toggle",
-          "display_text": "展开本地功能",
-          "domPath": ".app-shell > studioSidebar > .nav-fold-toggle"
-        }
-      ],
-      "sourceHash": "sha256:603d8a132be479229fb8c56d2512c2372a473e75c71dad645e67fcb926d5f0e0",
-      "coverage": {
-        "componentStates": [
-          "light",
-          "dark"
-        ],
-        "interactionStates": [
-          "default",
-          "hover",
-          "pressed",
-          "focus-visible",
-          "disabled"
-        ]
-      },
-      "verification": {
-        "method": "source-exactness-plus-browser-fixture-suite",
-        "sourceMarkupHash": "sha256:5f7efba9240bae4e3d93970f49e0ee32bfa87fd217f9c21ed088ed2288e81b26",
-        "sourceExtraction": "exact-source-slice",
-        "interactionProfile": [
-          "click",
-          "focus",
-          "disabled"
-        ],
-        "evidence": "docs/design-system/verification/live-catalog-full.json"
-      },
-      "fixture": {
-        "adapter": "source-component",
-        "contextId": "context.3e8602c86d6cf04a",
-        "markup": "<div class=\"live-fixture-stage\"><div data-ui-scope=\"studio-shell\"><div><div class=\"app-shell\"><aside class=\"sidebar\" id=\"studioSidebar\"><nav><button data-live-fixture-root class=\"nav-fold-toggle\" id=\"local-nav-toggle\" type=\"button\" aria-expanded=\"false\" title=\"展开本地功能\" data-i18n-title=\"common.expandLocalTools\">\n                    <svg class=\"nav-fold-icon\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n                        <polyline points=\"6 9 12 15 18 9\"></polyline>\n                    </svg>\n                    <span class=\"nav-text\" data-i18n=\"nav.localTools\">本地功能</span>\n                </button></nav></aside></div></div></div></div>",
-        "rootSelector": "[data-live-fixture-root]",
-        "resetState": {
-          "theme": "light",
-          "interaction": "default"
-        },
-        "stateBindings": {
-          "default": {
-            "classes": [],
-            "attributes": {}
-          },
-          "disabled": {
-            "classes": [],
-            "attributes": {
-              "disabled": ""
-            }
-          }
-        },
-        "naturalInteractions": [
-          "click",
-          "focus",
-          "disabled"
-        ]
-      }
-    },
-    {
       "id": "inventory.a2200a358b991aaf",
       "inventoryVariantId": "a2200a358b991aaf",
       "label": "Button · .side-icon-button",
@@ -31892,93 +31752,6 @@
       }
     },
     {
-      "id": "inventory.1e8b694094d5b726",
-      "inventoryVariantId": "1e8b694094d5b726",
-      "label": "Dialog · .dialog-preview",
-      "categoryId": "overlays-dialogs",
-      "targetId": "dialog.modal-surface",
-      "componentType": "Dialog",
-      "subtype": "modal surface",
-      "size": "default",
-      "contentForm": null,
-      "instanceCount": 1,
-      "scope": "shared-candidate",
-      "trust": "verified-live",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "inventoryKind": "component-variant",
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 116,
-          "dom_path": "lightbox > .dialog-preview",
-          "context": "<div id=\"singlePreview\" class=\"dialog-preview\">",
-          "surface": "Klein 图像生成",
-          "area": "结果预览",
-          "scenario": "在Klein 图像生成的结果预览中展示“—”相关的浮层内容。",
-          "source": "html",
-          "id": "singlePreview",
-          "display_text": "—",
-          "domPath": "lightbox > .dialog-preview"
-        }
-      ],
-      "sourceHash": "sha256:7dd2b7859dd2ccfc247dfc1808c3952138fc3df0c8298fbd019db806b80c133a",
-      "coverage": {
-        "componentStates": [
-          "light",
-          "dark"
-        ],
-        "interactionStates": [
-          "closed",
-          "open"
-        ]
-      },
-      "verification": {
-        "method": "source-exactness-plus-browser-fixture-suite",
-        "sourceMarkupHash": "sha256:86865d487b04410415f0ff6bd35f3a3cd11bc482f9c48a385bdec112c945543f",
-        "sourceExtraction": "exact-source-slice",
-        "interactionProfile": [
-          "open-close",
-          "focus"
-        ],
-        "evidence": "docs/design-system/verification/live-catalog-full.json"
-      },
-      "fixture": {
-        "adapter": "source-component",
-        "contextId": "context.201d3b82249e9f7e",
-        "markup": "<div class=\"live-fixture-stage\"><div data-ui-scope=\"generation\"><div><div id=\"lightbox\"><div data-live-fixture-root id=\"singlePreview\" class=\"dialog-preview\">\n            <ic-media-container kind=\"image\" label=\"图片预览\" data-i18n-label=\"studio.previewImage\" fit=\"contain\" aspect=\"auto\" state=\"ready\">\n                <img id=\"lightboxImg\" src=\"\" alt=\"预览图片\" data-i18n-alt=\"studio.previewImage\">\n            </ic-media-container>\n            <ic-badge id=\"lightboxRes\" kind=\"label\" tone=\"neutral\" hidden>—</ic-badge>\n        </div></div></div></div></div>",
-        "rootSelector": "[data-live-fixture-root]",
-        "resetState": {
-          "theme": "light",
-          "interaction": "open"
-        },
-        "stateBindings": {
-          "default": {
-            "classes": [],
-            "attributes": {}
-          },
-          "open": {
-            "classes": [
-              "open"
-            ],
-            "attributes": {
-              "aria-hidden": "false"
-            }
-          },
-          "closed": {
-            "classes": [],
-            "attributes": {
-              "aria-hidden": "true",
-              "hidden": ""
-            }
-          }
-        },
-        "naturalInteractions": [
-          "open-close",
-          "focus"
-        ]
-      }
-    },
-    {
       "id": "inventory.553ca74f5f622eb3",
       "inventoryVariantId": "553ca74f5f622eb3",
       "label": "Dialog · .error-modal",
@@ -36032,74 +35805,6 @@
       }
     },
     {
-      "id": "inventory.3b2799dc1531b7a7",
-      "inventoryVariantId": "3b2799dc1531b7a7",
-      "label": "Divider · .dimension-separator",
-      "categoryId": "containers-data",
-      "targetId": "divider.divider",
-      "componentType": "Divider",
-      "subtype": "divider",
-      "size": "default",
-      "contentForm": null,
-      "instanceCount": 1,
-      "scope": "shared-candidate",
-      "trust": "verified-live",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "inventoryKind": "component-variant",
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 60,
-          "dom_path": ".console-controls > .generation-settings > .setting-group.dimension-setting > .dimension-fields > .dimension-separator",
-          "context": "<span class=\"dimension-separator\" aria-hidden=\"true\">×</span>",
-          "surface": "Z-Image 图像生成",
-          "area": "设置",
-          "scenario": "在Z-Image 图像生成的设置中使用“×”组件。",
-          "source": "html",
-          "display_text": "×",
-          "domPath": ".console-controls > .generation-settings > .setting-group.dimension-setting > .dimension-fields > .dimension-separator"
-        }
-      ],
-      "sourceHash": "sha256:3983b05538c791833a569d583c0e0454dfaf6769c355aa145d8126190928f688",
-      "coverage": {
-        "componentStates": [
-          "light",
-          "dark"
-        ],
-        "interactionStates": [
-          "default"
-        ]
-      },
-      "verification": {
-        "method": "source-exactness-plus-browser-fixture-suite",
-        "sourceMarkupHash": "sha256:9afa5a1c7e0eee506dd256c23745b3b017bd003af27513bdaaf81f5efb18bee8",
-        "sourceExtraction": "exact-source-slice",
-        "interactionProfile": [
-          "reset"
-        ],
-        "evidence": "docs/design-system/verification/live-catalog-full.json"
-      },
-      "fixture": {
-        "adapter": "source-component",
-        "contextId": "context.657b1d35d834ee2a",
-        "markup": "<div class=\"live-fixture-stage\"><div class=\"layout-container\"><div id=\"generationConsole\" class=\"generation-console\"><div class=\"console-controls\"><div class=\"generation-settings\"><div class=\"setting-group dimension-setting\"><div class=\"dimension-fields\"><span data-live-fixture-root class=\"dimension-separator\" aria-hidden=\"true\">×</span></div></div></div></div></div></div></div>",
-        "rootSelector": "[data-live-fixture-root]",
-        "resetState": {
-          "theme": "light",
-          "interaction": "default"
-        },
-        "stateBindings": {
-          "default": {
-            "classes": [],
-            "attributes": {}
-          }
-        },
-        "naturalInteractions": [
-          "reset"
-        ]
-      }
-    },
-    {
       "id": "inventory.13cedd7753e95b2f",
       "inventoryVariantId": "13cedd7753e95b2f",
       "label": "Divider · .inline-divider",
@@ -39975,75 +39680,6 @@
         "resetState": {
           "theme": "light",
           "interaction": "default"
-        },
-        "stateBindings": {
-          "default": {
-            "classes": [],
-            "attributes": {}
-          }
-        },
-        "naturalInteractions": [
-          "replay"
-        ]
-      }
-    },
-    {
-      "id": "inventory.cbffc9fd99100e86",
-      "inventoryVariantId": "cbffc9fd99100e86",
-      "label": "Loading / Progress · .loading-state",
-      "categoryId": "feedback-status",
-      "targetId": "loading-progress.loading-progress",
-      "componentType": "Loading / Progress",
-      "subtype": "loading / progress",
-      "size": "default",
-      "contentForm": null,
-      "instanceCount": 1,
-      "scope": "shared-candidate",
-      "trust": "verified-live",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "inventoryKind": "component-variant",
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 96,
-          "dom_path": ".angle-page > .angle-workspace > .angle-panel.result-panel > resultBox > .loading-state",
-          "context": "<div id=\"loadingState\" class=\"loading-state\" hidden>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "loadingState",
-          "domPath": ".angle-page > .angle-workspace > .angle-panel.result-panel > resultBox > .loading-state"
-        }
-      ],
-      "sourceHash": "sha256:d3638b4a9e10ba5308356f6186438caa0d267f3eb1b77db8117c3fd4b776242a",
-      "coverage": {
-        "componentStates": [
-          "light",
-          "dark"
-        ],
-        "interactionStates": [
-          "default",
-          "replay"
-        ]
-      },
-      "verification": {
-        "method": "source-exactness-plus-browser-fixture-suite",
-        "sourceMarkupHash": "sha256:49f999a08909398220a3e6868d34e3795b938292aa3c7ca41072f79bfb88ec4a",
-        "sourceExtraction": "exact-source-slice",
-        "interactionProfile": [
-          "replay"
-        ],
-        "evidence": "docs/design-system/verification/live-catalog-full.json"
-      },
-      "fixture": {
-        "adapter": "source-component",
-        "contextId": "context.03301486bd129b01",
-        "markup": "<div class=\"live-fixture-stage\"><div data-ui-scope=\"generation\"><div><main class=\"angle-page\"><section class=\"angle-workspace\" aria-label=\"视角生成工作台\"><article class=\"angle-panel result-panel\"><div id=\"resultBox\" class=\"result-card\"><div data-live-fixture-root id=\"loadingState\" class=\"loading-state\" hidden>\n                        <ic-loading id=\"generationLoading\" label=\"处理中...\" presentation=\"region\" data-i18n-label=\"studio.processing\"></ic-loading>\n                        <ic-progress id=\"cloudProgress\" label=\"等待中...\" value=\"0\" max=\"100\" value-text=\"0%\" data-i18n-label=\"studio.pending\" hidden></ic-progress>\n                    </div></div></article></section></main></div></div></div>",
-        "rootSelector": "[data-live-fixture-root]",
-        "resetState": {
-          "theme": "light",
-          "interaction": "open"
         },
         "stateBindings": {
           "default": {
@@ -49817,25 +49453,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.f7047d18e190d325",
-      "label": "ic-switch",
-      "reason": "non-root <ic-switch> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 45,
-          "context": "<ic-switch id=\"upscaleToggle\" name=\"upscale\" label=\"超分辨率\" data-i18n-label=\"studio.superResolution\"></ic-switch>",
-          "surface": "图片增强",
-          "area": "页面操作区",
-          "scenario": "在图片增强的页面操作区中，由用户填写或选择“该控件”。",
-          "source": "html",
-          "id": "f7047d18e190d325"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.8f74b871fc4fe47a",
       "label": ".language-status-icon",
       "reason": "toggle descendant: label",
@@ -49893,64 +49510,6 @@
           "source": "javascript_markup",
           "id": "89fc9fca10ff8c6e",
           "enclosing_function": "renderExtras"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.9983c254b1e222da",
-      "label": ".engine-switch",
-      "reason": "non-root <ic-segmented-control> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 63,
-          "context": "<ic-segmented-control id=\"engineSwitch\" class=\"engine-switch\" label=\"生成引擎\" data-i18n-label=\"studio.engine\" value=\"local\" data-legal-combination=\"single-label\">",
-          "surface": "Klein 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Klein 图像生成的页面操作区中，由用户填写或选择“该控件”。",
-          "source": "html",
-          "id": "9983c254b1e222da",
-          "display_text": "本地 ModelScope"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.42fee6fcd31dd98a",
-      "label": "ic-switch",
-      "reason": "non-root <ic-switch> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 70,
-          "context": "<ic-switch id=\"loraSwitch\" name=\"detail_lora\" label=\"细节增强 LoRA\" data-i18n-label=\"studio.detailLora\"></ic-switch>",
-          "surface": "Klein 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Klein 图像生成的页面操作区中，由用户填写或选择“该控件”。",
-          "source": "html",
-          "id": "42fee6fcd31dd98a"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.7411a3ae4aa1e91f",
-      "label": "ic-file-input",
-      "reason": "non-root <ic-file-input> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 147,
-          "context": "<ic-file-input id=\"dropzone\" name=\"angle_image\" label=\"选择输入图片\" accept=\"image/*\" presentation=\"button\" button-label=\"选择图片\" hidden></ic-file-input>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "7411a3ae4aa1e91f"
         }
       ]
     },
@@ -50030,141 +49589,6 @@
           "source": "html",
           "id": "35b43ad7c7ae2778",
           "display_text": "我已保存"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.abd925c2fe99b85a",
-      "label": ".result-dialog",
-      "reason": "non-root <ic-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 135,
-          "context": "<ic-dialog id=\"lightbox\" class=\"result-dialog\" label=\"图片预览\" size=\"large\" dismiss-policy=\"light\">",
-          "surface": "视角生成",
-          "area": "结果预览",
-          "scenario": "在视角生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "abd925c2fe99b85a"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.f12853c03844ab7e",
-      "label": ".studio-preview-frame",
-      "reason": "lightbox descendant: frame",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 136,
-          "context": "<div id=\"lightboxFrame\" class=\"studio-preview-frame\">",
-          "surface": "视角生成",
-          "area": "结果预览",
-          "scenario": "在视角生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "f12853c03844ab7e"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.ca4b19a000ee5080",
-      "label": "img",
-      "reason": "non-root <img> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 138,
-          "context": "<img id=\"lightboxImg\" src=\"\" alt=\"预览图片\" data-i18n-alt=\"studio.previewImage\">",
-          "surface": "视角生成",
-          "area": "结果预览",
-          "scenario": "在视角生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "ca4b19a000ee5080"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.af2e5dc87755e99c",
-      "label": ".lightbox-resolution",
-      "reason": "non-root <ic-badge> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 140,
-          "context": "<ic-badge id=\"lightboxRes\" class=\"lightbox-resolution\" kind=\"label\" tone=\"neutral\" hidden>0 × 0</ic-badge>",
-          "surface": "视角生成",
-          "area": "结果预览",
-          "scenario": "在视角生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "af2e5dc87755e99c",
-          "display_text": "0 × 0"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.e75285bbbb9aaa6f",
-      "label": "ic-button",
-      "reason": "non-root <ic-button> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 142,
-          "context": "<ic-button id=\"downloadLightboxBtn\" slot=\"footer\" type=\"button\" hierarchy=\"secondary\"><ic-icon slot=\"start\" name=\"download\"></ic-icon><span data-i18n=\"studio.saveMaster\">保存原图</span></ic-button>",
-          "surface": "视角生成",
-          "area": "结果预览",
-          "scenario": "在视角生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "e75285bbbb9aaa6f",
-          "display_text": "保存原图"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.5874b2989602a4cb",
-      "label": "ic-confirmation-dialog",
-      "reason": "non-root <ic-confirmation-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 145,
-          "context": "<ic-confirmation-dialog id=\"waitDialog\" label=\"继续等待云端结果？\" description=\"云端生成超过预期时间，队列可能繁忙。你可以继续等待，或返回后稍后重试。\" confirm-label=\"继续等待\" cancel-label=\"停止等待\" consequence=\"neutral\"></ic-confirmation-dialog>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "5874b2989602a4cb"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.b3ab0219d9084537",
-      "label": "ic-confirmation-dialog",
-      "reason": "non-root <ic-confirmation-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 146,
-          "context": "<ic-confirmation-dialog id=\"archiveDeleteDialog\" label=\"删除所选归档？\" description=\"删除后无法恢复。生成文件本身不会从其他已保存位置移除。\" confirm-label=\"删除\" cancel-label=\"取消\" consequence=\"destructive\"></ic-confirmation-dialog>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "b3ab0219d9084537"
         }
       ]
     },
@@ -50465,297 +49889,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.86ff705042cb67b5",
-      "label": "ic-dialog",
-      "reason": "non-root <ic-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 90,
-          "context": "<ic-dialog id=\"lightbox\" size=\"large\" dismiss-policy=\"light\" label=\"增强结果预览\">",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "86ff705042cb67b5",
-          "display_text": "Save Master"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.1624ee2d41d46504",
-      "label": ".lightbox-content",
-      "reason": "lightbox descendant: content",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 91,
-          "context": "<div class=\"lightbox-content\">",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "1624ee2d41d46504"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.6752635544c2cc44",
-      "label": ".lightbox-frame",
-      "reason": "non-root <ic-media-container> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 102,
-          "context": "<ic-media-container id=\"lightboxFrame\" class=\"lightbox-frame\" label=\"增强图片大图\" kind=\"image\" fit=\"contain\" aspect=\"auto\" state=\"ready\" hidden>",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "6752635544c2cc44"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.ae43372e8ac3cee7",
-      "label": "img",
-      "reason": "non-root <img> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 103,
-          "context": "<img id=\"lightboxImg\" alt=\"预览\" data-i18n-alt=\"studio.previewImage\">",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "ae43372e8ac3cee7"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.f2d55d454082e035",
-      "label": ".resolution-badge",
-      "reason": "non-root <ic-badge> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 105,
-          "context": "<ic-badge id=\"lightboxRes\" class=\"resolution-badge\" kind=\"label\" tone=\"neutral\" hidden>0 × 0</ic-badge>",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "f2d55d454082e035",
-          "display_text": "0 × 0"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.439b1bbe7eb57ba3",
-      "label": ".source-lightbox",
-      "reason": "non-root <ic-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 113,
-          "context": "<ic-dialog id=\"sourceLightbox\" class=\"source-lightbox\" size=\"large\" dismiss-policy=\"light\" label=\"输入图片预览\">",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "439b1bbe7eb57ba3"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.bb8c0808de7a1b8b",
-      "label": ".source-lightbox-media",
-      "reason": "non-root <ic-media-container> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 114,
-          "context": "<ic-media-container class=\"source-lightbox-media\" label=\"输入图片大图\" kind=\"image\" fit=\"contain\" aspect=\"auto\" state=\"ready\">",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "bb8c0808de7a1b8b"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.bf192ac29776ac84",
-      "label": "img",
-      "reason": "non-root <img> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 115,
-          "context": "<img id=\"sourceLightboxImg\" alt=\"输入图片预览\">",
-          "surface": "图片增强",
-          "area": "结果预览",
-          "scenario": "在图片增强的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "bf192ac29776ac84"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.0af9c7314bf514cc",
-      "label": "ic-confirmation-dialog",
-      "reason": "non-root <ic-confirmation-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 119,
-          "context": "<ic-confirmation-dialog id=\"historyDeleteDialog\" label=\"删除所选归档\" description=\"删除后不可恢复。\" confirm-label=\"删除\" cancel-label=\"取消\" consequence=\"destructive\"></ic-confirmation-dialog>",
-          "surface": "图片增强",
-          "area": "页面操作区",
-          "scenario": "在图片增强的页面操作区中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "0af9c7314bf514cc"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.e4b50ba1b60a9ab0",
-      "label": "ic-dialog",
-      "reason": "non-root <ic-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 115,
-          "context": "<ic-dialog id=\"lightbox\" label=\"图片预览\" data-i18n-label=\"studio.previewImage\" size=\"large\" dismiss-policy=\"light\">",
-          "surface": "Klein 图像生成",
-          "area": "结果预览",
-          "scenario": "在Klein 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "e4b50ba1b60a9ab0",
-          "display_text": "复用"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.4e2aa57eab52ebcc",
-      "label": "img",
-      "reason": "non-root <img> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 118,
-          "context": "<img id=\"lightboxImg\" src=\"\" alt=\"预览图片\" data-i18n-alt=\"studio.previewImage\">",
-          "surface": "Klein 图像生成",
-          "area": "结果预览",
-          "scenario": "在Klein 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "4e2aa57eab52ebcc"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.d7cbd1e66e840168",
-      "label": "ic-badge",
-      "reason": "non-root <ic-badge> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 120,
-          "context": "<ic-badge id=\"lightboxRes\" kind=\"label\" tone=\"neutral\" hidden>—</ic-badge>",
-          "surface": "Klein 图像生成",
-          "area": "结果预览",
-          "scenario": "在Klein 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "d7cbd1e66e840168",
-          "display_text": "—"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.d2ea1f48aa2d0f39",
-      "label": "p",
-      "reason": "non-root <p> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 137,
-          "context": "<p id=\"lightboxPrompt\"></p>",
-          "surface": "Klein 图像生成",
-          "area": "结果预览",
-          "scenario": "在Klein 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "d2ea1f48aa2d0f39"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.c74f469cc38ce63d",
-      "label": "ic-button",
-      "reason": "non-root <ic-button> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 140,
-          "context": "<ic-button id=\"downloadLightboxBtn\" slot=\"footer\" type=\"button\" hierarchy=\"secondary\"><ic-icon slot=\"start\" name=\"download\"></ic-icon><span data-i18n=\"studio.downloadImage\">下载图片</span></ic-button>",
-          "surface": "Klein 图像生成",
-          "area": "结果预览",
-          "scenario": "在Klein 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "c74f469cc38ce63d",
-          "display_text": "下载图片"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.75a68c7f7dc5b879",
-      "label": "ic-confirmation-dialog",
-      "reason": "non-root <ic-confirmation-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 143,
-          "context": "<ic-confirmation-dialog id=\"deleteHistoryDialog\" label=\"删除所选归档\" data-i18n-label=\"studio.deleteArchives\" description=\"删除后无法恢复。\" data-i18n-description=\"studio.deleteArchivesDescription\" cancel-label=\"取消\" data-i18n-cancel-label=\"common.cancel\" confirm-label=\"删除\" data-i18n-confirm-label=\"common.delete\" consequence=\"destructive\">",
-          "surface": "Klein 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Klein 图像生成的页面操作区中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "75a68c7f7dc5b879",
-          "display_text": "删除后无法恢复。"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.33ca8a8e5e6794e5",
       "label": ".batch-image-edit-modal.image-edit-modal",
       "reason": "non-root <ic-dialog> element",
@@ -50968,178 +50101,6 @@
           "source": "html",
           "id": "b93ac2c0a900b020",
           "display_text": "删除 取消 保存"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.054442191d3735ed",
-      "label": ".preview-dialog",
-      "reason": "non-root <ic-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 84,
-          "context": "<ic-dialog id=\"lightbox\" class=\"preview-dialog\" label=\"结果预览\" data-i18n-label=\"studio.resultPreview\" size=\"large\" dismiss-policy=\"light\">",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "054442191d3735ed"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.d5aef42feb2fb468",
-      "label": ".preview-dialog-content",
-      "reason": "dialog descendant: content",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 85,
-          "context": "<div class=\"preview-dialog-content\">",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "d5aef42feb2fb468"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.057dbacfaa64688c",
-      "label": ".studio-preview-frame.preview-frame",
-      "reason": "lightbox descendant: frame",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 86,
-          "context": "<div id=\"lightboxFrame\" class=\"studio-preview-frame preview-frame\">",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "057dbacfaa64688c"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.06a8f662539031b1",
-      "label": "ic-media-container",
-      "reason": "non-root <ic-media-container> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 87,
-          "context": "<ic-media-container id=\"lightboxMedia\" label=\"预览图片\" data-i18n-label=\"studio.previewImage\" kind=\"image\" fit=\"contain\" state=\"ready\">",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "06a8f662539031b1"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.ee93f5158b3efc2a",
-      "label": ".studio-preview-img",
-      "reason": "non-root <img> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 88,
-          "context": "<img id=\"lightboxImg\" src=\"\" class=\"studio-preview-img\" alt=\"预览图片\" data-i18n-alt=\"studio.previewImage\">",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "ee93f5158b3efc2a"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.a48c87d1f276e610",
-      "label": "span",
-      "reason": "lightbox descendant: res",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 90,
-          "context": "<ic-badge class=\"preview-resolution\" kind=\"label\" tone=\"neutral\"><span id=\"lightboxRes\">0 × 0</span></ic-badge>",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "a48c87d1f276e610",
-          "display_text": "0 × 0"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.54665f2e3c694237",
-      "label": ".prompt-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 93,
-          "context": "<ic-card id=\"lightboxCard\" class=\"prompt-card\" label=\"提示词记录\" size=\"small\" data-i18n-label=\"studio.promptExecution\">",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "54665f2e3c694237"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.6c996388b7cca6de",
-      "label": "p",
-      "reason": "non-root <p> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 97,
-          "context": "<p id=\"lightboxPrompt\"></p>",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "6c996388b7cca6de"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.f5a6ffb2734a04f4",
-      "label": "ic-confirmation-dialog",
-      "reason": "non-root <ic-confirmation-dialog> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 108,
-          "context": "<ic-confirmation-dialog id=\"bulkDeleteDialog\" label=\"删除所选图片\" confirm-label=\"删除\" cancel-label=\"取消\" consequence=\"destructive\"></ic-confirmation-dialog>",
-          "surface": "Z-Image 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Z-Image 图像生成的页面操作区中展示“该控件”相关的浮层内容。",
-          "source": "html",
-          "id": "f5a6ffb2734a04f4"
         }
       ]
     },
@@ -52377,26 +51338,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.965e2b6948f0989d",
-      "label": ".archive-toolbar",
-      "reason": "non-root <ic-toolbar> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 121,
-          "context": "<ic-toolbar class=\"archive-toolbar\" label=\"归档管理\" appearance=\"plain\">",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "965e2b6948f0989d",
-          "display_text": "管理归档 已选择 0 项 全选 删除所选 退出管理"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.8a52257c28e49e98",
       "label": ".models-actions-toolbar",
       "reason": "non-root <ic-toolbar> element",
@@ -52498,26 +51439,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.cbdd1e4a03481846",
-      "label": ".history-toolbar",
-      "reason": "non-root <ic-toolbar> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 102,
-          "context": "<ic-toolbar id=\"historyToolbar\" class=\"history-toolbar\" label=\"归档管理\" data-i18n-label=\"studio.archiveManagement\" appearance=\"plain\">",
-          "surface": "Klein 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Klein 图像生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "cbdd1e4a03481846",
-          "display_text": "管理 0 全选 删除所选 完成"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.c0a3f725a9627b0b",
       "label": ".model-section-divider",
       "reason": "non-root <ic-divider> element",
@@ -52573,66 +51494,6 @@
           "source": "javascript_markup",
           "id": "a439a10285125211",
           "enclosing_function": "openCardMenu"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.254df89b0b93622d",
-      "label": ".camera-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 45,
-          "context": "<ic-card class=\"camera-card\" label=\"相机控制\" size=\"small\">",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "254df89b0b93622d",
-          "display_text": "旋转 −90° — 90° 俯仰 −90° — 90° 距离 0.1 — 8.0"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.cc504775fff78ee5",
-      "label": ".parameter-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 74,
-          "context": "<ic-card class=\"parameter-card\" label=\"生成参数\" size=\"small\">",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "cc504775fff78ee5",
-          "display_text": "引擎 本地 ModelScope 生成新角度"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.bb35dc852e101e1e",
-      "label": ".result-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 92,
-          "context": "<ic-card id=\"resultBox\" class=\"result-card\" label=\"结果预览\" size=\"small\">",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "bb35dc852e101e1e",
-          "display_text": "生成指令 复制 查看大图 保存原图"
         }
       ]
     },
@@ -53211,46 +52072,6 @@
           "source": "html",
           "id": "2fefa3bfbc3b622c",
           "display_text": "从左侧列表选择，或上传新的 API 工作流 删除 保存配置"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.871d795b422ffb94",
-      "label": ".upscale-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 36,
-          "context": "<ic-card class=\"upscale-card\" size=\"small\" tone=\"subtle\" label=\"超分辨率\" data-i18n-label=\"studio.superResolution\">",
-          "surface": "图片增强",
-          "area": "页面操作区",
-          "scenario": "在图片增强的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "871d795b422ffb94",
-          "display_text": "Super Resolution Double pixels (4K) 2x (2K) 4x (4K)"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.a630e396a2998f14",
-      "label": ".result-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 61,
-          "context": "<ic-card id=\"resultBox\" class=\"result-card\" label=\"增强结果\">",
-          "surface": "图片增强",
-          "area": "页面操作区",
-          "scenario": "在图片增强的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "a630e396a2998f14",
-          "display_text": "生成后可在此查看和下载图片"
         }
       ]
     },
@@ -54414,66 +53235,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.ca48f003a692a405",
-      "label": ".engine-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 61,
-          "context": "<ic-card class=\"engine-card\" label=\"生成引擎\" data-i18n-label=\"studio.engine\" size=\"small\" tone=\"subtle\">",
-          "surface": "Klein 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Klein 图像生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "ca48f003a692a405",
-          "display_text": "引擎 连接中... 0.80"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.6d843e633f6063c2",
-      "label": ".result-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 84,
-          "context": "<ic-card id=\"resultBox\" class=\"result-card\" label=\"结果预览\" data-i18n-label=\"studio.resultPreview\" size=\"large\">",
-          "surface": "Klein 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Klein 图像生成的页面操作区中使用“该控件”组件。",
-          "source": "html",
-          "id": "6d843e633f6063c2",
-          "display_text": "预览图片 下载图片"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.6d84260a00d86acf",
-      "label": ".prompt-card",
-      "reason": "non-root <ic-card> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/klein.html",
-          "line": 135,
-          "context": "<ic-card class=\"prompt-card\" label=\"提示词记录\" data-i18n-label=\"studio.promptExecution\" size=\"small\" tone=\"subtle\">",
-          "surface": "Klein 图像生成",
-          "area": "结果预览",
-          "scenario": "在Klein 图像生成的结果预览中使用“该控件”组件。",
-          "source": "html",
-          "id": "6d84260a00d86acf",
-          "display_text": "提示词记录"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.3ff67942db222b8b",
       "label": ".login-card",
       "reason": "non-root <ic-card> element",
@@ -54588,26 +53349,6 @@
           "source": "html",
           "id": "15ad6e927121d791",
           "display_text": "导入工作流"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.fb437753667b2fb6",
-      "label": ".prompt-card-content",
-      "reason": "card descendant: content",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 94,
-          "context": "<div class=\"prompt-card-content\">",
-          "surface": "Z-Image 图像生成",
-          "area": "结果预览",
-          "scenario": "在Z-Image 图像生成的结果预览中使用“该控件”组件。",
-          "source": "html",
-          "id": "fb437753667b2fb6",
-          "display_text": "提示词记录 复用"
         }
       ]
     },
@@ -54833,26 +53574,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.bc4f41907d3d17e2",
-      "label": "ic-badge",
-      "reason": "non-root <ic-badge> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/zimage.html",
-          "line": 33,
-          "context": "<ic-badge id=\"statusBadge\" kind=\"status\" tone=\"success\" data-i18n=\"studio.ready\">系统就绪</ic-badge>",
-          "surface": "Z-Image 图像生成",
-          "area": "页面操作区",
-          "scenario": "在Z-Image 图像生成的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "bc4f41907d3d17e2",
-          "display_text": "系统就绪"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.439095d8893218f4",
       "label": "ic-alert",
       "reason": "non-root <ic-alert> element",
@@ -54869,26 +53590,6 @@
           "source": "html",
           "id": "439095d8893218f4",
           "display_text": "账号操作结果"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.7350883c0537d29c",
-      "label": ".page-alert",
-      "reason": "non-root <ic-alert> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 35,
-          "context": "<ic-alert id=\"pageAlert\" class=\"page-alert\" tone=\"neutral\" dismissible hidden>Angle 工作台状态</ic-alert>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "7350883c0537d29c",
-          "display_text": "Angle 工作台状态"
         }
       ]
     },
@@ -54933,45 +53634,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.4850b5ded6c80015",
-      "label": "span",
-      "reason": "alert descendant: text",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 67,
-          "context": "<ic-alert id=\"generationAlert\" tone=\"danger\" hidden><span id=\"generationAlertText\">增强失败</span></ic-alert>",
-          "surface": "图片增强",
-          "area": "页面操作区",
-          "scenario": "在图片增强的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "4850b5ded6c80015",
-          "display_text": "增强失败"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.9c37a545cb05066d",
-      "label": "ic-alert",
-      "reason": "non-root <ic-alert> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 67,
-          "context": "<ic-alert id=\"generationAlert\" tone=\"danger\" hidden><span id=\"generationAlertText\">增强失败</span></ic-alert>",
-          "surface": "图片增强",
-          "area": "页面操作区",
-          "scenario": "在图片增强的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "9c37a545cb05066d"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.8e98fc41afe092f3",
       "label": ".batch-error",
       "reason": "non-root <ic-alert> element",
@@ -54992,63 +53654,6 @@
       ]
     },
     {
-      "id": "inventory-exclusion.0d30c2e755ccd982",
-      "label": "ic-loading",
-      "reason": "non-root <ic-loading> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 97,
-          "context": "<ic-loading id=\"generationLoading\" label=\"处理中...\" presentation=\"region\" data-i18n-label=\"studio.processing\"></ic-loading>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "0d30c2e755ccd982"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.20c8dbd3b190af32",
-      "label": "ic-progress",
-      "reason": "non-root <ic-progress> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 98,
-          "context": "<ic-progress id=\"cloudProgress\" label=\"等待中...\" value=\"0\" max=\"100\" value-text=\"0%\" data-i18n-label=\"studio.pending\" hidden></ic-progress>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "20c8dbd3b190af32"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.835899cf4f5fbdae",
-      "label": "ic-loading",
-      "reason": "non-root <ic-loading> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/angle.html",
-          "line": 130,
-          "context": "<ic-loading id=\"archiveLoading\" label=\"正在加载归档...\" presentation=\"region\"></ic-loading>",
-          "surface": "视角生成",
-          "area": "页面操作区",
-          "scenario": "在视角生成的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "835899cf4f5fbdae"
-        }
-      ]
-    },
-    {
       "id": "inventory-exclusion.9089523516b5428b",
       "label": ".ws-board-loading",
       "reason": "non-root <ic-loading> element",
@@ -55064,25 +53669,6 @@
           "scenario": "在画布管理的页面操作区中向用户展示“该控件”状态。",
           "source": "html",
           "id": "9089523516b5428b"
-        }
-      ]
-    },
-    {
-      "id": "inventory-exclusion.dd61e6c23d7455b8",
-      "label": "ic-loading",
-      "reason": "non-root <ic-loading> element",
-      "inventorySource": "docs/design-system/components/phase-2.json",
-      "instanceCount": 1,
-      "sources": [
-        {
-          "file": "static/enhance.html",
-          "line": 66,
-          "context": "<ic-loading id=\"loadingState\" presentation=\"region\" label=\"正在计算像素\" data-i18n-label=\"studio.computingPixels\" hidden></ic-loading>",
-          "surface": "图片增强",
-          "area": "页面操作区",
-          "scenario": "在图片增强的页面操作区中向用户展示“该控件”状态。",
-          "source": "html",
-          "id": "dd61e6c23d7455b8"
         }
       ]
     },

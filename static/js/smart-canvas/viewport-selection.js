@@ -268,8 +268,7 @@ function smartViewportSelectionApply({persist=true}={}){
     // Scaled backdrop filters are rasterized before transform in Blink and
     // become visibly soft. The class keeps cards crisp while zoomed.
     world.classList.toggle('canvas-scaled', Math.abs(viewport.scale - 1) > 0.001);
-    shell.style.backgroundSize = '24px 24px';
-    shell.style.backgroundPosition = '0 0';
+    shell.querySelector?.('ic-canvas-grid')?.setViewport(viewport);
     if(smartAnnotationStroke) renderSmartAnnotationPreview();
     smartViewportSelectionUpdateMinimapViewport();
     smartViewportSelectionScheduleMinimap();

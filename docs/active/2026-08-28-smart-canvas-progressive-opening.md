@@ -3,8 +3,8 @@
 - **Status**：Implemented
 - **Feature ID**：F05 / F06
 - **Owners**：产品 / 交互 / 前端 / 后端 / 测试
-- **Last verified**：2026-08-29（补充验证顶层 Image Studio Light DOM 首帧隔离、40ms 快速完整响应下的最短骨架停留、320ms 过渡、无持久化宽高的图片 / Prompt Node、Generation Output 旧画廊迁移、延迟 Viewport Restore，以及强刷时本地待同步 Node 改动恢复后的首帧尺寸与位置连续性）
-- **Applies to**：Issue #195
+- **Last verified**：2026-09-26（补齐打开期间的可见品牌加载状态，并回归既有渐进骨架、Viewport Restore 和本地待同步 Node 恢复）
+- **Applies to**：Issue #195、[LAZ-65](https://linear.app/lazyq/issue/LAZ-65)
 - **Supersedes**：无
 - **Superseded by**：无
 - **Related ADRs**：[ADR-0002：UI Family Module Ownership](../adr/0002-ui-family-module-ownership.md)
@@ -14,7 +14,7 @@
 
 Smart Canvas 当前必须等待页面模块、提示词模板、运行配置与完整 Canvas 文档依次加载后，才首次渲染 Node。网络或本地存储响应变慢时，用户会先看到尚未升级的 Custom Element Light DOM；组件升级后又会经历一段只有背景、没有 Node 轮廓的空白期。现有远景 LOD 占位是已加载 Node 的性能表达，不能代表“Canvas 正在打开”。
 
-打开过程改为显式的渐进状态机：组件未就绪时只显示稳定背景；组件就绪后显示可交互外壳；服务器先发送同一权限校验、同一 Canvas 快照的 Node 轮廓，页面显示只读骨架；完整文档到达后一次性建立权威 `nodes` 和连接，再由真实 Node 替换骨架。媒体资源独立解码并淡入，不阻塞 Node 结构出现。
+打开过程使用显式的渐进状态机：组件未就绪时显示主题背景、静态品牌标志与“正在准备画布…”；公共组件就绪后复用品牌加载循环，页面外壳可见但编辑尚未开放。服务器先发送同一权限校验、同一 Canvas 快照的 Node 轮廓，页面显示只读骨架，品牌加载提示维持居中位置与尺寸；完整文档到达后一次性建立权威 `nodes` 和连接，再由真实 Node 替换骨架并关闭加载提示。媒体资源独立解码并淡入，不阻塞 Node 结构出现。
 
 骨架是瞬时 Presentation，不是 Node，不进入 Canvas Sync、Canvas Mutation、Undo、Realtime、Selection、Minimap、LOD 或持久化。
 
@@ -22,7 +22,7 @@ Smart Canvas 当前必须等待页面模块、提示词模板、运行配置与�
 
 ### Goals
 
-- 页面模块完成前不暴露未升级的 Custom Element 内容、破图、原始菜单项或无样式文字。
+- 页面模块完成前只显示明确设计的品牌加载回退，不暴露其他未升级的 Custom Element 内容、破图、原始菜单项或无样式文字。
 - Canvas 打开不再串行等待提示词模板和运行配置；互不依赖的启动工作并行执行。
 - 使用真实 Canvas Node 的稳定标识和几何轮廓显示骨架，不凭空构造业务内容。
 - 轮廓与完整文档来自一次授权读取的同一版本，避免两次请求之间发生修订错位。
@@ -50,12 +50,12 @@ Smart Canvas 当前必须等待页面模块、提示词模板、运行配置与�
 
 | Phase | Entry | Visible result | Exit |
 | --- | --- | --- | --- |
-| `booting` | HTML 开始解析 | 主题正确的稳定背景；应用外壳与未升级组件不可见 | 必需 UI 模块已定义 |
-| `awaiting-outline` | UI 模块就绪 | 完整页面外壳与空画布；Node 编辑能力未就绪 | 收到 `canvas_outline` 或空 Canvas 的完整文档 |
-| `skeleton` | 收到非空 Node 轮廓 | World 坐标中的只读 Node 骨架；无 Selection、连接和操作入口 | 收到完整文档 |
-| `hydrating` | 完整文档已解析 | 建立权威 Canvas 状态并执行现有渲染；骨架短暂覆盖以避免空帧 | 首次真实 Node 渲染完成 |
-| `ready` | 首次真实渲染完成 | 骨架淡出并移除；正常 Canvas 交互开放 | 页面离开或致命打开错误 |
-| `error` | 必需模块失败、响应非法或打开失败 | 隐藏半初始化外壳，显示错误说明和“重试”动作 | 用户重试或离开 |
+| `booting` | HTML 开始解析 | 主题背景、居中品牌标志与可见状态文字；组件升级前使用静态标志，其他未升级组件不可见 | 必需 UI 模块已定义 |
+| `awaiting-outline` | UI 模块就绪 | 页面外壳与居中品牌加载提示；Node 编辑能力未就绪，空轮廓或完整 GET 回退也保持提示 | 收到 `canvas_outline` 或空 Canvas 的完整文档 |
+| `skeleton` | 收到非空 Node 轮廓 | World 坐标中的只读 Node 骨架；品牌加载提示保持居中，不加全屏遮罩；无 Selection、连接和操作入口 | 收到完整文档 |
+| `hydrating` | 完整文档已解析 | 建立权威 Canvas 状态并执行现有渲染；保留原位置的加载提示与短暂骨架 | 首次真实 Node 渲染完成 |
+| `ready` | 首次真实渲染完成 | 关闭品牌加载提示，骨架淡出并移除；正常 Canvas 交互开放 | 页面离开或致命打开错误 |
+| `error` | 必需模块失败、响应非法或打开失败 | 关闭品牌加载提示，隐藏半初始化外壳，显示错误说明和“重试”动作 | 用户重试或离开 |
 
 状态记录在 `document.documentElement.dataset.canvasOpeningPhase`，仅用于页面表现、诊断和自动化验收。`Node Review Fixture` 保持独立入口，不经过网络打开状态机。
 
@@ -102,7 +102,7 @@ Content-Type: application/x-ndjson
 - `static/js/smart-canvas/canvas-opening.js`：拥有打开状态机、NDJSON 增量读取、骨架 Presentation、回退和重试表面。
 - `static/js/smart-canvas/canvas-persistence.js`：继续拥有完整 Canvas 文档进入现有客户端状态的边界；通过 Opening 模块取得完整文档，并向 Opening 提供只含数据变换的本地待同步改动投影，不接触骨架 DOM。
 - `static/js/smart-canvas.js`：编排启动并行任务，在首次真实渲染完成后通知 Opening 模块进入 `ready`。
-- `static/js/infinite-canvas-ui/feedback-progress.js`：继续提供公共 `ic-skeleton` 原语；不增加 Smart Canvas 业务状态。
+- `static/js/infinite-canvas-ui/feedback-progress.js`：提供公共 `ic-skeleton` 与品牌 `ic-loading` 原语；不增加 Smart Canvas 业务状态。
 
 Opening 模块对页面暴露小型 Interface：`open({canvasId, outlineReady, outlineTransform})` 返回完整 Canvas 文档；可选的 `outlineReady` 约束首次 Paint，可选的 `outlineTransform` 在绘制前叠加由 Canvas Persistence 提供的本地恢复投影；`ready()` 完成骨架到真实 Node 的过渡，`fail(error)` 显示可重试错误。调用方不传入 Node Store、Mutation、Undo 或 Realtime 对象。
 
@@ -129,6 +129,8 @@ Viewport Restore 和 Opening 网络读取保持并行；只有轮廓首次 Paint
 - 为限制超大 Canvas 的瞬时 DOM 成本，Opening Stream 仍携带全部小型几何投影，但页面按稳定文档顺序最多物化 240 个骨架；完整文档继续交给既有虚拟化显示全部 Node。
 - 骨架沿用 Node 外框、Header 与内容区的大致比例，以 `ic-skeleton` 和语义 Token 表达；不显示虚假标题、图片、连接、按钮或数量。
 - 骨架层使用 `pointer-events: none`、`aria-hidden="true"`；打开阶段通过既有或页面级 `role="status"` 提供一次简短状态，不逐个朗读骨架。
+- `#canvasOpeningStatus` 是可见的双语状态文字，保留 `role="status"` 与 `aria-live="polite"`；品牌标志作为 `aria-hidden` 装饰，使用公共 `ic-loading[loading-animation="brand"]` 的循环。升级前以 `logo.svg` 蒙版和主题文字色显示静态标志；355 单位 Logo 按共享动画的 403 单位视框留白居中，避免组件升级时缩小跳变。只有加载区是 Boot Guard 的可见例外；菜单、裁剪源图及其他未升级内容继续隐藏。
+- 页面级提示由既有 Phase 决定显示，不在阶段切换时改变位置或尺寸，位于 World 之外，不写入 Canvas，不接收指针或焦点，不增加额外最低等待时长。`ready` / `error` 隐藏加载区，公共加载器随可见性暂停；系统或页面 Reduced Motion 保留静态标志与可见状态。
 - Light/Dark 使用相同层级与尺寸，只切换语义 Surface、Border、Skeleton Base/Highlight。
 - 窄窗口保持 Canvas 坐标和 Viewport 行为，不把骨架重排成列表。
 - `prefers-reduced-motion: reduce` 下关闭 Shimmer、媒体淡入和骨架淡出；状态仍按相同顺序切换。
@@ -144,16 +146,16 @@ Viewport Restore 和 Opening 网络读取保持并行；只有轮廓首次 Paint
 
 ## 8. Acceptance and verification
 
-1. 将公共 UI Core 延迟至少 1.5 秒时，页面只显示稳定背景；`referenceGenerateMenu`、`upstreamInputMenu` 和 `smartTitle` 的原始 Light DOM 不可见。
+1. 延迟公共 UI Core 时，页面显示稳定主题背景、静态品牌标志与加载状态；`referenceGenerateMenu`、`upstreamInputMenu` 和 `smartTitle` 的原始 Light DOM 不可见。Core 请求失败后加载提示关闭，显示可重试错误。
 2. UI Core 就绪后，页面进入 `awaiting-outline`；Canvas Opening 请求不等待 Prompt Templates 或 Runtime Config 完成。
 3. 服务端延迟完整文档时，先可见与真实 Node 几何对应的骨架；包括没有持久化 `w/h`、但可由媒体比例或 Node 默认布局计算尺寸的 Node，骨架与首次真实 Node 的宽高误差不超过 `1px`。非默认 Viewport 延迟返回时，骨架首次 Paint 的 World transform、屏幕位置和屏幕尺寸也与真实 Node 一致。此时 `nodes` 未提交，DOM 中不存在真实 `.image-node`。
 4. 完整文档到达后，`revision` 和 `canvas_id` 通过一致性检查，现有 Canvas Persistence 只接收一次完整文档。
 5. 首次真实 Node 渲染完成后骨架淡出并从 DOM 删除，状态为 `ready`；Selection、Undo、Realtime 与持久化记录中没有骨架。
-6. 空 Canvas 不显示伪 Node 骨架，并从 `awaiting-outline` 正常进入 `ready`。
+6. 空 Canvas 不显示伪 Node 骨架；完整文档未返回前保留品牌加载提示，并从 `awaiting-outline` 正常进入 `ready` 后关闭。流式回退等待也遵循同一规则。
 7. 预览图片延迟时 Node 结构先出现、媒体区域保持骨架；Decode 成功后图片淡入，预览失败仍可回退原资源。
 8. 流式表面不可用时回退既有完整 GET，Canvas 仍能打开；流中断或事件不一致时不显示半份 Canvas，并提供重试。
-9. Light、Dark 与 Reduced Motion 的计算样式符合语义 Token 和动效规则；窄窗口没有页面级横向溢出。
-10. 真实浏览器无未捕获异常、原始组件闪现、重复 Node、重复连接或错误 Canvas Mutation。
+9. Boot 到骨架 / Hydrate 的加载标志位置及盒子尺寸误差小于 1px；静态回退与动画视框内 Logo 的几何映射误差小于 0.1px。Light、Dark 与 Reduced Motion 的计算样式符合语义 Token 和动效规则；加载期间中英文可即时切换，系统和页面减少动态效果均静态保持，恢复正常偏好后继续动画；390px 窄窗口没有页面级横向溢出。
+10. 真实浏览器无未捕获异常、原始组件闪现、重复 Node、重复连接或错误 Canvas Mutation。从 App Shell 内的列表进入时，首帧前完成全宽布局；侧栏展开与收起两种起点下，品牌标志及 iframe 的屏幕位置、尺寸波动均小于 1px。返回列表恢复侧栏并保留展开偏好。
 11. 会在 Hydrate 时拆分的旧 Generation Output Gallery 不显示聚合骨架；拆分后的 Image Node 正常出现。单结果 Generation Output 的骨架与真实位置 / 尺寸误差不超过 `1px`。
 12. 强刷时若本地待同步记录把服务端旧的横向 Generation Output 更新为竖向单结果，骨架在首次 Paint 前应用该记录；其位置与宽高相对恢复后的真实 Node 误差不超过 `1px`，不得先显示服务端旧尺寸。
 
@@ -173,4 +175,23 @@ Viewport Restore 和 Opening 网络读取保持并行；只有轮廓首次 Paint
 - `node tests/smart_canvas_node_components_browser_smoke.cjs`：公共 Canvas Node 的十种角色、Light / Dark 与 Node Review Fixture 回归通过，无页面异常。
 - JS 语法、`git diff --check`、PROJECT-MAP 链接 / Feature Registry 与 Project Layout 定向检查通过。
 
+补充验证（2026-09-26，LAZ-65）：
+
+- `node tests/issue_195_smart_canvas_opening_browser_smoke.cjs` 新增可见加载断言，修改前在 Boot 阶段以 `loadingVisible=false` 失败；原因是 Boot Guard 隐藏全部后代，同时状态文字被裁为 1px 的读屏内容。修改后同一回归通过，覆盖静态首帧回退、骨架阶段继续加载、空轮廓等待、延迟完整 GET 回退、就绪后隐藏、403 和 Core 模块失败后退出加载。
+- 同一真实 Chrome 回归验证 390px 窄屏、中英文即时切换、Light/Dark、品牌运动、系统及页面 Reduced Motion 静态保持与恢复；截图人工核对通过。原有 40ms 完整响应、最短骨架停留、几何一致、Viewport Restore、本地待同步恢复和错误焦点回归仍通过。启动并行断言检查 Opening 请求早于 Config 响应，不约束并行请求谁先发出。
+- `.venv/bin/python -m unittest tests.test_canvas_opening tests.test_core_creation_i18n tests.test_smart_canvas_module_loading tests.test_documentation_knowledge_map tests.test_design_tokens_ui.DesignTokensUiRegressionTests.test_every_html_entry_loads_tokens_before_page_styles tests.test_design_tokens_ui.DesignTokensUiRegressionTests.test_every_html_entry_declares_a_ui_scope`：25 项通过；i18n 3885 键、统一前端资源检查与 `git diff --check` 通过。
+- 当时扩大至完整 `tests.test_design_tokens_ui` 的 42 项组合检查中，41 项通过，1 项因独立更新提示原型的 placeholder 未使用公共 Token 而失败。2026-09-27 提交整理时已移除该原型；此前的失败记录不代表当前工作区仍有该阻塞。
+
+追加位置与尺寸回归（2026-09-26，LAZ-65）：`node tests/issue_195_smart_canvas_opening_browser_smoke.cjs` 新增阶段间边界检查，修复前复现加载标志 x 从 700 跳到 631；修复后 Boot、等待轮廓和骨架阶段保持同一布局，通过小于 1px 的位置及尺寸检查。延迟 Core 时的静态回退按共享动画视框留边，与升级后静止 Logo 的绘制范围误差小于 0.1px；上述完整 Chrome 回归通过。
+
 Remaining gates：Windows / Linux 浏览器中的首次 Paint、流式代理缓冲与 Pointer / Keyboard 人工确认；Windows 由 Issue #214 跟踪。功能保持 Active `Implemented`，不在这些跨平台门槛完成前晋升 Current。
+
+### App Shell transition verification (2026-09-26, LAZ-65)
+
+The standalone Canvas regression missed the outer iframe layout transition. In the user's actual Chrome tab, Boot painted the 40x40 brand at x=846.997; iframe load then hid the 72px sidebar and moved it to x=811.111. The complete fixture with an expanded 232px sidebar reproduced a 115.885px shift.
+
+Canvas and list now synchronously call the shell from their head before first paint. The shell accepts only its own Canvas frame and derives layout from its actual same-origin route; the existing load handler remains a fallback. Standalone pages or other hosts without the interface continue normally.
+
+`node tests/canvas_opening_shell_browser.cjs --serve` exposes the production shell, list and Canvas with delayed Core and document responses, recording bounds every animation frame. Chrome plugin verification: before the fix, pass=false with a 115.885px x range; after the fix, both expanded and collapsed sidebar cases pass with zero variation in brand x/y/width/height and iframe bounds. Returning to the list restores navigation. In the actual user tab, Boot, awaiting-outline, skeleton and hydrating all measured x=811.111, y=417.387, width=40, height=40. Temporary production instrumentation was removed.
+
+Targeted Python suites `tests.test_studio_shell_ui tests.test_smart_canvas_module_loading tests.test_core_creation_i18n tests.test_documentation_knowledge_map`: 45 passed. i18n: 3886 keys passed; no new product copy. Existing cross-platform gates remain unchanged.

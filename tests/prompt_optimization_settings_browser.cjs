@@ -93,7 +93,7 @@ function startServer(){
    await page.evaluate(()=>{const picker=document.querySelector('#optimizationMedia');picker.value='repair';picker.dispatchEvent(new Event('change',{bubbles:true}));});
    assert.equal(await page.locator('#optimizationModel').isVisible(),false);
    assert.equal(await page.locator('#optimizationPreset option').count(),6);
-   assert.match(await input.inputValue(),/^Fix the hand anatomy/);
+   assert.match(await input.inputValue(),/^Rebuild the hand with exactly five distinct digits/);
    const suffix=page.locator('#repairSuffix').getByRole('textbox');
    await input.fill('Repair the hand only.');await suffix.fill('Keep the style.');
    await page.locator('#saveOptimizationSettings').getByRole('button').click();
@@ -106,7 +106,7 @@ function startServer(){
    assert.equal(await page.locator('#optimizationPreset').getAttribute('label'),'修复预设');
    assert.equal(await input.inputValue(),'Repair the hand only.');
    await page.locator('#restoreInstructions').getByRole('button').click();
-   assert.match(await input.inputValue(),/^Fix the hand anatomy/);
+   assert.match(await input.inputValue(),/^Rebuild the hand with exactly five distinct digits/);
    assert.match(await suffix.inputValue(),/^Only repair the defective area/);
    fail=true;await input.fill('Unsaved edits');await page.locator('#saveOptimizationSettings').getByRole('button').click();
    await page.waitForFunction(()=>document.querySelector('#settingsMessage').getAttribute('tone')==='danger');

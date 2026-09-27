@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>try { if(window.parent !== window) window.parent.syncStudioCanvasFrameLayout?.(window); } catch (_) {}</script>
     <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
     <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
     <title data-i18n="workspace.pageTitle">项目工作台</title>
@@ -20,8 +21,8 @@
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-229960edad6d"></script>
-    <link rel="stylesheet" href="/static/css/canvas-list.css?v=asset-5cc081991c3f">
+    <script src="/static/js/i18n.js?v=asset-26175754df27"></script>
+    <link rel="stylesheet" href="/static/css/canvas-list.css?v=asset-06c7991da059">
     <link rel="stylesheet" href="/static/css/account-avatar.css?v=asset-e1cd44d31e57">
     <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
 </head>
@@ -63,7 +64,7 @@
                     <ic-button id="newCanvasBtn" class="ws-primary-btn" type="button" hierarchy="primary"><ic-icon slot="start" name="add" aria-hidden="true"></ic-icon><span data-i18n="workspace.newCanvas">新建画布</span></ic-button>
                 </ic-toolbar>
                 <div id="boardWorld" class="ws-board-world"></div>
-                <ic-loading id="boardLoading" class="ws-board-loading" label="正在加载画布" presentation="region" loading-animation="brand"></ic-loading>
+                <ic-loading id="boardLoading" class="ws-board-loading" label="正在加载画布" data-i18n-label="workspace.loadingCanvases" presentation="region" loading-animation="brand"></ic-loading>
                 <ic-empty-state id="boardEmptyHint" class="ws-board-empty hidden" title="暂无画布" label="画布列表为空">
                     <ic-icon slot="illustration" name="pointer" size="large" aria-hidden="true"></ic-icon>
                     <span data-i18n="workspace.createFirst">为当前项目创建第一块画布</span>
@@ -106,9 +107,9 @@
         </div>
     </ic-popover>
 
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-262aee243b7e"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-92138d839445"></script>
     <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db"></script>
     <script src="/static/js/canvas-list-presence.js?v=asset-1b9a85388f49"></script>
-    <script src="/static/js/canvas-list.js?v=asset-db6f833049cf"></script>
+    <script src="/static/js/canvas-list.js?v=asset-818015712737"></script>
 </body>
 </html>

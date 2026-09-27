@@ -74,8 +74,7 @@ const VOLCENGINE_DEFAULT_REGION = 'cn-beijing';
 const MS_BUILTIN_IMAGE_MODELS = [
     'Tongyi-MAI/Z-Image-Turbo',
     'Qwen/Qwen-Image-2512',
-    'Qwen/Qwen-Image-Edit-2511',
-    'black-forest-labs/FLUX.2-klein-9B'
+    'Qwen/Qwen-Image-Edit-2511'
 ];
 const MS_DEFAULT_BASE_URL = 'https://api-inference.modelscope.cn/v1';
 const RH_DEFAULT_BASE_URL = 'https://www.runninghub.cn';

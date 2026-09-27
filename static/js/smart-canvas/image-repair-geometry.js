@@ -19,13 +19,16 @@
         };
         return entries.map((entry, index) => ({entry,index})).sort((a,b) => score(a.entry)-score(b.entry) || a.index-b.index)[0]?.entry || null;
     }
+    const supportedRatios = Object.freeze(['1:1','2:3','3:2','16:9','9:16']);
+    const allowedRatios = ratios => supportedRatios.filter(ratio=>(ratios||[]).includes(ratio));
     function crop(bounds, width, height, ratios, preferred=''){
         if(!bounds || !(width > 0 && height > 0)) return null;
         const x = clamp(bounds.x, 0, width), y = clamp(bounds.y, 0, height);
         const w = clamp(bounds.width, 1, width-x || 1), h = clamp(bounds.height, 1, height-y || 1);
         const margin = Math.max(32, Math.min(w,h)*.35);
         const desiredW = Math.min(width, w+margin*2), desiredH = Math.min(height,h+margin*2);
-        const choices = (preferred ? ratios.filter(r=>r===preferred) : ratios).map(ratio=>{
+        ratios = allowedRatios(ratios);
+        const choices = (ratios.includes(preferred) ? [preferred] : ratios).map(ratio=>{
             const [a,b] = ratio.split(':').map(Number);
             if(!(a>0 && b>0)) return null;
             const step = Math.ceil(Math.max(desiredW/a,desiredH/b));
@@ -33,7 +36,8 @@
             const cx = Math.round(x+w/2-cw/2), cy = Math.round(y+h/2-ch/2);
             return {ratio, x:cw<=width?clamp(cx,0,width-cw):cx, y:ch<=height?clamp(cy,0,height-ch):cy, width:cw,height:ch};
         }).filter(Boolean).filter(box=>box.width*box.height<=40000000 && Math.max(box.width,box.height)<=30000);
-        choices.sort((a,b)=>(a.width*a.height-b.width*b.height));
+        const distance = box => Math.abs(Math.log((box.width/box.height)/(w/h)));
+        choices.sort((a,b)=>distance(a)-distance(b) || a.width*a.height-b.width*b.height);
         return choices[0] || null;
     }
     // Resize around the center, preserving the model ratio and all selected pixels.
@@ -80,5 +84,5 @@
         return {x:Math.round(current.x+(current.width-width)/2),y:Math.round(current.y+(current.height-height)/2),width,height};
     }
     root.SmartCanvasModules = root.SmartCanvasModules || {};
-    root.SmartCanvasModules.imageRepairGeometry = Object.freeze({relativeBounds,crop,resize,edge,nearestResolution,preferredModel,featherAlpha,scaled});
+    root.SmartCanvasModules.imageRepairGeometry = Object.freeze({supportedRatios,allowedRatios,relativeBounds,crop,resize,edge,nearestResolution,preferredModel,featherAlpha,scaled});
 })(typeof window==='undefined'?globalThis:window);

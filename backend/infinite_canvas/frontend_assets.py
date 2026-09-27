@@ -6,6 +6,7 @@ from pathlib import Path
 
 from starlette.datastructures import QueryParams
 from starlette.staticfiles import StaticFiles
+from starlette.responses import RedirectResponse
 
 
 @lru_cache(maxsize=4)
@@ -24,6 +25,8 @@ def frontend_revision(manifest: Path) -> str:
 
 class FrontendStaticFiles(StaticFiles):
     async def get_response(self, path, scope):
+        if path in {'zimage.html', 'enhance.html', 'klein.html', 'angle.html'}:
+            return RedirectResponse('/', status_code=307, headers={'Cache-Control': 'no-cache'})
         response = await super().get_response(path, scope)
         version = QueryParams(scope.get('query_string', b'').decode()).get('v', '')
         if path.endswith('.html'):

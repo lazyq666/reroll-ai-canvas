@@ -3,6 +3,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const sharp = require('sharp');
 
 const ROOT = path.resolve(__dirname, '..');
 const CHROME = process.env.IC_BROWSER_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -116,12 +117,24 @@ async function inspectPage(cdp, sessionId, url, theme, parentSelector) {
     "customElements.get('ic-canvas-grid') && document.querySelector('ic-canvas-grid')?.dataset.icContractStatus === 'ready'",
     `${url} canvas grid`,
   );
-  return evaluate(cdp, sessionId, `(() => {
+  await waitFor(
+    cdp, sessionId, parentSelector === '#shell'
+      ? "document.documentElement.dataset.canvasOpeningPhase === 'ready'"
+      : "document.getElementById('board')?.getAttribute('aria-busy') === 'false'",
+    `${url} page ready`,
+  );
+  await evaluate(cdp, sessionId, `(() => {
+    Object.assign(viewport, {x:0, y:0, scale:1});
+    ${parentSelector === '#shell' ? 'window.SmartCanvasModules.viewportSelection.viewport.apply({persist:false})' : 'applyViewport()'};
+  })()`);
+  const report = await evaluate(cdp, sessionId, `(() => {
     const parent = document.querySelector(${JSON.stringify(parentSelector)});
     const grid = parent?.querySelector(':scope > ic-canvas-grid');
     const parentRect = parent.getBoundingClientRect();
     const gridRect = grid.getBoundingClientRect();
     const style = getComputedStyle(grid);
+    const pattern = grid.shadowRoot.querySelector('pattern');
+    const dot = grid.shadowRoot.querySelector('circle');
     const parentStyle = getComputedStyle(parent);
     const hit = document.elementFromPoint(parentRect.left + parentRect.width / 2, parentRect.top + parentRect.height / 2);
     return {
@@ -130,9 +143,11 @@ async function inspectPage(cdp, sessionId, url, theme, parentSelector) {
       ready: grid.dataset.icContractStatus,
       ariaHidden: grid.getAttribute('aria-hidden'),
       pointerEvents: style.pointerEvents,
+      visibility: style.visibility,
       backgroundColor: style.backgroundColor,
-      backgroundImage: style.backgroundImage,
-      backgroundSize: style.backgroundSize,
+      dotColor: getComputedStyle(dot).fill,
+      gap: Number(pattern.getAttribute('width')),
+      radius: Number(dot.getAttribute('r')),
       parentBackgroundImage: parentStyle.backgroundImage,
       fillsParent: Math.abs(parentRect.left - gridRect.left) < 1
         && Math.abs(parentRect.top - gridRect.top) < 1
@@ -141,6 +156,62 @@ async function inspectPage(cdp, sessionId, url, theme, parentSelector) {
       hitPassesThrough: hit !== grid,
     };
   })()`);
+  // SVG geometry alone cannot prove that dots reach the screen.
+  // Compare the same empty canvas area with just the grid's paint disabled.
+  const capture = async () => {
+    const { data } = await cdp.send('Page.captureScreenshot', {
+      format: 'png', clip: { x: 300, y: 550, width: 150, height: 150, scale: 1 },
+    }, sessionId);
+    return sharp(Buffer.from(data, 'base64')).resize(150, 150).removeAlpha().raw().toBuffer();
+  };
+  const painted = await capture();
+  await evaluate(cdp, sessionId, "document.querySelector('ic-canvas-grid').shadowRoot.querySelector('svg').style.visibility = 'hidden'");
+  const withoutDots = await capture();
+  await evaluate(cdp, sessionId, "document.querySelector('ic-canvas-grid').shadowRoot.querySelector('svg').style.removeProperty('visibility')");
+  report.dotPixelsVisible = !painted.equals(withoutDots);
+  report.dotContrast = painted.reduce((peak, value, index) => Math.max(peak, Math.abs(value - withoutDots[index])), 0);
+  // At CSS display size, dots must retain at least half the token contrast.
+  // A 0.5px radius can produce nonzero but imperceptible pixels after scaling.
+  const dotColor = Number(report.dotColor.match(/rgb\((\d+)/)?.[1]);
+  const surfaceColor = Number(report.backgroundColor.match(/rgb\((\d+)/)?.[1]);
+  report.minimumDotContrast = Math.abs(dotColor - surfaceColor) / 2;
+  // Exercise the page's viewport owner, not the component in isolation.
+  report.projections = [];
+  for (const scale of [0.5, 2, 1]) {
+    const projection = await evaluate(cdp, sessionId, `(() => {
+      viewport.x = -37.25;
+      viewport.y = 63.5;
+      viewport.scale = ${scale};
+      ${parentSelector === '#shell' ? 'window.SmartCanvasModules.viewportSelection.viewport.apply({persist:false})' : 'applyViewport()'};
+      const grid = document.querySelector('ic-canvas-grid');
+      const pattern = grid.shadowRoot.querySelector('pattern');
+      const dot = grid.shadowRoot.querySelector('circle');
+      const world = document.querySelector('#world, #boardWorld');
+      const matrix = new DOMMatrix(getComputedStyle(world).transform);
+      return { scale: matrix.a, x: matrix.e, y: matrix.f,
+        gap: Number(pattern.getAttribute('width')),
+        offsetX: Number(pattern.getAttribute('x')),
+        offsetY: Number(pattern.getAttribute('y')),
+        radius: Number(dot.getAttribute('r')) };
+    })()`);
+    const scaledDots = await capture();
+    await evaluate(cdp, sessionId, "document.querySelector('ic-canvas-grid').shadowRoot.querySelector('svg').style.visibility = 'hidden'");
+    const scaledSurface = await capture();
+    await evaluate(cdp, sessionId, "document.querySelector('ic-canvas-grid').shadowRoot.querySelector('svg').style.removeProperty('visibility')");
+    projection.dotPixelsVisible = !scaledDots.equals(scaledSurface);
+    report.projections.push(projection);
+  }
+  // A real Ctrl+wheel gesture must update both content and grid together.
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mouseWheel', x: 600, y: 400, deltaX: 0, deltaY: -120, modifiers: 2,
+  }, sessionId);
+  await waitFor(cdp, sessionId, `new DOMMatrix(getComputedStyle(document.querySelector('#world, #boardWorld')).transform).a !== 1`, 'wheel zoom');
+  report.wheelSynced = await evaluate(cdp, sessionId, `(() => {
+    const scale = new DOMMatrix(getComputedStyle(document.querySelector('#world, #boardWorld')).transform).a;
+    const gap = Number(document.querySelector('ic-canvas-grid').shadowRoot.querySelector('pattern').getAttribute('width'));
+    return Math.abs(gap - 20 * scale) < 0.001;
+  })()`);
+  return report;
 }
 
 async function main() {
@@ -148,7 +219,6 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ic-issue-170-grid-'));
   const browser = spawn(CHROME, [
     '--headless=new',
-    '--disable-gpu',
     '--no-first-run',
     '--remote-allow-origins=*',
     '--remote-debugging-port=0',
@@ -163,26 +233,40 @@ async function main() {
     await cdp.send('Runtime.enable', {}, sessionId);
     const baseUrl = `http://127.0.0.1:${server.address().port}`;
     const reports = [];
-    for (const theme of ['light', 'dark']) {
-      reports.push({ page: 'canvas-list', requestedTheme: theme, ...(await inspectPage(cdp, sessionId, `${baseUrl}/static/canvas-list.html`, theme, '#board')) });
-      reports.push({ page: 'smart-canvas', requestedTheme: theme, ...(await inspectPage(cdp, sessionId, `${baseUrl}/static/smart-canvas.html?id=issue-170-grid`, theme, '#shell')) });
+    const pixelRatios = [1, 1.8, 2];
+    for (const pixelRatio of pixelRatios) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', {
+        width: 1662, height: 846, deviceScaleFactor: pixelRatio, mobile: false,
+      }, sessionId);
+      for (const theme of ['light', 'dark']) {
+        reports.push({ page: 'canvas-list', pixelRatio, requestedTheme: theme, ...(await inspectPage(cdp, sessionId, `${baseUrl}/static/canvas-list.html`, theme, '#board')) });
+        reports.push({ page: 'smart-canvas', pixelRatio, requestedTheme: theme, ...(await inspectPage(cdp, sessionId, `${baseUrl}/static/smart-canvas.html?id=issue-170-grid`, theme, '#shell')) });
+      }
     }
     const passed = reports.every(report => report.theme === report.requestedTheme
       && report.component === 'ic-canvas-grid'
       && report.ready === 'ready'
       && report.ariaHidden === 'true'
       && report.pointerEvents === 'none'
-      && report.backgroundImage.startsWith('radial-gradient(')
-      && report.backgroundSize === '15px 15px'
+      && report.visibility === 'visible'
+      && report.dotPixelsVisible
+      && report.dotContrast >= report.minimumDotContrast
+      && report.gap === 20
+      && report.radius === 1
+      && report.wheelSynced
+      && report.projections.every(p => p.dotPixelsVisible && p.gap === 20 * p.scale
+        && p.radius === p.scale
+        && Math.abs(p.offsetX - ((p.x % p.gap) + p.gap) % p.gap) < 0.001
+        && Math.abs(p.offsetY - ((p.y % p.gap) + p.gap) % p.gap) < 0.001)
       && report.parentBackgroundImage === 'none'
       && report.fillsParent
       && report.hitPassesThrough)
-      && ['light', 'dark'].every(theme => {
-        const pair = reports.filter(report => report.theme === theme);
+      && pixelRatios.every(pixelRatio => ['light', 'dark'].every(theme => {
+        const pair = reports.filter(report => report.theme === theme && report.pixelRatio === pixelRatio);
         return pair.length === 2
-          && pair[0].backgroundImage === pair[1].backgroundImage
+          && pair[0].dotColor === pair[1].dotColor
           && pair[0].backgroundColor === pair[1].backgroundColor;
-      });
+      }));
     console.log(JSON.stringify({ passed, reports }, null, 2));
     if (!passed) process.exitCode = 1;
   } finally {

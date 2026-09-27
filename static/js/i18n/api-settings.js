@@ -251,7 +251,7 @@
         "api.loraManagerDesc": { zh: "为 ModelScope 生图模型绑定可用 LoRA。Reroll 画布 MS 节点会按当前模型自动筛选。", en: "Bind available LoRAs to ModelScope image models. Reroll Canvas MS nodes will filter them by the current model." },
         "api.loraEmpty": { zh: "暂无 LoRA，点击右上角添加。添加后会按绑定模型显示在 Reroll 画布 MS 节点里。", en: "No LoRAs yet. Add one from the top-right corner. It will appear in ModelScope nodes in Reroll Canvas when the bound model is selected." },
         "api.loraId": { zh: "LoRA ID", en: "LoRA ID" },
-        "api.loraIdPlaceholder": { zh: "例如 Daniel8152/Klein-enhance", en: "e.g. Daniel8152/Klein-enhance" },
+        "api.loraIdPlaceholder": { zh: "例如 Daniel8152/film", en: "e.g. Daniel8152/film" },
         "api.loraTargetModel": { zh: "绑定模型", en: "Bound model" },
         "api.loraDefaultStrength": { zh: "默认强度", en: "Default strength" },
         "api.fetchModels": { zh: "拉取模型", en: "Fetch models" },

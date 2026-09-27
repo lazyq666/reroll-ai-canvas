@@ -58,6 +58,7 @@ ic-button.ws-trash-entry[size="m"]::part(base) { width:100%; min-height:var(--ui
 .ws-board-loading { position:absolute; left:50%; top:50%; z-index:3; transform:translate(-50%,-50%); padding:var(--ui-space-3) var(--ui-space-4); border-radius:var(--ui-radius-m); background:var(--ui-color-surface); box-shadow:var(--ui-shadow-raised); }
 .ws-board-empty { position:absolute; inset:0; display:grid; place-items:center; width:100%; }
 .ws-board-empty.hidden { display:none; }
+.ws-board[aria-busy="true"] .ws-board-empty { display:none; }
 
 /* ===== Board card ===== */
 .ws-card {

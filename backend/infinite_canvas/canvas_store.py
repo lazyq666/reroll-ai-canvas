@@ -1658,6 +1658,9 @@ class SqliteCanvasStore:
                     {
                         "enabled": True,
                         "lineage_schema": 2,
+                        **({"media_names": copy.deepcopy(document["_realtime"]["media_names"])}
+                           if isinstance(document.get("_realtime"), Mapping)
+                           and isinstance(document["_realtime"].get("media_names"), Mapping) else {}),
                         "tombstones": {},
                         "versions": {},
                     }
@@ -2787,8 +2790,11 @@ class SqliteCanvasStore:
 
         node_row = connection.execute(
             """
-            SELECT payload_json FROM canvas_nodes
-            WHERE canvas_id = ? AND node_id = ?
+            SELECT nodes.payload_json, realtime.payload_json AS naming_json
+            FROM canvas_nodes AS nodes
+            LEFT JOIN canvas_realtime_state AS realtime
+                ON realtime.canvas_id = nodes.canvas_id
+            WHERE nodes.canvas_id = ? AND nodes.node_id = ?
             """,
             (row["canvas_id"], node_id),
         ).fetchone()
@@ -2853,20 +2859,26 @@ class SqliteCanvasStore:
         if node_changed:
             peer_rows = connection.execute(
                 """SELECT payload_json FROM canvas_nodes
-                   WHERE canvas_id = ? AND
-                     (node_id = ? OR json_extract(payload_json, '$.generationBatchId') = ?)""",
-                (row["canvas_id"], node_id, node.get("generationBatchId")),
+                   WHERE canvas_id = ?""",
+                (row["canvas_id"],),
             ).fetchall()
+            naming_state = _json_object(node_row["naming_json"]) if node_row["naming_json"] else {}
             updated_nodes = apply_generation_result_nodes(
                 node,
                 node_changes,
                 [_json_object(peer["payload_json"]) for peer in peer_rows],
                 run_id=str(intent.payload.get("run_id") or ""),
+                naming_state=naming_state,
             )
             statements = [
                 self._node_upsert_statement(str(row["canvas_id"]), updated_node)
                 for updated_node in updated_nodes
             ]
+            statements.append((
+                "INSERT INTO canvas_realtime_state(canvas_id,payload_json) VALUES (?,?) "
+                "ON CONFLICT(canvas_id) DO UPDATE SET payload_json=excluded.payload_json",
+                (row["canvas_id"], _json(naming_state)),
+            ))
             revision += 1
             updated_at = int(self._now_ms())
             statements.append((
@@ -3662,6 +3674,12 @@ class SqliteCanvasStore:
                 )
             if projection.kind == CanvasProjectionKind.FULL_EXPORT:
                 canvas = self._full_canvas(connection, row)
+                naming_row = connection.execute(
+                    "SELECT payload_json FROM canvas_realtime_state WHERE canvas_id = ?", (canvas_id,),
+                ).fetchone()
+                naming_state = _json_object(naming_row["payload_json"]) if naming_row else {}
+                if naming_state.get("media_names"):
+                    canvas["_realtime"] = {"media_names": naming_state["media_names"]}
                 canvas["logs"] = [
                     self._log_detail(connection, item)
                     for item in connection.execute(

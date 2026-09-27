@@ -21,6 +21,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 
+from .media_naming import name_mutation_media
+
+
 NODE_GAP = json.loads((Path(__file__).resolve().parents[2] / "static/js/smart-canvas/layout-constants.json").read_text())["nodeGap"]
 
 REALTIME_META_KEY = "_realtime"
@@ -2675,6 +2678,9 @@ def apply_operation(
                     revision=revision,
                 )
 
+    requested_changes = _clone(changes)
+    if not reverts_operation_id:
+        name_mutation_media(working, changes)
     inverse = _apply_changes(
         working,
         changes,
@@ -2744,7 +2750,7 @@ def apply_operation(
                 ),
             }
             if reverts_operation_id
-            else {"changes": changes}
+            else {"changes": requested_changes}
         ),
     }
     working_state["receipts"][operation_id] = receipt

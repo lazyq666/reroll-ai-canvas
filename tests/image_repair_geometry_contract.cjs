@@ -68,3 +68,14 @@ assert.deepEqual(geometry.relativeBounds({x:100,y:200,width:200,height:100},{x:0
 assert.deepEqual(geometry.relativeBounds({x:0,y:0,width:100,height:100},{x:-100,y:-50,width:400,height:200}),{left:25,top:25,right:50,bottom:75});
 assert.deepEqual(geometry.relativeBounds({x:0,y:0,width:100,height:100},{x:0,y:0,width:100,height:100}),{left:0,top:0,right:100,bottom:100});
 assert.equal(geometry.relativeBounds(null,{width:1,height:1}),null);
+
+const allowed=['1:1','2:3','3:2','16:9','9:16'];
+const advertised=[...allowed,'1:3','3:1','21:9','9:21','4:3'];
+assert.deepEqual(geometry.allowedRatios(advertised),allowed);
+for(const [w,h,ratio] of [[300,100,'16:9'],[100,300,'9:16'],[100,150,'2:3'],[150,100,'3:2'],[100,100,'1:1']]){
+    const box=geometry.crop({x:20,y:20,width:w,height:h},1000,1000,advertised);
+    assert.equal(box.ratio,ratio);
+    assert.ok(box.x<=20&&box.y<=20&&box.x+box.width>=20+w&&box.y+box.height>=20+h);
+}
+assert.equal(geometry.crop({x:10,y:10,width:300,height:100},1000,1000,advertised,'3:1').ratio,'16:9');
+assert.equal(geometry.crop({x:10,y:10,width:300,height:100},1000,1000,['1:3']),null);

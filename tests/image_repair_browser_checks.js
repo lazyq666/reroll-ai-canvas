@@ -20,10 +20,31 @@ window.runImageRepairChecks = async function(){
         await until(()=>$('Status').textContent!==tr('smart.repair.loading'),'editor load');
         await settle();
     };
+    const checkZoom=async()=>{
+        const canvas=$('Canvas'),before=canvas.getBoundingClientRect();
+        const clientX=before.left+before.width*.43,clientY=before.top+before.height*.56;
+        const saved=JSON.stringify(nodes),hiddenZoom=imageEditZoom;
+        for(let i=0;i<4;i++)canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-120,clientX,clientY,bubbles:true,cancelable:true}));
+        await settle();
+        const after=canvas.getBoundingClientRect();
+        assert(Math.abs(after.width/before.width-1.12**4)<.001,'repair wheel enlarges preview');
+        assert(Math.abs((clientX-after.left)/after.width-.43)<.001&&Math.abs((clientY-after.top)/after.height-.56)<.001,'zoom stays anchored at pointer');
+        assert(JSON.stringify(nodes)===saved&&imageEditZoom===hiddenZoom,'view zoom does not mutate drafts, recipe or hidden editor');
+        const panelWheel=new WheelEvent('wheel',{deltaY:120,bubbles:true,cancelable:true});
+        $('Prompt').dispatchEvent(panelWheel);
+        assert(!panelWheel.defaultPrevented&&canvas.getBoundingClientRect().width===after.width,'panel wheel stays native and does not zoom');
+        canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:120,clientX,clientY,bubbles:true,cancelable:true}));
+        await settle();
+        assert(canvas.getBoundingClientRect().width<after.width,'wheel zooms back out');
+        return before.width;
+    };
     try {
         window.StudioI18n.set('zh');
         await open('layer-source');
+        const fittedWidth=await checkZoom();
         assert($('Model').value==='flagship','flagship model preference');
+        assert($('Settings').getAttribute('ratio-presets')==='adaptive,1:1,2:3,3:2,16:9,9:16','only five repair aspect ratios');
+        assert(window.SmartCanvasModules.modelCapabilities.errorMessage({code:'repair_aspect_mismatch'}).includes('未裁切或回贴'),'Chinese aspect failure');
         $('Settings').dispatchEvent(new CustomEvent('ic-change',{detail:{field:'ratio',value:'adaptive'}}));
         $('Clear').click();$('Rectangle').click();
         const canvas=$('Canvas'),rect=canvas.getBoundingClientRect();
@@ -40,7 +61,7 @@ window.runImageRepairChecks = async function(){
         assert($('Settings').localName==='ic-generation-settings-picker','composer size picker');
         assert($('Presets').children.length===6,'six preset tags');
         $('Presets').querySelector('[data-preset="hand"]').click();
-        assert($('Prompt').value.startsWith('Fix the hand anatomy: exactly five fingers'),'preset content');
+        assert($('Prompt').value.startsWith('Rebuild the hand with exactly five distinct digits'),'preset content');
         assert($('Prompt').value.endsWith('Do not redesign unaffected areas.'),'shared suffix');
         assert($('Prompt').value.includes('Keep the repaired area precisely aligned with the source image.'),'suffix keeps spatial alignment');
         const wheel=new WheelEvent('wheel',{deltaY:120,bubbles:true,composed:true,cancelable:true});
@@ -50,6 +71,7 @@ window.runImageRepairChecks = async function(){
         window.StudioI18n.set('en');
         assert($('Presets').firstElementChild.textContent==='Hand anatomy / extra fingers','preset language switch');
         assert($('Settings').getAttribute('adaptive-label')==='Auto frame','picker language switch');
+        assert(window.SmartCanvasModules.modelCapabilities.errorMessage({code:'repair_aspect_mismatch'}).includes('It was not cropped or applied'),'English aspect failure');
         window.StudioI18n.set('zh');
         edit('Prompt','Remove the dark mark','input');
         await settle();
@@ -58,6 +80,7 @@ window.runImageRepairChecks = async function(){
         assert(!$('Generate').disabled,'redo restores selection');
         const initialDraft=nodes.find(n=>n.id==='layer-source').localRepairDrafts['layer-source-media'];
         const crop=initialDraft.box;
+        assert(Math.abs(initialDraft.strokes[0].points[0].x-380)<1&&Math.abs(initialDraft.strokes[0].points[0].y-400)<1,'zoomed selection uses original image pixels');
         const edgeX=(crop.x+crop.width)/1000,edgeY=(crop.y+crop.height/2)/800;
         canvas.setPointerCapture=()=>{};
         pointer('pointerdown',edgeX,edgeY);pointer('pointermove',edgeX+.08,edgeY);pointer('pointerup',edgeX+.08,edgeY);
@@ -77,6 +100,7 @@ window.runImageRepairChecks = async function(){
         $('Transparent').checked=true;$('Transparent').dispatchEvent(new Event('change',{bubbles:true}));
         $('Settings').dispatchEvent(new CustomEvent('ic-change',{detail:{field:'resolution',value:'2K'}}));
         editor.close();await open('layer-source');
+        assert(Math.abs($('Canvas').getBoundingClientRect().width-fittedWidth)<1,'reopen resets viewing zoom');
         assert($('Transparent').checked&&$('Settings').resolution==='2K','output options survive reopen');
         assert($('Count').value==='3','count survives reopen');
         assert($('CropSize').textContent===expandedSize,'selection draft survives reopen');
@@ -122,6 +146,7 @@ window.runImageRepairChecks = async function(){
         const expectedScope=trf('smart.repair.scopeInstruction',window.SmartCanvasModules.imageRepairGeometry.relativeBounds(selection,request.local_repair.crop));
         assert(request.prompt==='Remove the dark mark\n\n'+expectedScope,'exact rectangle coordinates appended once after user prompt');
         await open(result.id);
+        await checkZoom();
         const issues=[];
         if($('Result'))issues.push('cross-result selector remains');
         if(!request.prompt.includes('100%'))issues.push('submitted prompt lacks crop-relative repair coordinates');
@@ -149,6 +174,12 @@ window.runImageRepairChecks = async function(){
         assert(handle.getAttribute('aria-valuenow')==='25'&&Number($('X').value)===savedX,'divider drag does not move repair');
         $('Compare').click();
         assert(handle.hidden,'divider hides when comparison is off');
+        const dragRect=canvas.getBoundingClientRect(),dragStart={x:dragRect.left+dragRect.width*.5,y:dragRect.top+dragRect.height*.5};
+        canvas.setPointerCapture=()=>{};
+        for(const [type,dx] of [['pointerdown',0],['pointermove',7],['pointerup',7]])canvas.dispatchEvent(new PointerEvent(type,{pointerId:5,button:0,bubbles:true,clientX:dragStart.x+dx*dragRect.width/1000,clientY:dragStart.y}));
+        canvas.setPointerCapture=capture;
+        assert(Number($('X').value)===savedX+7,'zoomed patch drag still uses original image pixels');
+        edit('X',savedX);
         const other=outputs.find(n=>n.id!==result.id),originalX=Number($('X').value);
         edit('X',originalX+11);editor.close();await open(other.id);
         assert(Number($('X').value)===originalX,'other node retains independent transform');
@@ -246,7 +277,13 @@ window.runImageRepairChecks = async function(){
             assert($('Editor').hidden===!reopen,'old upload leaves the new editor alone');
             await until(()=>nodes.some(n=>!uploadIds.has(n.id)&&n.images?.some(i=>i.local_repair)),'closed editor upload result delivered');
         }
-        report.textContent='PASS: rectangle/brush scope, single/batch parent links, split comparison, independent nodes, submit close/failure, soft edge mask, icon actions, frame resize, presets, transparent PNG, draft, save, i18n, PSD';
+        editor.close();await open('layer-source');edit('Count',1);
+        const aspectIds=new Set(nodes.map(n=>n.id));
+        assert((await fetch('/fixture/aspect-mismatch-next',{method:'POST'})).ok,'aspect mismatch fixture enabled');$('Generate').click();
+        await until(()=>canvasDataForConnections().logs.some(log=>log.tasks?.some(task=>task.errorCode==='repair_aspect_mismatch')),'aspect mismatch is a terminal localized failure');
+        assert(nodes.filter(n=>!aspectIds.has(n.id)).every(n=>!n.images?.length),'wrong aspect never publishes a composite');
+        assert(canvasDataForConnections().logs.some(log=>JSON.stringify(log).includes('It was not cropped or applied')),'async aspect error is localized');
+        report.textContent='PASS: five aspect ratios, async mismatch rejection, repair wheel zoom/anchor/coordinates/reset, rectangle/brush scope, single/batch parent links, split comparison, independent nodes, submit close/failure, soft edge mask, icon actions, frame resize, presets, transparent PNG, draft, save, i18n, PSD';
     } catch(error){report.textContent='FAIL: '+error.message;console.error(error);}
 };
 

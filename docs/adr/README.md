@@ -16,6 +16,8 @@ Create an ADR when a decision constrains future implementation, establishes a sy
 
 ## Naming
 
+[ADR-0016](0016-canvas-media-name-allocation.md) records Canvas transaction ownership of media names and the non-undoable sequence high-water marks.
+
 [ADR-0012](0012-manual-workspace-media-cleanup.md) defines manual reclamation of
 unreferenced Workspace media and separates record deletion from physical deletion.
 

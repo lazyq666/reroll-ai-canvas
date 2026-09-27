@@ -403,6 +403,16 @@ function generationSubmissionAcceptance(targets, operationId, options={}){
         await options.onAccepted?.({node:liveTargets[0],submission});
     };
 }
+async function generationRunVideoNamingPrefix(runSettings, refs){
+    const capabilityModule = window.SmartCanvasModules.videoCapabilities;
+    if(runSettings.apiKind !== 'video' || !capabilityModule?.load) return '';
+    const context = typeof smartVideoCapabilityProviderContext === 'function' ? smartVideoCapabilityProviderContext(runSettings) : {};
+    const capability = await capabilityModule.load(runSettings.videoProvider, runSettings.videoModel, context);
+    const effectiveSettings = capabilityModule.applyComposerOptions(runSettings, capability);
+    const manual = (runSettings.videoTempShLinks || []).filter(item => item.manual && item.url).map(item => ({...item,kind:item.kind || 'video'}));
+    const resolved = capabilityModule.resolve(effectiveSettings, [...(refs || []),...manual], capability);
+    return {text2video:'txt2video',image2video:'img2video',frames2video:'frames2video',multimodal2video:'multi2video'}[resolved.command] || '';
+}
 async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings=null, options={}){
     const settingsSnapshot = generationSettingsModule.snapshot(runSettings);
     const generationOperationId = [
@@ -414,6 +424,7 @@ async function submitAndSettleGenerationProvider(node, prompt, refs, runSettings
     node.generationOperationId = generationOperationId;
     node.generationInputSnapshot = {
         prompt:String(prompt || ''),
+        namingPrefix:await generationRunVideoNamingPrefix(settingsSnapshot, refs),
         refs:(refs || []).map(generationRunReferenceSnapshot).filter(ref => ref.url),
         settings:settingsSnapshot,
         createdAt:Date.now()
@@ -468,6 +479,7 @@ async function submitAndSettleGenerationProviderBatch(slotNodes, prompt, refs, r
     ].join(':');
     const inputSnapshot = {
         prompt:String(prompt || ''),
+        namingPrefix:await generationRunVideoNamingPrefix(settingsSnapshot, refs),
         refs:(refs || []).map(generationRunReferenceSnapshot).filter(ref => ref.url),
         settings:settingsSnapshot,
         createdAt:Date.now()
@@ -1077,6 +1089,11 @@ async function runGeneration(options={}){
     const pendingNode = branchNode || node;
     const pendingNodes = branchNodes.length ? branchNodes : [pendingNode];
     pendingNodes.forEach(target => {
+        if(options.processorKind) target.aiProcessorKind = options.processorKind;
+        if(node.lightingPrompt && node.metadata?.lightingIntent){
+            target.metadata = {...(target.metadata || {}), lightingIntent:generationRunClone(node.metadata.lightingIntent)};
+            target.lightingPrompt = generationRunClone(node.lightingPrompt);
+        }
         if(options.localRepair) target.localRepairRequest = generationRunClone(options.localRepair);
         else delete target.localRepairRequest;
         target.outputKind = logKind;
@@ -1423,6 +1440,12 @@ async function regenerateGenerationRun(nodeId){
     const submissionSnapshot = generationOutputModule.submissionSnapshot({node:pending});
     const pendingNodes = batchNodes.length ? batchNodes : [pending];
     pendingNodes.forEach(target => {
+        if(source.aiProcessorKind) target.aiProcessorKind = source.aiProcessorKind;
+        if(source.aiProcessorPostprocess) target.aiProcessorPostprocess = generationRunClone(source.aiProcessorPostprocess);
+        if(source.lightingPrompt && source.metadata?.lightingIntent){
+            target.metadata = {...(target.metadata || {}),lightingIntent:generationRunClone(source.metadata.lightingIntent)};
+            target.lightingPrompt = generationRunClone(source.lightingPrompt);
+        }
         if(source.localRepairRequest) target.localRepairRequest = generationRunClone(source.localRepairRequest);
         target.pending = useBatchOutputs
             ? 1
@@ -1543,7 +1566,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
         }
         return runGeneration({node, onAccepted, onQueued, onLocalAccepted});
     },
-    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true}={}){
+    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,processorKind=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
         const targetWidth=Math.round(Number(width)||0);
         const targetHeight=Math.round(Number(height)||0);
@@ -1554,6 +1577,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             allowAttachment:true,
             createOutput:true,
             localRepair,
+            processorKind,
             onPrepared,
             runSettings:{...runSettings},
             onAccepted,

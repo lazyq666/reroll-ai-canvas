@@ -110,7 +110,7 @@ async function processorPostprocessOutputs(outputs=[],target={}){
         if(!url) continue;
         const blob=await processorCenterCropBlob({sourceUrl:url,targetWidth:width,targetHeight:height});
         const file=await processorUploadBlob(blob,`ai-processor-${width}x${height}-${index+1}.png`);
-        processed.push({...file,natural_w:width,natural_h:height,width,height});
+        processed.push({...file,originalOutputUrl:url,...(item?.autoName ? {name:item.name,autoName:item.autoName} : {}),natural_w:width,natural_h:height,width,height});
     }
     return processed;
 }

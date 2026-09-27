@@ -393,8 +393,7 @@ const promptAuthoringMigrationSettingKeys = Object.freeze([
     'msCustomRatio','msCustomRatioWidth','msCustomRatioHeight','msCustomSize',
     'msCustomWidth','msCustomHeight','comfyMode','comfyWorkflow','comfyParams',
     'rhConfigKey','rhPayment','rhInstanceType','rhParams','rhRandomActive',
-    'width','height','enhanceStrength','enhanceUpscale','enhanceUpscaleRes',
-    'editUpscale','editUpscaleRes'
+    'width','height'
 ]);
 function promptAuthoringMigrationClone(value, fallback){
     try {

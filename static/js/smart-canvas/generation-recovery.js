@@ -530,8 +530,9 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
                 });
             }
             if(task.status === 'failed'){
-                const recoverTaskId = task.upstream_task_id
-                    || generationRecoveryUpstreamTaskId(task.error || '');
+                const aspectMismatch = task.error === 'repair_aspect_mismatch';
+                const recoverTaskId = aspectMismatch ? '' : (task.upstream_task_id
+                    || generationRecoveryUpstreamTaskId(task.error || ''));
                 if(recoverTaskId){
                     const signal = new GenerationRecoveryTaskSignal({
                         taskId,
@@ -543,7 +544,8 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
                     signal.generationTask = task;
                     throw signal;
                 }
-                const failure = new Error(task.error || tr('smart.errRunFailed'));
+                const failure = new Error(window.SmartCanvasModules?.modelCapabilities?.errorMessage?.({code:task.error},task.error || tr('smart.errRunFailed')) || task.error || tr('smart.errRunFailed'));
+                if(aspectMismatch)failure.code = 'repair_aspect_mismatch';
                 failure.generationTask = task;
                 failure.status = Number(task.status_code || task.diagnostics?.http_status || 0);
                 throw failure;
@@ -719,7 +721,7 @@ async function generationRecoveryResumeNodeOnce(
                     runMs:Math.max(0, Number((taskData.updated_at - taskData.created_at) * 1000) || 0),
                     technicalError:message,
                     httpStatus:Number(diagnostics.http_status || taskData.status_code || 0),
-                    errorCode:diagnostics.tasks?.[0]?.upstream_error_code || '',
+                    errorCode:diagnostics.tasks?.[0]?.upstream_error_code || error.code || '',
                     providerId:diagnostics.provider_id || task.providerId || '',
                     billingEvidence:diagnostics.tasks?.[0]?.billing_evidence
                         || diagnostics.billing_evidence
@@ -761,7 +763,7 @@ async function generationRecoveryResumeNodeOnce(
                 runMs:Math.max(0, Number((taskData.updated_at - taskData.created_at) * 1000) || 0),
                 technicalError:error.message || tr('smart.errRunFailed'),
                 httpStatus:Number(diagnostics.http_status || taskData.status_code || error.status || 0),
-                errorCode:diagnostics.tasks?.[0]?.upstream_error_code || '',
+                errorCode:diagnostics.tasks?.[0]?.upstream_error_code || error.code || '',
                 providerId:diagnostics.provider_id || task.providerId || '',
                 billingEvidence:diagnostics.tasks?.[0]?.billing_evidence
                     || diagnostics.billing_evidence

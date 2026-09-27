@@ -33,6 +33,8 @@
 
 ## 当前参考
 
+- [本地工具退役与画布保留能力](current/local-tools-retirement.md)
+
 - [Public readiness 发布验收与 main 合入](current/public-readiness.md)
 - [前端资源版本与保留缓存升级](current/frontend-asset-versions.md)
 - [公开项目身份与兼容边界](current/public-project-identity.md)
