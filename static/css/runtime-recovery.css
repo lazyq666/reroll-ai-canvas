@@ -5,6 +5,10 @@
   font-family: var(--ui-font-sans);
 }
 
+:root[data-ui-theme="dark"] {
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -44,6 +48,23 @@ body.runtime-page {
   width: var(--ui-icon-size-l);
   height: var(--ui-icon-size-l);
   border-radius: var(--ui-radius-xs);
+}
+
+.runtime-brand-loading {
+  display: inline-flex;
+  flex: none;
+  width: var(--ui-control-height-l);
+  height: var(--ui-control-height-l);
+}
+
+.runtime-brand-loading::part(spinner),
+.runtime-brand-loading img {
+  width: var(--ui-control-height-l);
+  height: var(--ui-control-height-l);
+}
+
+.runtime-brand-loading::part(label) {
+  display: none;
 }
 
 .runtime-card {

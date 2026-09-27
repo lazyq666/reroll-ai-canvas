@@ -163,6 +163,7 @@ from infinite_canvas.image_capabilities import (
 from infinite_canvas.image_materialization import materialize_image_cover
 from infinite_canvas.image_repair import (
     ImageRepairError,
+    SUPPORTED_REPAIR_RATIOS,
     validate_recipe as validate_repair_recipe,
     open_media as open_repair_media,
     compose_repair,
@@ -270,7 +271,6 @@ from infinite_canvas.workspace import (
 )
 
 QUIET_ACCESS_PATHS = {
-    "/api/queue_status",
     "/api/canvases",
     "/api/canvases/trash",
 }
@@ -1800,7 +1800,6 @@ MODELSCOPE_DEFAULT_IMAGE_MODELS = [
     "Tongyi-MAI/Z-Image-Turbo",
     "Qwen/Qwen-Image-2512",
     "Qwen/Qwen-Image-Edit-2511",
-    "black-forest-labs/FLUX.2-klein-9B",
 ]
 MODELSCOPE_DEFAULT_CHAT_MODELS = [
     "Qwen/Qwen3-235B-A22B",
@@ -1824,14 +1823,6 @@ MODELSCOPE_DEFAULT_LORAS = [
         "id": "Daniel8152/Qwen-Image-2512-Film",
         "name": "Qwen Image 2512 Film",
         "target_model": "Qwen/Qwen-Image-2512",
-        "strength": 0.8,
-        "enabled": True,
-        "note": "",
-    },
-    {
-        "id": "Daniel8152/Klein-enhance",
-        "name": "Klein enhance",
-        "target_model": "black-forest-labs/FLUX.2-klein-9B",
         "strength": 0.8,
         "enabled": True,
         "note": "",
@@ -3998,7 +3989,7 @@ class DesignTokenSavePayload(BaseModel):
 class MsGenerateRequest(BaseModel):
     prompt: str
     api_key: str = ""
-    model: str = "black-forest-labs/FLUX.2-klein-9B"
+    model: str = Field(min_length=1)
     image_urls: List[str] = []
     width: int = 0
     height: int = 0
@@ -6525,7 +6516,7 @@ def view_image(filename: str, type: str = "input", subfolder: str = ""):
             continue
     # 后端都拿不到时回退本地 assets/<input|output>/
     # 适用场景：画布通过 /api/ai/upload 把参考图直接落到本地 assets/input/，
-    # 但 ComfyUI 的 input 可能因为重启/清理而丢失，导致 enhance/klein 等页面预览对比图 404
+    # 但 ComfyUI 的 input 可能因为重启/清理而丢失，导致画布参考图预览 404
     if not subfolder and type in ("input", "output"):
         safe_name = os.path.basename(filename or "")
         if safe_name:
@@ -7689,6 +7680,19 @@ def _online_image_run(payload, *, publication="online-image"):
             raise HTTPException(status_code=422, detail={"code": "repair_invalid"})
         try:
             repair = validate_repair_recipe(payload.local_repair, require_patch=False)
+            if target_aspect_ratio not in SUPPORTED_REPAIR_RATIOS:
+                raise ImageRepairError("repair_invalid")
+            a, b = map(int, target_aspect_ratio.split(":"))
+            crop = repair["crop"]
+            if crop["width"] * b != crop["height"] * a:
+                raise ImageRepairError("repair_invalid")
+            repair["preserve_geometry"] = True
+            # Request exact aspect multiples; the general size table rounds each
+            # axis independently and is not suitable for spatial repair patches.
+            size_parts = str(request_size).lower().split("x")
+            long_side = max(map(int, size_parts)) if len(size_parts) == 2 and all(p.isdigit() for p in size_parts) else 1024
+            step = max(1, round(long_side / (max(a, b) * 16))) * 16
+            request_size = f"{a * step}x{b * step}"
             source = open_repair_media(repair["source"], output_file_from_url)
             if source.size != (repair["width"], repair["height"]):
                 raise ImageRepairError("repair_source_changed")
@@ -8410,6 +8414,8 @@ async def get_canvas_layer_decomposition_task(task_id: str):
 
 @app.post("/api/canvas-comfy-tasks")
 async def create_canvas_comfy_task(payload: GenerateRequest):
+    if not os.path.isfile(workflow_path_from_name(payload.workflow_json)):
+        raise HTTPException(status_code=404, detail="Workflow not found")
     owner, key, target = _generation_target(payload)
     try:
         run = await _GENERATION_RUNS.start(
@@ -11394,14 +11400,6 @@ async def get_history_detail_api(history_id: str):
         raise HTTPException(status_code=404, detail="History record not found")
     return dict(record)
 
-@app.get("/api/queue_status")
-async def get_queue_status(client_id: str):
-    with QUEUE_LOCK:
-        total = len(QUEUE)
-        positions = [i + 1 for i, t in enumerate(QUEUE) if t["client_id"] == client_id]
-        position = positions[0] if positions else 0
-    return {"total": total, "position": position}
-
 @app.post("/api/history/delete")
 async def delete_history(req: DeleteHistoryRequest):
     return await _GENERATION_EFFECTS.delete_history(
@@ -11410,30 +11408,6 @@ async def delete_history(req: DeleteHistoryRequest):
     )
 
 # --- ModelScope 角度控制 ---
-
-@app.post("/api/angle/poll_status")
-async def poll_angle_cloud(req: CloudPollRequest):
-    actor = current_user() or {}
-    owner = str(actor.get("id") or "")
-    remote_ref = str(req.task_id or "").strip()
-    return await _query_generation_remote(
-        remote_ref,
-        provider_id="modelscope",
-        owner=owner,
-        fallback_request=WorkflowRun(
-            "modelscope-angle-recovery",
-            req,
-            provider_id="modelscope",
-            publication="history",
-            effect_context={
-                "history": {
-                    "prompt": f"Resumed {req.task_id}",
-                    "type": "angle",
-                }
-            },
-        ),
-        fallback_key=f"modelscope-angle-recovery:{remote_ref}",
-    )
 
 @app.post("/api/angle/generate")
 async def generate_angle_cloud(req: CloudGenRequest):
@@ -11487,24 +11461,10 @@ async def ms_generate(req: MsGenerateRequest):
             effect_context={
                 "history": {
                     "prompt": req.prompt,
-                    "type": "klein",
+                    "type": "modelscope",
                     "model": req.model,
                 }
             },
-        ),
-        req,
-    )
-
-# --- 本地 ComfyUI 生图 ---
-
-@app.post("/api/generate")
-async def generate(req: GenerateRequest):
-    return await _run_generation_inline(
-        WorkflowRun(
-            "comfyui",
-            req,
-            provider_id="comfyui",
-            publication="history",
         ),
         req,
     )
@@ -11515,11 +11475,6 @@ CUSTOM_WORKFLOW_FOLDER = "custom"
 LEGACY_CUSTOM_WORKFLOW_FOLDER = "自定义"
 HIDDEN_BUILTIN_WORKFLOWS = {
     "Z-Image.json",
-    "Z-Image-Enhance.json",
-    "2511.json",
-    "klein-enhance.json",
-    "Flux2-Klein.json",
-    "upscale.json",
 }
 WORKFLOW_NAME_RE = re.compile(rf"^(?:(?:{CUSTOM_WORKFLOW_FOLDER}|{LEGACY_CUSTOM_WORKFLOW_FOLDER})/)?[a-zA-Z0-9_一-龥\.\-]+\.json$")
 

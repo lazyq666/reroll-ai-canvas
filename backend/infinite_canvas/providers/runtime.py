@@ -356,11 +356,13 @@ def _image_call(
         wait_for_task: Callable[..., Awaitable[Any]] | None = None,
         count: int = 1,
         checkpoint: RemoteCheckpoint | None = None,
+        preserve_geometry: bool = False,
         transparent_png: bool = False,
         operation: str = "image.generate",
         resolution_tier: str = "",
     ) -> ExecutionResult:
         transparent_kwargs = {"transparent_png": True} if transparent_png else {}
+        geometry_kwargs = {"preserve_geometry": True} if preserve_geometry and _protocol(provider) in {"codex", "gemini-cli"} else {}
         operation_kwargs = (
             {
                 "operation": operation,
@@ -389,6 +391,7 @@ def _image_call(
                 *args,
                 checkpoint=checkpoint,
                 require_checkpoint=require_checkpoint,
+                **geometry_kwargs,
                 **transparent_kwargs,
                 **operation_kwargs,
                 **kwargs,
@@ -403,6 +406,7 @@ def _image_call(
                 provider,
                 checkpoint=checkpoint,
                 require_checkpoint=require_checkpoint,
+                **geometry_kwargs,
                 **transparent_kwargs,
                 **operation_kwargs,
             )
@@ -1122,6 +1126,7 @@ class ProviderRuntime:
         transparent_png: bool = False,
         operation: str = "image.generate",
         resolution_tier: str = "",
+        preserve_geometry: bool = False,
     ) -> ExecutionResult:
         provider = self.provider_lookup(provider_id)
         return await self.image_registry.execute(
@@ -1135,6 +1140,7 @@ class ProviderRuntime:
             wait_for_task=wait_for_task,
             count=count,
             checkpoint=checkpoint,
+            preserve_geometry=preserve_geometry,
             transparent_png=transparent_png,
             operation=operation,
             resolution_tier=resolution_tier,

@@ -10,6 +10,7 @@ let canvas = {id,title:'Layer Dialog Test',project:'default',revision:1,nodes:[s
 const mutationReceiptDelayMs = 350;
 const mutations = [], submissions = [], psdExports = [];
 let repairSettings={version:2,image:{provider:'',model:'',instructions:{}},video:{provider:'',model:'',instructions:{}},repair:{}};
+let aspectMismatchNext=false;
 let rejectNext=false,taskPolls=0,submissionReplies=0;
 let holdUpload=false,releaseUpload=null;
 const mutationReceipts = new Map();
@@ -52,6 +53,7 @@ window.addEventListener('load',()=>{const timer=setInterval(()=>{if(!window.Smar
 const server=http.createServer(async(req,res)=>{
  const url=new URL(req.url,'http://127.0.0.1');
  const send=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
+  if(url.pathname==='/fixture/aspect-mismatch-next'){aspectMismatchNext=true;return send({ok:true});}
  if(url.pathname==='/fixture/reject-next'){rejectNext=true;return send({ok:true});}
  if(url.pathname==='/fixture/hold-upload'){holdUpload=true;return send({ok:true});}
  if(url.pathname==='/fixture/release-upload'){releaseUpload?.();return send({ok:true});}
@@ -90,6 +92,7 @@ const server=http.createServer(async(req,res)=>{
    return send({task_id:'repair-task',status:'queued'});
   }
   if(url.pathname==='/api/canvas-image-tasks/repair-task') {
+   if(aspectMismatchNext){return send({task_id:'repair-task',status:'failed',error:'repair_aspect_mismatch',upstream_task_id:'already-completed'});}
    if(taskPolls++===0)return send({task_id:'repair-task',status:'running'});
    const request=submissions.at(-1);
    const items=Array.from({length:request.n||1},(_,index)=>({url:`/assets/composite-${index}.png`,kind:'image',natural_w:1000,natural_h:800,local_repair:{...request.local_repair,patch:{url:`/assets/patch-${index}.png`}}}));
@@ -105,7 +108,7 @@ const server=http.createServer(async(req,res)=>{
    res.writeHead(200,{'Content-Type':'image/vnd.adobe.photoshop'});return res.end(bytes);
   }
   if(url.pathname==='/api/config')return send({api_providers:[{id:'apimart',enabled:true,image_models:['gpt-image-2','gpt-image-2.5-suburst']}],available_models:{image:[{id:'gpt2',provider_id:'apimart',model:'gpt-image-2',name:'GPT Image 2'},{id:'flagship',provider_id:'apimart',model:'gpt-image-2.5-suburst',name:'gpt-image-2.5-suburst(旗舰)'}]},comfy_instances:[]});
-  if(url.pathname==='/api/model-capabilities')return send({provider_id:'apimart',model_id:url.searchParams.get('model'),operation:url.searchParams.get('operation')||'image.edit',capability_schema_version:1,catalog_revision:'repair-fixture-v1',support_state:'supported',inputs:{text:{minimum:0,maximum:1},image:{minimum:0,maximum:1},video:{minimum:0,maximum:0},audio:{minimum:0,maximum:0},file:{minimum:0,maximum:0}},parameters:{transparent_png:{type:'boolean'},count:{type:'integer',minimum:1,maximum:url.searchParams.get('model')==='gpt-image-2'?1:4},aspect_ratio:{type:'enum',values:['1:1','4:3','3:4','16:9']},resolution_tier:{type:'enum',values:['1K','2K','4K']},quality:{type:'enum',values:['auto']}},output:{kind:'image',count:{minimum:1,maximum:url.searchParams.get('model')==='gpt-image-2'?1:4}},media_contract:{aspect_ratios:['1:1','4:3','3:4','16:9'],resolution_tiers:['1K','2K','4K'],default_resolution_tier:'1K',known:true,supports_transparent_png:url.searchParams.get('model')==='gpt-image-2.5-suburst'}});
+  if(url.pathname==='/api/model-capabilities')return send({provider_id:'apimart',model_id:url.searchParams.get('model'),operation:url.searchParams.get('operation')||'image.edit',capability_schema_version:1,catalog_revision:'repair-fixture-v1',support_state:'supported',inputs:{text:{minimum:0,maximum:1},image:{minimum:0,maximum:1},video:{minimum:0,maximum:0},audio:{minimum:0,maximum:0},file:{minimum:0,maximum:0}},parameters:{transparent_png:{type:'boolean'},count:{type:'integer',minimum:1,maximum:url.searchParams.get('model')==='gpt-image-2'?1:4},aspect_ratio:{type:'enum',values:['1:1','2:3','3:2','16:9','9:16','1:3','3:1','21:9','9:21']},resolution_tier:{type:'enum',values:['1K','2K','4K']},quality:{type:'enum',values:['auto']}},output:{kind:'image',count:{minimum:1,maximum:url.searchParams.get('model')==='gpt-image-2'?1:4}},media_contract:{aspect_ratios:['1:1','2:3','3:2','16:9','9:16','1:3','3:1','21:9','9:21'],resolution_tiers:['1K','2K','4K'],default_resolution_tier:'1K',known:true,supports_transparent_png:url.searchParams.get('model')==='gpt-image-2.5-suburst'}});
   return send(apiPayload(url.href));
  }
  const file=path.resolve(root,'.'+decodeURIComponent(url.pathname));

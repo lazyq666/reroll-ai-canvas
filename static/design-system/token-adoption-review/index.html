@@ -40,7 +40,7 @@
   </div>
   <script>
     const pages=[
-      ['主界面','index.html','studio-shell'],['画布管理','canvas-list.html','canvas-list'],['经典画布','canvas.html','canvas'],['智能画布','smart-canvas.html','smart-canvas'],['API 设置','api-settings.html','api-settings'],['账号管理','account-management.html','account'],['模型管理','available-model-management.html','settings'],['ComfyUI 设置','comfyui-settings.html','settings'],['画布分享','share.html','share'],['在线批量生成','online.html','generation'],['视角生成','angle.html','generation'],['图片增强','enhance.html','generation'],['Klein 图像生成','klein.html','generation'],['Z-Image 图像生成','zimage.html','zimage'],['登录与注册','login.html','auth'],['首次设置','setup.html','auth']
+      ['主界面','index.html','studio-shell'],['画布管理','canvas-list.html','canvas-list'],['经典画布','canvas.html','canvas'],['智能画布','smart-canvas.html','smart-canvas'],['API 设置','api-settings.html','api-settings'],['账号管理','account-management.html','account'],['模型管理','available-model-management.html','settings'],['ComfyUI 设置','comfyui-settings.html','settings'],['画布分享','share.html','share'],['在线批量生成','online.html','generation'],['登录与注册','login.html','auth'],['首次设置','setup.html','auth']
     ].map(([name,path,scope])=>({name,path,scope}));
     const pageList=document.getElementById('pageList'),pageSearch=document.getElementById('pageSearch'),viewportWidth=document.getElementById('viewportWidth'),comparison=document.getElementById('comparison'),pageTitle=document.getElementById('pageTitle'),pageMeta=document.getElementById('pageMeta'),openPage=document.getElementById('openPage'),lightFrame=document.getElementById('lightFrame'),darkFrame=document.getElementById('darkFrame'),loadStatus=document.getElementById('loadStatus');
     let active=pages[0],loaded=0;

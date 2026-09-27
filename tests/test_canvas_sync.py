@@ -1394,6 +1394,10 @@ class CanvasGenerationApplyTests(unittest.IsolatedAsyncioTestCase):
                 "url": "/assets/output/generated.png",
                 "kind": "image",
                 "name": "image-01.png",
+                "autoName": {
+                    "id": "operation-1:/assets/output/generated.png", "prefix": "image",
+                    "extension": ".png", "name": "image-01.png", "pending": False,
+                },
             }],
             stored["nodes"][0]["images"],
         )
@@ -1733,6 +1737,10 @@ class CanvasSyncSqliteGenerationTests(unittest.IsolatedAsyncioTestCase):
                 "url": "/assets/output/generated.png",
                 "kind": "image",
                 "name": "image-01.png",
+                "autoName": {
+                    "id": "operation-1:/assets/output/generated.png", "prefix": "image",
+                    "extension": ".png", "name": "image-01.png", "pending": False,
+                },
             }],
         )
         self.assertEqual(node["pending"], 0)

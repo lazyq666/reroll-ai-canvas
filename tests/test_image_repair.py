@@ -94,6 +94,41 @@ class ImageRepairTests(unittest.TestCase):
             with self.subTest(patch=patch), self.assertRaises(ImageRepairError):
                 compose_repair({**self.recipe, **patch}, self.resolve)
 
+    def test_strict_repair_rejects_square_patch_before_compositing_wide_frame(self):
+        recipe = copy.deepcopy(self.recipe)
+        recipe['preserve_geometry'] = True
+        recipe['crop']['width'], recipe['crop']['height'] = 32, 18
+        recipe['transform'] = copy.deepcopy(recipe['crop'])
+        with self.assertRaisesRegex(ImageRepairError, 'repair_aspect_mismatch'):
+            compose_repair(recipe, self.resolve)
+        # Existing saved repairs remain readable with the original cover behavior.
+        del recipe['preserve_geometry']
+        self.assertEqual((100, 80), compose_repair(recipe, self.resolve)[0].size)
+
+    def test_strict_repair_keeps_entire_patch_and_allows_one_pixel_rounding(self):
+        recipe = copy.deepcopy(self.recipe)
+        recipe.update(preserve_geometry=True, feather=0)
+        patch = Image.new('RGBA', (41, 40), 'red')
+        for y in range(40):
+            for x in range(6):
+                patch.putpixel((x, y), (0, 255, 0, 255))
+        patch.save(self.root / 'patch.png')
+        result, saved = compose_repair(recipe, self.resolve)
+        self.assertTrue(saved['preserve_geometry'])
+        self.assertGreaterEqual(result.getpixel((20, 30))[1], 250)
+        self.assertEqual((255, 0, 0, 255), result.getpixel((39, 30)))
+        Image.new('RGBA', (42, 40), 'red').save(self.root / 'patch.png')
+        with self.assertRaisesRegex(ImageRepairError, 'repair_aspect_mismatch'):
+            compose_repair(recipe, self.resolve)
+
+    def test_cli_preserves_raw_geometry_for_validation(self):
+        from infinite_canvas.providers.cli_impl import codex_postprocess_image_to_requested_size
+        path = str(self.root / 'patch.png')
+        for provider in ('codex', 'gemini-cli'):
+            self.assertEqual('', codex_postprocess_image_to_requested_size(path, '32x18', provider, preserve_geometry=True))
+            with Image.open(path) as image:
+                self.assertEqual((20, 20), image.size)
+
     def test_request_validation_does_not_require_generated_patch(self):
         value = copy.deepcopy(self.recipe)
         del value['patch']
@@ -122,6 +157,41 @@ class ImageRepairPublicationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(frozen, recipe)
         items[0]['local_repair']['source']['url'] = '/assets/changed.png'
         self.assertEqual('/assets/source.png', items[1]['local_repair']['source']['url'])
+
+    async def test_repair_flag_reaches_cli_but_not_unrelated_vendor_signatures(self):
+        from infinite_canvas.generation_runs import ProviderGenerationExecutor
+        from infinite_canvas.providers.runtime import ImageExecutors, ProviderRuntime, build_image_registry
+        from unittest.mock import AsyncMock
+        for protocol in ('codex', 'gemini-cli', 'openai'):
+            execute = AsyncMock(return_value=({'type': 'url', 'value': '/assets/raw.png'}, {}))
+            executors = ImageExecutors(**{name: execute for name in (
+                'http', 'modelscope', 'codex', 'gemini_cli', 'jimeng', 'runninghub', 'gemini_native', 'volcengine')})
+            runtime = ProviderRuntime(provider_lookup=lambda _: {'id': 'test', 'protocol': protocol},
+                                      image_registry=build_image_registry(executors))
+            await ProviderGenerationExecutor(runtime).execute(ImageRun(prompt='fix', settings={
+                'local_repair': {'preserve_geometry': True}, 'provider_id': 'test',
+            }))
+            if protocol in ('codex', 'gemini-cli'):
+                self.assertTrue(execute.call_args.kwargs['preserve_geometry'])
+            else:
+                self.assertNotIn('preserve_geometry', execute.call_args.kwargs)
+
+    async def test_strict_publication_never_materializes_aspect_before_validation(self):
+        from unittest.mock import AsyncMock
+        materialize = AsyncMock(return_value='/assets/cropped.png')
+        compose = AsyncMock(side_effect=ImageRepairError('repair_aspect_mismatch'))
+        effects = WorkspaceGenerationEffects(GenerationOutputPorts(
+            save_image=AsyncMock(return_value='/assets/raw.png'),
+            image_meta=lambda url, _: {'url': url}, extract_images=lambda _: [],
+            materialize_image=materialize, compose_image_repair=compose,
+        ), publication=Mock())
+        recipe = {'preserve_geometry': True}
+        with self.assertRaisesRegex(ImageRepairError, 'repair_aspect_mismatch'):
+            await effects.prepare('strict-repair', ImageRun(prompt='fix', settings={
+                'local_repair': recipe, 'target_aspect_ratio': '16:9',
+            }, publication='online-image'), ProviderOutput(media=('/assets/raw.png',)))
+        materialize.assert_not_awaited()
+        self.assertEqual('/assets/raw.png', compose.call_args.args[0])
 
     async def test_history_canvas_and_result_publish_composite_with_editable_recipe(self):
         calls = []

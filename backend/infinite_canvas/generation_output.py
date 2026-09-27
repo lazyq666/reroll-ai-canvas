@@ -8,6 +8,8 @@ from pathlib import PurePosixPath
 from typing import Any, Dict, Mapping
 from urllib.parse import unquote, urlsplit
 
+from .media_naming import generation_names
+
 
 _MEDIA_EXTENSIONS = {
     ".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".tif",
@@ -173,6 +175,7 @@ def apply_generation_result_nodes(
     peers: list[Mapping[str, Any]],
     *,
     run_id: str,
+    naming_state: dict | None = None,
 ) -> list[Dict[str, Any]]:
     """Project a shared Run onto its existing slots before merging each Node.
 
@@ -197,6 +200,8 @@ def apply_generation_result_nodes(
         if isinstance(outputs, list)
         else outputs
     )
+    if isinstance(named_outputs, list) and naming_state is not None:
+        named_outputs = generation_names(named_outputs, dict(node), peers, naming_state, run_id)
     if (not isinstance(count, int) or isinstance(count, bool) or not 2 <= count <= 8
             or not node.get("generationBatchId") or not isinstance(outputs, list)):
         changes = {**node_changes, "images": named_outputs} if isinstance(outputs, list) else node_changes

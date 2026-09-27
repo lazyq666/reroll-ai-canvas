@@ -3,8 +3,8 @@
 - **Status**：Implemented / Review
 - **Feature ID**：F01 / F13
 - **Owners**：产品 / 品牌 / 前端 / 测试
-- **Last verified**：2026-09-25
-- **Applies to**：Issue #211
+- **Last verified**：2026-09-26
+- **Applies to**：Issue #211、[LAZ-65](https://linear.app/lazyq/issue/LAZ-65)
 - **Supersedes**：无
 - **Superseded by**：无
 - **Related ADRs**：无
@@ -100,3 +100,41 @@ Logo 由共享的矢量动效模块逐帧绘制为单个 SVG 路径，不再使�
 Remaining gates：Firefox 与 WebKit 引擎的同一套浏览器 Smoke，以及 Windows / Linux 真实设备的帧率与 Reduced Motion 人工确认。原 Issue #213 跟踪的透明 VP9 Alpha 解码问题随视频移除不再适用。功能保持 Active `Implemented / Review`，不在这些门槛完成前晋升 Current。
 
 PR 合入回归（2026-09-26）：品牌加载器观察 `data-ui-motion` 的即时变化，无需重建组件即可切换到静态标志，恢复正常偏好后继续动画。核心浏览器测试移除修改 label 触发重建的干扰，先复现失败，再通过切换、静态保持与恢复检查；9 项核心合同和 6 项品牌运动 Node 测试通过。上述跨引擎及真机门槛仍保留。
+
+## 8. 运行时启动加载与统一范围（LAZ-65）
+
+`/startup` 及业务未就绪时返回的运行时页面，在 `starting`、`restart_waiting`、`maintenance`、`stopping` 四种状态中，以公共 `ic-loading[loading-animation="brand"]` 替换品牌栏中的静态图。标志尺寸使用 `--ui-control-height-l`，不另建动画时钟，不播放首次工作台入场序列，也不增加最低等待时长。状态轮询就绪后仍立即进入既有刷新/跳转流程。
+
+标志是 `aria-hidden` 装饰；标题、详情及操作保持原有结构，组件标签复用相同中英文状态键。页面读取公共主题偏好，品牌矢量使用主题文字色。系统或页面 Reduced Motion 显示静态标志。组件升级前或模块请求失败时保留原生静态品牌图片，正文和独立的运行时轮询仍可运行。`failed` 和 `recovery_required` 不显示持续加载，保留复制错误与恢复工作区入口；等待安全重启仍保留取消活动任务并立即重启的按钮。
+
+### 场景检索与边界
+
+| 场景 | 当前实现 / 本次结果 | 统一判断 |
+| --- | --- | --- |
+| 服务启动、等待安全重启、维护、重启 | `backend/infinite_canvas/app.py`；本次接入 | 已统一 |
+| 工作台首次入场中的慢启动 | `static/js/studio-entry-motion.js`；共享品牌几何和循环 | 已统一，保留首次入场策略 |
+| 画布列表、分享页、角度工具归档、全景查看 | 对应 HTML 的 Region `ic-loading` | 已统一 |
+| 资产库初次读取、切换文件夹 | `workspace-asset-library.js` 的 `_loading` 当前仅显示状态文字 | 优先候选：初次无内容用 Region 品牌加载；已有内容的分页保留紧凑反馈 |
+| RunningHub 工作流与应用参数编辑器 | `api-settings.js` 的 `renderRhWorkflowEditorLoading` 使用 Spinner | 候选：大区域内容等待可统一；目前错误分支也调用同一 Loading 函数，必须先区分失败与加载，不能只替换动画 |
+| 首次配置引导读取 | `account-setup.js` 的 `state.loading` 当前显示文字与重试入口 | 候选：仅初始读取可用；读取失败也会保持此状态，必须先拆分失败恢复 |
+| 工作区搬家详情 | `workspace-move.js` 的真实百分比、文件数、容量及阶段 Badge | 保留 Progress；概览页的维护等待已统一 |
+| 打开 Smart Canvas | `canvas-opening.js` 的既有 Phase 驱动可见品牌加载；升级前有静态回退，所有打开阶段保持同一居中位置及尺寸 | 已补齐，保留真实节点骨架；详见[渐进式打开规格](2026-08-28-smart-canvas-progressive-opening.md) |
+| 生成日志、媒体缩略图 | `generation-log-modal.js` 及媒体 Shimmer | 保留结构占位 |
+| 图像/视频生成、增强、合成、按钮提交、上传、实时同步 | Orbs、Halftone、Spinner、Badge 或真实进度 | 保留任务专用反馈，不替换为品牌等待 |
+| 偏好设置里的目录读取、CLI 帮助读取 | 局部文字占位 | 保持紧凑，不在每个字段重复显示品牌标志 |
+
+画布列表加载、空项目、无可访问项目与加载失败互斥：初始读取或刷新时隐藏空状态；卡片为空且项目查询未结束时继续显示加载，不能把尚未返回的项目列表解释成没有权限。首批卡片已有内容时立即显示，不等待项目统计；项目查询完成后重新判断正确的空状态。父页面语言同步或重绘不得让空状态穿透加载器。加载文案统一使用 `workspace.loadingCanvases`，支持中英文即时切换。
+
+本次交付运行时启动入口与 Smart Canvas 打开期间的可见加载提示；其余候选场景是后续建议，没有批量改动其状态机。没有新增领域概念、配置项、接口或持久化行为。
+
+### 本地验证（2026-09-26）
+
+- `.venv/bin/python -m unittest tests.test_application_http tests.test_application_runtime tests.test_core_creation_i18n tests.test_documentation_knowledge_map`：53 项通过。新增 HTTP 回归覆盖四种等待状态与两个终止/恢复状态，确认状态文案、原生图片回退及原有操作入口。
+- `node static/js/i18n/validate-i18n.js`：3879 键通过；本次复用既有双语状态键。
+- `node tests/brand_motion_contract.test.mjs`：6 项通过；`python3 scripts/sync_frontend_assets.py --check` 通过。
+- Codex 内置浏览器连接本地临时验收服务，由生产 `create_app` 的 `/startup` 响应提供页面，运行时状态由夹具控制：启动与重启动画、英文/中文即时切换、Light/Dark、页面 Reduced Motion 静态保持及恢复、390px 窄屏、失败/恢复静态展示、阻断组件模块后的原生图片与正文回退均通过。没有重启用户正在运行的服务或操作真实生成任务。
+- `node tests/ic_core_browser_smoke.cjs` 的独立 Chrome 启动器在调试端口建立前退出，未完成该命令；通过已连接的内置浏览器直接运行同一 `tests/ic_core_browser_harness.html`，7 组页面合同全部通过，包括品牌精确起始帧、连续运动、隐藏暂停与 Reduced Motion。独立脚本追加的两组焦点交互未以此次运行结果宣称通过。
+- 原有跨浏览器引擎与 Windows/Linux 真机人工门槛继续保留；本地验证不代表发布或合并完成。
+- 追加画布打开反馈已通过实际 Chrome 渐进打开回归（新增断言修复前失败、修复后通过），覆盖首帧、骨架、空画布、回退、失败关闭以及双语、主题、Reduced Motion；相关 25 项 Python 检查通过。完整结果及独立原型导致的一项全局设计检查失败记录见[渐进式打开规格](2026-08-28-smart-canvas-progressive-opening.md)。
+- 追加加载稳定性与空状态回归：`node tests/issue_195_smart_canvas_opening_browser_smoke.cjs` 验证各阶段同一位置和尺寸、静态回退与动画视框对齐；`node tests/canvas_list_loading_browser.cjs` 在修复前复现父页面语言同步令“无可访问项目”穿透加载器，修复后验证初始读取、延迟项目权限、刷新、切换空项目、失败和中英文切换均通过，截图无叠字。`node tests/canvas_list_loading_regression.cjs` 与 `node tests/canvas_list_cloud_failure_regression.cjs` 通过，首批卡片展示和云存储失败语义保持。
+- `.venv/bin/python -m unittest tests.test_canvas_list_ui tests.test_canvas_management_i18n tests.test_canvas_list_browse_navigation_contract tests.test_core_creation_i18n tests.test_documentation_knowledge_map`：55 项通过；`node static/js/i18n/validate-i18n.js`：3886 键通过。

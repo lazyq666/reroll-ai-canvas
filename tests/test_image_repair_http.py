@@ -145,6 +145,26 @@ class ImageRepairHttpTests(unittest.TestCase):
             self.assertEqual(1, run.count)
             self.assertEqual(self.recipe['source'], run.settings['local_repair']['source'])
             self.assertNotIn('patch', run.settings['local_repair'])
+            self.assertTrue(run.settings['local_repair']['preserve_geometry'])
+            for ratio in ('1:3', '3:1', '21:9', '9:21', '16:9'):
+                # Last case is supported but does not match the square crop.
+                payload.target_aspect_ratio = ratio
+                with self.assertRaises(HTTPException):
+                    self.main._online_image_run(payload)
+            import copy
+            original = copy.deepcopy(payload.local_repair)
+            for ratio in ('1:1', '2:3', '3:2', '16:9', '9:16'):
+                payload.target_aspect_ratio = ratio
+                payload.local_repair['feather'] = 0
+                a, b = map(int, ratio.split(':'))
+                for key in ('crop', 'transform'):
+                    payload.local_repair[key].update(width=a*2, height=b*2)
+                output = self.main._online_image_run(payload)
+                w, h = map(int, output.settings['size'].split('x'))
+                self.assertEqual(w*b, h*a)
+                self.assertEqual((0, 0), (w % 16, h % 16))
+            payload.local_repair = original
+            payload.target_aspect_ratio = '1:1'
             payload.local_repair['crop']['x'] = 99
             self.assertEqual(20, run.settings['local_repair']['crop']['x'])
             payload.n = 2

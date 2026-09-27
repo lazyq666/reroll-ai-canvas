@@ -177,6 +177,7 @@ let currentUser = null;
 let canvasBatchLoading = false;
 let canvasListPageLeaving = false;
 let canvasListLoadError = null;
+let canvasListProjectsPending = false;
 let canvasListLoadRetryTimer = null;
 const canvasListPerformance = {
     batches:[],
@@ -240,18 +241,21 @@ function setStatus(text, tone = 'neutral'){
     }, 2200);
 }
 
-function setBoardLoading(loading, label = L('正在加载画布','Loading canvases')){
-    board.setAttribute('aria-busy', String(Boolean(loading)));
-    if(!boardLoading) return;
-    boardLoading.hidden = !loading;
-    boardLoading.setAttribute('label', label);
+function setBoardLoading(loading){
+    const pending = Boolean(loading) || (canvasListProjectsPending
+        && !canvasesInProject(currentProjectId).length && !canvasListLoadError);
+    board.setAttribute('aria-busy', String(pending));
+    if(boardLoading){
+        boardLoading.hidden = !pending;
+        boardLoading.setAttribute('label', tr('workspace.loadingCanvases'));
+    }
+    renderBoardEmptyState();
 }
 
 /* ===== Viewport math (mirrors smart-canvas.js) ===== */
 function applyViewport(){
     boardWorld.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`;
-    board.style.backgroundSize = `${120 * viewport.scale}px ${120 * viewport.scale}px, ${120 * viewport.scale}px ${120 * viewport.scale}px, ${24 * viewport.scale}px ${24 * viewport.scale}px`;
-    board.style.backgroundPosition = `${viewport.x}px ${viewport.y}px, ${viewport.x}px ${viewport.y}px, ${viewport.x}px ${viewport.y}px`;
+    board.querySelector('ic-canvas-grid')?.setViewport?.(viewport);
 }
 function screenToWorld(clientX, clientY){
     const rect = board.getBoundingClientRect();
@@ -392,6 +396,7 @@ function canvasesInProject(pid){ return canvases.filter(c => (c.project || 'defa
 
 async function loadAll(){
     clearTimeout(canvasListLoadRetryTimer);
+    canvasListProjectsPending = true;
     try {
         // The current project's first card batch is the only blocking canvas
         // payload. Project counts and trash context follow after first paint.
@@ -434,6 +439,9 @@ async function loadAll(){
                 if(!canvasListPageLeaving) refreshCanvasListSession().catch(handleCanvasListSessionError);
             }, 3000);
         }
+    } finally {
+        canvasListProjectsPending = false;
+        setBoardLoading(false);
     }
 }
 
@@ -793,6 +801,10 @@ function renderBoard(){
 }
 
 function renderBoardEmptyState(){
+    if(board.getAttribute('aria-busy') === 'true'){
+        boardEmptyHint.classList.add('hidden');
+        return;
+    }
     const items = canvasesInProject(currentProjectId);
     if(canvasListLoadError){
         boardEmptyHint.setAttribute('data-i18n-title', 'workspace.loadFailed');
@@ -1792,5 +1804,6 @@ window.addEventListener('message', event => {
 /* ===== Boot ===== */
 window.StudioI18n?.apply?.();
 applyViewport();
+window.customElements?.whenDefined('ic-canvas-grid').then(applyViewport);
 refreshCanvasListSession().catch(handleCanvasListSessionError);
 refreshIcons();

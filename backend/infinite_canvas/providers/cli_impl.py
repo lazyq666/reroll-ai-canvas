@@ -692,7 +692,9 @@ def gpt_image_2_skill_transparent_source_prompt(prompt="", matte="#00ff00"):
 def jimeng_cli_path_arg(path):
     return windows_path_to_wsl(path) if jimeng_use_wsl() else path
 
-def codex_postprocess_image_to_requested_size(path="", requested_size="", provider=""):
+def codex_postprocess_image_to_requested_size(path="", requested_size="", provider="", *, preserve_geometry=False):
+    if preserve_geometry:
+        return ""
     provider_text = str(provider or "").strip().lower()
     if provider_text not in {"codex", "gemini-cli"}:
         return ""
@@ -1010,6 +1012,7 @@ async def generate_codex_provider_image(
     reference_images=None,
     provider=None,
     transparent_png=False,
+    preserve_geometry=False,
 ):
     ref_paths, temp_paths = await codex_reference_paths(reference_images)
     try:
@@ -1019,6 +1022,7 @@ async def generate_codex_provider_image(
             model,
             ref_paths,
             transparent_png=transparent_png,
+            **({"preserve_geometry": True} if preserve_geometry else {}),
         )
         if skill_result:
             return skill_result
@@ -1293,6 +1297,7 @@ async def generate_codex_provider_image_via_gpt_image_2_skill(
     ref_paths=None,
     *,
     transparent_png=False,
+    preserve_geometry=False,
 ):
     exe = gpt_image_2_skill_executable()
     if not exe:
@@ -1432,7 +1437,7 @@ async def generate_codex_provider_image_via_gpt_image_2_skill(
         candidate_paths.extend([path for path in reported_paths if path and os.path.isfile(path)])
         urls = []
         for path in candidate_paths:
-            processed_path = codex_postprocess_image_to_requested_size(path, size, attempt_provider)
+            processed_path = codex_postprocess_image_to_requested_size(path, size, attempt_provider, **({"preserve_geometry": True} if preserve_geometry else {}))
             url = codex_output_url_from_path(processed_path or path)
             if url:
                 urls.append(url)
@@ -1803,7 +1808,7 @@ def codex_cli_executable():
         return configured
     return shutil.which("codex") or shutil.which("codex.exe") or shutil.which("codex.cmd") or ""
 
-async def generate_gemini_cli_provider_image(prompt, size, model, reference_images=None, provider=None):
+async def generate_gemini_cli_provider_image(prompt, size, model, reference_images=None, provider=None, *, preserve_geometry=False):
     ref_paths, temp_paths = await gemini_cli_reference_paths(reference_images)
     try:
         executable = gemini_cli_executable()
@@ -1898,7 +1903,7 @@ async def generate_gemini_cli_provider_image(prompt, size, model, reference_imag
                 )
                 shutil.copy2(path, publish_source)
             processed_path = codex_postprocess_image_to_requested_size(
-                publish_source, size, "gemini-cli"
+                publish_source, size, "gemini-cli", **({"preserve_geometry": True} if preserve_geometry else {})
             )
             url = gemini_cli_publish_output(processed_path or publish_source)
             if url and url not in urls:

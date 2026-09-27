@@ -15,8 +15,10 @@ const canvasId = 'issue-195-progressive-opening';
 const generationCanvasId = 'issue-195-generation-output-opening';
 const viewportCanvasId = 'issue-195-viewport-opening';
 const fallbackCanvasId = 'issue-195-fallback-opening';
+const emptyCanvasId = 'issue-195-empty-opening';
 const forbiddenCanvasId = 'issue-195-forbidden-opening';
 const requestTimes = new Map();
+const responseTimes = new Map();
 const transparentPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64',
@@ -124,6 +126,13 @@ async function waitForRecordedRequest(pathname, timeout = 2000) {
   assert.ok(requestTimes.has(pathname), `${pathname} request was not recorded`);
 }
 
+async function captureOpening(page, name) {
+  const directory = process.env.ISSUE_195_SCREENSHOT_DIR;
+  if (!directory) return;
+  fs.mkdirSync(directory, { recursive: true });
+  await page.screenshot({ path: path.join(directory, `${name}.png`) });
+}
+
 
 function contentType(file) {
   const extension = path.extname(file).toLowerCase();
@@ -166,6 +175,14 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, baseUrl);
   const pathname = url.pathname;
   requestTimes.set(pathname, requestTimes.get(pathname) || Date.now());
+  res.once('finish', () => responseTimes.set(pathname, Date.now()));
+  if (pathname === `/api/canvases/${emptyCanvasId}/open`) {
+    const canvas = canvasDocument(emptyCanvasId);
+    res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8' });
+    res.write(`${JSON.stringify({ type: 'canvas_outline', canvas_id: emptyCanvasId, revision: canvas.revision, nodes: [] })}\n`);
+    setTimeout(() => res.end(`${JSON.stringify({ type: 'canvas_document', canvas })}\n`), 1000);
+    return;
+  }
   if (pathname === `/api/canvases/${canvasId}/open`) {
     const canvas = canvasDocument();
     res.writeHead(200, {
@@ -320,6 +337,8 @@ const server = http.createServer((req, res) => {
 async function openingState(page) {
   return page.evaluate(() => {
     const shell = document.getElementById('shell');
+    const loading = document.getElementById('canvasOpeningStatus');
+    const loadingRect = loading?.getBoundingClientRect();
     const media = document.querySelector('.image-node img[data-media-state]');
     const cropSource = document.getElementById('cropImage');
     const cropRect = cropSource?.getBoundingClientRect();
@@ -339,6 +358,10 @@ async function openingState(page) {
     );
     return {
       phase: document.documentElement.dataset.canvasOpeningPhase,
+      loadingVisible: Boolean(loading && loadingRect.width > 20 && loadingRect.height > 20
+        && getComputedStyle(loading).visibility === 'visible'
+        && loading.checkVisibility()),
+      loadingMarkBox: document.querySelector('.canvas-opening-brand')?.getBoundingClientRect().toJSON(),
       worldTransform: document.getElementById('world')?.style.transform || '',
       shellVisibility: shell ? getComputedStyle(shell).visibility : '',
       rawReferenceVisibility: getComputedStyle(document.getElementById('referenceGenerateMenu')).visibility,
@@ -377,6 +400,8 @@ async function openingState(page) {
     await page.waitForTimeout(120);
     const booting = await openingState(page);
     assert.equal(booting.phase, 'booting');
+    assert.equal(booting.loadingVisible, true, 'Opening a canvas must show loading feedback before components are ready');
+    assert.equal(await page.locator('.canvas-opening-brand-fallback').isVisible(), true);
     assert.equal(booting.shellVisibility, 'hidden');
     assert.equal(booting.rawReferenceVisibility, 'hidden');
     assert.equal(booting.rawUpstreamVisibility, 'hidden');
@@ -386,6 +411,11 @@ async function openingState(page) {
     await page.waitForFunction(() => document.documentElement.dataset.canvasOpeningPhase === 'skeleton');
     const skeletonObservedAt = Date.now();
     const skeleton = await openingState(page);
+    assert.equal(skeleton.loadingVisible, true, 'Loading feedback must remain while the canvas document is pending');
+    for (const field of ['x', 'y', 'width', 'height']) {
+      assert.ok(Math.abs(skeleton.loadingMarkBox[field] - booting.loadingMarkBox[field]) < 1,
+        `Brand loading ${field} must remain stable across opening phases: ${booting.loadingMarkBox[field]} -> ${skeleton.loadingMarkBox[field]}`);
+    }
     assert.equal(skeleton.skeletons, 2);
     assert.equal(skeleton.realNodes, 0);
     assert.match(skeleton.outlineStyle, /left: 120px/);
@@ -406,8 +436,11 @@ async function openingState(page) {
     await page.waitForFunction(() => document.documentElement.dataset.canvasOpeningPhase === 'ready');
     assert.ok(Date.now() - skeletonObservedAt >= 180);
     const hydrated = await openingState(page);
+    assert.equal(hydrated.loadingVisible, false, 'Loading feedback must disappear once the canvas is ready');
     await waitForRecordedRequest('/api/config');
-    assert.ok(requestTimes.get(`/api/canvases/${canvasId}/open`) <= requestTimes.get('/api/config'));
+    // Requests may start in either order; opening must not wait for config's response.
+    assert.ok(!responseTimes.has('/api/config')
+      || requestTimes.get(`/api/canvases/${canvasId}/open`) < responseTimes.get('/api/config'));
     assert.equal(hydrated.realNodes, 2);
     for (const nodeId of ['node-progressive', 'prompt-progressive']) {
       assert.ok(
@@ -522,18 +555,94 @@ async function openingState(page) {
     }
     await generationPage.close();
 
-    const fallbackPage = await browser.newPage({ viewport: { width: 1024, height: 720 } });
+    const fallbackPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await fallbackPage.emulateMedia({ reducedMotion:'reduce' });
+    let releaseCore;
+    const coreGate = new Promise(resolve => { releaseCore = resolve; });
+    await fallbackPage.route('**/infinite-canvas-ui/core.js*', async route => {
+      await coreGate;
+      await route.continue();
+    });
     const fallbackErrors = [];
     fallbackPage.on('pageerror', error => fallbackErrors.push(String(error)));
-    await fallbackPage.goto(`${baseUrl}/static/smart-canvas.html?id=${fallbackCanvasId}`);
+    let releaseFallback;
+    const fallbackGate = new Promise(resolve => { releaseFallback = resolve; });
+    await fallbackPage.route(`**/api/canvases/${fallbackCanvasId}`, async route => {
+      await fallbackGate;
+      await route.continue();
+    });
+    await fallbackPage.goto(`${baseUrl}/static/smart-canvas.html?id=${fallbackCanvasId}`, { waitUntil:'commit' });
+    await fallbackPage.locator('.canvas-opening-brand-fallback').waitFor({ state:'visible' });
+    const staticLogoBox = await fallbackPage.locator('.canvas-opening-brand-fallback').boundingBox();
+    releaseCore();
+    await fallbackPage.waitForFunction(() => document.documentElement.dataset.canvasOpeningPhase === 'awaiting-outline');
+    const animatedLogoBox = await fallbackPage.locator('.canvas-opening-brand').evaluate(el => {
+      const svg = el.shadowRoot.querySelector('svg');
+      const box = svg.getBoundingClientRect();
+      const viewBox = svg.viewBox.baseVal;
+      const scale = box.width / viewBox.width;
+      return { x:box.x - viewBox.x * scale, y:box.y - viewBox.y * scale, width:355 * scale, height:355 * scale };
+    });
+    for (const field of ['x', 'y', 'width', 'height']) {
+      assert.ok(Math.abs(staticLogoBox[field] - animatedLogoBox[field]) < 0.1,
+        `Static and animated Logo ${field} must match: ${staticLogoBox[field]} -> ${animatedLogoBox[field]}`);
+    }
+    await fallbackPage.emulateMedia({ reducedMotion:'no-preference' });
+    assert.equal((await openingState(fallbackPage)).loadingVisible, true);
+    const loading = fallbackPage.locator('#canvasOpeningStatus');
+    assert.equal(await loading.textContent(), '正在准备画布…');
+    await fallbackPage.evaluate(() => window.StudioI18n.set('en'));
+    assert.equal(await loading.textContent(), 'Preparing canvas…');
+    const lightMark = await fallbackPage.locator('.canvas-opening-brand').evaluate(el =>
+      getComputedStyle(el.shadowRoot.querySelector('.brand')).color);
+    await fallbackPage.evaluate(() => window.StudioTheme.set('dark'));
+    const darkMark = await fallbackPage.locator('.canvas-opening-brand').evaluate(el =>
+      getComputedStyle(el.shadowRoot.querySelector('.brand')).color);
+    assert.notEqual(darkMark, lightMark);
+    await captureOpening(fallbackPage, 'canvas-loading-dark-en');
+    const mark = fallbackPage.locator('.canvas-opening-brand path');
+    const movingPath = await mark.getAttribute('d');
+    await fallbackPage.waitForFunction(d => document.querySelector('.canvas-opening-brand').shadowRoot.querySelector('path').getAttribute('d') !== d, movingPath);
+    await fallbackPage.emulateMedia({ reducedMotion: 'reduce' });
+    await fallbackPage.waitForTimeout(80);
+    const reducedPath = await mark.getAttribute('d');
+    await fallbackPage.waitForTimeout(160);
+    assert.equal(await mark.getAttribute('d'), reducedPath);
+    await fallbackPage.emulateMedia({ reducedMotion: 'no-preference' });
+    await fallbackPage.waitForFunction(d => document.querySelector('.canvas-opening-brand').shadowRoot.querySelector('path').getAttribute('d') !== d, reducedPath);
+    await fallbackPage.evaluate(() => { document.documentElement.dataset.uiMotion = 'reduced'; });
+    await fallbackPage.waitForTimeout(80);
+    const pageReducedPath = await mark.getAttribute('d');
+    await fallbackPage.waitForTimeout(160);
+    assert.equal(await mark.getAttribute('d'), pageReducedPath);
+    await fallbackPage.evaluate(() => {
+      document.documentElement.dataset.uiMotion = 'full';
+      window.StudioI18n.set('zh');
+    });
+    assert.equal(await loading.textContent(), '正在准备画布…');
+    assert.equal(await fallbackPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await fallbackPage.evaluate(() => window.StudioTheme.set('light'));
+    await captureOpening(fallbackPage, 'canvas-loading-light-zh');
+    releaseFallback();
     await fallbackPage.waitForFunction(() => document.documentElement.dataset.canvasOpeningPhase === 'ready');
     const fallback = await openingState(fallbackPage);
     assert.equal(fallback.skeletons, 0);
     assert.equal(fallback.realNodes, 0);
+    assert.equal(fallback.loadingVisible, false);
     assert.ok(requestTimes.has(`/api/canvases/${fallbackCanvasId}/open`));
     assert.ok(requestTimes.has(`/api/canvases/${fallbackCanvasId}`));
     assert.deepEqual(fallbackErrors, []);
     await fallbackPage.close();
+
+    const emptyPage = await browser.newPage();
+    await emptyPage.goto(`${baseUrl}/static/smart-canvas.html?id=${emptyCanvasId}`);
+    await waitForRecordedRequest(`/api/canvases/${emptyCanvasId}/open`);
+    const emptyPending = await openingState(emptyPage);
+    assert.equal(emptyPending.loadingVisible, true, 'Empty outlines must keep visible loading until the document arrives');
+    assert.equal(emptyPending.skeletons, 0);
+    await emptyPage.waitForFunction(() => document.documentElement.dataset.canvasOpeningPhase === 'ready');
+    assert.equal((await openingState(emptyPage)).loadingVisible, false);
+    await emptyPage.close();
 
     const forbiddenPage = await browser.newPage({ viewport: { width: 1024, height: 720 } });
     await forbiddenPage.goto(`${baseUrl}/static/smart-canvas.html?id=${forbiddenCanvasId}`);
@@ -550,7 +659,16 @@ async function openingState(page) {
     assert.equal(forbidden.panelAriaHidden, null);
     assert.equal(forbidden.message, '你没有打开此画布的权限。');
     assert.equal(forbidden.focused, 'canvasOpeningRetry');
+    assert.equal((await openingState(forbiddenPage)).loadingVisible, false);
     await forbiddenPage.close();
+
+    const brokenModulePage = await browser.newPage();
+    await brokenModulePage.route('**/infinite-canvas-ui/core.js*', route => route.abort());
+    await brokenModulePage.goto(`${baseUrl}/static/smart-canvas.html?id=${canvasId}`);
+    await brokenModulePage.waitForFunction(() => document.documentElement.dataset.canvasOpeningPhase === 'error');
+    assert.equal((await openingState(brokenModulePage)).loadingVisible, false);
+    assert.equal(await brokenModulePage.locator('#canvasOpeningRetry').isVisible(), true);
+    await brokenModulePage.close();
     process.stdout.write('Issue #195 Smart Canvas progressive opening browser smoke passed.\n');
   } finally {
     await browser.close();

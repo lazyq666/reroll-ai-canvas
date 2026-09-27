@@ -172,8 +172,6 @@ html.theme-dark .sidebar-logo-image {
 }
 
 .global-navigation > ic-nav-item,
-.local-nav-disclosure,
-.local-nav-disclosure ic-nav-item,
 .account-menu-trigger {
   width: 100%;
   min-width: 0;
@@ -184,23 +182,10 @@ html.theme-dark .sidebar-logo-image {
   white-space: nowrap;
 }
 
-.sidebar ic-nav-item[current]::part(base),
-.sidebar:not(.is-pinned) .local-nav-disclosure[data-child-current]::part(base),
-.sidebar.is-pinned .local-nav-disclosure[data-child-current]:not([open])::part(base) {
+.sidebar ic-nav-item[current]::part(base) {
   background: var(--ui-color-action-secondary-selected);
   color: var(--ui-color-text-primary);
   box-shadow: var(--ui-shadow-none);
-}
-
-.local-nav-disclosure[open]:not([data-child-current])::part(base) {
-  background: transparent;
-  color: var(--studio-sidebar-foreground);
-  box-shadow: var(--ui-shadow-none);
-  font-weight: var(--ui-font-weight-regular);
-}
-
-.local-nav-disclosure[open]:not([data-child-current]):hover::part(base) {
-  background: var(--ui-color-action-tertiary-hover);
 }
 
 .sidebar:not(.is-pinned) .global-navigation > ic-nav-item {
@@ -218,29 +203,8 @@ html.theme-dark .sidebar-logo-image {
   font-size: 0;
 }
 
-.local-nav-disclosure::part(base) {
-  min-height: var(--ui-control-height-m);
-}
-
-.sidebar:not(.is-pinned) .local-nav-disclosure::part(base) {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-}
-
-.sidebar:not(.is-pinned) .local-nav-disclosure {
-  width: var(--ui-control-height-m);
-  height: var(--ui-control-height-m);
-  align-self: center;
-}
-
-.sidebar:not(.is-pinned) .local-nav-disclosure ic-nav-item,
 .sidebar:not(.is-pinned) .account-trigger-copy {
   display: none;
-}
-
-.navigation-divider {
-  margin-block: var(--ui-space-1);
 }
 
 .side-actions {
@@ -392,7 +356,6 @@ ic-menu-item[hidden],
   }
 
   .sidebar-logo-area,
-  .navigation-divider,
   .shell-utilities {
     display: none;
   }
@@ -404,44 +367,15 @@ ic-menu-item[hidden],
     overflow-y: hidden;
   }
 
-  .global-navigation > ic-nav-item,
-  .local-nav-disclosure ic-nav-item {
+  .global-navigation > ic-nav-item {
     width: var(--ui-control-height-m);
     min-width: var(--ui-control-height-m);
-  }
-
-  .local-nav-disclosure {
-    width: auto;
-    min-width: 0;
-    align-self: auto;
-  }
-
-  .local-nav-disclosure::part(base) {
-    display: none;
-  }
-
-  .local-nav-disclosure::part(items) {
-    display: grid !important;
-    grid-template-rows: 1fr !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-
-  .local-nav-disclosure ic-nav-item {
-    display: block !important;
-    width: auto;
-    min-width: max-content;
   }
 
   .global-navigation ic-nav-item::part(base) {
     justify-content: center;
     padding-inline: 0;
     font-size: 0;
-  }
-
-  .local-nav-disclosure ic-nav-item::part(base) {
-    padding-inline: var(--ui-space-3);
-    font-size: var(--ui-font-size-2);
   }
 
   .side-actions {

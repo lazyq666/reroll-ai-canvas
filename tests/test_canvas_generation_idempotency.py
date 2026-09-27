@@ -102,10 +102,11 @@ class CanvasGenerationIdempotencyTests(unittest.TestCase):
                             "/api/canvas-comfy-tasks",
                             json={
                                 "prompt": "Portrait",
-                                "workflow_json": "Portrait.json",
+                                "workflow_json": "Z-Image.json",
                             },
                         )
 
+                    self.assertEqual(comfy.status_code, 200)
                     self.assertEqual(first.status_code, 200)
                     self.assertEqual(duplicate.status_code, 200)
                     actor_id = client.get("/api/auth/me").json()["user"]["id"]
@@ -199,7 +200,7 @@ class CanvasGenerationIdempotencyTests(unittest.TestCase):
                     self.assertEqual(
                         {
                             "type": "comfy",
-                            "workflow_json": "Portrait.json",
+                            "workflow_json": "Z-Image.json",
                         },
                         {
                             key: persisted_comfy[key]

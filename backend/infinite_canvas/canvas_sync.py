@@ -2072,6 +2072,7 @@ class CanvasSync:
                     node_changes,
                     canvas.get("nodes") or [],
                     run_id=run_id,
+                    naming_state=canvas.setdefault("_realtime", {}),
                 )
                 updates = {item["id"]: item for item in updated_nodes}
                 for candidate in canvas.get("nodes") or []:

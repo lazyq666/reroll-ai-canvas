@@ -37,17 +37,9 @@ class StudioShellUiRegressionTests(unittest.TestCase):
         self.assertIn("--ic-nav-item-selected-color: var(--ui-color-text-primary)", self.styles)
         self.assertIn("--ic-nav-item-selected-shadow: var(--ui-shadow-none)", self.styles)
         self.assertIn(".sidebar ic-nav-item[current]::part(base)", self.styles)
-        self.assertIn(".sidebar:not(.is-pinned) .local-nav-disclosure[data-child-current]::part(base)", self.styles)
         self.assertIn("background: var(--ui-color-action-secondary-selected);", self.styles)
         self.assertIn("box-shadow: var(--ui-shadow-none);", self.styles)
 
-    def test_open_local_navigation_is_not_selected_when_an_external_page_is_current(self):
-        self.assertIn(".local-nav-disclosure[open]:not([data-child-current])::part(base)", self.styles)
-        self.assertIn("background: transparent;", self.styles)
-        self.assertIn("font-weight: var(--ui-font-weight-regular);", self.styles)
-        self.assertIn(".local-nav-disclosure[open]:not([data-child-current]):hover::part(base)", self.styles)
-        self.assertIn("background: var(--ui-color-action-tertiary-hover);", self.styles)
-        self.assertIn(".sidebar.is-pinned .local-nav-disclosure[data-child-current]:not([open])::part(base)", self.styles)
 
     def test_settings_uses_the_same_icon_button_treatment_as_language(self):
         self.assertIn('<ic-icon-button id="settings-fold-toggle"', self.page)
@@ -78,16 +70,6 @@ class StudioShellUiRegressionTests(unittest.TestCase):
         ):
             self.assertNotIn(scaling_contract, script)
 
-    def test_infinite_canvas_precedes_collapsed_local_tools(self):
-        canvas = self.page.index('data-page="canvas"')
-        online = self.page.index('data-page="online"')
-        divider = self.page.index('<ic-divider class="navigation-divider"')
-        local = self.page.index('id="local-nav-disclosure"')
-        self.assertLess(canvas, online)
-        self.assertLess(online, divider)
-        self.assertLess(divider, local)
-        self.assertIn('<ic-nav-disclosure id="local-nav-disclosure"', self.page)
-        self.assertIn("localStorage.getItem(LOCAL_NAV_COLLAPSED_KEY) !== '0'", self.script)
 
     def test_fresh_device_opens_infinite_canvas_by_default(self):
         self.assertIn("const DEFAULT_PAGE_ID = 'canvas';", self.script)
@@ -113,7 +95,7 @@ class StudioShellUiRegressionTests(unittest.TestCase):
             'data-i18n-aria-label="common.mainContent"',
         ):
             self.assertIn(attribute, self.page)
-        self.assertEqual(11, self.page.count("data-i18n-title="))
+        self.assertEqual(7, self.page.count("data-i18n-title="))
         self.assertIn('data-i18n-title="smart.optimize.settingsTitle"', self.page)
 
     def test_collapsed_sidebar_hides_account_copy_and_centers_vertical_utilities(self):
@@ -165,16 +147,9 @@ class StudioShellUiRegressionTests(unittest.TestCase):
         self.assertEqual(favicon[:8], b"\x89PNG\r\n\x1a\n")
         self.assertEqual(struct.unpack(">II", favicon[16:24]), (128, 128))
 
-    def test_local_tools_follow_the_figma_grouped_list_structure(self):
-        self.assertIn('icon="project-default" open-icon="project"', self.page)
-        self.assertIn('<ic-nav-disclosure id="local-nav-disclosure"', self.page)
-        self.assertNotIn('data-page="zimage" href="#zimage" icon=', self.page)
-        self.assertIn("byId('local-nav-disclosure')?.toggleAttribute('open', !collapsed)", self.script)
-        self.assertIn("byId('local-nav-disclosure')?.addEventListener('ic-toggle'", self.script)
-        self.assertIn("setSidebarPinned(true)", self.script)
 
     def test_collapsed_primary_navigation_exposes_tooltips(self):
-        self.assertEqual(self.page.count('data-collapsed-tooltip-key='), 3)
+        self.assertEqual(self.page.count('data-collapsed-tooltip-key='), 2)
         self.assertIn('<ic-tooltip id="sidebar-tooltip"', self.page)
         self.assertIn('content="展开导航栏" placement="inline-end"', self.page)
         self.assertIn("function showSidebarTooltip(item)", self.script)
@@ -220,7 +195,6 @@ class StudioShellUiRegressionTests(unittest.TestCase):
         self.assertIn(".sidebar:not(.is-pinned) .global-navigation > ic-nav-item", self.styles)
         self.assertIn("width: var(--ui-control-height-m)", self.styles)
         self.assertIn("height: var(--ui-control-height-m)", self.styles)
-        self.assertIn(".sidebar:not(.is-pinned) .local-nav-disclosure::part(base)", self.styles)
 
     def test_language_and_theme_controls_are_vertical(self):
         self.assertIn(

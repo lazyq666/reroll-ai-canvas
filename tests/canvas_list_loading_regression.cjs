@@ -12,7 +12,7 @@ async function check(){
     Blob, Map, setTimeout, clearTimeout, window:{}, console:{error:error=>state.errors.push(error)},
     performance:{now:()=>0,mark(){}}, currentProjectId:'default', projects:[],canvases:[],currentUser:null,
     canvasPageState:new Map(),canvasListPerformance:{batches:[]},canvasListPageLeaving:false,
-    canvasListLoadError:null,canvasListLoadRetryTimer:null,renderBoardEmptyState(){},tr:key=>key,
+    canvasListLoadError:null,canvasListLoadRetryTimer:null,canvasListProjectsPending:false,renderBoardEmptyState(){},tr:key=>key,
     newCanvasBtn:{},emptyCreateCanvasBtn:{},newProjectBtn:{},boardLoadMoreBtn:null,
     cachedProjectCanvases:()=>[], cacheProjectCanvases(){},setBoardLoading(){},rememberProjectId(){},
     renderBoard(){state.renders++;},resetView(){state.fits++;}, renderCanvasAdditions(){},renderProjects(){},

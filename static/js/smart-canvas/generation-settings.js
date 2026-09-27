@@ -57,11 +57,6 @@ let settings = {
     rhRandomActive:{},
     width:1024,
     height:1024,
-    enhanceStrength:0.5,
-    enhanceUpscale:false,
-    enhanceUpscaleRes:2048,
-    editUpscale:false,
-    editUpscaleRes:2048,
     promptH:124
 };
 function cloneSmartSettings(source=settings){
@@ -193,7 +188,7 @@ function smartSettingsModeKey(source=settings){
     const engine = ['api','volcengine','modelscope','comfy','runninghub'].includes(source?.engine) ? source.engine : 'api';
     if(engine === 'api') return `api:${source?.apiKind === 'video' ? 'video' : 'image'}`;
     if(engine === 'volcengine') return `volcengine:${source?.apiKind === 'video' ? 'video' : 'image'}`;
-    if(engine === 'comfy') return `comfy:${['text','enhance','edit','custom'].includes(source?.comfyMode) ? source.comfyMode : 'text'}`;
+    if(engine === 'comfy') return `comfy:${['text','custom'].includes(source?.comfyMode) ? source.comfyMode : 'text'}`;
     if(engine === 'runninghub') return 'runninghub';
     return 'modelscope';
 }

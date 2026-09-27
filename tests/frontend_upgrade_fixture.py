@@ -39,7 +39,12 @@ def build_release(destination, *, old):
         source = module.read_text()
         needle = '? generationOutputDefaultName(source, url, itemKind, ordinal)'
         assert source.count(needle) == 1
-        module.write_text(source.replace(needle, '? source.name || generationOutputDefaultName(source, url, itemKind, ordinal)'))
+        source = source.replace(needle, '? source.name || generationOutputDefaultName(source, url, itemKind, ordinal)')
+        # The old module preserves provider names instead of allocating scoped
+        # names. Both naming paths must reproduce that behavior in the control.
+        naming_guard = 'if(defaultName && naming && owner){'
+        assert source.count(naming_guard) == 1
+        module.write_text(source.replace(naming_guard, 'if(defaultName && naming && owner && !source.name){'))
     # Exercise module, lazy import, Worker and CSS dependency loading in the
     # same real page. Only the leaves vary across releases.
     probe = destination / 'static/upgrade-probe'

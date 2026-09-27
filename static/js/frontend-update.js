@@ -7,7 +7,8 @@
     const pollMs = 60000;
     const snoozeMs = 10 * 60000;
     let baseline = '', latest = null, checking = false, refreshing = false;
-    let snoozedKey = '', snoozedUntil = 0, dialog, errorKey = '';
+    let snoozedKey = '', snoozedUntil = 0, notice, errorKey = '', returnFocus;
+    const positionObserver = new ResizeObserver(() => positionNotice());
     const tr = key => window.StudioI18n?.t(key) || key;
 
     async function readVersion(){
@@ -35,26 +36,68 @@
         return result;
     }
     function otherDialogOpen(){
-        return pageWindows().some(page => [...page.document.querySelectorAll('ic-dialog[open], ic-confirmation-dialog[open]')]
-            .some(element => element !== dialog));
+        return pageWindows().some(page => page.document.querySelector('ic-dialog[open], ic-confirmation-dialog[open], dialog[open]'));
+    }
+    function positionNotice(){
+        if(!notice || notice.hidden) return;
+        let bottom = 24;
+        // Keep the actual navigation map available, including inside the workbench frame.
+        for(const page of pageWindows()){
+            const minimap = page.document.querySelector('ic-smart-minimap');
+            if(!minimap || !minimap.checkVisibility()) continue;
+            let rect = minimap.getBoundingClientRect(), top = rect.top, right = rect.right;
+            let owner = page;
+            let visible = true;
+            while(owner !== window){
+                const frame = owner.frameElement;
+                if(!frame?.checkVisibility()){ visible = false; break; }
+                rect = frame.getBoundingClientRect();
+                top = rect.top + top * rect.height / owner.innerHeight;
+                right = rect.left + right * rect.width / owner.innerWidth;
+                owner = owner.parent;
+            }
+            if(visible && top > 0 && top < innerHeight && right > innerWidth - notice.offsetWidth - 24){
+                bottom = Math.max(bottom, innerHeight - top + 12);
+            }
+        }
+        // On a short window, keep the card's actions reachable even with a tall map.
+        notice.style.bottom = `${Math.min(bottom, Math.max(24, innerHeight - notice.offsetHeight - 24))}px`;
+    }
+    function hideNotice(){
+        if(!notice) return;
+        const restore = notice.contains(document.activeElement);
+        notice.hidden = true;
+        positionObserver.disconnect();
+        if(restore && returnFocus?.isConnected) returnFocus.focus({preventScroll:true});
+    }
+    function dismiss(){
+        if(refreshing) return;
+        snoozedKey = latest.key;
+        snoozedUntil = Date.now() + snoozeMs;
+        errorKey = '';
+        hideNotice();
     }
     function translate(){
-        if(!dialog) return;
-        for(const [attribute, key] of Object.entries({label:'title',
-            'confirm-label':refreshing ? 'saving' : 'refresh', 'cancel-label':'later'})){
-            dialog.setAttribute(`data-i18n-${attribute}`, `frontendUpdate.${key}`);
-            dialog.setAttribute(attribute, tr(`frontendUpdate.${key}`));
+        if(!notice) return;
+        const confirm = notice.querySelector('[data-update-action="apply"]');
+        confirm.dataset.i18n = `frontendUpdate.${refreshing ? 'saving' : 'refresh'}`;
+        for(const element of notice.querySelectorAll('[data-i18n]')){
+            element.textContent = tr(element.dataset.i18n);
         }
-        dialog.querySelector('[data-i18n="frontendUpdate.description"]').textContent = tr('frontendUpdate.description');
-        const message = dialog.querySelector('[role="alert"]');
+        notice.querySelector('[data-update-action="close"]').setAttribute('label', tr('frontendUpdate.close'));
+        for(const button of notice.querySelectorAll('ic-button, ic-icon-button')) button.disabled = refreshing;
+        confirm.loading = refreshing;
+        notice.setAttribute('aria-busy', String(refreshing));
+        notice.querySelector('[data-i18n="frontendUpdate.description"]').hidden = Boolean(errorKey);
+        const message = notice.querySelector('[role="status"]');
         message.hidden = !errorKey;
         message.textContent = errorKey ? tr(errorKey) : '';
+        positionNotice();
     }
     async function refresh(){
         if(refreshing) return;
         refreshing = true;
         errorKey = '';
-        dialog.confirmLoading = true;
         translate();
         try {
             if(otherDialogOpen()) throw new Error('frontendUpdate.busy');
@@ -83,39 +126,69 @@
             errorKey = ['frontendUpdate.busy','frontendUpdate.unavailable'].includes(error.message)
                 ? error.message : 'frontendUpdate.unsynced';
             refreshing = false;
-            dialog.confirmLoading = false;
             translate();
         }
     }
     async function showPrompt(){
         if(!latest || latest.key === baseline || document.hidden || otherDialogOpen()) return;
         if(latest.key === snoozedKey && Date.now() < snoozedUntil) return;
-        await customElements.whenDefined('ic-confirmation-dialog');
-        if(!dialog){
-            dialog = document.createElement('ic-confirmation-dialog');
-            dialog.id = 'frontendUpdateDialog';
-            const description = document.createElement('p');
-            description.setAttribute('data-i18n', 'frontendUpdate.description');
-            dialog.append(description);
-            const message = document.createElement('p');
-            message.setAttribute('role', 'alert');
-            message.hidden = true;
-            dialog.append(message);
+        await Promise.all(['ic-button', 'ic-icon-button'].map(name => customElements.whenDefined(name)));
+        if(document.hidden || otherDialogOpen()) return;
+        if(!notice){
+            notice = document.createElement('section');
+            notice.id = 'frontendUpdateNotice';
+            notice.className = 'frontend-update-notice';
+            notice.setAttribute('aria-labelledby', 'frontendUpdateTitle');
+            notice.hidden = true;
+            notice.innerHTML = `
+                <span class="frontend-update-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 4.8A6 6 0 0 0 6 10c0 5-2 6-2 6h16s-2-1-2-6M10 20h4M12 3v1"/>
+                        <circle class="frontend-update-dot" cx="18" cy="5" r="3" stroke="none"/>
+                    </svg>
+                </span>
+                <div class="frontend-update-copy">
+                    <h2 id="frontendUpdateTitle" data-i18n="frontendUpdate.title" aria-live="polite"></h2>
+                    <p data-i18n="frontendUpdate.description"></p>
+                    <p role="status" hidden></p>
+                </div>
+                <ic-icon-button data-update-action="close" type="button" size="s" hierarchy="quiet" icon="close" data-i18n-label="frontendUpdate.close"></ic-icon-button>
+                <div class="frontend-update-actions">
+                    <ic-button data-update-action="later" type="button" size="s" hierarchy="quiet" data-i18n="frontendUpdate.later"></ic-button>
+                    <ic-button data-update-action="apply" type="button" size="s" hierarchy="primary" data-i18n="frontendUpdate.refresh"></ic-button>
+                </div>`;
             translate();
-            dialog.addEventListener('ic-confirm', refresh);
-            dialog.addEventListener('ic-hide', event => {
-                if(event.target !== dialog || refreshing || latest.key === baseline) return;
-                snoozedKey = latest.key;
-                snoozedUntil = Date.now() + snoozeMs;
-                errorKey = '';
+            notice.addEventListener('click', event => {
+                event.stopPropagation();
+                const action = event.target.closest('[data-update-action]')?.dataset.updateAction;
+                if(action === 'apply') refresh();
+                else if(action) dismiss();
             });
-            document.body.append(dialog);
+            notice.addEventListener('focusin', event => {
+                if(event.relatedTarget && !notice.contains(event.relatedTarget)) returnFocus = event.relatedTarget;
+            });
+            notice.addEventListener('keydown', event => {
+                event.stopPropagation();
+                if(event.key === 'Escape'){ event.preventDefault(); dismiss(); }
+            });
+            for(const type of ['pointerdown', 'mousedown', 'dblclick', 'wheel']){
+                notice.addEventListener(type, event => event.stopPropagation());
+            }
+            document.body.append(notice);
         }
-        if(!dialog.open){
+        if(notice.hidden){
+            returnFocus = document.activeElement;
             errorKey = '';
+            notice.hidden = false;
             translate();
-            dialog.open = true;
         }
+        positionObserver.disconnect();
+        positionObserver.observe(notice);
+        for(const page of pageWindows()){
+            const minimap = page.document.querySelector('ic-smart-minimap');
+            if(minimap) positionObserver.observe(minimap);
+        }
+        positionNotice();
     }
     async function check(){
         if(checking || refreshing || document.hidden) return;
@@ -126,7 +199,7 @@
             if(!baseline) baseline = value.key;
             latest = value;
             if(value.key === baseline){
-                if(dialog) dialog.open = false;
+                hideNotice();
                 return;
             }
             await showPrompt();
@@ -136,6 +209,7 @@
     window.addEventListener('studio-lang-change', translate);
     window.addEventListener('focus', check);
     window.addEventListener('online', check);
+    window.addEventListener('resize', positionNotice);
     document.addEventListener('visibilitychange', check);
     function start(){ check(); setInterval(check, pollMs); }
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once:true});

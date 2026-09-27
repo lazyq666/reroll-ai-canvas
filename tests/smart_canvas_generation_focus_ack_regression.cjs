@@ -48,6 +48,9 @@ sandbox.generationProviderModule={submit:async()=>{
     return {state:'completed',outputs:['one.png','two.png']};
 }};
 const runSource=fs.readFileSync('static/js/smart-canvas/generation-run.js','utf8');
+vm.runInContext(runSource.slice(
+    runSource.indexOf('async function generationRunVideoNamingPrefix('),
+    runSource.indexOf('async function submitAndSettleGenerationProvider(')),sandbox);
 const batchStart=runSource.indexOf('async function submitAndSettleGenerationProviderBatch(');
 const batchEnd=runSource.indexOf('\nasync function ',batchStart+1);
 vm.runInContext(runSource.slice(batchStart,batchEnd),sandbox);

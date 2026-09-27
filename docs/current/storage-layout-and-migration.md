@@ -60,6 +60,8 @@
     └── uploads/
 ```
 
+媒体默认名的功能序列保存在 `canvas-content.sqlite3` 的 `canvas_realtime_state` 私有 `media_names` 中（兼容 JSON 使用 `_realtime.media_names`）。该状态属于 Workspace Data，删除和撤销不回收编号，完整 Canvas 导出/导入必须保留高水位与分配回执；公开快照不暴露它。媒体 `autoName` 仅保存自动命名溯源，显示与下载继续使用 `name`。见 [ADR-0016](../adr/0016-canvas-media-name-allocation.md)。
+
 `storage-authority.json` 存在时，`canvas-content.sqlite3` 与
 `generation-runs.sqlite3` 必须同时成为权威，不能只切换其中一个。两类“历史”有不同职责：
 

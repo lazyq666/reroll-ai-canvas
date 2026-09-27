@@ -30,13 +30,14 @@
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/account-avatar.css?v=asset-e1cd44d31e57">
-  <link rel="stylesheet" href="/static/css/studio-shell.css?v=asset-03d51f9c3544">
+  <link rel="stylesheet" href="/static/css/studio-shell.css?v=asset-5ab489a3ab81">
   <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=asset-4ae7afe6226b">
   <link rel="stylesheet" href="/static/css/preferences.css?v=asset-2f0141ea1d6e">
   <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-30d7ea9927c7">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-229960edad6d"></script>
+    <script src="/static/js/i18n.js?v=asset-26175754df27"></script>
+    <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
 </head>
 <body>
   <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
@@ -68,14 +69,6 @@
 
         <ic-nav-item data-page="online" href="#online" icon="online-generate" label="在线生成" data-i18n-label="nav.online" data-collapsed-tooltip-key="nav.online"></ic-nav-item>
 
-        <ic-divider class="navigation-divider"></ic-divider>
-
-        <ic-nav-disclosure id="local-nav-disclosure" class="local-nav-disclosure" label="本地功能" data-i18n-label="nav.localTools" icon="project-default" open-icon="project" data-collapsed-tooltip-key="nav.localTools">
-          <ic-nav-item data-page="zimage" href="#zimage" label="文生图" data-i18n-label="nav.textToImage"></ic-nav-item>
-          <ic-nav-item data-page="enhance" href="#enhance" label="细节增强" data-i18n-label="nav.enhance"></ic-nav-item>
-          <ic-nav-item data-page="klein" href="#klein" label="图片编辑" data-i18n-label="nav.imageEdit"></ic-nav-item>
-          <ic-nav-item data-page="angle" href="#angle" label="角度控制" data-i18n-label="nav.angle"></ic-nav-item>
-        </ic-nav-disclosure>
 
       </nav>
 
@@ -119,10 +112,6 @@
     </aside>
 
     <main class="stage" aria-label="主内容" data-i18n-aria-label="common.mainContent">
-      <iframe id="frame-zimage" data-src="/static/zimage.html?v=2026.09.01.5.1788439320" title="文生图" data-i18n-title="nav.textToImage" scrolling="yes"></iframe>
-      <iframe id="frame-enhance" data-src="/static/enhance.html?v=2026.09.01.5.1788439320" title="细节增强" data-i18n-title="nav.enhance" scrolling="yes"></iframe>
-      <iframe id="frame-klein" data-src="/static/klein.html?v=2026.09.01.5.1788439320" title="图片编辑" data-i18n-title="nav.imageEdit" scrolling="yes"></iframe>
-      <iframe id="frame-angle" data-src="/static/angle.html?v=2026.09.01.5.1788439320" title="角度控制" data-i18n-title="nav.angle" scrolling="yes"></iframe>
       <iframe id="frame-online" data-src="/static/online.html?v=2026.09.01.5.1788439320" title="批量生成" data-i18n-title="batch.batch" scrolling="yes"></iframe>
       <iframe id="frame-account-management" data-src="/static/account-management.html?v=2026.09.01.5.1788439320" title="账号管理" data-i18n-title="common.accountManagement" scrolling="yes"></iframe>
       <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.09.01.5.1788439320" title="API 设置" data-i18n-title="common.apiSettings" scrolling="yes"></iframe>
@@ -138,13 +127,13 @@
     <div id="cliUpdateList" class="cli-update-list"></div>
   </ic-dialog>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-262aee243b7e"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-92138d839445"></script>
   <script type="module" src="/static/js/studio-entry-motion.js?v=asset-be9d77ac1c16"></script>
-  <script src="/static/js/studio-shell.js?v=asset-a055199da38e" defer></script>
+  <script src="/static/js/studio-shell.js?v=asset-555361da7f87" defer></script>
   <script src="/static/js/preferences.js?v=asset-278263e2e773" defer></script>
   <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db" defer></script>
   <script src="/static/js/account-ui.js?v=asset-a365b83b57b6" defer></script>
   <script src="/static/js/cli-updates.js?v=asset-6641096d5221" defer></script>
-  <script src="/static/js/frontend-update.js?v=asset-c1175e39026f" defer></script>
+  <script src="/static/js/frontend-update.js?v=asset-01a1219e75dd" defer></script>
 </body>
 </html>

@@ -43,7 +43,7 @@ class Issue86ScrollbarFoundationTests(unittest.TestCase):
 
     def test_product_pages_all_load_the_ui_core(self):
         pages = sorted(STATIC.glob("*.html"))
-        self.assertGreaterEqual(len(pages), 17)
+        self.assertEqual(len(pages), 14)
         missing = [page.name for page in pages if "infinite-canvas-ui/core.js" not in page.read_text(encoding="utf-8")]
         self.assertEqual(missing, [])
 

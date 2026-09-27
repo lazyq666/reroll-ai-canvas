@@ -376,7 +376,13 @@ def build_layer_decomposition_psd(
         raise
     except (MemoryError, OSError, OverflowError, struct.error, ValueError) as exc:
         raise LayeredPsdError("export_failed") from exc
-    return LayeredPsdResult(content=content, filename=_filename(node.get("title")))
+    named_result = next(
+        (str(item.get("name") or "").rsplit(".", 1)[0]
+         for item in node.get("images", [])
+         if (item.get("autoName") or {}).get("prefix") == "layers"),
+        node.get("title"),
+    )
+    return LayeredPsdResult(content=content, filename=_filename(named_result))
 
 
 __all__ = [

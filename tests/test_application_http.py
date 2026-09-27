@@ -6,6 +6,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -15,7 +16,7 @@ from infinite_canvas.app import create_app
 from infinite_canvas.bootstrap import ExistingWorkspaceRecovery
 from infinite_canvas.content import WorkspaceContent
 from infinite_canvas.controlled_storage_migration import ControlledStorageMigration
-from infinite_canvas.runtime import ApplicationRuntime, RuntimeStartup
+from infinite_canvas.runtime import ApplicationRuntime, RuntimeStage, RuntimeStartup, RuntimeStatus
 from infinite_canvas.storage_authority import resolve_storage_authority
 from infinite_canvas.workspace import Workspace, WorkspaceService
 from infinite_canvas.workspace_storage_composition import compose_workspace_storage
@@ -23,6 +24,42 @@ from infinite_canvas.workspace_storage import WorkspaceStorage, WorkspaceStorage
 
 
 class ApplicationHttpTests(unittest.TestCase):
+    def test_runtime_brand_loader_only_represents_pending_states(self):
+        async def initialize():
+            return RuntimeStartup(application=FastAPI())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = ApplicationRuntime(
+                initializer=initialize,
+                local_state_dir=Path(temporary),
+                version="test",
+            )
+            client = TestClient(create_app(runtime))
+            cases = [
+                (RuntimeStage.STARTING, "runtime.startingTitle", True, None),
+                (RuntimeStage.RESTART_WAITING, "runtime.restartWaitingTitle", True, 'id="restart-now"'),
+                (RuntimeStage.MAINTENANCE, "runtime.maintenanceTitle", True, None),
+                (RuntimeStage.STOPPING, "runtime.restartingTitle", True, None),
+                (RuntimeStage.FAILED, "runtime.failedTitle", False, 'id="copy-error"'),
+                (RuntimeStage.RECOVERY_REQUIRED, "runtime.reconnectTitle", False, 'href="/recovery"'),
+            ]
+            for stage, title_key, loading, action in cases:
+                with self.subTest(stage=stage), patch.object(
+                    runtime, "status", return_value=RuntimeStatus(stage, "status", 2)
+                ):
+                    response = client.get("/startup")
+                    self.assertEqual(200, response.status_code)
+                    self.assertEqual(loading, 'loading-animation="brand"' in response.text)
+                    self.assertIn(f'data-i18n="{title_key}"', response.text)
+                    self.assertIn('/static/js/theme.js', response.text)
+                    # Native fallback and recovery controls survive module failure.
+                    self.assertIn(f'src="{asset_url("/static/images/brand/logo.png")}"', response.text)
+                    if loading:
+                        self.assertIn(f'data-i18n-label="{title_key}" aria-hidden="true"', response.text)
+                    if action:
+                        self.assertIn(action, response.text)
+                    self.assertIn("watchRuntime", response.text)
+
     def test_startup_shell_is_visible_and_business_routes_are_gated(self):
         legacy_app = FastAPI()
 

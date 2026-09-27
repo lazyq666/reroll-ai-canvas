@@ -5,10 +5,6 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.T30_PREVIEW_PORT || 8798);
 const framePages = new Set([
-  '/static/zimage.html',
-  '/static/enhance.html',
-  '/static/klein.html',
-  '/static/angle.html',
   '/static/online.html',
   '/static/account-management.html',
   '/static/api-settings.html',
@@ -35,6 +31,8 @@ const server = http.createServer((request, response) => {
     const role = /(?:^|;\s*)t30-role=designer(?:;|$)/.test(request.headers.cookie || '') ? 'designer' : 'admin';
     return json(response, 200, { user: { id: role === 'admin' ? '1' : '2', username: role, display_name: role === 'admin' ? 'Shell Admin' : 'Shell Designer', role, status: 'active' } });
   }
+  if (url.pathname === '/api/app-info') return json(response, 200, { version: 'test' });
+  if (url.pathname === '/api/admin/cli-updates') return json(response, 200, { items: [], notification_items: [], checking: false });
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') return json(response, 200, { ok: true });
   if (url.pathname === '/api/workspace-storage-settings') {
     return json(response, 200, { active: { workspace_directory: '/tmp/infinite-canvas' }, configured: {} });

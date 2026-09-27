@@ -215,6 +215,7 @@ function smartModelCapabilityErrorMessage(error={}, fallback=''){
     const values = {field,actual:error.actual ?? '—',minimum:error.minimum ?? '—',maximum:error.maximum ?? '—'};
     const keys = {
         repair_invalid:'smart.repair.invalid',
+        repair_aspect_mismatch:'smart.repair.aspectMismatch',
         repair_media_missing:'smart.repair.mediaMissing',
         repair_source_changed:'smart.repair.sourceChanged',
         repair_too_large:'smart.repair.tooLarge',

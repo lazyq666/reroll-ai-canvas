@@ -5,10 +5,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE_PAGES = (
-    ROOT / "static" / "zimage.html",
-    ROOT / "static" / "enhance.html",
-    ROOT / "static" / "klein.html",
-    ROOT / "static" / "angle.html",
     ROOT / "static" / "online.html",
 )
 HAN = re.compile(r"[\u3400-\u9fff]")
@@ -23,19 +19,6 @@ class CoreCreationI18nTests(unittest.TestCase):
                     missing.append(f"{page.name}:{number}: {line.strip()}")
         self.assertEqual([], missing)
 
-    def test_angle_dynamic_feedback_uses_translation_keys(self):
-        script = (ROOT / "static" / "js" / "angle.js").read_text(encoding="utf-8")
-        for literal in (
-            "请选择图片文件",
-            "视角生成完成",
-            "已选择 ${archiveSelection.size} 项",
-            "取消全选' : '全选",
-            "删除失败",
-            "所选归档已删除",
-        ):
-            self.assertNotIn(literal, script)
-        self.assertIn("tf('studio.selectedArchives'", script)
-        self.assertIn("tr('studio.angleGenerationComplete')", script)
 
     def test_batch_model_compatibility_error_is_language_safe(self):
         script = (ROOT / "static" / "js" / "batch-generation.js").read_text(

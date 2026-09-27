@@ -14,6 +14,17 @@ from typing import Any, Callable
 
 from PIL import Image, ImageChops, ImageOps
 
+SUPPORTED_REPAIR_RATIOS = ("1:1", "2:3", "3:2", "16:9", "9:16")
+
+
+def require_matching_aspect(size, target):
+    """Allow at most one output pixel of aspect-ratio rounding, never a cover crop."""
+    w, h = size
+    tw, th = target
+    if abs(w * th - h * tw) > max(tw, th):
+        raise ImageRepairError("repair_aspect_mismatch")
+
+
 MAX_DIMENSION = 30000
 MAX_PIXELS = 40_000_000
 
@@ -64,6 +75,10 @@ def validate_recipe(value: Any, *, require_patch: bool = True) -> dict:
         result[name] = box
     limit = min(result["transform"]["width"], result["transform"]["height"])
     result["feather"] = _number(value.get("feather", 0), 0, limit if result["version"] == 2 else limit / 2)
+    if "preserve_geometry" in value:
+        if not isinstance(value["preserve_geometry"], bool):
+            raise ImageRepairError("repair_invalid")
+        result["preserve_geometry"] = value["preserve_geometry"]
     if require_patch:
         result["patch"] = _media(value.get("patch"))
     return result
@@ -110,9 +125,14 @@ def repair_layers(value: Any, resolve_media: Callable) -> tuple[dict, Image.Imag
         raise ImageRepairError("repair_source_changed")
     box = recipe["transform"]
     patch = open_media(recipe["patch"], resolve_media)
-    # Keep the generated image proportional. Model-output rounding is handled
-    # by a centered cover; no nonuniform stretching is introduced here.
-    patch = ImageOps.fit(patch, (box["width"], box["height"]), method=Image.Resampling.LANCZOS)
+    if recipe.get("preserve_geometry"):
+        crop = recipe["crop"]
+        require_matching_aspect(patch.size, (crop["width"], crop["height"]))
+        require_matching_aspect((box["width"], box["height"]), (crop["width"], crop["height"]))
+        patch = patch.resize((box["width"], box["height"]), Image.Resampling.LANCZOS)
+    else:
+        # Existing saved repairs retain their original interpretation.
+        patch = ImageOps.fit(patch, (box["width"], box["height"]), method=Image.Resampling.LANCZOS)
     patch = feather_alpha(patch, recipe["feather"], version=recipe["version"])
     left, top = max(0, box["x"]), max(0, box["y"])
     right, bottom = min(source.width, box["x"] + box["width"]), min(source.height, box["y"] + box["height"])

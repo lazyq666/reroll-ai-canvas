@@ -1,11 +1,9 @@
 (() => {
   const ACTIVE_PAGE_KEY = 'studio_active_page';
   const CANVAS_ROUTE_KEY = 'studio_canvas_route';
-  const LOCAL_NAV_COLLAPSED_KEY = 'studio_local_nav_collapsed';
   const SIDEBAR_PINNED_KEY = 'studio_sidebar_pinned';
   const DEFAULT_PAGE_ID = 'canvas';
-  const PAGE_IDS = ['zimage', 'enhance', 'klein', 'angle', 'online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
-  const LOCAL_PAGE_IDS = ['zimage', 'enhance', 'klein', 'angle'];
+  const PAGE_IDS = ['online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
   const SETTINGS_PAGE_IDS = ['account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
   const CANVAS_EDITOR_PATHS = new Set(['/static/smart-canvas.html']);
 
@@ -142,7 +140,6 @@
     document.querySelectorAll('.global-navigation > ic-nav-item').forEach(item => {
       item.toggleAttribute('compact', !pinned);
     });
-    byId('local-nav-disclosure')?.toggleAttribute('compact', !pinned);
     trigger?.setAttribute('aria-pressed', String(pinned));
     if (trigger) {
       const label = tr(pinned ? 'common.collapseNavigation' : 'common.expandNavigation');
@@ -151,11 +148,6 @@
     updateCollapsedNavigationTooltips(pinned);
     if (!options.skipRemember) localStorage.setItem(SIDEBAR_PINNED_KEY, pinned ? '1' : '0');
     closeShellMenus();
-  }
-
-  function setLocalNavCollapsed(collapsed, options = {}) {
-    byId('local-nav-disclosure')?.toggleAttribute('open', !collapsed);
-    if (!options.skipRemember) localStorage.setItem(LOCAL_NAV_COLLAPSED_KEY, collapsed ? '1' : '0');
   }
 
   function updateCurrentNavigation(id) {
@@ -178,8 +170,6 @@
     updateCurrentNavigation(id);
     if (!options.skipRemember) localStorage.setItem(ACTIVE_PAGE_KEY, id);
 
-    if (LOCAL_PAGE_IDS.includes(id)) setLocalNavCollapsed(false, { skipRemember: true });
-    else setLocalNavCollapsed(localStorage.getItem(LOCAL_NAV_COLLAPSED_KEY) !== '0', { skipRemember: true });
 
     closeShellMenus();
     syncThemeToFrame(target);
@@ -196,8 +186,7 @@
     const saved = localStorage.getItem(ACTIVE_PAGE_KEY);
     const permitted = user?.role === 'admin' || !SETTINGS_PAGE_IDS.includes(saved);
     const id = PAGE_IDS.includes(saved) && permitted ? saved : (permitted ? DEFAULT_PAGE_ID : 'canvas');
-    setLocalNavCollapsed(localStorage.getItem(LOCAL_NAV_COLLAPSED_KEY) !== '0', { skipRemember: true });
-    switchUI(null, id, { skipRemember: true });
+    switchUI(null, id);
     document.documentElement.classList.remove('studio-route-booting');
   }
 
@@ -280,15 +269,6 @@
       item.addEventListener('focusin', () => showSidebarTooltip(item));
       item.addEventListener('focusout', () => hideSidebarTooltip('focusout'));
     });
-    byId('local-nav-disclosure')?.addEventListener('ic-toggle', event => {
-      const sidebar = byId('studioSidebar');
-      if (!sidebar?.classList.contains('is-pinned')) {
-        setSidebarPinned(true);
-        setLocalNavCollapsed(false);
-        return;
-      }
-      setLocalNavCollapsed(!event.detail.open);
-    });
     document.querySelectorAll('ic-nav-item[data-page]').forEach(item => {
       item.addEventListener('click', event => {
         event.preventDefault();
@@ -321,6 +301,13 @@
   }
 
   window.switchUI = switchUI;
+  // Child pages call this from <head>, before their first visible paint.
+  // Waiting for iframe load lets the opening indicator paint beside the sidebar
+  // and then jump when the editor expands to fill the App Shell.
+  window.syncStudioCanvasFrameLayout = source => {
+    if (source !== byId('frame-canvas')?.contentWindow) return;
+    syncCanvasEditorShellState();
+  };
   window.initializeStudioForUser = restoreActivePage;
   window.closeShellMenus = closeShellMenus;
 

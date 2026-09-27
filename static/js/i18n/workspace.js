@@ -10,6 +10,7 @@
         "workspace.pasteHere": { zh: "粘贴到此项目", en: "Paste into this project" },
         "workspace.loadMoreCanvases": { zh: "加载更多画布", en: "Load more canvases" },
         "workspace.loadMore": { zh: "加载更多", en: "Load more" },
+        "workspace.loadingCanvases": { zh: "正在加载画布", en: "Loading canvases" },
         "workspace.resetView": { zh: "重置视图", en: "Reset view" },
         "workspace.refresh": { zh: "刷新", en: "Refresh" },
         "workspace.loadFailed": { zh: "画布暂时无法加载", en: "Canvases could not be loaded" },

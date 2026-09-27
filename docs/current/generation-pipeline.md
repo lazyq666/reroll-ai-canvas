@@ -98,7 +98,7 @@ Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期�
 
 一次运行的多个独立输出组成一个空间集合。Canvas Settings 保存横向或纵向布局，默认横向；创建 Pending 时冻结 `generationBatchLayout`，不按后来的设置改排。普通生成的新结果以实际输入父节点整体为来源，无外部父节点才用执行节点；“再次生成”则以点击节点为布局来源，旧结果不动、不复用，新结果从该节点右侧 G 开始，原参数和输入连接不变；横向放不下时换行，纵向放不下时换列，内部与外部间距共用 G = 4rem（64 世界单位）。跨次续行、续列只是软偏好，允许为了接近父节点及改善视口而打破旧起点对齐。空生成节点复用为第一项时保持身份及坐标，以其为固定首槽继续排列新增结果；容量使用发起时视口和稳定尺寸，输入关系不变。恢复和 Undo/Redo 保留已知位置；自动初始创建的并发竞争才重算新增集合。历史 `generationBatch*` 字段不改变领域中 Generation Batch 的定义。完整空间合同见[节点定位与自动避让](smart-canvas-node-auto-placement.md#4-生成结果与刚性集合)。
 
-新 Generation Output 在拆分前按结果集合初始化短文件名，并按图片、视频、音频各自从 01 连续编号，例如 `image-01.png`、`video-01.webm`、`audio-01.mp3`。扩展名来自实际媒体 URL / MIME / kind，不采用 Provider 的长文件名，也不由之后可编辑的显示名称决定媒体格式。恢复或重复发布合并到已有输出时，已有非空 `name` 属于用户内容，不得被默认名覆盖。详细交互、下载与并发定位合同见 [Smart Canvas 媒体命名与重命名](../active/2026-09-20-smart-canvas-media-naming.md)。
+新 Generation Output 在拆分前按实际功能初始化短名称，如 `t2i-01.png`、`i2i-01.webp`、`repair-01.png`。同一 Canvas 同一前缀由服务端事务持续分配编号，不因下一次生成、删除、撤销或刷新而重置；本地媒体编辑通过同一 Canvas Mutation 权威分配。扩展名取真实格式，恢复合并保护已保存名称；分配回执和编号高水位随 Canvas 的私有状态持久化，不进入可撤销内容。完整分类、重命名和下载合同见 [Smart Canvas 媒体命名与重命名](../active/2026-09-20-smart-canvas-media-naming.md)，边界见 [ADR-0016](../adr/0016-canvas-media-name-allocation.md)。
 
 Smart Canvas 用 Node 角色判断 Prompt Authoring 与 Generation Run 的基础资格。单选 Smart Group 或具有明确生成身份的 Generation Node 时 Composer 自动打开；这里包括生成中、生成失败和已完成的 Generation Output Node。普通 Image Node 不具备该资格，无论它是尚未上传的空媒体槽、图片、视频还是音频，也无论媒体来自上传、粘贴、拖入或导入。上传进行中和上传完成后的重绘可以保持当前 Selection，但不得因此打开 Composer 或启用 Generation Run。Frame、Text Annotation 等其他不支持角色、多选普通 Node 或清空 Selection 时 Composer 同样关闭。
 
@@ -637,6 +637,7 @@ Turso 异常恢复的固定回归入口：`tests.test_turso_generation_reliabili
 输出数量受模型能力和画布数量上限约束。同次多张请求沿用输出槽位和 Generation Batch 身份，
 每个结果节点保留修复请求，重新生成时继续传递配方；每张补丁分别合成，使用独立媒体身份。
 本次修复的所有结果节点连线到直接来源节点，包括来源为已生成图片的情况。调整面板只编辑当前节点，其他结果从画布对应节点打开；草稿与确认保存各自独立。
+新局部修复请求只接受模型能力内的 1:1、2:3、3:2、16:9、9:16，画幅必须与裁剪外框精确一致。服务端冻结 `preserve_geometry: true`，以精确比例像素尺寸提交；此标记经 Provider Runtime 传到 Codex / Gemini CLI，禁止 CLI 后处理裁切，并跳过普通输出的 cover 物化。原始输出与外框比例最多允许 1 个输出像素的取整差异，不符则 `repair_aspect_mismatch`，不交付错位合成图；原始已保存素材保留。校验通过后完整缩放回贴，不丢弃补丁边缘。未带标记的旧配方保留原合成解释。
 结果物化阶段保存生成补丁，再按原图像素坐标合成为 PNG；Canvas、History 和任务结果
 的 `image_items` 一起携带原图、补丁及调整参数。现有 Run ID、Operation ID、恢复和 Target Guard 继续生效。
 裁剪素材准备完成并在前端创建待生成节点后关闭局部修复面板，不等待画布同步与服务端接收；后台继续同步、提交及交付，生成完成不自动重开。素材准备失败保留面板；关闭后的同步或提交失败保留单张/多张结果节点及错误反馈，来源编辑草稿仍可恢复。

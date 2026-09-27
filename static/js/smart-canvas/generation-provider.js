@@ -159,32 +159,7 @@ async function generationProviderSubmitComfy(prompt, refs, runSettings, context=
         }, context);
         return generationProviderCompleted(data, mediaKindForUrls(resultMediaUrls(data), 'image'));
     }
-    if(mode === 'enhance'){
-        if(!imageRefs.length) throw new Error(tr('smart.errEnhanceNeedRefs'));
-        const inputName = await generationProviderComfyName(imageRefs[0]);
-        const data = await generationProviderRunComfyTask({
-            workflow_json:'Z-Image-Enhance.json',
-            type:'enhance',
-            params:{"15":{image:inputName},"204":{value:Number(runSettings.enhanceStrength ?? 0.5)}},
-            client_id:smartClientId,
-            ...generationProviderRunIdentity(context)
-        }, context);
-        return generationProviderCompleted(data, mediaKindForUrls(resultMediaUrls(data), 'image'));
-    }
-    if(mode === 'edit'){
-        if(!imageRefs.length) throw new Error(tr('smart.errEditNeedRefs'));
-        const names = [];
-        for(const ref of imageRefs.slice(0, 3)) names.push(await generationProviderComfyName(ref));
-        const data = await generationProviderRunComfyTask({
-            prompt,
-            workflow_json:'Flux2-Klein.json',
-            type:'klein',
-            params:{"168":{text:prompt},"158":{noise_seed:Math.floor(Math.random()*1000000)},"278":{image:names[0] || ""},"270":{image:names[1] || ""},"292":{image:names[2] || ""},"313":{value:Boolean(names[1])},"314":{value:Boolean(names[2])}},
-            client_id:smartClientId,
-            ...generationProviderRunIdentity(context)
-        }, context);
-        return generationProviderCompleted(data, mediaKindForUrls(resultMediaUrls(data), 'image'));
-    }
+    if(mode !== 'custom') throw new Error(tr('smart.errWorkflowUnavailable'));
     const workflowName = String(runSettings.comfyWorkflow || '').trim();
     if(!workflowName) throw new Error(tr('smart.errNeedWorkflow'));
     if(!comfyWorkflows.some(workflow => workflow.name === workflowName)){

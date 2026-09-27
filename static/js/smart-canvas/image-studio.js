@@ -1013,6 +1013,7 @@ async function exportPanoramaFrame(){
         const uploaded = await uploadFiles([new File([blob], filename, {type:'image/png'})]);
         const frame = uploaded[0];
         if(!frame?.url) throw new Error(tr('smart.panoramaExportFailed'));
+        nameCreatedMedia(frame, 'panorama', editing.image);
         frame.kind = 'image';
         frame.natural_w = canvasEl.width;
         frame.natural_h = canvasEl.height;
@@ -1415,6 +1416,7 @@ async function exportVideoFrame(which='current'){
         const uploaded = await uploadFiles([new File([blob], filename, {type:'image/png'})]);
         const frame = uploaded[0];
         if(!frame?.url) throw new Error(tr('smart.exportToCanvasFailed'));
+        nameCreatedMedia(frame, which==='first' ? 'frame-first' : which==='last' ? 'frame-last' : 'frame-current', editing.image);
         frame.kind = 'image';
         frame.natural_w = video.videoWidth;
         frame.natural_h = video.videoHeight;
@@ -2848,7 +2850,7 @@ function replaceEditedImage(file, extra={}){
     return Boolean(imageStudioMutationModule.update({
         nodeId:node.id,
         mutate(target){
-            target.images[index] = {...(target.images[index] || {}), url:file.url, name:file.name, kind:file.kind || mediaKindForItem(file), natural_w:0, natural_h:0, ...extra};
+            target.images[index] = {...(target.images[index] || {}), url:file.url, name:file.name, autoName:file.autoName, kind:file.kind || mediaKindForItem(file), natural_w:0, natural_h:0, ...extra};
             if((target.images || []).length === 1){
                 delete target.w;
                 delete target.h;
@@ -2882,7 +2884,7 @@ async function applyImageCrop(){
     const blob = await new Promise(resolve => canvasEl.toBlob(resolve, 'image/png'));
     const base = (image.name || 'image').replace(/\.[^.]+$/, '');
     const file = blob ? await uploadCroppedBlob(blob, `${base}_crop.png`) : null;
-    if(file && replaceEditedImage(file)) finishImageStudioCommit(node.id, Number(cropState.imageIndex || 0));
+    if(file && replaceEditedImage(nameCreatedMedia(file, 'crop', image))) finishImageStudioCommit(node.id, Number(cropState.imageIndex || 0));
 }
 async function applyImageMask(){
     if(!cropState || !editCanvasHasPixels()) return;
@@ -2895,7 +2897,7 @@ async function applyImageMask(){
     if(file){
         const outputNode = imageStudioMutationModule.create({
             kind:'image',
-            data:{images:[{url:file.url,name:file.name,kind:'image',role:'mask'}]},
+            data:{images:[{...nameCreatedMedia(file, 'mask', image),kind:'image',role:'mask'}]},
             options:{
                 placement:{
                     anchor:{kind:'source',sourceNodeId:node.id},
@@ -2941,7 +2943,7 @@ async function applyImageBrush(){
     const blob = await new Promise(resolve => canvasEl.toBlob(resolve, 'image/png'));
     const base = (image.name || 'image').replace(/\.[^.]+$/, '');
     const file = blob ? await uploadCroppedBlob(blob, `${base}_paint.png`) : null;
-    if(file && replaceEditedImage(file)) finishImageStudioCommit(node.id, Number(cropState.imageIndex || 0));
+    if(file && replaceEditedImage(nameCreatedMedia(file, 'paint', image))) finishImageStudioCommit(node.id, Number(cropState.imageIndex || 0));
 }
 async function applyImageGridSplit(){
     if(!cropState) return;
@@ -2965,6 +2967,8 @@ async function applyImageGridSplit(){
     }
     const files = await uploadImageBlobs(blobs);
     if(files.length){
+        const namingId = uid('split');
+        files.forEach((file,index) => nameCreatedMedia(file, 'split', image, {id:namingId,suffix:`-r${rects[index].row + 1}-c${rects[index].col + 1}`}));
         const layout = gridLayoutFromRects(rects);
         const outputNode = imageStudioMutationModule.create({
             kind:'image',
@@ -2972,6 +2976,7 @@ async function applyImageGridSplit(){
                 images:files.map((file, i) => ({
                     url:file.url,
                     name:file.name,
+                    autoName:file.autoName,
                     grid:{
                         ...layout,
                         row:rects[i]?.row || 0,
@@ -3054,11 +3059,13 @@ async function applyImageGridJoin(){
     const base = safeExportFileName((downloadNameForMediaItem(image || items[0]?.item, 'image') || 'image').replace(/\.[^.]+$/, ''), 'image');
     const file = blob ? await uploadCroppedBlob(blob, `${base}_join.png`) : null;
     if(file){
+        nameCreatedMedia(file, 'join');
         const outputNode = imageStudioMutationModule.create({
             kind:'image',
             data:{images:[{
                 url:file.url,
                 name:file.name,
+                autoName:file.autoName,
                 kind:'image',
                 natural_w:canvasEl.width,
                 natural_h:canvasEl.height
@@ -3089,7 +3096,7 @@ async function applyImageResize(){
     const suffix = `${Math.round(resized.scale * 100)}pct`;
     const file = await uploadCroppedBlob(resized.blob, `${base}_resize_${suffix}.png`);
     if(!file) return;
-    if(!replaceEditedImage(file, {kind:'image', role:image.role || '', natural_w:resized.targetW, natural_h:resized.targetH})){
+    if(!replaceEditedImage(nameCreatedMedia(file, 'resize', image), {kind:'image', role:image.role || '', natural_w:resized.targetW, natural_h:resized.targetH})){
         return;
     }
     finishImageStudioCommit(node.id, Number(cropState.imageIndex || 0));

@@ -1,0 +1,54 @@
+/* Persistent, non-modal update reminder. Controls keep their public ic-* styles. */
+.frontend-update-notice {
+    position: fixed;
+    right: max(var(--ui-space-6), env(safe-area-inset-right));
+    bottom: max(var(--ui-space-6), env(safe-area-inset-bottom));
+    z-index: var(--ui-z-toast);
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: var(--ui-control-height-s) minmax(0, 1fr) var(--ui-control-height-s);
+    column-gap: var(--ui-space-2);
+    row-gap: var(--ui-space-3);
+    width: 19.5rem;
+    max-width: calc(100vw - 2 * var(--ui-space-6));
+    max-height: calc(100dvh - 2 * var(--ui-space-6));
+    overflow: auto;
+    padding: var(--ui-space-4);
+    border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+    border-radius: var(--ui-radius-m);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-text-primary);
+    box-shadow: var(--ui-shadow-overlay);
+    font: var(--ui-text-body-compact);
+    text-align: start;
+}
+.frontend-update-notice[hidden], .frontend-update-notice [hidden] { display: none !important; }
+.frontend-update-icon {
+    display: grid;
+    place-items: center;
+    width: var(--ui-control-height-s);
+    height: var(--ui-control-height-s);
+    border-radius: var(--ui-radius-s);
+    background: var(--ui-color-surface-subtle);
+    color: var(--ui-color-icon-secondary);
+}
+.frontend-update-dot { fill: var(--ui-color-icon-success); }
+.frontend-update-copy { padding-top: var(--ui-space-1); }
+.frontend-update-copy h2 {
+    margin: 0;
+    font: var(--ui-text-label);
+    color: var(--ui-color-text-primary);
+}
+.frontend-update-copy p {
+    margin: var(--ui-space-1) 0 0;
+    font: var(--ui-text-body-compact);
+    color: var(--ui-color-text-secondary);
+    overflow-wrap: anywhere;
+}
+.frontend-update-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--ui-space-2);
+}

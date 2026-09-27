@@ -322,7 +322,6 @@ canvasLevelOfDetail.configure({
 const MS_GEN_MODELS = {
     zimage: { label:'ZImage', modelId:'Tongyi-MAI/Z-Image-Turbo', supportsImage:false, endpoint:'/generate' },
     qwen_edit: { label:'Qwen Edit', modelId:'Qwen/Qwen-Image-Edit-2511', supportsImage:true, endpoint:'/api/angle/generate' },
-    klein_edit: { label:'Klein', modelId:'black-forest-labs/FLUX.2-klein-9B', supportsImage:true, endpoint:'/api/ms/generate' },
     custom: { label:tr('smart.custom'), modelId:'', acceptsImage:true, endpoint:'/api/ms/generate' }
 };
 const SIZE_MAP = {
@@ -1731,7 +1730,10 @@ function applyLayerDecompositionResult(pendingNode, result){
         });
     });
     pendingNode.type = nodeKinds.LAYER_DECOMPOSITION;
-    pendingNode.images = [baseMedia];
+    const previousBase = pendingNode.images?.find(item => item.url === baseMedia.url);
+    pendingNode.images = [previousBase?.name
+        ? {...baseMedia, name:previousBase.name, ...(previousBase.autoName ? {autoName:previousBase.autoName} : {})}
+        : nameCreatedMedia({...baseMedia}, 'layers', null, {id:`layers:${manifest.run_id || manifest.upstream_task_id || pendingNode.id}`})];
     pendingNode.x = originX;
     pendingNode.y = originY;
     pendingNode.w = displayWidth;
@@ -2864,7 +2866,6 @@ function runningHubRunNeedsPrompt(sourceSettings=settings){
 function smartRunNeedsPrompt(sourceSettings=settings){
     sourceSettings = sourceSettings || settings;
     if(sourceSettings.engine === 'runninghub') return runningHubRunNeedsPrompt(sourceSettings);
-    if(sourceSettings.engine === 'comfy' && sourceSettings.comfyMode === 'enhance') return false;
     return true;
 }
 function sortRunningHubFields(fields){
@@ -3743,11 +3744,9 @@ function renderMsParams(){
     `;
 }
 function renderComfyParams(){
-    settings.comfyMode = ['text','enhance','edit','custom'].includes(settings.comfyMode) ? settings.comfyMode : 'text';
+    settings.comfyMode = ['text','custom'].includes(settings.comfyMode) ? settings.comfyMode : 'text';
     const modeOptions = [
         ['text', tr('canvas.comfyModeText')],
-        ['enhance', tr('canvas.comfyModeEnhance')],
-        ['edit', tr('canvas.comfyModeEdit')],
         ['custom', tr('canvas.comfyModeCustom')]
     ];
     if(settings.comfyMode === 'custom'){
@@ -3768,13 +3767,6 @@ function renderComfyParams(){
     if(settings.comfyMode === 'text'){
         html += `<ic-number-input class="generation-number-input" name="comfy-width" label="${escapeAttr(tr('smart.width'))}" size="small" min="1" step="1" data-param="width" value="${Number(settings.width || 1024)}"></ic-number-input>
             <ic-number-input class="generation-number-input" name="comfy-height" label="${escapeAttr(tr('smart.height'))}" size="small" min="1" step="1" data-param="height" value="${Number(settings.height || 1024)}"></ic-number-input>`;
-    } else if(settings.comfyMode === 'enhance'){
-        html += `<ic-number-input class="generation-number-input" name="comfy-enhance-strength" label="${escapeAttr(tr('smart.strength'))}" size="small" min="0.1" max="1" step="0.05" data-param="enhanceStrength" value="${Number(settings.enhanceStrength ?? 0.5)}"></ic-number-input>
-            ${renderVideoToggleControl('enhanceUpscale', tr('smart.superResolution'))}
-            ${settings.enhanceUpscale ? renderUpscalePill('enhanceUpscaleRes', Number(settings.enhanceUpscaleRes || 2048)) : ''}`;
-    } else if(settings.comfyMode === 'edit'){
-        html += `${renderVideoToggleControl('editUpscale', tr('smart.superResolution'))}
-            ${settings.editUpscale ? renderUpscalePill('editUpscaleRes', Number(settings.editUpscaleRes || 2048)) : ''}`;
     } else {
         const wf = comfyWorkflowCache[settings.comfyWorkflow];
         const fields = (wf?.config?.fields || []).filter(f => window.SmartCanvasModules.generationProvider.fieldKind(f) === 'setting');
@@ -3789,15 +3781,6 @@ function renderComfyParams(){
         </ic-select>
         ${html}
     `;
-}
-function renderUpscalePill(paramKey, current){
-    const opts = [2048, 4096];
-    const labels = {2048:'2X / 2048', 4096:'4X / 4096'};
-    return `<ic-select class="upscale-select" name="${escapeAttr(paramKey)}" aria-label="${escapeAttr(tr('smart.upscaleTarget'))}" hierarchy="quiet" placement="top" data-smart-select-param="${escapeAttr(paramKey)}">
-        ${opts.map(value => `<option value="${value}" ${value === current ? 'selected' : ''}>${escapeHtml(labels[value])}</option>`).join('')}
-        <ic-icon name="fit" size="small" slot="start" aria-hidden="true"></ic-icon>
-        <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
-    </ic-select>`;
 }
 function renderComfyWorkflowControl(){
     if(!comfyWorkflows.length) return `<div class="muted-note">${escapeHtml(tr('smart.noWorkflow'))}</div>`;
@@ -4574,8 +4557,8 @@ function setDynamicSetting(key, value){
         if(video){ settings.videoProvider = entry.provider_id; settings.videoModel = entry.model; key = 'videoModel'; value = entry.model; }
         else { settings.provider_id = entry.provider_id; settings.model = entry.model; key = 'model'; value = entry.model; }
     }
-    const numericKeys = new Set(['count','width','height','videoDuration','enhanceStrength','enhanceUpscaleRes','editUpscaleRes','customRatioWidth','customRatioHeight','customWidth','customHeight','msCustomRatioWidth','msCustomRatioHeight','msCustomWidth','msCustomHeight']);
-    const layoutKeys = new Set(['provider_id','model','resolution','ratio','msgenModel','msCustomModel','msResolution','msRatio','videoProvider','videoModel','videoAspect','videoResolution','videoReferenceMode','comfyMode','comfyWorkflow','quality','count','enhanceUpscaleRes','editUpscaleRes','rhConfigKey','rhPayment','rhInstanceType']);
+    const numericKeys = new Set(['count','width','height','videoDuration','customRatioWidth','customRatioHeight','customWidth','customHeight','msCustomRatioWidth','msCustomRatioHeight','msCustomWidth','msCustomHeight']);
+    const layoutKeys = new Set(['provider_id','model','resolution','ratio','msgenModel','msCustomModel','msResolution','msRatio','videoProvider','videoModel','videoAspect','videoResolution','videoReferenceMode','comfyMode','comfyWorkflow','quality','count','rhConfigKey','rhPayment','rhInstanceType']);
     settings[key] = numericKeys.has(key) && value !== '' ? Number(value) : value;
     if(changesImageModel){
         pendingSmartImageCapabilityTransition = smartImageCapabilityTransitionFinish(capabilityTransitionStart);
@@ -5776,7 +5759,7 @@ function recoverStuckLoopOutputsFromLogs(){
         if(!output) return;
         const kind = mediaKindForUrls([output.url], 'image');
         const ext = kind === 'video' ? 'mp4' : kind === 'audio' ? 'mp3' : kind === 'text' ? 'txt' : 'png';
-        slot.images = [stripImageGenerationMeta({url:output.url, name:`comfy-recovered-${Number(slot.loopSlotIndex || 0) + 1}.${ext}`, kind, generatedResult:true})];
+        slot.images = [nameCreatedMedia(stripImageGenerationMeta({url:output.url, name:`comfy-recovered-${Number(slot.loopSlotIndex || 0) + 1}.${ext}`, kind, generatedResult:true}), window.SmartCanvasModules.mediaNaming.generationPrefix(slot,kind), null, {id:`${slot.generationOperationId || slot.id}:${output.url}`})];
         markSmartNodeComplete(slot);
         if(kind) slot.outputKind = kind;
         slot.title = slot.title || 'Image';
@@ -7042,7 +7025,7 @@ function smartRunTaskLabel(run){
     if(run?.kind === 'video') return s.videoModel || 'Video';
     if(s.engine === 'comfy'){
         if(s.comfyMode === 'custom') return s.comfyWorkflow || 'ComfyUI';
-        const labels = {text:tr('canvas.comfyModeText'), enhance:tr('canvas.comfyModeEnhance'), edit:tr('canvas.comfyModeEdit')};
+        const labels = {text:tr('canvas.comfyModeText')};
         return labels[s.comfyMode || 'text'] || 'ComfyUI';
     }
     if(s.engine === 'modelscope'){
@@ -7221,6 +7204,9 @@ function openAssetNameDialog(options={}){
             dialog.remove();
         });
     });
+}
+function nameCreatedMedia(item, prefix, source=null, options={}){
+    return window.SmartCanvasModules.mediaNaming.assign(item, {prefix, canvas, nodes, source, ...options});
 }
 function downloadNameForMediaItem(item, fallbackPrefix='canvas-output'){
     return window.SmartCanvasModules.mediaNaming.downloadName(item,{
@@ -12387,6 +12373,7 @@ async function submitOutpaintProcessor(context,detail,model){
             nodeId:paddedNode.id,imageIndex:0,input:{...working.file,natural_w:working.plan.inputWidth,natural_h:working.plan.inputHeight,width:working.plan.inputWidth,height:working.plan.inputHeight},
             width:working.plan.inputWidth,height:working.plan.inputHeight,prompt:detail.prompt,
             runSettings:aiProcessorRunSettings(model,working.plan),
+            processorKind:'outpaint',
             onAccepted:async({node})=>{
                 node.aiProcessorKind='outpaint';
                 node.aiProcessorPostprocess={width:target.width,height:target.height};
@@ -12415,6 +12402,7 @@ async function submitAngleProcessor(context,detail,model){
             nodeId:source.id,imageIndex:context.imageIndex,input:{...working.file,natural_w:working.plan.inputWidth,natural_h:working.plan.inputHeight,width:working.plan.inputWidth,height:working.plan.inputHeight},
             width:working.plan.inputWidth,height:working.plan.inputHeight,prompt:detail.prompt,
             runSettings:aiProcessorRunSettings(model,working.plan),
+            processorKind:'angle-control',
             onAccepted:async({node})=>{
                 node.aiProcessorKind='angle-control';
                 node.aiProcessorPostprocess={width:target.width,height:target.height};
@@ -12563,6 +12551,7 @@ async function publishGifResult(context,result,video=false){
     try { file=await aiProcessorGeometry.uploadBlob(result.blob,video?'video-animation.gif':'grid-animation.gif'); }
     catch { throw new Error(tr('smart.gif.uploadFailed')); }
     if(!sourceIsCurrent()) throw new Error(tr('smart.reversePromptSourceUnavailable'));
+    nameCreatedMedia(file,video?'video-gif':'grid-gif');
     const output=canvasMutation.create({
         kind:'image',
         data:{title:tr(video?'smart.gif.videoMenu':'smart.gif.menu'),images:[{...file,kind:'image',natural_w:result.width,natural_h:result.height,width:result.width,height:result.height}]},
