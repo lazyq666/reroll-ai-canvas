@@ -22,6 +22,7 @@ const SMART_CANVAS_CHROME_SELECTOR = [
     'ic-mention-picker',
     '.mention-preview',
     '.smart-node-floating-portal',
+    '.smart-frame-capture',
     '.smart-text-options',
     '.smart-multi-selection-box',
     '.smart-node-context-menu',

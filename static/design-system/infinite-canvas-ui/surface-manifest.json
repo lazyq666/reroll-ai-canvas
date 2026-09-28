@@ -53,7 +53,7 @@
   "surfaces": {
     "legacy": {
       "label": "Legacy Inventory",
-      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-8528a2093c7d",
+      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-dad8472e4300",
       "sourceRevision": "sha256:bd91c5975e2c367e2aa7dd96f20bb9972b308fb5c8a2572ca9c96ca30c8335a2",
       "candidateCount": 573,
       "instanceCount": 1144,
@@ -134,7 +134,7 @@
         ]
       },
       "actions": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-69181e13e05e",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-75e10b05c2e8",
         "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/actions-contract.html",
@@ -197,7 +197,7 @@
         ]
       },
       "nodes": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-nodes-v1.json?v=asset-59635afd5e3c",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-nodes-v1.json?v=asset-1573eca7d84e",
         "fixture": "/static/smart-canvas.html?componentReview=nodes",
         "contractReviewStatus": "confirmed",
         "implementationStatus": "implemented",
@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-f795d1bcefd9",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-075160ce4a21",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",
@@ -514,7 +514,7 @@
       "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
       "classificationStatus": "pending-human-confirmation",
       "classifiedInstanceCount": 1712,
-      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-8528a2093c7d",
+      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-dad8472e4300",
       "instanceIdentity": "candidate-id plus stable file, source kind and DOM path; display line is diagnostic only",
       "outcomes": [
         {

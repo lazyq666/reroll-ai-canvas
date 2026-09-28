@@ -34,13 +34,13 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-33aa36c7bdb2"></script>
+    <script src="/static/js/i18n.js?v=asset-383c40df4ef1"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
-    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-6f658fcb29c4">
+    <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-d76db86c623c">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=asset-7ce1a37af323">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-92138d839445" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-7e937f6a2801" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=asset-3b9958511af0"></script>
     <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
 </head>
@@ -288,9 +288,12 @@
                             </ic-tabs>
                         </div>
                         <div id="videoFrameTools" class="video-frame-tools image-preview-command-section" style="display:none">
-                            <ic-button type="button" size="small" hierarchy="secondary" onclick="exportVideoFrame('first')"><ic-icon name="first-last-frames" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportFirstFrame">导出首帧</span></ic-button>
-                            <ic-button type="button" size="small" hierarchy="primary" onclick="exportVideoFrame('current')"><ic-icon name="extract-frame" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportCurrentFrame">导出当前帧</span></ic-button>
-                            <ic-button type="button" size="small" hierarchy="secondary" onclick="exportVideoFrame('last')"><ic-icon name="first-last-frames" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.exportLastFrame">导出尾帧</span></ic-button>
+                            <ic-menu id="previewFrameCaptureMenu" trigger="dropdown" selection="command" size="small" placement="block-start" alignment="start" label="截帧" data-i18n-label="smart.action.extractFrame">
+                                <ic-button id="previewFrameCaptureTrigger" slot="trigger" type="button" size="small" hierarchy="secondary" onclick="this.parentElement.hasAttribute('open') ? this.parentElement.hide('toggle') : this.parentElement.show(this)"><ic-icon name="camera" size="small" slot="start" aria-hidden="true"></ic-icon><span data-i18n="smart.action.extractFrame">截帧</span><ic-icon name="expand" size="small" slot="end" aria-hidden="true"></ic-icon></ic-button>
+                                <ic-menu-item kind="command" value="first" label="首帧" data-i18n-label="smart.capture.first"></ic-menu-item>
+                                <ic-menu-item kind="command" value="last" label="尾帧" data-i18n-label="smart.capture.last"></ic-menu-item>
+                                <ic-menu-item kind="command" value="custom" label="自定义" data-i18n-label="smart.capture.custom"></ic-menu-item>
+                            </ic-menu>
                         </div>
                         <span id="previewGroupNavHint" class="image-preview-control-group preview-group-nav-hint">
                             <ic-image-edit-value class="preview-group-nav-position" label="编组内图片位置" data-i18n-label="smart.groupImagePosition" role="status" aria-live="polite" aria-atomic="true">
@@ -729,9 +732,9 @@
     <script src="/static/js/smart-canvas/realtime-presence.js?v=asset-582e326a9e7f"></script>
     <script src="/static/js/smart-canvas/canvas-mutation.js?v=asset-d6c95b230a90"></script>
     <script src="/static/js/smart-canvas/smart-container.js?v=asset-96a4fd4f079d"></script>
-    <script src="/static/js/smart-canvas/canvas-interaction.js?v=asset-3bc4d815dfaa"></script>
+    <script src="/static/js/smart-canvas/canvas-interaction.js?v=asset-063f3740a586"></script>
     <script src="/static/js/smart-canvas/layered-psd.js?v=asset-a58dda539415"></script>
-    <script src="/static/js/smart-canvas/image-studio.js?v=asset-dafc39b6d24b"></script>
+    <script src="/static/js/smart-canvas/image-studio.js?v=asset-bbb66eefd146"></script>
     <script src="/static/js/smart-canvas/image-repair-presets.js?v=asset-1ce4c133ec11"></script>
 <script src="/static/js/smart-canvas/image-repair-geometry.js?v=asset-54fc342216ab"></script>
     <script src="/static/js/smart-canvas/image-repair.js?v=asset-b514fdc2f166"></script>
@@ -760,7 +763,7 @@
     <script src="/static/js/smart-canvas/prompt-generation-composer.js?v=asset-5690381d136d"></script>
     <script src="/static/js/smart-canvas/media-naming.js?v=asset-cda8bca65681"></script>
     <script src="/static/js/smart-canvas/prompt-optimize.js?v=asset-984c9818dcc6"></script>
-    <script src="/static/js/smart-canvas.js?v=asset-bd585d106b5c" onerror="window.__showSmartCanvasBootError()"></script>
+    <script src="/static/js/smart-canvas.js?v=asset-091966ed009b" onerror="window.__showSmartCanvasBootError()"></script>
     <script src="/static/js/smart-canvas/frame-image-export-host.js?v=asset-677d0b457907"></script>
     <script src="/static/js/frontend-update.js?v=asset-01a1219e75dd" defer></script>
 </body>

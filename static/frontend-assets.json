@@ -2,7 +2,7 @@
   "schema_version": 1,
   "assets": {
     "static/account-management.html": {
-      "version": "asset-44c75735075b",
+      "version": "asset-e87f1fce7cf5",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/account-management.css",
@@ -17,7 +17,7 @@
       ]
     },
     "static/api-settings.html": {
-      "version": "asset-c8189fb5010f",
+      "version": "asset-c48b8f8e8fcd",
       "dependencies": [
         "static/css/api-settings-t18.css",
         "static/css/api-settings-t19.css",
@@ -39,7 +39,7 @@
       ]
     },
     "static/available-model-management.html": {
-      "version": "asset-4fdfacc4eceb",
+      "version": "asset-4c2b0137a4d3",
       "dependencies": [
         "static/css/available-model-management.css",
         "static/css/design-tokens.css",
@@ -56,7 +56,7 @@
       ]
     },
     "static/canvas-list.html": {
-      "version": "asset-43eb26803e97",
+      "version": "asset-b72bfed89312",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/canvas-list.css",
@@ -74,7 +74,7 @@
       ]
     },
     "static/canvas.html": {
-      "version": "asset-b906825c33ba",
+      "version": "asset-12a92bd182ec",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/images/brand/favicon.png",
@@ -84,7 +84,7 @@
       ]
     },
     "static/comfyui-settings.html": {
-      "version": "asset-81962c079a92",
+      "version": "asset-96225edacca0",
       "dependencies": [
         "static/css/comfyui-settings.css",
         "static/css/design-tokens.css",
@@ -216,7 +216,7 @@
       "dependencies": []
     },
     "static/css/smart-canvas.css": {
-      "version": "asset-6f658fcb29c4",
+      "version": "asset-d76db86c623c",
       "dependencies": [
         "static/images/brand/logo.svg",
         "static/vendor/css/fonts.css"
@@ -255,7 +255,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/action-case.html": {
-      "version": "asset-31dabf3cb38f",
+      "version": "asset-9ff1914eb4ea",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-component-surfaces.css",
@@ -264,7 +264,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/actions-contract.html": {
-      "version": "asset-d4fa897cfcf9",
+      "version": "asset-941141d6e739",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-component-surfaces.css",
@@ -280,14 +280,14 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/click-spark-reference.html": {
-      "version": "asset-051541037e5b",
+      "version": "asset-0850d8745f3a",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/click-spark-reference.js"
       ]
     },
     "static/design-system/infinite-canvas-ui/composer.html": {
-      "version": "asset-b23061fdae18",
+      "version": "asset-3b44d812f540",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/smart-canvas.css",
@@ -296,7 +296,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/containers-data-case.html": {
-      "version": "asset-c5f0e12f2340",
+      "version": "asset-4cb1557f43b7",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -318,7 +318,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/design-tokens.html": {
-      "version": "asset-cdf1e953bfa8",
+      "version": "asset-963822c5517b",
       "dependencies": [
         "static/css/design-token-explorer.css",
         "static/css/design-tokens.css",
@@ -327,7 +327,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/dialog-case.html": {
-      "version": "asset-5ec1a9791ea4",
+      "version": "asset-07c01e764baa",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/generation-log-modal.css",
@@ -352,7 +352,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/empty-states.html": {
-      "version": "asset-00f4e658744a",
+      "version": "asset-ce78a982f0f5",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/smart-canvas.css",
@@ -360,7 +360,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/feedback-progress-case.html": {
-      "version": "asset-a3ee4a0c388e",
+      "version": "asset-d125ea2984f0",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/feedback-progress-case.js"
@@ -375,7 +375,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/file-media-input-case.html": {
-      "version": "asset-b8111f85ab5a",
+      "version": "asset-c883d6d8d9c4",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -397,7 +397,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/foundation-case.html": {
-      "version": "asset-2ee4a6ae91cc",
+      "version": "asset-d23b2c0508fa",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-component-surfaces.css",
@@ -414,7 +414,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/generation-failure-feedback.html": {
-      "version": "asset-b180d7d29ccb",
+      "version": "asset-f1dcb73e4bc4",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/i18n-core.js",
@@ -431,28 +431,28 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/generation-pending-halftone-reference.html": {
-      "version": "asset-9e560b57311e",
+      "version": "asset-608d85e2b7e3",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/generation-pending-halftone-reference.js"
       ]
     },
     "static/design-system/infinite-canvas-ui/generation-pending-motion-reference.html": {
-      "version": "asset-09fec01e4805",
+      "version": "asset-613f2f4ab151",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/generation-pending-motion-reference.js"
       ]
     },
     "static/design-system/infinite-canvas-ui/generation-pending-performance-prototype.html": {
-      "version": "asset-ecb24d38c4f1",
+      "version": "asset-838cc59f2c5d",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/generation-pending-performance-prototype.js"
       ]
     },
     "static/design-system/infinite-canvas-ui/heading-case.html": {
-      "version": "asset-a63c4d0aa796",
+      "version": "asset-0e7e56ab79d9",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-component-surfaces.css",
@@ -469,7 +469,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/ic-actions-v1.json": {
-      "version": "asset-69181e13e05e",
+      "version": "asset-75e10b05c2e8",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
         "static/js/infinite-canvas-ui/actions.js",
@@ -512,7 +512,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json": {
-      "version": "asset-f795d1bcefd9",
+      "version": "asset-075160ce4a21",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
         "static/js/infinite-canvas-ui/core.js",
@@ -528,7 +528,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/ic-nodes-v1.json": {
-      "version": "asset-59635afd5e3c",
+      "version": "asset-1573eca7d84e",
       "dependencies": [
         "static/js/infinite-canvas-ui/nodes.js",
         "static/js/infinite-canvas-ui/nodes/multi-selection.js",
@@ -553,7 +553,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/image-edit-controls.html": {
-      "version": "asset-9fda5984ede5",
+      "version": "asset-56b200497e5f",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/smart-canvas.css",
@@ -563,7 +563,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/image-edit-mode-toolbar.html": {
-      "version": "asset-660cceb46cda",
+      "version": "asset-c0b6f8f8b944",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -571,7 +571,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/menu-popover-case.html": {
-      "version": "asset-8ed2f852be44",
+      "version": "asset-c42af09620c5",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/i18n-core.js",
@@ -580,7 +580,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/menu-popover-contract.html": {
-      "version": "asset-eebe7f14f37f",
+      "version": "asset-bb006506ff6a",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-component-surfaces.css",
@@ -596,7 +596,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/navigation-command-case.html": {
-      "version": "asset-c50901c1a749",
+      "version": "asset-f2363284ac99",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -618,7 +618,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/prompt-template-library.html": {
-      "version": "asset-202b4f565094",
+      "version": "asset-17262926d21f",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/core.js"
@@ -629,7 +629,7 @@
       "dependencies": []
     },
     "static/design-system/infinite-canvas-ui/scrollbar.html": {
-      "version": "asset-3d03f443a9f0",
+      "version": "asset-2b5bf37bdd2f",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-scrollbar-case.css",
@@ -638,7 +638,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/search-navigation-sidebar.html": {
-      "version": "asset-dccecbbce8cf",
+      "version": "asset-7b8cca9cc53e",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -646,7 +646,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/selection-adjustment-case.html": {
-      "version": "asset-b5e7c565297b",
+      "version": "asset-152d86ce85f4",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-component-surfaces.css",
@@ -674,7 +674,7 @@
       "dependencies": []
     },
     "static/design-system/infinite-canvas-ui/smart-canvas-dock.html": {
-      "version": "asset-2428518f05e1",
+      "version": "asset-46cba911127c",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -682,7 +682,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/smart-minimap.html": {
-      "version": "asset-533df36ba768",
+      "version": "asset-71004f1a1f68",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -690,7 +690,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/smart-node-context-menu.html": {
-      "version": "asset-042e7dcd416b",
+      "version": "asset-78c1222e45cb",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/component-name-tag.js",
@@ -698,7 +698,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/smart-node-toolbar.html": {
-      "version": "asset-7ad9b72309b8",
+      "version": "asset-109e02c2777c",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/i18n.js",
@@ -707,7 +707,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/surface-manifest.json": {
-      "version": "asset-669cc83cde07",
+      "version": "asset-2f1e5d19db72",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/ic-actions-v1.json",
         "static/design-system/infinite-canvas-ui/ic-containers-data-v1.json",
@@ -725,7 +725,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/text-entry-case.html": {
-      "version": "asset-d4d203b99f5a",
+      "version": "asset-b299312adaca",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/js/infinite-canvas-ui/text-entry-case.js"
@@ -748,7 +748,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/tracer-case.html": {
-      "version": "asset-249204e8a058",
+      "version": "asset-18816184fcba",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/infinite-canvas-ui-component-surfaces.css",
@@ -765,14 +765,14 @@
       ]
     },
     "static/design-system/live-catalog/fixture-registry.json": {
-      "version": "asset-0af0ed6ba74b",
+      "version": "asset-e38e5539507b",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/smart-canvas.css"
       ]
     },
     "static/design-system/live-catalog/manifest.json": {
-      "version": "asset-8528a2093c7d",
+      "version": "asset-dad8472e4300",
       "dependencies": [
         "static/css/account-ui.css",
         "static/css/batch-generation.css",
@@ -1020,7 +1020,7 @@
       "dependencies": []
     },
     "static/index.html": {
-      "version": "asset-dd007522f215",
+      "version": "asset-7370d8ec3587",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/cli-updates.css",
@@ -1181,7 +1181,7 @@
       "dependencies": []
     },
     "static/js/i18n.js": {
-      "version": "asset-33aa36c7bdb2",
+      "version": "asset-383c40df4ef1",
       "dependencies": [
         "static/js/cloud-records.js",
         "static/js/i18n-core.js",
@@ -1250,7 +1250,7 @@
       "dependencies": []
     },
     "static/js/i18n/smart-canvas.js": {
-      "version": "asset-488e2bd6b083",
+      "version": "asset-e4b3c9b6c91e",
       "dependencies": []
     },
     "static/js/i18n/studio.js": {
@@ -1266,7 +1266,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/action-case.js": {
-      "version": "asset-dfd1a97c5371",
+      "version": "asset-520062813f03",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/ic-actions-v1.json",
         "static/js/infinite-canvas-ui/core.js"
@@ -1277,13 +1277,13 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/actions-contract-review.js": {
-      "version": "asset-0383ab4a5927",
+      "version": "asset-4edd54b54c86",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/ic-actions-v1.json"
       ]
     },
     "static/js/infinite-canvas-ui/actions.js": {
-      "version": "asset-da9cdfb560fb",
+      "version": "asset-208f79b279ca",
       "dependencies": [
         "static/js/infinite-canvas-ui/actions/index.js"
       ]
@@ -1302,7 +1302,7 @@
       ]
     },
     "static/js/infinite-canvas-ui/actions/icon-button.js": {
-      "version": "asset-bfef23f79e33",
+      "version": "asset-537cbb5ac477",
       "dependencies": [
         "static/js/infinite-canvas-ui/actions/button.js",
         "static/js/infinite-canvas-ui/actions/metal-effect.js",
@@ -1312,7 +1312,7 @@
       ]
     },
     "static/js/infinite-canvas-ui/actions/index.js": {
-      "version": "asset-58473b73280a",
+      "version": "asset-04983d74963a",
       "dependencies": [
         "static/js/infinite-canvas-ui/actions/button-group.js",
         "static/js/infinite-canvas-ui/actions/button.js",
@@ -1457,7 +1457,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/click-spark-reference.js": {
-      "version": "asset-52a6b1a29baa",
+      "version": "asset-3fc53ced85d1",
       "dependencies": [
         "static/js/infinite-canvas-ui/core.js"
       ]
@@ -1497,7 +1497,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/core.js": {
-      "version": "asset-92138d839445",
+      "version": "asset-7e937f6a2801",
       "dependencies": [
         "static/css/webawesome-engine.css",
         "static/js/infinite-canvas-ui/actions.js",
@@ -1532,7 +1532,7 @@
       ]
     },
     "static/js/infinite-canvas-ui/dialog-case.js": {
-      "version": "asset-d2ce200efeba",
+      "version": "asset-cd3fc30f6b46",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/reverse-prompt-dialog-fixture.svg",
         "static/images/providers/chatgpt.svg",
@@ -1590,13 +1590,13 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/empty-states.js": {
-      "version": "asset-a0ab83797242",
+      "version": "asset-86583c8b218d",
       "dependencies": [
         "static/js/infinite-canvas-ui/core.js"
       ]
     },
     "static/js/infinite-canvas-ui/feedback-progress-case.js": {
-      "version": "asset-87a06cff0e8e",
+      "version": "asset-ca7417016da8",
       "dependencies": [
         "static/js/infinite-canvas-ui/component-name-tag.js",
         "static/js/infinite-canvas-ui/core.js",
@@ -1678,19 +1678,19 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/generation-pending-halftone-reference.js": {
-      "version": "asset-7aab881f1dfc",
+      "version": "asset-84f7c8cf4548",
       "dependencies": [
         "static/js/infinite-canvas-ui/core.js"
       ]
     },
     "static/js/infinite-canvas-ui/generation-pending-motion-reference.js": {
-      "version": "asset-366355e52f3e",
+      "version": "asset-f2f4d61c6537",
       "dependencies": [
         "static/js/infinite-canvas-ui/core.js"
       ]
     },
     "static/js/infinite-canvas-ui/generation-pending-performance-prototype.js": {
-      "version": "asset-8ce597e3a1ea",
+      "version": "asset-43fee87fbe2a",
       "dependencies": [
         "static/js/infinite-canvas-ui/core.js"
       ]
@@ -1718,7 +1718,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/heading-case.js": {
-      "version": "asset-04e5e94a6b69",
+      "version": "asset-e671621a1097",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/ic-heading-v1.json",
         "static/js/infinite-canvas-ui/core.js"
@@ -1733,7 +1733,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/icon.js": {
-      "version": "asset-9392c478ebb0",
+      "version": "asset-5c2ce23616c9",
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/image-edit-controls-matrix.js": {
@@ -1748,14 +1748,14 @@
       ]
     },
     "static/js/infinite-canvas-ui/menu-popover-case.js": {
-      "version": "asset-9d910139fce5",
+      "version": "asset-fd5eef02b9fa",
       "dependencies": [
         "static/js/infinite-canvas-ui/component-name-tag.js",
         "static/js/infinite-canvas-ui/core.js"
       ]
     },
     "static/js/infinite-canvas-ui/menu-popover-contract-review.js": {
-      "version": "asset-04fcbfaab4fc",
+      "version": "asset-9c8da7ac5340",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json"
       ]
@@ -1868,7 +1868,7 @@
       ]
     },
     "static/js/infinite-canvas-ui/nodes.js": {
-      "version": "asset-4cfa4e582618",
+      "version": "asset-c1ca4e53dad9",
       "dependencies": [
         "static/js/infinite-canvas-ui/nodes/multi-selection.js",
         "static/js/infinite-canvas-ui/nodes/node.js",
@@ -1881,7 +1881,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/nodes/node.js": {
-      "version": "asset-f42fcca007ad",
+      "version": "asset-383fdcc82e16",
       "dependencies": [
         "static/js/infinite-canvas-ui/nodes/shared.js"
       ]
@@ -1891,7 +1891,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/nodes/shared.js": {
-      "version": "asset-a0fd8f408f53",
+      "version": "asset-9cead60a8e18",
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/overlay-layer.js": {
@@ -1911,7 +1911,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/scrollbar-case.js": {
-      "version": "asset-ad37b3efd299",
+      "version": "asset-139556da4d64",
       "dependencies": [
         "static/js/infinite-canvas-ui/core.js"
       ]
@@ -1921,7 +1921,7 @@
       "dependencies": []
     },
     "static/js/infinite-canvas-ui/selection-adjustment-case.js": {
-      "version": "asset-d9d09664a574",
+      "version": "asset-99df629fc38c",
       "dependencies": [
         "static/images/providers/chatgpt.svg",
         "static/images/providers/doubao.svg",
@@ -2018,7 +2018,7 @@
       ]
     },
     "static/js/infinite-canvas-ui/text-entry-case.js": {
-      "version": "asset-189f6a94e06c",
+      "version": "asset-5131af88abfe",
       "dependencies": [
         "static/js/infinite-canvas-ui/component-name-tag.js",
         "static/js/infinite-canvas-ui/core.js"
@@ -2123,10 +2123,11 @@
       "dependencies": []
     },
     "static/js/smart-canvas.js": {
-      "version": "asset-bd585d106b5c",
+      "version": "asset-091966ed009b",
       "dependencies": [
         "static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js",
         "static/js/smart-canvas/grid-gif.js",
+        "static/js/smart-canvas/video-frame-capture.js",
         "static/js/smart-canvas/video-gif.js"
       ]
     },
@@ -2139,7 +2140,7 @@
       "dependencies": []
     },
     "static/js/smart-canvas/canvas-interaction.js": {
-      "version": "asset-3bc4d815dfaa",
+      "version": "asset-063f3740a586",
       "dependencies": []
     },
     "static/js/smart-canvas/canvas-level-of-detail.js": {
@@ -2265,7 +2266,7 @@
       "dependencies": []
     },
     "static/js/smart-canvas/image-studio.js": {
-      "version": "asset-dafc39b6d24b",
+      "version": "asset-bbb66eefd146",
       "dependencies": []
     },
     "static/js/smart-canvas/layer-decomposition-draft.js": {
@@ -2387,6 +2388,10 @@
       "version": "asset-a05e774ca1b9",
       "dependencies": []
     },
+    "static/js/smart-canvas/video-frame-capture.js": {
+      "version": "asset-b1da20afeee4",
+      "dependencies": []
+    },
     "static/js/smart-canvas/video-gif-worker.js": {
       "version": "asset-05b51c08164c",
       "dependencies": []
@@ -2424,7 +2429,7 @@
       "dependencies": []
     },
     "static/js/ui-component-library/catalog-app.js": {
-      "version": "asset-85038731d5c3",
+      "version": "asset-2872c50e90f1",
       "dependencies": [
         "static/design-system/live-catalog/manifest.json"
       ]
@@ -2456,7 +2461,7 @@
       "dependencies": []
     },
     "static/js/ui-component-library/surface-app.js": {
-      "version": "asset-7c35baa1182d",
+      "version": "asset-85bf4bfb55d6",
       "dependencies": [
         "static/css/ui-component-library-preview.css",
         "static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
@@ -2477,7 +2482,7 @@
       "dependencies": []
     },
     "static/login.html": {
-      "version": "asset-321a08dde362",
+      "version": "asset-3316d2cbc5d4",
       "dependencies": [
         "static/css/account-login.css",
         "static/css/design-tokens.css",
@@ -2491,7 +2496,7 @@
       ]
     },
     "static/online.html": {
-      "version": "asset-b6c77233170e",
+      "version": "asset-90ecf06f1161",
       "dependencies": [
         "static/css/batch-generation.css",
         "static/css/design-tokens.css",
@@ -2509,7 +2514,7 @@
       ]
     },
     "static/prompt-optimization-settings.html": {
-      "version": "asset-7f7ca92fb320",
+      "version": "asset-2dcec0d15eee",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/prompt-optimization-settings.css",
@@ -2550,7 +2555,7 @@
       "dependencies": []
     },
     "static/setup.html": {
-      "version": "asset-3c4f481c589c",
+      "version": "asset-bb561e4785a2",
       "dependencies": [
         "static/css/account-login.css",
         "static/css/account-setup.css",
@@ -2565,7 +2570,7 @@
       ]
     },
     "static/share.html": {
-      "version": "asset-8ab7d1dc7567",
+      "version": "asset-529e778c0e61",
       "dependencies": [
         "static/css/canvas-share.css",
         "static/css/design-tokens.css",
@@ -2585,7 +2590,7 @@
       ]
     },
     "static/smart-canvas.html": {
-      "version": "asset-1a8c09c40f3d",
+      "version": "asset-f14702676706",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/design-tokens.css",
@@ -2663,7 +2668,7 @@
       ]
     },
     "static/ui-component-library.html": {
-      "version": "asset-4f0a81692b7c",
+      "version": "asset-a98a2cee436a",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/ui-component-library.css",
@@ -2680,7 +2685,7 @@
       ]
     },
     "static/update-notes.json": {
-      "version": "asset-37dab47eb5af",
+      "version": "asset-38977966faa0",
       "dependencies": []
     },
     "static/vendor/css/fonts.css": {
@@ -2739,7 +2744,7 @@
       "dependencies": []
     },
     "static/workspace-handoff.html": {
-      "version": "asset-bb72364f22ef",
+      "version": "asset-718aab77a1bd",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/runtime-recovery.css",

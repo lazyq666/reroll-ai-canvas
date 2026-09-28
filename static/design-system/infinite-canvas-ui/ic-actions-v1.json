@@ -14,7 +14,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/actions.js?v=asset-da9cdfb560fb",
+        "/static/js/infinite-canvas-ui/actions.js?v=asset-208f79b279ca",
         "/static/js/infinite-canvas-ui/actions/video-play-button.js?v=asset-9967cc73e443",
         "/static/js/infinite-canvas-ui/theme-adapter.js?v=asset-91786900b295",
         "/static/design-system/infinite-canvas-ui/actions.html"

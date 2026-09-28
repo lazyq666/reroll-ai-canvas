@@ -174,6 +174,7 @@ static/
 │   ├── prompt-generation-composer.js 独立文字 Composer 的指令保存、冲突草稿、引用、模型、展开与提交协调
 │   ├── image-capabilities.js 图片 Composer 的能力投影与设置协调
 │   ├── video-capabilities.js 视频 Composer 的命令与参考输入协调
+│   ├── video-frame-capture.js 画布与全屏预览共享的视频定位、暂存截帧与确认会话（合同见 UI guidelines）
 │   └── connection-layer.js     Connection 索引、SVG 增量物化与事件委托
 ├── css/design-tokens.css       中央视觉 Token
 └── vendor/                     固定版本的第三方浏览器资源

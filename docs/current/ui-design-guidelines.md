@@ -39,6 +39,8 @@ Smart Canvas 在导航地图内部底栏显示实时缩放百分比和“重置�
 
 Canvas List 与 Smart Canvas 共享相同的 Wheel 手势方向：无 `Ctrl` / `Command` 修饰键的鼠标滚轮或触控板双指滑动平移 Canvas Viewport，`Ctrl` / `Command + Wheel` 才围绕 Pointer 位置缩放。两处都读取 Smart Canvas 的滑动与缩放设备偏好；Canvas List 不得把普通 Wheel 手势解释为缩放。
 
+Smart Canvas 的中键拖动、抓手左键拖动和空格加左键拖动，均由开始拖动的鼠标按键决定何时结束。松开其他按键不得提前结束或接管当前拖动。Pointer 在禁用按钮、节点编辑区或原生音频控件上松开后，不得继续带动画布；若控件吞掉松开事件，页面收到下一次鼠标移动时必须先核对按键状态，再决定是否平移。窗口失焦、页面隐藏或鼠标 Pointer 被取消时，清除正在拖动状态；失焦和隐藏同时清除临时工具状态。验收覆盖所有节点共用的结束逻辑、禁用控件、音频控件、多按键组合、抓手与空格拖动；事件回归入口为 `node --test tests/smart_canvas_pan_release_test.cjs`，工作项为 [LAZ-70](https://linear.app/lazyq/issue/LAZ-70)。
+
 首次设置中的工作区目录输入与“选择…”按钮在桌面横排时按控件中心线对齐，按钮必须预留完整标签宽度；窄窗口改为单列并让按钮占满可用宽度。设备没有保存过页面偏好时，完成首次设置后默认进入 Reroll；已有用户保存的页面选择继续优先，不得被默认值覆盖。首次设置接口用稳定的 `reason` / `message_code` 表达可见失败与检查结果，页面按当前语言选择产品文案；服务端中文诊断可以保留用于中文兼容与排错，但不得直接透传到英文界面。工作区搬家进度页与首次设置页属于同一产品外壳，必须使用 Design Tokens、明暗主题和公共 `ic-card`、`ic-progress`、`ic-badge`、`ic-alert`、`ic-button`，持续展示阶段说明、文件数和容量进度，并在窄窗口保持关键状态与操作完整可见，不得维护独立的硬编码深色皮肤或原生控件样式。
 
 生产页面中的可见正文、动态反馈、`title`、`label`、`description`、Placeholder、图片替代文字和 ARIA 名称都必须通过公共 i18n key 提供；中文只作为带有 `data-i18n*` 绑定的首屏回退，不得成为运行时分支条件。英文采用简短的 Sentence case 和直接的动作动词，避免 `task(s)`、`image(s)` 等括号复数、逐字翻译和无必要的标题式大写。桌面与 `390px` 窄窗口都要用真实英文偏好检查横向溢出、截断和公共组件合同。
@@ -191,7 +193,12 @@ Workspace Asset Library 使用 X-Large `ic-dialog` 承载 `ic-workspace-asset-li
 
 Smart Canvas 远景模式中的普通 Prompt Node 文本骨架必须按 Node 内容高度计算可容纳行数，不得固定为四行；骨架保留 20px 上下内边距、9px 行高与 10px 行间距，并限制最多 24 行以控制远景 DOM 成本。远景骨架不拥有文本滚动；Pointer 位于 Prompt 骨架上时，无修饰键 Wheel 必须平移 Canvas Viewport，修饰键 Wheel 仍按画布缩放规则处理。详细模式下，未选中的普通 Prompt Node 不取得滚动优先级：即使文本纵向溢出，Pointer 位于正文上时，无修饰键 Wheel 仍平移 Canvas Viewport。点击选中 Node 后，发生纵向溢出的文本区域才拥有普通 Wheel，并且滚动位置到达顶部或底部时也不得穿透到 Canvas；选中但无溢出时 Wheel 继续平移 Canvas Viewport。空上传 Node 的远景占位背景使用 `--ui-color-surface`，生成中 Node 继续使用生成状态渐变，两者不共用背景规则。音频占位与无静态封面的视频占位只使用 Node 外壳 Border；外壳必须按自身实际圆角裁切内部填充，内部占位不得再绘制覆盖外壳的第二层 Border。
 
+Smart Canvas 在远景与详细模式之间双向切换时，两种展示形态中都存在的同一静态图片实例必须连续可见。切换复用图片元素及其加载状态，只更新布局与周围控件，不重新播放加载占位或淡入；匹配包含所属 Node、媒体位置和原始来源，重复 URL 不合并为同一实例。详细模式继续从视口中心向外分批恢复控件；远景仍只展示多图节点的首图，Smart Group 仍使用骨架，未展示的媒体不为此次修复常驻。图片预览升降档均在目标加载、解码完成且请求仍有效后替换当前来源；等待或失败期间保留当前图片，失败不提前更新已显示的清晰度档位，快速反向缩放时忽略过期结果。首次加载与新增可见图片保留原有加载反馈。视频封面、Video 与 Audio 播放器不参与跨模式静态图片复用，继续遵循远景资源释放和播放规则。验收入口：`tests/smart_canvas_lod_media_server.py` 启动真实页面回归，`tests/smart_canvas_lod_media_browser_test.js` 检查双向切换的逐帧透明度、媒体实例、主题、清晰度与视频边界；`tests/test_smart_canvas_lod_media.py` 覆盖慢加载、网络或解码失败及过期预览回调。
+
 Frame 与 Smart Group 的导航 Badge 只在 Smart Canvas 远景模式渲染，详细模式不得因 Hover 或 Selected 临时显示。Badge 是对应容器 Node 的直接子元素，并以逆缩放保持 24px 屏幕高度；拖动容器或拖动 Badge 时两者必须在同一帧移动，首次按下未选中的 Badge 会先选中对应容器并进入同一个 Node 移动手势。Badge 使用 `--ui-color-surface`、1px `--ui-color-border-nodes`、`--ui-radius-s` 与 `--ui-shadow-raised`，不得使用独立 Overlay 的 12px 胶囊外观；Frame Badge 只用 Frame 语义色表达文字，不另建一套填充与 Border。
+
+Frame 在远景模式下保留右下角 Resize Handle，沿用 Hover 或单选时显示、多选时隐藏单节点手柄的规则。远景手柄通过逆缩放保持 44px 屏幕拖拽热区和 18px 可见图形，转角半径收小为 6px，保留横、竖直线段以贴合缩小后的 Frame 边缘，中心锚定 Frame 右下角；拖动距离按当前画布缩放换算，最小尺寸仍为 240 × 160 画布单位，不移动或缩放框内节点，松手后按现有规则重新确认分区成员。拖动沿用现有历史记录与 Escape 取消操作；详细模式的手柄尺寸及其他节点的远景控件保持原有规则。真实页面回归见 `tests/smart_canvas_far_frame_resize_browser_test.js`，通过 `tests/smart_canvas_lod_media_server.py` 的 `test=far-frame-resize` 页面运行。
+
 
 图片编辑模式栏、节点浮动操作栏与智能画布工具栏属于 Blocks 下的公共任务组合，分别使用 `ic-image-edit-mode-toolbar`、`ic-smart-node-toolbar` 与 `ic-smart-canvas-dock`。Block 模块是三者 DOM 结构、尺寸、Surface、按钮状态、定位与响应式样式的唯一实现所有者；Smart Canvas 与 UI 组件库只能消费公开元素，不得在页面 CSS、样板页或 Actions / Navigation 组件分类中维护第二份实现。图片编辑模式栏拥有预览、裁剪、遮罩、画笔、缩放、宫格与 360 全景入口，外层可见 Surface 使用 10px 圆角，内部 Tab Item 继续使用 `--ui-radius-s`；组件库只标记组合模块本身，不得为其内部合法组合生成第二个组件名标签。节点浮动操作栏拥有按内容展开的命令 Surface，并由业务调用方提供当前 Node、Smart Group、Frame 或多选状态对应的动作与可用性；智能画布工具栏拥有左侧与底部两种布局的 Surface、分隔线、工具按钮状态和自适应规则，Surface 使用 `--ui-radius-l` 圆角，外框横截面尺寸由按钮尺寸加两侧 `--ui-space-2` 留白构成，以保证上下左右视觉间距一致；未选中 Item 默认使用 `--ui-color-text-secondary` 显示文字与图标。业务调用方继续提供具体命令、设置面板及持久化偏好。组件库使用公开 `data-preview-state` 只解除生产定位以便独立展示，不覆盖 Block 的内部外观。
 
@@ -212,6 +219,16 @@ Text Generation 与其他 Generation Pending 状态放入 Node 时，内层生�
 Image、Video 与 Audio Node 的外置 Name Badge 高 14px，与媒体容器保持 6px 视觉间距；文字使用 `--ui-text-caption`，字色使用 `--ui-color-text-on-action-primary-disabled`，Hover 与 Dark 主题不覆盖为其他颜色。Image 与 Video 媒体上的 Resolution Badge 高 `1rem`、左右内边距 6px，沿用 `ic-video-play-button` 的 25% 黑色背景、白色前景和 10px 背景模糊，字重为 Regular（400），并移除额外 Border 与 Shadow；Light / Dark 主题保持一致。Video Node 的原生 `video` 播放器继承媒体容器圆角，视觉上与 Image Node 的图片圆角一致；封面中央播放入口使用 Actions 家族中的公共 `ic-video-play-button`，使用指定的实心 Play SVG 图标和半透明圆形背景，默认 Medium 为 4rem，缩略图 Small 为 32px，进入播放态后使用公共 `ic-media-player-controls variant="node"` 控制区。Upload Node 的上传动作使用 `<ic-button hierarchy="primary" size="small">`，图标、文案与按钮三段内容使用 `--ui-space-3` 间距。
 
 Video Node 的控制区使用 `ic-media-player-controls variant="node" kind="video"`，通过 `media` 属性绑定现有视频元素，不创建第二个播放器。左下方胶囊包含播放/暂停与当前时间/总时长；胶囊左右内边距分别为 8px / 16px（窄节点为 4px / 12px），右侧补偿播放 SVG 在按钮内的视觉留白。时间区使用等宽数字，并按总时长的分钟/小时格式预留两段时间的宽度，播放和跨分钟进位时胶囊不随数字伸缩；播放与暂停使用指定的实心 SVG 路径（`play-filled` / `pause-filled`），保留 256 × 256 viewBox，按现有图标容器缩放并继承白色前景；右下方依次为循环播放、静音和应用内全屏按钮；底边是 3px 白色进度条，Pointer 命中区为 10px，Hover 或 Keyboard Focus 显示进度拖点。控制区在媒体 Hover 或 Focus Within 时显示；离开后隐藏并按既有规则暂停。控制操作与画布拖动、选择和双击展开隔离，按钮支持 Enter/Space，进度条支持方向键、Home/End；Pointer 点击不显示 Focus Ring，只有原生按钮的 `:focus-visible` 显示键盘焦点。未知或零时长时禁用进度条，播放失败沿用封面重试。节点变体通过 `ic-expand-request` 请求页面的应用内全屏；进入 `imageEditStage` 全屏预览时，将同一控制组件与同一视频元素一起移入预览容器；两处均不启用浏览器原生控制条。全屏状态通过 `expanded` 属性呈现，展开按钮改为退出全屏，返回后控制组件随视频一起回到原节点。控制区在明暗主题下均使用白色前景、半透明黑色按钮背景与底部渐变，窄节点紧凑排列。中英文切换更新动态按钮名称及进度条标签。循环按钮通过 `ic-loop-request` 使用同一播放状态管理，Lucide Repeat 图标保持不变，开启态使用浅色半透明底和底部圆点，并提供 `aria-pressed`；切换本身不启动播放。全屏底部工具栏不再重复显示循环文本按钮。媒体槽位的默认变体保持原控制布局和动作范围。
+
+视频节点工具栏的「截帧」使用公共 `ic-menu`，依次提供「首帧」「尾帧」「自定义」。首帧与尾帧直接截取并创建图片节点；自定义在原视频下方打开画布内面板，隐藏节点工具栏和 Composer，复用原视频元素并暂停播放。上排为 10 张等距缩略图组成的时间轴，下排为播放、当前帧 / 总帧数、暂存帧、截取与确认；额外保留取消按钮。面板使用当前主题的 Surface、Text 和 Border，按钮与图标复用 `ic-button`、`ic-icon-button`、`ic-icon`，截取按钮使用 `camera` 图标。缩放和平移时跟随来源节点，面板保持屏幕尺寸并约束在视口内。
+
+全屏视频预览（`imageEditModal`）使用相同的「截帧 → 首帧 / 尾帧 / 自定义」入口与截帧会话。自定义面板居中固定在全屏底部，替换原预览工作栏并隐藏播放器进度控件，仍复用当前视频。取消或 Escape 仅退出截帧，返回全屏预览；确认后将暂存图片一次性加入画布并保留全屏预览。切换来源视频或关闭全屏会取消未完成会话，防止异步上传结束后创建过期结果。面板内的键盘事件不触发全屏逐帧快捷键，方向键由时间轴自身处理。验收脚本 `tests/video_frame_capture_browser_checks.js` 覆盖两种入口、同一播放器、批量确认/撤销、语言主题切换、取消及关闭时的异步清理。
+
+帧编号从 1 开始，按媒体帧率和时长计算；缺少有效帧率时按 30 fps 估算，在数字前显示 `≈`，悬停说明估算依据。它不承诺可变帧率视频的逐样本精确编号。时间轴支持 Pointer 拖动、方向键逐帧与 Home/End；面板聚焦时 Space 播放或暂停，Escape 取消。进入截帧后不再由源节点悬停启动或停止播放，关闭时暂停并恢复原循环设置。已有播放器的秒数显示不变。
+
+截取结果以 PNG 暂存在当前会话，最多 24 帧；重复截取同一帧不添加副本，点击缩略图或使用键盘激活可移除该帧。未截取时禁用确认，确认后统一上传并按现有自动落位规则在来源右侧创建独立 Image Node，沿用媒体命名规则，一次撤销移除整批节点。取消不上传、不创建节点。加载或定位失败时不提交错误帧；上传失败保留暂存帧并允许重试，已成功上传的条目复用。来源替换、删除、会话取消或编辑权限变化后，过期异步结果不得创建节点。缩略图加载失败不阻塞主视频定位。页面隐藏和失焦沿用媒体会话暂停规则。所有动态文案支持中英文即时切换。
+
+验收入口：`tests/video_frame_capture_manual_server.py` 提供隔离的真实 Smart Canvas，`tests/video_frame_capture_browser_checks.js` 检查定位、暂存、去重、移除、取消、语言切换、上传失败重试、多帧提交、批量撤销和取消后的异步保护；`tests/video_frame_capture_test.cjs` 覆盖帧号边界、分数帧率与未知时长。
 
 媒体槽位中的音频和视频使用共享 `ic-media-player-controls`。原生 `HTMLMediaElement` 只负责解码、缓冲和播放，不显示浏览器自带控制条；可见控制统一组合基于 Web Awesome 基础能力封装的 `ic-icon-button`、`ic-slider` 与 `ic-icon`。音频与视频控制区都使用从顶部完全透明（0% 不透明度）过渡到底部 `var(--ui-color-mask)` 的纵向渐变；`--ui-color-mask` 仍表示遮罩终点色，不承担渐变结构。两者都使用白色 UI：第一行依次为播放/暂停、当前时间/总时长、静音/取消静音，第二行是整行可拖动进度条；不提供音量滑块、全屏或画中画。播放控件属于媒介操作，不改变槽位 ready 状态只显示删除、且不显示预览或替换的动作合同。
 

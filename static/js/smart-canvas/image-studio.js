@@ -1366,76 +1366,15 @@ function seekPreviewVideoFrames(direction){
     video.currentTime = Math.max(0, Math.min(maxTime, Number(video.currentTime || 0) + direction * step));
     return true;
 }
-function waitForVideoEvent(video, eventName, timeout=1500){
-    return new Promise(resolve => {
-        let done = false;
-        const finish = () => {
-            if(done) return;
-            done = true;
-            clearTimeout(timer);
-            video.removeEventListener(eventName, finish);
-            resolve();
-        };
-        const timer = setTimeout(finish, timeout);
-        video.addEventListener(eventName, finish, {once:true});
-    });
+async function exportVideoFrame(which='custom'){
+    const editing = currentEditImage();
+    if(!currentPreviewVideo() || !editing.node){ toast(tr('smart.noVideoFrame')); return; }
+    await openSmartFrameCapture(editing.node.id, editing.index, which, {fullscreen:true});
 }
-async function seekVideoForFrame(video, time){
-    if(Math.abs(Number(video.currentTime || 0) - time) <= 0.002) return;
-    video.currentTime = time;
-    await waitForVideoEvent(video, 'seeked', 2200);
-}
-async function exportVideoFrame(which='current'){
-    const video = currentPreviewVideo();
-    if(!video){ toast(tr('smart.noVideoFrame')); return; }
-    if(video.readyState < 2) await waitForVideoEvent(video, 'loadeddata', 2200);
-    if(!video.videoWidth || !video.videoHeight){ toast(tr('smart.videoNotLoaded')); return; }
-    const originalTime = Number(video.currentTime || 0);
-    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
-    const step = videoFrameStep();
-    const target = which === 'first'
-        ? 0
-        : which === 'last'
-            ? Math.max(0, duration - step / 2)
-            : originalTime;
-    const suffix = which === 'first' ? 'first-frame' : which === 'last' ? 'last-frame' : 'current-frame';
-    try {
-        video.pause?.();
-        await seekVideoForFrame(video, target);
-        const canvasEl = document.createElement('canvas');
-        canvasEl.width = video.videoWidth;
-        canvasEl.height = video.videoHeight;
-        const ctx = canvasEl.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvasEl.width, canvasEl.height);
-        const blob = await new Promise(resolve => canvasEl.toBlob(resolve, 'image/png'));
-        if(!blob) throw new Error(tr('smart.exportFrameFailed'));
-        const editing = currentEditImage();
-        const rawName = editing.image?.name || fileNameFromUrl(editing.image?.url || '') || 'video';
-        const base = String(rawName).replace(/\.[a-z0-9]{2,8}$/i, '') || 'video';
-        const filename = safeExportFileName(`${base}-${suffix}.png`, `${suffix}.png`);
-        const uploaded = await uploadFiles([new File([blob], filename, {type:'image/png'})]);
-        const frame = uploaded[0];
-        if(!frame?.url) throw new Error(tr('smart.exportToCanvasFailed'));
-        nameCreatedMedia(frame, which==='first' ? 'frame-first' : which==='last' ? 'frame-last' : 'frame-current', editing.image);
-        frame.kind = 'image';
-        frame.natural_w = video.videoWidth;
-        frame.natural_h = video.videoHeight;
-        const rect = editing.node ? nodeRect(editing.node) : null;
-        const point = rect
-            ? {x:rect.x + rect.width + 240, y:rect.y + rect.height / 2}
-            : window.SmartCanvasModules.viewportSelection.viewport.center();
-        imageStudioMutationModule.history({action:'push'});
-        const newNode = createImageNodeAt(point, [frame], {select:true, skipUndo:true});
-        selectedIds = [];
-        selectedImage = {nodeId:newNode.id, index:0};
-        render();
-        imageStudioPersistenceModule.schedule();
-        toast(tr('smart.exportedToCanvas'));
-        if(which !== 'current') await seekVideoForFrame(video, originalTime);
-    } catch(e) {
-        toast((e.message || tr('smart.exportFrameFailed')).slice(0, 120));
-    }
-}
+document.getElementById('previewFrameCaptureMenu')?.addEventListener('ic-select', event => {
+    if(!['first','last','custom'].includes(event.detail?.value)) return;
+    void exportVideoFrame(event.detail.value);
+});
 function editDrawSnapshot(){
     const canvasEl = editDrawCanvas();
     return {
@@ -2586,6 +2525,8 @@ function openLayerDecompositionEditor({nodeId}={}){
     return true;
 }
 function openImageEditor(nodeId, imageIndex=0, options={}){
+    smartFrameCaptureOpenSequence += 1;
+    smartFrameCapture?.close(true);
     window.SmartCanvasModules.imageRepair?.reset();
     const node = nodes.find(n => n.id === nodeId);
     const image = imageForDisplay(node?.images?.[imageIndex]);
@@ -2702,6 +2643,8 @@ function openImageEditor(nodeId, imageIndex=0, options={}){
     }
 }
 function closeImageEditor(options={}){
+    smartFrameCaptureOpenSequence += 1;
+    if(smartFrameCapture?.fullscreen) smartFrameCapture.close(true);
     window.SmartCanvasModules.imageRepair?.reset();
     imageStudioReopenAfterHide = false;
     cleanupSmartLogPreviewNode();
@@ -2774,6 +2717,11 @@ function cancelImageEdit(){
     if(imageEditMode === 'preview') return;
     setImageEditMode('preview', true);
 }
+imageEditModal?.addEventListener('ic-hide', event => {
+    if(event.target !== imageEditModal) return;
+    smartFrameCaptureOpenSequence += 1;
+    if(smartFrameCapture?.fullscreen) smartFrameCapture.close(true);
+});
 imageEditModal?.addEventListener('ic-after-hide', async () => {
     // The public event can precede Lit's reflection of open=false to the attribute.
     await imageEditModal.updateComplete;

@@ -14,7 +14,7 @@
         '/static/js/i18n/studio.js?v=asset-1b9c7049dc10',
         '/static/js/i18n/api-settings.js?v=asset-9a4b85746402',
         '/static/js/i18n/canvas.js?v=asset-29e5ef8ed4a4',
-        '/static/js/i18n/smart-canvas.js?v=asset-488e2bd6b083',
+        '/static/js/i18n/smart-canvas.js?v=asset-e4b3c9b6c91e',
         '/static/js/i18n/comfyui-settings.js?v=asset-e76b21e14c6a',
     ];
     const tags = scripts.map(src => '<script src="' + src + '"></script>').join('');
