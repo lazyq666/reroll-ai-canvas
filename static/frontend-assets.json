@@ -2739,12 +2739,13 @@
       "dependencies": []
     },
     "static/workspace-handoff.html": {
-      "version": "asset-1ade538a3b7d",
+      "version": "asset-bb72364f22ef",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/runtime-recovery.css",
         "static/js/i18n.js",
         "static/js/infinite-canvas-ui/core.js",
+        "static/js/page-zoom-guard.js",
         "static/js/theme.js",
         "static/js/workspace-handoff.js"
       ]
