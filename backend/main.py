@@ -351,6 +351,7 @@ GLOBAL_LOOP = None
 _RUNTIME_RESTART_REQUESTER = None
 _RUNTIME_ASYNC_RESTART_REQUESTER = None
 _CLI_UPDATE_TASK = None
+_WORKSPACE_BACKGROUND_STOPPED = False
 
 
 def install_runtime_control(
@@ -449,8 +450,12 @@ async def startup_event():
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
-    global MATTING_WORKER_TASKS, _CLI_UPDATE_TASK
+async def shutdown_event(*, release=True):
+    global MATTING_WORKER_TASKS, _CLI_UPDATE_TASK, _WORKSPACE_BACKGROUND_STOPPED
+    if _WORKSPACE_BACKGROUND_STOPPED:
+        if release:
+            release_workspace_occupation()
+        return
     try:
         local_submissions = globals().get("_LOCAL_GENERATION_SUBMISSIONS")
         if local_submissions is not None:
@@ -472,10 +477,57 @@ async def shutdown_event():
             _CLI_UPDATE_TASK.cancel()
             await asyncio.gather(_CLI_UPDATE_TASK, return_exceptions=True)
         _CLI_UPDATE_TASK = None
+        _WORKSPACE_BACKGROUND_STOPPED = True
     finally:
         cancel_pending_workspace_open()
         close_cloud_workspace_runtime()
-        release_workspace_occupation()
+        if release:
+            release_workspace_occupation()
+
+
+def workspace_handoff_controller():
+    from infinite_canvas.workspace_handoff import WorkspaceHandoff
+    return WorkspaceHandoff(
+        WORKSPACE_SERVICE.current().directory, Path(DEVICE_STATE_DIR),
+        current_workspace_id(), WORKSPACE_SERVER_ID,
+    )
+
+
+def can_cleanup_workspace_conflicts():
+    return bool(_WORKSPACE_BACKGROUND_STOPPED and WORKSPACE_OCCUPATION and WORKSPACE_OCCUPATION.active)
+
+
+def cleanup_workspace_conflicts(snapshot, selected):
+    from infinite_canvas.workspace_handoff import HandoffError
+    if not can_cleanup_workspace_conflicts():
+        raise HandoffError("unavailable")
+    return workspace_handoff_controller().cleanup_conflicts(snapshot, selected)
+
+
+def check_workspace_handoff():
+    from infinite_canvas.workspace_handoff import HandoffError
+    if not WORKSPACE_OCCUPATION or not WORKSPACE_OCCUPATION.active:
+        raise HandoffError("unavailable")
+    if any(manager.canvas_connections.values()):
+        raise HandoffError("editors")
+    if generation_run_control.active_count() or any(
+        job.get("status") in {"queued", "running"} for job in MATTING_JOBS.values()
+    ):
+        raise HandoffError("tasks")
+    if PENDING_WORKSPACE_OPEN or PENDING_WORKSPACE_MOVE:
+        raise HandoffError("unavailable")
+    workspace_handoff_controller().check_databases()
+
+
+async def prepare_workspace_handoff():
+    # RuntimeGateway has already frozen admission and drained requests. The
+    # occupation stays held even if sealing fails, so a retry cannot race a writer.
+    controller = workspace_handoff_controller()
+    await manager.close_for_workspace_move()
+    await shutdown_event(release=False)
+    result = await asyncio.to_thread(controller.seal)
+    release_workspace_occupation()
+    return result
 
 @app.websocket("/ws/stats")
 async def websocket_endpoint(websocket: WebSocket, client_id: str = None):

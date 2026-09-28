@@ -82,6 +82,7 @@ APPLICATION_UPDATE_RUNTIME_FILES = frozenset(
         "backend/infinite_canvas/storage_authority.py",
         "backend/infinite_canvas/video_capabilities.py",
         "backend/infinite_canvas/workspace.py",
+        "backend/infinite_canvas/workspace_handoff.py",
         "backend/infinite_canvas/workspace_storage.py",
         "backend/infinite_canvas/workspace_storage_composition.py",
         "backend/scripts/__init__.py",

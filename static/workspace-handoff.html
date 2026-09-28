@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="runtime" data-studio-scale="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
+  <title data-i18n="handoff.title">工作区安全交接</title>
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
+  <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
+  <script src="/static/js/i18n.js?v=asset-33aa36c7bdb2"></script>
+  <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
+</head>
+<body class="runtime-page">
+  <main class="runtime-shell">
+    <div class="runtime-brand"><strong style="margin-inline-end:auto">Reroll</strong>
+      <ic-button id="handoff-language" hierarchy="secondary" data-i18n="handoff.language">English</ic-button>
+      <ic-button id="handoff-theme" hierarchy="secondary" data-i18n="handoff.theme">切换主题</ic-button>
+    </div>
+    <ic-card class="runtime-card" data-i18n-label="handoff.title">
+      <div class="runtime-card-content">
+        <h1 data-i18n="handoff.title">工作区安全交接</h1>
+        <p id="handoff-preparation" class="runtime-detail" data-i18n="handoff.intro">先保存并关闭所有画布，等待生成任务结束。</p>
+        <p class="runtime-detail" data-i18n="handoff.boundary">换设备前，仍需等待两端 OneDrive 同步完成。</p>
+        <p id="handoff-message" role="status" aria-live="polite" tabindex="-1"></p>
+        <p id="handoff-cleanup-saved" role="status" style="overflow-wrap:anywhere" hidden></p>
+        <section id="handoff-result" hidden>
+          <p data-i18n="handoff.codeLabel">本次交接编号</p>
+          <p><code id="handoff-code" style="overflow-wrap:anywhere"></code></p>
+          <p data-i18n="handoff.done">可以关闭 Reroll。请保存此编号；下次打开工作区时需要输入。</p>
+          <ic-button id="handoff-copy" hierarchy="secondary" data-i18n="handoff.copy">复制交接编号</ic-button>
+        </section>
+        <section id="handoff-recovery" hidden>
+          <ic-form-field data-i18n-label="handoff.expected">
+            <ic-input id="handoff-expected" autocomplete="off" data-i18n-aria-label="handoff.expected"></ic-input>
+          </ic-form-field>
+          <p data-i18n="handoff.recoveryNote">使用上一台成功交接时提供的编号。校验失败不会打开或修改文件。</p>
+          <ic-button id="handoff-accept" hierarchy="primary" data-i18n="handoff.accept">检查并打开工作区</ic-button>
+        </section>
+          <section id="handoff-conflicts" hidden aria-labelledby="handoff-conflicts-title">
+            <h2 id="handoff-conflicts-title" data-i18n="handoff.conflictsTitle">冲突文件</h2>
+            <p id="handoff-recovery-conflicts-note" data-i18n="handoff.conflictsNote">先暂停两端 OneDrive。核对文件，再输入上一台的交接编号。</p>
+            <p id="handoff-close-conflicts-note" data-i18n="handoff.closeConflictsNote" hidden>先暂停两端 OneDrive，再选择要删除的副本。</p>
+            <p id="handoff-conflicts-error" role="status"></p>
+            <h3 id="handoff-current-heading" data-i18n="handoff.currentRecord">保留的交接记录</h3>
+            <div id="handoff-current-file"></div>
+            <ul id="handoff-conflict-files" style="padding-inline-start:20px;overflow-wrap:anywhere"></ul>
+            <section id="handoff-cleanup" hidden>
+              <p id="handoff-cleanup-selection" role="status"></p>
+              <p data-i18n="handoff.cleanupBackupNote">先备份当前数据库和所选副本，再删除；完成后自动重试交接。</p>
+              <ul>
+                <li data-i18n="handoff.cleanupNoMerge">副本独有的内容不会合入当前画布。</li>
+                <li data-i18n="handoff.cleanupSyncNote">恢复 OneDrive 后，删除会同步到其他设备。</li>
+              </ul>
+              <label style="display:flex;gap:10px;align-items:flex-start;margin-block:16px">
+                <input id="handoff-cleanup-confirm" type="checkbox">
+                <span data-i18n="handoff.cleanupConfirm">我已暂停两端 OneDrive，确认保留当前文件。</span>
+              </label>
+              <ic-button id="handoff-cleanup-action" hierarchy="primary" data-i18n="handoff.cleanupAction" disabled>备份并删除</ic-button>
+            </section>
+            <details>
+              <summary data-i18n="handoff.backupLocation">查看本机备份位置</summary>
+              <p id="handoff-backup-path" style="overflow-wrap:anywhere"></p>
+            </details>
+            <p id="handoff-conflicts-manual" data-i18n="handoff.conflictsManual">这里仅能处理已完成交接的记录副本。其他文件请回原设备核对。</p>
+            <label id="handoff-confirm-conflicts-label" style="display:flex;gap:10px;align-items:flex-start;margin-block:16px">
+              <input id="handoff-confirm-conflicts" type="checkbox">
+              <span data-i18n="handoff.conflictsConfirm">保留主记录，备份并移出冲突副本。恢复同步后，其他设备也会移除这些副本。</span>
+            </label>
+            <div class="runtime-actions">
+              <ic-button id="handoff-rescan" hierarchy="secondary" data-i18n="handoff.rescanConflicts">重新检查</ic-button>
+              <ic-button id="handoff-archive" hierarchy="primary" data-i18n="handoff.archiveConflicts" disabled>备份副本并打开</ic-button>
+            </div>
+          </section>
+        <div class="runtime-actions">
+          <ic-button id="handoff-close" hierarchy="primary" hidden data-i18n="handoff.close">安全关闭并交接</ic-button>
+          <ic-button id="handoff-back" href="/" hierarchy="secondary" data-i18n="handoff.back">返回</ic-button>
+        </div>
+      </div>
+    </ic-card>
+  </main>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-92138d839445"></script>
+  <script src="/static/js/workspace-handoff.js?v=asset-1e0366cd085e" defer></script>
+</body>
+</html>

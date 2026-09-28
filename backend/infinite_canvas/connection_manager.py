@@ -570,7 +570,7 @@ class ConnectionManager:
             if outbound is not None:
                 outbound.presence_pointers.pop(participant_id, None)
 
-    async def close_for_workspace_move(self) -> None:
+    async def close_for_workspace_move(self, *, reason="工作区正在搬家，请稍后重新进入") -> None:
         """Close every live channel before the frozen Workspace copy."""
 
         sockets = set(self.active_connections)
@@ -583,7 +583,7 @@ class ConnectionManager:
             try:
                 await websocket.close(
                     code=1012,
-                    reason="工作区正在搬家，请稍后重新进入",
+                    reason=reason,
                 )
             except Exception:
                 pass

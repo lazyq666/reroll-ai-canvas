@@ -1645,6 +1645,8 @@ class WorkspaceService:
         process_alive: Optional[Callable[[int], bool]] = None,
         allow_foreign_takeover: bool = False,
         remote_authority: bool = False,
+        handoff_id: str = "",
+        handoff_conflict_snapshot: str = "",
     ) -> WorkspaceOccupation:
         """Acquire this server's unique write ownership before business writes."""
 
@@ -1721,6 +1723,14 @@ class WorkspaceService:
                         "请先在原服务中正常关闭"
                     )
             if not remote_authority:
+                from .workspace_handoff import WorkspaceHandoff
+                handoff = WorkspaceHandoff(
+                    workspace_directory, self._storage.state_dir,
+                    self.identity(workspace_directory), server_id,
+                )
+                if handoff_conflict_snapshot:
+                    handoff.archive_conflicts(handoff_id, handoff_conflict_snapshot)
+                handoff.acquire(handoff_id)
                 _write_occupation_metadata(
                     metadata_path,
                     {

@@ -14,6 +14,9 @@ Create an ADR when a decision constrains future implementation, establishes a sy
 
 [ADR-0015](0015-frontend-content-fingerprint-authority.md) establishes one content-fingerprint owner for frontend resources, dependency propagation and retained-cache upgrade verification.
 
+[ADR-0017](0017-offline-workspace-handoff.md) defines opt-in offline Workspace handoff,
+independently transferred handoff codes, local recovery receipts and fail-closed startup.
+
 ## Naming
 
 [ADR-0016](0016-canvas-media-name-allocation.md) records Canvas transaction ownership of media names and the non-undoable sequence high-water marks.

@@ -15,7 +15,8 @@ def product_pages():
 class DesignTokensUiRegressionTests(unittest.TestCase):
     def test_every_html_entry_loads_tokens_before_page_styles(self):
         pages = product_pages()
-        self.assertEqual(14, len(pages))
+        self.assertEqual(15, len(pages))
+        self.assertIn(STATIC / "workspace-handoff.html", pages)
         self.assertIn(STATIC / "prompt-optimization-settings.html", pages)
 
         for page_path in pages:
