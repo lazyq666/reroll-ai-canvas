@@ -89,6 +89,34 @@ class LegacyInitializer:
             raise WorkspaceStorageError("当前 Workspace identity 尚不可用")
         return str(provider() or "")
 
+    async def prepare_handoff(self):
+        if self._main is None:
+            from .workspace_handoff import HandoffError
+            raise HandoffError("unavailable")
+        return await self._main.prepare_workspace_handoff()
+
+    def check_handoff(self):
+        if self._main is None:
+            from .workspace_handoff import HandoffError
+            raise HandoffError("unavailable")
+        self._main.check_workspace_handoff()
+
+    def handoff_conflicts(self):
+        if self._main is None:
+            from .workspace_handoff import HandoffError
+            raise HandoffError("unavailable")
+        return self._main.workspace_handoff_controller().conflict_report(
+            for_cleanup=self._main.can_cleanup_workspace_conflicts())
+
+    async def cleanup_handoff_conflicts(self, snapshot, selected):
+        if self._main is None:
+            from .workspace_handoff import HandoffError
+            raise HandoffError("unavailable")
+        return await asyncio.to_thread(self._main.cleanup_workspace_conflicts, snapshot, selected)
+
+    async def close_handoff_connections(self):
+        await self._main.manager.close_for_workspace_move(reason="handoff.checking")
+
     async def __call__(self) -> RuntimeStartup:
         main = await asyncio.to_thread(
             importlib.import_module,
@@ -524,6 +552,8 @@ class ExistingWorkspaceRecovery:
         parent_dir: object,
         *,
         intent: str,
+        handoff_id: str = "",
+        handoff_conflict_snapshot: str = "",
     ) -> dict[str, object]:
         self.release()
         summary = self._summary(
@@ -543,6 +573,8 @@ class ExistingWorkspaceRecovery:
         occupation = self._workspace.acquire_occupation(
             self._device.server_identity(),
             directory=target,
+            handoff_id=handoff_id,
+            handoff_conflict_snapshot=handoff_conflict_snapshot,
         )
         self._occupation = occupation
         original = self._storage.configured_parent_hint()
@@ -585,6 +617,26 @@ class ExistingWorkspaceRecovery:
                     "尚未保存可重试的工作区目录"
                 )
             return self._stage(current, intent="retry")
+
+    def handoff_conflicts(self):
+        from .workspace_handoff import HandoffError, WorkspaceHandoff
+        with self._lock:
+            current = self._storage.configured_parent_hint()
+            if not current:
+                raise HandoffError("missing")
+            root = Path(current).expanduser().resolve()
+            return WorkspaceHandoff(root, self._storage.state_dir,
+                                    self._workspace.identity(root),
+                                    self._device.server_identity()).conflict_report()
+
+    def stage_handoff(self, handoff_id: str, *, conflict_snapshot: str = "") -> dict[str, object]:
+        with self._lock:
+            current = self._storage.configured_parent_hint()
+            if not current:
+                from .workspace_handoff import HandoffError
+                raise HandoffError("missing")
+            return self._stage(current, intent="retry", handoff_id=handoff_id,
+                               handoff_conflict_snapshot=conflict_snapshot)
 
     def stage(
         self,
@@ -747,6 +799,7 @@ def create_default_application(
             workspace_recovery=recovery,
             runtime_authorization=LegacyRuntimeAuthorization(),
             storage_migration=storage_migration,
+            workspace_handoff=initializer,
             installation_id=installation_identity(project_dir),
         ),
         runtime,

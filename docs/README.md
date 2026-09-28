@@ -46,6 +46,7 @@
 - [全局生成发布权威 ADR](adr/0005-global-generation-publication-authority.md)
 - [恢复阶段显式创建 Workspace ADR](adr/0006-explicit-workspace-creation-during-recovery.md)
 - [默认允许局域网访问 ADR](adr/0008-lan-access-by-default.md)
+- [OneDrive 工作区安全交接（待双设备验收）](active/2026-09-27-workspace-handoff.md)
 - [存储路径与旧数据迁移](current/storage-layout-and-migration.md)
 - [工作区资产库与 Smart Canvas 本地引用](current/workspace-asset-library.md)
 - [Generation Run 生成链路](current/generation-pipeline.md)

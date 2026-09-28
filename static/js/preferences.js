@@ -212,6 +212,9 @@
                         </ic-toolbar>
                     </section>
                     <section class="preferences-section preferences-operation-section">
+                        <h3>${tr('handoff.title')}</h3>
+                        <p class="preferences-note">${tr('handoff.intro')}</p>
+                        <ic-button hierarchy="secondary" data-workspace-handoff ${busy || state.cloud.enabled ? 'disabled' : ''}>${tr('handoff.close')}</ic-button>
                         <h3>${tr("preferences.chooseAction")}</h3>
                         <p class="preferences-note">${tr("preferences.inspectNote")}</p>
                         <ic-toolbar class="preferences-intents" label="${tr("preferences.chooseAction")}" appearance="plain">
@@ -239,7 +242,7 @@
                                 : ""
                         }
                         ${renderSummary()}
-                        ${state.error ? `<ic-alert class="preferences-message" tone="danger">${escapeHtml(state.error)}</ic-alert>` : ""}
+                        ${state.error ? `<ic-alert class="preferences-message" tone="danger">${escapeHtml(state.error.startsWith('handoff.') ? tr(state.error) : state.error)}</ic-alert>` : ""}
                         ${state.message ? `<ic-alert class="preferences-message" tone="info">${escapeHtml(state.message)}</ic-alert>` : ""}
                     </section>
                 </div>
@@ -505,6 +508,43 @@
     document.addEventListener("click", (event) => {
         const target = event.target;
         if (!(target instanceof Element)) return;
+        if (target.closest('[data-workspace-handoff]')) {
+            if (state.saving || state.loading || state.cloudBusy || state.cleanupBusy || state.cloud.enabled) return;
+            state.saving = true;
+            state.error = '';
+            render();
+            void (async () => {
+                try {
+                    const pages = [];
+                    const visit = page => {
+                        pages.push(page);
+                        for (const frame of page.document.querySelectorAll('iframe')) {
+                            try { if (frame.contentWindow?.location.origin === location.origin) visit(frame.contentWindow); }
+                            catch (_) { /* External frames do not own this Workspace. */ }
+                        }
+                    };
+                    visit(window);
+                    const documents = pages.map(page => page.document);
+                    for (const page of pages) {
+                        page.document.activeElement?.blur?.();
+                        if (page.location.pathname === '/static/smart-canvas.html') {
+                            const prepare = page.SmartCanvasModules?.preparePageRefresh;
+                            if (!prepare) throw new Error('handoff.unsaved');
+                            await prepare();
+                        }
+                    }
+                    for (const [index, page] of pages.entries()) {
+                        if (page.document !== documents[index]
+                            || page.SmartCanvasModules?.pageRefreshBlocked?.()
+                            || page.SmartCanvasModules?.canvasPersistence?.status?.().pending) throw new Error('handoff.unsaved');
+                    }
+                    window.location.assign('/workspace-handoff');
+                } catch (_) {
+                    state.error = 'handoff.unsaved';
+                } finally { state.saving = false; render(); }
+            })();
+            return;
+        }
         if (target.closest('[data-cleanup-scan]')) { cleanupMedia(); return; }
         if (target.closest('[data-cleanup-confirm]')) { cleanupMedia(true); return; }
         if (target.closest("[data-preferences-close]")) {

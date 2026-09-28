@@ -127,6 +127,11 @@ class ApplicationRuntime:
         self._start_lock = asyncio.Lock()
         self._stop_lock = asyncio.Lock()
         self._restart_begin_lock = asyncio.Lock()
+        self.handoff_result: dict = {}
+        self.handoff_channel_drainers = []
+        self.handoff_preconditions = []
+        self._handoff_task = None
+        self._handoff_cleanup_task = None
 
     def status(self) -> RuntimeStatus:
         return self._status
@@ -232,10 +237,11 @@ class ApplicationRuntime:
             )
             try:
                 startup = await self._initializer()
-            except WorkspaceStorageError:
+            except WorkspaceStorageError as exc:
                 self._status = RuntimeStatus(
                     RuntimeStage.RECOVERY_REQUIRED,
                     "找不到已配置的工作区，请重新连接工作区。",
+                    message_code=getattr(exc, "code", ""),
                 )
                 return self._status
             except Exception as exc:
@@ -382,11 +388,75 @@ class ApplicationRuntime:
         async with self._restart_begin_lock:
             return await self._begin_restart_once(preparer=preparer)
 
+    async def request_handoff(self, controller):
+        if self._stop_started or (self._handoff_cleanup_task and not self._handoff_cleanup_task.done()):
+            from .workspace_handoff import HandoffError
+            raise HandoffError("unavailable")
+        if self._handoff_task is None or self._handoff_task.done():
+            self._handoff_task = asyncio.create_task(self._perform_handoff(controller))
+        return await asyncio.shield(self._handoff_task)
+
+    async def cleanup_handoff_conflicts(self, controller, snapshot, selected):
+        from .workspace_handoff import HandoffError
+        if (self._stop_started or self.handoff_result.get("state") != "failed"
+                or (self._handoff_task and not self._handoff_task.done())
+                or (self._handoff_cleanup_task and not self._handoff_cleanup_task.done())):
+            raise HandoffError("unavailable")
+        async def clean():
+            async with self._restart_begin_lock:
+                previous = self.handoff_result
+                self.handoff_result = {"state": "checking"}
+                try:
+                    return await controller.cleanup_handoff_conflicts(snapshot, selected)
+                finally:
+                    self.handoff_result = previous
+        self._handoff_cleanup_task = asyncio.create_task(clean())
+        return await asyncio.shield(self._handoff_cleanup_task)
+
+    async def _perform_handoff(self, controller):
+        """Freeze admission before checking blockers; never reopen stopped stores."""
+        from .workspace_handoff import HandoffError
+        async with self._restart_begin_lock:
+            if self.handoff_result.get("state") == "sealed":
+                return self.handoff_result
+            retry = self.handoff_result.get("state") == "failed"
+            if self._status.stage != RuntimeStage.READY and not retry:
+                raise HandoffError("unavailable")
+            original_status = self._status
+            self._status = RuntimeStatus(RuntimeStage.MAINTENANCE, "", message_code="handoff.checking")
+            if not retry:
+                try:
+                    for check in self.handoff_preconditions:
+                        check()
+                    for drainer in self._maintenance_drainers:
+                        result = drainer()
+                        if inspect.isawaitable(result):
+                            await result
+                    controller.check_handoff()
+                except Exception:
+                    self._status = original_status
+                    raise
+            self.handoff_result = {"state": "checking"}
+            try:
+                await controller.close_handoff_connections()
+                for drainer in self.handoff_channel_drainers:
+                    await drainer()
+                self.handoff_result = await controller.prepare_handoff()
+            except Exception as exc:
+                code = exc.code if isinstance(exc, HandoffError) else "handoff.failed"
+                self.handoff_result = {"state": "failed", "code": code}
+                self._status = RuntimeStatus(RuntimeStage.MAINTENANCE, "", message_code=code)
+                raise
+            self._status = RuntimeStatus(RuntimeStage.MAINTENANCE, "", message_code="handoff.sealed")
+            return self.handoff_result
+
     async def _begin_restart_once(
         self,
         *,
         preparer: Optional[Callable[[], object]] = None,
     ) -> RuntimeStatus:
+        if self.handoff_result:
+            return self._status
         if self._restart_signalled:
             return self._status
         rollback: Optional[Callable[[], object]] = None
@@ -500,7 +570,14 @@ class ApplicationRuntime:
         async with self._stop_lock:
             if self._stop_started:
                 return self._status
+            # Close maintenance admission before waiting: a completed worker must
+            # not be replaced by another while shutdown is resuming its await.
             self._stop_started = True
+            if self._handoff_task is not None and not self._handoff_task.done():
+                # Never release the Workspace OS lock under a live snapshot worker.
+                await asyncio.shield(asyncio.gather(self._handoff_task, return_exceptions=True))
+            if self._handoff_cleanup_task is not None and not self._handoff_cleanup_task.done():
+                await asyncio.shield(asyncio.gather(self._handoff_cleanup_task, return_exceptions=True))
             self._status = RuntimeStatus(
                 RuntimeStage.STOPPING,
                 "Reroll 正在安全关闭…",

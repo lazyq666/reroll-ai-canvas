@@ -4,7 +4,7 @@
         '/static/js/i18n/common.js?v=asset-7d3a8cda98f5',
         '/static/js/i18n/auth.js?v=asset-2ba9c7942691',
         '/static/js/i18n/onboarding.js?v=asset-9a22ee5eeebb',
-        '/static/js/i18n/workspace.js?v=asset-4ea99056e475',
+        '/static/js/i18n/workspace.js?v=asset-336ed61a80bc',
         '/static/js/i18n/model-management.js?v=asset-1bf67142968a',
         '/static/js/i18n/preferences.js?v=asset-cd5d16f96ff2',
         '/static/js/i18n/cloud-storage.js?v=asset-fc781e53df50',

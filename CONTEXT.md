@@ -26,6 +26,10 @@ _Avoid_: Folder, Instance, Device State
 由一个 Workspace 拥有并随它一起移动的创作内容、Managed Media、历史、Workflow、Prompt Library 和共享非秘密设置。
 _Avoid_: Account, API Key, Device State, Device Cache
 
+**Workspace Handoff（工作区交接）**:
+一台设备结束对 Workspace 的编辑，并让接收设备核对指定完整版本后继续编辑的过程。
+_Avoid_: Canvas Sync, Realtime Collaboration, 云盘同步完成
+
 **Project（项目）**:
 Workspace 内用于组织 Canvas 和划分 Designer 访问范围的集合。
 _Avoid_: Workspace, Folder, Team

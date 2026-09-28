@@ -157,3 +157,14 @@ then verifies that returning to the list preserves the sidebar preference.
 `node tests/canvas_opening_shell_browser.cjs --serve` exposes the same real-page
 fixture for the Chrome browser plugin; the hidden `#openingShellResult` output
 contains the measured bounds and pass/fail verdict after opening the fixture Canvas.
+
+## Workspace handoff
+
+`.venv/bin/python -m unittest tests.test_workspace_handoff tests.test_workspace_handoff_http`
+checks snapshot consistency, WAL, failure retention, occupation/startup gates, real Store shutdown,
+conflict listing, verified archival, stale confirmation, sync replacement retention and recovery permissions.
+Stopped-session cleanup covers byte-identical recommendations, node differences, explicitly selected
+copy removal with verified backups, forbidden paths, WAL blockers, backup failures and cancellation/stop ordering.
+`node tests/workspace_handoff_browser.cjs` checks the production handoff page with controlled HTTP
+responses, language switching, themes, keyboard and narrow-window states. Real two-device OneDrive
+acceptance remains a separate gate in the [spec](../docs/active/2026-09-27-workspace-handoff.md).

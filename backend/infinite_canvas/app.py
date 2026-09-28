@@ -32,6 +32,7 @@ _RUNTIME_PATHS = (
     "/workspace-move",
     "/startup",
     "/recovery",
+    "/workspace-handoff",
 )
 _SETUP_PATHS = {
     "/",
@@ -60,6 +61,17 @@ class RestartRequest(BaseModel):
 class StorageMigrationRequest(BaseModel):
     migration_id: str = ""
     approved: bool = False
+
+
+class HandoffRequest(BaseModel):
+    handoff_id: str = ""
+    conflict_snapshot: str = ""
+
+
+class HandoffCleanupRequest(BaseModel):
+    conflict_snapshot: str
+    selected: list[str]
+    confirmed: bool = False
 
 
 class RecoveryRequest(BaseModel):
@@ -192,6 +204,9 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
     safe_title = html.escape(title)
     if status.message_code.startswith('cloud_storage_'):
         detail_key = 'cloudStorage.' + status.message_code
+    if status.message_code.startswith('handoff.'):
+        detail_key = status.message_code
+        action = '<ic-button hierarchy="primary" href="/workspace-handoff" data-i18n="handoff.title"></ic-button>'
     safe_detail = html.escape(detail)
     error_id = html.escape(status.error_id)
     brand_mark = '<img src="/static/images/brand/logo.png?v=asset-7bd591a5ba1d" alt="">'
@@ -217,7 +232,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-26175754df27"></script>
+  <script src="/static/js/i18n.js?v=asset-33aa36c7bdb2"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
 </head>
 <body class="runtime-page">
@@ -242,7 +257,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
     function applyRuntimeDetail() {{
       const target = document.getElementById('runtime-detail');
       if (!target) return;
-      target.textContent = runtimeDetailKey.startsWith('cloudStorage.') || window.StudioI18n?.lang?.() === 'en'
+      target.textContent = runtimeDetailKey.startsWith('handoff.') || runtimeDetailKey.startsWith('cloudStorage.') || window.StudioI18n?.lang?.() === 'en'
         ? (window.StudioI18n?.format?.(runtimeDetailKey, {{count:{status.blocking_generation_runs}}}) || runtimeDetailFallback)
         : runtimeDetailFallback;
     }}
@@ -287,7 +302,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-26175754df27"></script>
+  <script src="/static/js/i18n.js?v=asset-33aa36c7bdb2"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -366,7 +381,13 @@ def _recovery_page() -> str:
     }
     function showAlert(target, text, tone = 'warning') {
       if (text) {
-        target.textContent = text;
+        if (typeof text === 'string' && text.startsWith('handoff.')) {
+          target.dataset.i18n = text;
+          target.textContent = tr(text);
+        } else {
+          delete target.dataset.i18n;
+          target.textContent = text;
+        }
         target.tone = tone;
       }
       target.hidden = !text;
@@ -472,7 +493,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=asset-26175754df27"></script>
+  <script src="/static/js/i18n.js?v=asset-33aa36c7bdb2"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
@@ -522,15 +543,19 @@ class RuntimeGateway:
         self.runtime = runtime
         self._business_write_condition = threading.Condition()
         self._active_business_writes = 0
+        self._active_business_sockets = 0
+        self._active_maintenance_requests = 0
+        runtime.handoff_preconditions.append(self._check_handoff_admission)
+        runtime.handoff_channel_drainers.append(self._wait_for_business_sockets)
         runtime.install_maintenance_drainer(
             self._wait_for_business_writes
         )
 
-    async def _wait_for_business_writes(self) -> None:
+    async def _wait_for_business_writes(self, *, sockets=False) -> None:
         def wait() -> None:
             deadline = time.monotonic() + 10
             with self._business_write_condition:
-                while self._active_business_writes:
+                while (self._active_business_sockets if sockets else self._active_business_writes):
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         raise WorkspaceStorageError(
@@ -539,6 +564,16 @@ class RuntimeGateway:
                     self._business_write_condition.wait(remaining)
 
         await asyncio.to_thread(wait)
+
+    async def _wait_for_business_sockets(self):
+        await self._wait_for_business_writes(sockets=True)
+
+    def _check_handoff_admission(self):
+        # These requests cannot join the ordinary drain: they may themselves be
+        # waiting for the runtime maintenance lock. Refuse the competing handoff.
+        from .workspace_handoff import HandoffError
+        if self._active_maintenance_requests:
+            raise HandoffError("unavailable")
 
     def _begin_business_write(self) -> None:
         with self._business_write_condition:
@@ -570,16 +605,28 @@ class RuntimeGateway:
             method = str(scope.get("method") or "").upper()
             track_write = (
                 scope["type"] == "http"
-                and method not in {"GET", "HEAD", "OPTIONS"}
                 and path not in _MAINTENANCE_INITIATOR_PATHS
             )
             if track_write:
                 self._begin_business_write()
+            track_socket = scope["type"] == "websocket"
+            track_maintenance = scope["type"] == "http" and path in _MAINTENANCE_INITIATOR_PATHS
+            if track_maintenance:
+                self._active_maintenance_requests += 1
+            if track_socket:
+                with self._business_write_condition:
+                    self._active_business_sockets += 1
             try:
                 await application(scope, receive, send)
             finally:
+                if track_maintenance:
+                    self._active_maintenance_requests -= 1
                 if track_write:
                     self._finish_business_write()
+                if track_socket:
+                    with self._business_write_condition:
+                        self._active_business_sockets -= 1
+                        self._business_write_condition.notify_all()
             return
         if scope["type"] == "websocket":
             await send({"type": "websocket.close", "code": 1013})
@@ -594,6 +641,7 @@ def create_app(
     runtime_authorization: Optional[RuntimeAuthorization] = None,
     storage_migration: Optional[StorageMigration] = None,
     installation_id: str = "",
+    workspace_handoff: Any = None,
 ) -> RuntimeGateway:
     """Create the minimal HTTP shell without starting runtime dependencies."""
 
@@ -618,6 +666,117 @@ def create_app(
             await runtime.stop()
 
     shell = FastAPI(lifespan=lifespan)
+
+    @shell.get("/workspace-handoff")
+    async def handoff_page():
+        return HTMLResponse(
+            (Path(__file__).resolve().parents[2] / "static/workspace-handoff.html").read_text(encoding="utf-8"),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @shell.get("/api/runtime/handoff")
+    async def handoff_status(request: Request):
+        if not _local_client(request):
+            return JSONResponse(status_code=403, content={"code": "handoff.local"})
+        if runtime.status().stage == RuntimeStage.RECOVERY_REQUIRED:
+            return JSONResponse(content={"state": "recovery", "code": runtime.status().message_code or "handoff.required"}, headers={"Cache-Control": "no-store"})
+        denied = _runtime_admin_error(request, runtime_authorization)
+        if denied is not None:
+            return JSONResponse(status_code=denied.status_code, content={"code": "handoff.auth"})
+        return JSONResponse(content=runtime.handoff_result or {
+            "state": "ready" if runtime.status().stage == RuntimeStage.READY else "checking"
+        }, headers={"Cache-Control": "no-store"})
+
+    @shell.post("/api/runtime/handoff")
+    async def handoff_close(request: Request):
+        from .workspace_handoff import HandoffError
+        if _cross_site_write(request) or not _local_client(request):
+            return JSONResponse(status_code=403, content={"code": "handoff.local"})
+        denied = _runtime_admin_error(request, runtime_authorization)
+        if denied is not None:
+            return JSONResponse(status_code=denied.status_code, content={"code": "handoff.auth"})
+        if workspace_handoff is None:
+            return JSONResponse(status_code=503, content={"code": "handoff.unavailable"})
+        try:
+            return await asyncio.shield(runtime.request_handoff(workspace_handoff))
+        except HandoffError as exc:
+            return JSONResponse(status_code=409, content={"code": exc.code})
+        except Exception:
+            return JSONResponse(status_code=409, content={"code": "handoff.failed"})
+
+    @shell.post("/api/runtime/handoff/conflicts")
+    async def handoff_close_conflicts(request: Request):
+        from .workspace_handoff import HandoffError
+        if _cross_site_write(request) or not _local_client(request):
+            return JSONResponse(status_code=403, content={"code": "handoff.local"})
+        denied = _runtime_admin_error(request, runtime_authorization)
+        if denied is not None:
+            return JSONResponse(status_code=denied.status_code, content={"code": "handoff.auth"})
+        if workspace_handoff is None or not (
+            runtime.status().stage == RuntimeStage.READY or runtime.handoff_result.get("state") == "failed"
+        ):
+            return JSONResponse(status_code=409, content={"code": "handoff.unavailable"})
+        try:
+            report = await asyncio.to_thread(workspace_handoff.handoff_conflicts)
+            # Receiving-device archival remains separate from owned-session cleanup.
+            return JSONResponse(content={**report, "can_archive": False}, headers={"Cache-Control": "no-store"})
+        except HandoffError as exc:
+            return JSONResponse(status_code=409, content={"code": exc.code})
+        except (OSError, WorkspaceStorageError):
+            return JSONResponse(status_code=409, content={"code": "handoff.failed"})
+
+    @shell.post("/api/runtime/handoff/conflicts/cleanup")
+    async def handoff_cleanup(request: Request, payload: HandoffCleanupRequest):
+        from .workspace_handoff import HandoffError
+        if _cross_site_write(request) or not _local_client(request):
+            return JSONResponse(status_code=403, content={"code": "handoff.local"})
+        denied = _runtime_admin_error(request, runtime_authorization)
+        if denied is not None:
+            return JSONResponse(status_code=denied.status_code, content={"code": "handoff.auth"})
+        if not payload.confirmed or workspace_handoff is None:
+            return JSONResponse(status_code=409, content={"code": "handoff.cleanupConfirmRequired"})
+        try:
+            return await runtime.cleanup_handoff_conflicts(workspace_handoff, payload.conflict_snapshot, payload.selected)
+        except HandoffError as exc:
+            return JSONResponse(status_code=409, content={"code": exc.code})
+        except (OSError, WorkspaceStorageError):
+            return JSONResponse(status_code=409, content={"code": "handoff.failed"})
+
+    @shell.post("/api/runtime/recovery/handoff")
+    async def handoff_accept(request: Request, payload: HandoffRequest):
+        from .workspace_handoff import HandoffError
+        rejected = recovery_write_error(request)
+        if rejected is not None:
+            return JSONResponse(status_code=rejected.status_code, content={"code": "handoff.local"})
+        if not payload.handoff_id.strip():
+            return JSONResponse(status_code=400, content={"code": "handoff.code"})
+        try:
+            if payload.conflict_snapshot:
+                await asyncio.to_thread(workspace_recovery.stage_handoff, payload.handoff_id,
+                                        conflict_snapshot=payload.conflict_snapshot)
+            else:
+                await asyncio.to_thread(workspace_recovery.stage_handoff, payload.handoff_id)
+            return (await runtime.request_restart()).public()
+        except HandoffError as exc:
+            return JSONResponse(status_code=409, content={"code": exc.code})
+        except WorkspaceStorageError:
+            return JSONResponse(status_code=409, content={"code": "handoff.occupied"})
+        except OSError:
+            return JSONResponse(status_code=409, content={"code": "handoff.failed"})
+
+    @shell.post("/api/runtime/recovery/handoff/conflicts")
+    async def handoff_conflicts(request: Request):
+        from .workspace_handoff import HandoffError
+        rejected = recovery_write_error(request)
+        if rejected is not None:
+            return JSONResponse(status_code=rejected.status_code, content={"code": "handoff.local"})
+        try:
+            return JSONResponse(content=await asyncio.to_thread(workspace_recovery.handoff_conflicts),
+                                headers={"Cache-Control": "no-store"})
+        except HandoffError as exc:
+            return JSONResponse(status_code=409, content={"code": exc.code})
+        except (OSError, WorkspaceStorageError):
+            return JSONResponse(status_code=409, content={"code": "handoff.failed"})
     shell.mount(
         "/static",
         FrontendStaticFiles(
