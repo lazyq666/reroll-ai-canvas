@@ -15,6 +15,7 @@ export const IC_ICON_NAMES = Object.freeze({
   back: 'ArrowLeft',
   'book-text': 'BookText',
   canvas: 'Layers',
+  camera: 'Camera',
   check: 'Check',
   'circle-alert': 'CircleAlert',
   'circle-check-big': 'CircleCheckBig',

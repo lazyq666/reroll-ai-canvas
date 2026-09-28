@@ -95,11 +95,14 @@ function standardQuickAddControl(port, options = {}) {
   return `<ic-icon-button class="smart-node-quick-add" type="button" size="m" hierarchy="quiet" icon="add" label="${label}"${i18n} tooltip-disabled data-port="${side}" data-node-quick-add aria-haspopup="menu"${controls} aria-expanded="false"></ic-icon-button>`;
 }
 
-function canvasNodeStandardControls(controls = {}) {
+function canvasNodeStandardControls(controls = {}, kind, states = {}) {
+  const resizePath = kind === 'frame' && states.far
+    ? 'M1.5 16.5H10.5A6 6 0 0 0 16.5 10.5V1.5'
+    : 'M1.5 16.5H2A13.5 13.5 0 0 0 16.5 2v-.5';
   const quickAdd = controls.quickAdd || {};
   return {
     resizeControl: controls.resizable
-      ? '<div class="node-resize-handle" data-resize="1"><svg class="node-resize-handle-shape" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="M1.5 16.5H2A13.5 13.5 0 0 0 16.5 2v-.5"></path></svg></div>'
+      ? `<div class="node-resize-handle" data-resize="1"><svg class="node-resize-handle-shape" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path d="${resizePath}"></path></svg></div>`
       : '',
     quickAdd: {
       out: quickAdd.out ? standardQuickAddControl('out', quickAdd.out) : '',
@@ -143,7 +146,7 @@ export function renderCanvasNodeMarkup({
   const publicFrameAttribute = kind === 'frame'
     ? ` frame-color="${escapeCanvasNodeAttribute(frameColor || CANVAS_FRAME_DEFAULT_COLOR)}"`
     : '';
-  const standardControls = canvasNodeStandardControls(controls);
+  const standardControls = canvasNodeStandardControls(controls, kind, states);
   return `<ic-canvas-node class="${canvasNodeClasses(kind, states)}" kind="${safeKind}" state="${stateTokens.join(' ')}" data-id="${safeId}" aria-label="${escapeCanvasNodeAttribute(String(title).replace(/<[^>]*>/g, ''))}"${publicFrameAttribute}${frameAttribute} style="left:${left}px;top:${top}px;width:${width}px;height:${height}px">
     ${head}
     ${focusControl}

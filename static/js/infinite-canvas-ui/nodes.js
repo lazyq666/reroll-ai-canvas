@@ -1,4 +1,4 @@
-export { IcCanvasNode } from './nodes/node.js?v=asset-f42fcca007ad';
+export { IcCanvasNode } from './nodes/node.js?v=asset-383fdcc82e16';
 export { IcCanvasMultiSelection } from './nodes/multi-selection.js?v=asset-a5c281c03447';
 export { IcPromptNodeFocusSurface } from './nodes/prompt-focus-surface.js?v=asset-f8a560bd24ec';
 export {
@@ -11,4 +11,4 @@ export {
   isCanvasNodeKind,
   renderCanvasNodeMarkup,
   renderReadOnlyPromptNodeBodyMarkup,
-} from './nodes/shared.js?v=asset-a0fd8f408f53';
+} from './nodes/shared.js?v=asset-9cead60a8e18';

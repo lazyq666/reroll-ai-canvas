@@ -1,3 +1,5 @@
+let smartFrameCapture = null;
+let smartFrameCaptureOpenSequence = 0;
 const params = new URLSearchParams(location.search);
 const canvasId = params.get('id') || '';
 const smartCanvasNodeReviewMode = params.get('componentReview') === 'nodes';
@@ -680,7 +682,6 @@ function bindSmartPreviewImageFallbacks(root=document){
 const SMART_ADAPTIVE_IMAGE_DELAY = 180;
 const SMART_ADAPTIVE_VIEWPORT_MARGIN = 256;
 let smartAdaptiveImageTimer = 0;
-const smartAdaptivePreviewLoaded = new Set();
 const smartAdaptivePreviewLoading = new Map();
 function smartPreviewSizeFromUrl(url){
     try {
@@ -702,15 +703,18 @@ function smartImageNearViewport(img){
         && imageRect.top <= shellRect.bottom + margin;
 }
 function preloadSmartAdaptivePreview(src){
-    if(!src || smartAdaptivePreviewLoaded.has(src)) return Promise.resolve(true);
+    if(!src) return Promise.resolve(false);
     if(smartAdaptivePreviewLoading.has(src)) return smartAdaptivePreviewLoading.get(src);
     const task = new Promise(resolve => {
         const img = new Image();
         img.decoding = 'async';
         img.onload = async () => {
-            try { if(img.decode) await img.decode(); } catch(e) {}
-            smartAdaptivePreviewLoaded.add(src);
-            resolve(true);
+            // A URL loaded earlier may no longer have a decoded bitmap cached.
+            // Keep the visible source if this attempt cannot be decoded.
+            try {
+                if(img.decode) await img.decode();
+                resolve(img.naturalWidth > 0);
+            } catch(e) { resolve(false); }
         };
         img.onerror = () => resolve(false);
         img.src = src;
@@ -753,22 +757,28 @@ function refreshSmartAdaptiveImageResolution(root=world){
             : 512;
         const target = smartMediaPreviewUrl(original, targetSize);
         if(!target) return;
-        img.dataset.previewSrc = target;
-        img.dataset.previewSize = String(targetSize);
         img.dataset.adaptivePreviewTarget = target;
         img.dataset.adaptivePreviewGeneration = String(lodState.resourceGeneration);
-        if(img.getAttribute('src') === target) return;
+        const applyPreview = () => {
+            if(img.getAttribute('src') !== target) img.src = target;
+            img.dataset.previewSrc = target;
+            img.dataset.previewSize = String(targetSize);
+        };
+        if(img.getAttribute('src') === target){
+            applyPreview();
+            return;
+        }
         if(!target.startsWith('/api/media-preview')){
-            img.src = target;
+            applyPreview();
             return;
         }
         preloadSmartAdaptivePreview(target).then(loaded => {
             if(!loaded || !img.isConnected || img.dataset.adaptivePreviewTarget !== target) return;
             if(
-                img.dataset.adaptivePreviewGeneration
-                !== String(canvasLevelOfDetail.diagnostics().resourceGeneration)
+                lodState.resourceGeneration
+                !== canvasLevelOfDetail.diagnostics().resourceGeneration
             ) return;
-            if(img.getAttribute('src') !== target) img.src = target;
+            applyPreview();
         });
     });
 }
@@ -6465,7 +6475,7 @@ function smartPlaybackRemember(media, explicitTarget=null){
     entry.currentTime = state.currentTime;
     entry.paused = state.paused;
     entry.ended = state.ended;
-    if(media.tagName?.toLowerCase?.() === 'video') entry.loop = state.loop;
+    if(media.tagName?.toLowerCase?.() === 'video' && media.dataset.frameCapture !== '1') entry.loop = state.loop;
     const preferences = smartPlaybackPreferencesFor(media);
     preferences.volume = state.volume;
     preferences.muted = state.muted;
@@ -6912,6 +6922,34 @@ function restoreMediaPlaybackState(media, state){
     };
     if(media.readyState >= 1) applyTime();
     else media.addEventListener('loadedmetadata', applyTime, {once:true});
+}
+function transplantSmartLodImages(oldNodeEl, newNodeEl){
+    if(oldNodeEl.dataset.id !== newNodeEl.dataset.id) return;
+    const imagesByInstance = new Map();
+    const entries = nodeEl => [...nodeEl.querySelectorAll('.thumb-item,.image-wrap,.far-node-media')]
+        .flatMap(item => {
+            const image = item.querySelector('img[data-original-src]:not([data-preview-kind="video"])');
+            if(!image) return [];
+            const key = JSON.stringify([
+                item.dataset.refNodeId || nodeEl.dataset.id,
+                item.dataset.refImageIndex ?? item.dataset.imageIndex ?? '0',
+                image.dataset.originalSrc
+            ]);
+            return [{key,image}];
+        });
+    entries(oldNodeEl).forEach(({key,image}) => imagesByInstance.set(key,image));
+    entries(newNodeEl).forEach(({key,image:fresh}) => {
+        const image = imagesByInstance.get(key);
+        if(!image) return;
+        imagesByInstance.delete(key);
+        image.className = fresh.className;
+        image.style.cssText = fresh.style.cssText;
+        image.draggable = false;
+        image.alt = fresh.getAttribute('alt') || '';
+        // Preserve src, decode/load listeners and mediaState across LOD changes.
+        // Adaptive resolution upgrades/downgrades the visible image separately.
+        fresh.replaceWith(image);
+    });
 }
 function transplantSmartMediaElements(oldNodeEl, newNodeEl){
     const oldItems = [...(oldNodeEl?.querySelectorAll?.('.thumb-item,.image-wrap') || [])];
@@ -8605,7 +8643,7 @@ function smartNodeToolbarText(node){
 function smartNodeToolbarActionHtml(node, action){
     if(action.key === 'divider') return '<ic-divider orientation="vertical" data-smart-node-divider></ic-divider>';
     if(action.items){
-        const menuId = `smartNodeMoreTools-${node.id}`;
+        const menuId = `smartNodeMoreTools-${node.id}-${action.key}`;
         return `<ic-menu id="${escapeAttr(menuId)}" data-smart-node-tools data-node-id="${escapeAttr(node.id)}" data-media-index="${smartNodeToolbarImageIndex(node)}" label="${escapeAttr(action.label)}" trigger="dropdown" selection="command" size="small" placement="block-end" alignment="start">
             ${smartNodeToolbarActionHtml(node, {...action, items:null, menuId})}
             ${action.items.map(item => `<ic-menu-item kind="command" value="${escapeAttr(item.key)}" icon="${escapeAttr(item.icon)}" label="${escapeAttr(item.label)}"${item.enabled ? '' : ' disabled'}></ic-menu-item>`).join('')}
@@ -8675,7 +8713,11 @@ function smartNodeToolbarHtml(node){
                 pressed:smartPlaybackEntry(node.id, toolbarImageIndex).loop,
                 imageIndex:toolbarImageIndex
             },
-            {key:'extract-frame', icon:'extract-frame', label:tr('smart.action.extractFrame'), enabled:true},
+            {key:'extract-frame', icon:'extract-frame', label:tr('smart.action.extractFrame'), enabled:true, items:[
+                {key:'extract-frame-first', icon:'extract-frame', label:tr('smart.capture.first'), enabled:true},
+                {key:'extract-frame-last', icon:'extract-frame', label:tr('smart.capture.last'), enabled:true},
+                {key:'extract-frame-custom', icon:'extract-frame', label:tr('smart.capture.custom'), enabled:true}
+            ]},
             {key:'video-gif', icon:'play', label:tr('smart.gif.videoMenu'), enabled:!videoGifPending.has(node.id)},
             downloadAction
         ]
@@ -8733,6 +8775,93 @@ function duplicateSmartNodeMediaToCanvas(node, imageIndex){
     render();
     canvasPersistence.schedule();
     toast(tr('smart.addedToCanvas'));
+}
+async function openSmartFrameCapture(nodeId, imageIndex=0, requestedMode='custom', {fullscreen=false}={}){
+    if(canvasPersistence.editable?.() === false) return;
+    smartFrameCapture?.close(true);
+    const sequence = ++smartFrameCaptureOpenSequence;
+    const sourceCanvas = canvas;
+    const node = nodes.find(candidate => candidate.id === nodeId);
+    const item = node?.images?.[imageIndex];
+    if(!item || mediaKindForItem(item) !== 'video') return;
+    const sourceUrl = item.url;
+    const previewVideo = fullscreen ? currentPreviewVideo() : null;
+    const surfaceValid = () => !fullscreen || (currentPreviewVideo() === previewVideo && currentEditImage().node?.id === nodeId && currentEditImage().index === imageIndex);
+    if(fullscreen && !previewVideo) return;
+    let cancelled = false;
+    const valid = () => !cancelled && surfaceValid() && canvas?.id === sourceCanvas?.id && nodes.find(candidate => candidate.id === nodeId)?.images?.[imageIndex]?.url === sourceUrl && canvasPersistence.editable?.() !== false;
+    const {createFrameCapture} = await import('/static/js/smart-canvas/video-frame-capture.js?v=asset-b1da20afeee4');
+    if(sequence !== smartFrameCaptureOpenSequence || !valid()) return;
+    const video = previewVideo || smartPlaybackActivateVideo(nodeId, imageIndex, {play:false});
+    if(!video) throw new Error('Video unavailable');
+    smartPlaybackClaim(video);
+    const mode = ['first','last'].includes(requestedMode) ? requestedMode : 'custom';
+    const position = panel => {
+        if(fullscreen){
+            panel.slot = 'footer';
+            return;
+        }
+        const target = smartPlaybackItemElement(nodeId, imageIndex);
+        if(!target?.isConnected) return;
+        const rect = target.getBoundingClientRect();
+        const root = shell.getBoundingClientRect();
+        const width = Math.min(600, Math.max(460, rect.width + 40), root.width - 24);
+        panel.style.width = `${width}px`;
+        panel.style.left = `${Math.max(12, Math.min(root.width - width - 12, rect.left - root.left + (rect.width - width) / 2))}px`;
+        panel.style.top = `${Math.max(12, Math.min(root.height - panel.offsetHeight - 12, rect.bottom - root.top + 16))}px`;
+    };
+    const session = createFrameCapture({host:fullscreen ? imageEditModal : shell,video,item,tr,trf,mode,position,
+        async commit(drafts){
+            if(!valid()) throw new Error('Source changed');
+            for(const draft of drafts){
+                if(!draft.uploaded){
+                    const uploaded = await uploadFiles([new File([draft.blob], `frame-${draft.frame}.png`, {type:'image/png'})]);
+                    if(!uploaded[0]?.url) throw new Error('Upload failed');
+                    draft.uploaded = uploaded[0];
+                }
+            }
+            if(!valid()) throw new Error('Source changed');
+            const outputs = drafts.map(draft => {
+                const file = {...draft.uploaded,kind:'image',natural_w:draft.width,natural_h:draft.height};
+                nameCreatedMedia(file, mode === 'first' ? 'frame-first' : mode === 'last' ? 'frame-last' : 'frame-current', item);
+                const output = {id:uid('smart'),type:'smart-image',x:0,y:0,images:[file],created_at:Date.now()};
+                output.scale = mediaNodeDefaultScale(output);
+                return output;
+            });
+            canvasMutation.createBatch({drafts:outputs,intent:{anchor:{kind:'source',sourceNodeId:nodeId},relation:'downstream',arrangement:'horizontal-batch'},options:{select:true,reveal:true}});
+            canvasPersistence.schedule();
+            toast(tr('smart.exportedToCanvas'));
+        },
+        onClose(){
+            cancelled = true;
+            if(smartFrameCapture?.video === video) smartFrameCapture = null;
+            shell.classList.remove('frame-capture-open');
+            imageEditModal.classList.remove('frame-capture-open');
+            video.removeAttribute('data-frame-capture');
+            smartPlaybackRemember(video);
+            updateComposer();
+            requestAnimationFrame(async () => {
+                if(smartFrameCapture) return;
+                render();
+                const trigger = fullscreen ? (imageStudio.isOpen() ? document.getElementById('previewFrameCaptureTrigger') : null) : smartNodeFloatingPortal?.querySelector('[data-smart-node-action="extract-frame"]');
+                await trigger?.updateComplete;
+                if(!smartFrameCapture && trigger?.isConnected) trigger.shadowRoot?.querySelector('button')?.focus({preventScroll:true});
+            });
+        }
+    });
+    smartFrameCapture = {...session,nodeId,imageIndex,valid,fullscreen};
+    video.dataset.frameCapture = '1';
+    (fullscreen ? imageEditModal : shell).classList.add('frame-capture-open');
+    composer.classList.remove('open');
+}
+function syncSmartFrameCapture(){
+    if(!smartFrameCapture) return;
+    if(!smartFrameCapture.valid() || !smartFrameCapture.video.isConnected || (!smartFrameCapture.fullscreen && selectedId !== smartFrameCapture.nodeId && selectedImage.nodeId !== smartFrameCapture.nodeId)){
+        smartFrameCapture.close(true);
+        return;
+    }
+    smartFrameCapture.update();
+    smartFrameCapture.position();
 }
 function openSmartVideoFullscreen(nodeId, imageIndex=0){
     const node = nodes.find(candidate => candidate.id === nodeId);
@@ -8805,9 +8934,8 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, tri
         toggleSmartVideoLoop(nodeId, index);
         return;
     }
-    if(action === 'extract-frame' && kind === 'video'){
-        imageStudio.open({nodeId, imageIndex:index, mode:'preview', groupAware:false});
-        toast(tr('smart.frameExportHint'));
+    if(action.startsWith('extract-frame') && kind === 'video'){
+        openSmartFrameCapture(nodeId, index, action.replace('extract-frame-', '')).catch(() => toast(tr('smart.capture.loadFailed')));
         return;
     }
     if(action === 'reverse-prompt'){
@@ -9050,7 +9178,7 @@ function bindSmartNodeFloatingPortal(){
         event.preventDefault();
         event.stopPropagation();
         if(!button || button.disabled) return;
-        if(nodeAction?.dataset.smartNodeAction === 'more-tools'){
+        if(nodeAction && button.closest('[data-smart-node-tools]')){
             const menu = button.closest('[data-smart-node-tools]');
             if(menu?.hasAttribute('open')) menu.hide('toggle');
             else menu?.show(button);
@@ -9076,6 +9204,7 @@ function bindSmartNodeFloatingPortal(){
     };
 }
 function syncSmartNodeFloatingPortal(){
+    syncSmartFrameCapture();
     if(!smartNodeFloatingPortal) return;
     const ids = window.SmartCanvasModules.viewportSelection.selection.ids();
     const node = window.SmartCanvasModules.viewportSelection.selection.node();
@@ -9295,6 +9424,8 @@ function rememberInlineVideoActivations(){
 }
 function smartCanvasPinnedNodeIds(){
     const ids = new Set(canvasInteraction.active()?.nodeIds || []);
+    const captureNode = smartFrameCapture?.video.closest('.image-node');
+    if(captureNode?.dataset.id) ids.add(captureNode.dataset.id);
     const previewNode = smartPlaybackSession.previewPresentation?.placeholder.closest('.image-node');
     if(previewNode?.dataset.id) ids.add(previewNode.dataset.id);
     const focusedNode = document.activeElement?.closest?.('.image-node');
@@ -9313,6 +9444,7 @@ function smartCanvasPinnedNodeIds(){
 let smartCanvasDetailRecoveryReady = null;
 let smartCanvasDetailRecoveryFrame = 0;
 function smartCanvasNodeUsesFarPresentation(nodeId){
+    if(smartFrameCapture?.valid() && smartFrameCapture.video.closest('.image-node')?.dataset.id === nodeId) return false;
     if(canvasLevelOfDetail.diagnostics().mode === 'far') return true;
     return smartCanvasDetailRecoveryReady instanceof Set
         && !smartCanvasDetailRecoveryReady.has(String(nodeId || ''));
@@ -9616,7 +9748,7 @@ function render(options={}){
                 : '',
             hint,
             controls:{
-                resizable:!nodeFarMode && !isCompactMember && Boolean(imgs.length || generationKind || node.pending || isQueued || isJimengPending || isMattingJob || isPrompt || isSplitter || isLoop || isSmartGroup || isFrame),
+                resizable:(!nodeFarMode || isFrame) && !isCompactMember && Boolean(imgs.length || generationKind || node.pending || isQueued || isJimengPending || isMattingJob || isPrompt || isSplitter || isLoop || isSmartGroup || isFrame),
                 quickAdd:showQuickAdd ? {
                     out:{label:tr('smart.referenceGenerate'),i18nLabel:'smart.referenceGenerate',menuId:'referenceGenerateMenu'},
                     in:{label:tr('smart.addUpstreamInput'),i18nLabel:'smart.addUpstreamInput',menuId:'upstreamInputMenu'}
@@ -9663,6 +9795,7 @@ function render(options={}){
         const activeInteractionIds = canvasInteraction.active()?.nodeIds || [];
         const activeEditor = smartCanvasActiveEditorWithin(existing);
         const retainsInteractiveDom = Boolean(activeEditor)
+            || Boolean(smartFrameCapture?.valid() && existing?.contains(smartFrameCapture.video))
             || Boolean(existing?.contains(smartPlaybackSession.previewPresentation?.placeholder || null))
             || activeInteractionIds.includes(entry.node.id)
             || preserveMountedNodes;
@@ -9701,6 +9834,10 @@ function render(options={}){
                 === fresh.classList.contains('canvas-lod-node-far');
             if(reusableNodes.has(entry.node.id) && sameLodMode){
                 transplantSmartMediaElements(existing, fresh);
+            } else if(reusableNodes.has(entry.node.id)){
+                // Video/audio deliberately lose their players in far mode.
+                // Only the same static-image instance crosses this boundary.
+                transplantSmartLodImages(existing, fresh);
             }
             existing.replaceWith(fresh);
         }
@@ -11191,12 +11328,12 @@ function bindNodeEvents(){
             if(timer) clearTimeout(timer);
             smartNodeQuickAddPreviewExitTimers.delete(el);
             setQuickAddPreview(true);
-            if(nodeVideoIndex >= 0 && !smartPlaybackSession.previewPresentation){
+            if(nodeVideoIndex >= 0 && !smartPlaybackSession.previewPresentation && smartFrameCapture?.nodeId !== id){
                 smartPlaybackActivateVideo(id, nodeVideoIndex, {play:true});
             }
         });
         el.addEventListener('pointerleave', event => {
-            if(nodeVideoIndex >= 0 && !smartPlaybackSession.previewPresentation){
+            if(nodeVideoIndex >= 0 && !smartPlaybackSession.previewPresentation && smartFrameCapture?.nodeId !== id){
                 el.querySelectorAll('video[data-inline-video-active="1"]').forEach(video => {
                     smartPlaybackPauseMedia(video);
                 });
@@ -12825,13 +12962,7 @@ async function runSmartContextMenuAction(action, state){
         return;
     }
     if(action === 'extract-frame'){
-        imageStudio.open({
-            nodeId:media.node?.id || node.id,
-            imageIndex:Math.max(0, media.index),
-            mode:'preview',
-            groupAware:false,
-        });
-        toast(tr('smart.frameExportHint'));
+        openSmartFrameCapture(media.node?.id || node.id, Math.max(0, media.index), 'custom').catch(() => toast(tr('smart.capture.loadFailed')));
         return;
     }
     if(action === 'download-media'){
@@ -13282,6 +13413,7 @@ function positionComposerForNode(node, surface=composer, maxWidth=48){
     surface.style.top = `${nodeBottom + gap}px`;
 }
 function positionCanvasFloatingOverlays(){
+    smartFrameCapture?.position();
     window.SmartCanvasModules.promptGenerationComposer?.position();
     const ids = window.SmartCanvasModules.viewportSelection.selection.ids();
     const node = window.SmartCanvasModules.viewportSelection.selection.node();
@@ -13504,6 +13636,7 @@ function setPromptAuthoringFocused(focused){
     });
 }
 function updateComposer({skipDynamicParamsRefresh=false}={}){
+    if(smartFrameCapture){ composer.classList.remove('open'); return; }
     if(composerUpdateTimer){
         clearTimeout(composerUpdateTimer);
         composerUpdateTimer = 0;
@@ -16345,6 +16478,13 @@ function smartCanvasChromeTarget(target){
 }
 clickSparkFeedback?.install({root:shell});
 function beginSmartTemporaryPanPointer(event){
+    reconcileSmartTemporaryPanButtons(event);
+    if(panState){
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+    }
     const middle = event.button === 1;
     const handLeft = event.button === 0 && smartEffectiveTool() === 'hand';
     if(!middle && !handLeft) return;
@@ -16363,6 +16503,37 @@ function beginSmartTemporaryPanPointer(event){
     panState = {button:event.button, startX:event.clientX, startY:event.clientY, ox:viewport.x, oy:viewport.y};
     shell.classList.add('panning');
 }
+function finishSmartTemporaryPan(){
+    if(!panState) return;
+    const endedMiddlePan = panState.button === 1;
+    panState = null;
+    shell.classList.remove('panning');
+    if(endedMiddlePan){
+        smartMiddlePan = false;
+        refreshSmartAnnotationToolbar();
+    }
+    canvasPersistence.schedule();
+    setTimeout(() => { if(!panState) didPan = false; }, 0);
+}
+function reconcileSmartTemporaryPanButtons(event){
+    if(!panState || (event.pointerType && event.pointerType !== 'mouse')) return;
+    const heldMask = panState.button === 1 ? 4 : 1;
+    if(Number.isInteger(event.buttons) && !(event.buttons & heldMask)) finishSmartTemporaryPan();
+}
+function releaseSmartTemporaryPanPointer(event){
+    if(!panState || (event.pointerType && event.pointerType !== 'mouse')) return;
+    if(event.button === panState.button) finishSmartTemporaryPan();
+    else reconcileSmartTemporaryPanButtons(event);
+}
+// Disabled controls can omit mouseup; native media controls can omit both releases.
+// Capture also observes events that node editors stop before they reach window.
+window.addEventListener('pointerup', releaseSmartTemporaryPanPointer, true);
+window.addEventListener('mouseup', releaseSmartTemporaryPanPointer, true);
+window.addEventListener('pointermove', reconcileSmartTemporaryPanButtons, true);
+window.addEventListener('mousemove', reconcileSmartTemporaryPanButtons, true);
+window.addEventListener('pointercancel', event => {
+    if(event.pointerType === 'mouse') finishSmartTemporaryPan();
+}, true);
 shell.addEventListener('click', () => {
     if(!pendingSmartTextEditNodeId) return;
     const nodeId = pendingSmartTextEditNodeId;
@@ -16767,17 +16938,7 @@ window.onmouseup = e => {
         render();
         canvasPersistence.schedule();
     }
-    if(panState) {
-        const endedMiddlePan = panState.button === 1;
-        panState = null;
-        shell.classList.remove('panning');
-        if(endedMiddlePan){
-            smartMiddlePan = false;
-            refreshSmartAnnotationToolbar();
-        }
-        canvasPersistence.schedule();
-        setTimeout(() => { didPan = false; }, 0);
-    }
+    releaseSmartTemporaryPanPointer(e);
 };
 function smartModalOwnsWheel(){
     return Boolean(
@@ -16953,6 +17114,7 @@ window.addEventListener('paste', e => {
     if(!editable) e.preventDefault();
 });
 window.addEventListener('keydown', e => {
+    if(e.composedPath().some(element => element?.classList?.contains('smart-frame-capture'))) return;
     if(!imageStudio.isOpen() || imageEditMode !== 'preview' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isEditableTarget(e.target)) return;
     if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
@@ -17143,9 +17305,8 @@ window.addEventListener('blur', () => {
     smartPlaybackPauseForInterruption('window-blur');
     isRKeyDown = false;
     smartSpacePan = false;
+    finishSmartTemporaryPan();
     smartMiddlePan = false;
-    panState = null;
-    shell?.classList.remove('panning');
     refreshSmartAnnotationToolbar();
     hideSmartAnnotationCursor();
 });
@@ -17153,9 +17314,8 @@ document.addEventListener('visibilitychange', () => {
     if(!document.hidden) return;
     smartPlaybackPauseForInterruption('visibility');
     smartSpacePan = false;
+    finishSmartTemporaryPan();
     smartMiddlePan = false;
-    panState = null;
-    shell?.classList.remove('panning');
     refreshSmartAnnotationToolbar();
 });
 window.addEventListener('pagehide', () => smartPlaybackPauseForInterruption('pagehide'));

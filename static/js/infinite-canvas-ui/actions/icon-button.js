@@ -1,4 +1,4 @@
-import { IC_ICON_NAMES } from '../icon.js?v=asset-9392c478ebb0';
+import { IC_ICON_NAMES } from '../icon.js?v=asset-5c2ce23616c9';
 import { activeOverlayScope } from '../overlay-layer.js?v=asset-93234911c8e7';
 import { IcButton } from './button.js?v=asset-d99a52ea0821';
 import { syncMetalEffect, disconnectMetalEffect } from './metal-effect.js?v=asset-d3a68767de2c';
