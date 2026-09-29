@@ -1,4 +1,4 @@
-const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-file-media-input-v1.json?v=asset-ca65ce936963';
+const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-file-media-input-v1.json?v=asset-4ed5db3694f1';
 const host = document.querySelector('[data-file-media-input-contract]');
 const status = document.querySelector('[data-file-media-input-review-status]');
 const escapeHtml = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');

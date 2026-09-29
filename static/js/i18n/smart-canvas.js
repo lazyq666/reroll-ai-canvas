@@ -1431,8 +1431,6 @@
         "smart.multiInput.offline": { zh: "画布尚未同步，请恢复连接后重试", en: "The canvas is not synced. Reconnect and try again." },
         "smart.multiInput.busy": { zh: "正在连接节点，请稍候", en: "Connecting nodes. Please wait." },
         "smart.action.fullscreenPlay": { zh: "全屏播放", en: "Fullscreen playback" },
-        "smart.action.autoLoop": { zh: "自动循环", en: "Auto loop" },
-        "smart.action.autoLoopOn": { zh: "循环已开启", en: "Loop on" },
         "smart.action.extractFrame": { zh: "截帧", en: "Extract frame" },
         "smart.action.generateVideo": { zh: "生成视频", en: "Video generation" },
         "smart.action.generateText": { zh: "生成文字", en: "Text generation" },

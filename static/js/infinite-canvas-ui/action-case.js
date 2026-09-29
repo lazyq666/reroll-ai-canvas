@@ -23,11 +23,11 @@ document.body.dataset.content = context.content;
 document.body.dataset.locale = context.locale;
 
 const [contract] = await Promise.all([
-  fetch('/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-75e10b05c2e8').then(response => {
+  fetch('/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-835c47297d41').then(response => {
     if (!response.ok) throw new Error(`Actions contract failed: HTTP ${response.status}`);
     return response.json();
   }),
-  import('/static/js/infinite-canvas-ui/core.js?v=asset-7e937f6a2801'),
+  import('/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff'),
 ]);
 await Promise.all([
   customElements.whenDefined('ic-button'),

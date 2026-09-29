@@ -97,14 +97,16 @@
     if (trigger) trigger.setAttribute('aria-label', `${currentUser.display_name || currentUser.username} · ${roleLabel(currentUser)}`);
   });
 
-  fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
-    .then(response => {
-      if (!response.ok) throw new Error('unauthorized');
-      return response.json();
-    })
-    .then(payload => {
-      if (!payload.user || payload.user.role === 'guest') throw new Error('unauthorized');
-      renderAccount(payload.user);
-    })
-    .catch(() => window.location.replace('/login'));
+  window.AccountSession.start({
+    endpoint: '/api/auth/me',
+    ready: () => Promise.all(['ic-tooltip', 'ic-menu'].map(tag => customElements.whenDefined(tag))),
+    onAuthenticated(user) {
+      renderAccount(user);
+      return true;
+    },
+    onUnauthenticated() {
+      window.location.replace('/login');
+      return false;
+    },
+  });
 })();

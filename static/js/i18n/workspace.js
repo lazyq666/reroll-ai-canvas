@@ -1,6 +1,15 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "handoff.onlineConfiguration": {"zh": "请在本机配置交接服务。为保护文件，当前工作区暂不能打开。", "en": "Configure the handoff service on this device before opening the workspace."},
+        "handoff.onlineUnavailable": {"zh": "暂时无法连接交接服务。编辑已锁定，正在等待网络恢复。", "en": "Cannot reach the handoff service. Editing is locked while waiting for the connection."},
+        "handoff.onlineUnregistered": {"zh": "交接登记不存在。请在原设备检查配置，勿重新创建登记。", "en": "Handoff registration is missing. Check the original device’s configuration before creating a new registration."},
+        "handoff.onlineInvalid": {"zh": "交接记录不一致。文件已保留，请在原设备检查。", "en": "Handoff records do not match. Files are preserved; check the original device."},
+        "handoff.onlineBusy": {"zh": "工作区仍由另一台设备使用。请在那台设备点击“关闭本服务器”，这里会自动继续。", "en": "Another device owns this workspace. Click “Shut down this server” there; this device will continue automatically."},
+        "handoff.onlineWaiting": {"zh": "正在等待 OneDrive 同步最新交接文件，校验完成后将自动打开。", "en": "Waiting for OneDrive to sync the latest handoff files. The workspace will open after verification."},
+        "handoff.onlinePublished": {"zh": "交接已登记，正在关闭本服务器。", "en": "Handoff registered. Shutting down this server."},
+        "handoff.onlineDone": {"zh": "交接已登记，本服务器正在退出。另一台设备启动后会自动等待并核对 OneDrive 文件，无需输入编号。", "en": "Handoff registered. This server is shutting down. The other device will wait for and verify OneDrive files automatically; no code is needed."},
+        "handoff.closeServer": {"zh": "关闭本服务器", "en": "Shut down this server"},
         "handoff.selectCopy": {"zh": "选中删除", "en": "Select for deletion"},
         "handoff.comparisonLimit": {"zh": "数量与节点差异不能判断哪份最新，也不涵盖全部历史和任务。", "en": "Counts and node differences do not prove which version is latest or cover all history and tasks."},
         "handoff.cleanupBackupNote": {"zh": "先备份当前数据库和所选副本，再删除；完成后自动重试交接。", "en": "Current databases and selected copies are backed up before deletion. Handoff then retries automatically."},

@@ -1,4 +1,4 @@
-import { IcDialog } from './dialog.js?v=asset-6bb342b0feec';
+import { IcDialog } from './dialog.js?v=asset-8916ff4a8bab';
 import { CONSEQUENCES } from './shared.js?v=asset-47bcd0176fe3';
 
 

@@ -22,6 +22,24 @@
   padding: 0 var(--ui-space-6) var(--ui-space-2);
 }
 
+.cli-update-dialog::part(footer) {
+  padding: var(--ui-space-4) var(--ui-space-6);
+  border-block-start: var(--ui-border-width-thin) solid var(--ui-color-border-secondary);
+}
+
+.cli-update-prompt-recovery {
+  margin-block-end: var(--ui-space-4);
+  color: var(--ui-color-text-secondary);
+  font: var(--ui-text-body-compact);
+}
+
+.cli-update-clipboard-selection {
+  position: fixed;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+}
+
 .cli-update-item {
   display: grid;
   grid-template-columns: var(--ui-icon-size-l) minmax(0, 1fr) auto;
@@ -162,6 +180,7 @@
 
 @media (max-width: 40rem) {
   .cli-update-dialog::part(header),
+  .cli-update-dialog::part(footer),
   .cli-update-dialog::part(body) {
     padding-inline: var(--ui-space-4);
   }

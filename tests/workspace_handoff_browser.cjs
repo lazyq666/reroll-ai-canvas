@@ -5,13 +5,13 @@ const http = require('node:http');
 const path = require('node:path');
 const {chromium} = require('playwright');
 const root = path.resolve(__dirname, '..');
-let state = {state:'ready'}, error = '', accepted = '';
+let state = {state:'ready'}, error = '', accepted = '', closeCalls = 0;
 const code = 'a'.repeat(32);
 const server = http.createServer(async (req, res) => {
   const pathname = new URL(req.url, 'http://localhost').pathname;
   if (pathname === '/api/workspace-storage-settings') {
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({active:{workspace_directory:'/test/Workspace'}, configured:{}, cloud_records:{enabled:false}}));
+    return res.end(JSON.stringify({active:{workspace_directory:'/test/Workspace'}, configured:{}, cloud_records:{enabled:false}, automatic_handoff:Boolean(state.automatic)}));
   }
   if (pathname === '/preferences-fixture') {
     res.setHeader('Content-Type', 'text/html');
@@ -35,7 +35,7 @@ const server = http.createServer(async (req, res) => {
       res.statusCode = 409; return res.end(JSON.stringify({code:'handoff.code'}));
     }
     if (error) { if (error === 'handoff.conflict') state = {state:'failed',code:error}; res.statusCode = 409; return res.end(JSON.stringify({code:error})); }
-    state = {state:'sealed', id:code}; return res.end(JSON.stringify(state));
+    closeCalls++; state = {...state, state:'sealed', id:code}; return res.end(JSON.stringify(state));
   }
   const relative = pathname === '/workspace-handoff' ? '/static/workspace-handoff.html' : pathname;
   const file = path.resolve(root, '.' + relative);
@@ -117,6 +117,29 @@ const server = http.createServer(async (req, res) => {
     await page.evaluate(() => { document.querySelector('iframe').contentWindow.blocked = false; });
     await page.locator('[data-workspace-handoff]').click();
     await page.waitForURL('**/workspace-handoff');
+    // Paired mode saves through the same boundary and submits exactly once.
+    state = {state:'ready', automatic:true};
+    const closesBefore = closeCalls;
+    await page.goto(`http://127.0.0.1:${server.address().port}/preferences-fixture`);
+    await page.waitForFunction(() => window.openPreferencesModal && document.querySelector('iframe')?.contentWindow?.SmartCanvasModules);
+    await page.evaluate(() => { document.querySelector('iframe').contentWindow.blocked = false; window.openPreferencesModal(); });
+    await page.getByRole('button', {name:'Shut down this server', exact:true}).click();
+    await page.waitForFunction(() => document.querySelector('#handoff-message')?.textContent.includes('Handoff registered'));
+    assert.equal(closeCalls, closesBefore + 1);
+    assert.equal(await page.locator('#handoff-result').isVisible(), false);
+    assert.equal(await page.locator('#handoff-close').isVisible(), false);
+    await page.reload();
+    assert.equal(closeCalls, closesBefore + 1);
+    await page.locator('#handoff-language').click();
+    assert.match(await page.locator('#handoff-message').innerText(), /无需输入编号/);
+    state = {state:'recovery', automatic:true, code:'handoff.onlineWaiting'};
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('#handoff-message').textContent.includes('OneDrive'));
+    assert.equal(await page.locator('#handoff-recovery').isVisible(), false);
+    await page.locator('#handoff-language').click();
+    assert.match(await page.locator('#handoff-message').innerText(), /Waiting for OneDrive/);
+    await page.locator('#handoff-theme').click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.deepEqual(errors, []);
     console.log('PASS: production handoff page; close/block/reload/recovery, Chinese/English, light/dark, keyboard and narrow layout');
   } finally { await browser.close(); server.close(); }

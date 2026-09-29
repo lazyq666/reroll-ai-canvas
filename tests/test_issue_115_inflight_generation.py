@@ -20,13 +20,13 @@ class InFlightGenerationInteractionTests(unittest.TestCase):
         self.assertNotIn("smartNodeInFlight(node)", body)
         self.assertIn("generationRun.status({node}).loopRunning", body)
 
-    def test_busy_node_floating_menu_has_duplicate_and_regenerate(self):
+    def test_busy_media_toolbar_has_continue_editing_and_regenerate(self):
         start = self.host.index("function smartNodeToolbarHtml")
         end = self.host.index("\nfunction duplicateSmartNodeMediaToCanvas", start)
         toolbar = self.host[start:end]
         self.assertIn("smartNodeInFlight(node)", toolbar)
-        self.assertIn("key:'duplicate'", toolbar)
-        self.assertIn("label:tr('smart.contextDuplicate')", toolbar)
+        self.assertIn("key:'continue-editing'", toolbar)
+        self.assertIn("label:tr('smart.continueEditing')", toolbar)
         self.assertIn("key:'regenerate'", toolbar)
         self.assertIn("label:tr('smart.contextRegenerate')", toolbar)
 

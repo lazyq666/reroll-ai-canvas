@@ -108,6 +108,12 @@ class LegacyInitializer:
         return self._main.workspace_handoff_controller().conflict_report(
             for_cleanup=self._main.can_cleanup_workspace_conflicts())
 
+    def online_handoff_status(self):
+        if self._main is None:
+            return False
+        from .handoff_coordinator import OnlineHandoff
+        return OnlineHandoff.configured(self._main.workspace_handoff_controller())
+
     async def cleanup_handoff_conflicts(self, snapshot, selected):
         if self._main is None:
             from .workspace_handoff import HandoffError
@@ -638,6 +644,16 @@ class ExistingWorkspaceRecovery:
             return self._stage(current, intent="retry", handoff_id=handoff_id,
                                handoff_conflict_snapshot=conflict_snapshot)
 
+    def online_handoff_status(self):
+        from .handoff_coordinator import OnlineHandoff
+        from .workspace_handoff import WorkspaceHandoff
+        current = self._storage.configured_parent_hint()
+        if not current:
+            return False
+        root = Path(current).expanduser().resolve()
+        return OnlineHandoff.configured(WorkspaceHandoff(root, self._storage.state_dir,
+                                       self._workspace.identity(root), self._device.server_identity()))
+
     def stage(
         self,
         parent_dir: str,
@@ -789,6 +805,8 @@ def create_default_application(
         restart_signal=restart_signal.set,
     )
     initializer.bind_runtime(runtime)
+    runtime.shutdown_event = threading.Event()
+    runtime.shutdown_signal = runtime.shutdown_event.set
     recovery = ExistingWorkspaceRecovery(
         WorkspaceStorage(project_dir, state_dir=state_dir)
     )

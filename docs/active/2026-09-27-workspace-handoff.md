@@ -5,6 +5,8 @@
 - Tracked by: [LAZ-69](https://linear.app/lazyq/issue/LAZ-69)
 - Decision: [ADR-0017](../adr/0017-offline-workspace-handoff.md)
 
+可选[在线交接扩展](2026-09-29-online-workspace-handoff.md)仅替代已配对 Workspace 的手动编号验收；本文继续定义离线模式及共享停写校验边界。
+
 ## 目标与边界
 
 两台可信设备轮流编辑同一 Workspace，继续使用本地 SQLite 的读写速度。

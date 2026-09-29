@@ -1,18 +1,31 @@
 <!doctype html>
-<html lang="zh-CN" data-ui-scope="auth" data-studio-scale="off">
+<html lang="zh-CN" data-ui-scope="auth" data-studio-scale="off" data-account-session="checking">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
-    <script src="/static/js/i18n.js?v=asset-383c40df4ef1"></script>
+    <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <title data-i18n="auth.loginPageTitle">登录 · Reroll</title>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/account-login.css?v=asset-b1ecb1018963">
+  <link rel="stylesheet" href="/static/css/page-loading.css?v=asset-48cf584c51c9">
 </head>
 <body>
-  <main class="login-shell">
+  <section id="account-session-status" class="ic-page-loading ic-page-loading--opaque" aria-busy="true">
+    <div id="account-session-loading" class="ic-page-loading-content">
+      <ic-loading class="ic-page-loading-brand" loading-animation="brand" label="正在加载…" data-i18n-label="auth.checkingSession" aria-hidden="true">
+        <span class="ic-page-loading-brand-fallback" aria-hidden="true"></span>
+      </ic-loading>
+      <p class="ic-page-loading-status" role="status" aria-live="polite" data-i18n="auth.checkingSession">正在加载…</p>
+    </div>
+    <div id="account-session-error" class="ic-page-loading-error" hidden>
+      <p id="account-session-message" role="alert" tabindex="-1" data-i18n="auth.sessionCheckFailed">暂时无法确认登录状态，请重试。</p>
+      <ic-button id="account-session-retry" type="button" hierarchy="primary" data-i18n="auth.retrySession">重试</ic-button>
+    </div>
+  </section>
+  <main id="account-session-content" class="login-shell" hidden>
     <ic-card class="login-card" label="工作区访问" tone="plain" size="large">
       <div class="login-card-content">
         <div class="brand-lockup">
@@ -60,7 +73,8 @@
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-7e937f6a2801"></script>
-  <script src="/static/js/account-login.js?v=asset-484e999e35de" defer></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+  <script src="/static/js/account-session.js?v=asset-488cce3783d2" defer></script>
+  <script src="/static/js/account-login.js?v=asset-248b23fcbbf0" defer></script>
 </body>
 </html>

@@ -61,7 +61,8 @@
         const videoDraft = window.SmartCanvasModules.generationOutput.continueEditing({source:video});
         assert(videoDraft.referenceGenerationKind==='video' && videoDraft.h>videoDraft.w, 'Video draft retains video settings and aspect');
         assert(window.SmartCanvasModules.generationOutput.continueEditing({source:{...source,images:[]}})===null, 'No draft action for empty nodes');
-        assert(window.SmartCanvasModules.generationOutput.continueEditing({source:{...source,queuedGenerationRun:{}}})===null, 'No draft action for queued nodes');
+        const queuedDraft = window.SmartCanvasModules.generationOutput.continueEditing({source:{...source,images:[],queuedGenerationRun:{}}});
+        assert(queuedDraft?.promptDraftText===source.generationInputSnapshot.prompt && !queuedDraft.queuedGenerationRun, 'Queued media creates an idle draft from the frozen recipe');
         passed.push('PASS: complete submission inputs, legacy results, video aspect, eligibility');
         selectedId=source.id; selectedIds=[]; render(); updateComposer();
         for(const lang of ['en','zh']){

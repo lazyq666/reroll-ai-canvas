@@ -1,6 +1,7 @@
 (function () {
     if (!window.StudioI18n) return;
     window.StudioI18n.register({
+        'cloudStorage.cloud_storage_handoff_enabled': { zh: '当前工作区已启用在线交接，不能同时启用云端画布记录。', en: 'Online handoff is enabled for this workspace. Cloud canvas records cannot be enabled at the same time.' },
         'cloudStorage.title': { zh: '云端画布记录', en: 'Cloud canvas records' },
         'cloudStorage.enable': { zh: '将画布记录保存到云端', en: 'Save canvas records to the cloud' },
         'cloudStorage.note': { zh: '画布、生成历史和批量任务保存到 Turso。图片和视频继续保存在当前工作区，由 OneDrive 同步。', en: 'Canvas records, generation history, and batch tasks are stored in Turso. Images and videos stay in this workspace and sync through OneDrive.' },

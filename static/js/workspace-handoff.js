@@ -9,6 +9,8 @@
     let conflictError = '';
     let selectedCopies = new Set();
     let cleanupBackup = '';
+    let closeRequested = new URLSearchParams(window.location.search).get('close') === '1';
+    let wasOnlineRecovery = false;
     function cleanupControls() {
         get('cleanup-selection').textContent = trf('handoff.cleanupSelection', {count: selectedCopies.size});
         get('cleanup-confirm').disabled = busy;
@@ -95,18 +97,20 @@
     function render() {
         get('message').textContent = tr(message);
         get('preparation').hidden = state.state !== 'ready';
-        get('result').hidden = state.state !== 'sealed';
-        get('recovery').hidden = state.state !== 'recovery';
+        get('result').hidden = state.state !== 'sealed' || state.automatic;
+        get('recovery').hidden = state.state !== 'recovery' || state.automatic;
+        get('close').dataset.i18n = state.automatic ? 'handoff.closeServer' : 'handoff.close';
+        get('close').textContent = tr(get('close').dataset.i18n);
         get('close').hidden = !['ready', 'failed'].includes(state.state);
         get('back').hidden = ['sealed', 'failed'].includes(state.state);
         get('code').textContent = state.id || '';
         for (const id of ['close', 'accept', 'copy', 'rescan']) get(id).disabled = busy;
         get('conflicts').hidden = !['ready', 'failed', 'recovery'].includes(state.state) || (!conflicts?.files?.length && !conflictError && state.code !== 'handoff.conflict' && message !== 'handoff.conflict');
         const recovering = state.state === 'recovery';
-        get('recovery-conflicts-note').hidden = !recovering;
+        get('recovery-conflicts-note').hidden = !recovering || state.automatic;
         get('close-conflicts-note').hidden = recovering;
-        get('confirm-conflicts-label').hidden = !recovering;
-        get('archive').hidden = !recovering;
+        get('confirm-conflicts-label').hidden = !recovering || state.automatic;
+        get('archive').hidden = !recovering || state.automatic;
         get('conflicts-error').textContent = conflictError ? tr(conflictError)
             : conflicts && !conflicts.files.length ? tr(recovering ? 'handoff.noConflicts' : 'handoff.closeNoConflicts') : '';
         get('current-heading').hidden = !conflicts?.current?.readable;
@@ -161,7 +165,7 @@
             const result = await request('/api/runtime/handoff/conflicts/cleanup', payload);
             cleanupBackup = result.backup_directory;
             state = await request('/api/runtime/handoff', {});
-            message = 'handoff.sealed';
+            message = state.automatic ? 'handoff.onlineDone' : 'handoff.sealed';
         } catch (error) {
             try { await refresh(); } catch (_) { /* Retain the last visible evidence. */ }
             message = error.message;
@@ -179,26 +183,34 @@
     });
     async function refresh() {
         state = await request('/api/runtime/handoff');
-        message = state.state === 'sealed' ? 'handoff.sealed'
+        message = state.state === 'sealed' ? (state.automatic ? 'handoff.onlineDone' : 'handoff.sealed')
             : state.state === 'recovery' ? (state.code?.startsWith('handoff.') ? state.code : 'handoff.required')
             : state.state === 'checking' ? 'handoff.checking' : state.state === 'failed' ? (state.code || 'handoff.failed') : 'handoff.ready';
-        if (['recovery', 'failed'].includes(state.state)) await loadConflicts();
+        if (['recovery', 'failed'].includes(state.state) && (!state.automatic || state.code === 'handoff.conflict')) await loadConflicts();
+        if (state.automatic && state.state === 'recovery') wasOnlineRecovery = true;
+        if (wasOnlineRecovery && ['ready', 'checking'].includes(state.state)) { window.location.assign('/startup'); return; }
         render();
-        if (state.state === 'checking') setTimeout(() => refresh().catch(() => {}), 1000);
+        if (state.state === 'checking' || (state.automatic && state.state === 'recovery')) setTimeout(() => refresh().catch(() => { window.location.assign('/startup'); }), 2000);
+        if (state.automatic && state.state === 'ready' && closeRequested) {
+            closeRequested = false;
+            window.history.replaceState(null, '', '/workspace-handoff');
+            await closeWorkspace();
+        }
     }
-    get('close').addEventListener('click', async () => {
+    async function closeWorkspace() {
         if (busy) return;
         busy = true; message = 'handoff.checking'; render();
         try {
             state = await request('/api/runtime/handoff', {});
-            message = 'handoff.sealed';
+            message = state.automatic ? 'handoff.onlineDone' : 'handoff.sealed';
         } catch (error) {
             try { await refresh(); } catch (_) { /* Keep the retry surface. */ }
             message = error.message;
             if (state.state === 'ready' && message === 'handoff.conflict') await loadConflicts();
             get('message').focus();
         } finally { busy = false; render(); }
-    });
+    }
+    get('close').addEventListener('click', closeWorkspace);
     async function accept(archive) {
         if (busy) return;
         busy = true; message = 'handoff.checking'; render();

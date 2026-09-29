@@ -17,6 +17,8 @@
 html.studio-entry-motion-skip .studio-entry-motion {
   display: none;
 }
+html[data-account-session="checking"] .studio-entry-motion,
+html[data-account-session="error"] .studio-entry-motion { display: none; }
 
 .studio-entry-grid {
   position: absolute;

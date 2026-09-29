@@ -194,20 +194,10 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             selectedImage = {nodeId:selectedId, index:0};
             render();
         });
-        const nodeLoopButton = page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-loop"]');
-        await nodeLoopButton.waitFor();
-        const nodeLoopDefault = await nodeLoopButton.evaluate(button => ({
-            label:button.textContent.trim(),
-            pressed:button.hasAttribute('pressed'),
-            ariaPressed:button.getAttribute('aria-pressed'),
-            icon:button.querySelector('ic-icon')?.getAttribute('name') || '',
-            background:getComputedStyle(button.shadowRoot.querySelector('[part="base"]')).backgroundColor,
-        }));
-        assert.equal(nodeLoopDefault.label, '循环已开启');
-        assert.equal(nodeLoopDefault.pressed, true);
-        assert.equal(nodeLoopDefault.ariaPressed, 'true');
-        assert.equal(nodeLoopDefault.icon, 'check');
-        assert.equal(nodeLoopDefault.background, 'rgb(20, 20, 20)');
+        assert.equal(await page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-loop"]').count(), 0);
+        const nodeLoopButton = page.locator(`${nodeSelector} ic-media-player-controls [data-loop]`);
+        const nodeLoopDefault = await nodeLoopButton.evaluate(button => ({label:button.getAttribute('label'), pressed:button.hasAttribute('pressed')}));
+        assert.deepEqual(nodeLoopDefault, {label:'关闭循环播放', pressed:true});
 
         const inlineVideo = page.locator(`${nodeSelector} video[data-inline-video-active="1"]`);
         await page.waitForFunction(selector => {
@@ -305,7 +295,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             video.currentTime = 1;
             await video.play();
         });
-        await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.locator('.preview-frame ic-media-player-controls [data-expand]').click();
         await page.waitForFunction(() => { const dialog = document.getElementById('imageEditModal'); return !dialog.open && !dialog.closingPromise; });
         await page.waitForFunction(selector => {
             const video = document.querySelector(selector);
@@ -324,7 +314,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             pressed:button.hasAttribute('pressed'),
             icon:button.getAttribute('icon') || '',
         }));
-        assert.deepEqual(nodeLoopOff, {label:'自动循环', pressed:false, icon:'loop'});
+        assert.deepEqual(nodeLoopOff, {label:'开启循环播放', pressed:false, icon:'loop'});
 
         await page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-play"]').click();
         await page.waitForFunction(() => document.querySelector('#imageEditModal')?.classList.contains('open'));
@@ -351,17 +341,17 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         assert.equal(fullscreenLoopOnAgain.contract, 'ready', fullscreenLoopOnAgain.contractReason);
         assert.notEqual(fullscreenLoopOnAgain.background, fullscreenLoopOff.background);
         assert.equal(await page.locator('#previewCurrentVideo').evaluate(video => video.loop), true);
-        await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.locator('.preview-frame ic-media-player-controls [data-expand]').click();
         await page.waitForFunction(() => { const dialog = document.getElementById('imageEditModal'); return !dialog.open && !dialog.closingPromise; });
         await page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-play"]').click();
         await page.waitForFunction(() => document.querySelector('#imageEditModal')?.classList.contains('open'));
         const fullscreenLoopReset = await loopButtonState();
-        assert.equal(fullscreenLoopReset.label, '循环已开启');
-        assert.equal(fullscreenLoopReset.icon, 'check');
-        assert.equal(fullscreenLoopReset.hierarchy, 'secondary');
+        assert.equal(fullscreenLoopReset.label, '关闭循环播放');
+        assert.equal(fullscreenLoopReset.icon, 'loop');
+        assert.equal(fullscreenLoopReset.hierarchy, 'quiet');
         assert.equal(fullscreenLoopReset.pressed, true);
         assert.equal(await page.locator('#previewCurrentVideo').evaluate(video => video.loop), true);
-        await page.evaluate(() => window.SmartCanvasModules.imageStudio.close());
+        await page.locator('.preview-frame ic-media-player-controls [data-expand]').click();
         await page.waitForFunction(() => { const dialog = document.getElementById('imageEditModal'); return !dialog.open && !dialog.closingPromise; });
 
         await page.locator(`${nodeSelector} video[data-inline-video-active="1"]`).evaluate(video => {
@@ -414,7 +404,10 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             {size:'s', width:'32px', height:'32px'},
             {size:'s', width:'32px', height:'32px'},
         ]);
-        await thumbButtons.first().locator('button').click();
+        // Hover replaces the first cover button with the player before a click can land.
+        const firstThumb = page.locator(`${nodeSelector} .thumb-item[data-image-index="0"]`);
+        await firstThumb.hover({position:{x:12,y:12}});
+        await firstThumb.locator('video').click({position:{x:12,y:12}});
         await page.waitForFunction(selector => {
             const video = document.querySelector(selector)?.querySelector('video[data-url]');
             const item = document.querySelector(selector);
@@ -429,8 +422,8 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         }, `${nodeSelector} .thumb-item[data-image-index="0"]`);
         const afterThumbPlay = await page.evaluate(() => window.__inlineVideoFixtureState());
         assert.deepEqual(afterThumbPlay, {
-            selectedId:'',
-            selectedImage:{nodeId:'', index:-1},
+            selectedId:'inline-video-node-a',
+            selectedImage:{nodeId:'inline-video-node-a', index:0},
             active:[true, false],
         });
 

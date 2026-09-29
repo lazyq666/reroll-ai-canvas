@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-ui-scope="studio-shell">
+<html lang="zh-CN" data-ui-scope="studio-shell" data-account-session="checking">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,16 +30,29 @@
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/account-avatar.css?v=asset-e1cd44d31e57">
-  <link rel="stylesheet" href="/static/css/studio-shell.css?v=asset-5ab489a3ab81">
-  <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=asset-4ae7afe6226b">
+  <link rel="stylesheet" href="/static/css/studio-shell.css?v=asset-44c59ef8913c">
+  <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=asset-1a1c83c38ef0">
   <link rel="stylesheet" href="/static/css/preferences.css?v=asset-2f0141ea1d6e">
-  <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-30d7ea9927c7">
+  <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-3ba4cc278f6d">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-383c40df4ef1"></script>
+    <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
     <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
+  <link rel="stylesheet" href="/static/css/page-loading.css?v=asset-48cf584c51c9">
 </head>
 <body>
+  <section id="account-session-status" class="ic-page-loading ic-page-loading--opaque" aria-busy="true">
+    <div id="account-session-loading" class="ic-page-loading-content">
+      <ic-loading class="ic-page-loading-brand" loading-animation="brand" label="正在加载…" data-i18n-label="auth.checkingSession" aria-hidden="true">
+        <span class="ic-page-loading-brand-fallback" aria-hidden="true"></span>
+      </ic-loading>
+      <p class="ic-page-loading-status" role="status" aria-live="polite" data-i18n="auth.checkingSession">正在加载…</p>
+    </div>
+    <div id="account-session-error" class="ic-page-loading-error" hidden>
+      <p id="account-session-message" role="alert" tabindex="-1" data-i18n="auth.sessionCheckFailed">暂时无法确认登录状态，请重试。</p>
+      <ic-button id="account-session-retry" type="button" hierarchy="primary" data-i18n="auth.retrySession">重试</ic-button>
+    </div>
+  </section>
   <section id="studioEntryMotion" class="studio-entry-motion" data-entry-state="mark" aria-hidden="true">
     <div class="studio-entry-grid"></div>
     <div class="studio-entry-lockup">
@@ -54,7 +67,7 @@
     <img class="studio-entry-reduced-lockup" src="/static/images/brand/wordmark.svg?v=asset-f1849d59e65e" alt="">
   </section>
 
-  <div class="app-shell">
+  <div id="account-session-content" class="app-shell" hidden>
     <aside class="sidebar" id="studioSidebar" aria-label="主导航" data-i18n-aria-label="common.primaryNavigation">
       <div class="sidebar-logo-area">
         <ic-button id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="quiet" aria-label="展开导航栏" data-sidebar-tooltip aria-pressed="false">
@@ -125,15 +138,21 @@
   <ic-dialog id="cliUpdateDialog" class="cli-update-dialog" label="CLI 版本提醒" data-i18n-label="cliUpdates.title" size="medium" dismiss-policy="explicit">
     <p id="cliUpdateStatus" class="visually-hidden" role="status" aria-live="polite"></p>
     <div id="cliUpdateList" class="cli-update-list"></div>
+    <div id="cliUpdatePromptRecovery" class="cli-update-prompt-recovery" hidden>
+      <p data-i18n="cliUpdates.copyFailed">无法自动复制，请选中下方 Prompt 手动复制，或重试。</p>
+      <ic-textarea id="cliUpdatePromptText" name="cli_update_prompt" readonly rows="6" label="更新 Prompt" data-i18n-label="cliUpdates.promptLabel"></ic-textarea>
+    </div>
+    <ic-button id="cliUpdateCopyPrompt" slot="footer" type="button" hierarchy="primary" data-i18n="cliUpdates.copyPrompt" disabled>复制更新 Prompt</ic-button>
   </ic-dialog>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-7e937f6a2801"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
   <script type="module" src="/static/js/studio-entry-motion.js?v=asset-be9d77ac1c16"></script>
   <script src="/static/js/studio-shell.js?v=asset-555361da7f87" defer></script>
-  <script src="/static/js/preferences.js?v=asset-6e72f0e49de1" defer></script>
+  <script src="/static/js/preferences.js?v=asset-0be3dde73154" defer></script>
   <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db" defer></script>
-  <script src="/static/js/account-ui.js?v=asset-a365b83b57b6" defer></script>
-  <script src="/static/js/cli-updates.js?v=asset-6641096d5221" defer></script>
+  <script src="/static/js/account-session.js?v=asset-488cce3783d2" defer></script>
+  <script src="/static/js/account-ui.js?v=asset-612df089c853" defer></script>
+  <script src="/static/js/cli-updates.js?v=asset-d4babf060948" defer></script>
   <script src="/static/js/frontend-update.js?v=asset-01a1219e75dd" defer></script>
 </body>
 </html>

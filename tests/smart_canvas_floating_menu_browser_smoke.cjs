@@ -234,9 +234,9 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
     }));
     assert.deepEqual(pendingState, {
         tag:'ic-smart-node-toolbar',
-        actions:['duplicate', 'regenerate'],
-        labels:['创建副本', '再次生成'],
-        icons:['create-copy', 'refresh'],
+        actions:['continue-editing', 'regenerate'],
+        labels:['继续编辑', '再次生成'],
+        icons:['edit', 'refresh'],
         disabled:[false, false],
     });
 

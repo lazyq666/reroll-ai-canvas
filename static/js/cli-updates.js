@@ -12,6 +12,7 @@
   let administrator = false;
   let automaticOpened = false;
   let pollTimer = 0;
+  let copying = false;
 
   async function request(url, options = {}) {
     const response = await fetch(url, {
@@ -45,6 +46,66 @@
   function displayItems(value = snapshot) {
     if (!hasAvailableUpdate(value)) return [];
     return (value?.items || []).filter(item => item.update_available || secondaryStates.has(item.state));
+  }
+
+  function buildUpdatePrompt() {
+    const unknown = tr('cliUpdates.promptUnknown');
+    // Include only installation facts, never release notes, errors or credentials.
+    const items = displayItems().map(item => trf('cliUpdates.promptItem', {
+      name: JSON.stringify(item.display_name || item.id),
+      id: JSON.stringify(item.id),
+      state: tr(item.update_available ? 'cliUpdates.available'
+        : item.state === 'check_failed' ? 'cliUpdates.checkFailed' : 'cliUpdates.uncomparable'),
+      local: JSON.stringify(item.local_display_version || item.local_version || item.raw_version || unknown),
+      available: JSON.stringify(item.available_version || unknown),
+      channel: JSON.stringify(item.channel || unknown),
+      path: JSON.stringify(item.path || unknown),
+      platform: JSON.stringify([item.platform, item.architecture].filter(Boolean).join(' / ') || unknown),
+      source: JSON.stringify(item.source_url || unknown),
+    })).join('\n\n');
+    return trf('cliUpdates.promptBody', {host: window.location.host, items});
+  }
+
+  async function writePromptToClipboard(text) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) {}
+    // Keep the selection inside the open modal so its focus trap permits copying.
+    const selection = document.createElement('textarea');
+    selection.className = 'cli-update-clipboard-selection';
+    selection.value = text;
+    selection.readOnly = true;
+    selection.setAttribute('aria-label', tr('cliUpdates.promptLabel'));
+    const focused = document.activeElement;
+    byId('cliUpdateDialog').append(selection);
+    try {
+      selection.focus();
+      selection.select();
+      return document.execCommand('copy');
+    } catch (_) {
+      return false;
+    } finally {
+      selection.remove();
+      focused?.focus?.({preventScroll: true});
+    }
+  }
+
+  async function copyUpdatePrompt() {
+    if (!administrator || copying || snapshot?.checking || !hasAvailableUpdate()) return;
+    copying = true;
+    render();
+    try {
+      const copied = await writePromptToClipboard(buildUpdatePrompt());
+      byId('cliUpdatePromptRecovery').hidden = copied;
+      if (!copied) byId('cliUpdatePromptText').value = buildUpdatePrompt();
+      notify(tr(copied ? 'cliUpdates.promptCopied' : 'cliUpdates.copyFailed'), copied ? 'neutral' : 'danger');
+    } finally {
+      copying = false;
+      render();
+    }
   }
 
   function renderItem(item) {
@@ -159,6 +220,13 @@
     if (!list || !status || !snapshot) return;
     list.replaceChildren(...displayItems().map(renderItem));
     status.textContent = snapshot.checking ? tr('cliUpdates.checking') : (hasAvailableUpdate() ? '' : tr('cliUpdates.noUpdates'));
+    const copyButton = byId('cliUpdateCopyPrompt');
+    if (copyButton) copyButton.disabled = copying || snapshot.checking || !hasAvailableUpdate();
+    const recovery = byId('cliUpdatePromptRecovery');
+    if (recovery && !recovery.hidden) {
+      if (!hasAvailableUpdate()) recovery.hidden = true;
+      else byId('cliUpdatePromptText').value = buildUpdatePrompt();
+    }
   }
 
   async function acknowledgeNotifications() {
@@ -218,6 +286,7 @@
   }
 
   byId('cliUpdateDialog')?.addEventListener('ic-after-hide', () => void acknowledgeNotifications());
+  byId('cliUpdateCopyPrompt')?.addEventListener('click', () => void copyUpdatePrompt());
   window.CliUpdates = {checkNow};
   window.addEventListener('studio-user-ready', event => initialize(event.detail?.user));
   window.addEventListener('studio-lang-change', render);

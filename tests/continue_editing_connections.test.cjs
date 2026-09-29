@@ -41,3 +41,29 @@ assert.equal(JSON.stringify(sandbox.canvas.connections.slice(0,3)),before,'Origi
 assert.ok(!incoming.some(c=>c.from===source.id),'Result must not become an input');
 assert.ok(!sandbox.canvas.connections.some(c=>c.from===draft.id),'Do not copy outgoing relationships');
 console.log('Continue editing parent connections: PASS');
+
+sandbox.smartNodeInFlight = node => Boolean(node.running || node.pending || node.queuedGenerationRun);
+let draftSequence = 0;
+sandbox.uid = () => `pending-draft-${++draftSequence}`;
+for (const activity of [{running:true,pending:1},{queuedGenerationRun:{operationId:'queued-operation'}}]) {
+    const pending = {id:'pending-source',images:[],...activity,generationOperationId:'original-operation',
+        promptDraftText:'Later edit',runSettings:{apiKind:'image',count:3},
+        generationInputSnapshot:{prompt:'Frozen prompt',settings:{apiKind:'image',count:1},
+            refs:[{url:'ref.png',inputInstanceId:'one'},{url:'ref.png',inputInstanceId:'two'}]}};
+    const original = JSON.stringify(pending);
+    const pendingDraft = sandbox.window.SmartCanvasModules.generationOutput.continueEditing({source:pending});
+    assert.ok(pendingDraft,'In-flight media must support continue editing before a result exists');
+    assert.equal(pendingDraft.promptDraftText,'Frozen prompt');
+    assert.equal(pendingDraft.runSettings.count,1);
+    assert.equal(pendingDraft.manualInputRefs.length,2);
+    for (const key of ['running','pending','queuedGenerationRun','generationOperationId','generationInputSnapshot']) {
+        assert.equal(pendingDraft[key],undefined,`Draft must not inherit ${key}`);
+    }
+    pendingDraft.manualInputRefs[0].url='edited.png';
+    pendingDraft.runSettings.count=5;
+    assert.equal(JSON.stringify(pending),original,'Editing the draft must not change the original task');
+}
+assert.equal(sandbox.window.SmartCanvasModules.generationOutput.continueEditing({source:{...source,images:[]}}),null);
+sandbox.window.SmartCanvasModules.canvasPersistence.editable = () => false;
+assert.equal(sandbox.window.SmartCanvasModules.generationOutput.continueEditing({source:{...source,images:[],pending:1}}),null);
+console.log('Pending continue editing: frozen recipe, isolation, state cleanup and read-only gate PASS');
