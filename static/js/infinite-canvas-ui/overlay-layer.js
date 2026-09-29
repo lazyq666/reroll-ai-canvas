@@ -5,6 +5,7 @@ const TRANSIENT_OVERLAY_SELECTOR = [
   'ic-popover[open]',
   'ic-confirm-popover[open]',
   'ic-tooltip[open]',
+  'ic-thumb-hovercard:not([hidden])',
   'ic-mention-picker[open]',
   'ic-generation-settings-picker[open]',
 ].join(',');

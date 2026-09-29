@@ -8,6 +8,7 @@
         active: {},
         configured: {},
         cloud: {},
+        automaticHandoff: false,
         cloudBusy: false,
         cloudError: '',
         intent: "",
@@ -214,7 +215,7 @@
                     <section class="preferences-section preferences-operation-section">
                         <h3>${tr('handoff.title')}</h3>
                         <p class="preferences-note">${tr('handoff.intro')}</p>
-                        <ic-button hierarchy="secondary" data-workspace-handoff ${busy || state.cloud.enabled ? 'disabled' : ''}>${tr('handoff.close')}</ic-button>
+                        <ic-button hierarchy="secondary" data-workspace-handoff ${busy || state.cloud.enabled ? 'disabled' : ''}>${tr(state.automaticHandoff ? 'handoff.closeServer' : 'handoff.close')}</ic-button>
                         <h3>${tr("preferences.chooseAction")}</h3>
                         <p class="preferences-note">${tr("preferences.inspectNote")}</p>
                         <ic-toolbar class="preferences-intents" label="${tr("preferences.chooseAction")}" appearance="plain">
@@ -269,6 +270,7 @@
             state.active = data.active || {};
             state.configured = data.configured || {};
             state.cloud = data.cloud_records || {};
+            state.automaticHandoff = Boolean(data.automatic_handoff);
         } catch (error) {
             state.error = error.message || tr("preferences.readFailed");
         } finally {
@@ -538,7 +540,7 @@
                             || page.SmartCanvasModules?.pageRefreshBlocked?.()
                             || page.SmartCanvasModules?.canvasPersistence?.status?.().pending) throw new Error('handoff.unsaved');
                     }
-                    window.location.assign('/workspace-handoff');
+                    window.location.assign(state.automaticHandoff ? '/workspace-handoff?close=1' : '/workspace-handoff');
                 } catch (_) {
                     state.error = 'handoff.unsaved';
                 } finally { state.saving = false; render(); }

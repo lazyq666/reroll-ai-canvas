@@ -41,6 +41,7 @@ body {
   min-width: 0;
   background: var(--ui-color-surface-canvas);
 }
+.app-shell[hidden] { display: none !important; }
 
 .app-shell.is-canvas-editor .sidebar {
   display: none;

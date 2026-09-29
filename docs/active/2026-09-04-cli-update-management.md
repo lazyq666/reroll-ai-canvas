@@ -2,11 +2,11 @@
 
 > 状态：Implemented（本机自动化通过；真实平台响应仍是发布前 Gate）  
 > 日期：2026-09-04  
-> 跟踪：GitHub Issue #30
+> 跟踪：GitHub Issue #30；[LAZ-78：复制 Agent 更新 Prompt](https://linear.app/lazyq/issue/LAZ-78)
 
 ## 目标
 
-Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamina、Codex 与 Antigravity CLI。Administrator 登录后在统一 Dialog 查看本机版本、官方稳定版本、发布日期、更新说明和来源，并可在本次进程内关闭提醒。Reroll 只告知版本，不安装、不更新、也不代为执行其他 CLI 的包管理器或安装脚本。
+Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamina、Codex 与 Antigravity CLI。Administrator 登录后在统一 Dialog 查看本机版本、官方稳定版本、发布日期、更新说明和来源，并可在本次进程内关闭提醒，或复制更新 Prompt 交给外部 Agent 操作。Reroll 自身只检查版本和生成交接文本，不安装、不更新、也不代为执行其他 CLI 的包管理器或安装脚本。
 
 ## 非目标
 
@@ -18,7 +18,7 @@ Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamin
 
 ## 参与者与权限
 
-- Administrator：可读取检查详情、手动复查和关闭本次会话提醒。
+- Administrator：可读取检查详情、手动复查、复制更新 Prompt 和关闭本次会话提醒。
 - Designer、Guest Account、Anonymous Share Visitor：不能读取本机 CLI 维护详情；所有角色都没有产品内 CLI 升级入口。
 - Local Operator：可离开 Reroll 后自行决定是否按官方资料升级；不因此获得产品内 Administrator 权限。
 
@@ -67,7 +67,10 @@ Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamin
 - App Shell 持有统一 `ic-dialog`，Administrator 进入后仅在至少一个已启用 CLI 存在可用更新时自动展示；没有可用更新时不渲染项目，也不显示 Dialog。
 - Dialog 省略已是最新、未启用和未安装项目；存在可用更新时，同时保留 `uncomparable` 与 `check_failed` 项作为低强调度的灰色已知信息。
 - 每项只显示一次 CLI 名称与状态、本机和官方版本关系、有效说明、可用的本机构建时间、官方发布日期和来源；可用更新使用绿色文字，无法判断或无法监测使用中性灰与灰度图标，不再叠加状态圆点、图标容器或第二层卡片背景。
-- Dialog 只保留标题与关闭入口；关闭即代表本次进程不再提醒，没有重复的说明、数量、检查时间、页脚操作或升级按钮。
+- Dialog 保留标题与关闭入口；关闭即代表本次进程不再提醒。页脚仅提供「复制更新 Prompt」，没有重复的说明、数量、检查时间或执行升级按钮；复制不关闭 Dialog，也不确认已读提醒。
+- Prompt 采用点击时的最新检测快照和当前界面语言，包含所有当前展示项的工具身份、检测状态、本机版本/构建、检测到的官方版本、安装渠道、实际可执行路径、系统/架构及官方来源；缺失字段标为待核实，不包含发布说明、错误详情或凭据。没有可用更新或仍在检查时禁用复制。
+- Prompt 指示 Agent 先确认可操作运行 Reroll 服务的主机，重新核实安装方式与官方稳定版；沿用实际安装渠道和路径，不混淆 Antigravity 与普通 Gemini CLI，不重复安装或降级。无法比较/检测失败项先核实是否需要更新，无法确认则跳过并解释。要求保留配置和登录状态、验证实际版本与基本命令、不调用付费生成；中断任务或重启服务前确认，完成后回到 API 设置重新检查。
+- 成功复制后显示轻量反馈；Clipboard API 缺失或拒绝时尝试 Dialog 内临时选区复制，仍失败则展开只读 Prompt 供手动复制并允许重试。展开内容随语言或检测结果更新；重试成功后收起。按钮支持键盘，页脚与恢复区域适配 Light/Dark 和窄屏。
 - API 设置的 CLI 列表只保留一个“检查 CLI 更新”入口；手动检查没有发现更新时使用轻量反馈，不打开空 Dialog。
 - 动态进度、错误、空状态、按钮和可访问状态均提供中文与英文；语言切换会重绘动态内容。
 
@@ -80,7 +83,7 @@ Reroll 服务每次启动后，异步检查当前 Workspace 已启用的 Dreamin
 NODE_PATH=/path/to/playwright/node_modules node tests/cli_updates_browser_smoke.cjs
 ```
 
-Python 场景覆盖版本顺序、预发布、commit/build、恶意说明、未配置/未安装/版本命令失败、渠道适用性、gzip 解码、Hub 与 CLI 版本隔离、超时/限流、说明缺失、Provider 配置不可读、会话提醒去重和非管理员拒绝。HTTP 回归明确断言升级路径不存在。真实 App Shell 浏览器 smoke 覆盖自动 Dialog、只展示需关注项目、更新与无法判断的视觉分级、CLI 图标、版本关系、Dreamina 原因说明、中英文、纯文本说明、关闭即本次不再提醒、无更新不显示 Dialog，以及始终不存在更新按钮。
+Python 场景覆盖版本顺序、预发布、commit/build、恶意说明、未配置/未安装/版本命令失败、渠道适用性、gzip 解码、Hub 与 CLI 版本隔离、超时/限流、说明缺失、Provider 配置不可读、会话提醒去重和非管理员拒绝。HTTP 回归明确断言升级路径不存在。真实 App Shell 浏览器 smoke 覆盖自动 Dialog、只展示需关注项目、更新与无法判断的视觉分级、CLI 图标、版本关系、Dreamina 原因说明、中英文、纯文本说明、关闭即本次不再提醒、无更新不显示 Dialog，以及始终不存在执行更新按钮。复制回归覆盖真实剪贴板、字段范围、排除发布说明/凭据/最新项、HTTP 选区降级、权限拒绝后的手动恢复、切换语言后重试、键盘复制，以及复制不关闭/确认提醒、不请求升级接口。
 
 发布前仍需在隔离机器完成：Dreamina/Codex/Antigravity 三种真实版本输出；macOS、Windows、Linux 的官方页面响应复核；离线、代理、GitHub/官方站点限流的人工表现。未完成这些 Gate 前本文保持 Active，不晋升 Current。
 
@@ -88,6 +91,7 @@ Python 场景覆盖版本顺序、预发布、commit/build、恶意说明、未�
 
 | 日期 | 状态 | 说明 |
 | --- | --- | --- |
+| 2026-09-29 | Implemented | LAZ-78：页脚复制 Agent 更新 Prompt，支持中英文、剪贴板降级和手动恢复；真实 App Shell 浏览器回归、i18n 校验、资源版本检查及 CLI/HTTP/文档/i18n 缓存共 28 项 Python 回归通过；已检查 Light/Dark 与窄屏。仍未代为执行 CLI 更新，原有真实平台发布前 Gate 保留 |
 | 2026-09-04 | Implemented | Dreamina 无法映射发行号时补充展示 CLI 返回的本机构建时间，但不将时间先后用于更新判定 |
 | 2026-09-04 | Implemented | 消融无效层级：设置页双入口合并为一次检查，移除灰底卡片、图标容器、状态圆点和只被单处调用的 DOM 包装函数 |
 | 2026-09-04 | Implemented | 按确认的方案 A 消融提醒界面：只展示需关注项，突出唯一版本关系，无法判断置灰，无更新不显示 Dialog |

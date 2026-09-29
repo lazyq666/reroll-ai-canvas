@@ -151,6 +151,18 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 它不证明 OneDrive 已上传/下载完成，也不自动选择版本或合并冲突；见
 [ADR-0017](../adr/0017-offline-workspace-handoff.md)。真实双设备验收仍待完成。
 
+另可显式配对[在线交接试用](../active/2026-09-29-online-workspace-handoff.md)，由独立 Turso
+登记提供最新交接版本和唯一使用权，替代手动传递编号。Workspace 中的
+`.infinite-canvas-service/coordinator.json` 只保存绑定摘要；Device State 的
+`workspace-handoff/<identity-sha256>/connection.json` 保存私有凭据（0600），
+`online-receipt.json` 保存可恢复操作状态。可选 `handoff-service.json` 是本机配置脚本
+的凭据源，不随 Workspace 迁移。云端只存 identity、revision、owner/session、交接 ID
+和清单摘要，不上传数据库、媒体或路径清单。丢失凭据/登记不能自动回退离线，云端占用
+不按超时回收。配对和更新令牌要求本机停服；完整校验和唯一领取在 Store 初始化之前完成。
+默认仍为未配对模式，与云端画布记录模式互斥；[ADR-0018](../adr/0018-online-workspace-handoff-register.md)
+记录边界。退出在线功能需在两端停写后制定显式恢复步骤，不得通过删 marker 回退。
+
+
 统一启动器通过仅由监督进程持有的生命线管理后端；启动窗口、终端标签页或外层启动任务
 结束时，后端必须检测到监督关系断开并走正常关闭流程，释放端口、文件锁和匹配的
 `occupation.json`。受控重启仍由同一个存活的启动器接续，直接运行后端不属于可重启的

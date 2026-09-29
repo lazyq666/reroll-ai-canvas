@@ -1,1 +1,1 @@
-export { IcConfirmationDialog, IcDialog } from './dialog/index.js?v=asset-8f74db2e421d';
+export { IcConfirmationDialog, IcDialog } from './dialog/index.js?v=asset-2577b1019f24';

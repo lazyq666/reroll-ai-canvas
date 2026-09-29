@@ -232,7 +232,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-383c40df4ef1"></script>
+  <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
 </head>
 <body class="runtime-page">
@@ -250,7 +250,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-7e937f6a2801"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
     const runtimeDetailFallback = document.getElementById('runtime-detail')?.textContent || '';
@@ -302,7 +302,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-383c40df4ef1"></script>
+  <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -362,7 +362,7 @@ def _recovery_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-7e937f6a2801"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
   <script>
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const input = document.getElementById('workspace-directory');
@@ -493,7 +493,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=asset-383c40df4ef1"></script>
+  <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
@@ -529,7 +529,7 @@ def _workspace_move_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-7e937f6a2801"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
   <script src="/static/js/workspace-move.js?v=asset-23ce42c27241" defer></script>
 </body>
 </html>"""
@@ -653,9 +653,52 @@ def create_app(
     if callable(recovery_preparer):
         runtime.install_restart_preparer(recovery_preparer)
 
+    def online_handoff_available():
+        provider = workspace_recovery if runtime.status().stage == RuntimeStage.RECOVERY_REQUIRED else workspace_handoff
+        check = getattr(provider, "online_handoff_status", None)
+        return bool(check and check())
+
+    async def resume_online_handoff():
+        """Retry only while startup is blocked, never poll during editing."""
+        from .workspace_handoff import HandoffError
+        from dataclasses import replace
+        while not runtime._stop_started:
+            if (runtime.status().stage == RuntimeStage.RECOVERY_REQUIRED
+                    and runtime.status().message_code.startswith("handoff.")
+                    and online_handoff_available()):
+                if runtime.status().message_code == "handoff.onlinePublished":
+                    runtime.handoff_result = {"state": "sealed", "automatic": True, "exit_server": True}
+                    runtime.finish_handoff_shutdown()
+                    return
+                work = asyncio.create_task(asyncio.to_thread(workspace_recovery.stage_handoff, ""))
+                try:
+                    await asyncio.shield(work)
+                    await runtime.request_restart()
+                    return
+                except asyncio.CancelledError:
+                    await asyncio.gather(work, return_exceptions=True)
+                    raise
+                except HandoffError as exc:
+                    if exc.code == "handoff.onlinePublished":
+                        runtime.handoff_result = {"state": "sealed", "automatic": True, "exit_server": True}
+                        runtime.finish_handoff_shutdown()
+                        return
+                    runtime._status = replace(runtime.status(), message_code=exc.code)
+                    # Conflicts and invalid/configuration states require action;
+                    # no repeated full hashing or silent conflict resolution.
+                    if exc.code not in {"handoff.onlineBusy", "handoff.onlineWaiting", "handoff.onlineUnavailable",
+                                        "handoff.changed", "handoff.wal"}:
+                        return
+                except (WorkspaceStorageError, OSError):
+                    return
+            elif runtime.status().stage not in {RuntimeStage.STARTING, RuntimeStage.RECOVERY_REQUIRED}:
+                return
+            await asyncio.sleep(5)
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         start_task = asyncio.create_task(runtime.start())
+        online_task = asyncio.create_task(resume_online_handoff())
         await asyncio.sleep(0)
         try:
             yield
@@ -663,6 +706,8 @@ def create_app(
             if not start_task.done():
                 start_task.cancel()
             await asyncio.gather(start_task, return_exceptions=True)
+            online_task.cancel()
+            await asyncio.gather(online_task, return_exceptions=True)
             await runtime.stop()
 
     shell = FastAPI(lifespan=lifespan)
@@ -679,12 +724,16 @@ def create_app(
         if not _local_client(request):
             return JSONResponse(status_code=403, content={"code": "handoff.local"})
         if runtime.status().stage == RuntimeStage.RECOVERY_REQUIRED:
-            return JSONResponse(content={"state": "recovery", "code": runtime.status().message_code or "handoff.required"}, headers={"Cache-Control": "no-store"})
+            return JSONResponse(content={"state": "recovery", "code": runtime.status().message_code or "handoff.required",
+                                         **({"automatic": True} if online_handoff_available() else {})}, headers={"Cache-Control": "no-store"})
         denied = _runtime_admin_error(request, runtime_authorization)
         if denied is not None:
             return JSONResponse(status_code=denied.status_code, content={"code": "handoff.auth"})
-        return JSONResponse(content=runtime.handoff_result or {
-            "state": "ready" if runtime.status().stage == RuntimeStage.READY else "checking"
+        return JSONResponse(content={
+            **({"automatic": True} if online_handoff_available() else {}),
+            **(runtime.handoff_result or {
+                "state": "ready" if runtime.status().stage == RuntimeStage.READY else "checking"
+            })
         }, headers={"Cache-Control": "no-store"})
 
     @shell.post("/api/runtime/handoff")
@@ -748,7 +797,7 @@ def create_app(
         rejected = recovery_write_error(request)
         if rejected is not None:
             return JSONResponse(status_code=rejected.status_code, content={"code": "handoff.local"})
-        if not payload.handoff_id.strip():
+        if not payload.handoff_id.strip() and not online_handoff_available():
             return JSONResponse(status_code=400, content={"code": "handoff.code"})
         try:
             if payload.conflict_snapshot:

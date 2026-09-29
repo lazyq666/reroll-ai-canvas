@@ -56,7 +56,7 @@ class Issue199VideoPlaybackTests(unittest.TestCase):
         self.assertIn("nodeIds:[target.nodeId]", self.script)
 
     def test_node_and_fullscreen_loop_controls_share_session_state(self):
-        self.assertIn("key:'video-loop'", self.script)
+        self.assertNotIn("video-loop", self.script)
         self.assertIn("function toggleSmartVideoLoop(nodeId, imageIndex=0)", self.script)
         self.assertIn("window.smartPlaybackTogglePreviewLoop", self.script)
 

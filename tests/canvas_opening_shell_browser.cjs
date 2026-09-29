@@ -23,9 +23,13 @@ function recordOpening() {
     if (mark && !completed) {
       const r = mark.getBoundingClientRect();
       const f = frame.getBoundingClientRect();
+      const label = doc.querySelector('#canvasOpeningStatus');
+      const labelStyle = doc.defaultView.getComputedStyle(label);
       const phase = doc.documentElement.dataset.canvasOpeningPhase;
       if (r.width && getComputedStyle(mark).visibility !== 'hidden') {
-        samples.push({ phase, x:f.x+r.x, y:f.y+r.y, width:r.width, height:r.height, frameX:f.x, frameWidth:f.width });
+        samples.push({ phase, x:f.x+r.x, y:f.y+r.y, width:r.width, height:r.height,
+          gap:label.getBoundingClientRect().top-r.bottom, fontSize:labelStyle.fontSize,
+          lineHeight:labelStyle.lineHeight, frameX:f.x, frameWidth:f.width });
       }
       if (phase === 'ready' || phase === 'error') {
         const keys = ['x','y','width','height','frameX','frameWidth'];
@@ -47,7 +51,10 @@ const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', 
 const server = http.createServer((req,res) => {
   const pathname = new URL(req.url, 'http://localhost').pathname;
   const json = value => { res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'}); res.end(JSON.stringify(value)); };
-  if (pathname === '/api/auth/me') return json({user:{id:'test',username:'reviewer',role:'admin'}});
+  if (pathname === '/api/auth/me') {
+    const fastSession = new URL(req.headers.referer || '/', 'http://localhost').searchParams.has('fast-session');
+    return setTimeout(() => json({user:{id:'test',username:'reviewer',role:'admin'}}),fastSession ? 0 : 1200);
+  }
   if (pathname === '/api/projects') return json({projects:[{id:'default',name:'Default',order:0,canvas_count:1}]});
   if (pathname === '/api/canvases') return json({canvases:[{...canvas,node_count:0}],total:1,has_more:false});
   if (pathname === `/api/canvases/${canvas.id}/open`) {
@@ -85,7 +92,19 @@ const server = http.createServer((req,res) => {
     const {chromium}=require('playwright');
     browser=await chromium.launch({headless:true,executablePath:process.env.SMART_CANVAS_BROWSER||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
     const page=await browser.newPage({viewport:{width:1440,height:900}});
+    const startupWarnings=[];
+    page.on('console', message=>{
+      if(message.text().includes('[account-session]')) startupWarnings.push(message.text());
+    });
     await page.goto(base);
+    await page.locator('#account-session-loading').waitFor({state:'visible'});
+    const accountLoading=await page.locator('#account-session-loading').evaluate(el=>{
+      const r=el.querySelector('.ic-page-loading-brand').getBoundingClientRect();
+      const label=el.querySelector('.ic-page-loading-status');
+      const style=getComputedStyle(label);
+      return {x:r.x,y:r.y,width:r.width,height:r.height,gap:label.getBoundingClientRect().top-r.bottom,
+        fontSize:style.fontSize,lineHeight:style.lineHeight};
+    });
     const frame=page.frameLocator('#frame-canvas');
     await frame.getByRole('link',{name:canvas.title,exact:true}).waitFor();
     await page.locator('#studioEntryMotion').waitFor({state:'hidden'});
@@ -96,10 +115,26 @@ const server = http.createServer((req,res) => {
       await page.waitForFunction(()=>document.querySelector('#openingShellResult')?.dataset.result);
       const result=JSON.parse(await page.locator('#openingShellResult').textContent());
       assert.equal(result.pass,true,JSON.stringify({expanded,...result}));
+      for(const key of ['x','y','width','height','gap']) {
+        assert.ok(Math.abs(accountLoading[key]-result.waiting[key])<1, `Shared loading ${key}: ${JSON.stringify({accountLoading,canvasLoading:result.waiting})}`);
+      }
+      for(const key of ['fontSize','lineHeight']) assert.equal(accountLoading[key],result.waiting[key]);
       console.log(JSON.stringify({expanded,...result}));
       await frame.locator('.smart-back').click();
       await frame.getByRole('link',{name:canvas.title,exact:true}).waitFor();
       assert.equal(await toggle.getAttribute('aria-pressed'), String(expanded), 'Returning to the list preserves the sidebar preference');
+    }
+    // Updating assets can make /auth/me finish before the component module arrives.
+    for (const restoreCanvas of [false,true]) {
+      await page.evaluate(restore => {
+        localStorage.setItem('studio_sidebar_pinned', '1');
+        if (restore) sessionStorage.setItem('studio_canvas_route', '/static/smart-canvas.html?id=opening-shell-test');
+        else sessionStorage.removeItem('studio_canvas_route');
+      }, restoreCanvas);
+      await page.goto(`${base}/?fast-session=1`);
+      await page.waitForFunction(() => ['ready','error'].includes(document.documentElement.dataset.accountSession));
+      assert.equal(await page.locator('html').getAttribute('data-account-session'), 'ready',
+        `Fast session with delayed UI components must initialize without manual retry (restoreCanvas=${restoreCanvas}): ${startupWarnings.join('\n')}`);
     }
   } finally { await browser?.close(); await new Promise(resolve=>server.close(resolve)); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

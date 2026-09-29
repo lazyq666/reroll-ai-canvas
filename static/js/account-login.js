@@ -96,12 +96,17 @@
     customElements.whenDefined('ic-button'),
   ]).then(loadRememberedLogin);
 
-  fetch('/api/auth/me', { credentials: 'same-origin' })
-    .then((response) => response.ok ? response.json() : null)
-    .then((data) => {
-      if (data?.user && data.user.role !== 'guest') window.location.replace('/');
-    })
-    .catch(() => {});
+  window.AccountSession.start({
+    endpoint: '/api/auth/me',
+    onAuthenticated() {
+      window.location.replace('/');
+      return false;
+    },
+    onUnauthenticated() {
+      requestAnimationFrame(() => username.focus());
+      return true;
+    },
+  });
 
   const refreshRegistrationStatus = () => fetch('/api/auth/registration', { credentials: 'omit', cache: 'no-store' })
     .then((response) => response.ok ? response.json() : Promise.reject(new Error()))

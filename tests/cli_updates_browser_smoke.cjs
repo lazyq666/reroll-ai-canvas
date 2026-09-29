@@ -17,7 +17,9 @@ function items() {
       update_available:updateAvailable, local_version:updateAvailable ? '1.0.0' : '2.0.0',
       available_version:'2.0.0', release_date:'2026-09-04',
       release_notes:'<img src=x onerror="window.__remoteNoteExecuted=true"> Safer notification flow',
-      source_url:'https://github.com/openai/codex/releases/latest', channel:'npm'
+      source_url:'https://github.com/openai/codex/releases/latest', channel:'npm',
+      path:'/usr/local/bin/codex', platform:'darwin', architecture:'arm64',
+      credentials:'secret-must-not-be-copied'
     },
     {
       id:'jimeng', display_name:'Dreamina CLI', state:'uncomparable', update_available:false,
@@ -66,6 +68,7 @@ async function main() {
   const browser = await chromium.launch({headless:true, executablePath:process.env.CLI_UPDATE_BROWSER || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
   try {
     const page = await browser.newPage({viewport:{width:1280,height:850}});
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     const errors=[]; page.on('pageerror', error=>errors.push(error.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/`, {waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>document.getElementById('cliUpdateDialog')?.open);
@@ -73,7 +76,7 @@ async function main() {
     assert.equal(await page.locator('.cli-update-item').count(),2,'only updates and secondary diagnostic states are shown');
     assert.equal(await page.locator('.cli-update-item[data-cli-id="gemini-cli"]').count(),0,'up-to-date CLIs are omitted');
     assert.equal(await page.locator('.cli-update-intro').count(),0,'redundant explanatory copy is removed');
-    assert.equal(await page.locator('#cliUpdateDialog > [slot="footer"]').count(),0,'the dialog has no redundant footer actions');
+    assert.equal(await page.locator('#cliUpdateDialog > [slot="footer"]').count(),1,'one copy prompt action in the footer');
     assert.equal(await page.locator('.cli-update-item[data-cli-id="codex"] .cli-update-state').textContent(),'更新可用');
     assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-state').textContent(),'无法判断');
     assert.deepEqual(await page.locator('.cli-update-item[data-cli-id="codex"] .cli-update-version-value').allTextContents(),['1.0.0','2.0.0']);
@@ -94,17 +97,68 @@ async function main() {
     assert.equal(await page.locator('.cli-update-item[data-cli-id="codex"] .cli-update-item-detail img').count(),0,'remote notes stay plain text');
     assert.equal(await page.evaluate(()=>window.__remoteNoteExecuted),undefined,'remote notes cannot execute');
 
+    const copyButton = page.locator('#cliUpdateCopyPrompt').getByRole('button');
+    await copyButton.click();
+    await page.getByText('已复制，粘贴给 Agent 即可协助更新 CLI。', {exact:true}).waitFor();
+    const zhPrompt = await page.evaluate(()=>navigator.clipboard.readText());
+    for (const value of ['Codex CLI', 'Dreamina CLI', '1.0.0', '2.0.0', '34f0ca9', 'npm', '/usr/local/bin/codex', 'darwin / arm64', 'https://jimeng.jianying.com/cli', '无法判断']) {
+      assert.ok(zhPrompt.includes(value), `prompt includes ${value}`);
+    }
+    assert.match(zhPrompt, /先确认你能操作该服务主机/);
+    assert.match(zhPrompt, /无法确认时说明原因并跳过/);
+    assert.match(zhPrompt, /登录状态/);
+    assert.ok(!zhPrompt.includes('secret-must-not-be-copied'));
+    assert.ok(!zhPrompt.includes('onerror') && !zhPrompt.includes('Safer notification flow'),'release notes are excluded');
+    assert.ok(!zhPrompt.includes('1.1.25'),'current CLI is excluded');
+    assert.equal(dismissed.size,0,'copying does not acknowledge or close the reminder');
+    assert.equal(updateRequests,0,'copying does not run updates');
+
+    // Local HTTP installations can lack the Clipboard API. The fallback selection
+    // must live inside the modal so it is not blocked by dialog focus management.
+    await page.evaluate(()=>{
+      window.__clipboard = navigator.clipboard;
+      window.__execCommand = document.execCommand;
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined});
+      document.execCommand = command => {
+        const selection = document.querySelector('.cli-update-clipboard-selection');
+        window.__fallbackPrompt = selection?.value;
+        return command === 'copy' && selection?.closest('#cliUpdateDialog') && document.activeElement === selection;
+      };
+    });
+    await copyButton.click();
+    assert.equal(await page.evaluate(()=>window.__fallbackPrompt),zhPrompt);
+    assert.equal(await page.locator('.cli-update-clipboard-selection').count(),0,'temporary selection is removed');
+    assert.equal(await page.locator('#cliUpdatePromptRecovery').isVisible(),false);
+
     if (process.env.CLI_UPDATE_SCREENSHOT_DIR) {
       fs.mkdirSync(process.env.CLI_UPDATE_SCREENSHOT_DIR,{recursive:true});
       await page.waitForFunction(()=>!document.getElementById('studioEntryMotion'));
       await page.screenshot({path:path.join(process.env.CLI_UPDATE_SCREENSHOT_DIR,'cli-update-light.png')});
       await page.evaluate(()=>StudioTheme.set('dark'));
+      await page.waitForTimeout(400);
       await page.screenshot({path:path.join(process.env.CLI_UPDATE_SCREENSHOT_DIR,'cli-update-dark.png')});
       await page.evaluate(()=>StudioTheme.set('light'));
       await page.setViewportSize({width:390,height:844});
+      await page.waitForTimeout(400);
       await page.screenshot({path:path.join(process.env.CLI_UPDATE_SCREENSHOT_DIR,'cli-update-mobile.png')});
       await page.setViewportSize({width:1280,height:850});
     }
+
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('Permission denied');}}});
+      document.execCommand = ()=>false;
+    });
+    await copyButton.click();
+    await page.locator('#cliUpdatePromptRecovery').waitFor({state:'visible'});
+    assert.equal(await page.locator('#cliUpdatePromptText').evaluate(input=>input.value),zhPrompt);
+    await page.setViewportSize({width:390,height:844});
+    await page.waitForTimeout(400);
+    const recoveryButtonBounds = await copyButton.boundingBox();
+    assert.ok(recoveryButtonBounds.y >= 0 && recoveryButtonBounds.y + recoveryButtonBounds.height <= 844,'retry remains reachable on a narrow screen');
+    if (process.env.CLI_UPDATE_SCREENSHOT_DIR) {
+      await page.screenshot({path:path.join(process.env.CLI_UPDATE_SCREENSHOT_DIR,'cli-update-mobile-recovery.png')});
+    }
+    await page.setViewportSize({width:1280,height:850});
 
     await page.evaluate(()=>StudioI18n.set('en'));
     await page.waitForFunction(()=>document.getElementById('cliUpdateDialog').label==='CLI version updates');
@@ -113,6 +167,20 @@ async function main() {
     assert.match(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-detail').textContent(),/no reliable mapping/);
     assert.equal(await page.locator('.cli-update-item[data-cli-id="jimeng"] .cli-update-item-date').textContent(),'Local build 2026-07-13 · Official release 2026-08-18');
     assert.equal(await page.locator('.cli-update-item[data-cli-id="codex"] .cli-update-item-bottom a').getAttribute('aria-label'),'View the official release page for Codex CLI');
+    assert.equal(await page.locator('#cliUpdateCopyPrompt').textContent(),'Copy update prompt');
+    assert.match(await page.locator('#cliUpdatePromptText').evaluate(input=>input.value),/^Please check and update/,'manual prompt follows language changes');
+    assert.equal(await page.locator('#cliUpdatePromptText').getAttribute('label'),'Update prompt');
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:window.__clipboard});
+      document.execCommand = window.__execCommand;
+    });
+    await copyButton.focus();
+    await page.keyboard.press('Enter');
+    await page.getByText('Copied. Paste into your agent to update the CLIs.',{exact:true}).waitFor();
+    const enPrompt = await page.evaluate(()=>navigator.clipboard.readText());
+    assert.match(enPrompt,/^Please check and update/);
+    assert.match(enPrompt,/Check status: Unable to determine/);
+    assert.equal(await page.locator('#cliUpdatePromptRecovery').isVisible(),false,'successful retry clears manual fallback');
 
     await page.locator('#cliUpdateDialog').getByRole('button',{name:'Close'}).click();
     await page.waitForFunction(()=>!document.getElementById('cliUpdateDialog').open);
@@ -127,8 +195,9 @@ async function main() {
     await page.waitForTimeout(80);
     assert.equal(await page.locator('#cliUpdateDialog').evaluate(dialog=>dialog.open),false,'no dialog is shown when every CLI is current');
     assert.equal(await page.locator('.cli-update-item').count(),0,'no current CLI rows are rendered');
+    assert.equal(await page.locator('#cliUpdateCopyPrompt').evaluate(button=>button.disabled),true,'no stale prompt can be copied after updates disappear');
     assert.ok(errors.every(error=>/favicon|play\(\)/i.test(error)) , `unexpected page errors: ${errors.join('; ')}`);
-    process.stdout.write(JSON.stringify({dialog:true,adminStartupNotification:true,attentionOnly:true,neutralIndeterminate:true,plainTextNotes:true,i18n:true,notificationOnly:true,closeDismiss:true,noUpdateNoDialog:true},null,2)+'\n');
+    process.stdout.write(JSON.stringify({dialog:true,adminStartupNotification:true,attentionOnly:true,neutralIndeterminate:true,plainTextNotes:true,copyPrompt:true,clipboardFallback:true,copyFailureRecovery:true,keyboardCopy:true,i18n:true,notificationOnly:true,closeDismiss:true,noUpdateNoDialog:true},null,2)+'\n');
   } finally {
     await browser.close(); server.close();
   }

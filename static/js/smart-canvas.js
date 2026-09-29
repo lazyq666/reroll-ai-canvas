@@ -556,15 +556,12 @@ function bindSmartVideoNodeControls(video, {expanded=false}={}){
 function bindSmartVideoFullscreenDoubleClick(video){
     if(!video || video.dataset.smartVideoFullscreenDblclickBound === '1') return;
     video.dataset.smartVideoFullscreenDblclickBound = '1';
-    video.addEventListener('mousedown', event => {
-        if(video.dataset.smartPlaybackPreview === '1') return;
-        if(event.detail >= 2) return;
-        event.stopPropagation();
-    }, true);
     video.addEventListener('click', event => {
         if(video.dataset.smartPlaybackPreview === '1') return;
         event.stopPropagation();
         if(event.detail >= 2) return;
+        // A completed canvas drag must not become a media click or clear multi-selection.
+        if(Date.now() < Math.max(suppressNodeClickUntil, suppressImageClickUntil)) return;
         if(video.dataset.inlineVideoActive === '1'){
                 const target = smartPlaybackTargetFromElement(video);
                 if(target && (
@@ -6694,27 +6691,6 @@ function smartPlaybackPauseForInterruption(reason='interruption'){
         media.dataset.smartPlaybackInterrupted = reason;
     });
 }
-function syncSmartNodeVideoLoopControl(button, enabled){
-    if(!button) return;
-    const active = Boolean(enabled);
-    button.pressed = active;
-    button.toggleAttribute('pressed', active);
-    button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    const icon = button.querySelector('ic-icon');
-    if(icon) icon.setAttribute('name', active ? 'check' : 'loop');
-    const label = active ? tr('smart.action.autoLoopOn') : tr('smart.action.autoLoop');
-    const labelElement = button.querySelector('[data-smart-playback-label]');
-    if(labelElement) labelElement.textContent = label;
-    const syncSurface = () => {
-        const base = button.shadowRoot?.querySelector('[part~="base"]');
-        if(!base) return;
-        base.style.backgroundColor = active ? '#141414' : '';
-        base.style.color = active ? '#ffffff' : '';
-        base.style.borderColor = active ? 'transparent' : '';
-    };
-    syncSurface();
-    button.updateComplete?.then(syncSurface);
-}
 function toggleSmartVideoLoop(nodeId, imageIndex=0){
     const entry = smartPlaybackEntry(nodeId, imageIndex);
     entry.loop = !entry.loop;
@@ -6724,8 +6700,6 @@ function toggleSmartVideoLoop(nodeId, imageIndex=0){
         .forEach(video => {
             if(smartPlaybackTargetFromElement(video)?.key === key) video.loop = entry.loop;
         });
-    document.querySelectorAll(`[data-smart-node-action="video-loop"][data-node-id="${CSS.escape(String(nodeId))}"]`)
-        .forEach(button => syncSmartNodeVideoLoopControl(button, entry.loop));
     return entry.loop;
 }
 function smartPlaybackMoveMedia(media, parent, before=null){
@@ -8676,7 +8650,9 @@ function smartNodeToolbarHtml(node){
     }
     if(smartNodeInFlight(node) && isSmartRunnableNode(node)){
         return smartNodeToolbarActionsHtml(node, [
-            {key:'duplicate', icon:'create-copy', label:tr('smart.contextDuplicate'), enabled:true},
+            isSmartImageNode(node)
+                ? {key:'continue-editing', icon:'edit', label:tr('smart.continueEditing'), enabled:smartNodeHasRegenerationSnapshot(node)}
+                : {key:'duplicate', icon:'create-copy', label:tr('smart.contextDuplicate'), enabled:true},
             {key:'regenerate', icon:'refresh', label:tr('smart.contextRegenerate'), enabled:smartNodeHasRegenerationSnapshot(node)}
         ]);
     }
@@ -8704,15 +8680,6 @@ function smartNodeToolbarHtml(node){
     const actions = kind === 'video'
         ? [
             {key:'video-play', icon:'play', label:tr('smart.action.fullscreenPlay'), enabled:true},
-            {
-                key:'video-loop',
-                icon:smartPlaybackEntry(node.id, toolbarImageIndex).loop ? 'check' : 'loop',
-                label:tr(smartPlaybackEntry(node.id, toolbarImageIndex).loop ? 'smart.action.autoLoopOn' : 'smart.action.autoLoop'),
-                enabled:true,
-                toggle:true,
-                pressed:smartPlaybackEntry(node.id, toolbarImageIndex).loop,
-                imageIndex:toolbarImageIndex
-            },
             {key:'extract-frame', icon:'extract-frame', label:tr('smart.action.extractFrame'), enabled:true, items:[
                 {key:'extract-frame-first', icon:'extract-frame', label:tr('smart.capture.first'), enabled:true},
                 {key:'extract-frame-last', icon:'extract-frame', label:tr('smart.capture.last'), enabled:true},
@@ -8759,6 +8726,8 @@ function continueEditingSmartNode(node){
             x:rect.x, y:rect.y + rect.height - visibleNodeHeight,
             width:rect.width, height:visibleNodeHeight + editorHeight
         });
+        // The context menu restores its invoker's focus after dispatching the command.
+        promptInput.focus({preventScroll:true});
     });
 }
 function duplicateSmartNodeMediaToCanvas(node, imageIndex){
@@ -8928,10 +8897,6 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, tri
     }
     if(action === 'video-play' && kind === 'video'){
         openSmartVideoFullscreen(nodeId, index);
-        return;
-    }
-    if(action === 'video-loop' && kind === 'video'){
-        toggleSmartVideoLoop(nodeId, index);
         return;
     }
     if(action.startsWith('extract-frame') && kind === 'video'){
@@ -9222,13 +9187,6 @@ function syncSmartNodeFloatingPortal(){
         bindSmartNodeFloatingPortal();
         if(html) refreshIcons();
     }
-    smartNodeFloatingPortal.querySelectorAll('[data-smart-node-action="video-loop"]').forEach(button => {
-        const imageIndex = Number(button.dataset.mediaIndex || 0);
-        syncSmartNodeVideoLoopControl(
-            button,
-            smartPlaybackEntry(button.dataset.nodeId || '', imageIndex).loop
-        );
-    });
     smartNodeFloatingPortal.classList.toggle('open', Boolean(html));
     smartNodeFloatingPortal.setAttribute('aria-hidden', html ? 'false' : 'true');
     if(!html) smartNodeFloatingPortal.classList.add('viewport-hidden');
@@ -11603,10 +11561,6 @@ function bindNodeEvents(){
                 );
             });
         });
-        el.querySelectorAll('[data-smart-node-action="video-loop"]').forEach(button => {
-            const imageIndex = Number(button.dataset.mediaIndex || 0);
-            syncSmartNodeVideoLoopControl(button, smartPlaybackEntry(id, imageIndex).loop);
-        });
         el.querySelectorAll('[data-smart-group-action]').forEach(btn => {
             btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); }, true);
             btn.addEventListener('click', e => {
@@ -11930,8 +11884,12 @@ function smartContextMenuSections(state){
     const mediaKind = media.item ? mediaKindForItem(media.item) : (mediaItems.length === 1 ? mediaKindForItem(mediaItems[0]) : '');
     const editable = typeof canvasPersistence === 'undefined' || canvasPersistence.editable?.() !== false;
     const busy = smartNodeInFlight(node);
+    const inFlightMedia = busy && isSmartImageNode(node) && isSmartRunnableNode(node);
     if(busy){
         primary.push(smartContextMenuItem('noop', node.queued ? tr('smart.contextQueued') : tr('smart.contextGenerating'), 'loading', '', {disabled:true}));
+        if(editable && inFlightMedia){
+            primary.push(smartContextMenuItem('continue-editing', tr('smart.continueEditing'), 'edit', '', {disabled:!smartNodeHasRegenerationSnapshot(node)}));
+        }
         if(smartRecoverableImageTask(node)) primary.push(smartContextMenuItem('query-result', tr('smart.contextQueryResult'), 'refresh'));
     } else if(smartNodeHasRegenerationSnapshot(node)){
         if(editable && mediaItems.some(item => ['image','video'].includes(mediaKindForItem(item)))){
@@ -11997,7 +11955,9 @@ function smartContextMenuSections(state){
     if(hasConnections) structure.push(smartContextMenuItem('disconnect-all', tr('smart.contextDisconnectAll'), 'disconnect'));
     common.push(smartContextMenuItem('copy', tr('smart.contextCopy'), 'copy', smartShortcutLabel('copy')));
     common.push(smartContextMenuItem('copy-node-id', tr('smart.contextCopyNodeId'), 'copy', '', {shiftOnly:true}));
-    common.push(smartContextMenuItem('duplicate', tr('smart.contextDuplicate'), 'create-copy', smartShortcutLabel('duplicate')));
+    if(!inFlightMedia){
+        common.push(smartContextMenuItem('duplicate', tr('smart.contextDuplicate'), 'create-copy', smartShortcutLabel('duplicate')));
+    }
     if(smartContainer.isFrame(node)) common.push(smartContextMenuItem('delete-frame-all', trf('smart.contextDeleteFrameAll', {n:smartContainer.frameMembers(node).length}), 'delete', smartShortcutLabel('delete'), {danger:true}));
     else common.push(smartContextMenuItem('delete', tr('smart.contextDelete'), 'delete', smartShortcutLabel('delete'), {danger:true}));
     return [primary, content, structure, common].filter(section => section.length);

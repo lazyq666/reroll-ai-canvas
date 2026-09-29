@@ -1,7 +1,7 @@
-"""Fail-closed, offline Workspace handoff. Call only while owning the Workspace.
+"""Fail-closed Workspace handoff. Call only while owning the Workspace.
 
-A seal proves a local snapshot, never OneDrive freshness. The next session must
-supply the code obtained from the departing device, outside the synced folder.
+A seal proves a local snapshot, never OneDrive freshness. Admission requires an
+independent manual code or the opt-in online coordinator before opening Stores.
 """
 from __future__ import annotations
 
@@ -53,11 +53,12 @@ class WorkspaceHandoff:
             raise HandoffError("invalid") from None
 
     @staticmethod
-    def _write(path: Path, value: dict):
+    def _write(path: Path, value: dict, *, private=False):
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         try:
-            with temporary.open("x", encoding="utf-8") as handle:
+            fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600 if private else 0o644)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(value, handle, sort_keys=True, ensure_ascii=False)
                 handle.flush()
                 os.fsync(handle.fileno())
@@ -431,6 +432,16 @@ class WorkspaceHandoff:
 
     def acquire(self, expected_id: str = ""):
         """Validate before Store constructors or any business writes run."""
+        online = self.online()
+        if online is not None:
+            return online.acquire()
+        return self._acquire_local(expected_id)
+
+    def online(self):
+        from .handoff_coordinator import OnlineHandoff
+        return OnlineHandoff(self) if OnlineHandoff.configured(self) else None
+
+    def _acquire_local(self, expected_id: str = ""):
         record = self.read()
         receipt = self._read(self.receipt)
         if record is None:
@@ -449,7 +460,10 @@ class WorkspaceHandoff:
         # Verify again: SQLite and the sync client must not change files during validation.
         if self.inventory() != record["files"] or self.read() != record:
             raise HandoffError("changed")
-        active = {**record, "state": "active", "server_id": self.server_id, "session": uuid.uuid4().hex}
+        self._activate(record)
+
+    def _activate(self, record, *, session=None):
+        active = {**record, "state": "active", "server_id": self.server_id, "session": session or uuid.uuid4().hex}
         receipt = {"id": record["id"], "state": "activating", "session": active["session"]}
         self._write(self.receipt, receipt)
         self._write(self.path, active)
@@ -457,6 +471,16 @@ class WorkspaceHandoff:
 
     def seal(self):
         """Publish only after all writers have stopped; keep original files on failure."""
+        online = self.online()
+        if online is None:
+            return self._seal_local()
+        previous = self.read()
+        if not previous or previous["state"] != "sealed":
+            online.begin_seal()
+        self._seal_local()
+        return online.publish(self.read())
+
+    def _seal_local(self):
         previous = self.read()
         if previous and previous["state"] == "sealed":
             backup = self.local / "backups" / previous["id"] / "manifest.json"
@@ -465,7 +489,7 @@ class WorkspaceHandoff:
                 raise HandoffError("closed")
             self._write(self.receipt, {"id": previous["id"], "state": "sealed"})
             return {"id": previous["id"], "file_count": len(previous["files"]), "state": "sealed"}
-        self.acquire()  # A synced foreign active session cannot be silently sealed.
+        self._acquire_local()  # A synced foreign active session cannot be silently sealed.
         self.check_databases(checkpoint=True)
         files = self.inventory()
         handoff_id = uuid.uuid4().hex

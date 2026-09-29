@@ -1,6 +1,10 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "auth.checkingSession": { zh: "正在加载…", en: "Loading…" },
+        "auth.sessionCheckFailed": { zh: "暂时无法确认登录状态，请重试。", en: "Could not check your sign-in status. Please try again." },
+        "auth.studioLoadFailed": { zh: "工作台加载失败，请重试。", en: "Could not load the studio. Please try again." },
+        "auth.retrySession": { zh: "重试", en: "Try again" },
         "auth.loginPageTitle": { zh: "登录 · Reroll", en: "Sign in · Reroll" },
         "auth.workspaceAccess": { zh: "工作区访问", en: "Workspace access" },
         "auth.enterStudio": { zh: "进入工作台", en: "Enter the studio" },

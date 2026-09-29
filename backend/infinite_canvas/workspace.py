@@ -1690,7 +1690,17 @@ class WorkspaceService:
             )
 
         try:
-            owner = None if remote_authority else _read_occupation_metadata(metadata_path)
+            from .workspace_handoff import WorkspaceHandoff
+            from .handoff_coordinator import OnlineHandoff
+            handoff = WorkspaceHandoff(workspace_directory, self._storage.state_dir,
+                                       self.identity(workspace_directory), server_id)
+            coordinated = OnlineHandoff.configured(handoff)
+            if remote_authority and coordinated:
+                from .workspace_handoff import HandoffError
+                raise HandoffError("unsupported")
+            # A stale replicated occupation file cannot override the online
+            # register. The OS lock above still prevents two local processes.
+            owner = None if remote_authority or coordinated else _read_occupation_metadata(metadata_path)
             if owner is not None:
                 if not owner:
                     raise WorkspaceStorageError(
@@ -1723,11 +1733,6 @@ class WorkspaceService:
                         "请先在原服务中正常关闭"
                     )
             if not remote_authority:
-                from .workspace_handoff import WorkspaceHandoff
-                handoff = WorkspaceHandoff(
-                    workspace_directory, self._storage.state_dir,
-                    self.identity(workspace_directory), server_id,
-                )
                 if handoff_conflict_snapshot:
                     handoff.archive_conflicts(handoff_id, handoff_conflict_snapshot)
                 handoff.acquire(handoff_id)

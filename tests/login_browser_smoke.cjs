@@ -29,9 +29,26 @@ function requestBody(request) {
 }
 
 function startServer(state, port = 0) {
+  const sessionAttempts = new Map();
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
-    if (url.pathname === '/api/auth/me') return json(response, 200, { user: null });
+    if (url.pathname === '/api/auth/me') {
+      const source = new URL(request.headers.referer || '/', 'http://127.0.0.1');
+      const scenario = source.searchParams.get('session-check');
+      const attempt = (sessionAttempts.get(source.href) || 0) + 1;
+      sessionAttempts.set(source.href, attempt);
+      state.sessionAttempts ||= {};
+      state.sessionAttempts[`${source.pathname}:${scenario}`] = attempt;
+      if (scenario === 'slow') await delay(2500);
+      if (scenario === 'timeout') await delay(15000);
+      if (scenario === 'error' || (scenario === 'retry' && attempt <= 3) || (scenario === 'recover' && attempt === 1)) {
+        return json(response, 503, { detail: 'Temporarily unavailable' });
+      }
+      if (scenario === 'valid' || (['retry', 'recover'].includes(scenario) && source.pathname === '/')) {
+        return json(response, 200, { user: { id: 'fixture', username: 'fixture', role: 'designer' } });
+      }
+      return json(response, 401, { detail: 'Not authenticated' });
+    }
     if (url.pathname === '/api/auth/registration') return json(response, 200, { enabled: true, remaining: 3 });
     if (url.pathname === '/api/auth/logout') { state.logouts += 1; return json(response, 200, { ok: true }); }
     if (url.pathname === '/api/auth/register') {
@@ -48,11 +65,16 @@ function startServer(state, port = 0) {
       }
       return json(response, 401, { detail: '用户名或密码错误' });
     }
-    if (url.pathname === '/') {
+    if (url.pathname === '/' && !url.searchParams.has('session-check')) {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return response.end('<!doctype html><p id="destination">Workspace</p>');
     }
-    const requestPath = url.pathname === '/login' ? '/static/login.html' : decodeURIComponent(url.pathname);
+    if (url.pathname === '/static/canvas-list.html') {
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return response.end('<!doctype html><p>Canvas fixture</p>');
+    }
+    const requestPath = url.pathname === '/login' ? '/static/login.html'
+      : url.pathname === '/' ? '/static/index.html' : decodeURIComponent(url.pathname);
     const file = path.resolve(ROOT, `.${requestPath}`);
     if (file !== ROOT && !file.startsWith(`${ROOT}${path.sep}`)) return response.writeHead(403).end();
     fs.readFile(file, (error, body) => {
@@ -132,7 +154,10 @@ async function waitFor(cdp, sessionId, expression, label, timeout = 20000) {
     if (await evaluate(cdp, sessionId, expression)) return;
     await delay(100);
   }
-  throw new Error(`Timed out waiting for ${label}`);
+  const state = await evaluate(cdp, sessionId, `({url:location.href, session:document.documentElement.dataset.accountSession,
+    focus:document.activeElement?.id, shadowFocus:document.activeElement?.shadowRoot?.activeElement?.outerHTML,
+    message:document.querySelector('#account-session-message')?.textContent})`);
+  throw new Error(`Timed out waiting for ${label}: ${JSON.stringify(state)}`);
 }
 
 async function main() {
@@ -155,6 +180,43 @@ async function main() {
     await cdp.send('Accessibility.enable', {}, sessionId);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false }, sessionId);
     const port = server.address().port;
+
+    const sessionChecks = [];
+    for (const route of ['/login', '/']) {
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}${route}?session-check=recover` }, sessionId);
+      await waitFor(cdp, sessionId, "document.documentElement.dataset.accountSession === 'ready'", 'automatic session recovery');
+      sessionChecks.push(state.sessionAttempts[`${route}:recover`] === 2);
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}${route}?session-check=slow` }, sessionId);
+      await waitFor(cdp, sessionId, "customElements.get('ic-loading') && document.documentElement.dataset.accountSession === 'checking'", 'session loading');
+      sessionChecks.push(await evaluate(cdp, sessionId, `document.querySelector('#account-session-content').getBoundingClientRect().height === 0 && document.querySelector('#account-session-loading').getBoundingClientRect().height > 0`));
+      await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}${route}?session-check=retry&token-review-theme=dark` }, sessionId);
+      await waitFor(cdp, sessionId, "document.documentElement.dataset.accountSession === 'error' && customElements.get('ic-button')", 'session retry');
+      sessionChecks.push(await evaluate(cdp, sessionId, `(() => {
+        StudioI18n.set('en');
+        return document.querySelector('#account-session-message').textContent === 'Could not check your sign-in status. Please try again.'
+          && document.querySelector('#account-session-retry').textContent === 'Try again'
+          && document.querySelector('#account-session-content').getBoundingClientRect().height === 0
+          && document.documentElement.dataset.uiTheme === 'dark';
+      })()`));
+      await evaluate(cdp, sessionId, "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => { document.querySelector('#account-session-message').focus(); resolve(); })))");
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, sessionId);
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, sessionId);
+      sessionChecks.push(await evaluate(cdp, sessionId, "document.activeElement.id === 'account-session-retry'"));
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r' }, sessionId);
+      await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }, sessionId);
+      await waitFor(cdp, sessionId, "document.documentElement.dataset.accountSession === 'ready'", `${route} session recovered`);
+      sessionChecks.push(await evaluate(cdp, sessionId, "!document.querySelector('#account-session-content').hidden && document.querySelector('#account-session-status').hidden"));
+      await evaluate(cdp, sessionId, "StudioI18n.set('zh')");
+    }
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/login?session-check=valid` }, sessionId);
+    await waitFor(cdp, sessionId, "Boolean(document.querySelector('#destination'))", 'authenticated login bypass');
+    sessionChecks.push(true);
+    await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/login?session-check=timeout` }, sessionId);
+    await waitFor(cdp, sessionId, "document.documentElement.dataset.accountSession === 'error'", 'session timeout', 40000);
+    sessionChecks.push(state.sessionAttempts['/login:timeout'] === 3);
+    sessionChecks.push(await evaluate(cdp, sessionId, "document.querySelector('#account-session-content').hidden && !document.querySelector('#account-session-error').hidden"));
+    // Expected fixture 401/503 responses are not component console regressions.
+    cdp.events.length = 0;
 
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/login?token-review-theme=light` }, sessionId);
     await waitFor(cdp, sessionId, "customElements.get('ic-input') && !document.querySelector('#register-tab').hidden", 'login components');
@@ -265,6 +327,7 @@ async function main() {
     ));
     report = {
       checks: {
+        sessionLoadingAndRecovery: sessionChecks.every(Boolean),
         publicComponents: desktop.tags && desktop.vendorTags === 0,
         modeSwitch: desktop.options === 2 && desktop.loginVisible && desktop.registerHidden,
         validation: mismatch.includes('不一致'),

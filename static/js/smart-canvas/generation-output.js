@@ -60,8 +60,7 @@ function generationOutputClonePersistentValue(value){
 }
 function generationOutputContinueEditing(source){
     if(!source || !smartNodeHasRegenerationSnapshot(source)
-        || !(source.images || []).some(item => item?.url)
-        || smartNodeInFlight(source)
+        || (!(source.images || []).some(item => item?.url) && !smartNodeInFlight(source))
         || window.SmartCanvasModules.canvasPersistence.editable?.() === false) return null;
     const snapshot = source.generationInputSnapshot || {};
     const runSettings = generationOutputClonePersistentValue(snapshot.settings || source.runSettings);

@@ -242,3 +242,10 @@ Reroll 服务运行在自己的电脑上；Canvas、Managed Media 与生成历�
 验收仍待完成。恢复页可列出具体冲突文件；核对编号和完整数据后，可明确保留主记录、备份
 并隔离记录副本。关闭失败时，可在列表查看数据库副本的画布和节点差异；相同副本默认选中，
 不同副本需自行核对。确认保留当前文件后，先备份再删除所选副本并重试交接。数据库冲突不自动合并。详见[工作区安全交接](docs/active/2026-09-27-workspace-handoff.md)。
+
+可选的 [Turso 在线交接](docs/active/2026-09-29-online-workspace-handoff.md) 实现“关闭本服务器 →
+另一台启动自动验收”，免输交接编号。须先升级并停止两端服务，在每台的本机 Device State
+配置私有 `handoff-service.json`；原设备执行 `python scripts/configure_handoff.py --initialize`，
+第二台执行 `python scripts/configure_handoff.py`。令牌不放入仓库或 OneDrive。正式内容继续本地
+保存；网络失败、原设备未交接或同步不完整时拒绝打开。已通过真实 Turso 隔离测试，真实双设备
+OneDrive 验收仍待完成，配置细节及恢复边界见上述说明。

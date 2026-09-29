@@ -1,3 +1,4 @@
+@import url('/static/css/page-loading.css?v=asset-48cf584c51c9');
 @import url('/static/vendor/css/fonts.css?v=asset-41041ff51b56');
 * { box-sizing:border-box; }
 body { margin:var(--ui-space-0); height:100vh; overflow:hidden; color:var(--ui-color-text-primary); font-family:var(--ui-font-sans); background:var(--ui-color-surface-canvas); }
@@ -5,14 +6,8 @@ html.smart-canvas-booting body * { visibility:hidden !important; }
 html.smart-canvas-booting #canvasOpeningLoading,html.smart-canvas-booting #canvasOpeningLoading * { visibility:visible !important; }
 html[data-canvas-opening-phase="awaiting-outline"] #shell,html[data-canvas-opening-phase="skeleton"] #shell,html[data-canvas-opening-phase="hydrating"] #shell { pointer-events:none; }
 html[data-canvas-opening-phase="error"] #shell { display:none; }
-.canvas-opening-loading { position:fixed; inset:0; z-index:var(--ui-z-toast); display:none; align-content:center; justify-items:center; gap:var(--ui-space-3); padding:var(--ui-space-6); pointer-events:none; text-align:center; }
+.canvas-opening-loading { display:none; }
 html:is([data-canvas-opening-phase="booting"],[data-canvas-opening-phase="awaiting-outline"],[data-canvas-opening-phase="skeleton"],[data-canvas-opening-phase="hydrating"]) .canvas-opening-loading { display:grid; }
-.canvas-opening-status { margin:0; color:var(--ui-color-text-primary); font-size:var(--ui-font-size-3); line-height:var(--ui-line-height-body); }
-.canvas-opening-brand,.canvas-opening-brand::part(spinner),.canvas-opening-brand-fallback { display:block; width:var(--ui-control-height-l); height:var(--ui-control-height-l); }
-.canvas-opening-brand { display:grid; place-items:center; }
-.canvas-opening-brand::part(label) { display:none; }
-/* Match the shared brand loader: 355-unit Logo inside its padded 403-unit viewBox. */
-.canvas-opening-brand-fallback { width:calc(var(--ui-control-height-l) * 355 / 403); height:calc(var(--ui-control-height-l) * 355 / 403); background:var(--ui-color-text-primary); mask:url('/static/images/brand/logo.svg?v=asset-70ec8fd5efb0') center / contain no-repeat; }
 .canvas-opening-error { position:fixed; inset:0; z-index:var(--ui-z-toast); display:none; place-items:center; padding:var(--ui-space-6); background:var(--ui-color-surface-canvas); }
 html[data-canvas-opening-phase="error"] .canvas-opening-error { display:grid; }
 .canvas-opening-error-card { width:min(30rem,100%); display:grid; justify-items:center; gap:var(--ui-space-3); padding:var(--ui-space-8) var(--ui-space-6); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-l); background:var(--ui-color-surface); box-shadow:var(--ui-shadow-overlay); text-align:center; }

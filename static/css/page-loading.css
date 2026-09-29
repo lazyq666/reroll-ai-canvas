@@ -1,0 +1,36 @@
+/* Shared page composition extracted from Smart Canvas opening.
+ * The animation remains owned by ic-loading; pages own their loading state. */
+.ic-page-loading {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ui-z-toast);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-6);
+  pointer-events: none;
+  text-align: center;
+  color: var(--ui-color-text-primary);
+  font-family: var(--ui-font-sans);
+}
+.ic-page-loading[hidden], .ic-page-loading [hidden] { display: none !important; }
+.ic-page-loading--opaque { background: var(--ui-color-surface-canvas); pointer-events: auto; }
+.ic-page-loading-content { display: grid; justify-items: center; gap: var(--ui-space-3); }
+.ic-page-loading-status { margin: 0; color: var(--ui-color-text-primary); font-size: var(--ui-font-size-3); line-height: var(--ui-line-height-body); }
+.ic-page-loading-brand, .ic-page-loading-brand::part(spinner), .ic-page-loading-brand-fallback {
+  display: block;
+  width: var(--ui-control-height-l);
+  height: var(--ui-control-height-l);
+}
+.ic-page-loading-brand { display: grid; place-items: center; }
+.ic-page-loading-brand::part(label) { display: none; }
+/* Match the shared brand loader: 355-unit Logo inside its padded 403-unit viewBox. */
+.ic-page-loading-brand-fallback {
+  width: calc(var(--ui-control-height-l) * 355 / 403);
+  height: calc(var(--ui-control-height-l) * 355 / 403);
+  background: var(--ui-color-text-primary);
+  mask: url('/static/images/brand/logo.svg?v=asset-70ec8fd5efb0') center / contain no-repeat;
+}
+.ic-page-loading-error { display: grid; justify-items: center; gap: var(--ui-space-4); max-width: 30rem; pointer-events: auto; }
+.ic-page-loading-error p { margin: 0; }

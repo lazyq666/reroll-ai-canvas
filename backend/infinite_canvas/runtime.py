@@ -132,6 +132,16 @@ class ApplicationRuntime:
         self.handoff_preconditions = []
         self._handoff_task = None
         self._handoff_cleanup_task = None
+        self.shutdown_signal = None
+        self._handoff_exit_handle = None
+
+    def finish_handoff_shutdown(self):
+        """Exit with success, never request the supervisor's restart code."""
+        if (self.handoff_result.get("exit_server") and self.handoff_result.get("state") == "sealed"
+                and self.shutdown_signal and self._handoff_exit_handle is None):
+            # Allow the HTTP success response to flush. Business writers have
+            # already stopped; this delay is not a persistence boundary.
+            self._handoff_exit_handle = asyncio.get_running_loop().call_later(0.5, self.shutdown_signal)
 
     def status(self) -> RuntimeStatus:
         return self._status
@@ -448,6 +458,7 @@ class ApplicationRuntime:
                 self._status = RuntimeStatus(RuntimeStage.MAINTENANCE, "", message_code=code)
                 raise
             self._status = RuntimeStatus(RuntimeStage.MAINTENANCE, "", message_code="handoff.sealed")
+            self.finish_handoff_shutdown()
             return self.handoff_result
 
     async def _begin_restart_once(

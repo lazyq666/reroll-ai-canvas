@@ -5221,15 +5221,20 @@ def _workspace_storage_response(paths=None, **extra):
 async def get_workspace_storage_settings(request: Request):
     require_current_user("admin")
     cloud = CLOUD_WORKSPACE_RUNTIME.public() if CLOUD_WORKSPACE_RUNTIME else {"enabled": False, "provider": "turso", "status": "local"}
+    from infinite_canvas.handoff_coordinator import OnlineHandoff
+    automatic_handoff = OnlineHandoff.configured(workspace_handoff_controller())
     cloud['visible'] = cloud['enabled'] or os.environ.get('INFINITE_CANVAS_SHOW_CLOUD_RECORDS', '').strip() == '1'
     try:
         configuration = json.loads((Path(DEVICE_STATE_DIR) / 'turso-connection.json').read_text())
         cloud['prepared'] = configuration.get('workspace_id') == current_workspace_id() and configuration.get('status') == 'verified'
     except (OSError, ValueError):
         cloud['prepared'] = False
+    if automatic_handoff:
+        cloud['prepared'] = False
     return _workspace_storage_response(
         restart_required=False,
         cloud_records=cloud,
+        automatic_handoff=automatic_handoff,
     )
 
 
@@ -5289,6 +5294,9 @@ class CloudStorageSelection(BaseModel):
 async def select_cloud_storage(payload: CloudStorageSelection, request: Request):
     global PENDING_CLOUD_SWITCH
     _require_local_workspace_management(request)
+    from infinite_canvas.handoff_coordinator import OnlineHandoff
+    if payload.enabled and OnlineHandoff.configured(workspace_handoff_controller()):
+        raise TursoError('cloud_storage_handoff_enabled')
     if PENDING_WORKSPACE_OPEN is not None or PENDING_WORKSPACE_MOVE is not None or PENDING_CLOUD_SWITCH is not None:
         raise TursoError('cloud_storage_workspace_busy')
     if payload.enabled == bool(CLOUD_WORKSPACE_RUNTIME) and not CLOUD_TRANSITION_PUBLISHED:

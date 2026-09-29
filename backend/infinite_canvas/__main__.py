@@ -114,6 +114,7 @@ async def serve() -> int:
     server = uvicorn.Server(config)
     server_task = asyncio.create_task(server.serve())
     restart_task = asyncio.create_task(_wait_for_restart(restart_signal))
+    shutdown_task = asyncio.create_task(_wait_for_restart(_runtime.shutdown_event))
     supervisor_fd = _supervisor_fd()
     supervisor_pid = _supervisor_pid()
     supervisor_task = (
@@ -127,7 +128,7 @@ async def serve() -> int:
             else None
         )
     )
-    watched_tasks = {server_task, restart_task}
+    watched_tasks = {server_task, restart_task, shutdown_task}
     if supervisor_task is not None:
         watched_tasks.add(supervisor_task)
     done, _pending = await asyncio.wait(
@@ -138,10 +139,10 @@ async def serve() -> int:
     supervisor_disconnected = (
         supervisor_task is not None and supervisor_task in done
     )
-    if restart_requested or supervisor_disconnected:
+    if restart_requested or supervisor_disconnected or shutdown_task in done:
         server.should_exit = True
     await server_task
-    pending_watchers = [restart_task]
+    pending_watchers = [restart_task, shutdown_task]
     if supervisor_task is not None:
         pending_watchers.append(supervisor_task)
     for task in pending_watchers:

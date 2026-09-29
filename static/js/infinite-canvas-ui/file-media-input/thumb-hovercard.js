@@ -1,3 +1,5 @@
+import { activeOverlayScope, openTopLayer, closeTopLayer } from '/static/js/infinite-canvas-ui/overlay-layer.js?v=asset-5c6dc85ecbcd';
+
 const VALID_KINDS = new Set(['image', 'video', 'audio', 'text']);
 const HOVERCARD_EXIT_FALLBACK_MS = 220;
 
@@ -26,10 +28,17 @@ export class IcThumbHovercard extends HTMLElement {
     this.render();
   }
 
+  disconnectedCallback() {
+    this.destroyMedia();
+    this.finishHide();
+  }
+
   show(anchor, { kind='image', src='', text='' }={}) {
     if (!anchor) return false;
     const normalizedKind = VALID_KINDS.has(kind) ? kind : 'image';
     if (normalizedKind === 'text' ? !text : !src) return false;
+    const scope = activeOverlayScope(anchor);
+    if (this.parentElement !== scope) scope.append(this);
     this.dataset.kind = normalizedKind;
     this._anchor = anchor;
     this._src = src;
@@ -39,6 +48,7 @@ export class IcThumbHovercard extends HTMLElement {
     this.hidden = false;
     this.dataset.motionState = 'entering';
     this.setAttribute('aria-hidden', 'false');
+    openTopLayer(this);
     this.fitVisualMedia();
     this.positionFrom(anchor);
     this.playMedia();
@@ -80,6 +90,7 @@ export class IcThumbHovercard extends HTMLElement {
 
   finishHide() {
     this.cancelMotionCompletion();
+    closeTopLayer(this);
     this.hidden = true;
     this.dataset.motionState = 'closed';
     this._src = '';
@@ -154,6 +165,9 @@ export class IcThumbHovercard extends HTMLElement {
           --ic-thumb-hovercard-motion-distance: var(--ui-space-1);
           --ic-thumb-hovercard-motion-scale: .98;
           position: fixed;
+          inset: auto;
+          margin: 0;
+          padding: 0;
           z-index: var(--ui-z-popover);
           display: block;
           inline-size: max-content;
