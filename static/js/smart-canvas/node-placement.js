@@ -237,13 +237,28 @@
                 : candidate.x>=right(preferred.sourceRect)+GAP))
             && !obstacles.some(obstacle=>overlaps(translated(local,candidate.x,candidate.y),obstacle));
         const candidates = [];
-        xs.forEach(x=>ys.forEach(y=>{if(legal({x,y})) candidates.push({x,y});}));
+        const useViewport = viewport && preferred.sourceRect;
+        const allowance = useViewport ? GAP : 0;
+        let nearest = Infinity;
+        // Visit nearby boundaries first. Once a legal position is known,
+        // positions beyond its distance plus the viewport allowance cannot
+        // win. Do not materialize the full X/Y product for a large Canvas.
+        const orderedX = [...xs].sort((a,b)=>Math.abs(a-preferred.x)-Math.abs(b-preferred.x));
+        const orderedY = [...ys].sort((a,b)=>Math.abs(a-preferred.y)-Math.abs(b-preferred.y));
+        for(const x of orderedX) {
+            if(Math.abs(x-preferred.x)>nearest+allowance+1e-9) break;
+            for(const y of orderedY) {
+                const candidate = {x,y};
+                const separation = distance(candidate);
+                if(separation>nearest+allowance+1e-9) break;
+                if(!legal(candidate)) continue;
+                nearest = Math.min(nearest,separation);
+                candidates.push(candidate);
+            }
+        }
         // The finite scene's obstacle boundaries include its outermost free positions.
         // Search grows with actual geometry, never with a fixed attempt/overlap fallback.
         if (!candidates.length) return null;
-        let nearest = Infinity;
-        candidates.forEach(candidate=>{nearest=Math.min(nearest,distance(candidate));});
-        const useViewport = viewport && preferred.sourceRect;
         const budget = nearest+(useViewport ? GAP : 0);
         if (useViewport) {
             // Include partially visible positions at the distance limit when a

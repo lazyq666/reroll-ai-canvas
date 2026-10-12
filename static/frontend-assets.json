@@ -2338,7 +2338,7 @@
       "dependencies": []
     },
     "static/js/smart-canvas/node-placement.js": {
-      "version": "asset-cae8185d721b",
+      "version": "asset-801c550f2a45",
       "dependencies": []
     },
     "static/js/smart-canvas/node-review-fixture.js": {
@@ -2606,7 +2606,7 @@
       ]
     },
     "static/smart-canvas.html": {
-      "version": "asset-91e4072ff4e0",
+      "version": "asset-a3e2263ec47e",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/design-tokens.css",
@@ -2701,7 +2701,7 @@
       ]
     },
     "static/update-notes.json": {
-      "version": "asset-1e2dbc97cc48",
+      "version": "asset-d63a162a5f69",
       "dependencies": []
     },
     "static/vendor/css/fonts.css": {
