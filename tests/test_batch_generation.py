@@ -194,7 +194,7 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn(
             '<ic-radio-group id="batchConcurrency" class="batch-inline-options" '
-            'name="batchConcurrency" label="期望并发" '
+            'name="batchConcurrency" label="并发数量" '
             'data-i18n-label="batch.desiredConcurrency" value="2" '
             'appearance="tabs" orientation="horizontal" '
             'data-legal-combination="horizontal-tab-label">',
@@ -222,7 +222,7 @@ class BatchGenerationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn('class="batch-dimension-table"', setup)
         self.assertIn('data-i18n="batch.combinationDimensions">变量（多选）', setup)
-        self.assertIn('data-i18n="batch.uniformSettings">其他设置（单选）', setup)
+        self.assertIn('data-i18n="batch.uniformSettings">统一设置', setup)
         self.assertNotIn('data-i18n="batch.uniformDesc"', setup)
         self.assertIn('id="addPromptModule"', setup)
         self.assertIn('id="addImageVariable"', setup)

@@ -113,7 +113,7 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
             await page.waitForTimeout(150);
             assert.equal(await page.evaluate(() => document.getElementById('previewCurrentVideo') === window.__laz52Video), true);
             assert.equal(await page.locator(`${node} video`).count(), 0);
-            assert.equal(await page.locator('.preview-frame ic-media-player-controls [data-loop]').getAttribute('label'), lang === 'en' ? 'Turn loop off' : '关闭循环播放');
+            assert.equal(await page.locator('.preview-frame ic-media-player-controls [data-loop]').getAttribute('label'), lang === 'en' ? 'Turn loop off' : '关闭循环');
         }
         await page.screenshot({path:'/tmp/laz-52-fullscreen.png'});
         await page.locator('.preview-frame ic-media-player-controls [data-loop]').click();

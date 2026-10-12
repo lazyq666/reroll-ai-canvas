@@ -314,7 +314,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
         tag:'ic-smart-node-toolbar',
         contract:'ready',
         actions:['focus-editor', 'copy-text'],
-        labels:['展开', '复制提示词'],
+        labels:['展开编辑', '复制提示词'],
         icons:['focus-editor', 'copy'],
     });
 
@@ -364,7 +364,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
         label:'编组操作',
         nativeButtonCount:0,
         actions:['arrange', 'preview', 'grid', 'download', 'ungroup'],
-        labels:['整理选中', '预览', '宫格拼接', '批量下载', '解散编组'],
+        labels:['整理排列', '预览', '宫格拼接', '批量下载', '解散编组'],
         icons:['arrange', 'preview', 'join-grid', 'archive', 'ungroup'],
         disabled:[false, false, false, false, false],
     });

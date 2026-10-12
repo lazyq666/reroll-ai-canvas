@@ -169,7 +169,7 @@
                 ? text('common.close','关闭')
                 : step === 'review' ? text('common.back','返回') : text('common.cancel','取消');
             primaryButton.textContent = step === 'done'
-                ? text('smart.locateImportedNodes','定位到新节点')
+                ? text('smart.locateImportedNodes',"查看导入")
                 : step === 'review'
                     ? format('smart.importNodeCount',{count:inspection?.node_count || 0},`导入 ${inspection?.node_count || 0} 个节点`)
                     : text('common.continue','继续');

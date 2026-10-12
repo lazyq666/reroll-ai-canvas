@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-3ba4cc278f6d">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+    <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
     <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
   <link rel="stylesheet" href="/static/css/page-loading.css?v=asset-48cf584c51c9">
 </head>
@@ -70,10 +70,10 @@
   <div id="account-session-content" class="app-shell" hidden>
     <aside class="sidebar" id="studioSidebar" aria-label="主导航" data-i18n-aria-label="common.primaryNavigation">
       <div class="sidebar-logo-area">
-        <ic-button id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="quiet" aria-label="展开导航栏" data-sidebar-tooltip aria-pressed="false">
+        <ic-button id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="quiet" aria-label="展开导航" data-i18n-aria-label="common.expandNavigation" data-sidebar-tooltip aria-pressed="false">
           <img class="sidebar-logo-image sidebar-logo-wordmark" src="/static/images/brand/wordmark.svg?v=asset-f1849d59e65e" alt="" aria-hidden="true">
           <img class="sidebar-logo-image sidebar-logo-mark" src="/static/images/brand/logo.svg?v=asset-70ec8fd5efb0" alt="" aria-hidden="true">
-          <span class="visually-hidden" data-i18n="common.expandNavigation">展开导航栏</span>
+          <span class="visually-hidden" data-i18n="common.expandNavigation">展开导航</span>
         </ic-button>
       </div>
 
@@ -85,21 +85,21 @@
 
       </nav>
 
-      <ic-tooltip id="sidebar-tooltip" content="展开导航栏" placement="inline-end"></ic-tooltip>
+      <ic-tooltip id="sidebar-tooltip" content="展开导航" placement="inline-end" data-i18n-content="common.expandNavigation"></ic-tooltip>
 
       <div class="side-actions">
         <ic-toolbar class="shell-utilities" label="界面选项" data-i18n-label="common.interfaceOptions" appearance="plain" orientation="vertical">
           <ic-icon-button id="lang-toggle-btn" type="button" hierarchy="quiet" icon="language" label="切换为 English" data-i18n-label="common.switchToEnglish"></ic-icon-button>
-          <ic-icon-button id="theme-toggle-btn" type="button" hierarchy="quiet" icon="theme" label="切换深色模式" data-i18n-label="common.darkMode"></ic-icon-button>
+          <ic-icon-button id="theme-toggle-btn" type="button" hierarchy="quiet" icon="theme" label="深色模式" data-i18n-label="common.darkMode"></ic-icon-button>
         </ic-toolbar>
 
         <ic-menu id="settings-menu" label="设置" data-i18n-label="common.settingsMenu" trigger="dropdown" selection="command" placement="inline-end" alignment="end" hidden>
           <ic-icon-button id="settings-fold-toggle" class="settings-trigger" slot="trigger" type="button" hierarchy="quiet" icon="settings" label="设置" data-i18n-label="common.settings" aria-haspopup="menu"></ic-icon-button>
-          <ic-menu-item id="preferences-entry" value="preferences" kind="command" icon="settings" label="数据存储位置" data-i18n-label="common.dataStorageLocation" onclick="openPreferencesModal()"></ic-menu-item>
+          <ic-menu-item id="preferences-entry" value="preferences" kind="command" icon="settings" label="保存位置" data-i18n-label="common.dataStorageLocation" onclick="openPreferencesModal()"></ic-menu-item>
           <span class="admin-settings-divider" role="separator" aria-hidden="true"></span>
           <ic-menu-item id="account-management-entry" class="admin-settings-entry" value="account-management" kind="command" icon="people" label="账号管理" data-i18n-label="common.accountManagement" onclick="switchUI(this, 'account-management')"></ic-menu-item>
           <ic-menu-item class="admin-settings-entry" value="api-settings" kind="command" icon="link" label="API 设置" data-i18n-label="common.apiSettings" onclick="switchUI(this, 'api-settings')"></ic-menu-item>
-          <ic-menu-item class="admin-settings-entry" value="available-model-management" kind="command" icon="models" label="可用模型管理" data-i18n-label="common.modelManagement" onclick="switchUI(this, 'available-model-management')"></ic-menu-item>
+          <ic-menu-item class="admin-settings-entry" value="available-model-management" kind="command" icon="models" label="模型管理" data-i18n-label="common.modelManagement" onclick="switchUI(this, 'available-model-management')"></ic-menu-item>
           <ic-menu-item class="admin-settings-entry" value="comfyui-settings" kind="command" icon="workflow" label="工作流设置" data-i18n-label="common.comfyuiSettings" onclick="switchUI(this, 'comfyui-settings')"></ic-menu-item>
           <ic-menu-item class="admin-settings-entry" value="prompt-optimization-settings" kind="command" icon="app" label="提示词优化" data-i18n-label="smart.optimize.settingsTitle" onclick="switchUI(this, 'prompt-optimization-settings')"></ic-menu-item>
         </ic-menu>
@@ -115,7 +115,7 @@
           <section class="account-avatar-picker" aria-label="头像设置" data-i18n-aria-label="auth.avatarSettings">
             <span id="account-menu-avatar" class="ic-account-avatar account-menu-avatar" aria-hidden="true"></span>
             <ic-button id="account-random-avatar" type="button" size="small" hierarchy="secondary">
-              <span data-i18n="auth.randomAvatar">🎲 随机头像</span>
+              <span data-i18n="auth.randomAvatar">换个头像</span>
             </ic-button>
           </section>
           <span role="separator" aria-hidden="true"></span>
@@ -128,7 +128,7 @@
       <iframe id="frame-online" data-src="/static/online.html?v=2026.09.01.5.1788439320" title="批量生成" data-i18n-title="batch.batch" scrolling="yes"></iframe>
       <iframe id="frame-account-management" data-src="/static/account-management.html?v=2026.09.01.5.1788439320" title="账号管理" data-i18n-title="common.accountManagement" scrolling="yes"></iframe>
       <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.09.01.5.1788439320" title="API 设置" data-i18n-title="common.apiSettings" scrolling="yes"></iframe>
-      <iframe id="frame-available-model-management" data-src="/static/available-model-management.html?v=2026.09.01.5.1788439320" title="可用模型管理" data-i18n-title="common.modelManagement" scrolling="yes"></iframe>
+      <iframe id="frame-available-model-management" data-src="/static/available-model-management.html?v=2026.09.01.5.1788439320" title="模型管理" data-i18n-title="common.modelManagement" scrolling="yes"></iframe>
       <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=2026.09.01.5.1788439320" title="工作流设置" data-i18n-title="common.comfyuiSettings" scrolling="yes"></iframe>
       <iframe id="frame-prompt-optimization-settings" data-src="/static/prompt-optimization-settings.html?v=2026.09.01.5.1788439320" title="提示词优化" data-i18n-title="smart.optimize.settingsTitle" scrolling="yes"></iframe>
       <iframe id="frame-canvas" data-src="/static/canvas-list.html?v=2026.09.01.5.1788439320" title="画布" data-i18n-title="nav.canvas" scrolling="yes"></iframe>
@@ -145,7 +145,7 @@
     <ic-button id="cliUpdateCopyPrompt" slot="footer" type="button" hierarchy="primary" data-i18n="cliUpdates.copyPrompt" disabled>复制更新 Prompt</ic-button>
   </ic-dialog>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8"></script>
   <script type="module" src="/static/js/studio-entry-motion.js?v=asset-be9d77ac1c16"></script>
   <script src="/static/js/studio-shell.js?v=asset-555361da7f87" defer></script>
   <script src="/static/js/preferences.js?v=asset-0be3dde73154" defer></script>

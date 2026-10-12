@@ -17,7 +17,7 @@ class PreferencesUiTests(unittest.TestCase):
     def test_settings_tooltip_opens_preferences_modal(self):
         self.assertIn('id="preferences-entry"', self.shell)
         self.assertIn('onclick="openPreferencesModal()"', self.shell)
-        self.assertIn('label="数据存储位置"', self.shell)
+        self.assertIn('label="保存位置"', self.shell)
         self.assertIn('data-i18n-label="common.dataStorageLocation"', self.shell)
         self.assertIn("/static/js/preferences.js", self.shell)
         self.assertIn("/static/css/preferences.css", self.shell)
@@ -28,8 +28,8 @@ class PreferencesUiTests(unittest.TestCase):
     def test_storage_location_dialog_uses_medium_layout_and_shared_spacing(self):
         self.assertIn('dialog.setAttribute("size", "medium")', self.script)
         self.assertNotIn('dialog.setAttribute("size", "large")', self.script)
-        self.assertIn('"common.dataStorageLocation": { zh: "数据存储位置", en: "Data storage location" }', self.common_i18n)
-        self.assertIn('"preferences.title": { zh: "数据存储位置", en: "Data storage location" }', self.i18n)
+        self.assertIn('"common.dataStorageLocation": { zh: "保存位置", en: "Storage location" }', self.common_i18n)
+        self.assertIn('"preferences.title": { zh: "保存位置", en: "Storage location" }', self.i18n)
         self.assertIn("width: 100%;", self.style)
         self.assertNotIn("--width:", self.style)
         self.assertRegex(
@@ -52,7 +52,7 @@ class PreferencesUiTests(unittest.TestCase):
         self.assertIn('tr("preferences.open")', self.script)
         self.assertIn('tr("preferences.move")', self.script)
         self.assertIn('"preferences.open": { zh: "打开已有工作区"', self.i18n)
-        self.assertIn('"preferences.move": { zh: "搬家到新位置"', self.i18n)
+        self.assertIn('"preferences.move": { zh: "更换位置"', self.i18n)
         self.assertNotIn("父目录", self.script)
         self.assertNotIn("当前 data", self.script)
         self.assertNotIn("当前 assets", self.script)

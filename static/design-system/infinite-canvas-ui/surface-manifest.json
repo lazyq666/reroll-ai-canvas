@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-f64b466b8369",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-96183306ed37",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",

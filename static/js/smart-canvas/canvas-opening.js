@@ -333,7 +333,7 @@
         if(message){
             const status = Number(error?.status || 0);
             const [key,fallback] = status === 401
-                ? ['smart.openingErrorSession','登录状态已失效，请重新登录。']
+                ? ['smart.openingErrorSession',"登录已过期，请重新登录。"]
                 : status === 403
                     ? ['smart.openingErrorPermission','你没有打开此画布的权限。']
                     : status === 404

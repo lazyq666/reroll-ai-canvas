@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
-  <title data-i18n="handoff.title">工作区安全交接</title>
+  <title data-i18n="handoff.title">设备交接</title>
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+  <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
 </head>
 <body class="runtime-page">
@@ -18,16 +18,16 @@
     </div>
     <ic-card class="runtime-card" data-i18n-label="handoff.title">
       <div class="runtime-card-content">
-        <h1 data-i18n="handoff.title">工作区安全交接</h1>
+        <h1 data-i18n="handoff.title">设备交接</h1>
         <p id="handoff-preparation" class="runtime-detail" data-i18n="handoff.intro">先保存并关闭所有画布，等待生成任务结束。</p>
         <p class="runtime-detail" data-i18n="handoff.boundary">换设备前，仍需等待两端 OneDrive 同步完成。</p>
         <p id="handoff-message" role="status" aria-live="polite" tabindex="-1"></p>
         <p id="handoff-cleanup-saved" role="status" style="overflow-wrap:anywhere" hidden></p>
         <section id="handoff-result" hidden>
-          <p data-i18n="handoff.codeLabel">本次交接编号</p>
+          <p data-i18n="handoff.codeLabel">交接编号</p>
           <p><code id="handoff-code" style="overflow-wrap:anywhere"></code></p>
           <p data-i18n="handoff.done">可以关闭 Reroll。请保存此编号；下次打开工作区时需要输入。</p>
-          <ic-button id="handoff-copy" hierarchy="secondary" data-i18n="handoff.copy">复制交接编号</ic-button>
+          <ic-button id="handoff-copy" hierarchy="secondary" data-i18n="handoff.copy">复制编号</ic-button>
         </section>
         <section id="handoff-recovery" hidden>
           <ic-form-field data-i18n-label="handoff.expected">
@@ -58,7 +58,7 @@
               <ic-button id="handoff-cleanup-action" hierarchy="primary" data-i18n="handoff.cleanupAction" disabled>备份并删除</ic-button>
             </section>
             <details>
-              <summary data-i18n="handoff.backupLocation">查看本机备份位置</summary>
+              <summary data-i18n="handoff.backupLocation">查看备份</summary>
               <p id="handoff-backup-path" style="overflow-wrap:anywhere"></p>
             </details>
             <p id="handoff-conflicts-manual" data-i18n="handoff.conflictsManual">这里仅能处理已完成交接的记录副本。其他文件请回原设备核对。</p>
@@ -78,7 +78,7 @@
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8"></script>
   <script src="/static/js/workspace-handoff.js?v=asset-acfea2d2a944" defer></script>
 </body>
 </html>

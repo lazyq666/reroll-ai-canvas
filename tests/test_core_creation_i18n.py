@@ -62,7 +62,7 @@ class CoreCreationI18nTests(unittest.TestCase):
         )
         for expected in (
             'en: "API settings"',
-            'en: "Data storage location"',
+            'en: "Storage location"',
             'en: "Open an existing workspace"',
             'en: "Workflow settings"',
             'en: "Import / export nodes"',

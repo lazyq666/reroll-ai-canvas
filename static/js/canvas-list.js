@@ -412,7 +412,7 @@ async function loadAll(){
             renderBoard();
             newCanvasBtn.hidden = true;
             if(emptyCreateCanvasBtn) emptyCreateCanvasBtn.hidden = true;
-            setStatus(L('管理员尚未为此账号分配项目','No projects are assigned to this account'));
+            setStatus(tr('workspace.noAccessibleProjectsHint'));
             loadSecondaryCanvasData();
             return;
         }
@@ -631,7 +631,7 @@ function renderProjects(){
                 <ic-badge class="ws-project-count" kind="count" tone="neutral">${count}</ic-badge>
             </span>
             ${canManageProjects ? `<span class="ws-project-actions">
-                <ic-icon-button class="ws-proj-act rename" type="button" size="s" hierarchy="quiet" icon="edit" label="${L('重命名','Rename')}"></ic-icon-button>
+                <ic-icon-button class="ws-proj-act rename" type="button" size="s" hierarchy="quiet" icon="edit" data-i18n-label="canvas.rename" label="${tr('canvas.rename')}"></ic-icon-button>
                 ${isDefault ? '' : `<ic-icon-button class="ws-proj-act del" type="button" size="s" hierarchy="quiet" tone="danger" icon="delete" label="${L('删除','Delete')}"></ic-icon-button>`}
             </span>` : ''}`;
         const renameBtn = row.querySelector('.ws-proj-act.rename');
@@ -1089,13 +1089,13 @@ function openCardMenu(canvasId, anchorBtn){
     pop.setAttribute('alignment', 'end');
     const maySetPrivacy = currentUser?.role === 'admin' && String(c.owner_id || '') === String(currentUser.id || '');
     pop.innerHTML = `
-        <ic-menu-item kind="command" icon="edit" label="${L('重命名','Rename')}" value="rename" data-act="rename"></ic-menu-item>
+        <ic-menu-item kind="command" icon="edit" data-i18n-label="canvas.rename" label="${tr('canvas.rename')}" value="rename" data-act="rename"></ic-menu-item>
         <ic-menu-item kind="command" icon="link" label="${L('分享','Share')}" value="share" data-act="share"></ic-menu-item>
-        ${maySetPrivacy ? `<ic-menu-item kind="command" icon="${c.visibility === 'private' ? 'people' : 'lock'}" label="${c.visibility === 'private' ? L('设为全员可见','Make shared') : L('仅自己可见','Make private')}" value="privacy" data-act="privacy"></ic-menu-item>` : ''}
+        ${maySetPrivacy ? `<ic-menu-item kind="command" icon="${c.visibility === 'private' ? 'people' : 'lock'}" data-i18n-label="${c.visibility === 'private' ? 'workspace.shareWithProject' : 'workspace.makePrivate'}" label="${c.visibility === 'private' ? tr('workspace.shareWithProject') : tr('workspace.makePrivate')}" value="privacy" data-act="privacy"></ic-menu-item>` : ''}
         <span role="separator" aria-hidden="true"></span>
         <ic-menu-item kind="command" icon="download" label="${L('导出画布','Export canvas')}" value="export" data-act="export"></ic-menu-item>
-        <ic-menu-item kind="command" icon="archive" label="${L('导出画布 + 资源','Export with assets')}" value="export-assets" data-act="export-assets"></ic-menu-item>
-        <ic-menu-item kind="command" icon="cut" label="${L('剪切到其他项目','Cut to project')}" value="cut" data-act="cut"></ic-menu-item>
+        <ic-menu-item kind="command" icon="archive" data-i18n-label="workspace.exportWithAssets" label="${tr('workspace.exportWithAssets')}" value="export-assets" data-act="export-assets"></ic-menu-item>
+        <ic-menu-item kind="command" icon="cut" data-i18n-label="workspace.cutCanvas" label="${tr('workspace.cutCanvas')}" value="cut" data-act="cut"></ic-menu-item>
         <span role="separator" aria-hidden="true"></span>
         <ic-menu-item kind="command" icon="delete" label="${L('删除','Delete')}" value="delete" tone="danger" data-act="delete"></ic-menu-item>
         <span role="separator" aria-hidden="true"></span>
@@ -1131,19 +1131,23 @@ function renderSharePopoverLink(url){
     const container = canvasSharePopover?.querySelector('.ws-share-link-slot');
     if(!container) return;
     if(url){
-        container.innerHTML = `<a class="ws-share-link" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" title="${L('打开分享链接','Open share link')}"><span>${escapeHtml(url)}</span><ic-icon name="external-link" size="small" aria-hidden="true"></ic-icon></a>`;
+        container.innerHTML = `<a class="ws-share-link" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" data-i18n-title="workspace.openShareLink" title="${tr('workspace.openShareLink')}"><span>${escapeHtml(url)}</span><ic-icon name="external-link" size="small" aria-hidden="true"></ic-icon></a>`;
     } else {
-        container.innerHTML = `<div class="ws-share-link-missing" title="${L('当前会话没有保存原分享链接','The original link is not available in this session')}">${L('原链接未保存在当前会话，可重新生成','Original link unavailable; regenerate it')}</div>`;
+        container.innerHTML = `<div data-i18n="workspace.shareLinkUnavailable" class="ws-share-link-missing" title="${L('当前会话没有保存原分享链接','The original link is not available in this session')}">${tr('workspace.shareLinkUnavailable')}</div>`;
     }
 }
 
 function openSharePopover(id, url, anchorBtn){
-    canvasSharePopover.label = L('分享链接','Share link');
-    canvasSharePopover.querySelector('.ws-share-popover-title').textContent = L('分享链接','Share link');
+    canvasSharePopover.setAttribute('data-i18n-label', 'workspace.shareLink');
+    canvasSharePopover.label = tr('workspace.shareLink');
+    canvasSharePopover.querySelector('.ws-share-popover-title').setAttribute('data-i18n', 'workspace.shareLink');
+    canvasSharePopover.querySelector('.ws-share-popover-title').textContent = tr('workspace.shareLink');
     const revokeBtn = canvasSharePopover.querySelector('[data-share-revoke]');
     const regenerateBtn = canvasSharePopover.querySelector('[data-share-regenerate]');
-    revokeBtn.label = L('取消分享','Revoke share');
-    regenerateBtn.label = L('重新生成链接','Regenerate link');
+    revokeBtn.setAttribute('data-i18n-label', 'workspace.stopSharing');
+    revokeBtn.label = tr('workspace.stopSharing');
+    regenerateBtn.setAttribute('data-i18n-label', 'workspace.replaceShareLink');
+    regenerateBtn.label = tr('workspace.replaceShareLink');
     revokeBtn.onclick = event => revokeCanvasShare(id, event.currentTarget);
     regenerateBtn.onclick = event => regenerateCanvasShare(id, event.currentTarget);
     renderSharePopoverLink(url);
@@ -1186,9 +1190,9 @@ async function shareCanvas(id, anchorBtn){
 
 async function revokeCanvasShare(id, actionBtn){
     if(!await requestCanvasConfirmation({
-        label:L('取消分享','Revoke share'),
+        label:tr('workspace.stopSharing'),
         description:L('确定让已分享的链接立即失效吗？','Revoke the existing share link now?'),
-        confirmLabel:L('取消分享','Revoke share'),
+        confirmLabel:tr('workspace.stopSharing'),
         consequence:'destructive',
     })) return;
     actionBtn.disabled = true;
@@ -1208,8 +1212,8 @@ async function revokeCanvasShare(id, actionBtn){
 
 async function regenerateCanvasShare(id, actionBtn){
     if(!await requestCanvasConfirmation({
-        label:L('重新生成分享链接','Regenerate share link'),
-        description:L('重新生成会让旧链接立即失效，继续？','Regenerating will revoke the existing link immediately. Continue?'),
+        label:tr('workspace.replaceShareLink'),
+        description:tr('workspace.replaceShareLinkHint'),
         confirmLabel:L('重新生成','Regenerate'),
         consequence:'destructive',
     })) return;
@@ -1651,7 +1655,7 @@ function renderTrash(){
             <div class="ws-card-actions">
                 <ic-button class="ws-trash-act restore" type="button" hierarchy="secondary"><ic-icon slot="start" name="restore" aria-hidden="true"></ic-icon><span>${L('恢复','Restore')}</span></ic-button>
                 ${canPurge ? `
-                <ic-button class="ws-trash-act purge" type="button" hierarchy="secondary" tone="danger"><ic-icon slot="start" name="delete" aria-hidden="true"></ic-icon><span>${L('彻底删除','Delete')}</span></ic-button>
+                <ic-button class="ws-trash-act purge" type="button" hierarchy="secondary" tone="danger"><ic-icon slot="start" name="delete" aria-hidden="true"></ic-icon><span>${tr('canvas.purgeCanvas')}</span></ic-button>
                 ` : ''}
             </div>`;
         card.querySelector('.ws-trash-act.restore').onclick = () => restoreCanvas(c.id);
@@ -1670,7 +1674,7 @@ async function requestPurgeCanvas(id){
         description:langIsEn()
             ? `Delete “${canvas.title}” permanently? This action cannot be undone.`
             : `彻底删除「${canvas.title}」？删除后不可恢复。`,
-        confirmLabel:L('彻底删除','Delete permanently'),
+        confirmLabel:tr('canvas.purgeCanvas'),
         consequence:'destructive',
     })) return;
     purgeCanvas(id);

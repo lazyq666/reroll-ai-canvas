@@ -20,7 +20,7 @@
     </script>
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+    <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
     <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
     <link rel="stylesheet" href="/static/css/comfyui-settings.css?v=asset-a39dfb659d2b">
 </head>
@@ -28,7 +28,7 @@
     <main class="page comfy-settings-page">
         <div class="wrap">
             <header class="page-head">
-                <ic-heading class="page-heading" level="1" subtitle="选择本地 ComfyUI 工作流，配置可暴露到画布的输入参数。" data-i18n="comfy.title" data-i18n-subtitle="comfy.subtitle" data-legal-combination="h1-with-subtitle">工作流设置</ic-heading>
+                <ic-heading class="page-heading" level="1" subtitle="选择 ComfyUI 工作流。设置画布中可以调整的参数。" data-i18n="comfy.title" data-i18n-subtitle="comfy.subtitle" data-legal-combination="h1-with-subtitle">工作流设置</ic-heading>
                 <ic-alert id="pageMessage" class="page-message" tone="neutral" hidden>工作流设置操作结果</ic-alert>
             </header>
 
@@ -56,7 +56,7 @@
                             <ic-heading class="preview-title" level="3" data-i18n="comfy.nodePreview" data-legal-combination="h3-title"><ic-icon name="preview"></ic-icon>画布节点预览</ic-heading>
                             <ic-badge kind="status" tone="neutral" data-i18n="comfy.live">实时</ic-badge>
                         </div>
-                        <p class="preview-desc" data-i18n="comfy.previewDesc">这个工作流在画布 Comfy 节点上将显示出的控件，可直接填写并点击「运行测试」。</p>
+                        <p class="preview-desc" data-i18n="comfy.previewDesc">这里展示画布中的实际选项。填写后可点击“测试运行”。</p>
                         <ic-divider></ic-divider>
                         <div id="previewContent"><ic-empty-state title="尚未选择节点输入" label="尚未选择节点输入" data-i18n-title="comfy.previewEmpty"></ic-empty-state></div>
                     </ic-card>
@@ -114,7 +114,7 @@
         <ic-media-container kind="image" label="图片预览" aspect="landscape" fit="contain"><img id="imageLightboxImg" src="" alt="preview" data-i18n-alt="comfy.previewImage"></ic-media-container>
     </ic-dialog>
 
-        <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+        <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8"></script>
     <script src="/static/js/comfyui-settings.js?v=asset-db3414ecf3a7" defer></script>
 </body>
 </html>

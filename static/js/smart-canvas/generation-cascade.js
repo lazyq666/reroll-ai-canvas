@@ -20,7 +20,7 @@ const smartCascadeFallbacks = Object.freeze({
     'smart.stopping':'停止中...',
     'smart.stopRunning':'停止运行',
     'smart.loopStopped':'已停止批量运行',
-    'smart.stopRequested':'已请求停止，当前任务完成后停止',
+    'smart.stopRequested':"当前任务完成后停止。",
     'smart.selectChainTail':'请选择链路结尾图片节点',
     'smart.loopNoChain':'批量运行节点未连接可运行的图片链路',
     'smart.loopParallelRoundsDone':'已并发完成 {n} 个任务',

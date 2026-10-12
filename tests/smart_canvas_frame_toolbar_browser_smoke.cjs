@@ -72,7 +72,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             label:'分区操作',
             nativeButtonCount:0,
             actions:['rename', 'color', 'download', 'ungroup'],
-            labels:['重命名分区', '切换颜色', '下载', '取消分区'],
+            labels:['分区名称', '切换颜色', '下载', '取消分区'],
             icons:['edit', 'color', 'download', 'ungroup-frame'],
         });
 
@@ -290,7 +290,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             contract:'ready',
             buttonCount:4,
             icons:['edit', 'color', 'download', 'ungroup-frame'],
-            labels:['重命名分区', '切换颜色', '下载', '取消分区'],
+            labels:['分区名称', '切换颜色', '下载', '取消分区'],
         });
         await libraryPage.locator('[data-smart-node-toolbar-variant="frame"]').screenshot({
             path:'/tmp/infinite-canvas-frame-toolbar-library.png',

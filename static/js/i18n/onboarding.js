@@ -11,10 +11,7 @@ window.StudioI18n.register({
     "zh": "创建管理员",
     "en": "Create an administrator"
   },
-  "onboarding.workspace": {
-    "zh": "选择作品保存位置",
-    "en": "Choose where your work lives"
-  },
+  "onboarding.workspace": { zh: "保存位置", en: "Storage location" },
   "onboarding.services": {
     "zh": "选择 AI 服务",
     "en": "Choose AI services"
@@ -300,8 +297,8 @@ window.StudioI18n.register({
     "en": "Return to connections"
   },
   "onboarding.advanced": {
-    "zh": "之后可在「API 设置 / 可用模型管理」中维护高级配置。",
-    "en": "Manage advanced options later in API settings and model management."
+    "zh": "高级配置可在 API 设置中修改。模型显示可在模型管理中修改。",
+    "en": "Manage advanced settings in API settings and model visibility in Manage models."
   },
   "onboarding.absent": {
     "zh": "未安装",
