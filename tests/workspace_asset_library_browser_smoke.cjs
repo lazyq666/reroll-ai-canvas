@@ -100,7 +100,7 @@ async function main() {
     assert.equal(initial.layoutColumns, 2);
     assert.notEqual(initial.sidebarBorder, '0px');
     assert.equal(initial.cardCursor, 'pointer');
-    assert.equal(initial.cardLabel, '插入“晨雾森林”到智能画布');
+    assert.equal(initial.cardLabel, '放入画布：晨雾森林');
     assert.equal(initial.nameBelowImage, true);
     assert.equal(initial.gap, initial.expectedGap);
     assert.equal(initial.radius, initial.expectedRadius);
@@ -390,7 +390,7 @@ async function main() {
     });
     assert.deepEqual(confirmationCopy, {
       label:'从资产库移除“重命名素材”？',
-      description:'移除后，这张图片将不再出现在资产库中。画布中的图片和已经插入的引用不受影响。',
+      description:'图片将移出资产库。画布中的图片和引用不受影响。',
       consequence:'destructive',
     });
     await page.evaluate(() => {

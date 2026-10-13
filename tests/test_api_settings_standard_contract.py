@@ -291,7 +291,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
     def test_verification_actions_use_public_input_action_variants(self):
         self.assertRegex(
             self.page,
-            r'<ic-form-field id="keyFormField"[^>]+label="API Key"[^>]+hint="">\s*<ic-input id="keyInput"[^>]+slot="control"[^>]+end-action>\s*<ic-icon-button id="clearSavedKeyBtn"[^>]+slot="end"[^>]+icon="delete"[^>]+hidden>[\s\S]*?<ic-button id="testUrlBtn"[^>]+slot="end"[^>]+hierarchy="quiet"[^>]*>[\s\S]*?api\.testUrl[\s\S]*?检测地址',
+            r'<ic-form-field id="keyFormField"[^>]+label="API Key"[^>]+hint="">\s*<ic-input id="keyInput"[^>]+slot="control"[^>]+end-action>\s*<ic-icon-button id="clearSavedKeyBtn"[^>]+slot="end"[^>]+icon="delete"[^>]+hidden>[\s\S]*?<ic-button id="testUrlBtn"[^>]+slot="end"[^>]+hierarchy="quiet"[^>]*>[\s\S]*?api\.testUrl[\s\S]*?检查连接',
         )
         self.assertNotIn('id="probeAsyncBtn"', self.page)
         self.assertNotIn('class="verify-action-row"', self.page)
@@ -302,7 +302,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
             self.page,
             r'<ic-input id="keyInput"[^>]+end-action>\s*'
             r'<ic-icon-button id="clearSavedKeyBtn"[^>]+slot="end"[^>]+icon="delete"[^>]+hidden></ic-icon-button>\s*'
-            r'<ic-button id="testUrlBtn"[^>]+slot="end"[^>]*>[\s\S]*?检测地址[\s\S]*?</ic-button>',
+            r'<ic-button id="testUrlBtn"[^>]+slot="end"[^>]*>[\s\S]*?检查连接[\s\S]*?</ic-button>',
         )
         self.assertNotIn('class="key-meta-row"', self.page)
         self.assertIn("if(clearSavedKeyBtn) clearSavedKeyBtn.hidden = !item.has_key;", self.script)
@@ -407,7 +407,7 @@ class ApiSettingsStandardContractTests(unittest.TestCase):
         self.assertIn('data-i18n="api.modelCategoryText">文本模型</button>', self.page)
         self.assertNotRegex(self.page, r'id="(?:fetchModelsBtn|openPickerBtn)"[^>]*<ic-icon')
         self.assertEqual(self.page.count('size="medium" hierarchy="quiet" type="button" onclick="addModel('), 3)
-        self.assertEqual(self.page.count('data-i18n="api.manualAddModel">手动添加模型</span>'), 3)
+        self.assertEqual(self.page.count('data-i18n="api.manualAddModel">添加模型</span>'), 3)
         self.assertNotRegex(self.page, r'<ic-button[^>]+onclick="addModel[^>]*><ic-icon')
         self.assertEqual(self.page.count('class="model-panel-footer-actions"'), 3)
         self.assertRegex(

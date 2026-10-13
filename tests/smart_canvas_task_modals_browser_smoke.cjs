@@ -222,7 +222,7 @@ async function waitForServer(child) {
       && review.primary === '导入 8 个节点'
       && done.nodes === 8
       && done.secondary === '关闭'
-      && done.primary === '定位到新节点'
+      && done.primary === '查看导入'
       && done.summary.includes('8 个节点、6 条连接和 4 个资源');
 
     await page.locator('#smartNodePackageCancel').click();
@@ -274,7 +274,7 @@ async function waitForServer(child) {
       && publishIndex === exportIndex + 1
       && multiMenu.sequence[exportSequenceIndex + 1] === 'publish-workspace-assets'
       && multiMenu.labels[exportIndex] === '导出节点为资源包'
-      && multiMenu.labels[publishIndex] === '添加到资产库'
+      && multiMenu.labels[publishIndex] === '加入图库'
       && exportedPayload?.include_resources === true
       && exportedPayload?.nodes?.length === 2;
   } finally {

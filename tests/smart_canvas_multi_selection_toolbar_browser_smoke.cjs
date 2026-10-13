@@ -74,7 +74,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
             buttonCount:7,
             layouts:['grid', 'horizontal', 'vertical', 'tree-horizontal'],
             actions:['generate', 'download', 'publish-workspace-assets'],
-            labels:['生成图片/视频', '宫格', '水平', '垂直', '树状', '下载', '添加到资产库'],
+            labels:['生成图片/视频', '宫格', '水平', '垂直', '树状', '下载', '加入图库'],
             icons:['online-generate', 'layout-grid', 'layout-horizontal', 'layout-vertical', 'layout-tree', 'download', 'collection'],
             disabled:[true, false, false, false, false, false, false],
         });

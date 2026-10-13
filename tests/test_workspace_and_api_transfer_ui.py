@@ -28,7 +28,7 @@ class WorkspaceAndApiTransferUiTests(unittest.TestCase):
         self.assertIn('tr("preferences.move")', script)
         self.assertIn('zh: "工作区目录"', translations)
         self.assertIn('zh: "打开已有工作区"', translations)
-        self.assertIn('zh: "搬家到新位置"', translations)
+        self.assertIn('zh: "更换位置"', translations)
         self.assertIn('id="preferences-entry"', page)
         self.assertRegex(
             page,
@@ -42,8 +42,8 @@ class WorkspaceAndApiTransferUiTests(unittest.TestCase):
         script = (ROOT / "static/js/available-model-management.js").read_text(
             encoding="utf-8"
         )
-        self.assertIn("导出加密包", page)
-        self.assertIn("导入加密包", page)
+        self.assertIn("导出备份", page)
+        self.assertIn("导入备份", page)
         self.assertIn("/api/providers/export-encrypted", script)
         self.assertIn("/api/providers/import-encrypted", script)
         self.assertIn("FormData", script)

@@ -65,7 +65,7 @@ const root = path.resolve(__dirname, '..');
     await dialog.locator('[data-update-action="later"]').waitFor({state:'visible'});
     assert.equal(await page.evaluate(() => window.upgradeProbe.direct), 'old', 'Detection must not reload');
     assert.equal(await dialog.locator('h2').innerText(), 'Reroll 有新版');
-    assert.equal(await confirm.innerText(), '应用更新');
+    assert.equal(await confirm.innerText(), '立即更新');
     assert.equal(await page.evaluate(() => document.activeElement.id), 'smartResetView', 'Arrival must not take focus');
     assert.equal(await page.locator('ic-confirmation-dialog[open]:visible, dialog[open]:visible, [aria-modal="true"]:visible').count(), 0);
     const placement = await page.evaluate(() => {
@@ -94,7 +94,7 @@ const root = path.resolve(__dirname, '..');
     await page.screenshot({path:'/tmp/frontend-update-light.png'});
     await page.evaluate(() => { window.StudioI18n.set('en'); applyTheme('dark'); });
     assert.equal(await dialog.locator('h2').innerText(), 'Reroll update available');
-    assert.equal(await confirm.innerText(), 'Apply update');
+    assert.equal(await confirm.innerText(), 'Update now');
     await page.screenshot({path:'/tmp/frontend-update-dark.png'});
     await page.setViewportSize({width:390,height:720});
     const narrow = await dialog.boundingBox();

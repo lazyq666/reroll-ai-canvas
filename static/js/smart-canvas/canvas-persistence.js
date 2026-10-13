@@ -54,7 +54,7 @@ const canvasPersistenceFallbacks = Object.freeze({
     'smart.noCollaborativeUndo':'没有可撤销的协作操作',
     'smart.syncBeforeUndo':'实时同步完成后才能撤销',
     'smart.collaborationSubmitFailed':'协作操作未能提交',
-    'smart.sessionExpired':'登录状态已失效，请重新登录',
+    'smart.sessionExpired':"登录已过期，请重新登录。",
     'smart.editPermissionLost':'已失去该画布的编辑权限',
     'smart.realtimeUnsupported':'画布不存在或不支持实时编辑',
     'smart.realtimeFull':'该画布已达到当前配置的实时连接上限',

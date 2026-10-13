@@ -232,7 +232,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+  <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
 </head>
 <body class="runtime-page">
@@ -250,7 +250,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
     const runtimeDetailFallback = document.getElementById('runtime-detail')?.textContent || '';
@@ -302,7 +302,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+  <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -320,10 +320,10 @@ def _recovery_page() -> str:
         <section class="recovery-methods" aria-label="恢复方式" data-i18n-aria-label="runtime.recoveryMethods">
           <article class="recovery-method">
             <div>
-              <strong data-i18n="runtime.retryCurrent">重试当前工作区</strong>
+              <strong data-i18n="runtime.retryCurrent">重试打开</strong>
               <p data-i18n="runtime.retryCurrentDesc">目录已恢复连接或权限后，重新检查原位置。</p>
             </div>
-            <ic-button id="retry-current" type="button" hierarchy="secondary" data-i18n="runtime.retryCurrent">重试当前工作区</ic-button>
+            <ic-button id="retry-current" type="button" hierarchy="secondary" data-i18n="runtime.retryCurrent">重试打开</ic-button>
           </article>
           <article class="recovery-method">
             <div>
@@ -362,7 +362,7 @@ def _recovery_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8"></script>
   <script>
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const input = document.getElementById('workspace-directory');
@@ -493,7 +493,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+  <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
@@ -529,7 +529,7 @@ def _workspace_move_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8"></script>
   <script src="/static/js/workspace-move.js?v=asset-23ce42c27241" defer></script>
 </body>
 </html>"""

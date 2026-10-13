@@ -701,7 +701,7 @@ function apiPayload(url) {
       assert.equal(result.contract, 'ready');
       assert.equal(result.title, 'T34 · 返回与画布标题');
       assert.equal(result.nativeTitle, false);
-      assert.equal(result.accessibleLabel, '返回画布列表');
+      assert.equal(result.accessibleLabel, '返回列表');
       assert.equal(result.icon, 'back');
       assert.equal(result.iconStatus, 'ready');
       assert.equal(result.host.height, 40);
@@ -729,7 +729,7 @@ function apiPayload(url) {
       assert.deepEqual(result.bottomPositionSetting, {
         value: 'bottom',
         contract: 'ready',
-        label: '工具栏位置',
+        label: '工具位置',
         componentName: 'ic-tabs-small',
         size: 'small',
         orientation: 'horizontal',

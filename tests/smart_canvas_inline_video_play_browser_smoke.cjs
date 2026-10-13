@@ -197,7 +197,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         assert.equal(await page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-loop"]').count(), 0);
         const nodeLoopButton = page.locator(`${nodeSelector} ic-media-player-controls [data-loop]`);
         const nodeLoopDefault = await nodeLoopButton.evaluate(button => ({label:button.getAttribute('label'), pressed:button.hasAttribute('pressed')}));
-        assert.deepEqual(nodeLoopDefault, {label:'关闭循环播放', pressed:true});
+        assert.deepEqual(nodeLoopDefault, {label:'关闭循环', pressed:true});
 
         const inlineVideo = page.locator(`${nodeSelector} video[data-inline-video-active="1"]`);
         await page.waitForFunction(selector => {
@@ -283,7 +283,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             return button && base && !button.hasAttribute('pressed') && getComputedStyle(base).backgroundColor !== 'rgb(20, 20, 20)';
         });
         const fullscreenLoopOff = await loopButtonState();
-        assert.equal(fullscreenLoopOff.label, '开启循环播放');
+        assert.equal(fullscreenLoopOff.label, '循环播放');
         assert.equal(fullscreenLoopOff.icon, 'loop');
         assert.equal(fullscreenLoopOff.hierarchy, 'quiet');
         assert.equal(fullscreenLoopOff.pressed, false);
@@ -314,13 +314,13 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             pressed:button.hasAttribute('pressed'),
             icon:button.getAttribute('icon') || '',
         }));
-        assert.deepEqual(nodeLoopOff, {label:'开启循环播放', pressed:false, icon:'loop'});
+        assert.deepEqual(nodeLoopOff, {label:'循环播放', pressed:false, icon:'loop'});
 
         await page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-play"]').click();
         await page.waitForFunction(() => document.querySelector('#imageEditModal')?.classList.contains('open'));
         await page.waitForFunction(() => document.querySelector('#previewCurrentVideo')?.paused === false);
         const fullscreenLoopPersistedOff = await loopButtonState();
-        assert.equal(fullscreenLoopPersistedOff.label, '开启循环播放');
+        assert.equal(fullscreenLoopPersistedOff.label, '循环播放');
         assert.equal(fullscreenLoopPersistedOff.pressed, false);
         assert.equal(fullscreenLoopPersistedOff.icon, 'loop');
         assert.equal(await page.locator('#previewCurrentVideo').evaluate(video => video.loop), false);
@@ -331,7 +331,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
             return Boolean(document.getElementById('previewCurrentVideo')?.loop);
         });
         const fullscreenLoopOnAgain = await loopButtonState();
-        assert.equal(fullscreenLoopOnAgain.label, '关闭循环播放');
+        assert.equal(fullscreenLoopOnAgain.label, '关闭循环');
         assert.equal(fullscreenLoopOnAgain.icon, 'loop');
         assert.equal(fullscreenLoopOnAgain.hierarchy, 'quiet');
         assert.equal(fullscreenLoopOnAgain.pressed, true);
@@ -346,7 +346,7 @@ const videoFixtureUrl = '/static/images/test/fixture.mp4';
         await page.locator('#smartNodeFloatingPortal [data-smart-node-action="video-play"]').click();
         await page.waitForFunction(() => document.querySelector('#imageEditModal')?.classList.contains('open'));
         const fullscreenLoopReset = await loopButtonState();
-        assert.equal(fullscreenLoopReset.label, '关闭循环播放');
+        assert.equal(fullscreenLoopReset.label, '关闭循环');
         assert.equal(fullscreenLoopReset.icon, 'loop');
         assert.equal(fullscreenLoopReset.hierarchy, 'quiet');
         assert.equal(fullscreenLoopReset.pressed, true);

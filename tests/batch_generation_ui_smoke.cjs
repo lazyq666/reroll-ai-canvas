@@ -209,7 +209,7 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
         || setupStructure.sourceTabs || !setupStructure.fileActionsInEditor
         || JSON.stringify(setupStructure.fileActionLabels) !== JSON.stringify(['选择文件','选择文件夹'])
         || !setupStructure.parseInsideInput
-        || setupStructure.rawParseLabel !== '不做处理（整段使用）'
+        || setupStructure.rawParseLabel !== '整段使用'
         || setupStructure.settingsBlocks !== 2 || setupStructure.uniformSelects
         || setupStructure.uniformChoices !== 22
         || setupStructure.concurrencyValue !== '16'
@@ -384,7 +384,7 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
         disabled:await page.locator('#startBatch').isDisabled(),
         errorSeen:dismissedDialogs.includes('批次提交暂时失败'),
     };
-    if (recoveredSubmitState.text !== '确认提交任务'
+    if (recoveredSubmitState.text !== '开始生成'
         || recoveredSubmitState.disabled || !recoveredSubmitState.errorSeen) {
         throw new Error(`Batch submit button did not recover after failure: ${JSON.stringify(recoveredSubmitState)}`);
     }
@@ -412,7 +412,7 @@ const browserExecutable = process.env.SMART_CANVAS_BROWSER
         settingsTab:document.querySelectorAll('[data-detail-tab="settings"]').length,
     }));
     if (detailHeader.kicker !== 0 || detailHeader.backText !== '返回批次历史'
-        || detailHeader.reuseText !== '复用配置'
+        || detailHeader.reuseText !== '沿用设置'
         || detailHeader.reuseHierarchy !== 'quiet' || detailHeader.rerunHierarchy !== 'quiet'
         || detailHeader.status !== '运行中' || !detailHeader.startedAt
         || detailHeader.settingsTab !== 0) {

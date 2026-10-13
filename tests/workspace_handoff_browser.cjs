@@ -60,7 +60,7 @@ const server = http.createServer(async (req, res) => {
     await page.waitForFunction(() => document.querySelector('#handoff-message').textContent.includes('仍有画布'));
     await page.evaluate(() => { StudioI18n.set('en'); StudioTheme.set('dark'); });
     assert.match(await page.locator('#handoff-message').innerText(), /Canvases are still open/);
-    assert.equal(await page.locator('h1').innerText(), 'Safe workspace handoff');
+    assert.equal(await page.locator('h1').innerText(), 'Device handoff');
     await page.screenshot({path:'/tmp/workspace-handoff-dark.png'});
     error = 'handoff.conflict';
     await page.locator('#handoff-close').click();

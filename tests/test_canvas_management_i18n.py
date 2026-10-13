@@ -105,8 +105,8 @@ class CanvasManagementI18nTests(unittest.TestCase):
             for filename in ("model-management.js", "auth.js", "api-settings.js")
         )
         for expected in (
-            'en: "Manage available models"',
-            'en: "Set the names, visibility, order, and capabilities shown to users."',
+            'en: "Manage models"',
+            'en: "Set model names, visibility, order, and capabilities."',
             'en: "Sign out"',
         ):
             self.assertIn(expected, resources)

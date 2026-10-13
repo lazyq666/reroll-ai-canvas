@@ -15,7 +15,7 @@
 
 ## 新版路径
 
-管理员可在“数据存储位置”中手动扫描并清理无引用的 Managed Media。普通内容删除
+管理员可在“保存位置”中手动扫描并清理无引用的 Managed Media。普通内容删除
 只解除引用；仍被画布、有效撤销历史、生成历史或资产库等内容引用的原文件继续保留。
 扫描、确认与临时保护的完整合同见[工作区未使用文件清理](workspace-media-cleanup.md)，
 生命周期边界见 [ADR-0012](../adr/0012-manual-workspace-media-cleanup.md)。
@@ -128,7 +128,7 @@ Phase 2 upgrade 的回滚则恢复精确的旧数据库与旧 manifest，保持�
 
 普通 UI 只显示工作区目录，不要求用户理解内部 `data/` 与 `assets/`。
 Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 的角色。
-主界面设置菜单以“数据存储位置”命名这个入口，并用 Medium Dialog 展示当前工作区目录、
+主界面设置菜单以“保存位置”命名这个入口，并用 Medium Dialog 展示当前工作区目录、
 打开已有工作区和搬家到新位置；Dialog 内容占满公共内容区，Header 顶部与左右统一使用
 `--ui-space-6` 内边距，Body 与 Footer 继续沿用 `ic-dialog` 的标准内边距。
 
@@ -219,7 +219,7 @@ Workspace 不会改变这个位置。
 
 ### 可选 Turso 云端记录（试用）
 
-默认保持本地模式。受控准备并验证的 Workspace 可在“数据存储位置”启用云端开关，
+默认保持本地模式。受控准备并验证的 Workspace 可在“保存位置”启用云端开关，
 将 Canvas、Generation Run/History、Batch Generation 三类 SQLite 业务表保存到同一
 Turso 数据库。图片、视频、Workflow、Prompt Library 及其他原有非 SQLite 文件继续在
 Workspace 中，仍由 OneDrive 同步。云端不保存 Account、Session 或 Provider 密钥。

@@ -320,7 +320,7 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
         || darkDesktop.overflow || darkNarrow.overflow || darkDesktop.invalid || darkNarrow.invalid
         || englishNarrow.language !== 'en' || englishNarrow.title !== 'Batch generation'
         || englishNarrow.heading !== 'Batch generation' || englishNarrow.concurrencyLabel !== 'Concurrent tasks'
-        || englishNarrow.historyTableLabel !== 'Batch history' || englishNarrow.overflow || englishNarrow.invalid
+        || englishNarrow.historyTableLabel !== 'Generation history' || englishNarrow.overflow || englishNarrow.invalid
         || pageStructure.title !== '批量生成' || pageStructure.heading !== '批量生成'
         || !pageStructure.historyButton || !pageStructure.batchVisible
         || pageStructure.modeSwitches || pageStructure.singleSurfaces

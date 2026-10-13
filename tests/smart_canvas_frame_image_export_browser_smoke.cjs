@@ -87,7 +87,7 @@ async function main(){
         const before=await page.evaluate(()=>JSON.stringify({nodes,connections:canvas.connections,selectedId,selectedIds,viewport}));
         await open();
         await checkDialogInfo();
-        assert.equal(await page.locator('#smartFrameExportDialog').getAttribute('label'),'下载分区图片');
+        assert.equal(await page.locator('#smartFrameExportDialog').getAttribute('label'),'下载分区');
         await page.screenshot({path:path.join(outputDir,'dialog-light.png')});
         assert.equal(await page.locator('#smartFrameExportSize').textContent(),'700 × 500 px');
         await page.locator('#smartFrameExportScale [data-value="2"]').click();
@@ -115,7 +115,7 @@ async function main(){
 
         await page.evaluate(()=>applyTheme('dark'));await open();
         await page.evaluate(()=>StudioI18n.set('en'));
-        await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').label==='Download frame image');
+        await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').label==='Download frame');
         assert.equal(await page.locator('#smartFrameExportDownload').textContent(),'Download');
         await checkDialogInfo();
         await page.screenshot({path:path.join(outputDir,'dialog-dark.png')});

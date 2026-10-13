@@ -295,7 +295,7 @@ async function openShell(browser, combination, role = 'admin', activePage = 'can
       || !item.settingsVisible
       || item.preferenceDialog.contract !== 'ready'
       || item.preferenceDialog.size !== 'medium'
-      || item.preferenceDialog.label !== '数据存储位置'
+      || item.preferenceDialog.label !== '保存位置'
       || item.preferenceDialog.width > 720
       || Math.abs(item.preferenceDialog.contentInset.left - item.preferenceDialog.contentInset.right) >= 1
       || Object.values(item.preferenceDialog.padding).some(value => value !== 24)
@@ -332,7 +332,7 @@ async function openShell(browser, combination, role = 'admin', activePage = 'can
       || (item.themeToggled && item.logoHover.baseBackground !== 'rgba(0, 0, 0, 0)')
       || (item.themeToggled && item.logoHover.baseShadow !== 'none')
       || (item.themeToggled && item.logoHover.imageTransform !== 'none')
-      || (item.themeToggled && item.logoHover.tooltip !== '展开导航栏')
+      || (item.themeToggled && item.logoHover.tooltip !== '展开导航')
       || (item.themeToggled && !item.logoCentered)
       || (item.themeToggled && (item.canvasTooltip.component !== 'ic-tooltip' || item.canvasTooltip.content !== '画布'))
       || (item.themeToggled && (item.settingsTooltip.component !== 'ic-tooltip' || item.settingsTooltip.content !== '设置' || item.settingsTooltip.position !== 'fixed'))

@@ -190,7 +190,7 @@ class SmartCanvasFloatingUiTests(unittest.TestCase):
         self.assertIn("width:48rem", self.style)
         self.assertIn('<ic-icon-button id="composerFocusToggle"', composer)
         self.assertIn('size="s"', composer)
-        self.assertIn('label="展开"', composer)
+        self.assertIn('label="展开编辑"', composer)
         self.assertIn('data-i18n-label="smart.focusEdit"', composer)
         self.assertIn('hierarchy="quiet"', composer)
         self.assertIn('data-action-combination="quiet-icon-action"', composer)

@@ -90,7 +90,7 @@ class SmartCanvasAnnotationUiTests(unittest.TestCase):
     def test_canvas_settings_use_icon_action_for_persisted_theme_preference(self):
         self.assertIn('id="smartCanvasThemeToggle"', self.smart_page)
         self.assertIn('<ic-icon-button id="smartCanvasThemeToggle"', self.smart_page)
-        self.assertIn('icon="theme" label="切换深色模式" data-i18n-label="smart.switchToDarkTheme"', self.smart_page)
+        self.assertIn('icon="theme" label="深色模式" data-i18n-label="smart.switchToDarkTheme"', self.smart_page)
         self.assertIn('aria-labelledby="smartImagePerformanceLabel"', self.smart_page)
         image_switch = self.smart_page.split('<ic-switch id="smartImagePerformanceToggle"', 1)[1].split('</ic-switch>', 1)[0]
         self.assertNotIn('size=', image_switch)
