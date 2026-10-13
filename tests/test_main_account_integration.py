@@ -425,7 +425,7 @@ class MainAccountIntegrationTests(unittest.TestCase):
                 self.assertIn('id="register-form"', login_page.text)
                 self.assertIn("创建账号", login_page.text)
                 self.assertIn('/static/images/brand/logo.png', login_page.text)
-                self.assertIn("提交账号申请", login_page.text)
+                self.assertIn("提交申请", login_page.text)
                 self.assertNotIn("创建账号并登录", login_page.text)
                 self.assertIn('id="remember-password"', login_page.text)
                 self.assertIn("记住密码", login_page.text)

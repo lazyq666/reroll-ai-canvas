@@ -76,7 +76,7 @@ function deferred() {
     await loading.waitFor({ state:'hidden' });
     await empty.waitFor({ state:'visible' });
     assert.equal(await empty.getAttribute('title'), '暂无画布');
-    assert.equal(await empty.locator(':scope > span:not([slot])').textContent(), '为当前项目创建第一块画布');
+    assert.equal(await empty.locator(':scope > span:not([slot])').textContent(), '新建画布，开始创作。');
 
     cards = deferred();
     await page.locator('.ws-project-row[data-project-id="empty-b"]').click();

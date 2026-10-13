@@ -106,14 +106,14 @@
         ));
     }
 
-    function explicitLayout(node, fallback) {
+    function explicitLayout(node, fallback, minimumDimension = 24) {
         const width = Number(node?.w);
         const height = Number(node?.h);
         return {
             cols:1,
             rows:1,
-            width:Math.round(Number.isFinite(width) && width > 24 ? width : fallback.width),
-            height:Math.round(Number.isFinite(height) && height > 24 ? height : fallback.height),
+            width:Math.round(Number.isFinite(width) && width > minimumDimension ? width : fallback.width),
+            height:Math.round(Number.isFinite(height) && height > minimumDimension ? height : fallback.height),
             thumb:96,
             single:true
         };
@@ -445,7 +445,9 @@
         const diagnostics = [];
         const nodeId = String(node?.id || '');
         const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
-        const minimumPersistedDimension = node?.type === 'smart-brush' ? 0 : 24;
+        // Small text has a 23px line height and can have a 24px width.
+        // Annotation geometry must not inherit the functional card minimum.
+        const minimumPersistedDimension = ['smart-brush','smart-text'].includes(node?.type) ? 0 : 24;
         if (
             (hasOwn(node, 'x') && !Number.isFinite(Number(node.x)))
             || (hasOwn(node, 'y') && !Number.isFinite(Number(node.y)))
@@ -488,7 +490,7 @@
                 ? promptLayout(node)
                 : type === 'smart-brush'
                     ? brushLayout(node)
-                    : explicitLayout(node, DEFAULT_LAYOUTS[type]);
+                    : explicitLayout(node, DEFAULT_LAYOUTS[type], type === 'smart-text' ? 0 : 24);
         const x = Number.isFinite(Number(node.x)) ? Number(node.x) : 0;
         const y = Number.isFinite(Number(node.y)) ? Number(node.y) : 0;
         const footprint = {

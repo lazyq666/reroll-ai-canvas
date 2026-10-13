@@ -1,21 +1,21 @@
 (function(){
     const scripts = [
         '/static/js/i18n-core.js?v=asset-976eaa307e53',
-        '/static/js/i18n/common.js?v=asset-7d3a8cda98f5',
-        '/static/js/i18n/auth.js?v=asset-e011dcefec7c',
-        '/static/js/i18n/onboarding.js?v=asset-9a22ee5eeebb',
-        '/static/js/i18n/workspace.js?v=asset-b387a4ba1c05',
-        '/static/js/i18n/model-management.js?v=asset-1bf67142968a',
-        '/static/js/i18n/preferences.js?v=asset-cd5d16f96ff2',
+        '/static/js/i18n/common.js?v=asset-8ec8ff88d043',
+        '/static/js/i18n/auth.js?v=asset-e53e0e071b46',
+        '/static/js/i18n/onboarding.js?v=asset-c0905b266684',
+        '/static/js/i18n/workspace.js?v=asset-7215af28bacf',
+        '/static/js/i18n/model-management.js?v=asset-e852961b1831',
+        '/static/js/i18n/preferences.js?v=asset-ccf907b5a2dc',
         '/static/js/i18n/cloud-storage.js?v=asset-d576e6096d48',
         '/static/js/cloud-records.js?v=asset-672387e62ee0',
-        '/static/js/i18n/batch-generation.js?v=asset-aa8ad2ab65ec',
-        '/static/js/i18n/runtime.js?v=asset-b0e1ca1c47c6',
+        '/static/js/i18n/batch-generation.js?v=asset-6fc9182239cf',
+        '/static/js/i18n/runtime.js?v=asset-79ccf6645e07',
         '/static/js/i18n/studio.js?v=asset-1b9c7049dc10',
-        '/static/js/i18n/api-settings.js?v=asset-28cafb44e34c',
-        '/static/js/i18n/canvas.js?v=asset-29e5ef8ed4a4',
-        '/static/js/i18n/smart-canvas.js?v=asset-b3a84375a3d8',
-        '/static/js/i18n/comfyui-settings.js?v=asset-e76b21e14c6a',
+        '/static/js/i18n/api-settings.js?v=asset-d4e27ef9dfd8',
+        '/static/js/i18n/canvas.js?v=asset-28dcb54266bc',
+        '/static/js/i18n/smart-canvas.js?v=asset-0c99d7c5492b',
+        '/static/js/i18n/comfyui-settings.js?v=asset-4d59936975d0',
     ];
     const tags = scripts.map(src => '<script src="' + src + '"></script>').join('');
     if(document.readyState === 'loading' && document.currentScript){

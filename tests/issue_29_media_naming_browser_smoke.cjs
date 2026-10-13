@@ -54,7 +54,7 @@ const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
         await target.click({button:'right'});
         const renameItem = page.locator('#smartNodeContextMenu ic-menu-item[value="rename-media"]');
         await renameItem.waitFor({state:'visible'});
-        assert.equal(await renameItem.getAttribute('label'),'重命名');
+        assert.equal(await renameItem.getAttribute('label'),'修改名称');
         await renameItem.click();
         const input = target.locator('.image-name-editor');
         await input.waitFor({state:'visible'});

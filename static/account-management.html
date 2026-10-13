@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
-    <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+    <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <title data-i18n="auth.accountsPageTitle">账号管理 · Reroll</title>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
@@ -19,9 +19,9 @@
         <h1 data-i18n="auth.accountManagement">账号管理</h1>
         <p class="subtitle" data-i18n="auth.accountManagementSubtitle">审核新账号、设置项目权限、重置密码或移除账号。</p>
       </div>
-      <div class="capacity" aria-label="账号容量" data-i18n-aria-label="auth.accountCapacity" aria-live="polite">
+      <div class="capacity" aria-label="账号上限" data-i18n-aria-label="auth.accountCapacity" aria-live="polite">
         <strong id="capacity-value">—</strong>
-        <span data-i18n="auth.accountCapacity">账号容量</span>
+        <span data-i18n="auth.accountCapacity">账号上限</span>
       </div>
     </header>
 
@@ -40,18 +40,18 @@
       </section>
     </ic-card>
 
-    <ic-card class="account-section" label="所有账号" data-i18n-label="auth.allAccounts">
+    <ic-card class="account-section" label="全部账号" data-i18n-label="auth.allAccounts">
       <section aria-labelledby="users-title">
         <div class="section-heading">
           <div>
-            <h2 id="users-title" data-i18n="auth.allAccounts">所有账号</h2>
+            <h2 id="users-title" data-i18n="auth.allAccounts">全部账号</h2>
             <p data-i18n="auth.passwordHint">随机密码只在重置完成后显示一次。</p>
           </div>
           <ic-icon-button id="refresh-accounts" type="button" hierarchy="quiet" icon="refresh" label="刷新" data-i18n-label="auth.refresh"></ic-icon-button>
         </div>
-        <ic-table label="所有账号" data-i18n-label="auth.allAccounts" row-selection="none">
+        <ic-table label="全部账号" data-i18n-label="auth.allAccounts" row-selection="none">
           <table>
-            <caption class="visually-hidden" data-i18n="auth.allAccounts">所有账号</caption>
+            <caption class="visually-hidden" data-i18n="auth.allAccounts">全部账号</caption>
             <thead><tr><th data-i18n="auth.loginAccount">登录账号</th><th data-i18n="auth.displayName">显示名称</th><th data-i18n="auth.role">角色</th><th data-i18n="auth.projectPermissions">项目权限</th><th data-i18n="auth.status">状态</th><th class="actions-heading" data-i18n="auth.actions">操作</th></tr></thead>
             <tbody id="account-users"></tbody>
           </table>
@@ -88,7 +88,7 @@
     <p id="account-confirmation-copy" data-i18n="auth.confirmAccountActionDescription">确认执行此账号操作。</p>
   </ic-confirmation-dialog>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8"></script>
   <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db" defer></script>
   <script src="/static/js/account-management.js?v=asset-b159d7f0b114" defer></script>
 </body>

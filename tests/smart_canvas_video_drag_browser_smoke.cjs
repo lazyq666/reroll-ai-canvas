@@ -64,8 +64,8 @@ const executablePath = process.env.SMART_CANVAS_BROWSER
             await loop.click();
             assert.equal(await page.locator(`${selector} video`).evaluate(v=>v.loop),!enabled);
             assert.equal(await loop.getAttribute('label'), language==='zh'
-                ? (enabled ? '开启循环播放' : '关闭循环播放')
-                : (enabled ? 'Turn loop on' : 'Turn loop off'));
+                ? (enabled ? '循环播放' : '关闭循环')
+                : (enabled ? 'Loop playback' : 'Turn loop off'));
             await loop.press('Space');
             assert.equal(await page.locator(`${selector} video`).evaluate(v=>v.loop),enabled);
             await drag(controls.locator('[data-seek]'),40,0);

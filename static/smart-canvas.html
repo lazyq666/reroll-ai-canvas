@@ -34,13 +34,13 @@
     <script src="/static/vendor/js/lucide.js?v=2026.09.01.5.1788439320"></script>
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-3324a9622fea"></script>
+    <script src="/static/js/i18n.js?v=asset-3e4d59211a22"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
     <link rel="stylesheet" href="/static/css/smart-canvas.css?v=asset-18855cc34fed">
     <link rel="stylesheet" href="/static/css/smart-canvas-task-modals.css?v=asset-7ce1a37af323">
     <link rel="stylesheet" href="/static/css/generation-log-modal.css?v=asset-e868922680e6">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-84f7994f17ff" onerror="window.__showSmartCanvasBootError()"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-f0b057e91fa8" onerror="window.__showSmartCanvasBootError()"></script>
     <script type="module" src="/static/js/smart-canvas/image-edit-dock.js?v=asset-3b9958511af0"></script>
     <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
 </head>
@@ -52,7 +52,7 @@
             <p id="canvasOpeningErrorMessage" data-i18n="smart.openingErrorGeneric">画布暂时无法打开，请重试。</p>
             <div class="canvas-opening-error-actions">
                 <button id="canvasOpeningRetry" type="button" data-i18n="smart.openingRetry">重试</button>
-                <button id="canvasOpeningBack" type="button" data-i18n="canvas.backToList">返回画布列表</button>
+                <button id="canvasOpeningBack" type="button" data-i18n="canvas.backToList">返回列表</button>
             </div>
         </div>
     </main>
@@ -68,7 +68,7 @@
         <div id="presencePointerOverlay" class="presence-pointer-overlay" aria-hidden="true"></div>
         <div id="presenceMembers" class="presence-members" aria-label="在线成员" data-i18n-aria-label="smart.presenceMembers" hidden></div>
         <div id="smartNodeFloatingPortal" class="smart-node-floating-portal" aria-hidden="true"></div>
-        <ic-floating-toolbar id="smartTextOptions" class="smart-annotation-options smart-text-options" label="文字大小" data-i18n-label="smart.textSize" overflow="clip">
+        <ic-floating-toolbar id="smartTextOptions" class="smart-annotation-options smart-text-options" label="字号" data-i18n-label="smart.textSize" overflow="clip">
             <button type="button" data-smart-text-size="small">Small</button>
             <button type="button" data-smart-text-size="medium" class="active">Medium</button>
             <button type="button" data-smart-text-size="large">Large</button>
@@ -80,7 +80,7 @@
         <template id="composerCardTemplate">
                 <div class="composer-card">
                     <div id="inputThumbsRow" class="input-thumbs-row"></div>
-                    <ic-icon-button id="composerFocusToggle" class="composer-focus-toggle" type="button" size="s" hierarchy="quiet" icon="focus-editor" label="展开" data-i18n-label="smart.focusEdit" tooltip-placement="block-start" data-action-combination="quiet-icon-action" aria-expanded="false"></ic-icon-button>
+                    <ic-icon-button id="composerFocusToggle" class="composer-focus-toggle" type="button" size="s" hierarchy="quiet" icon="focus-editor" label="展开编辑" data-i18n-label="smart.focusEdit" tooltip-placement="block-start" data-action-combination="quiet-icon-action" aria-expanded="false"></ic-icon-button>
                     <div class="prompt-row prompt-editor-shell">
                         <ic-prompt-composer id="promptInput" class="composer-prompt-input" contenteditable="true" aria-label="提示词编辑器" aria-describedby="promptCharacterCount" data-i18n-aria-label="smart.promptEditor" data-i18n-placeholder="smart.promptPlaceholder" data-placeholder="描述你想生成的图片、视频或文本，输入 @ 引用素材，或从提示词库开始…"></ic-prompt-composer>
                         <span id="promptCharacterCount" class="prompt-character-count" data-prompt-character-count>0</span>
@@ -113,7 +113,7 @@
             <ic-menu-item kind="command" value="image" icon="image" hint="生成图片" data-i18n-hint="smart.quickAdd.imageHint" label="图片" data-i18n-label="smart.kindImage"></ic-menu-item>
             <ic-menu-item kind="command" value="video" icon="video" hint="生成视频" data-i18n-hint="smart.quickAdd.videoHint" label="视频" data-i18n-label="smart.kindVideo"></ic-menu-item>
         </ic-menu>
-        <ic-menu id="multiReferenceGenerateMenu" class="reference-generate-menu" label="引用所选节点生成" data-i18n-label="smart.multiInput.menu" trigger="context" selection="command" size="small" variant="reference-generate" close-label="收起快捷添加" data-i18n-close-label="smart.quickAdd.close" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
+        <ic-menu id="multiReferenceGenerateMenu" class="reference-generate-menu" label="引用生成" data-i18n-label="smart.multiInput.menu" trigger="context" selection="command" size="small" variant="reference-generate" close-label="收起快捷添加" data-i18n-close-label="smart.quickAdd.close" placement="block-end" alignment="start" data-legal-combination="context-command-small-reference-generate">
             <ic-menu-item kind="command" value="image" icon="image" hint="生成图片" data-i18n-hint="smart.quickAdd.imageHint" label="图片生成" data-i18n-label="smart.referenceImageNode"></ic-menu-item>
             <ic-menu-item kind="command" value="video" icon="video" hint="生成视频" data-i18n-hint="smart.quickAdd.videoHint" label="视频生成" data-i18n-label="smart.referenceVideoNode"></ic-menu-item>
         </ic-menu>
@@ -132,7 +132,7 @@
             </svg>
             <small class="smart-annotation-cursor-label"></small>
         </div>
-        <ic-button class="smart-back" type="button" size="m" hierarchy="secondary" onclick="backToCanvasList()" aria-label="返回画布列表" data-i18n-aria-label="canvas.backToList">
+        <ic-button class="smart-back" type="button" size="m" hierarchy="secondary" onclick="backToCanvasList()" aria-label="返回列表" data-i18n-aria-label="canvas.backToList">
             <ic-icon name="back" size="small" slot="start"></ic-icon>
             <span id="smartTitle" data-i18n="smart.title">智能画布</span>
         </ic-button>
@@ -187,13 +187,13 @@
                     <section class="smart-canvas-settings-section">
                         <div class="smart-canvas-settings-section-heading">
                             <h2 data-i18n="smart.canvasSection">画布</h2>
-                            <ic-icon-button id="smartCanvasThemeToggle" class="smart-canvas-theme-toggle" type="button" size="s" hierarchy="quiet" icon="theme" label="切换深色模式" data-i18n-label="smart.switchToDarkTheme"></ic-icon-button>
+                            <ic-icon-button id="smartCanvasThemeToggle" class="smart-canvas-theme-toggle" type="button" size="s" hierarchy="quiet" icon="theme" label="深色模式" data-i18n-label="smart.switchToDarkTheme"></ic-icon-button>
                         </div>
                         <div class="smart-canvas-settings-row smart-canvas-dock-position-row">
                             <div class="smart-canvas-settings-copy">
-                                <strong data-i18n="smart.dockPosition">工具栏位置</strong>
+                                <strong data-i18n="smart.dockPosition">工具位置</strong>
                             </div>
-                            <ic-tabs id="smartCanvasDockPositionControl" class="smart-canvas-dock-position-control" data-component-name="ic-tabs-small" label="工具栏位置" data-i18n-label="smart.dockPosition" value="left" size="small" orientation="horizontal" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                            <ic-tabs id="smartCanvasDockPositionControl" class="smart-canvas-dock-position-control" data-component-name="ic-tabs-small" label="工具位置" data-i18n-label="smart.dockPosition" value="left" size="small" orientation="horizontal" activation="automatic" data-legal-combination="horizontal-automatic-label">
                                 <button type="button" data-value="bottom" data-i18n="smart.dockBottom">底部</button>
                                 <button type="button" data-value="left" data-i18n="smart.dockLeft">左侧</button>
                             </ic-tabs>
@@ -222,9 +222,9 @@
                         </div>
                         <div class="smart-canvas-settings-row smart-canvas-generation-layout-row">
                             <div class="smart-canvas-settings-copy">
-                                <strong data-i18n="smart.generationBatchLayout">多结果布局</strong>
+                                <strong data-i18n="smart.generationBatchLayout">结果排列</strong>
                             </div>
-                            <ic-tabs id="smartGenerationBatchLayoutControl" class="smart-canvas-generation-layout-control" data-component-name="ic-tabs-small" label="多结果布局" data-i18n-label="smart.generationBatchLayout" value="horizontal" size="small" orientation="horizontal" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                            <ic-tabs id="smartGenerationBatchLayoutControl" class="smart-canvas-generation-layout-control" data-component-name="ic-tabs-small" label="结果排列" data-i18n-label="smart.generationBatchLayout" value="horizontal" size="small" orientation="horizontal" activation="automatic" data-legal-combination="horizontal-automatic-label">
                                 <button type="button" data-value="horizontal" data-i18n="smart.generationBatchHorizontal">横向</button>
                                 <button type="button" data-value="vertical" data-i18n="smart.generationBatchVertical">纵向</button>
                             </ic-tabs>
@@ -240,9 +240,9 @@
                             </span>
                         </div>
                         <div class="smart-canvas-settings-row smart-canvas-settings-speed-row">
-                            <span class="smart-canvas-settings-copy"><strong data-i18n="smart.panSpeed">滑动速度</strong></span>
+                            <span class="smart-canvas-settings-copy"><strong data-i18n="smart.panSpeed">移动速度</strong></span>
                             <span class="smart-canvas-settings-slider-control">
-                                <ic-slider id="smartCanvasPanSpeed" class="smart-canvas-settings-slider" label="滑动速度" data-i18n-label="smart.panSpeed" name="smart-canvas-pan-speed" size="s" min="50" max="200" step="10" value="100" value-text="1×"></ic-slider>
+                                <ic-slider id="smartCanvasPanSpeed" class="smart-canvas-settings-slider" label="移动速度" data-i18n-label="smart.panSpeed" name="smart-canvas-pan-speed" size="s" min="50" max="200" step="10" value="100" value-text="1×"></ic-slider>
                                 <output id="smartCanvasPanSpeedValue" for="smartCanvasPanSpeed">1×</output>
                             </span>
                         </div>
@@ -347,14 +347,14 @@
                     </ic-image-edit-selector>
                     </ic-toolbar>
                     <ic-toolbar id="imageMaskTools" class="image-edit-tools" label="遮罩工具" data-i18n-label="smart.maskTools" appearance="plain" orientation="horizontal" hidden>
-                    <ic-image-edit-slider class="image-edit-option-row" label="笔刷大小" data-i18n-label="smart.brushSize">
+                    <ic-image-edit-slider class="image-edit-option-row" label="画笔粗细" data-i18n-label="smart.brushSize">
                         <span class="image-edit-option-name" data-i18n="smart.thickness">粗细</span>
                         <div class="image-edit-option-input"><ic-slider id="maskBrushSize" name="mask-brush-size" label="笔刷大小" data-i18n-label="canvas.brushSize" min="4" max="160" step="1" value="42" value-text="42"></ic-slider></div>
                     </ic-image-edit-slider>
                     <ic-image-edit-selector class="image-edit-option-row" label="历史操作" data-i18n-label="smart.editHistory">
                         <div class="image-edit-option-input image-edit-inline-actions">
                             <ic-icon-button id="maskUndoBtn" type="button" size="small" hierarchy="secondary" icon="restore" label="撤销" data-i18n-label="canvas.undo" onclick="undoEditDrawing()"></ic-icon-button>
-                            <ic-icon-button id="maskRedoBtn" type="button" size="small" hierarchy="secondary" icon="redo" label="恢复" data-i18n-label="canvas.redo" onclick="redoEditDrawing()"></ic-icon-button>
+                            <ic-icon-button id="maskRedoBtn" type="button" size="small" hierarchy="secondary" icon="redo" label="重做" data-i18n-label="canvas.redo" onclick="redoEditDrawing()"></ic-icon-button>
                             <ic-icon-button type="button" size="small" hierarchy="secondary" icon="delete" label="清空" data-i18n-label="canvas.clear" onclick="clearEditDrawing()"></ic-icon-button>
                         </div>
                     </ic-image-edit-selector>
@@ -381,7 +381,7 @@
                     <ic-image-edit-selector class="image-edit-option-row" label="历史操作" data-i18n-label="smart.editHistory">
                         <div class="image-edit-option-input image-edit-inline-actions">
                             <ic-icon-button id="brushUndoBtn" type="button" size="small" hierarchy="secondary" icon="restore" label="撤销" data-i18n-label="canvas.undo" onclick="undoEditDrawing()"></ic-icon-button>
-                            <ic-icon-button id="brushRedoBtn" type="button" size="small" hierarchy="secondary" icon="redo" label="恢复" data-i18n-label="canvas.redo" onclick="redoEditDrawing()"></ic-icon-button>
+                            <ic-icon-button id="brushRedoBtn" type="button" size="small" hierarchy="secondary" icon="redo" label="重做" data-i18n-label="canvas.redo" onclick="redoEditDrawing()"></ic-icon-button>
                             <ic-icon-button type="button" size="small" hierarchy="secondary" icon="delete" label="清空" data-i18n-label="canvas.clear" onclick="clearEditDrawing()"></ic-icon-button>
                         </div>
                     </ic-image-edit-selector>
@@ -436,9 +436,9 @@
                             <ic-button size="small" hierarchy="quiet" type="button" onclick="resetGridJoinLayout()" data-i18n="smart.qualityAuto">自动</ic-button>
                         </div>
                     </ic-image-edit-selector>
-                    <ic-image-edit-selector id="gridJoinSizeRow" class="image-edit-option-row grid-join-control" label="拼接输出尺寸" data-i18n-label="smart.gridJoinOutputSize" style="display:none">
+                    <ic-image-edit-selector id="gridJoinSizeRow" class="image-edit-option-row grid-join-control" label="成图尺寸" data-i18n-label="smart.gridJoinOutputSize" style="display:none">
                         <span class="image-edit-option-name" data-i18n="smart.dimension">输出尺寸</span>
-                        <div class="image-edit-option-input"><ic-segmented-control id="gridJoinSizeControl" label="拼接输出尺寸" data-i18n-label="smart.gridJoinOutputSize" value="2048" data-legal-combination="single-label">
+                        <div class="image-edit-option-input"><ic-segmented-control id="gridJoinSizeControl" label="成图尺寸" data-i18n-label="smart.gridJoinOutputSize" value="2048" data-legal-combination="single-label">
                                 <button type="button" data-value="1024" data-grid-join-size="1024" onclick="setGridJoinOutputSize(1024)">1K</button>
                                 <button type="button" data-value="2048" data-grid-join-size="2048" onclick="setGridJoinOutputSize(2048)">2K</button>
                                 <button type="button" data-value="4096" data-grid-join-size="4096" onclick="setGridJoinOutputSize(4096)">4K</button>
@@ -455,8 +455,8 @@
                                 <button id="gridOrientH" type="button" data-value="h" onclick="setGridCustomOrientation('h')" data-i18n="canvas.gridOrientH">水平</button>
                                 <button id="gridOrientV" type="button" data-value="v" onclick="setGridCustomOrientation('v')" data-i18n="canvas.gridOrientV">垂直</button>
                             </ic-segmented-control>
-                            <ic-icon-button id="gridUndoBtn" type="button" size="small" hierarchy="secondary" icon="restore" label="撤销上一条线" data-i18n-label="canvas.gridUndo" onclick="undoGridCustomLine()" disabled></ic-icon-button>
-                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="delete" label="清除所有自定义线" data-i18n-label="canvas.gridClearLines" onclick="clearGridCustomLines()"></ic-icon-button>
+                            <ic-icon-button id="gridUndoBtn" type="button" size="small" hierarchy="secondary" icon="restore" label="撤销切线" data-i18n-label="canvas.gridUndo" onclick="undoGridCustomLine()" disabled></ic-icon-button>
+                            <ic-icon-button type="button" size="small" hierarchy="secondary" icon="delete" label="清空切线" data-i18n-label="canvas.gridClearLines" onclick="clearGridCustomLines()"></ic-icon-button>
                         </div>
                     </ic-image-edit-selector>
                     <ic-image-edit-slider class="image-edit-option-row grid-gap-control" label="间隔"><span class="image-edit-option-name" data-i18n="canvas.gridGap">间隔</span><div class="image-edit-option-input"><ic-slider id="gridGapSize" name="grid-gap-size" label="间隔(px)" data-i18n-label="canvas.gridGap" min="0" max="240" step="1" value="0" value-text="0px"></ic-slider><span id="gridGapValue" class="grid-gap-value">0</span></div></ic-image-edit-slider>
@@ -498,7 +498,7 @@
                             <div id="imageRepairPresets" class="image-repair-presets" role="group" aria-label="修复预设" data-i18n-aria-label="smart.repair.presets"></div>
                             <small id="imageRepairScope" hidden></small>
                             <ic-textarea id="imageRepairPrompt" label="修复要求" data-i18n-label="smart.repair.prompt" placeholder="描述需要修改的内容" data-i18n-placeholder="smart.repair.promptPlaceholder" rows="4" resize="vertical"></ic-textarea>
-                            <ic-button id="imageRepairGenerate" hierarchy="primary" data-i18n="smart.repair.generate">生成修复图</ic-button>
+                            <ic-button id="imageRepairGenerate" hierarchy="primary" data-i18n="smart.repair.generate">开始修复</ic-button>
                         </div>
                         <div id="imageRepairAdjustment" class="image-repair-fields" hidden>
                             <div class="image-repair-row">
@@ -514,7 +514,7 @@
                             </div>
                             <ic-button id="imageRepairSave" hierarchy="primary" data-i18n="smart.confirmChanges">确认修改</ic-button>
                             <ic-button id="imageRepairPsd" hierarchy="secondary" data-i18n="smart.downloadPsd">下载 PSD</ic-button>
-                            <ic-button id="imageRepairNew" hierarchy="quiet" data-i18n="smart.repair.another">修复另一处</ic-button>
+                            <ic-button id="imageRepairNew" hierarchy="quiet" data-i18n="smart.repair.another">继续修复</ic-button>
                         </div>
                     </aside>
                 </section>
@@ -676,7 +676,7 @@
                 <div id="smartNodePackageChooseError" class="smart-node-package-error" role="alert" tabindex="-1" hidden></div>
             </section>
             <section data-node-package-step="review" hidden>
-                <div class="smart-node-package-step-heading"><div><h3 data-i18n="smart.reviewNodePackage">检查节点包内容</h3><p data-i18n="smart.reviewNodePackageHint">确认节点、连接和资源后再追加到当前画布。</p></div><span data-i18n="smart.nodePackageStep2">第 2 步，共 3 步</span></div>
+                <div class="smart-node-package-step-heading"><div><h3 data-i18n="smart.reviewNodePackage">检查内容</h3><p data-i18n="smart.reviewNodePackageHint">确认节点、连接和资源后再追加到当前画布。</p></div><span data-i18n="smart.nodePackageStep2">第 2 步，共 3 步</span></div>
                 <div class="smart-node-package-selected smart-node-package-selected-review"><span class="smart-node-package-file-icon"><ic-icon name="file" aria-hidden="true"></ic-icon></span><span class="smart-node-package-file-copy"><strong id="smartNodePackageReviewFileName"></strong><small id="smartNodePackageReviewFileMeta"></small></span><span class="smart-node-package-ready" data-i18n="smart.nodePackageReadable">可读取</span></div>
                 <div class="smart-node-package-summary"><span><strong id="smartNodePackageNodeCount">0</strong><small data-i18n="smart.nodesLabel">节点</small></span><span><strong id="smartNodePackageConnectionCount">0</strong><small data-i18n="smart.connectionsLabel">连接</small></span><span><strong id="smartNodePackageResourceSize">0 B</strong><small id="smartNodePackageResourceCount">0 个资源</small></span></div>
                 <div id="smartNodePackageWarning" class="smart-node-package-warning" hidden><ic-icon name="warning" aria-hidden="true"></ic-icon><span></span></div>
@@ -693,7 +693,7 @@
     <ic-dialog id="workspaceAssetDialog" class="workspace-asset-dialog" label="资产库" data-i18n-label="smart.workspaceAssetLibrary" size="x-large" dismiss-policy="explicit">
         <ic-workspace-asset-library id="workspaceAssetPanel" aria-label="资产库" data-i18n-aria-label="smart.workspaceAssetLibrary"></ic-workspace-asset-library>
     </ic-dialog>
-    <ic-dialog id="smartFrameExportDialog" label="下载分区图片" data-i18n-label="smart.frameExport.title" size="small" variant="compact" dismiss-policy="explicit">
+    <ic-dialog id="smartFrameExportDialog" label="下载分区" data-i18n-label="smart.frameExport.title" size="small" variant="compact" dismiss-policy="explicit">
         <div class="smart-frame-export-content">
             <div class="smart-frame-export-field">
                 <span data-i18n="smart.frameExport.scale">导出倍率</span>
@@ -714,7 +714,7 @@
     <script src="/static/js/smart-canvas/clipboard-ownership.js?v=asset-7714e33c1197"></script>
     <script src="/static/js/smart-canvas/node-review-fixture.js?v=asset-598295cffb82"></script>
     <script src="/static/js/smart-canvas/node-kinds.js?v=asset-f9656454e490"></script>
-    <script src="/static/js/smart-canvas/node-geometry.js?v=asset-534d3fdd9af7"></script>
+    <script src="/static/js/smart-canvas/node-geometry.js?v=asset-5c71a2c54815"></script>
     <script src="/static/js/smart-canvas/image-metadata.js?v=asset-c72baf376710"></script>
     <script src="/static/js/smart-canvas/canvas-level-of-detail.js?v=asset-3cc99bd3433d"></script>
     <script src="/static/js/smart-canvas/canvas-far-presentation.js?v=asset-22e9affb88f3"></script>
@@ -726,8 +726,8 @@
     <script src="/static/js/smart-canvas/image-studio-geometry.js?v=asset-83c8576685dd"></script>
     <script src="/static/js/smart-canvas/ai-processor-geometry.js?v=asset-3ea6dabaab01"></script>
     <script src="/static/js/infinite-canvas-ui/canvas-commit-lane.js?v=asset-684f7db10eb0"></script>
-    <script src="/static/js/smart-canvas/canvas-opening.js?v=asset-ab2391dd4e02"></script>
-    <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-b465f5b987f4"></script>
+    <script src="/static/js/smart-canvas/canvas-opening.js?v=asset-fd362ddf1bb9"></script>
+    <script src="/static/js/smart-canvas/canvas-persistence.js?v=asset-775b64b2190a"></script>
     <script src="/static/js/smart-canvas/viewport-selection.js?v=asset-4e6f041502d5"></script>
     <script src="/static/js/smart-canvas/realtime-presence.js?v=asset-582e326a9e7f"></script>
     <script src="/static/js/smart-canvas/canvas-mutation.js?v=asset-d6c95b230a90"></script>
@@ -750,14 +750,14 @@
     <script src="/static/js/smart-canvas/generation-provider.js?v=asset-7b0bf1e5e5e7"></script>
     <script src="/static/js/smart-canvas/generation-failure-feedback.js?v=asset-4d192a74b065"></script>
     <script src="/static/js/smart-canvas/generation-log-modal.js?v=asset-ad3879b87435"></script>
-    <script src="/static/js/smart-canvas/task-modals.js?v=asset-23795c520673"></script>
+    <script src="/static/js/smart-canvas/task-modals.js?v=asset-8bc6ed0be4cd"></script>
     <script src="/static/js/smart-canvas/generation-pending.js?v=asset-23ee9884ec27"></script>
     <script src="/static/js/smart-canvas/generation-output.js?v=asset-f144ed4a8744"></script>
     <script src="/static/js/smart-canvas/smart-matting.js?v=asset-7f3272467cb9"></script>
     <script src="/static/js/smart-canvas/generation-run.js?v=asset-05415945676a"></script>
     <script src="/static/js/smart-canvas/generation-recovery.js?v=asset-e219c5166654"></script>
     <script src="/static/js/smart-canvas/smart-depth-map.js?v=asset-a1abdb90e5d1"></script>
-    <script src="/static/js/smart-canvas/generation-cascade.js?v=asset-c858c55ec4a5"></script>
+    <script src="/static/js/smart-canvas/generation-cascade.js?v=asset-ea5e76989d97"></script>
     <script src="/static/js/smart-canvas/click-spark-feedback.js?v=asset-3f13fc51a50e"></script>
     <script src="/static/js/smart-canvas/connection-layer.js?v=asset-dd104f696fc9"></script>
     <script src="/static/js/smart-canvas/prompt-generation-composer.js?v=asset-5690381d136d"></script>

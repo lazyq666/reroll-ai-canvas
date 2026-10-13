@@ -311,7 +311,7 @@ class ApplicationHttpTests(unittest.TestCase):
             )
 
             self.assertIn("重新连接工作区", page.text)
-            self.assertIn("重试当前工作区", page.text)
+            self.assertIn("重试打开", page.text)
             self.assertIn("打开另一个已有工作区", page.text)
             self.assertIn("创建新的工作区", page.text)
             self.assertIn("不会删除或修改原工作区", page.text)

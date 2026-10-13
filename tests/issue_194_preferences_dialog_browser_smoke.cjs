@@ -6,10 +6,10 @@ const baseUrl = process.env.ISSUE_194_PREVIEW_URL || 'http://127.0.0.1:8798';
 const browserExecutable = process.env.SMART_CANVAS_BROWSER || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const screenshotDir = process.env.ISSUE_194_SCREENSHOT_DIR || '';
 const combinations = [
-  { name: 'desktop-light-zh', theme: 'light', locale: 'zh', viewport: { width: 1440, height: 900 }, expectedLabel: '数据存储位置' },
-  { name: 'desktop-dark-en', theme: 'dark', locale: 'en', viewport: { width: 1440, height: 900 }, expectedLabel: 'Data Storage Location' },
-  { name: 'narrow-light-zh', theme: 'light', locale: 'zh', viewport: { width: 390, height: 844 }, expectedLabel: '数据存储位置' },
-  { name: 'narrow-dark-en', theme: 'dark', locale: 'en', viewport: { width: 390, height: 844 }, expectedLabel: 'Data Storage Location' },
+  { name: 'desktop-light-zh', theme: 'light', locale: 'zh', viewport: { width: 1440, height: 900 }, expectedLabel: '保存位置' },
+  { name: 'desktop-dark-en', theme: 'dark', locale: 'en', viewport: { width: 1440, height: 900 }, expectedLabel: 'Storage location' },
+  { name: 'narrow-light-zh', theme: 'light', locale: 'zh', viewport: { width: 390, height: 844 }, expectedLabel: '保存位置' },
+  { name: 'narrow-dark-en', theme: 'dark', locale: 'en', viewport: { width: 390, height: 844 }, expectedLabel: 'Storage location' },
 ];
 
 (async () => {

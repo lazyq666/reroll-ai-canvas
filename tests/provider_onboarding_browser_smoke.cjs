@@ -443,7 +443,7 @@ async function main() {
         && volcengineKeyInput.actionTag === 'IC-BUTTON'
         && volcengineKeyInput.actionContract === 'ready'
         && volcengineKeyInput.actionSlot === 'end'
-        && volcengineKeyInput.actionText === '检测地址'
+        && volcengineKeyInput.actionText === '检查连接'
         && volcengineKeyInput.clearTag === 'IC-ICON-BUTTON'
         && volcengineKeyInput.clearContract === 'ready'
         && volcengineKeyInput.clearSlot === 'end'
@@ -451,7 +451,7 @@ async function main() {
         && volcengineKeyInput.clearBeforeDetect
         && defaultKeyActions.clearHidden === true
         && defaultKeyActions.detectHidden === false
-        && defaultKeyActions.detectText === '检测地址',
+        && defaultKeyActions.detectText === '检查连接',
       headingSemantics: headingSemantics.pageH1 === 1
         && headingSemantics.providerNavigationTag === 'IC-CARD'
         && headingSemantics.providerNavigationSize === 'small'

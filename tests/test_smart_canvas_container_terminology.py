@@ -47,7 +47,7 @@ class SmartCanvasContainerTerminologyTests(unittest.TestCase):
             "smart.frameNumber": "分区 {number}",
             "smart.frameActions": "分区操作",
             "smart.contextCreateFrame": "创建分区",
-            "smart.contextRenameFrame": "重命名分区",
+            "smart.contextRenameFrame": "分区名称",
             "smart.contextUngroupFrame": "取消分区",
             "smart.contextDeleteFrameAll": "删除分区及 {n} 个内容",
         }

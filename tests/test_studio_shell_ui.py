@@ -151,11 +151,11 @@ class StudioShellUiRegressionTests(unittest.TestCase):
     def test_collapsed_primary_navigation_exposes_tooltips(self):
         self.assertEqual(self.page.count('data-collapsed-tooltip-key='), 2)
         self.assertIn('<ic-tooltip id="sidebar-tooltip"', self.page)
-        self.assertIn('content="展开导航栏" placement="inline-end"', self.page)
+        self.assertIn('content="展开导航" placement="inline-end"', self.page)
         self.assertIn("function showSidebarTooltip(item)", self.script)
         self.assertIn("tooltip.show(sidebarTooltipAnchor(item))", self.script)
         self.assertNotIn("item.setAttribute('title', label)", self.script)
-        self.assertNotIn('id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="quiet" aria-label="展开导航栏" title=', self.page)
+        self.assertNotIn('id="sidebarLogoToggle" class="sidebar-logo-toggle" type="button" hierarchy="quiet" aria-label="展开导航" title=', self.page)
 
     def test_collapsed_settings_and_account_controls_are_icon_only_and_centered(self):
         self.assertIn('<ic-icon-button id="settings-fold-toggle"', self.page)

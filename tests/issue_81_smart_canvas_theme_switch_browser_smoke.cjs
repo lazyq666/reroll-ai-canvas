@@ -290,7 +290,7 @@ async function settingsState(page) {
     const initial = await themeState(page);
     assert.deepEqual(initial, {
       tag: 'ic-icon-button',
-      label: '切换深色模式',
+      label: '深色模式',
       size: 's',
       icon: 'theme',
       contract: 'ready',
@@ -313,7 +313,7 @@ async function settingsState(page) {
       position: 'left',
       tag: 'ic-tabs',
       componentName: 'ic-tabs-small',
-      label: '工具栏位置',
+      label: '工具位置',
       size: 'small',
       orientation: 'horizontal',
       combination: 'horizontal-automatic-label',
@@ -363,7 +363,7 @@ async function settingsState(page) {
     await page.waitForFunction(() => document.documentElement.dataset.uiTheme === 'dark');
     const dark = await themeState(page);
     assert.equal(dark.icon, 'light');
-    assert.equal(dark.label, '切换浅色模式');
+    assert.equal(dark.label, '浅色模式');
     assert.equal(dark.htmlDark, true);
     assert.equal(dark.bodyDark, true);
     assert.equal(dark.studioTheme, 'dark');

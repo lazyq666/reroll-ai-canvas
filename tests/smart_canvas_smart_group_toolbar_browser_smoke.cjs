@@ -151,7 +151,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             label:'编组操作',
             nativeButtonCount:0,
             actions:['arrange', 'preview', 'grid', 'download', 'ungroup'],
-            labels:['整理选中', '预览', '宫格拼接', '批量下载', '解散编组'],
+            labels:['整理排列', '预览', '宫格拼接', '批量下载', '解散编组'],
             icons:['arrange', 'preview', 'join-grid', 'archive', 'ungroup'],
             disabled:[false, false, false, false, false],
         });
@@ -329,7 +329,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0l
             contract:'ready',
             buttonCount:5,
             icons:['arrange', 'preview', 'join-grid', 'archive', 'ungroup'],
-            labels:['整理选中', '预览', '宫格拼接', '批量下载', '解散编组'],
+            labels:['整理排列', '预览', '宫格拼接', '批量下载', '解散编组'],
         });
         const libraryStage = libraryPage.locator('[data-smart-node-toolbar-variant="smart-group"]');
         await libraryStage.screenshot({path:'/tmp/infinite-canvas-smart-group-toolbar-library.png'});
