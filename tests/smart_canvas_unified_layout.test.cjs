@@ -383,3 +383,27 @@ test('Generate again places new image/video results beside the clicked node whil
         }
     }
 });
+
+test('pasting an image beside small text annotations preserves valid annotation geometry',()=>{
+    for(const [w,h] of [[36,23],[24,23],[24,36]]){
+        const annotation={id:'label',type:'smart-text',x:184,y:-629,w,h,text:'Label',textSize:'small'};
+        const s=mutation([annotation]);
+        const created=s.SmartCanvasModules.canvasMutation.create({kind:'prepared',data:{node:source('pasted')},
+            options:{placement:{anchor:{kind:'viewport',x:720,y:450},relation:'free',arrangement:'single'}}});
+        assert.equal(created.id,'pasted');
+        assert.equal(s.nodes.length,2);
+        assert.deepEqual(clone(s.nodes[0]),annotation);
+        const measurement=geometry.createSession({nodes:[annotation]}).measure('label');
+        assert.deepEqual(measurement.diagnostics,[]);
+        assert.equal(measurement.footprint.width,w);
+        assert.equal(measurement.footprint.height,h);
+    }
+});
+
+test('text annotations still reject nonpositive and nonfinite persisted dimensions',()=>{
+    for(const h of [0,-1,Infinity,NaN]){
+        const annotation={id:'label',type:'smart-text',x:0,y:0,w:36,h};
+        assert.ok(geometry.createSession({nodes:[annotation]}).measure('label').diagnostics
+            .some(item=>item.code==='invalid-persisted-dimensions'));
+    }
+});
