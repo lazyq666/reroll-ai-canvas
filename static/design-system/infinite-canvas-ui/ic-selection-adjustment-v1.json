@@ -20,7 +20,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/selection-adjustment.js?v=asset-73a9a20cbe8f",
+        "/static/js/infinite-canvas-ui/selection-adjustment.js?v=asset-ee5402a6a82d",
         "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
         "/tests/infinite_canvas_ui_selection_adjustment_browser_harness.html"
       ]
@@ -62,7 +62,7 @@
       "requiredAttributes": ["label", "name"],
       "optionalAttributes": ["appearance", "orientation", "size"],
       "allowedChildren": ["ic-radio"],
-      "semanticDimensions": {"appearance": ["default", "tabs"], "density": ["small", "medium", "large"]},
+      "semanticDimensions": {"appearance": ["default", "tabs", "tabs-underline"], "density": ["small", "medium", "large"]},
       "tabsAppearance": "Horizontal Radio Group variant using the spacing and hover treatment of horizontal-automatic-label Tabs, with a --ui-palette-gray-50 selected surface and corresponding gray-800 dark surface, while retaining radio semantics.",
       "formAssociated": true,
       "prohibitedUses": ["multi-select", "independent-boolean"]
@@ -87,7 +87,7 @@
       "tag": "ic-select",
       "purpose": "Choose one or more values from a bounded list of named options.",
       "requiredAttributes": ["name"],
-      "optionalAttributes": ["label", "aria-label", "size", "hierarchy", "multiple", "data-component-variant"],
+      "optionalAttributes": ["label", "aria-label", "size", "shape", "hierarchy", "multiple", "data-component-variant"],
       "slots": ["start", "end"],
       "accessibleName": {"oneOf": ["label", "aria-label"], "visibleLabelPreferredForStandaloneFields": true},
       "semanticDimensions": {
@@ -97,6 +97,7 @@
         "variant": ["default", "secondary", "model-picker", "generation-count"]
       },
       "secondaryAppearance": "The collapsed control and selected option use --ui-color-action-secondary-selected with no border; selected and unselected text use --ui-color-text-primary.",
+      "pillAppearance": "Optional shape=pill keeps the same selection contract and adds a rounded compact trigger. --ic-select-height and --ic-select-font-size control its compact geometry.",
       "quietAppearance": "Pure-text trigger with transparent background, zero border and zero outer padding; the disclosure icon and keyboard focus ring remain visible.",
       "quietMultipleSummary": "When one or more options are selected, the collapsed trigger displays their visible labels instead of a generic selected-option count.",
       "quietMenu": "The popup keeps a readable minimum width and renders each option label on one line, truncating labels only when necessary.",
@@ -106,17 +107,19 @@
     {
       "tag": "ic-slider",
       "purpose": "Adjust one continuous or stepped numeric value within a bounded range.",
+      "mediaGeometry": "Media appearance supports --ic-slider-track-size and --ic-slider-thumb-size; external audio parameter labels and values may accompany the retained accessible label.",
       "requiredAttributes": ["label", "min", "max", "value"],
-      "optionalAttributes": ["step", "value-text", "disabled", "size"],
-      "semanticDimensions": {"density": ["small", "medium", "large"]},
+      "optionalAttributes": ["step", "value-text", "disabled", "size", "appearance"],
+      "semanticDimensions": {"density": ["small", "medium", "large"], "appearance": ["default", "media"]},
       "formAssociated": true,
       "prohibitedUses": ["discrete-named-options", "unbounded-number", "value-without-accessible-text"]
     },
     {
       "tag": "ic-number-input",
       "purpose": "Enter or step one precise numeric value, optionally paired with a Slider by a higher-level field pattern.",
+      "hiddenLabel": "label-hidden visually hides the required accessible label only when the containing row already supplies a visible field label.",
       "requiredAttributes": ["label", "name"],
-      "optionalAttributes": ["min", "max", "step", "value", "disabled", "readonly", "required", "size"],
+      "optionalAttributes": ["min", "max", "step", "value", "disabled", "readonly", "required", "size", "label-hidden"],
       "semanticDimensions": {"density": ["small", "medium", "large"]},
       "formAssociated": true,
       "prohibitedUses": ["free-text-entry", "discrete-named-options", "page-local-spinner-contract"]

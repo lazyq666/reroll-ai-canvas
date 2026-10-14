@@ -1,5 +1,5 @@
 import WaRadio from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/radio/radio.js';
-import { applyContractState } from './shared.js?v=asset-43b40b4ea1f9';
+import { applyContractState } from './shared.js?v=asset-15b3b74e35cb';
 
 
 export class IcRadio extends WaRadio {

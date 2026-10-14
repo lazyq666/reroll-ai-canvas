@@ -92,6 +92,24 @@ export const BUTTON_STYLES = css`
   }
 
   /* The engine reflects its medium default. Keep implicit size bound to page density. */
+  /* Pill actions are opt-in; existing action geometry stays unchanged. */
+  :host([shape='pill']) [part~='base'] {
+    border-radius: var(--ui-radius-pill) !important;
+    corner-shape: round;
+    min-block-size: var(--ic-action-height, var(--wa-form-control-height));
+    font-size: var(--ic-action-font-size, inherit);
+    padding-inline: var(--ic-action-padding-inline, var(--ui-space-3));
+  }
+  :host([shape='pill'][toggle][pressed]:not([disabled])) [part~='base'] {
+    color: var(--ui-color-text-on-action-primary);
+    background: var(--ui-color-action-primary);
+    border-color: var(--ui-color-action-primary);
+  }
+  :host([shape='pill'][hierarchy='quiet']:not([pressed]):not([disabled])) [part~='base'] {
+    color: var(--ui-color-text-secondary);
+    background: var(--ui-color-surface);
+  }
+
   :host([data-ic-density-size]) {
     --wa-form-control-height: var(--ui-density-control-height);
   }
@@ -421,6 +439,16 @@ export const ICON_BUTTON_STYLES = css`
     background: var(--ui-color-action-primary-hover);
     box-shadow: var(--ui-shadow-raised);
     transform: translateY(-1px);
+  }
+  :host([shape='pill'][hierarchy][tone]) [part~='base'] {
+    padding-inline: 0;
+    border-radius: var(--ui-radius-pill) !important;
+    corner-shape: round;
+  }
+  :host([shape='pill'][hierarchy][tone][pressed]:not([disabled])) [part~='base'] {
+    background: var(--ui-color-action-secondary-hover) !important;
+    color: var(--ui-color-text-primary) !important;
+    border-color: transparent; box-shadow: none;
   }
 `;
 

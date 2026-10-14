@@ -11,7 +11,7 @@
         '/static/js/cloud-records.js?v=asset-672387e62ee0',
         '/static/js/i18n/batch-generation.js?v=asset-6fc9182239cf',
         '/static/js/i18n/runtime.js?v=asset-79ccf6645e07',
-        '/static/js/i18n/music.js?v=asset-a5cb78649737',
+        '/static/js/i18n/music.js?v=asset-3bd298f518cf',
         '/static/js/i18n/studio.js?v=asset-1b9c7049dc10',
         '/static/js/i18n/api-settings.js?v=asset-d4e27ef9dfd8',
         '/static/js/i18n/canvas.js?v=asset-28dcb54266bc',

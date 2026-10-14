@@ -4164,6 +4164,15 @@ class WorkspaceGenerationEffects:
                     item["url"] = await materialize(
                         item["url"], kind
                     )
+                if legacy.get("type") == "suno":
+                    for field in ("image_url", "image_large_url"):
+                        if item.get(field):
+                            # Covers are optional. Keep the validated remote URL if
+                            # caching fails; an image outage must not fail paid audio.
+                            try:
+                                item[field] = await materialize(item[field], "image")
+                            except Exception:
+                                pass
 
         items = legacy.get("items")
         if isinstance(items, list):

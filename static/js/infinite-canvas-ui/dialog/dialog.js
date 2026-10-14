@@ -202,7 +202,8 @@ export class IcDialog extends withProjectEvents(WaDialog, {
     if (this.dataset.motionState === 'open' || this.dataset.motionState === 'entering') return this.openingPromise;
     const generation = ++this.motionGeneration;
     if (this.closingPromise) {
-      this.dialog?.classList.remove('hide');
+      // Let the active animation finish: the engine promise resolves from its
+      // animation event, so removing its class here can leave both operations waiting.
       await this.closingPromise;
       if (generation !== this.motionGeneration) return;
     }
@@ -248,7 +249,6 @@ export class IcDialog extends withProjectEvents(WaDialog, {
     if (!super.dispatchEvent(before)) return;
     const generation = ++this.motionGeneration;
     if (this.openingPromise) {
-      this.dialog?.classList.remove('show');
       await this.openingPromise;
       if (generation !== this.motionGeneration) return;
     }

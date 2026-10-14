@@ -3,7 +3,7 @@ import { COMPONENT_SIZES, contractState, moveComposite, NAVIGATION_SIZE_STYLES }
 
 
 export class IcSegmentedControl extends IcComposite {
-  static observedAttributes = ['label', 'value', 'disabled', 'size'];
+  static observedAttributes = ['label', 'value', 'disabled', 'size', 'shape'];
   attributeChangedCallback(name) {
     if (name === 'value' && this.isConnected && this.shadowRoot.hasChildNodes()) {
       this.syncSelection();
@@ -74,6 +74,19 @@ export class IcSegmentedControl extends IcComposite {
       :host([data-legal-combination="single-icon-label"])::slotted([role="radio"][aria-checked="true"]) {
         background: var(--ui-color-surface-segmented);
         color: var(--ui-color-text-primary);
+      }
+      :host([shape="pill"]) {
+        height: var(--ic-segmented-height, var(--ic-navigation-control-height));
+        border: 0; border-radius: var(--ui-radius-pill); padding: 3px; gap: 2px;
+        background: var(--ui-color-surface);
+      }
+      :host([shape="pill"]) ::slotted([role="radio"]) {
+        height: calc(var(--ic-segmented-height, var(--ic-navigation-control-height)) - 6px);
+        min-height: 0; border: 0; border-radius: var(--ui-radius-pill); padding-inline: 13px;
+        color: var(--ui-color-text-secondary); font-size: var(--ui-font-size-2) !important;
+      }
+      :host([shape="pill"]) ::slotted([role="radio"][aria-checked="true"]) {
+        outline: none; box-shadow: none; background: var(--ui-color-action-secondary-hover); color: var(--ui-color-text-primary);
       }
       ::slotted([role="radio"]:disabled) {
         border-color: var(--ui-color-border-disabled);

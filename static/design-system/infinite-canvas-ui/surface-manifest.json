@@ -134,7 +134,7 @@
         ]
       },
       "actions": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-a44ea166d312",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-2d23e202b50a",
         "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/actions-contract.html",
@@ -153,7 +153,7 @@
         ]
       },
       "selectionAdjustment": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json?v=asset-4ab2c8b0fb82",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json?v=asset-9edb0bcc1021",
         "fixture": "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/selection-adjustment-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/selection-adjustment-contract.html",
@@ -226,7 +226,7 @@
         ]
       },
       "dialog": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-dialog-v1.json?v=asset-342b5ae671f3",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-dialog-v1.json?v=asset-4fa93974eacc",
         "fixture": "/static/design-system/infinite-canvas-ui/dialog.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/dialog-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/dialog-contract.html",
@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-fb7dbea65c75",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-aa367f2d4e7c",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",
@@ -265,7 +265,7 @@
         ]
       },
       "navigationCommand": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-navigation-command-v1.json?v=asset-bae26b6cfb5f",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-navigation-command-v1.json?v=asset-c27639d48080",
         "fixture": "/static/design-system/infinite-canvas-ui/navigation-command.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/navigation-command-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/navigation-command-contract.html",

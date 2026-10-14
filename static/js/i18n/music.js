@@ -1,5 +1,73 @@
 (function(){
     window.StudioI18n?.register({
+"music.settingsSnapshot": {"zh": "生成时的设置", "en": "Generation settings"},
+"music.excludePlaceholder": {"zh": "例如：失真吉他、强鼓点", "en": "For example: distorted guitars, heavy drums"},
+"music.example3": {"zh": "关于久别重逢的温柔歌曲，从安静的钢琴开始，逐渐加入弦乐。", "en": "A tender song about reuniting after years apart, starting with quiet piano and gradually adding strings."},
+"music.example2": {"zh": "公路旅行的独立流行，明亮的吉他、轻快节奏，带着夏日的自由感。", "en": "Indie pop for a road trip, with bright guitars and an upbeat rhythm that captures the freedom of summer."},
+"music.example1": {"zh": "雨夜里的轻柔爵士，钢琴、低音和轻刷鼓，温暖而放松。", "en": "Gentle jazz on a rainy night, with piano, bass, and brushed drums. Warm and relaxed."},
+"music.taskDetails": {"zh": "完整生成参数", "en": "Full generation settings"},
+"music.prepareFormat": {"zh": "准备格式", "en": "Prepare format"},
+"music.formatNeedsPreparation": {"zh": "需要准备此格式", "en": "Prepare this format to download"},
+"music.formatPreparing": {"zh": "准备中", "en": "Preparing"},
+"music.formatReady": {"zh": "可下载", "en": "Ready to download"},
+"music.downloadAction": {"zh": "下载", "en": "Download"},
+"music.downloadDialogTitle": {"zh": "下载音频", "en": "Download audio"},
+"music.referenceDialogLimits": {"zh": "最多 4 首，每首不超过 50 MB。支持 MP3、WAV、M4A、AAC、OGG 和 FLAC。", "en": "Up to 4 files, 50 MB each. Supports MP3, WAV, M4A, AAC, OGG, and FLAC."},
+"music.referenceDialogHint": {"zh": "选择或拖入音频，先试听，再选择改编或灵感创作。", "en": "Choose or drop audio to preview, then use it for a cover or inspiration."},
+"music.referenceDialogTitle": {"zh": "添加参考音频", "en": "Add reference audio"},
+"music.clearFilters": {"zh": "清除筛选", "en": "Clear filters"},
+"music.simpleShort": {"zh": "简单", "en": "Simple"},
+"music.detailedShort": {"zh": "详细", "en": "Custom"},
+"music.inspireShort": {"zh": "灵感", "en": "Inspire"},
+"music.optionalTitle": {"zh": "歌名（可选）", "en": "Song title (optional)"},
+"music.resetDraft": {"zh": "清空创作草稿", "en": "Clear creation draft"},
+"music.draftCleared": {"zh": "已清空创作草稿", "en": "Creation draft cleared."},
+"music.recentMusic": {"zh": "最近生成", "en": "Recent generations"},
+"music.readyToPlay": {"zh": "可试听", "en": "Ready to play"},
+"music.workspace": {"zh": "我的工作区", "en": "My workspace"},
+"music.addAudio": {"zh": "参考音频", "en": "Audio"},
+"music.personaId": {"zh": "Persona ID", "en": "Persona ID"},
+"music.moreOptions": {"zh": "更多设置", "en": "More options"},
+"music.expandPrompt": {"zh": "展开编辑", "en": "Expand editor"},
+"music.apply": {"zh": "完成", "en": "Done"},
+"music.createPersona": {"zh": "创建 Persona", "en": "Create persona"},
+"music.personaUnavailable": {"zh": "暂不支持创建声线或 Persona", "en": "Voice and persona creation is not available yet."},
+"music.libraryLayout": {"zh": "曲库视图", "en": "Library view"},
+"music.listView": {"zh": "列表", "en": "List"},
+"music.gridView": {"zh": "网格", "en": "Grid"},
+"music.libraryFilter": {"zh": "筛选音乐", "en": "Filter music"},
+"music.allMusic": {"zh": "全部", "en": "All"},
+"music.sessionMusic": {"zh": "本次生成", "en": "This session"},
+"music.favorites": {"zh": "已收藏", "en": "Favorites"},
+"music.favoritesUnavailable": {"zh": "暂不支持收藏", "en": "Favorites are not available yet."},
+"music.sort": {"zh": "排序", "en": "Sort"},
+"music.newest": {"zh": "最新优先", "en": "Newest first"},
+"music.oldestUnavailable": {"zh": "最早优先（暂不可用）", "en": "Oldest first (unavailable)"},
+"music.libraryUnavailable": {"zh": "收藏和跨全部历史的最早排序暂不可用", "en": "Favorites and oldest-first sorting across all history are not available yet."},
+"music.loadedTracks": {"zh": "已加载 {count} 首", "en": "{count} tracks loaded"},
+"music.player": {"zh": "音乐播放器", "en": "Music player"},
+"music.previousTrack": {"zh": "上一首", "en": "Previous track"},
+"music.nextTrack": {"zh": "下一首", "en": "Next track"},
+"music.playAction": {"zh": "播放", "en": "Play"},
+"music.pauseAction": {"zh": "暂停", "en": "Pause"},
+"music.mute": {"zh": "静音", "en": "Mute"},
+"music.unmute": {"zh": "取消静音", "en": "Unmute"},
+"music.addReference": {"zh": "添加音频", "en": "Add audio"},
+"music.referencePreview": {"zh": "参考音频 · 本地试听", "en": "Reference audio · Local preview"},
+"music.repeatTrack": {"zh": "单曲循环", "en": "Repeat track"},
+"music.playbackProgress": {"zh": "播放进度", "en": "Playback position"},
+"music.volume": {"zh": "音量", "en": "Volume"},
+"music.playerEmpty": {"zh": "选择一首音乐", "en": "Choose a track"},
+"music.playerHint": {"zh": "从工作区开始试听", "en": "Play a track from your workspace"},
+"music.artwork": {"zh": "{title}的封面", "en": "Cover for {title}"},
+"music.noArtwork": {"zh": "{title}暂无可用封面", "en": "No cover available for {title}"},
+"music.playbackFailed": {"zh": "音频暂时无法播放，请重试或下载", "en": "Audio could not play. Try again or download the file."},
+"music.styleSuggestion1": {"zh": "流行", "en": "Pop"},
+"music.styleSuggestion2": {"zh": "钢琴", "en": "Piano"},
+"music.styleSuggestion3": {"zh": "氛围", "en": "Ambient"},
+"music.styleSuggestion4": {"zh": "电子", "en": "Electronic"},
+"music.styleSuggestion5": {"zh": "爵士", "en": "Jazz"},
+"music.styleSuggestion6": {"zh": "电影感", "en": "Cinematic"},
 "music.liveService": {"zh": "真实服务 · 按次计费", "en": "Live service · Pay per generation"},
 "music.compose": {"zh": "创作音乐", "en": "Create music"},
 "music.library": {"zh": "我的音乐", "en": "My music"},
@@ -13,10 +81,10 @@
 "music.basic": {"zh": "基本信息", "en": "Basics"},
 "music.preferences": {"zh": "音乐偏好", "en": "Music preferences"},
 "music.fine": {"zh": "效果调整", "en": "Fine-tuning"},
-"music.unsupportedReference": {"zh": "人声参考创作不支持时长和人设", "en": "Duration and personas are unavailable for vocal reference generation."},
+"music.unsupportedReference": {"zh": "灵感创作不支持时长和人设", "en": "Duration and personas are unavailable for Inspire."},
 "music.generateHint": {"zh": "一次生成，两个版本", "en": "Two versions per generation"},
 "music.paidHint": {"zh": "点击生成后，按平台规则扣费", "en": "Generating music charges your provider account."},
-"music.search": {"zh": "搜索音乐", "en": "Search music"},
+"music.search": {"zh": "搜索已加载的音乐", "en": "Search loaded music"},
 "music.searchPlaceholder": {"zh": "搜索歌名、描述或风格", "en": "Search titles, descriptions, or styles"},
 "music.recordDetails": {"zh": "音乐详情", "en": "Music details"},
 "music.preview": {"zh": "试听", "en": "Preview"},
@@ -247,7 +315,7 @@
     },
     "music.loadFailed": {
         "zh": "加载失败，请刷新重试",
-        "en": "Could not load records. Refresh to try again."
+        "en": "Could not load music. Refresh to try again."
     },
     "music.noProvider": {
         "zh": "请管理员在「API 设置」添加平台",
@@ -341,6 +409,12 @@
         "zh": "请重新选择有效选项",
         "en": "Select valid options and try again."
     },
+    "music.errorTitle": { "zh": "错误", "en": "Error" },
+    "music.warningTitle": { "zh": "请留意", "en": "Attention" },
+    "music.retry": { "zh": "重试", "en": "Retry" },
+    "music.serviceUnavailable": { "zh": "音乐服务未就绪，请重启 Reroll 后重试", "en": "Music is unavailable. Restart Reroll, then try again." },
+    "music.sessionExpired": { "zh": "登录已失效，请刷新页面重新登录", "en": "Your session has expired. Refresh to sign in again." },
+    "music.accessDenied": { "zh": "当前账号没有音乐服务权限", "en": "Your account does not have access to music." },
     "music.networkError": {
         "zh": "网络异常，请先查看历史记录",
         "en": "Connection failed. Check your history before retrying."
@@ -647,10 +721,10 @@ window.StudioI18n?.register({
 "music.basic": {"zh": "基本信息", "en": "Basics"},
 "music.preferences": {"zh": "音乐偏好", "en": "Music preferences"},
 "music.fine": {"zh": "效果调整", "en": "Fine-tuning"},
-"music.unsupportedReference": {"zh": "人声参考创作不支持时长和人设", "en": "Duration and personas are unavailable for vocal reference generation."},
+"music.unsupportedReference": {"zh": "灵感创作不支持时长和人设", "en": "Duration and personas are unavailable for Inspire."},
 "music.generateHint": {"zh": "一次生成，两个版本", "en": "Two versions per generation"},
 "music.paidHint": {"zh": "点击生成后，按平台规则扣费", "en": "Generating music charges your provider account."},
-"music.search": {"zh": "搜索音乐", "en": "Search music"},
+"music.search": {"zh": "搜索已加载的音乐", "en": "Search loaded music"},
 "music.searchPlaceholder": {"zh": "搜索歌名、描述或风格", "en": "Search titles, descriptions, or styles"},
 "music.recordDetails": {"zh": "音乐详情", "en": "Music details"},
 "music.preview": {"zh": "试听", "en": "Preview"},
@@ -1139,10 +1213,10 @@ window.StudioI18n?.register({
 "music.basic": {"zh": "基本信息", "en": "Basics"},
 "music.preferences": {"zh": "音乐偏好", "en": "Music preferences"},
 "music.fine": {"zh": "效果调整", "en": "Fine-tuning"},
-"music.unsupportedReference": {"zh": "人声参考创作不支持时长和人设", "en": "Duration and personas are unavailable for vocal reference generation."},
+"music.unsupportedReference": {"zh": "灵感创作不支持时长和人设", "en": "Duration and personas are unavailable for Inspire."},
 "music.generateHint": {"zh": "一次生成，两个版本", "en": "Two versions per generation"},
 "music.paidHint": {"zh": "点击生成后，按平台规则扣费", "en": "Generating music charges your provider account."},
-"music.search": {"zh": "搜索音乐", "en": "Search music"},
+"music.search": {"zh": "搜索已加载的音乐", "en": "Search loaded music"},
 "music.searchPlaceholder": {"zh": "搜索歌名、描述或风格", "en": "Search titles, descriptions, or styles"},
 "music.recordDetails": {"zh": "音乐详情", "en": "Music details"},
 "music.preview": {"zh": "试听", "en": "Preview"},
@@ -1328,4 +1402,772 @@ window.StudioI18n?.register({
 
 window.StudioI18n?.register({
   "music.contentRejected": {"zh":"平台内容审核未通过，请核对音频与描述","en":"The provider rejected the audio or prompt during content review."}
+});
+
+// Isolated Suno Create layout prototype.
+window.StudioI18n?.register({
+  "sunoDemo.pageTitle": {
+    "zh": "Suno 创作布局 · Reroll Demo",
+    "en": "Suno Create layout · Reroll Demo"
+  },
+  "sunoDemo.brand": {
+    "zh": "reroll",
+    "en": "reroll"
+  },
+  "sunoDemo.demo": {
+    "zh": "DEMO",
+    "en": "DEMO"
+  },
+  "sunoDemo.create": {
+    "zh": "创作",
+    "en": "Create"
+  },
+  "sunoDemo.library": {
+    "zh": "我的音乐",
+    "en": "My music"
+  },
+  "sunoDemo.favorites": {
+    "zh": "已收藏",
+    "en": "Liked songs"
+  },
+  "sunoDemo.myWorkspace": {
+    "zh": "我的工作区",
+    "en": "My workspace"
+  },
+  "sunoDemo.lab": {
+    "zh": "音乐实验室",
+    "en": "Music lab"
+  },
+  "sunoDemo.poweredBy": {
+    "zh": "音乐引擎",
+    "en": "Music engine"
+  },
+  "sunoDemo.suno": {
+    "zh": "SUNO",
+    "en": "SUNO"
+  },
+  "sunoDemo.account": {
+    "zh": "设计体验",
+    "en": "Design preview"
+  },
+  "sunoDemo.localSession": {
+    "zh": "本地演示",
+    "en": "Local demo"
+  },
+  "sunoDemo.initials": {
+    "zh": "R",
+    "en": "R"
+  },
+  "sunoDemo.language": {
+    "zh": "切换为 English",
+    "en": "Switch to 中文"
+  },
+  "sunoDemo.langLabel": {
+    "zh": "中文 / EN",
+    "en": "EN / 中文"
+  },
+  "sunoDemo.theme": {
+    "zh": "切换明暗主题",
+    "en": "Toggle light and dark theme"
+  },
+  "sunoDemo.compose": {
+    "zh": "创作音乐",
+    "en": "Create music"
+  },
+  "sunoDemo.allMusic": {
+    "zh": "全部音乐",
+    "en": "All music"
+  },
+  "sunoDemo.simple": {
+    "zh": "简单",
+    "en": "Simple"
+  },
+  "sunoDemo.advanced": {
+    "zh": "详细",
+    "en": "Advanced"
+  },
+  "sunoDemo.audio": {
+    "zh": "参考音频",
+    "en": "Audio"
+  },
+  "sunoDemo.voice": {
+    "zh": "人设",
+    "en": "Persona"
+  },
+  "sunoDemo.inspo": {
+    "zh": "灵感",
+    "en": "Inspire"
+  },
+  "sunoDemo.addAudio": {
+    "zh": "添加参考音频",
+    "en": "Add reference audio"
+  },
+  "sunoDemo.addPersona": {
+    "zh": "使用已有 Suno 人设",
+    "en": "Use an existing Suno persona"
+  },
+  "sunoDemo.songIdea": {
+    "zh": "歌曲主题",
+    "en": "Song idea"
+  },
+  "sunoDemo.description": {
+    "zh": "音乐描述",
+    "en": "Music description"
+  },
+  "sunoDemo.lyrics": {
+    "zh": "歌词",
+    "en": "Lyrics"
+  },
+  "sunoDemo.instrumental": {
+    "zh": "纯音乐",
+    "en": "Instrumental"
+  },
+  "sunoDemo.automatic": {
+    "zh": "自动写词",
+    "en": "Auto lyrics"
+  },
+  "sunoDemo.manual": {
+    "zh": "自填歌词",
+    "en": "Write lyrics"
+  },
+  "sunoDemo.ideaPlaceholder": {
+    "zh": "描述你脑海里的声音。\n例如：城市入夜后的轻柔爵士，温暖的钢琴、低音与窗外的雨声。",
+    "en": "Describe the sound in your head.\nFor example: late-night jazz with warm piano, a mellow bassline, and rain outside the window."
+  },
+  "sunoDemo.lyricsPlaceholder": {
+    "zh": "[Verse]\n写下第一句，让故事开始……\n\n[Chorus]\n这里是想让人记住的旋律",
+    "en": "[Verse]\nStart with a line that tells your story…\n\n[Chorus]\nGive them something to remember"
+  },
+  "sunoDemo.example": {
+    "zh": "试试灵感",
+    "en": "Try an idea"
+  },
+  "sunoDemo.expand": {
+    "zh": "展开编辑",
+    "en": "Expand editor"
+  },
+  "sunoDemo.styles": {
+    "zh": "音乐风格",
+    "en": "Styles"
+  },
+  "sunoDemo.stylePlaceholder": {
+    "zh": "曲风、情绪、乐器、节奏…",
+    "en": "Genres, moods, instruments, tempo…"
+  },
+  "sunoDemo.style1": {
+    "zh": "轻柔爵士",
+    "en": "Soft jazz"
+  },
+  "sunoDemo.style2": {
+    "zh": "电影配乐",
+    "en": "Cinematic"
+  },
+  "sunoDemo.style3": {
+    "zh": "独立流行",
+    "en": "Indie pop"
+  },
+  "sunoDemo.style4": {
+    "zh": "氛围电子",
+    "en": "Ambient"
+  },
+  "sunoDemo.style5": {
+    "zh": "温暖钢琴",
+    "en": "Warm piano"
+  },
+  "sunoDemo.style6": {
+    "zh": "复古合成器",
+    "en": "Vintage synths"
+  },
+  "sunoDemo.moreOptions": {
+    "zh": "更多设置",
+    "en": "More options"
+  },
+  "sunoDemo.songTitle": {
+    "zh": "歌名（可选）",
+    "en": "Song title (optional)"
+  },
+  "sunoDemo.saveTo": {
+    "zh": "保存到",
+    "en": "Save to"
+  },
+  "sunoDemo.provider": {
+    "zh": "服务平台",
+    "en": "Provider"
+  },
+  "sunoDemo.providerName": {
+    "zh": "APIMart",
+    "en": "APIMart"
+  },
+  "sunoDemo.generate": {
+    "zh": "创作音乐",
+    "en": "Create music"
+  },
+  "sunoDemo.generating": {
+    "zh": "正在创作…",
+    "en": "Creating…"
+  },
+  "sunoDemo.reset": {
+    "zh": "清空创作草稿",
+    "en": "Clear creation draft"
+  },
+  "sunoDemo.demoHint": {
+    "zh": "演示模式 · 一次生成两个版本 · 不扣费",
+    "en": "Demo mode · Two versions per creation · No charges"
+  },
+  "sunoDemo.previewBadge": {
+    "zh": "交互 Demo",
+    "en": "Interactive demo"
+  },
+  "sunoDemo.search": {
+  "zh": "搜索已加载的音乐",
+  "en": "Search loaded music"
+},
+  "sunoDemo.newest": {
+    "zh": "最新优先",
+    "en": "Newest first"
+  },
+  "sunoDemo.oldest": {
+    "zh": "最早优先",
+    "en": "Oldest first"
+  },
+  "sunoDemo.sort": {
+    "zh": "排序",
+    "en": "Sort order"
+  },
+  "sunoDemo.list": {
+    "zh": "列表视图",
+    "en": "List view"
+  },
+  "sunoDemo.grid": {
+    "zh": "网格视图",
+    "en": "Grid view"
+  },
+  "sunoDemo.all": {
+    "zh": "全部",
+    "en": "All"
+  },
+  "sunoDemo.session": {
+    "zh": "本次生成",
+    "en": "This session"
+  },
+  "sunoDemo.liked": {
+    "zh": "已收藏",
+    "en": "Liked"
+  },
+  "sunoDemo.count": {
+    "zh": "{count} 首音乐",
+    "en": "{count} tracks"
+  },
+  "sunoDemo.today": {
+    "zh": "今天",
+    "en": "Today"
+  },
+  "sunoDemo.earlier": {
+    "zh": "灵感收藏",
+    "en": "Inspiration collection"
+  },
+  "sunoDemo.newTracks": {
+    "zh": "刚刚生成",
+    "en": "Just created"
+  },
+  "sunoDemo.sample": {
+    "zh": "示例音乐",
+    "en": "Sample music"
+  },
+  "sunoDemo.sampleHint": {
+    "zh": "示例曲目用于体验布局；试听为原创合成音频，生成仅模拟流程。",
+    "en": "Sample tracks demonstrate the layout. Playback uses original synthesized audio; generation is simulated."
+  },
+  "sunoDemo.sampleShort": {
+    "zh": "示例音频 · 12 秒",
+    "en": "Sample audio · 12 sec"
+  },
+  "sunoDemo.play": {
+    "zh": "播放 {title}",
+    "en": "Play {title}"
+  },
+  "sunoDemo.pause": {
+    "zh": "暂停",
+    "en": "Pause"
+  },
+  "sunoDemo.playButton": {
+    "zh": "播放",
+    "en": "Play"
+  },
+  "sunoDemo.previous": {
+    "zh": "上一首",
+    "en": "Previous track"
+  },
+  "sunoDemo.next": {
+    "zh": "下一首",
+    "en": "Next track"
+  },
+  "sunoDemo.loop": {
+    "zh": "循环播放",
+    "en": "Repeat track"
+  },
+  "sunoDemo.progress": {
+    "zh": "播放进度",
+    "en": "Playback progress"
+  },
+  "sunoDemo.volume": {
+    "zh": "音量",
+    "en": "Volume"
+  },
+  "sunoDemo.mute": {
+    "zh": "静音或取消静音",
+    "en": "Mute or unmute"
+  },
+  "sunoDemo.like": {
+    "zh": "收藏 {title}",
+    "en": "Like {title}"
+  },
+  "sunoDemo.unlike": {
+    "zh": "取消收藏 {title}",
+    "en": "Unlike {title}"
+  },
+  "sunoDemo.reuse": {
+    "zh": "沿用设置",
+    "en": "Reuse settings"
+  },
+  "sunoDemo.download": {
+    "zh": "下载",
+    "en": "Download"
+  },
+  "sunoDemo.details": {
+    "zh": "音乐详情",
+    "en": "Song details"
+  },
+  "sunoDemo.close": {
+    "zh": "关闭",
+    "en": "Close"
+  },
+  "sunoDemo.idlePlayer": {
+    "zh": "让灵感开始播放",
+    "en": "Press play on an idea"
+  },
+  "sunoDemo.idleHint": {
+    "zh": "选择一首音乐试听",
+    "en": "Select a track to listen"
+  },
+  "sunoDemo.empty": {
+    "zh": "这里还没有音乐",
+    "en": "No tracks here yet"
+  },
+  "sunoDemo.emptySearch": {
+    "zh": "没有找到匹配的音乐",
+    "en": "No matching tracks"
+  },
+  "sunoDemo.emptyHint": {
+    "zh": "换个关键词，或创作你的第一首音乐。",
+    "en": "Try another search or create your first track."
+  },
+  "sunoDemo.clearFilters": {
+    "zh": "查看全部音乐",
+    "en": "Show all music"
+  },
+  "sunoDemo.created": {
+    "zh": "两个版本已加入曲库，可以试听和继续调整。",
+    "en": "Two versions were added to your library. Listen and keep refining."
+  },
+  "sunoDemo.reused": {
+    "zh": "已填回创作参数，你可以继续修改。",
+    "en": "Settings restored. Make them your own."
+  },
+  "sunoDemo.cleared": {
+    "zh": "创作草稿已清空。",
+    "en": "Creation draft cleared."
+  },
+  "sunoDemo.required": {
+    "zh": "先写下音乐描述、歌曲主题或歌词。",
+    "en": "Add a music description, song idea, or lyrics first."
+  },
+  "sunoDemo.playError": {
+    "zh": "暂时无法播放，请重新试听。",
+    "en": "Could not play this audio. Try again."
+  },
+  "sunoDemo.referenceTitle": {
+    "zh": "添加参考音频",
+    "en": "Add reference audio"
+  },
+  "sunoDemo.referenceHint": {
+    "zh": "选择或拖入 1–4 首音频。每首不超过 50 MB。文件仅在本机试听。",
+    "en": "Choose or drop 1–4 audio files, up to 50 MB each. Files stay local in this demo."
+  },
+  "sunoDemo.chooseFile": {
+    "zh": "选择本地音频",
+    "en": "Choose an audio file"
+  },
+  "sunoDemo.useSample": {
+    "zh": "使用示例音频",
+    "en": "Use sample audio"
+  },
+  "sunoDemo.referenceMode": {
+    "zh": "参考方式",
+    "en": "Reference mode"
+  },
+  "sunoDemo.cover": {
+    "zh": "改编 · Cover",
+    "en": "Cover"
+  },
+  "sunoDemo.inspire": {
+    "zh": "灵感 · Inspire",
+    "en": "Inspire"
+  },
+  "sunoDemo.coverHint": {
+    "zh": "依照原曲旋律改编，支持人声或纯音乐。",
+    "en": "Rework the melody as vocals or an instrumental."
+  },
+  "sunoDemo.inspireHint": {
+    "zh": "借鉴风格、节奏或配器，创作新的歌曲。",
+    "en": "Create a new song inspired by the style, rhythm, or instruments."
+  },
+  "sunoDemo.referenceError": {
+    "zh": "支持 MP3、WAV、M4A、AAC、OGG、FLAC；最多 4 首，每首不超过 50 MB。",
+    "en": "Use MP3, WAV, M4A, AAC, OGG, or FLAC; up to 4 files, 50 MB each."
+  },
+  "sunoDemo.coverOne": {
+    "zh": "Cover 只支持一首参考，请移除多余音频。",
+    "en": "Cover accepts one reference. Remove the extra files."
+  },
+  "sunoDemo.coverDuration": {
+    "zh": "Cover 参考须短于 8 分钟，且可以读取时长。",
+    "en": "Cover needs a readable reference shorter than 8 minutes."
+  },
+  "sunoDemo.inspireVocal": {
+    "zh": "Inspire 暂不支持纯音乐；可切换 Cover 或关闭纯音乐。",
+    "en": "Inspire does not support instrumental output. Switch to Cover or turn off Instrumental."
+  },
+  "sunoDemo.removeRef": {
+    "zh": "移除 {name}",
+    "en": "Remove {name}"
+  },
+  "sunoDemo.referenceName": {
+    "zh": "黄昏旋律 · 参考音频.wav",
+    "en": "Dusk melody · reference.wav"
+  },
+  "sunoDemo.referenceCount": {
+    "zh": "{count} / 4 首参考",
+    "en": "{count} / 4 references"
+  },
+  "sunoDemo.localOnly": {
+    "zh": "仅在本机预览，不上传",
+    "en": "Local preview only. No upload."
+  },
+  "sunoDemo.noPersona": {
+  "zh": "填写已经拥有的 Persona ID，用于文字创作或 Cover。",
+  "en": "Use an existing Persona ID for text generation or Cover."
+},
+  "sunoDemo.apply": {
+    "zh": "应用",
+    "en": "Apply"
+  },
+  "sunoDemo.personaSaved": {
+    "zh": "已应用人设编号。",
+    "en": "Persona ID applied."
+  },
+  "sunoDemo.persona": {
+    "zh": "人设编号",
+    "en": "Persona ID"
+  },
+  "sunoDemo.version": {
+    "zh": "模型版本",
+    "en": "Model version"
+  },
+  "sunoDemo.versionV6": {
+    "zh": "v6",
+    "en": "v6"
+  },
+  "sunoDemo.versionMini": {
+    "zh": "v6-mini",
+    "en": "v6-mini"
+  },
+  "sunoDemo.versionWild": {
+    "zh": "v6-wild",
+    "en": "v6-wild"
+  },
+  "sunoDemo.format": {
+    "zh": "音频格式",
+    "en": "Audio format"
+  },
+  "sunoDemo.auto": {
+    "zh": "自动",
+    "en": "Auto"
+  },
+  "sunoDemo.mp3": {
+    "zh": "MP3",
+    "en": "MP3"
+  },
+  "sunoDemo.wav": {
+    "zh": "WAV",
+    "en": "WAV"
+  },
+  "sunoDemo.m4a": {
+    "zh": "M4A",
+    "en": "M4A"
+  },
+  "sunoDemo.vocals": {
+    "zh": "人声",
+    "en": "Vocals"
+  },
+  "sunoDemo.male": {
+    "zh": "男声",
+    "en": "Male"
+  },
+  "sunoDemo.female": {
+    "zh": "女声",
+    "en": "Female"
+  },
+  "sunoDemo.variation": {
+    "zh": "变化程度",
+    "en": "Variation"
+  },
+  "sunoDemo.off": {
+    "zh": "关闭",
+    "en": "Off"
+  },
+  "sunoDemo.normal": {
+    "zh": "标准",
+    "en": "Normal"
+  },
+  "sunoDemo.high": {
+    "zh": "较高",
+    "en": "High"
+  },
+  "sunoDemo.extra": {
+    "zh": "很高",
+    "en": "Extra"
+  },
+  "sunoDemo.max": {
+    "zh": "最大",
+    "en": "Maximum"
+  },
+  "sunoDemo.maxMode": {
+    "zh": "Max 模式",
+    "en": "Max mode"
+  },
+  "sunoDemo.duration": {
+    "zh": "指定时长",
+    "en": "Set duration"
+  },
+  "sunoDemo.seconds": {
+    "zh": "秒",
+    "en": "sec"
+  },
+  "sunoDemo.manualWeights": {
+    "zh": "手动调整",
+    "en": "Adjust manually"
+  },
+  "sunoDemo.styleWeight": {
+    "zh": "风格强度",
+    "en": "Style influence"
+  },
+  "sunoDemo.weirdness": {
+    "zh": "新奇程度",
+    "en": "Weirdness"
+  },
+  "sunoDemo.audioWeight": {
+    "zh": "参考强度",
+    "en": "Audio influence"
+  },
+  "sunoDemo.adjustAudio": {
+    "zh": "调整参考强度",
+    "en": "Adjust audio influence"
+  },
+  "sunoDemo.exclude": {
+    "zh": "排除风格",
+    "en": "Styles to exclude"
+  },
+  "sunoDemo.excludePlaceholder": {
+    "zh": "例如：失真吉他、强鼓点",
+    "en": "For example: distorted guitars, heavy drums"
+  },
+  "sunoDemo.inspireLimit": {
+    "zh": "Inspire 不支持指定时长和人设。",
+    "en": "Duration and personas are unavailable in Inspire."
+  },
+  "sunoDemo.downloadTitle": {
+    "zh": "下载音乐",
+    "en": "Download music"
+  },
+  "sunoDemo.downloadHint": {
+  "zh": "正式功能支持准备 MP3 / M4A / WAV。此 Demo 仅提供示例 WAV 下载，其余格式暂不可操作。",
+  "en": "The live app supports MP3, M4A, and WAV preparation. This demo only offers the sample WAV download."
+},
+  "sunoDemo.ready": {
+    "zh": "可以下载",
+    "en": "Ready to download"
+  },
+  "sunoDemo.prepare": {
+    "zh": "准备格式",
+    "en": "Prepare format"
+  },
+  "sunoDemo.prepareHint": {
+    "zh": "正式功能会额外扣费；此处仅演示",
+    "en": "Extra charges apply in the live app; simulated here"
+  },
+  "sunoDemo.prepared": {
+    "zh": "格式准备流程已演示。Demo 不创建 MP3 / M4A 文件。",
+    "en": "Preparation simulated. This demo does not create MP3 or M4A files."
+  },
+  "sunoDemo.downloadFile": {
+    "zh": "下载 WAV",
+    "en": "Download WAV"
+  },
+  "sunoDemo.versionNumber": {
+    "zh": "版本 {number}",
+    "en": "Version {number}"
+  },
+  "sunoDemo.frozenSettings": {
+    "zh": "创作参数",
+    "en": "Creation settings"
+  },
+  "sunoDemo.textGeneration": {
+    "zh": "文字创作",
+    "en": "Text to music"
+  },
+  "sunoDemo.lyricsSource": {
+    "zh": "歌词来源",
+    "en": "Lyrics source"
+  },
+  "sunoDemo.detailsDescription": {
+    "zh": "创作描述",
+    "en": "Creative direction"
+  },
+  "sunoDemo.untitled": {
+    "zh": "未命名音乐",
+    "en": "Untitled song"
+  },
+  "sunoDemo.newTag": {
+    "zh": "新生成",
+    "en": "New"
+  },
+  "sunoDemo.errorDuration": {
+    "zh": "时长需要在 10–360 秒之间。",
+    "en": "Choose a duration between 10 and 360 seconds."
+  },
+  "sunoDemo.readyToPlay": {
+    "zh": "可试听",
+    "en": "Ready to play"
+  },
+  "sunoDemo.workingHint": {
+    "zh": "旋律正在成形，两个版本即将出现。",
+    "en": "Two versions of your idea are taking shape."
+  },
+  "sunoDemo.saveLyrics": {
+    "zh": "完成编辑",
+    "en": "Done editing"
+  },
+  "sunoDemo.sample1": {
+    "zh": "雨落之后",
+    "en": "After the Rain"
+  },
+  "sunoDemo.sample2": {
+    "zh": "雨落之后 · 另一种心情",
+    "en": "After the Rain · Another Mood"
+  },
+  "sunoDemo.sample3": {
+    "zh": "落日慢车",
+    "en": "Slow Train at Sunset"
+  },
+  "sunoDemo.sample4": {
+    "zh": "蓝色房间",
+    "en": "The Blue Room"
+  },
+  "sunoDemo.sample5": {
+    "zh": "凌晨三点的霓虹",
+    "en": "Neon at 3 AM"
+  },
+  "sunoDemo.sample6": {
+    "zh": "山间来信",
+    "en": "Letters from the Hills"
+  },
+  "sunoDemo.sample7": {
+    "zh": "无声的潮汐",
+    "en": "Silent Tides"
+  },
+  "sunoDemo.sample8": {
+    "zh": "最后一班地铁",
+    "en": "The Last Metro"
+  },
+  "sunoDemo.tags1": {
+    "zh": "轻柔爵士 · 温暖钢琴 · 雨夜 · 纯音乐",
+    "en": "Soft jazz · Warm piano · Rainy night · Instrumental"
+  },
+  "sunoDemo.tags2": {
+    "zh": "复古合成器 · 迷幻流行 · 公路旅行",
+    "en": "Vintage synths · Dream pop · Road trip"
+  },
+  "sunoDemo.tags3": {
+    "zh": "氛围电子 · 低保真 · 安静的节奏",
+    "en": "Ambient electronic · Lo-fi · Quiet rhythms"
+  },
+  "sunoDemo.tags4": {
+    "zh": "独立流行 · 女声 · 霓虹与夜色",
+    "en": "Indie pop · Female vocals · Neon nights"
+  },
+  "sunoDemo.tags5": {
+    "zh": "原声吉他 · 民谣 · 温暖的自然声",
+    "en": "Acoustic guitar · Folk · Warm field recordings"
+  },
+  "sunoDemo.tags6": {
+    "zh": "电影配乐 · 弦乐 · 缓慢渐强",
+    "en": "Cinematic · Strings · A slow crescendo"
+  },
+  "sunoDemo.example1": {
+    "zh": "雨夜的轻柔爵士，温暖的钢琴和低音交织，像独自走过刚下过雨的街道。",
+    "en": "Soft jazz for a rainy night. Warm piano and mellow bass, like walking alone through the city after a shower."
+  },
+  "sunoDemo.example2": {
+    "zh": "为落日下的公路旅行写一首歌，复古合成器、轻快鼓点，温暖而自由。",
+    "en": "A song for a road trip at sunset: vintage synths, an easy beat, warm and free."
+  },
+  "sunoDemo.example3": {
+    "zh": "一段缓慢展开的电影配乐，从独奏钢琴到弦乐铺开，克制而有希望。",
+    "en": "A slow-building cinematic piece, growing from solo piano to sweeping strings, restrained and hopeful."
+  },
+  "sunoDemo.state": {
+    "zh": "草稿 {chars} 字 · 参考 {refs} 首 · 本次生成 {created} 首",
+    "en": "Draft: {chars} characters · References: {refs} · Created: {created}"
+  },
+  "sunoDemo.personaShort": {
+    "zh": "Persona ID",
+    "en": "Persona ID"
+},
+  "sunoDemo.maxCost": {
+    "zh": "费用为普通生成的 2 倍",
+    "en": "Costs twice the standard generation"
+},
+  "sunoDemo.likesUnavailable": {
+    "zh": "暂不支持收藏；尚未接入收藏保存功能。",
+    "en": "Likes are unavailable because saving likes has not been implemented."
+},
+  "sunoDemo.sortUnavailable": {
+    "zh": "当前仅按最新排列，暂不支持跨全部历史的最早排序。",
+    "en": "Newest first is available. Oldest-first sorting across all history is not supported yet."
+},
+  "sunoDemo.disabledNotice": {
+    "zh": "收藏与最早排序暂不可用",
+    "en": "Likes and oldest-first sorting are unavailable."
+},
+  "sunoDemo.personaUnavailable": {
+    "zh": "暂不支持创建或训练声线 / Persona。",
+    "en": "Voice and Persona creation or training is not supported yet."
+},
+  "sunoDemo.createPersona": {
+    "zh": "创建声线 / Persona",
+    "en": "Create voice / Persona"
+},
+  "sunoDemo.demoConversionUnavailable": {
+    "zh": "正式功能已支持；此 Demo 未连接格式准备。",
+    "en": "Supported in the live app; unavailable in this demo."
+},
+  "sunoDemo.coverLength": {
+    "zh": "纯音乐 Cover 的描述与风格合计不能超过 1000 字。",
+    "en": "Instrumental Cover allows up to 1,000 characters across its description and style."
+},
+  "sunoDemo.placeholderCover": {
+    "zh": "占位封面",
+    "en": "Placeholder artwork"
+}
 });

@@ -428,14 +428,17 @@ class UiComponentLibraryPageTests(unittest.TestCase):
         self.assertIn('data-legal-combination="horizontal-automatic-label"', medium_tabs.group(0))
 
         selected_segment_rules = re.findall(
-            r'(?:::slotted\(\[role="radio"\]\[aria-checked="true"\]\)\s*\{[^}]+\})',
+            r'([^{}]+::slotted\(\[role="radio"\]\[aria-checked="true"\]\)\s*)\{([^}]+)\}',
             self.navigation_command,
         )
         self.assertTrue(selected_segment_rules)
-        self.assertTrue(all(
-            "background:var(--ui-color-surface-segmented)" in re.sub(r"\s+", "", rules)
-            for rules in selected_segment_rules
-        ))
+        variants = set()
+        for selector, rules in selected_segment_rules:
+            pill = ':host([shape="pill"])' in selector
+            variants.add("pill" if pill else "default")
+            token = "--ui-color-action-secondary-hover" if pill else "--ui-color-surface-segmented"
+            self.assertIn(f"background:var({token})", re.sub(r"\s+", "", rules))
+        self.assertEqual({"default", "pill"}, variants)
 
     def test_search_navigation_sidebar_and_section_navigation_are_catalogued(self):
         self.assertIn('label="检索导航侧栏"', self.page)

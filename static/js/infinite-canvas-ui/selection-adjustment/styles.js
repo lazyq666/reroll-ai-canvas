@@ -144,7 +144,7 @@ export function ensureSelectionAdjustmentStyles() {
       transition-timing-function: var(--ui-motion-ease-press);
     }
 
-    ic-radio-group[appearance="tabs"]::part(form-control-label) {
+    ic-radio-group:is([appearance="tabs"], [appearance="tabs-underline"])::part(form-control-label) {
       position: absolute;
       inline-size: 1px;
       block-size: 1px;
@@ -156,7 +156,7 @@ export function ensureSelectionAdjustmentStyles() {
       border: 0;
     }
 
-    ic-radio-group[appearance="tabs"]::part(form-control-input) {
+    ic-radio-group:is([appearance="tabs"], [appearance="tabs-underline"])::part(form-control-input) {
       display: flex;
       flex-flow: row nowrap;
       gap: var(--ui-space-2);
@@ -164,7 +164,7 @@ export function ensureSelectionAdjustmentStyles() {
       overflow-x: auto;
     }
 
-    ic-radio-group[appearance="tabs"] > ic-radio {
+    ic-radio-group:is([appearance="tabs"], [appearance="tabs-underline"]) > ic-radio {
       box-sizing: border-box;
       min-block-size: var(--ui-density-control-height);
       margin: 0;
@@ -179,22 +179,22 @@ export function ensureSelectionAdjustmentStyles() {
       white-space: nowrap;
     }
 
-    ic-radio-group[appearance="tabs"] > ic-radio::part(control) {
+    ic-radio-group:is([appearance="tabs"], [appearance="tabs-underline"]) > ic-radio::part(control) {
       display: none;
     }
 
-    ic-radio-group[appearance="tabs"] > ic-radio:hover {
+    ic-radio-group:is([appearance="tabs"], [appearance="tabs-underline"]) > ic-radio:hover {
       background: var(--ui-color-action-tertiary-hover);
       color: var(--ui-color-text-primary);
     }
 
-    ic-radio-group[appearance="tabs"] > ic-radio:state(checked) {
+    ic-radio-group:is([appearance="tabs"], [appearance="tabs-underline"]) > ic-radio:state(checked) {
       background: var(--ui-color-action-secondary-selected);
       color: var(--ui-color-text-primary);
       font-weight: var(--ui-font-weight-medium);
     }
 
-    ic-radio-group[appearance="tabs"] > ic-radio:focus-visible {
+    ic-radio-group:is([appearance="tabs"], [appearance="tabs-underline"]) > ic-radio:focus-visible {
       position: relative;
       z-index: 1;
       outline: var(--ui-focus-ring);
@@ -202,6 +202,14 @@ export function ensureSelectionAdjustmentStyles() {
       box-shadow: var(--ui-focus-ring-shadow);
     }
 
+    ic-radio-group[appearance="tabs-underline"]::part(form-control-input) { gap: 30px; padding: 0; }
+    ic-radio-group[appearance="tabs-underline"] > ic-radio {
+      height: 49px; padding-inline: 5px; border-radius: 0; border-bottom: 2px solid transparent;
+      background: transparent; font-size: 12px;
+    }
+    ic-radio-group[appearance="tabs-underline"] > ic-radio:state(checked) {
+      background: transparent; border-bottom-color: var(--ui-color-text-primary); font-weight: var(--ui-font-weight-regular);
+    }
     ic-checkbox[appearance="checkmark-end"] {
       display: block;
     }
@@ -470,6 +478,19 @@ export function ensureSelectionAdjustmentStyles() {
 
     ic-select[hierarchy="quiet"]::part(expand-icon) {
       margin-inline-start: var(--ui-space-1);
+    }
+
+    ic-select[shape="pill"]::part(combobox) {
+      min-height: var(--ic-select-height, var(--wa-form-control-height));
+      border-radius: var(--ui-radius-pill);
+      padding-inline: var(--ui-space-2);
+      border: 0;
+      background: var(--ui-color-surface-subtle);
+    }
+    ic-select[shape="pill"]::part(display-input) { font-size: var(--ic-select-font-size, var(--ui-font-size-2)); }
+    ic-number-input[label-hidden]::part(label) {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip-path: inset(50%); white-space: nowrap;
     }
 
     ic-select[data-component-variant="model-picker"] {
@@ -781,6 +802,34 @@ export function ensureSelectionAdjustmentStyles() {
       border-color: var(--ui-color-border-primary);
       box-shadow: var(--ui-shadow-raised);
     }
+
+    /* Media controls keep an accessible label without a separate form-field row. */
+    ic-slider[appearance="media"] {
+      --track-size: var(--ic-slider-track-size, 2px);
+      --thumb-width: var(--ic-slider-thumb-size, 10px);
+      --thumb-height: var(--ic-slider-thumb-size, 10px);
+      position: relative;
+    }
+
+    ic-slider[appearance="media"]::part(label) {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    ic-slider[appearance="media"]::part(slider) {
+      margin-block: 0;
+      min-block-size: 24px;
+      display: flex;
+      align-items: center;
+    }
+
+    ic-slider[appearance="media"]::part(track) { inline-size: 100%; }
 
     :is(ic-checkbox, ic-radio, ic-switch, ic-select, ic-slider, ic-number-input, ic-color-field)[disabled] {
       color: var(--ui-color-text-disabled);

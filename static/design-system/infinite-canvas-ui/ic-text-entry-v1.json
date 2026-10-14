@@ -22,7 +22,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/text-entry.js?v=asset-1f07f840d089",
+        "/static/js/infinite-canvas-ui/text-entry.js?v=asset-8a53e7a329ce",
         "/static/design-system/infinite-canvas-ui/text-entry.html",
         "/tests/infinite_canvas_ui_text_entry_browser_harness.html"
       ]
@@ -44,7 +44,7 @@
     "ic-form-field owns the accessible name, Hint and Validation relationships; a visible label is optional only when aria-label supplies the non-visual accessible name, and placeholder never replaces either.",
     "Invalid is a semantic state with text and programmatic association, never color alone.",
     "Loading is excluded because text entry has no honest generic loading behavior; async work belongs to the surrounding flow.",
-    "ic-input appearance=outlined is the default bordered surface; appearance=subtle uses --ui-color-surface-subtle without a border for lower-emphasis text and search entry."
+    "ic-input appearance=outlined is the default bordered surface; appearance=subtle uses --ui-color-surface-subtle without a border. appearance=plain is transparent within a containing surface. Optional shape=pill provides a round search surface with --ic-input-height."
   ],
   "states": [
     "default",
@@ -61,11 +61,11 @@
       "semanticDimensions": {
         "type": ["text", "search", "email", "password", "url", "tel"],
         "density": ["small", "medium", "large"],
-        "appearance": ["outlined", "subtle"],
+        "appearance": ["outlined", "subtle", "plain"],
         "endAction": ["none", "text-button", "icon-button", "text-and-icon-buttons"]
       },
       "requiredAttributes": ["name"],
-      "optionalAttributes": ["appearance", "autocomplete", "disabled", "end-action", "maxlength", "minlength", "pattern", "placeholder", "readonly", "required", "size", "value"],
+      "optionalAttributes": ["appearance", "shape", "autocomplete", "disabled", "end-action", "maxlength", "minlength", "pattern", "placeholder", "readonly", "required", "size", "value"],
       "slots": {"end": "One ic-button or ic-icon-button, or one of each, when end-action is present. Embedded icon-only actions use ic-icon-button background=ghost; the search clear action stays hidden until the field receives focus."},
       "events": ["input", "change", "ic-invalid"],
       "formAssociated": true,
@@ -75,11 +75,13 @@
       "tag": "ic-textarea",
       "purpose": "Collect authored multi-line plain text with native form and validation behavior.",
       "semanticDimensions": {
+        "appearance": ["outlined", "plain"],
         "resize": ["vertical", "none"],
         "density": ["small", "medium", "large"]
       },
       "requiredAttributes": ["name"],
-      "optionalAttributes": ["disabled", "maxlength", "minlength", "placeholder", "readonly", "required", "rows", "value"],
+      "optionalAttributes": ["appearance", "aria-label", "disabled", "maxlength", "minlength", "placeholder", "readonly", "required", "rows", "value"],
+      "cssProperties": ["--ic-textarea-min-height"],
       "events": ["input", "change", "ic-invalid"],
       "formAssociated": true,
       "prohibitedUses": ["rich-text-editor", "code-editor", "token-composer", "placeholder-as-label"]

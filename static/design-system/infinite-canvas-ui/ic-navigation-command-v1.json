@@ -26,7 +26,7 @@
       "confirmedOn": "2026-08-09",
       "evidence": "User explicitly approved all ten Navigation/Command semantic judgments and the deterministic 27-instance Legacy mapping."
     },
-    "implementation": {"status": "implemented", "implementedOn": "2026-08-09", "evidence": ["/static/js/infinite-canvas-ui/navigation-command.js?v=asset-8d7f89e16c9d", "/static/design-system/infinite-canvas-ui/navigation-command.html"]},
+    "implementation": {"status": "implemented", "implementedOn": "2026-08-09", "evidence": ["/static/js/infinite-canvas-ui/navigation-command.js?v=asset-cf0a79da5ca8", "/static/design-system/infinite-canvas-ui/navigation-command.html"]},
     "live": {
       "status": "confirmed",
       "reviewer": "User (Codex task)",
@@ -116,13 +116,14 @@
       "useWhen": ["There are two to five short, mutually exclusive modes.", "The choice changes the current presentation or operating mode immediately."],
       "prohibitedUses": ["route navigation", "peer content panels", "commands", "multi-select", "long or wrapping labels", "deferred form choice better served by Radio Group"],
       "requiredAttributes": ["label", "value"],
-      "attributes": ["label", "value", "disabled", "size"],
+      "attributes": ["label", "value", "disabled", "size", "shape"],
       "semanticDimensions": {"selection": ["single"], "content": ["label", "icon-and-label"], "size": ["small", "medium", "large"]},
       "legalCombinations": [
         {"id": "single-label", "selection": "single", "content": "label"},
         {"id": "single-icon-label", "selection": "single", "content": "icon-and-label"}
       ],
       "selection": "Exactly one enabled option is selected and activation updates value immediately.",
+      "pillPresentation": "Optional shape=pill uses round ends with --ic-segmented-height and preserves the same radio selection, focus and arrow-key behavior. Default rectangular presentation is unchanged.",
       "sizing": "The outer container uses --ui-control-height-s/m/l. Small uses --ui-font-size-1 with --ui-space-2 inline option padding; Medium uses --ui-font-size-2 with 10px; Large uses --ui-font-size-3 with --ui-space-3. An omitted size inherits the density context.",
       "selectionPresentation": "The container uses a 10px radius and its items use --ui-radius-s (8px). The container border and selected segment outer outline use --ui-color-border-secondary. The selected outline does not consume the segment's internal size. The single-label and single-icon-label combinations use --ui-color-surface-segmented (gray-0 in Light, gray-600 in Dark) with --ui-color-text-primary; selected segments retain raised elevation and do not change appearance on hover. Selection updates the existing option nodes and transitions background, text, border and elevation with --ui-motion-duration-fast; Reduced Motion compresses those transitions to 1ms.",
       "narrowViewport": "Segments remain one row; callers choose shorter approved labels or a different pattern rather than truncating meaning."

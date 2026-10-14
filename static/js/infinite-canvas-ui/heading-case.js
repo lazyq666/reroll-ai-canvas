@@ -23,7 +23,7 @@ const [contract] = await Promise.all([
     if (!response.ok) throw new Error(`Heading contract failed: HTTP ${response.status}`);
     return response.json();
   }),
-  import('/static/js/infinite-canvas-ui/core.js?v=asset-413df1d55ceb'),
+  import('/static/js/infinite-canvas-ui/core.js?v=asset-1b1437b2321d'),
 ]);
 await customElements.whenDefined('ic-heading');
 

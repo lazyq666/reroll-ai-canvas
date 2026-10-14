@@ -630,6 +630,7 @@ APIMart 文档声明：`size` 覆盖提示词中的 `--ar`；`hd` / `--hd` 仅�
 
 成功结果中的全部音频先物化为 `/assets/` Managed Media，持久 Run 结果是音乐历史的权威。
 保存失败保留可恢复运行并重新查询/保存原任务，不再次生成；仅有 audio_id 的导入结果属于合法成功。
+逐曲 `image_url` / `image_large_url` 经公网 URL 校验后随音频保存到同一 Managed Media；相同地址在一次结果内去重。封面为可选结果，图片保存失败保留已校验远端地址，不让已成功的收费音频失败；页面按尺寸回退或显示占位图。Run 结果持有本地图片引用，历史和重启沿用同一记录。
 该页面不发布到 Global History，不写 Canvas，不建立第二个音乐历史文件。列表按 owner 和
 `surface=suno` 查询现有 Run，包含失败记录；SQLite 使用时间和 ID 游标，旧 JSON Workspace
 使用同一语义的内存投影。记录持有的音频引用沿用媒体清理保护。

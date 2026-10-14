@@ -2,6 +2,7 @@ import asyncio
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -112,6 +113,22 @@ class MusicContractTests(unittest.TestCase):
         download=music_output({'result':{'files':[{'format':'wav','url':'https://cdn.example.test/a.wav'}, {'format':'m4a','url':'https://cdn.example.test/a.m4a'}]}},'download','task-download')
         self.assertEqual([x['format'] for x in download['items']],['wav','m4a'])
         with self.assertRaises(MusicProviderError): music_output({'result':{}},'generate','bad')
+
+    def test_song_artwork_stays_with_its_original_audio_index(self):
+        # Shape verified against captured v6-mini / inspo responses and APIMart's task docs.
+        data = json.loads(json.dumps(RESULT))
+        data['result']['music'][0].update(image_url='https://cdn.example.test/first.jpeg',
+                                        image_large_url='https://cdn.example.test/first-large.jpeg')
+        data['result']['music'][1]['image_url'] = 'https://cdn.example.test/second.jpeg'
+        items = music_output(data, 'generate', 'task')['items']
+        self.assertEqual(items[0].get('image_url'), 'https://cdn.example.test/first.jpeg')
+        self.assertEqual(items[0].get('image_large_url'), 'https://cdn.example.test/first-large.jpeg')
+        self.assertEqual(items[1].get('image_url'), 'https://cdn.example.test/second.jpeg')
+        self.assertEqual([item['audio_index'] for item in items], [1, 2])
+        for invalid in [None, {}, 'javascript:alert(1)', 'http://localhost/cover', 'https://user:password@example.test/a']:
+            data['result']['music'][0]['image_url'] = invalid
+            self.assertNotIn('image_url', music_output(data, 'cover', 'task')['items'][0])
+        self.assertNotIn('image_url', music_output(RESULT, 'inspo', 'task')['items'][0])
 
 class MusicClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_submit_once_query_uses_music_endpoint_and_secret_is_only_header(self):
@@ -282,6 +299,34 @@ class MusicLifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.save.side_effect=lambda url,**kwargs:'/assets/output/'+kwargs['stable_id']+'.mp3'
         completed=await self.runs.resume(submitted.id,owner='alice')
         self.assertEqual(completed.status,'succeeded'); self.assertEqual([x[0] for x in self.calls],['POST','GET','GET'])
+
+    async def test_artwork_is_saved_per_track_and_survives_history_restart(self):
+        artwork = mock.AsyncMock(side_effect=lambda source, **kw: '/assets/output/' + kw['stable_id'] + '.jpeg')
+        self.effects._ports = replace(self.effects._ports, save_image=artwork)
+        with mock.patch.dict(RESULT['result']['music'][0], image_url='https://cdn.example.test/first.jpeg',
+                             image_large_url='https://cdn.example.test/first.jpeg'), \
+             mock.patch.dict(RESULT['result']['music'][1], image_url='https://cdn.example.test/second.jpeg'):
+            submitted = await self.submit()
+            completed = await self.runs.resume(submitted.id, owner='alice')
+        self.assertEqual(completed.status, 'succeeded')
+        self.assertEqual(artwork.await_count, 2, 'identical small/large artwork is saved once')
+        items = completed.result['items']
+        self.assertNotEqual(items[0]['image_url'], items[1]['image_url'])
+        self.assertEqual(items[0]['image_url'], items[0]['image_large_url'])
+        self.assertTrue(all(item['image_url'].startswith('/assets/') for item in items))
+        await self.runs.wait_for_lifecycle_projection(through_current=True)
+        self.runs = self.make_runs(); await self.runs.restore_lifecycle_authority()
+        history, _ = await self.runs.list_owned(owner='alice', surface='suno')
+        self.assertEqual(music_run_public(history[0])['result']['items'], items)
+
+    async def test_artwork_cache_failure_does_not_fail_paid_audio(self):
+        self.effects._ports = replace(self.effects._ports, save_image=mock.AsyncMock(side_effect=OSError('unavailable')))
+        with mock.patch.dict(RESULT['result']['music'][0], image_url='https://cdn.example.test/cover.jpeg'):
+            submitted = await self.submit()
+            completed = await self.runs.resume(submitted.id, owner='alice')
+        self.assertEqual(completed.status, 'succeeded')
+        self.assertTrue(completed.result['items'][0]['url'].startswith('/assets/'))
+        self.assertEqual(completed.result['items'][0]['image_url'], 'https://cdn.example.test/cover.jpeg')
 
 class MusicRouterTests(unittest.IsolatedAsyncioTestCase):
     async def test_owner_authorization_export_receipt_and_validation(self):
