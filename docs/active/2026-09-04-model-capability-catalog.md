@@ -3,6 +3,8 @@
 - **Status**：Implemented（统一运行合同、随模型拉取的资料提取、按 Model ID 聚合的产品能力表已实现；外部研究包导入已移除，等待产品验收后毕业为 Current）
 - **Feature ID**：F08；关联 F05 / F09 / F12
 - **Last verified**：2026-09-05；175 项模型能力、发现采集、API、生成合同、页面、文档与 i18n 回归通过；i18n 3385 keys 与资源指纹检查通过。隔离实际页面验证导入入口消失、人工保存并重新打开、中英文切换和键盘取消；历史导入能力可读可手工修改、导入 API 不再注册及编辑器数量上限不变均有回归覆盖。未执行真实 Provider 请求，未修改用户已保存能力。
+- **LAZ-84 APIMART 回归**：2026-10-13；修复已开启指定分辨率后仍被供应商拦截，以及精确像素被换算成比例的问题。文生图与参考图请求原样发送 `size` 并省略 `resolution`，普通模式保留原转换；132 项相关测试通过，未进行付费调用。
+- **LAZ-84 验证**：2026-10-13；209 项相关回归通过，i18n 3957 keys、451 项资源指纹检查通过。指定分辨率 B 方案接入真实 Composer、模型详情开关与目录校验，自动化覆盖尺寸边界、跨平台保存/重开、关闭/过期/混合参数拒绝及 JSON/multipart/Responses 精确传递。正式页面使用隔离后端完成输入对齐、清空恢复、错误阻止、提交、中英文即时切换、Light/Dark 与 430px 浮层验收；未执行付费 Provider 调用。
 - **Applies to**：[Issue #32](https://github.com/lazyq666/reroll-ai-canvas/issues/32)
 - **Related ADRs**：[ADR-0009](../adr/0009-unified-model-capability-catalog.md)
 - **Domain terms**：Provider、Model、Model Profile、Model Discovery Snapshot、Model Capability Matrix、Model Operation、Model Capability、Video Model Capability、First-and-Last-Frame Video、All-around Reference Video、Model Capability State、Model Capability Evidence、Model Capability Draft、Model Capability Review、Model Capability Review State、Model Capability Catalog、Generation Settings、Generation Run
@@ -56,6 +58,8 @@
 该合同已由 Issue #31 的 Provider 接入、Manifest 持久化和 Smart Canvas 重建消费。运行链路、恢复边界与图层交付以[当前生成链路](../current/generation-pipeline.md#44-智能分层的专用交付)为准；能力目录仍只负责声明和校验边界，不承担请求、下载或画布交付。
 
 ## 5. 用户可观察行为
+
+模型详情点击后立即打开 Dialog，以公共 `ic-loading` 品牌加载态等待能力数据；等待时隐藏旧表单并禁用保存，取消仍可用。并发读取复用同一请求；加载失败保留 Dialog 内错误提示，可关闭后重开重试。保存“指定分辨率”后核对服务返回的能力投影；若未接受该选择，保留表单并提示重试（应用刚更新时需重启服务），不得显示保存成功。成功保存后立即更新模型列表能力标签，并通过既有模型变更通知让已打开的 Composer 清除旧能力缓存、重新读取设置。
 
 1. 图片生成数量按能力合同展示，不使用全局固定上限。
 2. 切换模型后，超出新上限的旧数量保留为“超出当前范围”，用户可以重新选择；系统不静默截断。
@@ -114,6 +118,7 @@
 - 可编辑显示名称不作为稳定身份；不同 Model ID 即使名称相近也不自动合并，确需合并时必须使用明确别名映射。
 - 可用模型行可以显示少量已确认且对选择有价值的功能 Tag；首批只包括拆分图层和透明 PNG。Tag 从当前 Catalog 的安全交集投影，未审核 Draft 即使会为尚未保存的模型预填详情，也不能产生 Tag。
 - Administrator 在详情 Dialog 中使用开关、单选和多选设置可接收素材、数量、清晰度、画幅和附加能力；Dialog 不重复显示类型或平台。图片模型把 `image.generate` 与 `image.edit` 合并为一个产品区块，以“支持参考图”和最大参考图数量表达输入差异，保存时再翻译为内部 Model Operation 合同。画幅直接复用 Composer 的多选画幅控件，生成数量复用 Composer 的数量选择器，分辨率使用与 Composer 一致的分段选项视觉并保留能力范围所需的多选语义。
+- 图片模型“其他能力”包含“指定分辨率”开关，默认关闭；保存同时应用到生成与编辑 Operation 及所有关联 Provider，重开使用已保存值的安全交集。运行合同使用 `custom_resolution` 布尔能力与 `custom_size` 精确尺寸参数，前端限值来自 `custom_size_limits`，不由模型名称推断。切换开关后，画布收到配置更新会重新读取能力；历史比例与档位偏好继续保留。交互详见[UI 规范](../current/ui-design-guidelines.md)，传输与限制详见[生成链路](../current/generation-pipeline.md#指定分辨率)。
 - 视频模型把 `video.generate` 投影为一个产品区块：图片、视频、音频与三者合计分别维护最大数量；单个视频/音频与视频/音频合计分别维护时长范围；纯音频输入、首尾帧视频和全能参考视频使用独立开关。输出时长维护范围，清晰度与画幅复用和图片能力一致的选择交互。保存时，矩阵把这些值翻译为 `inputs`、`input_rules`、`output`、`parameters` 与视频专有合同；Composer 根据已保存模式隐藏不支持的参考模式。
 - Provider ID、Inputs / Output / Parameters JSON、逐字段路径、Evidence ID 和 Catalog Revision 不在主界面出现；资料只提供面向产品的完整度与可追溯摘要。
 - 外部研究包导入与查找要求已移除；页面只保留模型详情人工维护。编辑器直接读取服务端候选与输入数量限制，不依赖导入 Schema。图片参考图上限为运行上下文的 20，文本图片/视频输入上限分别为 8/3；手工输入输出范围及视频专有合同不变。

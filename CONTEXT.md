@@ -285,7 +285,7 @@ _Avoid_: Model Capability State, UI Status, Runtime Availability
 _Avoid_: Model List, Provider Config, Pricing Catalog
 
 **Image Model Capability（图像模型能力）**:
-图像 Model 在一种图像 Model Operation 下支持的输入、输出结构、Output Aspect Ratio、Resolution Tier 与数量边界。
+图像 Model 在一种图像 Model Operation 下支持的输入、输出结构、Output Aspect Ratio、Resolution Tier、Custom Image Dimensions 与数量边界。
 _Avoid_: Video Model Capability, Shared Image Default
 
 **Video Model Capability（视频模型能力）**:
@@ -355,6 +355,10 @@ _Avoid_: Provider-decided Ratio, Freeform Ratio
 **Resolution Tier（分辨率档位）**:
 Model 原生的图像尺寸级别，例如 1K、2K 或 4K，不承诺精确宽高像素。
 _Avoid_: Export Size, Custom Width and Height
+
+**Custom Image Dimensions（指定分辨率）**:
+Generation Settings 中直接指定的输出像素宽度与高度，受所选 Image Model Capability 约束，与 Output Aspect Ratio 和 Resolution Tier 是互斥的尺寸意图。
+_Avoid_: Resolution Tier, Canvas Display Size, Export Size
 
 ### 媒体与编辑
 

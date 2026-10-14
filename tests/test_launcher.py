@@ -54,7 +54,7 @@ class LauncherPathTests(unittest.TestCase):
             for path in PROJECT_DIR.rglob("*")
             if path.is_file()
             and path.suffix.lower() in script_suffixes
-            and ignored_directory_names.isdisjoint(path.parts)
+            and ignored_directory_names.isdisjoint(path.relative_to(PROJECT_DIR).parts)
         }
         self.assertEqual(
             scripts,

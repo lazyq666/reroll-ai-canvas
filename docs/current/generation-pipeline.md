@@ -125,6 +125,14 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 - [`static/js/smart-canvas/generation-settings.js`](../../static/js/smart-canvas/generation-settings.js)
 - [`static/js/smart-canvas/generation-output.js`](../../static/js/smart-canvas/generation-output.js)
 
+### 指定分辨率
+
+图片 Composer 将指定宽高保存为 `pixelWidth` / `pixelHeight`，保留未生效的比例与分辨率档位，供清空后恢复。提交前按本次 `image.generate` 或 `image.edit` 的能力合同校验 `custom_size`；自定义请求使用 `size_mode=custom` 与原样的 `size=WIDTHxHEIGHT`，不同时发送有效的 `target_aspect_ratio`、`reference_aspect_ratio` 或 `resolution_tier`。局部修复与扩图沿用各自的几何规则。
+
+后端在创建 Generation Run 前检查目录 Revision、能力开关与尺寸合同：宽高为正整数和 16 的倍数，单边不超过 3840、长短边比不超过 3、总像素介于 655360 与 8294400（包含边界）。后端拒绝无效值，不替用户取整。`size_mode` 随运行及生成信息保留；自定义尺寸不经过预设比例换算、Responses 预设档位换算或输出画幅后处理。
+
+当前精确尺寸传递适用于 OpenAI 图片 JSON、multipart 编辑、OpenAI JSON 图片模式、Responses 图像工具及 APIMART 图片生成接口。APIMART 自定义模式原样发送 `size=WIDTHxHEIGHT`，省略 `resolution`，参考图仍使用 `image_urls`；普通模式继续使用比例与档位转换。[APIMART GPT Image 2 参数表](https://docs.apimart.ai/en/api-reference/images/gpt-image-2/generation)明确允许 `size` 传像素尺寸。Gemini、CLI 与视频代理不继承该能力，若手工错误开启则在发出 Provider 请求前拒绝。真实 Provider 是否接受仍由该 Provider + Model 的已确认合同决定，不按模型名称自动开启。代表性验证为 `tests/test_custom_image_dimensions.py` 和 `tests/test_smart_canvas_image_capabilities.py`，覆盖目录保存、互斥、边界、参考图与传输参数，不产生付费请求。
+
 ### 4.2 先同步“这次运行是谁”
 
 提交供应商前，前端会给目标节点写入：
@@ -606,11 +614,35 @@ APIMart 文档声明：`size` 覆盖提示词中的 `--ar`；`hd` / `--hd` 仅�
 - [APIMart Imagine 官方文档](https://docs.apimart.ai/cn/api-reference/images/midjourney/imagine)：参数表与「混合使用（body 优先）」示例。
 - [APIMart Midjourney 概览](https://docs.apimart.ai/cn/api-reference/images/midjourney/generation)：专用路由与 `model` 注入规则。
 
+### Suno 音乐实验室
+
+[音乐实验室](suno-music-lab.md)在 `/api/music/*` 提交 `suno-generate`、`suno-inspo`、`suno-cover`、兼容 `suno-upload`、
+`suno-download` Workflow Run，复用当前账号、Generation Run 持久化和后台恢复。
+音乐执行器只处理 Suno Workflow，其余请求委托原执行器。API Key 在执行时从 Device State
+读取，不进入请求快照。获得远端编号后保存检查点，后续恢复使用 `suno-query` 调用音乐任务查询，
+不重发收费 POST。网络查询失败、限流与临时 5xx 保留原 task ID；付费提交超时且没有编号时
+标记提交结果未知，禁止自动重新提交。
+
+参考创作提交时先通过既有 Managed Media 导入本地文件；1–4 个引用随 Run 请求和元数据冻结。
+后台将本地副本交给 Litterbox 临时托管，失败时使用用户授权的 tmpfiles.org 六小时存储；其下载签名在提交前现取现验，再向 inspo 发送公网 audio_urls，或向 uploadCover 发送单个 audio_url。参考方式与是否有人声独立：Cover 先在本地校验一首且不足 480 秒，显式传 instrumental；纯音乐将原描述/风格合并 tags，人声则保留 prompt、style 映射 tags。收费前回读托管 URL，字节数和 SHA-256 必须与本地文件相同，不能把 HTTP 200 的下载网页当成音频。已获得远端编号后的恢复
+只查询原任务，不再次托管或提交；托管失败不会进入收费接口。历史复用通过原所属 Run 解析引用，
+重新生成时从本地副本重新托管，因此不依赖临时链接寿命。调用方不能提供任意本机路径或 URL。
+
+成功结果中的全部音频先物化为 `/assets/` Managed Media，持久 Run 结果是音乐历史的权威。
+保存失败保留可恢复运行并重新查询/保存原任务，不再次生成；仅有 audio_id 的导入结果属于合法成功。
+该页面不发布到 Global History，不写 Canvas，不建立第二个音乐历史文件。列表按 owner 和
+`surface=suno` 查询现有 Run，包含失败记录；SQLite 使用时间和 ID 游标，旧 JSON Workspace
+使用同一语义的内存投影。记录持有的音频引用沿用媒体清理保护。
+
+已有文件的下载不调用 Provider；准备其他格式是独立收费任务，以账号、来源 Run、曲目序号、
+排序去重后的格式组合复用回执，刷新和后端重启后仍有效。终态失败不提供无效的继续查询动作。
+
 ## 14. 回归测试入口
 
 | 关注点 | 测试入口 |
 | --- | --- |
 | 同一 Run 多槽位原子交付、任务回执迟到、部分槽位替换及刷新幂等 | `tests/test_canvas_store.py`、`tests/shared_run_slots_browser_app.py` + `tests/shared_run_slots_browser_test.cjs`（真实 SQLite / HTTP / WebSocket，固定 Provider 结果） |
+| Suno 参数、账号隔离、音乐查询恢复、媒体保存与收费下载回执 | `tests/test_music_lab.py`、`tests/music_lab_browser.cjs` |
 | Generation Run 生命周期、去重、恢复和迟到结果 | `tests/test_generation_runs.py` |
 | Depth Anything 模型清单、下载校验、推理合同、本地执行器、HTTP Target Guard 与真实页面生命周期 | `tests/test_depth_processor.py`、`tests/test_local_image_processor.py`、`tests/test_issue_152_depth_map.py`、`tests/issue_152_depth_map_browser_smoke.cjs` |
 | SQLite 图片/视频/文字 Run、重启、History 分页/删除与通知重放，且 legacy JSON 不变 | `tests/test_generation_runs_sqlite_authority.py`、`tests/test_main_sqlite_authority_integration.py` |

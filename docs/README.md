@@ -33,6 +33,9 @@
 
 ## 当前参考
 
+- [实验室与 Suno 音乐生成](current/suno-music-lab.md)
+  - [方案 B 布局评审与正式接入记录](archive/2026-10-13-suno-ui-prototype.md)
+
 - [本地工具退役与画布保留能力](current/local-tools-retirement.md)
 
 - [Public readiness 发布验收与 main 合入](current/public-readiness.md)

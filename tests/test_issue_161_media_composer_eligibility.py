@@ -47,7 +47,7 @@ const isApiLikeEngine = () => true;
 const isSmartRunnableNode = node => Boolean(node.runnable);
 const generationRun = {status:({node}) => ({loopRunning:Boolean(node.loop)})};
 const smartVideoComposerState = () => ({state:{}});
-const window = {SmartCanvasModules:{videoCapabilities:{validateReferences:() => ({valid:!invalidReferences})}}};
+const window = {SmartCanvasModules:{imageCapabilities:{customActive:() => false},videoCapabilities:{validateReferences:() => ({valid:!invalidReferences})}}};
 const tr = key => key;
 """ + button + """
 syncRunButtonState({runnable:false});

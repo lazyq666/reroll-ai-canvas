@@ -27,7 +27,8 @@ function smartImageCapabilityFallback(providerId='', modelId=''){
         confirmed_at:null,
         known:false,
         show_resolution_control:true,
-        supports_transparent_png:false
+        supports_transparent_png:false,
+        supports_custom_resolution:false
     };
 }
 function smartImageCapabilityClean(value, providerId='', modelId=''){
@@ -45,6 +46,7 @@ function smartImageCapabilityClean(value, providerId='', modelId=''){
         default_resolution_tier:value.default_resolution_tier ? String(value.default_resolution_tier).toUpperCase() : null,
         known:Boolean(value.known),
         show_resolution_control:tiers.length > 1,
+        supports_custom_resolution:value.supports_custom_resolution === true,
         supports_transparent_png:value.supports_transparent_png === true
     };
 }
@@ -131,10 +133,24 @@ function smartImageCapabilityPreferredResolution(capability={}){
         || tiers[0]
         || declaredDefault;
 }
+function smartImageCustomActive(settings={}){
+    return String(settings.pixelWidth ?? '') !== '' || String(settings.pixelHeight ?? '') !== '';
+}
+function smartImageCustomValidate(settings={}, capability={}){
+    const reason = !capability.supports_custom_resolution ? 'unsupported'
+        : globalThis.RerollImageDimensions.validate(settings.pixelWidth, settings.pixelHeight, capability.custom_size_limits);
+    const width = Number(settings.pixelWidth), height = Number(settings.pixelHeight);
+    return {valid:!reason,reason:reason ? `custom_size_${reason}` : '',field:'custom_size',custom_size:reason ? '' : `${width}x${height}`};
+}
+function smartImageCustomMessage(reason, limits={}){
+    const key = String(reason || '').replace(/^custom_size_/, '');
+    return window.StudioI18n?.format(`smart.customSize.${key}`, limits) || '';
+}
 function smartImageCapabilityValidate(settings={}, {prefix='', references=[], capability=null, allowInternalCustom=false}={}){
     const ratioKey = prefix ? `${prefix}Ratio` : 'ratio';
     const resolutionKey = prefix ? `${prefix}Resolution` : 'resolution';
     capability = capability || smartImageCapabilityFallback();
+    if(!prefix && smartImageCustomActive(settings) && !settings.outpaintResolutionLocked) return smartImageCustomValidate(settings, capability);
     const ratioValue = String(settings?.[ratioKey] || '');
     const resolutionValue = String(settings?.[resolutionKey] || '').toUpperCase();
     if(['custom'].includes(ratioValue) && !allowInternalCustom) return {valid:false,reason:'custom-ratio-removed',field:ratioKey};
@@ -159,6 +175,10 @@ function smartImageCapabilityReconcile(settings={}, capability={}, references=[]
     const customRatioHeightKey = prefix ? `${prefix}CustomRatioHeight` : 'customRatioHeight';
     const next = {...settings};
     const invalidated = [];
+    if(!prefix && capability.known && !capability.supports_custom_resolution && smartImageCustomActive(next)){
+        next.pixelWidth = ''; next.pixelHeight = '';
+        invalidated.push('custom_size');
+    }
     const automatic = smartImageCapabilityAutomatic(references, capability);
     if(next[ratioKey] === 'source'){
         if(automatic.available){
@@ -200,6 +220,7 @@ function smartImageCapabilityResolveForSubmission(settings={}, references=[], ca
     capability = capability || smartImageCapabilityFallback();
     const validation = smartImageCapabilityValidate(settings, {prefix,references,capability,allowInternalCustom:Boolean(settings.outpaintResolutionLocked)});
     if(!validation.valid) return {...validation,target_aspect_ratio:null};
+    if(validation.custom_size) return {...validation,target_aspect_ratio:null,automatic:false};
     const ratioKey = prefix ? `${prefix}Ratio` : 'ratio';
     const automatic = settings[ratioKey] === 'source'
         ? smartImageCapabilityAutomatic(references, capability)
@@ -241,6 +262,10 @@ function smartImageCapabilityShouldWarnForTransition(transition, {prefix='',curr
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.imageCapabilities = Object.freeze({
+    invalidate:() => smartImageCapabilityCache.clear(),
+    customActive:smartImageCustomActive,
+    validateCustom:smartImageCustomValidate,
+    customMessage:smartImageCustomMessage,
     load:smartImageCapabilityLoad,
     current:smartImageCapabilityCurrent,
     fallback:smartImageCapabilityFallback,

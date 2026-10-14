@@ -1,0 +1,99 @@
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--ui-color-surface-subtle); color: var(--ui-color-text-primary); font: var(--ui-text-body); }
+.lab-page { padding: 30px 36px 80px; max-width: 1440px; margin: 0 auto; }
+.lab-heading { margin: 10px 0 32px; }
+.lab-card { display: block; max-width: 410px; }
+.lab-card p { margin: 12px 0 24px; }
+.music-mark { display: flex; gap: 7px; align-items: center; height: 104px; margin-bottom: 24px; color: var(--ui-color-text-primary); }
+.music-mark span { width: 8px; height: 30%; border-radius: var(--ui-radius-pill); background: currentColor; }
+.music-mark span:nth-child(2n) { height: 58%; }
+.music-mark span:nth-child(3n) { height: 88%; }
+.music-mark span:nth-child(4) { height: 100%; }
+.workbench-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.music-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.music-brand { font: var(--ui-text-body); color: var(--ui-color-text-secondary); }
+.lab-card > .music-brand { display: block; margin-bottom: 8px; }
+ic-select, ic-input, ic-textarea, ic-number-input, ic-slider { width: 100%; min-width: 0; }
+.hint, .muted { color: var(--ui-color-text-secondary); }
+.hint { font: var(--ui-text-body-compact); margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.field-foot { display: flex; justify-content: space-between; align-items: center; margin-top: -12px; gap: 8px; }
+.advanced { border-top: 1px solid var(--ui-color-border-secondary); padding-top: 16px; }
+summary { cursor: pointer; font-weight: var(--ui-font-weight-medium); padding: 4px 0; }
+summary:focus-visible { outline: var(--ui-focus-ring-enabled); outline-offset:var(--ui-focus-ring-offset); }
+.advanced .field-stack { padding-top: 16px; }
+#submitMusic { width: 210px; flex: none; }
+#musicMessage { margin-bottom: 20px; }
+.detail-panel { padding: 8px 4px 32px; }
+.detail-empty { text-align: center; padding: 96px 20px; color: var(--ui-color-text-secondary); }
+.detail-empty .music-mark { justify-content: center; height: 55px; opacity: .35; }
+h2 { font: var(--ui-text-title-2); margin: 0; }
+h3 { font: var(--ui-text-title-3); margin: 0; }
+.detail-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.record-title { overflow-wrap: anywhere; }
+.record-meta { margin: 8px 0 20px; }
+.track-card { display: block; margin: 16px 0; }
+.track-heading { display: flex; gap: 12px; align-items: start; margin-bottom: 12px; }
+.track-number { flex: none; width: 32px; height: 32px; display: grid; place-items: center; background: var(--ui-color-surface-subtle); border-radius: var(--ui-radius-s); font: var(--ui-text-code); }
+.track-copy { min-width: 0; flex: 1; }
+.track-copy h3 { margin-bottom: 6px; overflow-wrap: anywhere; }
+audio { width: 100%; height: 36px; margin: 12px 0; }
+.track-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.export-options { margin-top: 16px; border-top: 1px solid var(--ui-color-border-secondary); padding-top: 12px; }
+.format-options { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
+.export-options .hint { margin: 12px 0; }
+.lyrics { white-space: pre-wrap; overflow-wrap: anywhere; font: var(--ui-text-body); max-height: 300px; overflow: auto; }
+.settings-details { margin-top: 24px; }
+.settings-list { display: grid; grid-template-columns: minmax(85px,auto) minmax(0,1fr); gap: 10px 16px; }
+.settings-list dt { color: var(--ui-color-text-secondary); }
+.settings-list dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+
+.reference-drop { border: 1px dashed var(--ui-color-border-secondary); border-radius: var(--ui-radius-m); padding: 16px; text-align: center; }
+.reference-drop p { margin: 0 0 10px; }
+.reference-drop .reference-types { margin: 8px 0 0; font-size: 10px; }
+.reference-drop.drag-over { border-color: var(--ui-color-border-selected); background: var(--ui-color-surface-subtle); }
+.reference-card { padding: 12px; border: 1px solid var(--ui-color-border-secondary); border-radius: var(--ui-radius-s); min-width: 0; }
+.reference-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.reference-name { overflow: hidden; overflow-wrap: anywhere; min-width: 0; font-size: 12px; }
+.reference-heading ic-button { flex: none; }
+.reference-card audio { display: block; width: 100%; height: 36px; }
+.record-references .reference-card { margin-top: 10px; }
+
+/* Approved B layout: focused creation and a separate personal library. */
+#musicView { display: block; width: fit-content; margin: 0 auto 28px; }
+#musicView::part(form-control-label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.composer-panel { max-width: 1160px; margin: auto; border: 1px solid var(--ui-color-border-secondary); border-radius: var(--ui-radius-m); background: var(--ui-color-surface); }
+.composition-grid { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(0,1fr); align-items: start; }
+.field-stack { display: grid; gap: 18px; }
+.composition-main { padding: 32px; gap: 24px; min-width: 0; }
+.parameters-panel { border-left: 1px solid var(--ui-color-border-secondary); padding: 28px; min-width: 0; }
+.parameter-group { display: grid; gap: 18px; }
+.parameter-group + .parameter-group { padding-top: 24px; border-top: 1px solid var(--ui-color-border-secondary); }
+.parameter-group h2 { font: var(--ui-text-title-3); }
+.parameter-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px 16px; align-items: start; }
+.create-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 28px; border-top: 1px solid var(--ui-color-border-secondary); background: var(--ui-color-surface); position: sticky; bottom: 0; z-index: 2; border-radius: 0 0 var(--ui-radius-m) var(--ui-radius-m); }
+.create-footer strong { display: block; font: var(--ui-text-title-3); margin-bottom: 4px; }
+.reference-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.reference-label h2 { font: var(--ui-text-title-3); }
+.reference-card { border: 0; padding: 4px 0; }
+.reference-heading { margin: 0; }
+.reference-name { flex: 1; text-align: start; }
+#referenceList { gap: 6px; margin-bottom: 10px; }
+#referenceDrop > .hint { margin-top: 10px; }
+.library-panel { max-width: 1080px; margin: auto; }
+#searchMusic { max-width: 350px; margin: 20px 0 8px; }
+.history-list { display: grid; gap: 24px; }
+.music-record { min-width: 0; padding: 22px; border: 1px solid var(--ui-color-border-secondary); border-radius: var(--ui-radius-m); background: var(--ui-color-surface); }
+.history-item { min-width: 0; max-width: 80%; }
+.history-item::part(base) { padding: 0; height: auto; justify-content: start; }
+.history-item::part(label) { text-align: start; white-space: normal; overflow-wrap: anywhere; }
+.history-title { font: var(--ui-text-title-3); color: var(--ui-color-text-primary); }
+.history-error { color: var(--ui-color-text-danger); }
+.library-tracks { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.library-tracks .track-card { min-width: 0; }
+#recordDialog { --width: 800px; }
+#recordDetail { padding: 0; }
+#moreHistory { display: block; margin: 20px auto; }
+@media (max-width: 950px) { .lab-page { padding: 24px; } .composition-grid { grid-template-columns: minmax(0,1fr); } .parameters-panel { border-left: 0; border-top: 1px solid var(--ui-color-border-secondary); } }
+@media (max-width: 600px) { .lab-page { padding: 18px 14px 60px; } .composition-main, .parameters-panel { padding: 22px 18px; } .parameter-grid, .library-tracks { grid-template-columns: minmax(0,1fr); } .create-footer { padding: 14px 18px; gap: 12px; flex-wrap: wrap; } #submitMusic { width: 100%; } .workbench-heading { align-items: start; gap: 10px; } .workbench-heading ic-badge { max-width: 130px; } .music-record { padding: 16px; } .reference-heading { flex-wrap: wrap; } .reference-name { flex-basis: 100%; } }

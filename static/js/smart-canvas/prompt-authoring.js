@@ -385,7 +385,7 @@ function resolvePromptAuthoringFromNodeDraft(node, defaultImages, context=null, 
 // browser cannot silently grow two different definitions of Prompt Authoring.
 const promptAuthoringMigrationSettingKeys = Object.freeze([
     'engine','apiKind','provider_id','model','ratio','resolution','customRatio',
-    'customRatioWidth','customRatioHeight','customSize','customWidth','customHeight',
+    'customRatioWidth','customRatioHeight','customSize','customWidth','customHeight','pixelWidth','pixelHeight',
     'quality','count','videoProvider','videoModel','videoDuration','videoAspect',
     'videoResolution','videoEnhancePrompt','videoEnableUpsample','videoWatermark',
     'videoCameraFixed','videoGenerateAudio','videoReferenceMode','videoMultimodal',

@@ -18,6 +18,7 @@ from threading import RLock
 from typing import Any, Iterable, Mapping, Sequence
 
 from .image_capabilities import ImageCapabilityRegistry
+from .image_dimensions import custom_size_parameter, validate_custom_image_size
 from .video_capabilities import VideoCapabilityRegistry
 
 
@@ -526,6 +527,17 @@ class ModelCapabilityCatalog:
         definitions = capability.get("parameters")
         parameter_contracts = definitions if isinstance(definitions, Mapping) else {}
         normalized: dict[str, Any] = {}
+        if "custom_size" in parameters:
+            enabled = True in (parameter_contracts.get("custom_resolution", {}).get("values") or [])
+            dimensions = parameter_contracts.get("custom_size", {}).get("dimensions")
+            code = (
+                "custom_size_unsupported" if not enabled or not dimensions
+                else validate_custom_image_size(parameters["custom_size"], dimensions)
+            )
+            if code:
+                errors.append({"code": code, "field": "custom_size", "limits": dimensions or {}})
+            if any(key in parameters for key in ("aspect_ratio", "resolution_tier")):
+                errors.append({"code": "custom_size_exclusive", "field": "custom_size"})
         for key, value in parameters.items():
             contract = parameter_contracts.get(key)
             if not isinstance(contract, Mapping):
@@ -777,6 +789,14 @@ class ModelCapabilityCatalog:
                 "visible": False,
                 "editable": False,
             },
+            "custom_resolution": {
+                "type": "boolean",
+                "values": [False, True] if media.supports_custom_resolution else [False],
+                "default": False,
+                "visible": False,
+                "editable": False,
+            },
+            "custom_size": custom_size_parameter(),
             "transparent_png": {
                 "type": "boolean",
                 "values": [False, True] if media.supports_transparent_png else [False],
@@ -804,7 +824,7 @@ class ModelCapabilityCatalog:
                 "transparent_alpha": media.supports_transparent_png,
             },
             parameters=parameters,
-            media_contract=media.public(),
+            media_contract={**media.public(), "custom_size_limits": custom_size_parameter()["dimensions"]},
         )
 
     def _resolve_video(

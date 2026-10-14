@@ -481,7 +481,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(403, raised.exception.status_code)
 
     async def test_standalone_source_refresh_endpoint_is_removed(self):
-        paths = {route.path for route in main.app.routes}
+        paths = {getattr(route, "path", "") for route in main.app.routes}
         self.assertNotIn("/api/admin/model-capabilities/refresh", paths)
         self.assertFalse(hasattr(main.MODEL_CAPABILITY_DISCOVERY, "start"))
 
@@ -565,7 +565,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_external_capability_import_route_is_removed(self):
-        self.assertNotIn("/api/admin/model-capability-matrix/import", {route.path for route in main.app.routes})
+        self.assertNotIn("/api/admin/model-capability-matrix/import", {getattr(route, "path", "") for route in main.app.routes})
         self.assertFalse(hasattr(main, "ModelCapabilityImportRequest"))
 
 

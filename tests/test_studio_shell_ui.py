@@ -95,7 +95,7 @@ class StudioShellUiRegressionTests(unittest.TestCase):
             'data-i18n-aria-label="common.mainContent"',
         ):
             self.assertIn(attribute, self.page)
-        self.assertEqual(7, self.page.count("data-i18n-title="))
+        self.assertEqual(8, self.page.count("data-i18n-title="))
         self.assertIn('data-i18n-title="smart.optimize.settingsTitle"', self.page)
 
     def test_collapsed_sidebar_hides_account_copy_and_centers_vertical_utilities(self):
@@ -149,7 +149,7 @@ class StudioShellUiRegressionTests(unittest.TestCase):
 
 
     def test_collapsed_primary_navigation_exposes_tooltips(self):
-        self.assertEqual(self.page.count('data-collapsed-tooltip-key='), 2)
+        self.assertEqual(self.page.count('data-collapsed-tooltip-key='), 3)
         self.assertIn('<ic-tooltip id="sidebar-tooltip"', self.page)
         self.assertIn('content="展开导航" placement="inline-end"', self.page)
         self.assertIn("function showSidebarTooltip(item)", self.script)

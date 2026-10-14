@@ -118,6 +118,7 @@ export const IC_ICON_NAMES = Object.freeze({
   circle: 'Circle',
   'number-label': 'Hash',
   keyboard: 'Keyboard',
+  lab: 'FlaskConical',
   text: 'Type',
   'square-text': 'SquareText',
   'text-label': 'TextCursorInput',

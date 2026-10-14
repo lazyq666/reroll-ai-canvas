@@ -27,12 +27,12 @@ class GptChatFeatureRemovalTests(unittest.TestCase):
         self.assertNotIn('"chat.', self.studio_i18n)
 
     def test_chat_and_conversation_routes_are_not_registered(self):
-        routes = {route.path for route in self.main.app.routes}
+        routes = {getattr(route, "path", "") for route in self.main.app.routes}
         self.assertFalse(any(path == "/api/chat" or path.startswith("/api/chat/") for path in routes))
         self.assertFalse(any(path == "/api/conversations" or path.startswith("/api/conversations/") for path in routes))
 
     def test_chat_models_remain_available_to_canvas_llm_nodes(self):
-        routes = {route.path for route in self.main.app.routes}
+        routes = {getattr(route, "path", "") for route in self.main.app.routes}
         self.assertIn("/api/canvas-llm", routes)
         self.assertTrue(hasattr(self.main, "CanvasLLMRequest"))
         self.assertFalse(hasattr(self.main, "ChatRequest"))

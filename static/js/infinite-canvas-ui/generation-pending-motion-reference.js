@@ -1,4 +1,4 @@
-import './core.js?v=asset-f0b057e91fa8';
+import './core.js?v=asset-413df1d55ceb';
 
 const defaults = Object.freeze({
   playing: true,

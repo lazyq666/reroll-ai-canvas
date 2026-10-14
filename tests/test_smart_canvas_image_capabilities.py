@@ -16,6 +16,7 @@ class SmartCanvasImageCapabilityTests(unittest.TestCase):
             const vm = require('vm');
             const sandbox = {{window:{{SmartCanvasModules:{{}}}}, URLSearchParams}};
             vm.createContext(sandbox);
+            vm.runInContext(fs.readFileSync("static/js/image-dimensions.js", "utf8"), sandbox);
             vm.runInContext(fs.readFileSync({json.dumps(str(MODULE))}, 'utf8'), sandbox);
             const api = sandbox.window.SmartCanvasModules.imageCapabilities;
             process.stdout.write(JSON.stringify({expression}));
@@ -25,6 +26,29 @@ class SmartCanvasImageCapabilityTests(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, result.stderr)
         return json.loads(result.stdout)
+
+    def test_custom_dimensions_take_priority_without_erasing_standard_preferences(self):
+        value = self.run_module("""(() => {
+            const capability = {...api.fallback(),known:true,supports_custom_resolution:true,custom_size_limits:{multiple:16,maximum_edge:3840,maximum_aspect:3,minimum_pixels:655360,maximum_pixels:8294400}};
+            const settings = {ratio:'wide',resolution:'2k',pixelWidth:'1920',pixelHeight:'1088'};
+            return {
+                submitted:api.resolveForSubmission(settings, [], capability),
+                reconciled:api.reconcile(settings, capability).settings,
+                cleared:api.resolveForSubmission({...settings,pixelWidth:'',pixelHeight:''},[],capability),
+                unsupported:api.reconcile(settings,{...capability,supports_custom_resolution:false}),
+                partial:api.validateCustom({...settings,pixelHeight:''},capability),
+                invalid:api.validateCustom({...settings,pixelWidth:'abc'},capability),
+            };
+        })()""")
+        self.assertEqual('1920x1088', value['submitted']['custom_size'])
+        self.assertIsNone(value['submitted']['target_aspect_ratio'])
+        self.assertEqual('wide', value['reconciled']['ratio'])
+        self.assertEqual('2k', value['reconciled']['resolution'])
+        self.assertEqual('16:9', value['cleared']['target_aspect_ratio'])
+        self.assertEqual('', value['unsupported']['settings']['pixelWidth'])
+        self.assertEqual(['custom_size'], value['unsupported']['invalidated'])
+        self.assertEqual('custom_size_incomplete', value['partial']['reason'])
+        self.assertEqual('custom_size_positive', value['invalid']['reason'])
 
     def test_automatic_requires_exactly_one_supported_reference(self):
         value = self.run_module("({one:api.automatic([{url:'x',natural_w:1919,natural_h:1080}],api.fallback()),many:api.automatic([{url:'a',width:100,height:100},{url:'b',width:100,height:100}],api.fallback())})")

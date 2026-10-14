@@ -134,7 +134,7 @@
         ]
       },
       "actions": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-835c47297d41",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-a44ea166d312",
         "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/actions-contract.html",
@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-96183306ed37",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-fb7dbea65c75",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",

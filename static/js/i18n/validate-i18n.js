@@ -16,6 +16,7 @@ const files = [
     'static/js/i18n/batch-generation.js',
     'static/js/i18n/runtime.js',
     'static/js/i18n/studio.js',
+    'static/js/i18n/music.js',
     'static/js/i18n/api-settings.js',
     'static/js/i18n/canvas.js',
     'static/js/i18n/smart-canvas.js',
