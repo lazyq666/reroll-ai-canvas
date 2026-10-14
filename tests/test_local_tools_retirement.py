@@ -32,9 +32,9 @@ class LocalToolsRetirementTests(unittest.TestCase):
                 for resource in (f"{tool}.html", f"js/{tool}.js", f"css/{tool}.css"):
                     self.assertFalse((ROOT / "static" / resource).exists())
 
-    def test_navigation_only_advertises_canvas_and_online(self):
+    def test_navigation_advertises_canvas_online_and_lab_without_retired_tools(self):
         page = (ROOT / "static/index.html").read_text()
-        self.assertEqual(["canvas", "online"], re.findall(r'<ic-nav-item data-page="([^"]+)"', page))
+        self.assertEqual(["canvas", "online", "lab"], re.findall(r'<ic-nav-item data-page="([^"]+)"', page))
         self.assertNotIn("local-nav-disclosure", page)
         for tool in TOOLS:
             self.assertNotIn(f'frame-{tool}', page)

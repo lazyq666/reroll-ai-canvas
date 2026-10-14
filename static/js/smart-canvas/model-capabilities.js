@@ -172,6 +172,18 @@ function smartModelCapabilityValidate(capability={}, {inputs={},inputRoles={},pa
             errors.push({code:'input_combination',field:String(rule.id || kind),actual:exclusiveCount});
         }
     });
+    if(Object.hasOwn(parameters || {}, 'custom_size')){
+        const limits = capability.parameters?.custom_size?.dimensions;
+        const enabled = capability.parameters?.custom_resolution?.values?.includes(true);
+        const match = typeof parameters.custom_size === 'string' && parameters.custom_size.match(/^([0-9]{1,5})x([0-9]{1,5})$/);
+        const width = Number(match?.[1]), height = Number(match?.[2]);
+        let code = '';
+        if(!enabled || !limits) code = 'unsupported';
+        else if(!match) code = 'integer';
+        else code = globalThis.RerollImageDimensions.validate(width, height, limits);
+        if(code) errors.push({code:`custom_size_${code}`,field:'custom_size',limits});
+        if(Object.hasOwn(parameters, 'aspect_ratio') || Object.hasOwn(parameters, 'resolution_tier')) errors.push({code:'custom_size_exclusive',field:'custom_size'});
+    }
     Object.entries(parameters || {}).forEach(([key,value]) => {
         const contract = capability.parameters?.[key];
         if(!contract){
@@ -211,6 +223,7 @@ function smartModelCapabilityValidate(capability={}, {inputs={},inputRoles={},pa
 function smartModelCapabilityErrorMessage(error={}, fallback=''){
     const translate = typeof tr === 'function' ? tr : key => key;
     const format = typeof trf === 'function' ? trf : (key,values) => `${key} ${JSON.stringify(values || {})}`;
+    if(String(error.code || '').startsWith('custom_size_')) return format(`smart.customSize.${error.code.slice(12)}`, error.limits || {});
     const field = translate(`smart.capabilityField.${String(error.field || 'unknown')}`);
     const values = {field,actual:error.actual ?? '—',minimum:error.minimum ?? '—',maximum:error.maximum ?? '—'};
     const keys = {
@@ -243,6 +256,7 @@ function smartModelCapabilityValidationMessage(validation={}, fallback=''){
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.modelCapabilities = Object.freeze({
+    invalidate:() => smartModelCapabilityCache.clear(),
     clean:smartModelCapabilityClean,
     fallback:smartModelCapabilityFallback,
     current:smartModelCapabilityCurrent,

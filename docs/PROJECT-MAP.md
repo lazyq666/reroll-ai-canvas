@@ -8,7 +8,7 @@
 
 ## 一页摘要
 
-Reroll AI Canvas 是面向可信小团队的本地优先 AI 视觉创作工作台。用户在 Canvas 中组织媒体、提示词和生成逻辑，通过多种 Provider 生成图片、视频或文本，并把结果保存回可搬迁的 Workspace。
+Reroll AI Canvas 是面向可信小团队的本地优先 AI 视觉创作工作台。用户在 Canvas 中组织媒体、提示词和生成逻辑，通过多种 Provider 生成图片、视频、音频或文本，并把结果保存回可搬迁的 Workspace。
 
 - 产品以桌面浏览器为目标，不承诺移动端布局。
 - 默认运行形态是本地单服务、单 Uvicorn Worker，不是多实例 SaaS。
@@ -20,7 +20,7 @@ Reroll AI Canvas 是面向可信小团队的本地优先 AI 视觉创作工作�
 
 标准领域词及禁止使用的同义词见 [`CONTEXT.md`](../CONTEXT.md)。
 
-首页主导航只保留画布和在线生成；四个本地独立工具页、画布内 Klein 图片编辑和 ComfyUI 细节增强已退役，范围、保留能力和验证入口见[本地工具退役边界](current/local-tools-retirement.md)。
+首页主导航提供画布、在线生成和[实验室](current/suno-music-lab.md)；实验室通过 Suno 品牌下的「音乐生成」卡片进入音乐工作台。四个本地独立工具页、画布内 Klein 图片编辑和 ComfyUI 细节增强已退役，范围、保留能力和验证入口见[本地工具退役边界](current/local-tools-retirement.md)。
 
 ## 用户和权限
 
@@ -47,13 +47,13 @@ Reroll AI Canvas 是面向可信小团队的本地优先 AI 视觉创作工作�
 
 ```mermaid
 flowchart TB
-    UI["浏览器产品层<br/>App Shell · Canvas List<br/>Smart Canvas<br/>工作台 · 设置与管理"]
+    UI["浏览器产品层<br/>App Shell · Canvas List<br/>Smart Canvas<br/>在线生成 · 实验室 · 设置与管理"]
     API["FastAPI 组合入口<br/>backend/main.py"]
     AUTH["账号与权限<br/>Account · Role · Project · Share"]
     CANVAS["Canvas 领域<br/>Store · Sync · Realtime · Mutation"]
     GEN["生成领域<br/>Run · Recovery · Batch · History"]
     WORKSPACE["Workspace<br/>打开 · 搬迁 · 迁移 · Managed Media"]
-    PROVIDER["Provider 与 Workflow<br/>HTTP API · CLI · RunningHub<br/>ModelScope · ComfyUI"]
+    PROVIDER["Provider 与 Workflow<br/>HTTP API · CLI · RunningHub<br/>ModelScope · ComfyUI · APIMart Suno"]
     INSTANCE["Instance State<br/>账号 · Session · 全局角色"]
     CONTENT["Workspace Data<br/>SQLite authority / JSON 迁移兼容<br/>Managed Media"]
     DEVICE["Device State / Cache<br/>密钥 · 本机连接 · 模型缓存"]
@@ -124,6 +124,7 @@ backend/
     ├── local_generation_submissions.py 云端试用的本机提交日志、后台前置确认与未知回执核对
     ├── local_generation_http.py 获授权账号的本机接收、查询与恢复入口
     ├── generation_runs.py      Generation Run 生命周期、结果物化编排、幂等和恢复
+    ├── music_lab.py            Suno 参数、本地参考导入、APIMart 音乐任务、账号历史与下载 API
     ├── generation_run_store.py SQLite Run、Global History 与发布回执权威
     ├── generation_publication.py JSON / SQLite History 与通知发布接缝
     ├── model_capabilities.py   跨图片、视频和文字的 Model Capability Catalog、Revision 与生成前校验
@@ -151,7 +152,9 @@ backend/
     └── providers/              Provider 端口、适配和实现
 
 static/
-├── 产品 *.html                 16 个产品页面
+├── 产品 *.html                 产品页面
+├── lab.html                    实验室卡片与 Suno 音乐工作台
+├── js/music-lab.js             方案 B 创作/曲库、展开参数、本地参考、历史与下载
 ├── ui-component-library.html  管理员直接访问的 UI 组件验收样板间（非产品导航）
 ├── js/infinite-canvas-ui/      公共 ic-* 接口、稳定家族入口、Canvas Node 家族与 Classic/Smart Canvas Commit Lane
 │   ├── actions/                Button、Icon Button、Button Group 的实现与家族样式所有者
@@ -220,7 +223,7 @@ Realtime Connection Limit 默认是同一 Smart Canvas 最多 20 条 Realtime Cl
 
 ### Generation Run
 
-Prompt Authoring → Generation Settings → Generation Run → Provider → Completed/Pending/Queued/Failed → Recovery → Target Guard → Generation Output → Node/History。完整合同见[生成链路](current/generation-pipeline.md)。
+Prompt Authoring → Generation Settings → Generation Run → Provider → Completed/Pending/Queued/Failed → Recovery → Target Guard → Generation Output → Node/History。完整合同见[生成链路](current/generation-pipeline.md)。实验室通过 `/api/music/*` 提交 Suno 普通/参考生成、独立 Cover/Inspire、单参考人声或纯音乐改编（`/api/music/covers`）、兼容 URL 导入和格式下载，复用同一 Run 与 Managed Media，历史按当前账号筛选，不写 Canvas。
 
 ### Workspace 打开、恢复创建或搬迁
 
@@ -249,6 +252,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 | F13 | UI 设计、主题与可访问组件 | `current` | [UI 设计与交互指南](current/ui-design-guidelines.md)、[Design Tokens](current/design-tokens.md)、管理员 `/ui-component-library#design-tokens` 全局颜色 Token 工作台与 `/ui-component-library#smart-canvas-dock` 智能画布工具栏 Block |
 | F14 | 更新、回退、配置迁移与发布维护 | `partial` | `launcher.py`、更新路由和维护脚本；[前端资源版本](current/frontend-asset-versions.md)由 `sync_frontend_assets.py` 统一管理引用、依赖图与缓存合同，[生成器回归](../tests/test_frontend_assets.py)和[真实缓存升级回归](../tests/frontend_cache_upgrade_browser.cjs)覆盖漏同步阻断与命名保存；`frontend-update.js` 消费 `/api/app-info` 的版本与清单摘要，提示长期打开页面在画布保存确认后刷新，[更新提醒回归](../tests/frontend_update_browser.cjs)覆盖失败保护与父子页面协调；[Public readiness 发布验收](current/public-readiness.md)已为 Current：固定提交、Linux 独立检查与 main 强制规则已验证；[交付行为回归](../tests/test_readiness_delivery.py)覆盖隔离、版本竞争与规则漂移；其余发布维护总规格仍待补齐 |
 | F15 | 产品知识地图与功能规格体系 | `current` | 本页、[知识库入口](README.md)和[规格模板](FEATURE-SPEC-TEMPLATE.md) |
+| F16 | 实验室与 Suno 音乐 | `current` | [Suno 音乐实验室](current/suno-music-lab.md)；方案 B 创作/曲库、参数直接展开；三个在售版本、1–4 首本地参考、独立 Cover/Inspire、单参考人声或纯音乐改编、试听/移除/复用、个人历史与 MP3/M4A/WAV 下载，复用 Generation Run；`tests/test_music_lab.py` 与 `tests/music_lab_browser.cjs`，通信与下载已实测，参考效果独立验收 |
 
 Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 / F13 的图片分辨率与宽高比双 Badge。布局、固定画幅对比图标、比例识别容差、尺寸恢复及可访问说明统一由 [UI 设计与交互指南](current/ui-design-guidelines.md)定义；`image-metadata.js` 只负责尺寸与比例计算，页面负责显示，公共 `ic-icon` 负责图标。回归入口为 [比例与尺寸来源测试](../tests/smart_canvas_image_metadata.test.cjs)和[真实页面、双语及日志验收](../tests/issue_21_image_metadata_browser_app.cjs)。
 

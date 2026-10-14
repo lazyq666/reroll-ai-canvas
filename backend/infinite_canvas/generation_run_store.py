@@ -946,6 +946,23 @@ class SqliteGenerationRunStore:
             ),
         )
 
+    def list_owned_ids(self, *, owner: str, surface: str, limit: int, before=None) -> tuple[str, ...]:
+        boundary = ""
+        params = [owner, surface]
+        if before is not None:
+            boundary = "AND (runs.created_at < ? OR (runs.created_at = ? AND runs.run_id < ?))"
+            params.extend([before[0], before[0], before[1]])
+        params.append(max(1, min(101, int(limit))))
+        with self._connect() as connection:
+            rows = connection.execute(f"""
+                SELECT runs.run_id FROM generation_runs AS runs
+                JOIN generation_run_payloads AS payloads ON payloads.run_id = runs.run_id
+                WHERE runs.owner_id = ? AND json_extract(payloads.public_metadata_json, '$.surface') = ?
+                {boundary}
+                ORDER BY runs.created_at DESC, runs.run_id DESC LIMIT ?
+            """, params)
+            return tuple(str(row["run_id"]) for row in rows)
+
     def load_unfinished(
         self,
         *,

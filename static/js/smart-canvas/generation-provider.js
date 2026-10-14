@@ -215,7 +215,7 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
     const modelCapability = modelCapabilityModule
         ? await modelCapabilityModule.load(runSettings.provider_id, runSettings.model, operation)
         : capability?.model_capability;
-    if(context.localRepair && modelCapability?.media_contract){
+    if(modelCapability?.media_contract){
         capability = capabilityModule.clean({...modelCapability.media_contract,model_capability:modelCapability},runSettings.provider_id,runSettings.model);
     }
     const resolvedOutput = capabilityModule?.resolveForSubmission?.(
@@ -235,7 +235,7 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
             }
         );
     if(sizeValidation && !sizeValidation.valid){
-        throw new Error(tr('smart.errInvalidSize'));
+        throw new Error(sizeValidation.reason?.startsWith('custom_size_') ? capabilityModule.customMessage(sizeValidation.reason, capability?.custom_size_limits) : tr('smart.errInvalidSize'));
     }
     const count = Math.max(1, Math.round(Number(runSettings.count || 1)));
     const referenceAspectRatio = resolvedOutput?.automatic
@@ -252,7 +252,8 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         quality:runSettings.quality || 'auto'
     };
     if(resolvedOutput?.target_aspect_ratio) capabilityParameters.aspect_ratio = resolvedOutput.target_aspect_ratio;
-    if(runSettings.resolution) capabilityParameters.resolution_tier = String(runSettings.resolution).toUpperCase();
+    if(resolvedOutput?.custom_size) capabilityParameters.custom_size = resolvedOutput.custom_size;
+    if(!resolvedOutput?.custom_size && runSettings.resolution) capabilityParameters.resolution_tier = String(runSettings.resolution).toUpperCase();
     if(capability?.supports_transparent_png === true && runSettings.transparentPng === true){
         capabilityParameters.transparent_png = true;
     }
@@ -268,10 +269,11 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         prompt,
         provider_id:runSettings.provider_id,
         model:runSettings.model,
-        size:sizeForRun(runSettings, resolvedOutput?.target_aspect_ratio),
+        size:resolvedOutput?.custom_size || sizeForRun(runSettings, resolvedOutput?.target_aspect_ratio),
+        size_mode:resolvedOutput?.custom_size ? 'custom' : 'standard',
         target_aspect_ratio:resolvedOutput?.target_aspect_ratio || '',
         reference_aspect_ratio:referenceAspectRatio,
-        resolution_tier:String(runSettings.resolution || '').toUpperCase(),
+        resolution_tier:resolvedOutput?.custom_size ? '' : String(runSettings.resolution || '').toUpperCase(),
         quality:runSettings.quality || 'auto',
         transparent_png:capability?.supports_transparent_png === true && runSettings.transparentPng === true,
         n:count,
@@ -552,7 +554,7 @@ async function generationProviderSubmitModelscope(prompt, refs, runSettings, con
             {prefix:'ms', allowAuto:false}
         );
     if(sizeValidation && !sizeValidation.valid){
-        throw new Error(tr('smart.errInvalidSize'));
+        throw new Error(sizeValidation.reason?.startsWith('custom_size_') ? capabilityModule.customMessage(sizeValidation.reason, capability?.custom_size_limits) : tr('smart.errInvalidSize'));
     }
     if(model.supportsImage && !imageRefs.length) throw new Error(tr('smart.errMsNeedRefs'));
     const parsed = parseSizeValue(apiImageSize(

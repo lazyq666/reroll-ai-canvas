@@ -1,3 +1,4 @@
+import '/static/js/image-dimensions.js?v=asset-2e74d26402f0';
 import { orderAspectRatios, orderResolutions } from './generation-option-order.js?v=asset-c2726cd96df4';
 import { closeTopLayer, isTopLayerOpen, openTopLayer } from './overlay-layer.js?v=asset-5c6dc85ecbcd';
 import {
@@ -49,7 +50,7 @@ function intervalScaleValues(minimum, maximum, interval) {
 export class IcGenerationSettingsPicker extends HTMLElement {
   static get observedAttributes() {
     return [
-      'open', 'label', 'ratio', 'ratio-presets', 'resolution', 'resolutions', 'quality',
+      'custom-size-limits', 'pixel-width', 'pixel-height', 'open', 'label', 'ratio', 'ratio-presets', 'resolution', 'resolutions', 'quality',
       'ratio-label', 'resolution-label', 'quality-label', 'source-label', 'source-ratio',
       'keep-ratio-label', 'adaptive-label', 'resolution-auto-label',
       'quality-auto-label', 'quality-low-label', 'quality-medium-label', 'quality-high-label',
@@ -104,7 +105,7 @@ export class IcGenerationSettingsPicker extends HTMLElement {
   }
 
   attributeChangedCallback(name) {
-    if (!this.isConnected) return;
+    if (!this.isConnected || this._syncingPixels) return;
     if (name === 'open') {
       if (this.open && ['closed', 'exiting'].includes(this.dataset.motionState)) {
         this._motionGeneration += 1;
@@ -282,6 +283,54 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     panel.style.top = `${Math.round(viewportTop - panelRect.top)}px`;
   }
 
+  customSizeLimits() {
+    try { return JSON.parse(this.getAttribute('custom-size-limits') || 'null'); }
+    catch { return null; }
+  }
+
+  syncPixels({emit = false, commit = ''} = {}) {
+    const limits = this.customSizeLimits();
+    if (!limits) return;
+    const root = this.shadowRoot;
+    const widthInput = root.querySelector('[data-pixel="width"]');
+    const heightInput = root.querySelector('[data-pixel="height"]');
+    if (!widthInput || !heightInput) return;
+    if (commit) {
+      const input = commit === 'width' ? widthInput : heightInput;
+      const value = Number(input.value);
+      if (input.value && Number.isFinite(value) && value > 0 && value <= limits.maximum_edge) {
+        const snapped = Math.max(limits.multiple, Math.round(value / limits.multiple) * limits.multiple);
+        if (snapped !== value) { input.value = String(snapped); this._pixelAdjustment = true; }
+      }
+    }
+    const width = widthInput.value, height = heightInput.value;
+    this._syncingPixels = true;
+    this.setAttribute('pixel-width', width);
+    this.setAttribute('pixel-height', height);
+    this._syncingPixels = false;
+    const active = Boolean(width || height);
+    const reason = active ? globalThis.RerollImageDimensions.validate(width, height, limits) : '';
+    const validation = {valid:!reason,reason};
+    root.querySelectorAll('[data-standard-size]').forEach(section => {
+      section.inert = active;
+      section.setAttribute('aria-disabled', String(active));
+      section.querySelectorAll('button').forEach(button => { button.disabled = active; });
+      section.querySelector('ic-aspect-ratio-picker')?.toggleAttribute('disabled', active || this.hasAttribute('lock-ratio') || this.hasAttribute('disabled'));
+    });
+    root.querySelector('[data-clear-pixels]').hidden = !active;
+    for (const input of [widthInput, heightInput]) input.setAttribute('aria-invalid', String(validation?.valid === false));
+    const error = root.querySelector('[data-pixel-error]');
+    const adjusted = active && this._pixelAdjustment ? window.StudioI18n.format('smart.customSize.adjusted', {width:width || '—',height:height || '—'}) : '';
+    error.textContent = [adjusted, validation?.reason ? window.StudioI18n.format(`smart.customSize.${validation.reason}`, limits) : ''].filter(Boolean).join(' ');
+    error.hidden = !error.textContent;
+    error.classList.toggle('invalid', validation?.valid === false);
+    const label = root.querySelector('.trigger-label');
+    if (!this._standardPixelLabel) this._standardPixelLabel = label.textContent;
+    label.textContent = active ? `${width || '—'} × ${height || '—'} px${this.hasAttribute('hide-quality') ? '' : ` / ${this.qualityLabels()[this.quality]}`}` : this._standardPixelLabel;
+    if (emit) this.emitSetting('customSize', {width,height});
+    if (this.open) queueMicrotask(() => this.positionPanel());
+  }
+
   render() {
     const ratios = orderAspectRatios(csvValues(this.getAttribute('ratio-presets')));
     const resolutions = orderResolutions(csvValues(this.getAttribute('resolutions')));
@@ -306,6 +355,8 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     if (!hideQuality) entryParts.push(qualityLabels[this.quality] || this.quality);
     if (showDuration) entryParts.push(`${duration.value}s`);
 
+    const pixelText = key => window.StudioI18n?.t(`smart.customSize.${key}`) || '';
+    this._standardPixelLabel = '';
     this.syncContract();
     this.shadowRoot.innerHTML = `
       <style>
@@ -320,6 +371,17 @@ export class IcGenerationSettingsPicker extends HTMLElement {
         .trigger-icon { --ic-icon-size: var(--ui-icon-size-s); --ic-icon-stroke-width: var(--ui-icon-stroke-width-s); flex: 0 0 auto; }
         [part="panel"] { position: fixed; inset: auto; z-index: var(--ui-z-popover); inline-size: 20rem; max-inline-size: min(20rem, calc(100vw - 2 * var(--ui-space-4))); max-block-size: min(32rem, calc(100vh - 2 * var(--ui-space-4))); box-sizing: border-box; display: grid; gap: var(--ui-space-3); overflow: auto; margin: 0; padding: var(--ui-space-3); border: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius: var(--ui-radius-s); background: var(--ui-color-surface); box-shadow: var(--ui-shadow-overlay); }
         .setting-section { display: grid; gap: var(--ui-space-2); min-inline-size: 0; }
+        [data-standard-size][aria-disabled="true"] { opacity: .35; }
+        .pixel-heading { display:flex; align-items:center; justify-content:space-between; }
+        .pixel-heading button { border:0; background:transparent; color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); cursor:pointer; }
+        .pixel-pair { display:grid; grid-template-columns:1fr auto 1fr; gap:var(--ui-space-2); align-items:center; }
+        .pixel-pair input { box-sizing:border-box; width:100%; min-width:0; height:var(--ui-control-height-s); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-s); background:var(--ui-color-surface); color:var(--ui-color-text-primary); padding:var(--ui-space-2); font:var(--ui-text-body); }
+        .pixel-pair input[aria-invalid="true"] { border-color:var(--ui-color-border-danger); }
+        .pixel-pair button { border:0; background:transparent; color:var(--ui-color-text-primary); cursor:pointer; }
+        .pixel-pair input:focus-visible, .pixel-pair button:focus-visible, .pixel-heading button:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
+        .pixel-message { margin:0; color:var(--ui-color-text-tertiary); font:var(--ui-text-caption); }
+        .pixel-message.invalid { color:var(--ui-color-text-danger); }
+        [hidden] { display:none !important; }
         .setting-label { color: var(--ic-generation-settings-label-foreground); font: var(--ui-text-label); }
         .warning { margin: 0; padding: var(--ui-space-2); border-radius: var(--ui-radius-s); background: var(--ui-color-surface-warning); color: var(--ui-color-text-primary); font: var(--ui-text-caption); }
         ic-aspect-ratio-picker { --ic-aspect-ratio-selected-foreground: var(--ic-generation-settings-selected-foreground); inline-size: 100%; }
@@ -354,16 +416,25 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       </button>
       <section part="panel" aria-label="${htmlEscape(this.getAttribute('label') || '')}" popover="manual">
         ${this.getAttribute('warning') ? `<p class="warning">${htmlEscape(this.getAttribute('warning'))}</p>` : ''}
-        ${hideRatio ? '' : `<div class="setting-section">
+        ${hideRatio ? '' : `<div class="setting-section" data-standard-size>
           <span class="setting-label">${htmlEscape(ratioLabel)}</span>
           <ic-aspect-ratio-picker name="generation-ratio" label="${htmlEscape(ratioLabel)}" value="${htmlEscape(this.ratio)}" presets="${htmlEscape(ratios.join(','))}" source-label="${htmlEscape(sourceLabel)}" keep-ratio-label="${htmlEscape(this.getAttribute('keep-ratio-label') || '')}" adaptive-label="${htmlEscape(this.getAttribute('adaptive-label') || '')}" hide-label data-component-variant="${htmlEscape(this.getAttribute('ratio-variant') || 'generation-settings')}" ${this.ratio ? '' : 'required'} ${singleRatio ? 'data-selection-forced' : ''} ${ratioDisabled ? 'disabled' : ''}></ic-aspect-ratio-picker>
         </div>`}
-        ${hideResolution ? '' : `<div class="setting-section">
+        ${hideResolution ? '' : `<div class="setting-section" data-standard-size>
           <span class="setting-label">${htmlEscape(resolutionLabel)}</span>
           <div class="segments" style="--segment-count:${resolutions.length}" role="radiogroup" aria-label="${htmlEscape(resolutionLabel)}">
             ${resolutions.map(value => `<button class="segment" type="button" role="radio" aria-checked="${String(value === this.resolution)}" aria-pressed="${String(value === this.resolution)}" data-resolution="${htmlEscape(value)}">${htmlEscape(this.resolutionText(value))}</button>`).join('')}
           </div>
         </div>`}
+        ${this.customSizeLimits() ? `<div class="setting-section" data-custom-size>
+          <div class="pixel-heading"><span class="setting-label">${htmlEscape(pixelText('label'))}</span><button type="button" data-clear-pixels>${htmlEscape(pixelText('clear'))}</button></div>
+          <div class="pixel-pair">
+            <input data-pixel="width" type="text" inputmode="numeric" value="${htmlEscape(this.getAttribute('pixel-width') || '')}" placeholder="${htmlEscape(pixelText('widthPlaceholder'))}" aria-label="${htmlEscape(pixelText('width'))}" aria-describedby="pixel-error">
+            <button type="button" data-swap-pixels aria-label="${htmlEscape(pixelText('swap'))}"><ic-icon name="switch-horizontal" size="small" aria-hidden="true"></ic-icon></button>
+            <input data-pixel="height" type="text" inputmode="numeric" value="${htmlEscape(this.getAttribute('pixel-height') || '')}" placeholder="${htmlEscape(pixelText('heightPlaceholder'))}" aria-label="${htmlEscape(pixelText('height'))}" aria-describedby="pixel-error">
+          </div>
+          <p id="pixel-error" class="pixel-message" data-pixel-error role="status" hidden></p>
+        </div>` : ''}
         ${hideQuality ? '' : `<div class="setting-section">
           <span class="setting-label">${htmlEscape(qualityLabel)}</span>
           <div class="segments" style="--segment-count:4" role="radiogroup" aria-label="${htmlEscape(qualityLabel)}">
@@ -430,6 +501,26 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       this.duration = value;
       this.emitSetting('duration', value);
     });
+    this.shadowRoot.querySelectorAll('[data-pixel]').forEach(input => {
+      input.addEventListener('input', () => { this._pixelAdjustment = false; this.syncPixels({emit:true}); });
+      input.addEventListener('blur', () => this.syncPixels({emit:true,commit:input.dataset.pixel}));
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); this.syncPixels({emit:true,commit:input.dataset.pixel}); }
+      });
+    });
+    this.shadowRoot.querySelector('[data-clear-pixels]')?.addEventListener('click', () => {
+      this.shadowRoot.querySelectorAll('[data-pixel]').forEach(input => { input.value = ''; });
+      this._pixelAdjustment = false;
+      this.syncPixels({emit:true});
+    });
+    this.shadowRoot.querySelector('[data-swap-pixels]')?.addEventListener('click', () => {
+      const width = this.shadowRoot.querySelector('[data-pixel="width"]');
+      const height = this.shadowRoot.querySelector('[data-pixel="height"]');
+      [width.value,height.value] = [height.value,width.value];
+      this._pixelAdjustment = false;
+      this.syncPixels({emit:true});
+    });
+    this.syncPixels();
     this.syncOpenPresentation();
     if (this.open) queueMicrotask(() => this.positionPanel());
   }

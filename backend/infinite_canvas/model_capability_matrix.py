@@ -11,6 +11,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
+from .image_dimensions import custom_size_parameter
 from .model_capabilities import ModelCapabilityContext
 
 from .model_capability_workbench import (
@@ -40,8 +41,8 @@ RESOLUTION_PARAMETERS = ("resolution_tier", "resolution")
 VIDEO_MODE_FIRST_LAST_FRAMES = "first_last_frames"
 VIDEO_MODE_ALL_AROUND = "multimodal_all_around"
 EDITABLE_OPTIONS_BY_OPERATION = {
-    "image.generate": frozenset({"transparent_png", "prompt_enhancement"}),
-    "image.edit": frozenset({"transparent_png", "prompt_enhancement"}),
+    "image.generate": frozenset({"transparent_png", "prompt_enhancement", "custom_resolution"}),
+    "image.edit": frozenset({"transparent_png", "prompt_enhancement", "custom_resolution"}),
     "image.layer_decomposition": frozenset(),
     "video.generate": frozenset(
         {
@@ -876,9 +877,14 @@ class ModelCapabilityMatrix:
                 contract["default"] = False
                 contract["visible"] = supported
                 contract["editable"] = supported
+        if operation in {"image.generate", "image.edit"}:
+            parameters["custom_size"] = custom_size_parameter()
         media_contract = candidate.get("media_contract")
         if isinstance(media_contract, dict):
             media_contract["output_count_maximum"] = output_count
+            if operation in {"image.generate", "image.edit"}:
+                media_contract["supports_custom_resolution"] = "custom_resolution" in selected_options
+                media_contract["custom_size_limits"] = custom_size_parameter()["dimensions"]
             if "resolution_tiers" in media_contract:
                 media_contract["resolution_tiers"] = resolutions
             if "aspect_ratios" in media_contract:

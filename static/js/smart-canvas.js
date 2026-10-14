@@ -3547,11 +3547,11 @@ function restoreDynamicParamsScroll(snapshot){
     apply();
     requestAnimationFrame(apply);
 }
-function renderDynamicParams(){
+function renderDynamicParams({force=false}={}){
     if(!dynamicParams) return;
     if(!smartComposerSelectionValidationActive()) return;
     if(
-        typeof smartComposerOwnedOverlayOpen === 'function'
+        !force && typeof smartComposerOwnedOverlayOpen === 'function'
         && smartComposerOwnedOverlayOpen()
     ){
         scheduleDynamicParamsRefresh(120);
@@ -3915,10 +3915,19 @@ function smartImageRatioOptions(prefix=''){
         key:window.SmartCanvasModules.imageCapabilities.standardToRatioKey(ratio) || ratio
     }));
 }
+const pendingSmartImageCapabilityKeys = new Set();
 function renderSizePickerControl(prefix='', includeSource=false, includeQuality=true){
     const ratioKey = prefix ? `${prefix}Ratio` : 'ratio';
     const resKey = prefix ? `${prefix}Resolution` : 'resolution';
     const capability = smartCurrentImageCapability(prefix);
+    const selection = smartImageCapabilitySelection(prefix);
+    const capabilityKey = smartImageCapabilityWarningKey(prefix);
+    if(selection.providerId && selection.modelId && !capability.model_capability && !pendingSmartImageCapabilityKeys.has(capabilityKey)){
+        pendingSmartImageCapabilityKeys.add(capabilityKey);
+        window.SmartCanvasModules.imageCapabilities.load(selection.providerId, selection.modelId).then(() => {
+            if(capabilityKey === smartImageCapabilityWarningKey(prefix)) { renderDynamicParams(); syncRunButtonState(); }
+        }).catch(() => {}).finally(() => pendingSmartImageCapabilityKeys.delete(capabilityKey));
+    }
     const references = smartImageCapabilityReferences();
     const warningKey = smartImageCapabilityWarningKey(prefix);
     const reconciled = window.SmartCanvasModules.imageCapabilities.reconcile(settings, capability, references, {prefix});
@@ -3931,6 +3940,7 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
     if(capability.known === true){
         settings[ratioKey] = reconciled.settings[ratioKey];
         settings[resKey] = reconciled.settings[resKey];
+        if(!prefix){settings.pixelWidth = reconciled.settings.pixelWidth ?? ''; settings.pixelHeight = reconciled.settings.pixelHeight ?? '';}
     }
     if(capability.known === true && reconciled.invalidated.length && shouldWarn){
         settings._imageCapabilityWarning = true;
@@ -3944,7 +3954,8 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
         delete settings._imageCapabilityWarningKey;
     }
     const automatic = reconciled.automatic;
-    if(includeSource && automatic.available && settings._imageRatioExplicit !== true && settings[ratioKey] !== 'source'){
+    const customSizingActive = !prefix && window.SmartCanvasModules.imageCapabilities.customActive(settings);
+    if(includeSource && !customSizingActive && automatic.available && settings._imageRatioExplicit !== true && settings[ratioKey] !== 'source'){
         settings[ratioKey] = 'source';
     }
     if(includeSource && settings[ratioKey] === 'source') applySourceRatioToSettings(prefix);
@@ -3983,6 +3994,7 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
         quality-low-label="${escapeAttr(tr('smart.qualityLow'))}"
         quality-medium-label="${escapeAttr(tr('smart.qualityMid'))}"
         quality-high-label="${escapeAttr(tr('smart.qualityHigh'))}"
+        ${!prefix && !settings.outpaintResolutionLocked && capability.supports_custom_resolution ? `custom-size-limits="${escapeAttr(JSON.stringify(capability.custom_size_limits))}" pixel-width="${escapeAttr(settings.pixelWidth ?? '')}" pixel-height="${escapeAttr(settings.pixelHeight ?? '')}"` : ''}
         data-smart-generation-settings
         data-smart-generation-prefix="${escapeAttr(prefix)}"
         ${capability.show_resolution_control ? '' : 'hide-resolution'}
@@ -4652,6 +4664,15 @@ function bindDynamicParams(){
             event.stopPropagation();
             const field = event.detail?.field;
             const prefix = picker.dataset.smartGenerationPrefix || '';
+            if(field === 'customSize' && !prefix){
+                settings.pixelWidth = event.detail.value.width;
+                settings.pixelHeight = event.detail.value.height;
+                persistActiveSmartSettings();
+                rememberRecentSmartSettings(settings, activeSettingsSubject());
+                canvasPersistence.schedule();
+                syncRunButtonState();
+                return;
+            }
             const video = picker.dataset.smartGenerationMode === 'video';
             const key = video
                 ? (field === 'ratio' ? 'videoAspect' : field === 'resolution' ? 'videoResolution' : field === 'duration' ? 'videoDuration' : '')
@@ -4890,6 +4911,8 @@ async function loadSmartVideoCapabilityForCurrentSettings(){
 }
 async function refreshSmartConfigFromSettings(){
     if(smartCanvasNodeReviewMode) return false;
+    window.SmartCanvasModules.imageCapabilities.invalidate();
+    window.SmartCanvasModules.modelCapabilities.invalidate();
     await loadConfig();
     renderDynamicParams();
     const node = window.SmartCanvasModules.viewportSelection.selection.node();
@@ -5831,7 +5854,11 @@ function syncRunButtonState(node=window.SmartCanvasModules.viewportSelection.sel
     runBtn.label = tr(runBtn.dataset.i18nLabel);
     runBtn.disabled = Boolean(composerSubmission) || !isSmartRunnableNode(node)
         || generationRun.status({node}).loopRunning
-        || invalidVideoReferences;
+        || invalidVideoReferences
+        || (isApiLikeEngine(settings.engine) && settings.apiKind !== 'video'
+            && !settings.outpaintResolutionLocked
+            && window.SmartCanvasModules.imageCapabilities.customActive(settings)
+            && !window.SmartCanvasModules.imageCapabilities.validateCustom(settings, smartCurrentImageCapability('')).valid);
     composerPromptOptimizer?.refresh();
 }
 function canvasImageDragPayload(node, index=0){
@@ -14535,6 +14562,7 @@ async function handleSmartImageDropPayload(payload, targetId='', opts={}){
     }
 }
 function sizeForRun(sourceSettings=settings, targetAspectRatio=''){
+    if(!sourceSettings.outpaintResolutionLocked && sourceSettings.pixelWidth && sourceSettings.pixelHeight) return `${sourceSettings.pixelWidth}x${sourceSettings.pixelHeight}`;
     const capabilityModule = window.SmartCanvasModules?.imageCapabilities;
     const selection = smartImageCapabilitySelection('');
     const capability = capabilityModule?.current?.(selection.providerId, selection.modelId);
@@ -18148,7 +18176,7 @@ window.addEventListener('message', event => {
 window.addEventListener('studio-lang-change', () => {
     applySmartCanvasDockPosition(smartCanvasDockPosition);
     refreshSmartCanvasSettings();
-    renderDynamicParams();
+    renderDynamicParams({force:true});
     renderInputThumbsRow(window.SmartCanvasModules.viewportSelection.selection.node());
     syncPromptCharacterCount(promptInput);
     if(imageStudio.isOpen()){

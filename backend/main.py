@@ -3856,6 +3856,7 @@ class OnlineImageRequest(BaseModel):
     provider_id: str = "comfly"
     model: str = ""
     size: str = "1024x1024"
+    size_mode: str = "standard"
     target_aspect_ratio: str = ""
     reference_aspect_ratio: str = ""
     resolution_tier: str = ""
@@ -7654,8 +7655,13 @@ def _online_image_run(payload, *, publication="online-image"):
     payload.model = model
     capability = resolved_image_capability(provider, model)
     transparent_png = bool(payload.transparent_png)
+    custom_size = payload.size_mode == "custom"
+    if payload.size_mode not in {"standard", "custom"}:
+        raise HTTPException(status_code=422, detail={"code": "custom_size_mode", "field": "size_mode"})
+    if custom_size and (payload.target_aspect_ratio or payload.reference_aspect_ratio or payload.resolution_tier or payload.local_repair):
+        raise HTTPException(status_code=422, detail={"code": "custom_size_exclusive", "field": "custom_size"})
     target_aspect_ratio = str(payload.target_aspect_ratio or "").strip()
-    if not target_aspect_ratio:
+    if not custom_size and not target_aspect_ratio:
         match = re.fullmatch(
             r"\s*(\d+)\s*[xX*]\s*(\d+)\s*",
             str(payload.size or ""),
@@ -7673,7 +7679,7 @@ def _online_image_run(payload, *, publication="online-image"):
     )
     request_size = (
         payload.size
-        if native_gemini
+        if native_gemini or custom_size
         else snap_size_to_multiple(payload.size, 16)
     )
     refs = [
@@ -7688,6 +7694,8 @@ def _online_image_run(payload, *, publication="online-image"):
         "count": int(payload.n),
         "quality": str(payload.quality or "auto").strip().lower() or "auto",
     }
+    if custom_size:
+        capability_parameters["custom_size"] = payload.size
     if target_aspect_ratio:
         capability_parameters["aspect_ratio"] = target_aspect_ratio
     if resolution_tier:
@@ -7701,6 +7709,11 @@ def _online_image_run(payload, *, publication="online-image"):
         catalog_revision=str(payload.catalog_revision or ""),
     )
     raise_model_capability_validation(capability_validation)
+    if custom_size and (
+        (effective_protocol(provider, model) != "openai" and not is_apimart_provider(provider))
+        or effective_image_request_mode(provider, model) == "openai-video-proxy"
+    ):
+        raise HTTPException(status_code=422, detail={"code": "custom_size_transport", "field": "custom_size"})
     payload.catalog_revision = model_capability["catalog_revision"]
     reference_aspect_ratio = ""
     submitted_reference_ratio = str(
@@ -7766,6 +7779,7 @@ def _online_image_run(payload, *, publication="online-image"):
             "model": model,
             "size": request_size,
             "requested_size": payload.size,
+            "size_mode": payload.size_mode,
             "quality": payload.quality,
             "target_aspect_ratio": target_aspect_ratio,
             "reference_aspect_ratio": reference_aspect_ratio,
@@ -11810,6 +11824,18 @@ _GENERATION_EFFECTS = (
     )
 )
 
+from infinite_canvas.music_lab import MusicGenerationExecutor, create_music_router
+
+def _music_provider_config(provider_id):
+    provider = get_api_provider_exact(provider_id)
+    return {**provider, "api_key": strip_auth_scheme(provider_env_key_value(provider_id), "Bearer")}
+
+
+_GENERATION_EXECUTOR = MusicGenerationExecutor(
+    delegate=_GENERATION_EXECUTOR,
+    provider_lookup=_music_provider_config,
+)
+
 _GENERATION_RUNS = GenerationRuns(
     executor=_GENERATION_EXECUTOR,
     effects=_GENERATION_EFFECTS,
@@ -11835,6 +11861,15 @@ _GENERATION_RUNS = GenerationRuns(
     ),
 )
 generation_run_control.install(_GENERATION_RUNS)
+app.include_router(create_music_router(
+    runs=lambda: _GENERATION_RUNS,
+    actor=lambda: require_current_user("admin", "designer"),
+    providers=lambda: [{**p, "api_key": strip_auth_scheme(provider_env_key_value(p["id"]), "Bearer")} for p in load_api_providers()],
+    provider_lookup=_music_provider_config,
+    download_file=lambda request, url, **options: download_output(request, url, **options),
+    import_reference=lambda content, **options: current_workspace_media().import_bytes(content, **options).public(),
+))
+
 
 
 def _local_generation_routes():

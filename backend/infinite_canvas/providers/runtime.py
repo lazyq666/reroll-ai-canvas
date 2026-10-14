@@ -358,6 +358,7 @@ def _image_call(
         checkpoint: RemoteCheckpoint | None = None,
         preserve_geometry: bool = False,
         transparent_png: bool = False,
+        custom_size: bool = False,
         operation: str = "image.generate",
         resolution_tier: str = "",
     ) -> ExecutionResult:
@@ -393,6 +394,7 @@ def _image_call(
                 require_checkpoint=require_checkpoint,
                 **geometry_kwargs,
                 **transparent_kwargs,
+                **({"custom_size": True} if custom_size else {}),
                 **operation_kwargs,
                 **kwargs,
             )
@@ -408,6 +410,7 @@ def _image_call(
                 require_checkpoint=require_checkpoint,
                 **geometry_kwargs,
                 **transparent_kwargs,
+                **({"custom_size": True} if custom_size else {}),
                 **operation_kwargs,
             )
         return Completed(_image_output(output))
@@ -1124,6 +1127,7 @@ class ProviderRuntime:
         count: int = 1,
         checkpoint: RemoteCheckpoint | None = None,
         transparent_png: bool = False,
+        custom_size: bool = False,
         operation: str = "image.generate",
         resolution_tier: str = "",
         preserve_geometry: bool = False,
@@ -1142,6 +1146,7 @@ class ProviderRuntime:
             checkpoint=checkpoint,
             preserve_geometry=preserve_geometry,
             transparent_png=transparent_png,
+            custom_size=custom_size,
             operation=operation,
             resolution_tier=resolution_tier,
         )

@@ -2508,6 +2508,7 @@ async def generate_http_provider_image(
     n=1,
     on_remote=None,
     transparent_png=False,
+    custom_size=False,
     operation="image.generate",
     resolution_tier="",
 ):
@@ -2606,7 +2607,7 @@ async def generate_http_provider_image(
             tool = {"type": "image_generation"}
             tool["action"] = "edit" if image_refs else "generate"
             if size and str(size).strip().lower() != "auto":
-                tool["size"] = responses_proxy_tool_size(size)
+                tool["size"] = size if custom_size else responses_proxy_tool_size(size)
             if quality:
                 tool["quality"] = quality
             size_instruction = responses_image_size_instruction(size)
@@ -2711,8 +2712,10 @@ async def generate_http_provider_image(
                     detail="provider_connection_interrupted",
                 ) from exc
         elif is_apimart:
-            apimart_size, resolution = apimart_size_resolution(size)
-            if is_apimart_gemini_image_model(model):
+            # A confirmed custom-size capability uses exact pixels. Do not
+            # reinterpret them as a ratio or attach a conflicting preset tier.
+            apimart_size, resolution = (size, "") if custom_size else apimart_size_resolution(size)
+            if not custom_size and is_apimart_gemini_image_model(model):
                 apimart_size = apimart_gemini_size(
                     size,
                     model,
@@ -2725,9 +2728,10 @@ async def generate_http_provider_image(
                 "prompt": prompt,
                 "n": requested_count,
                 "size": apimart_size,
-                "resolution": resolution,
                 "official_fallback": False,
             }
+            if resolution:
+                body["resolution"] = resolution
             if transparent_png:
                 body["background"] = "transparent"
                 body["output_format"] = "png"

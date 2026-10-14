@@ -3,7 +3,7 @@
   const CANVAS_ROUTE_KEY = 'studio_canvas_route';
   const SIDEBAR_PINNED_KEY = 'studio_sidebar_pinned';
   const DEFAULT_PAGE_ID = 'canvas';
-  const PAGE_IDS = ['online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
+  const PAGE_IDS = ['lab', 'online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
   const SETTINGS_PAGE_IDS = ['account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
   const CANVAS_EDITOR_PATHS = new Set(['/static/smart-canvas.html']);
 
@@ -182,6 +182,20 @@
 
   function restoreActivePage(user) {
     restoreCanvasFrameRoute();
+    const query = new URLSearchParams(location.search);
+    if (query.get('page') === 'music') {
+      byId('frame-lab').dataset.src = '/static/lab.html#suno';
+      switchUI(null, 'lab');
+      document.documentElement.classList.remove('studio-route-booting');
+      return;
+    }
+    if (['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname) && query.get('prototype') === 'music') {
+      const variant = ['A', 'B', 'C'].includes(query.get('variant')) ? query.get('variant') : 'A';
+      byId('frame-lab').dataset.src = '/static/lab.html?prototype=music&variant=' + variant;
+      switchUI(null, 'lab', { skipRemember: true });
+      document.documentElement.classList.remove('studio-route-booting');
+      return;
+    }
     setSidebarPinned(localStorage.getItem(SIDEBAR_PINNED_KEY) === '1', { skipRemember: true });
     const saved = localStorage.getItem(ACTIVE_PAGE_KEY);
     const permitted = user?.role === 'admin' || !SETTINGS_PAGE_IDS.includes(saved);

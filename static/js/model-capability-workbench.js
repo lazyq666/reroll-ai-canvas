@@ -11,6 +11,8 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     message: byId('capability-message'),
     editorMessage: byId('capability-editor-message'),
     editorDialog,
+    editor: byId('capability-editor'),
+    loading: byId('capability-editor-loading'),
     editorTitle: byId('capability-editor-title'),
     editorModelId: byId('capability-editor-model-id'),
     editorSources: byId('capability-editor-source-summary'),
@@ -20,6 +22,8 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
   const state = {
     loaded: false,
+    loading: false,
+    matrixRequest: null,
     matrix: { models: [], summary: {} },
     selectedModelId: '',
   };
@@ -33,6 +37,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
   const optionLabels = {
     transparent_png: 'models.optionTransparentPng',
+    custom_resolution: 'models.optionCustomResolution',
     prompt_enhancement: 'models.optionPromptEnhancement',
     enhance_prompt: 'models.optionPromptEnhancement',
     generate_audio: 'models.optionGenerateAudio',
@@ -263,6 +268,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     const features = element('div', 'capability-feature-list');
     features.append(
       switchControl(tr('models.optionTransparentPng'), optionEnabled('transparent_png'), { feature: 'transparent_png' }),
+      switchControl(tr('models.optionCustomResolution'), optionEnabled('custom_resolution'), { feature: 'custom_resolution' }),
       switchControl(tr('models.optionPromptEnhancement'), optionEnabled('prompt_enhancement'), { feature: 'prompt_enhancement' }),
     );
     if (layer) {
@@ -470,6 +476,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
 
   const renderEditor = () => {
+    if (state.loading) return;
     const row = selectedRow();
     if (!row) {
       controls.operationEditors.replaceChildren();
@@ -492,7 +499,11 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     renderEditor();
   };
   const loadMatrix = async () => {
-    state.matrix = await request('/api/admin/model-capability-matrix');
+    if (!state.matrixRequest) {
+      state.matrixRequest = request('/api/admin/model-capability-matrix')
+        .finally(() => { state.matrixRequest = null; });
+    }
+    state.matrix = await state.matrixRequest;
     state.loaded = true;
     if (state.selectedModelId && !selectedRow()) state.selectedModelId = '';
     render();
@@ -611,33 +622,64 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
   const apply = async () => {
     const row = selectedRow();
-    if (!row) return;
+    if (!row || state.loading || controls.editor.hidden) return;
     setDisabled(controls.apply, true);
     try {
+      const operations = [...controls.operationEditors.querySelectorAll('.capability-editor-card')]
+        .flatMap((card) => {
+          if (card.dataset.profileType === 'image') return readImageProfile(card, row);
+          if (card.dataset.profileType === 'video') return readVideoProfile(card, row);
+          return [readOperation(card)];
+        });
       const payload = await request('/api/admin/model-capability-matrix', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model_id: row.model_id,
-          operations: [...controls.operationEditors.querySelectorAll('.capability-editor-card')]
-            .flatMap((card) => {
-              if (card.dataset.profileType === 'image') return readImageProfile(card, row);
-              if (card.dataset.profileType === 'video') return readVideoProfile(card, row);
-              return [readOperation(card)];
-            }),
-        }),
+        body: JSON.stringify({ model_id: row.model_id, operations }),
       });
+      const savedRow = payload.matrix?.models?.find((item) => item.model_id === row.model_id);
+      const customResolutionMismatch = operations.some((choice) => {
+        if (!['image.generate', 'image.edit'].includes(choice.operation)) return false;
+        const saved = savedRow?.operations?.find((item) => item.operation === choice.operation);
+        return Boolean(saved?.options?.custom_resolution) !== choice.options.includes('custom_resolution');
+      });
+      if (customResolutionMismatch) {
+        const error = new Error(tr('models.customResolutionNotSaved'));
+        error.translationKey = 'models.customResolutionNotSaved';
+        throw error;
+      }
       state.matrix = payload.matrix;
       render();
+      window.dispatchEvent(new CustomEvent('model-capability-matrix-change', {
+        detail: { matrix: state.matrix },
+      }));
+      try { parent.postMessage({ type: 'models-changed' }, '*'); } catch (_) {}
+      try {
+        const channel = new BroadcastChannel('studio-api');
+        channel.postMessage({ type: 'models-changed' });
+        channel.close();
+      } catch (_) {}
       await controls.editorDialog.hide('confirm');
       showMessage('models.capabilitiesApplied');
     } finally { setDisabled(controls.apply, false); }
   };
   const openEditor = async (modelId) => {
     state.selectedModelId = String(modelId || '').trim();
-    await loadMatrix();
-    if (!selectedRow()) throw new Error(tr('models.detailsUnavailable'));
-    renderEditor();
-    await controls.editorDialog.show();
+    state.loading = true;
+    controls.editor.hidden = true;
+    controls.loading.hidden = false;
+    setDisabled(controls.apply, true);
+    const shown = controls.editorDialog.show();
+    try {
+      await loadMatrix();
+      if (!selectedRow()) throw new Error(tr('models.detailsUnavailable'));
+      state.loading = false;
+      renderEditor();
+      controls.editor.hidden = false;
+      setDisabled(controls.apply, false);
+    } finally {
+      state.loading = false;
+      controls.loading.hidden = true;
+      await shown;
+    }
   };
 
   controls.apply.addEventListener('click', runAction(apply));

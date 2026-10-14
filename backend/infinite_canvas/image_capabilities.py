@@ -107,6 +107,7 @@ class ImageModelCapability:
     confirmed_at: str | None = None
     known: bool = True
     supports_transparent_png: bool = False
+    supports_custom_resolution: bool = False
     operations: tuple[str, ...] = ("image.generate",)
     image_input_maximum: int = 20
     output_count_maximum: int = 4
@@ -132,6 +133,7 @@ class ImageModelCapability:
             "known": self.known,
             "show_resolution_control": self.show_resolution_control,
             "supports_transparent_png": self.supports_transparent_png,
+            "supports_custom_resolution": self.supports_custom_resolution,
             "operations": list(self.operations),
             "image_input_maximum": self.image_input_maximum,
             "output_count_maximum": self.output_count_maximum,
@@ -171,6 +173,7 @@ def _capability_from_mapping(
         confirmed_at=_clean_text(value.get("confirmed_at")) or None,
         known=known,
         supports_transparent_png=value.get("supports_transparent_png") is True,
+        supports_custom_resolution=value.get("supports_custom_resolution") is True,
         operations=_ordered_unique(value.get("operations") or ("image.generate",)),
         image_input_maximum=max(0, int(value.get("image_input_maximum") or 20)),
         output_count_maximum=max(1, int(value.get("output_count_maximum") or 4)),

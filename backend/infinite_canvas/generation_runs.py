@@ -9,6 +9,7 @@ and shutdown ownership stay behind that interface.
 from __future__ import annotations
 
 import asyncio
+import base64
 import copy
 import dataclasses
 import datetime
@@ -63,6 +64,7 @@ RECOVERY_WORKFLOW_OPERATIONS = frozenset(
         "modelscope-recovery",
         "runninghub-query",
         "comfyui-recovery",
+        "suno-query",
     }
 )
 _STORE_VERSION = 1
@@ -75,6 +77,10 @@ class GenerationRunError(RuntimeError):
     def __init__(self, detail: str):
         super().__init__(detail)
         self.detail = str(detail)
+
+
+class GenerationOutputSaveError(GenerationRunError):
+    status_code = 502
 
 
 class GenerationRunConflict(GenerationRunError):
@@ -786,6 +792,14 @@ def _recovery_request_from_run(run: "_Run") -> RunRequest:
         operation = str(run.request_data.get("operation") or "")
         payload = run.request_data.get("payload")
         payload_data = payload if isinstance(payload, Mapping) else {}
+        if operation.startswith("suno-"):
+            return WorkflowRun(
+                operation="suno-query",
+                payload={**dict(payload_data), "task_id": remote_ref},
+                provider_id=run.provider_id,
+                publication=publication,
+                effect_context=context,
+            )
         if operation in {
             "modelscope-angle",
             "modelscope-angle-recovery",
@@ -951,6 +965,7 @@ def _generation_log_request(run: "_Run") -> dict[str, Any]:
                 "model",
                 "size",
                 "requested_size",
+                "size_mode",
                 "target_aspect_ratio",
                 "reference_aspect_ratio",
                 "quality",
@@ -2659,6 +2674,38 @@ class GenerationRuns:
                 snapshot = dataclasses.replace(snapshot, result=self._runtime_results[run.id])
             return snapshot
 
+    async def list_owned(self, *, owner: str, surface: str, limit: int = 30, cursor: str = ""):
+        """Page an account's Runs on a dedicated surface, including failures."""
+        before = None
+        if cursor:
+            try:
+                before = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+                if (not isinstance(before, list) or len(before) != 2
+                        or not isinstance(before[0], (int, float))
+                        or not isinstance(before[1], str)):
+                    raise ValueError()
+            except Exception as exc:
+                raise ValueError("Invalid Run cursor") from exc
+        limit = max(1, min(100, int(limit)))
+        await self.wait_for_lifecycle_projection(through_current=True)
+        if self._path() is None and self._lifecycle_store is not None:
+            ids = await self._lifecycle_store.list_owned_ids(owner=owner, surface=surface,
+                                                            limit=limit + 1, before=before)
+            records = [await self.query(run_id, owner=owner) for run_id in ids]
+        else:
+            with self._lock:
+                self._load_locked()
+                records = [run.snapshot() for run in self._runs.values()
+                           if run.owner == owner and run.public_metadata.get("surface") == surface
+                           and (before is None or (run.created_at, run.id) < tuple(before))]
+            records.sort(key=lambda run: (run.created_at, run.id), reverse=True)
+            records = records[:limit + 1]
+        more = len(records) > limit
+        records = records[:limit]
+        cursor = (base64.urlsafe_b64encode(json.dumps([records[-1].created_at, records[-1].id]).encode()).decode()
+                  if more else "")
+        return records, cursor
+
     def get(
         self,
         run_id: str,
@@ -3334,6 +3381,7 @@ class ProviderGenerationExecutor:
                 settings.get("wait_for_task"),
                 count=max(1, min(8, int(request.count or 1))),
                 **transparent_kwargs,
+                **({"custom_size": True} if settings.get("size_mode") == "custom" else {}),
                 **({"preserve_geometry": True} if (settings.get("local_repair") or {}).get("preserve_geometry") else {}),
                 **operation_kwargs,
                 **checkpoint_kwargs(execute_image),
@@ -3910,6 +3958,10 @@ class WorkspaceGenerationEffects:
                 run_id,
                 copy.deepcopy(dict(legacy)),
             )
+        if isinstance(legacy, Mapping) and legacy.get("type") == "suno":
+            if any(item.get("url") and not str(item["url"]).startswith("/assets/")
+                   for item in legacy.get("items", [])):
+                raise GenerationOutputSaveError("music.saveFailed")
         effects: dict[str, Any] = {}
         result: Any = legacy
         if isinstance(request, RecoveryRun):

@@ -82,7 +82,9 @@ const matrix = {
 };
 // Share editor limits with the backend; no external research schema is exported.
 const { execFileSync } = require('node:child_process');
-const editorData = JSON.parse(execFileSync(path.join(ROOT, '.venv/bin/python'), ['-c',
+const projectPython = path.join(ROOT, '.venv/bin/python');
+const python = process.env.SMART_CANVAS_PYTHON || (fs.existsSync(projectPython) ? projectPython : 'python3');
+const editorData = JSON.parse(execFileSync(python, ['-c',
   'import json; from backend.infinite_canvas.model_capability_matrix import editor_limits,EDITOR_RESOLUTIONS,EDITOR_ASPECT_RATIOS; print(json.dumps({"editor_limits":editor_limits(),"editor_candidates":{"resolutions":EDITOR_RESOLUTIONS,"aspect_ratios":EDITOR_ASPECT_RATIOS}}))'
 ], { cwd: ROOT, encoding: 'utf8' }));
 Object.assign(matrix, editorData);
@@ -111,7 +113,7 @@ function startServer(state) {
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
     if (url.pathname === '/api/admin/available-models') return json(response, 200, { models: availableModels });
-    if (url.pathname === '/api/admin/model-capability-matrix' && request.method === 'GET') return json(response, 200, matrix);
+    if (url.pathname === '/api/admin/model-capability-matrix' && request.method === 'GET') return setTimeout(() => state.failLoad ? json(response, 503, { detail: { code: 'model_capability_matrix_unavailable' } }) : json(response, 200, matrix), state.matrixDelay || 0);
     if (url.pathname === '/api/admin/model-capability-matrix' && request.method === 'PUT') {
       let body = '';
       request.on('data', chunk => { body += chunk; });
@@ -119,6 +121,13 @@ function startServer(state) {
         if (state.failSave) return json(response, 400, { detail: { code: 'model_capability_workbench_invalid' } });
         state.applied += 1;
         state.appliedPayload = JSON.parse(body);
+        if (!state.ignoreCustomResolution) {
+          const row = matrix.models.find(row => row.model_id === state.appliedPayload.model_id);
+          for (const choice of state.appliedPayload.operations) {
+            const operation = row.operations.find(item => item.operation === choice.operation);
+            if (choice.operation === 'image.generate' || choice.operation === 'image.edit') operation.options.custom_resolution = choice.options.includes('custom_resolution');
+          }
+        }
         json(response, 200, { result: { published: 2 }, matrix });
       });
     }
@@ -189,8 +198,32 @@ function startServer(state) {
     assert.equal(desktop.dark, true);
     assert.ok(desktop.overflow <= 1);
 
+    state.failLoad = true;
     await page.locator('#model-list .model-capability-edit').click();
+    await page.locator('#capability-editor-message').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#capability-apply').evaluate(button => button.disabled), true);
+    assert.equal(await page.locator('#capability-editor').isVisible(), false);
+    await page.locator('#capability-editor-close').click();
+    state.failLoad = false;
+    state.matrixDelay = 1800;
+    await page.locator('#model-list .model-capability-edit').click();
+    await page.locator('#capability-editor-loading').waitFor({ state: 'visible', timeout: 600 });
+    assert.equal(await page.locator('#capability-apply').evaluate(button => button.disabled), true);
+    await page.evaluate(() => {
+      localStorage.setItem('studio_lang', 'en');
+      window.StudioI18n.apply();
+      window.dispatchEvent(new CustomEvent('studio-lang-change'));
+    });
+    assert.equal(await page.locator('#capability-editor-loading').getAttribute('label'), 'Loading...');
+    await page.evaluate(() => {
+      localStorage.setItem('studio_lang', 'zh');
+      window.StudioI18n.apply();
+      window.dispatchEvent(new CustomEvent('studio-lang-change'));
+    });
+    await page.locator('#capability-editor-loading').waitFor({ state: 'hidden' });
+    state.matrixDelay = 0;
     await page.waitForFunction(() => document.querySelector('#capability-editor-dialog')?.open);
+    await page.locator('#capability-editor').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.capability-image-profile').count(), 1);
     assert.equal(await page.locator('.capability-operation-card').count(), 0);
     assert.equal((await page.locator('.capability-image-profile h4').textContent()).trim(), '图片能力');
@@ -232,6 +265,7 @@ function startServer(state) {
     await page.locator('[data-choice-value="0.5K"]').click();
     await page.locator('.capability-image-profile ic-aspect-ratio-picker button[data-value="1:8"]').click();
     await page.locator('.capability-image-profile ic-aspect-ratio-picker button[data-value="5:4"]').click();
+    await page.locator('[data-feature="custom_resolution"]').click();
     state.failSave = true;
     await page.locator('#capability-apply').click();
     const editorError = page.locator('#capability-editor-dialog ic-alert[tone="danger"]');
@@ -242,14 +276,30 @@ function startServer(state) {
     assert.equal(await page.locator('#capability-apply').evaluate(button => button.disabled), false);
     assert.equal(await page.locator('.capability-image-profile ic-aspect-ratio-picker button[data-value="5:4"]').getAttribute('aria-checked'), 'true');
     state.failSave = false;
+    state.ignoreCustomResolution = true;
+    await page.locator('#capability-apply').click();
+    await page.waitForFunction(() => document.querySelector('#capability-editor-message').textContent.includes('未能保存'));
+    assert.equal(await page.locator('#capability-editor-dialog').evaluate(dialog => dialog.open), true);
+    state.ignoreCustomResolution = false;
+    state.applied = 0;
+    await page.evaluate(() => {
+      window.capabilitySaveNotifications = 0;
+      window.capabilitySaveChannel = new BroadcastChannel('studio-api');
+      window.capabilitySaveChannel.onmessage = (event) => {
+        if (event.data?.type === 'models-changed') window.capabilitySaveNotifications++;
+      };
+    });
     await page.locator('#capability-apply').click();
     await page.waitForFunction(() => document.querySelector('#capability-message').textContent.includes('已保存'));
     await page.waitForFunction(() => !document.querySelector('#capability-editor-dialog')?.open);
     assert.equal(state.applied, 1);
+    await page.waitForFunction(() => window.capabilitySaveNotifications === 1, null, { timeout: 1500 });
     assert.equal(state.appliedPayload.operations.length, 3);
     const appliedGenerate = state.appliedPayload.operations.find(item => item.operation === 'image.generate');
     const appliedEdit = state.appliedPayload.operations.find(item => item.operation === 'image.edit');
     const appliedLayer = state.appliedPayload.operations.find(item => item.operation === 'image.layer_decomposition');
+    assert.ok(appliedGenerate.options.includes('custom_resolution'));
+    assert.ok(appliedEdit.options.includes('custom_resolution'));
     assert.equal(appliedGenerate.inputs.image, 0);
     assert.equal(appliedEdit.inputs.image, 2);
     assert.equal(appliedGenerate.output_count_maximum, 2);
@@ -287,6 +337,7 @@ function startServer(state) {
     await page.waitForFunction(() => document.querySelectorAll('#model-list .model-row').length === 1);
     await page.locator('#model-list .model-capability-edit').click();
     await page.waitForFunction(() => document.querySelector('#capability-editor-dialog')?.open);
+    await page.locator('#capability-editor').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.capability-video-profile').count(), 1);
     assert.deepEqual(await page.locator('.capability-video-profile ic-aspect-ratio-picker button[data-value]').evaluateAll(buttons => buttons.map(button => button.dataset.value)), ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9']);
     assert.equal(await page.locator('.capability-operation-card').count(), 0);
@@ -349,7 +400,9 @@ function startServer(state) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('#model-list .model-capability-edit').click();
     await page.waitForFunction(() => document.querySelector('#capability-editor-dialog')?.open);
+    await page.locator('#capability-editor').waitFor({ state: 'visible' });
     assert.equal((await page.locator('.capability-image-profile h4').textContent()).trim(), 'Image capabilities');
+    assert.equal(await page.locator('[data-feature="custom_resolution"]').evaluate(control => control.checked), true);
     state.failSave = true;
     await page.locator('#capability-apply').click();
     await editorError.waitFor({ state: 'visible' });
@@ -376,12 +429,21 @@ function startServer(state) {
     }));
     assert.equal(narrow.editorColumns, 1);
     assert.ok(narrow.overflow <= 1, JSON.stringify(narrow));
+    state.ignoreCustomResolution = true;
+    await page.locator('[data-feature="custom_resolution"]').click();
+    await page.locator('#capability-apply').click();
+    await page.waitForFunction(() => document.querySelector('#capability-editor-message').textContent.includes('Custom dimensions could not be saved'));
+    await page.evaluate(() => { localStorage.setItem('studio_lang', 'zh'); window.StudioI18n.apply(); });
+    assert.match(await editorError.textContent(), /指定分辨率未能保存/);
+    await page.evaluate(() => { localStorage.setItem('studio_lang', 'en'); window.StudioI18n.apply(); });
+    state.ignoreCustomResolution = false;
     await page.locator('#capability-editor-close').click();
     await page.waitForFunction(() => !document.querySelector('#capability-editor-dialog')?.open);
     await page.locator('#model-types [data-value="video"]').click();
     await page.waitForFunction(() => document.querySelector('#catalog-title')?.textContent.trim() === 'Video models');
     await page.locator('#model-list .model-capability-edit').click();
     await page.waitForFunction(() => document.querySelector('#capability-editor-dialog')?.open);
+    await page.locator('#capability-editor').waitFor({ state: 'visible' });
     assert.equal((await page.locator('.capability-video-profile h4').textContent()).trim(), 'Video capabilities');
     narrow.videoOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(narrow.videoOverflow <= 1, JSON.stringify(narrow));

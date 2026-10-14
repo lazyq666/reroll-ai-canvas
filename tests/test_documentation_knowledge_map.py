@@ -52,7 +52,7 @@ class DocumentationKnowledgeMapTests(unittest.TestCase):
             encoding="utf-8"
         )
         summary_ids = FEATURE_ROW.findall(catalog)
-        expected = [f"F{index:02d}" for index in range(1, 16)]
+        expected = [f"F{index:02d}" for index in range(1, 17)]
 
         self.assertEqual(expected, summary_ids)
         self.assertEqual(len(summary_ids), len(set(summary_ids)))
