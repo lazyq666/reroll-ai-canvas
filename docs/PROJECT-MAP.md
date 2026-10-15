@@ -154,7 +154,8 @@ backend/
 static/
 ├── 产品 *.html                 产品页面
 ├── lab.html                    实验室卡片与 Suno 音乐工作台
-├── js/music-lab.js             方案 B 创作/曲库、展开参数、本地参考、历史与下载
+├── music-create-prototype.html Suno Create 内容布局 Demo（预览复用现有侧栏）
+├── js/music-lab.js             Create 同屏创作/曲库、统一播放器、逐曲封面、参考与下载
 ├── ui-component-library.html  管理员直接访问的 UI 组件验收样板间（非产品导航）
 ├── js/infinite-canvas-ui/      公共 ic-* 接口、稳定家族入口、Canvas Node 家族与 Classic/Smart Canvas Commit Lane
 │   ├── actions/                Button、Icon Button、Button Group 的实现与家族样式所有者
@@ -252,7 +253,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 | F13 | UI 设计、主题与可访问组件 | `current` | [UI 设计与交互指南](current/ui-design-guidelines.md)、[Design Tokens](current/design-tokens.md)、管理员 `/ui-component-library#design-tokens` 全局颜色 Token 工作台与 `/ui-component-library#smart-canvas-dock` 智能画布工具栏 Block |
 | F14 | 更新、回退、配置迁移与发布维护 | `partial` | `launcher.py`、更新路由和维护脚本；[前端资源版本](current/frontend-asset-versions.md)由 `sync_frontend_assets.py` 统一管理引用、依赖图与缓存合同，[生成器回归](../tests/test_frontend_assets.py)和[真实缓存升级回归](../tests/frontend_cache_upgrade_browser.cjs)覆盖漏同步阻断与命名保存；`frontend-update.js` 消费 `/api/app-info` 的版本与清单摘要，提示长期打开页面在画布保存确认后刷新，[更新提醒回归](../tests/frontend_update_browser.cjs)覆盖失败保护与父子页面协调；[Public readiness 发布验收](current/public-readiness.md)已为 Current：固定提交、Linux 独立检查与 main 强制规则已验证；[交付行为回归](../tests/test_readiness_delivery.py)覆盖隔离、版本竞争与规则漂移；其余发布维护总规格仍待补齐 |
 | F15 | 产品知识地图与功能规格体系 | `current` | 本页、[知识库入口](README.md)和[规格模板](FEATURE-SPEC-TEMPLATE.md) |
-| F16 | 实验室与 Suno 音乐 | `current` | [Suno 音乐实验室](current/suno-music-lab.md)；方案 B 创作/曲库、参数直接展开；三个在售版本、1–4 首本地参考、独立 Cover/Inspire、单参考人声或纯音乐改编、试听/移除/复用、个人历史与 MP3/M4A/WAV 下载，复用 Generation Run；`tests/test_music_lab.py` 与 `tests/music_lab_browser.cjs`，通信与下载已实测，参考效果独立验收 |
+| F16 | 实验室与 Suno 音乐 | `current` | [Suno 音乐实验室](current/suno-music-lab.md)；[Create 布局设计记录](archive/2026-10-14-suno-create-layout-prototype.md)；同屏创作/工作区、简单/详细展开、统一播放器与逐曲封面；三个在售版本、1–4 首本地参考、独立 Cover/Inspire、单参考人声或纯音乐改编、试听/移除/复用、个人历史与 MP3/M4A/WAV 下载，复用 Generation Run；`tests/test_music_lab.py` 与 `tests/music_lab_browser.cjs`，通信与下载已实测，参考效果独立验收 |
 
 Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 / F13 的图片分辨率与宽高比双 Badge。布局、固定画幅对比图标、比例识别容差、尺寸恢复及可访问说明统一由 [UI 设计与交互指南](current/ui-design-guidelines.md)定义；`image-metadata.js` 只负责尺寸与比例计算，页面负责显示，公共 `ic-icon` 负责图标。回归入口为 [比例与尺寸来源测试](../tests/smart_canvas_image_metadata.test.cjs)和[真实页面、双语及日志验收](../tests/issue_21_image_metadata_browser_app.cjs)。
 

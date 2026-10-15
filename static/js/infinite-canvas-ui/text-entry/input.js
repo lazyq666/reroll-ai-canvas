@@ -8,7 +8,7 @@ import {
 
 
 const INPUT_TYPES = new Set(['text', 'search', 'email', 'password', 'url', 'tel']);
-const INPUT_APPEARANCES = new Set(['outlined', 'subtle']);
+const INPUT_APPEARANCES = new Set(['outlined', 'subtle', 'plain']);
 const INPUT_END_ACTION_TAGS = new Set(['ic-button', 'ic-icon-button']);
 
 

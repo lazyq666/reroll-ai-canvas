@@ -1,7 +1,7 @@
 export const SELECT_SIZES = new Set(['s', 'm', 'l', 'small', 'medium', 'large']);
 export const SELECT_HIERARCHIES = new Set(['default', 'quiet']);
 export const CHECKBOX_APPEARANCES = new Set(['default', 'checkmark-end']);
-export const RADIO_GROUP_APPEARANCES = new Set(['default', 'tabs']);
+export const RADIO_GROUP_APPEARANCES = new Set(['default', 'tabs', 'tabs-underline']);
 export const EXCLUSIVE_OVERLAY_REQUEST_EVENT = 'ic-exclusive-overlay-request';
 
 

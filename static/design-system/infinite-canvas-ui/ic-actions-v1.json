@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "infinite-canvas-ui.actions",
-  "interfaceVersion": 6,
+  "interfaceVersion": 7,
   "review": {
     "contract": {
       "status": "confirmed",
@@ -14,7 +14,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/actions.js?v=asset-71a2a98d81fc",
+        "/static/js/infinite-canvas-ui/actions.js?v=asset-ebf9737d8fbb",
         "/static/js/infinite-canvas-ui/actions/video-play-button.js?v=asset-9967cc73e443",
         "/static/js/infinite-canvas-ui/theme-adapter.js?v=asset-91786900b295",
         "/static/design-system/infinite-canvas-ui/actions.html"
@@ -67,6 +67,7 @@
     },
     "engineBoundary": "Business pages consume only ic-* tags, semantic attributes and --ui-* Tokens; Web Awesome remains internal.",
     "iconLanguage": "ic-icon semantic names backed by the fixed local Lucide release",
+    "pillPresentation": "Optional shape=pill is a round silhouette for buttons and icon buttons. Existing defaults do not change. Text buttons accept --ic-action-height, --ic-action-font-size and --ic-action-padding-inline; selected pill toggles use the primary action surface.",
     "iconButtonBackground": "background=ghost stays transparent and strengthens only the icon on hover; hierarchy=primary provides the reusable primary icon action surface."
   },
   "liveMatrix": {

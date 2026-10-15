@@ -138,6 +138,30 @@ export function ensureTextEntryStyles() {
       border-width: var(--ui-border-width-none);
     }
 
+    ic-input[shape="pill"]::part(base) {
+      border-radius: var(--ui-radius-pill);
+      border-width: 0;
+      min-height: var(--ic-input-height, var(--wa-form-control-height));
+      background: var(--ui-color-surface);
+      padding-inline: var(--ui-space-3);
+    }
+    ic-input[appearance="plain"]::part(base) { background: transparent; border-width: 0; }
+
+    /* A containing card can own the surface while the textarea keeps its form semantics. */
+    ic-textarea[appearance="plain"] { font: inherit; }
+
+    ic-textarea[appearance="plain"]::part(base) {
+      background: transparent;
+      border-width: var(--ui-border-width-none);
+      box-shadow: var(--ui-shadow-none);
+    }
+
+    ic-textarea[appearance="plain"]::part(textarea) {
+      padding: 0;
+      font: inherit;
+      min-block-size: var(--ic-textarea-min-height, 0px);
+    }
+
     ic-input[end-action]::part(base) { padding-inline-end: var(--ui-space-1); }
 
     ic-input[end-action] > ic-icon-button[slot="end"]::part(base) {
@@ -191,7 +215,8 @@ export function ensureTextEntryStyles() {
       box-shadow: none;
     }
 
-    ic-input[appearance="subtle"]:focus-within::part(base) {
+    ic-input[appearance="subtle"]:focus-within::part(base),
+    ic-textarea[appearance="plain"]:focus-within::part(base) {
       border-color: transparent;
       outline: var(--ui-focus-ring);
       outline-offset: var(--ui-focus-ring-offset);
@@ -202,6 +227,12 @@ export function ensureTextEntryStyles() {
     ic-textarea[aria-invalid="true"]::part(base),
     ic-form-field[invalid] ic-input::part(base),
     ic-form-field[invalid] ic-textarea::part(base) { border-color: var(--ui-color-border-danger); }
+
+    ic-textarea[appearance="plain"][aria-invalid="true"]::part(base),
+    ic-form-field[invalid] ic-textarea[appearance="plain"]::part(base) {
+      outline: var(--ui-border-width-thin) solid var(--ui-color-border-danger);
+      outline-offset: calc(0px - var(--ui-border-width-thin));
+    }
 
     ic-form-field[invalid] ic-input::part(hint),
     ic-form-field[invalid] ic-textarea::part(hint) { color: var(--ui-color-text-danger); }

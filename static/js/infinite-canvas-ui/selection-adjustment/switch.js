@@ -1,5 +1,5 @@
 import WaSwitch from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/switch/switch.js';
-import { applyContractState, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
+import { applyContractState, withProjectEvents } from './shared.js?v=asset-15b3b74e35cb';
 
 
 export class IcSwitch extends withProjectEvents(WaSwitch, {

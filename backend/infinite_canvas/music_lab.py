@@ -395,6 +395,14 @@ def music_output(data: Mapping, operation: str, task_id: str) -> dict:
             item = {key: entry[key] for key in ("audio_id", "title", "lyrics", "tags", "display_tags",
                     "negative_tags", "duration", "status", "style_weight", "weirdness_constraint", "audio_weight") if key in entry}
             item.update(kind="audio", audio_index=index)
+            # Artwork belongs to this music[] entry, never to the task as a whole.
+            # Optional malformed artwork must not discard a playable audio result.
+            for field in ("image_url", "image_large_url"):
+                if isinstance(entry.get(field), str) and entry[field].strip():
+                    try:
+                        item[field] = public_audio_url(entry[field])
+                    except ValueError:
+                        pass
             if entry.get("audio_url"):
                 item["url"] = public_audio_url(entry["audio_url"])
                 suffix = urlsplit(item["url"]).path.rsplit(".", 1)[-1].lower()

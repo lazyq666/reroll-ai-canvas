@@ -12,6 +12,7 @@
     <ic-form-field id="notes-field" label="Notes" hint="Plain text only">
       <ic-textarea slot="control" id="project-notes" name="notes" rows="3" resize="vertical" value="Initial notes"></ic-textarea>
     </ic-form-field>
+    <ic-textarea id="plain-notes" name="plainNotes" appearance="plain" aria-label="Card notes" rows="2" style="--ic-textarea-min-height: 120px" value="Plain notes"></ic-textarea>
     <ic-input id="subtle-input" name="subtleInput" appearance="subtle" value="Subtle text"></ic-input>
     <ic-input id="subtle-search" name="subtleSearch" type="search" appearance="subtle" value="Canvas"></ic-input>
     <ic-input id="invalid-appearance-input" name="invalidAppearance" appearance="glass" value="Invalid appearance"></ic-input>
@@ -37,6 +38,7 @@
       const form = document.querySelector('#profile-form');
       const input = document.querySelector('#project-name');
       const textarea = document.querySelector('#project-notes');
+      const plainTextarea = document.querySelector('#plain-notes');
       const field = document.querySelector('#name-field');
       const subtleInput = document.querySelector('#subtle-input');
       const subtleSearch = document.querySelector('#subtle-search');
@@ -91,6 +93,24 @@
         invalidStatus: invalidAppearanceInput.dataset.icContractStatus,
         invalidError: invalidAppearanceInput.getAttribute('ic-contract-error'),
       };
+      const plainBase = plainTextarea.shadowRoot.querySelector('[part~="base"]');
+      const plainInput = plainTextarea.shadowRoot.querySelector('textarea');
+      const plainAppearance = {
+        background: getComputedStyle(plainBase).backgroundColor,
+        border: getComputedStyle(plainBase).borderTopWidth,
+        padding: getComputedStyle(plainInput).padding,
+        height: plainInput.getBoundingClientRect().height,
+        name: plainInput.getAttribute('aria-label'),
+        value: initial.plainNotes,
+      };
+      plainTextarea.focus(); await paint();
+      plainAppearance.focus = getComputedStyle(plainBase).outlineStyle;
+      plainTextarea.setAttribute('aria-invalid', 'true'); await paint();
+      plainAppearance.invalid = getComputedStyle(plainBase).outlineStyle;
+      plainTextarea.removeAttribute('aria-invalid');
+      plainTextarea.disabled = true; await paint();
+      plainAppearance.disabled = plainInput.disabled;
+      plainTextarea.disabled = false;
       document.querySelector('#icon-action').click();
       document.querySelector('#text-action').click();
       document.querySelector('#dual-icon-action').click();
@@ -116,11 +136,12 @@
           formField: relationships && invalid && validationText === 'Name is already used',
           radii: radii.input === radii.expected && radii.textarea === radii.expected,
           subtleAppearance: subtleAppearance.every(item => item.background === expectedSubtleBackground && item.borderWidth === '0px' && item.status === 'valid'),
+          plainTextarea: plainAppearance.background === 'rgba(0, 0, 0, 0)' && plainAppearance.border === '0px' && plainAppearance.padding === '0px' && plainAppearance.height === 120 && plainAppearance.name === 'Card notes' && plainAppearance.value === 'Plain notes' && plainAppearance.focus === 'solid' && plainAppearance.invalid === 'solid' && plainAppearance.disabled,
           appearanceContract: appearanceContract.invalidStatus === 'invalid' && appearanceContract.invalidError === 'Unsupported ic-input appearance: glass',
           endActions: endActions.icon === 'valid' && endActions.text === 'valid' && endActions.dual === 'valid' && endActions.iconActionClicks === 1 && endActions.textActionClicks === 1 && endActions.dualIconActionClicks === 1 && endActions.dualTextActionClicks === 1,
           reset: reset.input === 'Draft' && reset.textarea === 'Initial notes',
         },
-        observations: { initial, edited, relationships, validity, invalid, validationText, radii, expectedSubtleBackground, appearanceContract, endActions, reset },
+        observations: { initial, edited, relationships, validity, invalid, validationText, radii, expectedSubtleBackground, appearanceContract, plainAppearance, endActions, reset },
       };
       results.textContent = JSON.stringify(report);
       document.documentElement.dataset.icTextEntryTestStatus = Object.values(report.checks).every(Boolean) ? 'passed' : 'failed';

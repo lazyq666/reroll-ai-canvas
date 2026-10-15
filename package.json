@@ -12,7 +12,8 @@
     "test:browser:core": "node tests/ic_core_browser_smoke.cjs",
     "build:motion": "node scripts/build_libraries_motion.mjs",
     "test:gif": "node --test tests/sprite_components.test.mjs",
-    "prototype:music": "node scripts/music_ui_prototype_server.cjs"
+    "prototype:music": "node scripts/music_ui_prototype_server.cjs",
+    "prototype:music-create": "node scripts/music_ui_prototype_server.cjs --create"
   },
   "devDependencies": {
     "@paper-design/shaders": "0.0.80",

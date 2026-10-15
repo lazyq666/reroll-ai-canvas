@@ -1,4 +1,4 @@
-const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-text-entry-v1.json?v=asset-fa03f2104d87';
+const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-text-entry-v1.json?v=asset-f88b68c298cb';
 const host = document.querySelector('[data-text-entry-contract]');
 const status = document.querySelector('[data-text-entry-review-status]');
 const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');

@@ -1,5 +1,5 @@
 import WaSlider from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/slider/slider.js';
-import { applyContractState, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
+import { applyContractState, withProjectEvents } from './shared.js?v=asset-15b3b74e35cb';
 
 
 export class IcSlider extends withProjectEvents(WaSlider, {
@@ -9,11 +9,13 @@ export class IcSlider extends withProjectEvents(WaSlider, {
 
   static properties = {
     valueText: { attribute: 'value-text', reflect: true },
+    appearance: { reflect: true },
   };
 
   constructor() {
     super();
     this.valueText = '';
+    this.appearance = 'default';
     this.lastContractError = '';
     this.valueFormatter = value => this.valueText.trim() || String(value);
     const blockInvalidInteraction = event => {
@@ -28,6 +30,7 @@ export class IcSlider extends withProjectEvents(WaSlider, {
   }
 
   validateContract() {
+    if (!['default', 'media'].includes(this.appearance)) return `Unsupported ic-slider appearance: ${this.appearance}`;
     if (!String(this.label || '').trim()) return 'label is required for every ic-slider';
     for (const attribute of ['min', 'max', 'value']) {
       if (!this.hasAttribute(attribute)) return `${attribute} is required for every ic-slider`;

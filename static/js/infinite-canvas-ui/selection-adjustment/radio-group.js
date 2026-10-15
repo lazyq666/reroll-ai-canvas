@@ -1,5 +1,5 @@
 import WaRadioGroup from '../../../vendor/webawesome/3.10.0/package/dist-cdn/components/radio-group/radio-group.js';
-import { applyContractState, RADIO_GROUP_APPEARANCES, withProjectEvents } from './shared.js?v=asset-43b40b4ea1f9';
+import { applyContractState, RADIO_GROUP_APPEARANCES, withProjectEvents } from './shared.js?v=asset-15b3b74e35cb';
 
 
 export class IcRadioGroup extends withProjectEvents(WaRadioGroup, {
@@ -30,7 +30,7 @@ export class IcRadioGroup extends withProjectEvents(WaRadioGroup, {
     if (!String(this.label || '').trim()) return 'label is required for every ic-radio-group';
     if (!String(this.name || '').trim()) return 'name is required for every ic-radio-group';
     if (!RADIO_GROUP_APPEARANCES.has(this.appearance)) return `Unsupported ic-radio-group appearance: ${this.appearance}`;
-    if (this.appearance === 'tabs' && this.orientation !== 'horizontal') return 'tabs appearance requires horizontal orientation';
+    if (['tabs', 'tabs-underline'].includes(this.appearance) && this.orientation !== 'horizontal') return 'tabs appearance requires horizontal orientation';
     const invalidChild = [...this.children].find(child => child.localName !== 'ic-radio');
     if (invalidChild) return `ic-radio-group children must be ic-radio, received ${invalidChild.localName}`;
     return '';
