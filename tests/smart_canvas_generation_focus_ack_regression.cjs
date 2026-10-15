@@ -27,6 +27,10 @@ const sandbox = {
 sandbox.nodes=sandbox.canvas.nodes;
 sandbox.activeComposerNode=()=>sandbox.nodes.find(node=>node.id==='source');
 vm.createContext(sandbox);
+const settingsSource = fs.readFileSync('static/js/smart-canvas/generation-settings.js', 'utf8');
+vm.runInContext(settingsSource.slice(
+    settingsSource.indexOf('function isApiLikeEngine('),
+    settingsSource.indexOf('function smartComfyCapability(')), sandbox);
 vm.runInContext(fs.readFileSync('static/js/smart-canvas/canvas-persistence.js','utf8'),sandbox);
 const host=fs.readFileSync('static/js/smart-canvas.js','utf8');
 vm.runInContext('let composerSubmission=null;\n'+host.slice(

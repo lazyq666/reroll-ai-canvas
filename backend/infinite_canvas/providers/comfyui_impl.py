@@ -64,6 +64,8 @@ except Exception:
 
 from .ports import ComfyUiPorts, DynamicPorts
 from .core import Pending
+from .comfyui_h3 import compile_h3, h3_capability, reference_path, validate_references
+from .comfyui_transport import connect_events, wait_for_history
 _ports = DynamicPorts("comfyui")
 NEXT_TASK_ID = 1
 COMFYUI_INSTANCES = ["127.0.0.1:8188"]
@@ -160,7 +162,7 @@ def upload_workflow(payload: WorkflowUploadRequest):
 
 def get_comfy_history(comfy_address, prompt_id):
     try:
-        with urllib.request.urlopen(f"http://{comfy_address}/history/{prompt_id}") as response:
+        with urllib.request.urlopen(f"http://{comfy_address}/history/{prompt_id}", timeout=10) as response:
             return json.loads(response.read())
     except Exception as e:
         return {}
@@ -224,16 +226,94 @@ def save_comfyui_instances(payload: ComfyInstancesPayload):
     BACKEND_LOCAL_LOAD = new_load
     return {"instances": COMFYUI_INSTANCES}
 
+def read_workflow_config(name):
+    path = workflow_config_path(name)
+    if not os.path.isfile(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as source:
+        return json.load(source) or {}
+
+
+def workflow_capability(name, config=None, workflow=None):
+    try:
+        if workflow is None:
+            with open(workflow_path_from_name(name), "r", encoding="utf-8") as source:
+                workflow = json.load(source)
+        result = h3_capability(workflow, config)
+        if result:
+            result["backend"] = COMFYUI_INSTANCES[0] if COMFYUI_INSTANCES else ""
+        return result
+    except (OSError, ValueError):
+        return None
+
+
+def filter_comfy_history(history, output_node_ids):
+    if not output_node_ids:
+        return history
+    selected = {str(nid) for nid in output_node_ids}
+    return {**history, "outputs": {
+        str(nid): output for nid, output in (history.get("outputs") or {}).items()
+        if str(nid) in selected
+    }}
+
+
+def probe_h3_references(references, backend):
+    """Validate actual remote media, never trust browser duration metadata."""
+    result = validate_references(references)
+    ffprobe = shutil.which("ffprobe")
+    for ref in result:
+        reference_path(ref)
+        query = urllib.parse.urlencode({
+            "filename": ref["name"], "subfolder": ref.get("subfolder") or "", "type": "input",
+        })
+        url = f"http://{backend}/view?{query}"
+        if ref["kind"] == "image":
+            response = requests.get(url, stream=True, timeout=10)
+            try:
+                response.raise_for_status()
+            finally:
+                response.close()
+            continue
+        if not ffprobe:
+            raise ValueError("comfy.h3.reference_duration_unknown")
+        try:
+            process = subprocess.run([
+                ffprobe, "-v", "error", "-show_entries",
+                "format=duration:stream=codec_type,duration,width,height", "-of", "json", url,
+            ], capture_output=True, text=True, timeout=30)
+            if process.returncode:
+                raise ValueError("invalid media")
+            metadata = json.loads(process.stdout)
+            ref["duration"] = float(metadata.get("format", {}).get("duration"))
+            streams = metadata.get("streams", [])
+            stream_types = {stream.get("codec_type") for stream in streams}
+            video_stream = next((stream for stream in streams if stream.get("codec_type") == "video"), {})
+            if ref["kind"] == "video":
+                ref["width"] = video_stream.get("width") or 0
+                ref["height"] = video_stream.get("height") or 0
+            if ref["kind"] not in stream_types:
+                raise ValueError("invalid media")
+            if ref["kind"] == "video" and ref.get("include_audio") and "audio" not in stream_types:
+                raise ValueError("comfy.h3.audio_track_missing")
+        except Exception as exc:
+            if str(exc) == "comfy.h3.audio_track_missing":
+                raise
+            raise ValueError("comfy.h3.reference_duration_unknown") from exc
+    return validate_references(result, require_durations=True)
+
+
 def generate(
     req: GenerateRequest,
     *,
     publish: bool = True,
     on_remote=None,
+    on_progress=None,
 ):
     """Legacy route facade; pure adapters pass ``publish=False``."""
     global NEXT_TASK_ID
     current_task = None
     target_backend = None
+    events = None
     with _ports.QUEUE_LOCK:
         task_id = NEXT_TASK_ID
         NEXT_TASK_ID += 1
@@ -241,9 +321,42 @@ def generate(
         _ports.QUEUE.append(current_task)
 
     try:
-        required_images = collect_required_comfy_media(req.params)
-
-        target_backend = reserve_best_backend(required_images)
+        workflow_path = workflow_path_from_name(req.workflow_json)
+        if not os.path.exists(workflow_path):
+            raise ValueError(f"Workflow file not found: {req.workflow_json}")
+        with open(workflow_path, "r", encoding="utf-8") as source:
+            workflow = json.load(source)
+        config = read_workflow_config(req.workflow_json)
+        capability = h3_capability(workflow, config)
+        workflow_inputs = getattr(req, "workflow_inputs", {}) or {}
+        seed = random.randint(1, 4294967295)
+        output_node_ids = list(config.get("output_node_ids") or [])
+        adapter = ""
+        compiled = None
+        if capability:
+            adapter = "h3"
+            # Validate the graph and choices before any network work.
+            compiled = compile_h3(workflow, req.prompt, workflow_inputs, seed=seed)
+            references = validate_references(workflow_inputs.get("references"))
+            backends = {str(ref.get("backend") or "") for ref in references}
+            if len(backends) != 1 or "" in backends:
+                raise ValueError("comfy.h3.backend_mismatch")
+            candidate_backend = next(iter(backends))
+            if candidate_backend not in COMFYUI_INSTANCES:
+                raise ValueError("comfy.h3.backend_unavailable")
+            target_backend = candidate_backend
+            with _ports.LOAD_LOCK:
+                BACKEND_LOCAL_LOAD[target_backend] = BACKEND_LOCAL_LOAD.get(target_backend, 0) + 1
+            references = probe_h3_references(references, target_backend)
+            compiled = compile_h3(workflow, req.prompt, {**workflow_inputs, "references": references}, seed=seed)
+            workflow = compiled.graph
+            output_node_ids = list(compiled.output_node_ids)
+            required_images = []
+        else:
+            if workflow_inputs:
+                raise ValueError("comfy.h3.invalid_template")
+            required_images = collect_required_comfy_media(req.params)
+            target_backend = reserve_best_backend(required_images)
 
         for image_name in required_images:
             need_sync = False
@@ -277,75 +390,63 @@ def generate(
                     except Exception as e:
                         print(f"Sync upload failed: {e}")
 
-        workflow_path = workflow_path_from_name(req.workflow_json)
-        if not os.path.exists(workflow_path):
-            raise Exception(f"Workflow file not found: {req.workflow_json}")
+        if not adapter:
+            if req.workflow_json == "Z-Image.json":
+                if "23" in workflow and req.prompt:
+                    workflow["23"]["inputs"]["text"] = req.prompt
+                if "144" in workflow:
+                    workflow["144"]["inputs"]["width"] = req.width
+                    workflow["144"]["inputs"]["height"] = req.height
+                if "22" in workflow:
+                    workflow["22"]["inputs"]["seed"] = seed
+                if "158" in workflow:
+                    workflow["158"]["inputs"]["noise_seed"] = seed
+                for node_id in ["146", "181"]:
+                    if node_id in workflow and "inputs" in workflow[node_id] and "seed" in workflow[node_id]["inputs"]:
+                        workflow[node_id]["inputs"]["seed"] = seed
+                if "184" in workflow and "inputs" in workflow["184"] and "seed" in workflow["184"]["inputs"]:
+                    workflow["184"]["inputs"]["seed"] = seed
+                if "172" in workflow and "inputs" in workflow["172"] and "seed" in workflow["172"]["inputs"]:
+                    workflow["172"]["inputs"]["seed"] = seed
+                if "14" in workflow and "inputs" in workflow["14"] and "seed" in workflow["14"]["inputs"]:
+                    workflow["14"]["inputs"]["seed"] = seed
 
-        with open(workflow_path, 'r', encoding='utf-8') as f:
-            workflow = json.load(f)
+            for node_id, node_inputs in req.params.items():
+                if node_id in workflow:
+                    if "inputs" not in workflow[node_id]:
+                        workflow[node_id]["inputs"] = {}
+                    for input_name, value in node_inputs.items():
+                        workflow[node_id]["inputs"][input_name] = value
 
-        seed = random.randint(1, 4294967295)
-
-        if "23" in workflow and req.prompt:
-            workflow["23"]["inputs"]["text"] = req.prompt
-        if "144" in workflow:
-            workflow["144"]["inputs"]["width"] = req.width
-            workflow["144"]["inputs"]["height"] = req.height
-        if "22" in workflow:
-            workflow["22"]["inputs"]["seed"] = seed
-        if "158" in workflow:
-            workflow["158"]["inputs"]["noise_seed"] = seed
-        for node_id in ["146", "181"]:
-            if node_id in workflow and "inputs" in workflow[node_id] and "seed" in workflow[node_id]["inputs"]:
-                workflow[node_id]["inputs"]["seed"] = seed
-        if "184" in workflow and "inputs" in workflow["184"] and "seed" in workflow["184"]["inputs"]:
-            workflow["184"]["inputs"]["seed"] = seed
-        if "172" in workflow and "inputs" in workflow["172"] and "seed" in workflow["172"]["inputs"]:
-            workflow["172"]["inputs"]["seed"] = seed
-        if "14" in workflow and "inputs" in workflow["14"] and "seed" in workflow["14"]["inputs"]:
-            workflow["14"]["inputs"]["seed"] = seed
-
-        for node_id, node_inputs in req.params.items():
-            if node_id in workflow:
-                if "inputs" not in workflow[node_id]:
-                    workflow[node_id]["inputs"] = {}
-                for input_name, value in node_inputs.items():
-                    workflow[node_id]["inputs"][input_name] = value
-
-        p = {"prompt": workflow, "client_id": _ports.CLIENT_ID}
+        remote_client_id = str(uuid.uuid4())
+        events = connect_events(target_backend, remote_client_id)
+        p = {"prompt": workflow, "client_id": remote_client_id}
         data = json.dumps(p).encode('utf-8')
         try:
-            post_req = urllib.request.Request(f"http://{target_backend}/prompt", data=data)
+            post_req = urllib.request.Request(f"http://{target_backend}/prompt", data=data, headers={"Content-Type": "application/json"})
             prompt_id = json.loads(urllib.request.urlopen(post_req, timeout=10).read())['prompt_id']
         except urllib.error.HTTPError as e:
             error_body = e.read().decode('utf-8')
             raise Exception(f"HTTP Error {e.code}: {error_body}")
+        checkpoint = {
+            "task_id": task_id, "prompt_id": prompt_id, "backend": target_backend,
+            "client_id": remote_client_id, "output_node_ids": output_node_ids,
+            "workflow_classes": {str(nid): node.get("class_type", "") for nid, node in workflow.items()},
+            "adapter": adapter, "duration": compiled.duration if compiled else None,
+            "workflow_digest": hashlib.sha256(json.dumps(workflow, sort_keys=True).encode()).hexdigest(),
+        }
         if on_remote is not None:
-            on_remote(
-                Pending(
-                    str(prompt_id),
-                    raw={
-                        "task_id": task_id,
-                        "prompt_id": prompt_id,
-                        "backend": target_backend,
-                    },
-                    status="running",
-                )
-            )
-
-        history_data = None
-        for i in range(_ports.COMFYUI_HISTORY_TIMEOUT):
-            try:
-                res = get_comfy_history(target_backend, prompt_id)
-                if prompt_id in res:
-                    history_data = res[prompt_id]
-                    break
-            except Exception:
-                pass
-            time.sleep(1)
-
-        if not history_data:
-            raise Exception("ComfyUI 渲染超时")
+            on_remote(Pending(str(prompt_id), raw=checkpoint, status="queued"))
+        history_data = wait_for_history(
+            target_backend, str(prompt_id), get_history=get_comfy_history,
+            timeout=_ports.COMFYUI_HISTORY_TIMEOUT, client_id=remote_client_id,
+            classes=checkpoint["workflow_classes"], adapter=adapter,
+            on_progress=on_progress, events=events,
+        )
+        events = None
+        history_data = filter_comfy_history(history_data, output_node_ids)
+        if not history_data.get("outputs"):
+            raise ValueError("comfy.execution_no_outputs")
 
         local_images = []
         local_videos = []
@@ -380,6 +481,8 @@ def generate(
             )
             prefix = f"{req.type}_{int(current_timestamp)}_"
             for node_id, class_type, output_key, item, kind in file_candidates:
+                if adapter == "h3" and kind != "video":
+                    continue
                 if kind == "image" and has_primary_image and comfy_class_is_preview(class_type):
                     continue  # 跳过冗余的预览/对比图
                 if publish:
@@ -443,6 +546,8 @@ def generate(
                 if local_path:
                     local_urls.append(local_path)
 
+        if adapter == "h3" and not local_videos:
+            raise ValueError("comfy.execution_no_outputs")
         result = {
             "prompt": req.prompt if req.prompt else "Detail Enhance",
             "images": local_images,
@@ -459,13 +564,24 @@ def generate(
             "task_id": task_id,
             "prompt_id": prompt_id,
             "backend": target_backend,
-            "params": req.params
+            "params": req.params,
+            "workflow_inputs": workflow_inputs,
+            "output_node_ids": output_node_ids,
         }
         return result
 
+    except TimeoutError:
+        # Preserve the exception type: Generation Run can query this submitted
+        # prompt again after a monitoring timeout without ever resubmitting it.
+        raise
     except Exception as e:
         return {"images": [], "error": str(e)}
     finally:
+        if events is not None:
+            try:
+                events.close()
+            except Exception:
+                pass
         if target_backend:
             with _ports.LOAD_LOCK:
                 if BACKEND_LOCAL_LOAD.get(target_backend, 0) > 0:
@@ -476,13 +592,14 @@ def generate(
                     _ports.QUEUE.remove(current_task)
 
 
-async def execute_comfyui_workflow(payload: GenerateRequest, on_remote=None):
+async def execute_comfyui_workflow(payload: GenerateRequest, on_remote=None, on_progress=None):
     """Pure Provider execution seam; Generation Runs owns publication."""
     result = await asyncio.to_thread(
         generate,
         payload,
         publish=False,
         on_remote=on_remote,
+        on_progress=on_progress,
     )
     if isinstance(result, dict) and result.get("error"):
         raise RuntimeError(str(result.get("error") or "ComfyUI 生成失败"))
@@ -614,6 +731,7 @@ def list_workflows():
                 "title": cfg.get("title") or fn.replace(".json", ""),
                 "builtin": True,
                 "field_count": len(cfg.get("fields") or []),
+            "capability": workflow_capability(name, cfg),
             })
     user_workflows = _ports.user_workflow_directory()
     if not os.path.isdir(user_workflows):
@@ -638,6 +756,7 @@ def list_workflows():
             "title": cfg.get("title") or fn.replace(".json", ""),
             "builtin": False,
             "field_count": len(cfg.get("fields") or []),
+            "capability": workflow_capability(name, cfg),
         })
     items.sort(key=lambda item: (not item["builtin"], item["title"]))
     return {"workflows": items}
@@ -658,6 +777,7 @@ def run_workflow(
     *,
     publish: bool = True,
     on_remote=None,
+    on_progress=None,
 ):
     if not _ports.WORKFLOW_NAME_RE.match(name):
         raise HTTPException(status_code=400, detail="Invalid workflow name")
@@ -691,29 +811,34 @@ def run_workflow(
                         pass
             params.setdefault(field.node, {})[field.input] = value
     req = _ports.GenerateRequest(
-        prompt="",
+        prompt=getattr(payload, "prompt", "") or "",
+        workflow_inputs=getattr(payload, "workflow_inputs", {}) or {},
         workflow_json=name,
         params=params,
         type="workflow-test",
         client_id=payload.client_id or str(uuid.uuid4()),
     )
-    return generate(req, publish=publish, on_remote=on_remote)
+    return generate(req, publish=publish, on_remote=on_remote, on_progress=on_progress)
 
 
-async def execute_comfyui_saved_workflow(payload, on_remote=None):
+async def execute_comfyui_saved_workflow(payload, on_remote=None, on_progress=None):
     """Pure saved-workflow execution seam for Generation Runs."""
     name = str(payload.get("name") or "")
     request = payload.get("payload")
-    return await asyncio.to_thread(
+    result = await asyncio.to_thread(
         run_workflow,
         name,
         request,
         publish=False,
         on_remote=on_remote,
+        on_progress=on_progress,
     )
 
+    if isinstance(result, dict) and result.get("error"):
+        raise RuntimeError(str(result["error"]))
+    return result
 
-async def execute_comfyui_recovery(payload):
+async def execute_comfyui_recovery(payload, on_progress=None):
     """Resume a submitted Comfy prompt without creating another prompt."""
     prompt_id = str((payload or {}).get("prompt_id") or "").strip()
     backend = str((payload or {}).get("backend") or "").strip()
@@ -724,18 +849,17 @@ async def execute_comfyui_recovery(payload):
         )
 
     def poll():
-        history_data = None
-        for _ in range(_ports.COMFYUI_HISTORY_TIMEOUT):
-            result = get_comfy_history(backend, prompt_id)
-            if prompt_id in result:
-                history_data = result[prompt_id]
-                break
-            time.sleep(1)
-        if not history_data:
-            raise HTTPException(
-                status_code=504,
-                detail="ComfyUI 渲染超时",
-            )
+        client_id = str(payload.get("client_id") or uuid.uuid4())
+        history_data = wait_for_history(
+            backend, prompt_id, get_history=get_comfy_history,
+            timeout=_ports.COMFYUI_HISTORY_TIMEOUT, client_id=client_id,
+            classes=payload.get("workflow_classes") or {},
+            adapter=str(payload.get("adapter") or ""), on_progress=on_progress,
+            events=connect_events(backend, client_id),
+        )
+        history_data = filter_comfy_history(history_data, payload.get("output_node_ids"))
+        if not history_data.get("outputs"):
+            raise RuntimeError("comfy.execution_no_outputs")
         projected = {
             "images": [],
             "videos": [],
@@ -747,11 +871,19 @@ async def execute_comfyui_recovery(payload):
             "prompt_id": prompt_id,
             "backend": backend,
         }
-        for node_id, node_output in (
-            history_data.get("outputs") or {}
-        ).items():
+        classes = payload.get("workflow_classes") or {}
+        outputs = history_data.get("outputs") or {}
+        has_primary_image = any(
+            comfy_output_kind(item) == "image" and not comfy_class_is_preview(classes.get(str(nid)))
+            for nid, output in outputs.items() for _, item in collect_comfy_file_items(output)
+        )
+        for node_id, node_output in outputs.items():
             for output_key, item in collect_comfy_file_items(node_output):
                 kind = comfy_output_kind(item)
+                if payload.get("adapter") == "h3" and kind != "video":
+                    continue
+                if kind == "image" and has_primary_image and comfy_class_is_preview(classes.get(str(node_id))):
+                    continue
                 query = urllib.parse.urlencode(
                     {
                         "filename": item.get("filename") or "",
@@ -774,6 +906,8 @@ async def execute_comfyui_recovery(payload):
                     }
                 )
             for text, name in comfy_text_values_from_output(node_output):
+                if comfy_class_is_debug_text(classes.get(str(node_id))):
+                    continue
                 projected["items"].append(
                     {
                         "url": "",
@@ -784,6 +918,8 @@ async def execute_comfyui_recovery(payload):
                         "text": text,
                     }
                 )
+        if payload.get("adapter") == "h3" and not projected["videos"]:
+            raise RuntimeError("comfy.execution_no_outputs")
         return projected
 
     return await asyncio.to_thread(poll)
@@ -821,7 +957,7 @@ def get_workflow(name: str):
                 cfg = json.load(f) or cfg
         except Exception:
             pass
-    return {"name": name, "workflow": workflow, "config": cfg, "builtin": is_builtin_workflow(name)}
+    return {"name": name, "workflow": workflow, "config": cfg, "builtin": is_builtin_workflow(name), "capability": workflow_capability(name, cfg, workflow)}
 
 def workflow_config_path(name: str) -> str:
     return workflow_path_from_name(name).replace(".json", ".config.json")

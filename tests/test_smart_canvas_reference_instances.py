@@ -207,6 +207,8 @@ class SmartCanvasReferenceInstanceTests(unittest.TestCase):
                 refreshIcons:()=>{}
             };
             vm.createContext(sandbox);
+            const settingsSource=fs.readFileSync('static/js/smart-canvas/generation-settings.js','utf8');
+            vm.runInContext(settingsSource.slice(settingsSource.indexOf('function smartComfyCapability('),settingsSource.indexOf('function smartComfyOutputKind(')),sandbox);
             vm.runInContext(source.slice(thumbStart,thumbEnd),sandbox);
             vm.runInContext(source.slice(renderStart,renderEnd),sandbox);
             sandbox.renderInputThumbsRow({id:'video-target'});

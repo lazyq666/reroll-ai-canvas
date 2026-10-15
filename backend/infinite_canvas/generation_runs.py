@@ -16,6 +16,7 @@ import datetime
 import hashlib
 import inspect
 import json
+import math
 import os
 import re
 import threading
@@ -45,6 +46,7 @@ from .layer_decomposition import (
 from .providers.core import Completed, ExecutionResult, Failed, Pending, Queued
 from .providers.runtime import (
     ProviderOutput,
+    ProviderProgress,
     ProviderRuntime,
     TextOutput,
     TextStreamEventKind,
@@ -270,7 +272,7 @@ class PreparedGenerationOutput:
         )
 
 
-RemoteCheckpoint: TypeAlias = Callable[[Pending | Queued], None]
+RemoteCheckpoint: TypeAlias = Callable[[Pending | Queued], Awaitable[None] | None]
 
 
 class GenerationExecutor(Protocol):
@@ -278,6 +280,7 @@ class GenerationExecutor(Protocol):
         self,
         request: RunRequest,
         checkpoint: RemoteCheckpoint | None = None,
+        progress: ProviderProgress | None = None,
     ) -> ExecutionResult: ...
 
 
@@ -503,22 +506,36 @@ def _without_inline_media(value: Any) -> Any:
     return value
 
 
-def _prepared_media_urls(prepared: PreparedGenerationOutput) -> tuple[str, ...]:
+def _requires_managed_media(request: RunRequest) -> bool:
+    return (
+        isinstance(request, WorkflowRun)
+        and request.effect_context.get("require_managed_media") is True
+    )
+
+
+def _prepared_media_urls(
+    prepared: PreparedGenerationOutput,
+    *,
+    include_unmanaged: bool = False,
+) -> tuple[str, ...]:
     urls: list[str] = []
 
     def collect(value: Any) -> None:
         if isinstance(value, str):
-            if value.startswith(
+            if value and (include_unmanaged or value.startswith(
                 ("/assets/", "/api/storage-files/", "http://", "https://")
-            ):
+            )):
                 if value not in urls:
                     urls.append(value)
             return
         if isinstance(value, Mapping):
-            for key in (
+            fields = (
                 "images", "videos", "audios", "files", "outputs",
                 "image_items", "items", "base", "layers", "url",
-            ):
+            )
+            if include_unmanaged:
+                fields += ("texts", "urls", "data", "result")
+            for key in fields:
                 if key in value:
                     collect(value[key])
             return
@@ -846,6 +863,7 @@ def _recovery_request_from_run(run: "_Run") -> RunRequest:
             return WorkflowRun(
                 operation="comfyui-recovery",
                 payload={
+                    **copy.deepcopy(dict(checkpoint)),
                     "prompt_id": remote_ref,
                     "backend": str(
                         checkpoint.get("backend")
@@ -1996,11 +2014,25 @@ class GenerationRuns:
         compatibility with isolated executors and older extensions.
         """
 
-        def checkpoint(result: Pending | Queued) -> None:
+        active = True
+
+        def checkpoint(result: Pending | Queued):
+            if not active:
+                return None
             self._checkpoint_remote(run_id, result, child_index=child_index)
+            if (
+                self._lifecycle_store is not None
+                and isinstance(request, WorkflowRun)
+                and request.operation in {"comfyui", "comfyui-saved", "comfyui-recovery"}
+            ):
+                return asyncio.create_task(
+                    self.wait_for_lifecycle_projection(through_current=True)
+                )
+            return None
 
         def progress(value: Mapping[str, Any]) -> None:
-            self._checkpoint_progress(run_id, value)
+            if active:
+                self._checkpoint_progress(run_id, value)
 
         execute = self._executor.execute
         signature = inspect.signature(execute)
@@ -2015,7 +2047,11 @@ class GenerationRuns:
             except TypeError:
                 continue
             options = candidate
-        return await execute(request, **options)
+        try:
+            return await execute(request, **options)
+        finally:
+            # A cancelled worker thread can still deliver already-read events.
+            active = False
 
     def _checkpoint_progress(
         self,
@@ -2024,20 +2060,46 @@ class GenerationRuns:
     ) -> None:
         if not isinstance(value, Mapping):
             return
-        projection: dict[str, Any] = {}
-        phase = str(value.get("phase") or "").strip()[:80]
+        stage = str(value.get("stage") or "").strip()[:80]
+        phase = str(value.get("phase") or stage).strip()[:80]
         message = str(value.get("message") or "").strip()[:160]
+        projection: dict[str, Any] = {}
         if phase:
             projection["phase"] = phase
-        if message:
+        if message and not stage:
             projection["message"] = message
-        if value.get("progress") is not None:
+        if stage:
+            projection["stage"] = stage
+        progress_keys = (
+            "progress", "progress_percent", "progress_current",
+            "progress_total", "queue_position",
+        )
+        for key in progress_keys:
+            if key not in value:
+                continue
+            number = value[key]
+            if number is None:
+                projection[key] = None
+                continue
+            if key == "progress" and not stage:
+                try:
+                    projection[key] = max(0, min(100, int(number)))
+                except (TypeError, ValueError, OverflowError):
+                    pass
+                continue
             try:
-                percent = int(value["progress"])
+                number = float(number)
             except (TypeError, ValueError, OverflowError):
-                percent = None
-            if percent is not None:
-                projection["progress"] = max(0, min(100, percent))
+                continue
+            if not math.isfinite(number) or number < 0:
+                continue
+            if key in {"progress", "progress_percent"}:
+                number = min(100, number)
+            else:
+                number = int(number)
+            projection[key] = number
+        if "progress_percent" in projection:
+            projection["progress"] = projection["progress_percent"]
         if not projection:
             return
         with self._lock:
@@ -2045,8 +2107,18 @@ class GenerationRuns:
             run = self._runs.get(run_id)
             if run is None or run.status in TERMINAL_STATUSES:
                 return
-            if all(run.public_metadata.get(key) == item for key, item in projection.items()):
+            if stage and stage != run.public_metadata.get("stage"):
+                # A sampling percentage is local to one stage, never the Run.
+                projection = {**dict.fromkeys(progress_keys), **projection}
+            next_status = run.status
+            if run.kind == "workflow" and stage.startswith("comfy-"):
+                next_status = "queued" if stage == "comfy-queued" else "running"
+            if next_status == run.status and all(
+                key in run.public_metadata and run.public_metadata[key] == item
+                for key, item in projection.items()
+            ):
                 return
+            run.status = next_status
             run.public_metadata.update(projection)
             run.updated_at = float(self._now())
             self._persist_locked(run)
@@ -2069,6 +2141,8 @@ class GenerationRuns:
         with self._lock:
             self._load_locked()
             run = self._runs[run_id]
+            if run.status in TERMINAL_STATUSES:
+                return
             if child_index is not None:
                 while len(run.child_attempts) <= child_index:
                     run.child_attempts.append(
@@ -2370,6 +2444,25 @@ class GenerationRuns:
                     run.snapshot(),
                     result=published,
                 )
+
+        if _requires_managed_media(request):
+            # Opted-in workflows return retrievable remote sources. Preserve
+            # those before downloading, so a failed save only replays the save
+            # step. Other providers retain their inline-media persistence order.
+            with self._lock:
+                run = self._runs[run_id]
+                run.phase = "provider_completed"
+                run.provider_output = _without_inline_media(
+                    _provider_output_value(output)
+                )
+                if output.remote_refs:
+                    run.remote_refs = list(output.remote_refs)
+                self._index_remote_refs_locked(run)
+                run.recoverable = True
+                run.updated_at = float(self._now())
+                self._persist_locked(run)
+            if self._lifecycle_store is not None and self._path() is None:
+                await self.wait_for_lifecycle_projection(through_current=True)
 
         prepared: PreparedGenerationOutput | None = None
         prepare = getattr(self._effects, "prepare", None)
@@ -3336,6 +3429,7 @@ class ProviderGenerationExecutor:
         self,
         request: RunRequest,
         checkpoint: RemoteCheckpoint | None = None,
+        progress: ProviderProgress | None = None,
     ) -> ExecutionResult:
         def checkpoint_kwargs(callable_value) -> dict[str, Any]:
             if checkpoint is None:
@@ -3406,11 +3500,19 @@ class ProviderGenerationExecutor:
             )
         if isinstance(request, WorkflowRun):
             execute_workflow = self._runtime.execute_workflow
+            options = checkpoint_kwargs(execute_workflow)
+            if progress is not None:
+                try:
+                    inspect.signature(execute_workflow).bind_partial(progress=progress)
+                except TypeError:
+                    pass
+                else:
+                    options["progress"] = progress
             return await execute_workflow(
                 request.operation,
                 request.payload,
                 request.provider_id,
-                **checkpoint_kwargs(execute_workflow),
+                **options,
             )
         recover = self._runtime.execute_recovery
         try:
@@ -3958,6 +4060,15 @@ class WorkspaceGenerationEffects:
                 run_id,
                 copy.deepcopy(dict(legacy)),
             )
+        if _requires_managed_media(request):
+            sources = _prepared_media_urls(
+                PreparedGenerationOutput(result=legacy),
+                include_unmanaged=True,
+            )
+            if any(not source.startswith((
+                "/assets/", "/api/storage-files/generated/"
+            )) for source in sources):
+                raise GenerationOutputSaveError("generation.output_save_failed")
         if isinstance(legacy, Mapping) and legacy.get("type") == "suno":
             if any(item.get("url") and not str(item["url"]).startswith("/assets/")
                    for item in legacy.get("items", [])):

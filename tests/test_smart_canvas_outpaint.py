@@ -102,7 +102,10 @@ class SmartCanvasOutpaintTests(unittest.TestCase):
               snapshotRunMeta:(prompt,sourceNodeId,displayPrompt,refs,settings)=>({{prompt,displayPrompt,sourceNodeId,settings,promptHtml:sourceNode.promptDraftHtml,promptText:sourceNode.promptDraftText}}),stripRunInputMeta:meta=>{{const cleanPrompt=meta.promptText||meta.displayPrompt||meta.prompt||'';return {{...meta,promptHtml:cleanPrompt,promptText:cleanPrompt,promptRefs:[],inputRefs:meta.inputRefs||meta.promptRefs||[],sourceNodeId:''}};}},smartRunSnapshot:()=>({{}}),
               nowMs:()=>100,resultMediaUrls:outputs=>outputs,render(){{}},syncRunButtonState(){{}},clearPromptInput(){{}},addSmartGenerationLog(){{}},toast(){{}},tr:key=>key,escapeHtml:value=>String(value),setTimeout,clearTimeout,console
             }};
-            vm.createContext(sandbox);vm.runInContext(source,sandbox);
+            vm.createContext(sandbox);
+            const settingsSource=fs.readFileSync('static/js/smart-canvas/generation-settings.js','utf8');
+            vm.runInContext(settingsSource.slice(settingsSource.indexOf('function isApiLikeEngine('),settingsSource.indexOf('function smartComfyCapability(')),sandbox);
+            vm.runInContext(source,sandbox);
             sandbox.window.SmartCanvasModules.generationRun.processor({{
               nodeId:'padded',input:{{url:'working.png',kind:'image'}},width:1536,height:896,prompt:'Fill scene',
               runSettings:{{engine:'api',apiKind:'image',provider_id:'provider',model:'model',ratio:'wide',resolution:'2k'}},

@@ -3109,19 +3109,21 @@ function notifySmartApiSelectionFallback(before, target=settings, {notify=false}
 }
 function renderCatalogModelControl(kind){
     const video = kind === 'video';
+    const workflowSelected = settings.engine === 'comfy' && settings.comfyMode === 'custom';
     const providerId = video ? settings.videoProvider : settings.provider_id;
     const model = video ? settings.videoModel : settings.model;
-    const current = smartCatalogEntry(kind, providerId, model);
+    const current = workflowSelected ? null : smartCatalogEntry(kind, providerId, model);
     const entries = smartModelCatalog(kind);
+    const workflows = comfyWorkflows.filter(item => item.capability?.output_kind === kind);
     const param = video ? 'videoModelChoice' : 'modelChoice';
     const title = video ? tr('smart.videoModel') : tr('smart.imageModel');
     const noModelLabel = video ? tr('smart.noVideoModel') : tr('smart.noImageModel');
-    const options = entries.length
-        ? entries.map(entry => `<option value="${escapeAttr(entry.id)}" ${smartModelVendorOptionAttributes(entry.model, entry.provider_id, entry.provider_name)} ${entry.id === current?.id ? 'selected' : ''}>${escapeHtml(entry.name || entry.model)}</option>`).join('')
-        : `<option value="__no_model__" selected disabled>${escapeHtml(noModelLabel)}</option>`;
-    return `<ic-select class="catalog-model-select" name="${video ? 'video-model' : 'image-model'}" aria-label="${escapeAttr(title)}" hierarchy="quiet" placement="top" data-smart-select-param="${param}" data-component-variant="model-picker" data-legal-combination="model-picker-vertical-manual-label" ${entries.length ? '' : 'disabled'}>
-        ${options}
-        <span slot="start" aria-hidden="true">${smartModelVendorIconMarkup(current?.model || model, current?.provider_id || providerId, current?.provider_name)}</span>
+    const available = entries.length || workflows.length;
+    const options = entries.map(entry => `<option value="${escapeAttr(entry.id)}" ${smartModelVendorOptionAttributes(entry.model, entry.provider_id, entry.provider_name)} ${entry.id === current?.id ? 'selected' : ''}>${escapeHtml(entry.name || entry.model)}</option>`).join('')
+        + (workflows.length ? `<option value="__workflow_heading__" disabled>${escapeHtml(tr('smart.workflow'))}</option>${workflows.map(workflow => `<option value="${escapeAttr(`workflow:${workflow.name}`)}" data-start-icon="workflow" ${workflowSelected && workflow.name === settings.comfyWorkflow ? 'selected' : ''}>${escapeHtml(workflow.title || workflow.name.replace(/\.json$/i,''))}</option>`).join('')}` : '');
+    return `<ic-select class="catalog-model-select" name="${video ? 'video-model' : 'image-model'}" aria-label="${escapeAttr(title)}" hierarchy="quiet" placement="top" data-smart-select-param="${param}" data-component-variant="model-picker" data-legal-combination="model-picker-vertical-manual-label" ${available ? '' : 'disabled'}>
+        ${options || `<option value="__no_model__" selected disabled>${escapeHtml(noModelLabel)}</option>`}
+        <span slot="start" aria-hidden="true">${workflowSelected ? '<ic-icon name="workflow" size="small"></ic-icon>' : smartModelVendorIconMarkup(current?.model || model, current?.provider_id || providerId, current?.provider_name)}</span>
         <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
     </ic-select>`;
 }
@@ -3313,18 +3315,18 @@ function renderVideoModelControl(models){
         <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
     </ic-select>`;
 }
-function renderVideoGenerationSettingsControl(videoState=null){
+function renderVideoGenerationSettingsControl(videoState=null, sourceSettings=settings, mode='video'){
     const ratios = videoState?.aspect_ratios?.length
         ? videoState.aspect_ratios
         : ['16:9','9:16','1:1','4:3','3:4','21:9','9:21','keep_ratio','adaptive'];
     const resolutions = videoState?.video_resolutions?.length
         ? videoState.video_resolutions
         : ['auto','480p','720p','1080p'];
-    const currentRatio = ratios.includes(settings.videoAspect) ? settings.videoAspect : (ratios[0] || '16:9');
-    const currentResolution = settings.videoResolution || (resolutions.includes('auto') ? 'auto' : (resolutions[0] || ''));
+    const currentRatio = ratios.includes(sourceSettings.videoAspect) ? sourceSettings.videoAspect : (ratios[0] || '16:9');
+    const currentResolution = sourceSettings.videoResolution || (resolutions.includes('auto') ? 'auto' : (resolutions[0] || ''));
     const minimumDuration = Math.max(1, Number(videoState?.duration_seconds?.minimum) || 1);
     const maximumDuration = Math.max(minimumDuration, Number(videoState?.duration_seconds?.maximum) || 60);
-    const currentDuration = Math.max(minimumDuration, Math.min(maximumDuration, Number(settings.videoDuration) || 5));
+    const currentDuration = Math.max(minimumDuration, Math.min(maximumDuration, Number(sourceSettings.videoDuration) || 5));
     return `<ic-generation-settings-picker
         class="generation-settings-picker video-generation-settings-picker"
         label="${escapeAttr(tr('smart.sizeSelection'))}"
@@ -3333,17 +3335,17 @@ function renderVideoGenerationSettingsControl(videoState=null){
         resolution="${escapeAttr(currentResolution)}"
         resolutions="${escapeAttr(resolutions.join(','))}"
         ratio-label="${escapeAttr(tr('smart.videoAspect'))}"
-        resolution-label="${escapeAttr(tr('smart.videoResolution'))}"
+        resolution-label="${escapeAttr(videoState?.resolution_label || tr('smart.videoResolution'))}"
         keep-ratio-label="${escapeAttr(tr('smart.videoAspectKeep'))}"
         adaptive-label="${escapeAttr(tr('smart.videoAspectAdaptive'))}"
         resolution-auto-label="${escapeAttr(tr('smart.videoResAuto'))}"
         duration="${escapeAttr(currentDuration)}"
         duration-min="${escapeAttr(minimumDuration)}"
         duration-max="${escapeAttr(maximumDuration)}"
-        duration-step="1"
+        duration-step="${escapeAttr(videoState?.duration_seconds?.step || 1)}"
         duration-label="${escapeAttr(tr('smart.videoDuration'))}"
         data-smart-generation-settings
-        data-smart-generation-mode="video"
+        data-smart-generation-mode="${mode}"
         ${videoState?.aspect_ratio_locked ? 'lock-ratio' : ''}
         hide-quality
     ></ic-generation-settings-picker>`;
@@ -3517,6 +3519,7 @@ function openControlState(){
         return {
             generationSettings:true,
             video:generationSettings.dataset.smartGenerationMode === 'video',
+            mode:generationSettings.dataset.smartGenerationMode || '',
             prefix:generationSettings.dataset.smartGenerationPrefix || ''
         };
     }
@@ -3525,8 +3528,8 @@ function openControlState(){
 function restoreOpenControl(state){
     if(!state) return;
     if(state.generationSettings){
-        const match = dynamicParams?.querySelector(state.video
-            ? 'ic-generation-settings-picker[data-smart-generation-mode="video"]'
+        const match = dynamicParams?.querySelector(state.mode
+            ? `ic-generation-settings-picker[data-smart-generation-mode="${CSS.escape(state.mode)}"]`
             : `ic-generation-settings-picker[data-smart-generation-prefix="${CSS.escape(state.prefix || '')}"]`);
         if(match) match.open = true;
     }
@@ -3561,7 +3564,7 @@ function renderDynamicParams({force=false}={}){
     const scrollState = dynamicParamsScrollSnapshot();
     settings.engine = ['api','volcengine','modelscope','comfy','runninghub'].includes(settings.engine) ? settings.engine : 'api';
     settings.apiKind = settings.apiKind === 'video' ? 'video' : 'image';
-    dynamicParams.classList.toggle('video-flow', isApiLikeEngine(settings.engine) && settings.apiKind === 'video');
+    dynamicParams.classList.toggle('video-flow', (isApiLikeEngine(settings.engine) && settings.apiKind === 'video') || smartComfyOutputKind(settings) === 'video');
     clearVolcengineSelectionOutsideVolcengine(settings);
     engineSelect.value = settings.engine;
     syncApiKindToggleVisibility();
@@ -3750,7 +3753,44 @@ function renderMsParams(){
         ${renderCountVisualControl()}
     `;
 }
+function renderComfyVideoParams(capability){
+    const options = smartComfyVideoOptions(settings, capability);
+    settings.comfyDuration = options.duration;
+    settings.comfyResolution = options.resolution;
+    settings.comfyAspect = options.aspect_ratio;
+    const durations = capability.durations || [];
+    const node = activeComposerNode() || window.SmartCanvasModules.viewportSelection.selection.node();
+    const videoRefs = videoRefsOnly(node ? promptAuthoring.resolve({node,settings}).refs : []);
+    const state = {
+        aspect_ratios:capability.aspect_ratios,
+        video_resolutions:capability.resolutions,
+        duration_seconds:{minimum:durations[0],maximum:durations[durations.length-1],step:durations.length > 1 ? durations[1]-durations[0] : 1},
+        resolution_label:smartComfyVideoResolutionLabel(settings, capability)
+    };
+    dynamicParams.innerHTML = `${renderCatalogModelControl('video')}
+        ${renderVideoGenerationSettingsControl(state, {videoDuration:options.duration,videoResolution:options.resolution,videoAspect:options.aspect_ratio}, 'workflow')}
+        ${videoRefs.map((ref,index) => `<ic-switch class="generation-setting-switch" name="workflow-video-audio-${index}" label="${escapeAttr(trf('smart.workflowVideoAudio', {number:index+1}))}" size="s" data-comfy-video-audio="${escapeAttr(inputRefKey(ref))}" ${settings.comfyVideoAudio?.[inputRefKey(ref)] === true ? 'checked' : ''}></ic-switch>`).join('')}`;
+}
+function smartComfyVideoResolutionLabel(source=settings, capability=smartComfyCapability(source)){
+    const options = smartComfyVideoOptions(source, capability);
+    const size = capability?.resolution_sizes?.[options.resolution]?.[options.aspect_ratio];
+    return size ? `${tr('smart.videoResolution')} · ${size.width} × ${size.height}` : tr('smart.videoResolution');
+}
+function syncComfyVideoPickerResolutionLabel(){
+    if(smartComfyCapability(settings)?.adapter !== 'h3') return;
+    const picker = dynamicParams?.querySelector('ic-generation-settings-picker[data-smart-generation-mode="workflow"]');
+    if(!picker) return;
+    const label = smartComfyVideoResolutionLabel();
+    // The open picker owns interaction. Update its derived caption now, while
+    // the Composer's full redraw remains deferred until the overlay closes.
+    if(picker.getAttribute('resolution-label') !== label) picker.setAttribute('resolution-label', label);
+}
 function renderComfyParams(){
+    const capability = smartComfyCapability(settings);
+    if(capability?.output_kind === 'video' && capability?.adapter === 'h3'){
+        renderComfyVideoParams(capability);
+        return;
+    }
     settings.comfyMode = ['text','custom'].includes(settings.comfyMode) ? settings.comfyMode : 'text';
     const modeOptions = [
         ['text', tr('canvas.comfyModeText')],
@@ -4569,15 +4609,32 @@ function setDynamicSetting(key, value){
     const capabilityTransitionStart = changesImageModel
         ? smartImageCapabilityTransitionStart(capabilityPrefix)
         : null;
+    if((key === 'modelChoice' || key === 'videoModelChoice') && String(value).startsWith('workflow:')){
+        const workflowName = String(value).slice('workflow:'.length);
+        const workflow = comfyWorkflows.find(item => item.name === workflowName && item.capability);
+        if(!workflow) return;
+        settings.engine = 'comfy';
+        settings.comfyMode = 'custom';
+        settings.comfyWorkflow = workflowName;
+        settings.apiKind = workflow.capability.output_kind === 'video' ? 'video' : 'image';
+        settings.comfyParams = {};
+        persistActiveSmartSettings();
+        rememberRecentSmartSettings(settings, activeSettingsSubject());
+        renderDynamicParams();
+        canvasPersistence.schedule();
+        return;
+    }
     if(key === 'modelChoice' || key === 'videoModelChoice'){
         const video = key === 'videoModelChoice';
         const entry = smartModelCatalog(video ? 'video' : 'image').find(item => item.id === value);
         if(!entry) return;
+        if(settings.engine === 'comfy') settings.engine = 'api';
+        settings.apiKind = video ? 'video' : 'image';
         if(video){ settings.videoProvider = entry.provider_id; settings.videoModel = entry.model; key = 'videoModel'; value = entry.model; }
         else { settings.provider_id = entry.provider_id; settings.model = entry.model; key = 'model'; value = entry.model; }
     }
-    const numericKeys = new Set(['count','width','height','videoDuration','customRatioWidth','customRatioHeight','customWidth','customHeight','msCustomRatioWidth','msCustomRatioHeight','msCustomWidth','msCustomHeight']);
-    const layoutKeys = new Set(['provider_id','model','resolution','ratio','msgenModel','msCustomModel','msResolution','msRatio','videoProvider','videoModel','videoAspect','videoResolution','videoReferenceMode','comfyMode','comfyWorkflow','quality','count','rhConfigKey','rhPayment','rhInstanceType']);
+    const numericKeys = new Set(['count','width','height','comfyDuration','videoDuration','customRatioWidth','customRatioHeight','customWidth','customHeight','msCustomRatioWidth','msCustomRatioHeight','msCustomWidth','msCustomHeight']);
+    const layoutKeys = new Set(['comfyDuration','comfyResolution','comfyAspect','provider_id','model','resolution','ratio','msgenModel','msCustomModel','msResolution','msRatio','videoProvider','videoModel','videoAspect','videoResolution','videoReferenceMode','comfyMode','comfyWorkflow','quality','count','rhConfigKey','rhPayment','rhInstanceType']);
     settings[key] = numericKeys.has(key) && value !== '' ? Number(value) : value;
     if(changesImageModel){
         pendingSmartImageCapabilityTransition = smartImageCapabilityTransitionFinish(capabilityTransitionStart);
@@ -4649,6 +4706,7 @@ function setDynamicSetting(key, value){
     }
     persistActiveSmartSettings();
     rememberRecentSmartSettings(settings, activeSettingsSubject());
+    if(['comfyAspect','comfyResolution'].includes(key)) syncComfyVideoPickerResolutionLabel();
     if(layoutKeys.has(key)) renderDynamicParams();
     if(['provider_id','model','modelChoice','msgenModel','msCustomModel','rhConfigKey'].includes(key)){
         loadSmartImageCapabilityForCurrentSettings({notify:true}).then(() => renderDynamicParams()).catch(() => {});
@@ -4674,7 +4732,8 @@ function bindDynamicParams(){
                 return;
             }
             const video = picker.dataset.smartGenerationMode === 'video';
-            const key = video
+            const workflow = picker.dataset.smartGenerationMode === 'workflow';
+            const key = workflow ? (field === 'ratio' ? 'comfyAspect' : field === 'resolution' ? 'comfyResolution' : field === 'duration' ? 'comfyDuration' : '') : video
                 ? (field === 'ratio' ? 'videoAspect' : field === 'resolution' ? 'videoResolution' : field === 'duration' ? 'videoDuration' : '')
                 : field === 'ratio'
                     ? (prefix ? `${prefix}Ratio` : 'ratio')
@@ -4737,6 +4796,13 @@ function bindDynamicParams(){
             } catch(e) {
                 toast((e.message || tr('smart.operationFailed')).slice(0, 180));
             }
+        };
+    });
+    dynamicParams.querySelectorAll('ic-switch[data-comfy-video-audio]').forEach(control => {
+        control.onchange = () => {
+            settings.comfyVideoAudio = {...(settings.comfyVideoAudio || {}),[control.dataset.comfyVideoAudio]:control.checked};
+            persistActiveSmartSettings();
+            canvasPersistence.schedule();
         };
     });
     dynamicParams.querySelectorAll('ic-switch[data-comfy-bool]').forEach(switchControl => {
@@ -4890,7 +4956,7 @@ async function loadSmartImageCapabilityForCurrentSettings({notify=false}={}){
 }
 let smartVideoCapabilityLoadSequence = 0;
 async function loadSmartVideoCapabilityForCurrentSettings(){
-    if(settings.apiKind !== 'video' || !settings.videoProvider) return null;
+    if(!isApiLikeEngine(settings.engine) || settings.apiKind !== 'video' || !settings.videoProvider) return null;
     const sequence = ++smartVideoCapabilityLoadSequence;
     const capability = await window.SmartCanvasModules.videoCapabilities.load(
         settings.videoProvider,
@@ -7061,12 +7127,14 @@ function restoreMediaPlaybackStates(states){
 }
 function smartRunTaskLabel(run){
     const s = run?.settings || {};
-    if(run?.kind === 'video') return s.videoModel || 'Video';
     if(s.engine === 'comfy'){
+        const workflow = comfyWorkflows.find(item => item.name === s.comfyWorkflow);
+        if(workflow?.title) return workflow.title;
         if(s.comfyMode === 'custom') return s.comfyWorkflow || 'ComfyUI';
         const labels = {text:tr('canvas.comfyModeText')};
         return labels[s.comfyMode || 'text'] || 'ComfyUI';
     }
+    if(run?.kind === 'video') return s.videoModel || tr('smart.kindVideo');
     if(s.engine === 'modelscope'){
         return s.msgenModel === 'custom' ? (s.msCustomModel || 'Modelscope') : (MS_GEN_MODELS[s.msgenModel]?.label || s.msgenModel || 'Modelscope');
     }
@@ -7343,7 +7411,7 @@ function smartRunPlatformLabel(run){
 }
 function smartRunRequestMeta(run){
     const s = run?.settings || {};
-    if(s.engine === 'comfy') return {workflow_json:s.comfyWorkflow || '', mode:s.comfyMode || 'text'};
+    if(s.engine === 'comfy') return {workflow_json:s.comfyWorkflow || '', mode:s.comfyMode || 'text',...(smartComfyOutputKind(s) === 'video' ? smartComfyVideoOptions(s) : {})};
     if(s.engine === 'modelscope') return {backend:'Modelscope', model:s.msgenModel || '', custom_model:s.msCustomModel || ''};
     if(run?.kind === 'video') return {provider_id:s.videoProvider || '', model:s.videoModel || '', duration:s.videoDuration || '', aspect_ratio:s.videoAspect || '', resolution:s.videoResolution || ''};
     return {provider_id:s.provider_id || '', model:s.model || '', size:run?.size || '', quality:s.quality || '', n:s.count || 1};
@@ -7958,6 +8026,29 @@ function generationPendingNodeLabel(kind, state, count=1){
         ? trf('smart.generatingCount', {count})
         : tr('smart.imageGenerating');
 }
+function generationPendingWorkflowProgress(node){
+    const task = (node?.pendingTasks || []).find(item => item.transport === 'comfy' || item.type === 'comfy');
+    if(!task) return null;
+    const labels = {
+        'comfy-queued':'smart.workflowProgressQueued',
+        'comfy-preparing':'smart.workflowProgressPreparing',
+        'comfy-sampling-first':'smart.workflowProgressFirst',
+        'comfy-upscaling':'smart.workflowProgressUpscaling',
+        'comfy-sampling-second':'smart.workflowProgressSecond',
+        'comfy-encoding':'smart.workflowProgressEncoding',
+        'comfy-saving':'smart.workflowProgressSaving',
+        'workflow-saving':'smart.workflowProgressSaveRetry'
+    };
+    const stage = task.stage || '';
+    const label = labels[stage] ? tr(labels[stage]) : tr('smart.videoGenerating');
+    let description = '';
+    if(stage === 'comfy-queued' && task.queue_position != null){
+        description = trf('smart.workflowQueuePosition', {count:task.queue_position});
+    } else if(task.progress_current != null && Number(task.progress_total) > 0){
+        description = trf('smart.workflowProgressSteps', {current:task.progress_current,total:task.progress_total});
+    }
+    return {kind:task.kind || 'video',state:stage === 'comfy-queued' ? 'queued' : 'generating',label,description};
+}
 function generationPendingNodeElapsed(node){
     return node?.runStartedAt ? formatRunDuration(nodeRunElapsedMs(node)) : '';
 }
@@ -8367,6 +8458,8 @@ function nodeBodyHtml(node, layout){
     if(node.layerDecompositionJob && imgs.length === 0){
         return smartLayerDecomposition.pendingHtml({node, layout, elapsed:generationPendingNodeElapsed(node)});
     }
+    const workflowProgress = imgs.length === 0 ? generationPendingWorkflowProgress(node) : null;
+    if(workflowProgress) return generationPendingNodeHtml({...workflowProgress,elapsed:generationPendingNodeElapsed(node)});
     if(node.imageProcessorJob?.active && imgs.length === 0){
         return generationPendingNodeHtml({
             kind:'image',
@@ -9650,6 +9743,10 @@ function render(options={}){
         .map(node => {
         const imgs = node.images || [];
         const generationKind = referenceGenerationKind(node);
+        const mediaKinds = new Set(imgs.map(mediaKindForItem));
+        const mediaTitleKey = mediaKinds.size === 1
+            ? ({image:'smart.kindImage',video:'smart.kindVideo',audio:'smart.kindAudio',text:'smart.kindText'}[mediaKinds.values().next().value] || 'smart.media')
+            : 'smart.media';
         const navigationTitle = smartContainer.isFrame(node)
             ? String(node.title || tr('smart.frameDefault'))
             : node.type === 'smart-group'
@@ -9657,7 +9754,7 @@ function render(options={}){
                 : '';
         const title = smartContainer.isFrame(node)
             ? `${escapeHtml(node.title || tr('smart.frameDefault'))}<span class="smart-frame-count">${smartContainer.frameMembers(node).length}</span>`
-            : node.type === 'smart-group' ? escapeHtml(['万能分组', '智能分组', 'Smart Group'].includes(node.title) ? tr('smart.smartGroup') : (node.title || tr('smart.smartGroup'))) : nodeKinds.isLayerDecomposition(node) ? escapeHtml(tr('smart.layerDecomposition')) : nodeKinds.isPromptFamily(node) ? escapeHtml(smartPromptNodeTitle(node)) : node.type === 'smart-splitter' ? escapeHtml(tr('smart.separator')) : node.type === 'smart-loop' ? escapeHtml(tr('smart.loop')) : node.type === 'smart-brush' ? escapeHtml(tr('smart.brush')) : nodeKinds.isTextAnnotation(node) ? escapeHtml(tr('smart.text')) : (node.outputKind === 'depth-map' ? escapeHtml(node.title || tr('smart.depthMap')) : ((node.mattingJob || node.mattingResult) ? escapeHtml(node.title || tr('smart.mattingResult')) : (imgs.length ? escapeHtml(tr('smart.kindImage')) : generationKind ? escapeHtml(referenceGenerationTitle(node)) : escapeHtml(tr('smart.createImportNode')))));
+            : node.type === 'smart-group' ? escapeHtml(['万能分组', '智能分组', 'Smart Group'].includes(node.title) ? tr('smart.smartGroup') : (node.title || tr('smart.smartGroup'))) : nodeKinds.isLayerDecomposition(node) ? escapeHtml(tr('smart.layerDecomposition')) : nodeKinds.isPromptFamily(node) ? escapeHtml(smartPromptNodeTitle(node)) : node.type === 'smart-splitter' ? escapeHtml(tr('smart.separator')) : node.type === 'smart-loop' ? escapeHtml(tr('smart.loop')) : node.type === 'smart-brush' ? escapeHtml(tr('smart.brush')) : nodeKinds.isTextAnnotation(node) ? escapeHtml(tr('smart.text')) : (node.outputKind === 'depth-map' ? escapeHtml(node.title || tr('smart.depthMap')) : ((node.mattingJob || node.mattingResult) ? escapeHtml(node.title || tr('smart.mattingResult')) : (imgs.length ? escapeHtml(tr(mediaTitleKey)) : generationKind ? escapeHtml(referenceGenerationTitle(node)) : escapeHtml(tr('smart.createImportNode')))));
         const scale = nodeScale(node);
         const intrinsicLayout = imageLayout(imgs, scale, node);
         const presentation = smartContainer.presentation(node);
@@ -12186,13 +12283,15 @@ function smartRunInfoText(node){
         trf('smart.runTime', {value: node?.runAt ? new Date(node.runAt).toLocaleString() : tr('smart.unknown')}),
         trf('smart.runElapsed', {value: elapsedMs == null ? tr('smart.unknown') : formatRunDuration(elapsedMs)}),
         trf('smart.engineInfo', {value: runSettings.engine || tr('smart.unknown')}),
-        trf('smart.modelInfo', {value: runSettings.model || runSettings.videoModel || runSettings.msCustomModel || runSettings.comfyWorkflow || runSettings.rhConfigKey || tr('smart.unknown')}),
+        trf('smart.modelInfo', {value: runSettings.engine === 'comfy' ? (comfyWorkflows.find(item => item.name === runSettings.comfyWorkflow)?.title || runSettings.comfyWorkflow || 'ComfyUI') : runSettings.model || runSettings.videoModel || runSettings.msCustomModel || runSettings.rhConfigKey || tr('smart.unknown')}),
         trf('smart.promptInfo', {value: smartRunInfoPrompt(node) || tr('smart.none')})
     ];
-    const size = runSettings.customSize || runSettings.videoResolution || runSettings.resolution || runSettings.ratio || '';
+    const workflowVideo = runSettings.engine === 'comfy' && smartComfyOutputKind(runSettings) === 'video';
+    const size = workflowVideo ? `${runSettings.comfyResolution || ''} · ${runSettings.comfyAspect || ''}` : runSettings.customSize || runSettings.videoResolution || runSettings.resolution || runSettings.ratio || '';
     if(size) lines.push(trf('smart.sizeInfo', {value: size}));
-    if(runSettings.videoDuration && smartRunInfoOutputKind(node) === 'video'){
-        lines.push(trf('smart.durationInfo', {value: runSettings.videoDuration}));
+    const duration = workflowVideo ? runSettings.comfyDuration : runSettings.videoDuration;
+    if(duration && smartRunInfoOutputKind(node) === 'video'){
+        lines.push(trf('smart.durationInfo', {value:duration}));
     }
     if(runSettings.count) lines.push(trf('smart.countInfo', {value: runSettings.count}));
     return lines.join('\n');
@@ -13785,6 +13884,7 @@ function renderInputThumbsRow(node){
     if(inputThumbsRow.dataset.thumbsSig === thumbsSignature) return;
     hideInputTextPreviewTooltip();
     inputThumbsRow.dataset.thumbsSig = thumbsSignature;
+    if(smartComfyCapability(settings)?.adapter === 'h3') scheduleDynamicParamsRefresh(80);
     inputThumbsRow.classList.toggle('has-items', Boolean(node));
     if(!node){ inputThumbsRow.innerHTML = ''; return; }
     const addButtonLabel = tr('smart.uploadLocalReference');
@@ -14595,8 +14695,8 @@ function expectedOutputSize(sourceSettings=settings){
 }
 function explicitRequestOutputSizeForPending(sourceSettings=settings){
     sourceSettings = sourceSettings || settings;
-    if(isApiLikeEngine(sourceSettings.engine) && sourceSettings.apiKind === 'video'){
-        const ratio = String(sourceSettings.videoAspect || '').match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+    if((isApiLikeEngine(sourceSettings.engine) && sourceSettings.apiKind === 'video') || smartComfyOutputKind(sourceSettings) === 'video'){
+        const ratio = String(sourceSettings.engine === 'comfy' ? smartComfyVideoOptions(sourceSettings).aspect_ratio : sourceSettings.videoAspect || '').match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
         if(ratio && Number(ratio[1]) > 0 && Number(ratio[2]) > 0){
             return {w:Number(ratio[1]), h:Number(ratio[2])};
         }
@@ -16446,6 +16546,9 @@ function createNodeFromMenu(type){
             ...smartSettingsForNode(created),
             apiKind:'image'
         });
+        if(created.runSettings.engine === 'comfy'){
+            created.referenceGenerationKind = smartComfyOutputKind(created.runSettings);
+        }
         render({syncVirtualization:false,nodeIds:[created.id]});
         canvasPersistence.schedule();
     } else {

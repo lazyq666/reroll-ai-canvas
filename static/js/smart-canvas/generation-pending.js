@@ -73,6 +73,22 @@ function transitionGenerationPending(state, event={}){
         next.runTimerHidden = false;
         return next;
     }
+    if(type === 'task-progress'){
+        const fields = ['stage','phase','progress','progress_current','progress_total','progress_percent','queue_position'];
+        next.pendingTasks = generationPendingTasks(next).map(task => {
+            if(task.taskId !== event.taskId || task.failed) return task;
+            const progress = event.progress || {};
+            const updated = {...task};
+            if(progress.stage && progress.stage !== task.stage){
+                ['progress','progress_current','progress_total','progress_percent','queue_position'].forEach(key => { updated[key] = null; });
+            }
+            fields.forEach(key => {
+                if(Object.prototype.hasOwnProperty.call(progress,key)) updated[key] = progress[key];
+            });
+            return updated;
+        });
+        return next;
+    }
     if(type === 'task-querying'){
         next.pendingTasks = generationPendingTasks(next).map(task =>
             task.taskId === event.taskId ? {...task, querying:Boolean(event.querying)} : task

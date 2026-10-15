@@ -78,6 +78,20 @@ function generationRecoveryApply(node, event){
     });
     return node;
 }
+function generationRecoveryWorkflowProgress(task={}){
+    if(task.error === 'generation.output_save_failed'){
+        return {
+            stage:'workflow-saving',phase:'workflow-saving',
+            progress:null,progress_current:null,progress_total:null,
+            progress_percent:null,queue_position:null
+        };
+    }
+    const progress = {};
+    ['stage','phase','progress','progress_current','progress_total','progress_percent','queue_position'].forEach(key => {
+        if(Object.prototype.hasOwnProperty.call(task,key)) progress[key] = task[key];
+    });
+    return progress;
+}
 function generationRecoveryRestoreActiveRuns(runs=[]){
     const activeRuns = (Array.isArray(runs) ? runs : []).filter(run =>
         run?.id
@@ -121,11 +135,16 @@ function generationRecoveryRestoreActiveRuns(runs=[]){
             const acceptedTask = currentTasks.find(task =>
                 String(task.taskId) === String(run.id)
             );
+            const comfy = run.type === 'comfy' || run.provider_id === 'comfyui';
             const task = {
                 ...acceptedTask,
+                ...generationRecoveryWorkflowProgress(run),
                 taskId:String(run.id),
                 actorId:String(run.actor_id || ''),
-                kind:String(run.kind || 'image'),
+                kind:comfy
+                    ? String(run.output_kind || acceptedTask?.kind || node.outputKind || node.generationInputSnapshot?.settings?.apiKind || 'image')
+                    : String(run.kind || 'image'),
+                ...(comfy ? {transport:'comfy',type:'comfy'} : {}),
                 providerId:String(run.provider_id || ''),
                 nodeId,
                 generationRequestIndex:Number(run.generation_request_index || 0)
@@ -471,14 +490,28 @@ function generationRecoveryFinalizeImageProcessor(node, task, error=null){
     node.title = tr('smart.depthMap');
     return true;
 }
-async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
+function generationRecoveryProjectWorkflow(nodeId, taskId, task){
+    const node = nodes.find(item => item.id === nodeId);
+    if(!node || !generationRecoveryTasks(node).some(item => item.taskId === taskId)) return false;
+    const progress = generationRecoveryWorkflowProgress(task);
+    if(!Object.keys(progress).length) return false;
+    const before = JSON.stringify(generationRecoveryTasks(node));
+    generationRecoveryApply(node, {type:'task-progress',taskId,progress});
+    if(before !== JSON.stringify(generationRecoveryTasks(node))){
+        render();
+        generationRecoveryPersistenceModule.schedule();
+    }
+    return true;
+}
+async function generationRecoveryPollTask(taskId, nodeId='', kind='image', transport=''){
+
     if(!taskId) throw new Error(tr('smart.errRunFailed'));
     if(generationRecoveryActiveTaskPolls.has(taskId)){
         return generationRecoveryActiveTaskPolls.get(taskId);
     }
     const promise = (async () => {
         let transientFailures = 0;
-        for(let index = 0; index < 900; index++){
+        for(let index = 0; index < (transport === 'comfy' ? 43200 : 900); index++){
             await new Promise(resolve => setTimeout(resolve, 2000));
             if(!generationRecoveryTaskStillPending(nodeId, taskId)){
                 const error = new Error(tr('smart.runReplaced'));
@@ -487,7 +520,9 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
             }
             let task;
             try {
-                const taskPath = kind === 'text'
+                const taskPath = transport === 'comfy'
+                    ? '/api/canvas-comfy-tasks/'
+                    : kind === 'text'
                     ? '/api/canvas-llm-tasks/'
                     : kind === 'video'
                         ? '/api/canvas-video-tasks/'
@@ -512,6 +547,7 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
             }
             transientFailures = 0;
             generationRecoveryProjectImageProcessor(nodeId, task);
+            if(transport === 'comfy') generationRecoveryProjectWorkflow(nodeId, taskId, task);
             if(task.status === 'succeeded') return {payload:task.result || {}, task};
             if(task.status === 'discarded'){
                 const error = new Error(
@@ -529,9 +565,9 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
                     message:task.message
                 });
             }
-            if(task.status === 'failed'){
+            if(task.status === 'failed' || task.status === 'cancelled'){
                 const aspectMismatch = task.error === 'repair_aspect_mismatch';
-                const recoverTaskId = aspectMismatch ? '' : (task.upstream_task_id
+                const recoverTaskId = aspectMismatch || transport === 'comfy' ? '' : (task.upstream_task_id
                     || generationRecoveryUpstreamTaskId(task.error || ''));
                 if(recoverTaskId){
                     const signal = new GenerationRecoveryTaskSignal({
@@ -544,7 +580,11 @@ async function generationRecoveryPollTask(taskId, nodeId='', kind='image'){
                     signal.generationTask = task;
                     throw signal;
                 }
-                const failure = new Error(window.SmartCanvasModules?.modelCapabilities?.errorMessage?.({code:task.error},task.error || tr('smart.errRunFailed')) || task.error || tr('smart.errRunFailed'));
+                const fallback = task.error || tr('smart.errRunFailed');
+                const message = transport === 'comfy'
+                    ? window.SmartCanvasModules?.generationProvider?.workflowErrorMessage?.(task.error,fallback) || fallback
+                    : window.SmartCanvasModules?.modelCapabilities?.errorMessage?.({code:task.error},fallback) || fallback;
+                const failure = new Error(message);
                 if(aspectMismatch)failure.code = 'repair_aspect_mismatch';
                 failure.generationTask = task;
                 failure.status = Number(task.status_code || task.diagnostics?.http_status || 0);
@@ -610,7 +650,8 @@ async function generationRecoveryResumeNodeOnce(
             const polled = await generationRecoveryPollTask(
                 task.taskId,
                 node.id,
-                task.kind || 'image'
+                task.kind || 'image',
+                task.transport || (task.type === 'comfy' ? 'comfy' : '')
             );
             const result = polled?.payload || {};
             const currentNode = nodes.find(item => item.id === node.id);
