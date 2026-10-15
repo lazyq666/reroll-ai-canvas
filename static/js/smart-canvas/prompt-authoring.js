@@ -57,6 +57,18 @@ function promptAuthoringDreaminaReferenceLabels(refs){
     });
 }
 
+function promptAuthoringH3ReferenceLabels(refs, sourceSettings={}){
+    // Video soundtracks precede standalone audio in the H3 conditioning graph.
+    const videoAudio = refs.filter(ref => promptAuthoringMediaKind(ref) === 'video'
+        && sourceSettings.comfyVideoAudio?.[inputRefKey(ref)] === true).length;
+    const counts = {image:0,video:0,audio:videoAudio};
+    const names = {image:'Picture',video:'Video',audio:'Audio'};
+    return refs.map(ref => {
+        const kind = promptAuthoringMediaKind(ref);
+        return `<${names[kind]} ${++counts[kind]}>`;
+    });
+}
+
 function promptAuthoringQuickTrigger(text='', caret=0){
     const before = String(text || '').slice(0, Math.max(0, Number(caret) || 0));
     const match = before.match(/(?:^|\s)([\/@])([^\/@\n]*)$/);
@@ -315,12 +327,14 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
     const dreaminaAllAround = sourceSettings?.apiKind === 'video'
         && sourceSettings?.videoProvider === 'jimeng'
         && sourceSettings?.videoReferenceMode === 'multimodal_all_around';
-    const promptLabels = dreaminaAllAround
-        ? promptAuthoringDreaminaReferenceLabels(refs)
-        : referenceLabels;
+    const h3Workflow = typeof smartComfyCapability === 'function'
+        && smartComfyCapability(sourceSettings)?.adapter === 'h3';
+    const promptLabels = h3Workflow ? promptAuthoringH3ReferenceLabels(refs, sourceSettings)
+        : dreaminaAllAround ? promptAuthoringDreaminaReferenceLabels(refs) : referenceLabels;
     const refMap = new Map();
     refs.forEach((img, index) => refMap.set(inputRefKey(img), promptLabels[index]));
     let body = '';
+    let missingWorkflowReference = false;
     parts.forEach(part => {
         if(part.type === 'text'){
             body += part.text;
@@ -330,6 +344,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
         hasMentionToken = true;
         const mentionedKey = inputRefKey(part);
         if(blockedRefs.has(mentionedKey) || !refMap.has(mentionedKey)){
+            if(h3Workflow) missingWorkflowReference = true;
             body += `@${part.name || promptAuthoringText('smart.kindImage')}`;
             return;
         }
@@ -340,6 +355,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
     const localTextRefs = promptAuthoringLocalTextReferences(node);
     const textInputs = promptAuthoringOrderedTextInputs(node, textRefs, localTextRefs, context);
     const validationErrors = promptAuthoringLocalTextValidation(localTextRefs);
+    if(missingWorkflowReference) validationErrors.push(promptAuthoringText('smart.workflowErrorPromptReference'));
     body = promptAuthoringJoinUnique([...textInputs.map(entry => entry.text), body]);
     if(!body && sourceSettings?.engine === 'runninghub') body = rhDefaultPromptSuggestion();
     const displayPrompt = originalPrompt || body;
@@ -352,6 +368,7 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
         outputId:img.outputId || '',
         inputInstanceId:img.inputInstanceId || '',
         asset_uris:img.asset_uris || {},
+        ...(h3Workflow ? {include_audio:sourceSettings.comfyVideoAudio?.[inputRefKey(img)] === true, duration:Number(img.duration || 0)} : {}),
         ...Object.fromEntries(
             ['natural_w','natural_h','naturalWidth','naturalHeight','width','height','w','h']
                 .map(key => [key, Number(img[key])])
@@ -392,6 +409,7 @@ const promptAuthoringMigrationSettingKeys = Object.freeze([
     'videoUseFrameRoles','msgenModel','msCustomModel','msRatio','msResolution',
     'msCustomRatio','msCustomRatioWidth','msCustomRatioHeight','msCustomSize',
     'msCustomWidth','msCustomHeight','comfyMode','comfyWorkflow','comfyParams',
+    'comfyDuration','comfyResolution','comfyAspect','comfyVideoAudio',
     'rhConfigKey','rhPayment','rhInstanceType','rhParams','rhRandomActive',
     'width','height'
 ]);

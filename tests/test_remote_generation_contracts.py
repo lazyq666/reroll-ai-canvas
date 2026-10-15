@@ -710,7 +710,7 @@ class ProviderRemoteCheckpointTransportTests(
                     on_remote=checkpoint,
                 )
 
-        self.assertIn("ComfyUI 渲染超时", result["error"])
+        self.assertIn("stop after ordering assertion", result["error"])
         self.assertEqual(
             ["submit-response", "checkpoint", "first-poll"], events
         )

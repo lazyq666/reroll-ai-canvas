@@ -161,6 +161,8 @@ Reroll 服务运行在自己的电脑上；Canvas、Managed Media 与生成历�
 
 选择 Workspace 后，在 Project 中新建 Smart Canvas。拖入参考素材、添加 Prompt 或 Generation Node，再用 Connection 组织输入、参考与结果之间的关系。
 
+使用本地 ComfyUI H3 时，管理员先在“工作流设置”中配置实例并导入兼容的 API 工作流，随后即可在视频模型菜单按工作流名称选择。Reroll 所在机器需能访问该实例，并安装可通过 `PATH` 执行的 `ffprobe`（通常随 FFmpeg 提供），用于提交前检查参考视频和音频。支持的模板、参数与验证范围见 [H3 工作流说明](docs/current/comfyui-h3-workflows.md)。
+
 ### 环境检查与依赖修复
 
 ```bash

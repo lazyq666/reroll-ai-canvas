@@ -85,7 +85,7 @@ Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期�
 
 `runGeneration()` 是 Smart Canvas 的主要生成入口。它会：
 
-1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。先按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，最后追加输入框手写正文，即「文本 1 → 文本 2 → … → 手写内容」。各段以两个换行连接并跳过空段与重复文本。手写正文为空时只使用文本引用；没有文本引用时只使用手写正文。生成请求与「查看生成信息」使用同一份组装后的提示词；已有生成记录保留当次请求快照，不按新规则重排。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。有效的 Composer 媒体引用保留在用户需求原句位置，不向 Model Prompt 前置文件名映射表；图片、视频和音频各自编号，编号依据同类型素材的实际提交顺序，同 URL 的不同 Reference Input Instance 仍保持独立身份。Dreamina 全能参考视频编译为 `@图片N`、`@视频N`、`@音频N`；其他生成模式和 Provider 编译为适合当前界面语言的普通图号，例如中文 `图1`、`视频1`、`音频1`，英文 `Image 1`、`Video 1`、`Audio 1`。首尾帧等输入角色仍由独立请求参数表达。没有有效媒体引用时不添加图号或映射表；生成信息保留原始可编辑文字和当次冻结的 Model Prompt。已有 Generation Run 快照不按新规则重写。
+1. 从当前节点、连接、Composer 和本地 TXT 快照中解析提示词与参考素材。先按 Composer 文本缩略图从左到右的可见顺序拼接 Smart Group、上游文本和本地 TXT，最后追加输入框手写正文，即「文本 1 → 文本 2 → … → 手写内容」。各段以两个换行连接并跳过空段与重复文本。手写正文为空时只使用文本引用；没有文本引用时只使用手写正文。生成请求与「查看生成信息」使用同一份组装后的提示词；已有生成记录保留当次请求快照，不按新规则重排。文本引用支持拖拽排序，连接文本与本地 TXT 可互相重排；排序按引用身份保存到目标 Node 的 `inputRefOrder`，与图片共用保存及撤销/重做流程，但各自保持独立的相对顺序。旧 Node 没有排序记录时沿用原外部文本排列。切换节点、保存刷新及复制节点包后，显示与生成解析必须保持一致。有效的 Composer 媒体引用保留在用户需求原句位置，不向 Model Prompt 前置文件名映射表；图片、视频和音频各自编号，编号依据同类型素材的实际提交顺序，同 URL 的不同 Reference Input Instance 仍保持独立身份。Dreamina 全能参考视频编译为 `@图片N`、`@视频N`、`@音频N`；已识别的 ComfyUI H3 工作流编译为 `<Picture N>`、`<Video N>`、`<Audio N>`，启用的视频原声音轨先于独立音频编号；其他生成模式和 Provider 编译为适合当前界面语言的普通图号，例如中文 `图1`、`视频1`、`音频1`，英文 `Image 1`、`Video 1`、`Audio 1`。首尾帧等输入角色仍由独立请求参数表达。没有有效媒体引用时不添加图号或映射表；生成信息保留原始可编辑文字和当次冻结的 Model Prompt。已有 Generation Run 快照不按新规则重写。
 2. 对需要 Prompt 的运行做前置校验：空提示词时“运行”仍可点击，点击后提示“请输入提示词”；TXT 解码失败、单文件超过 1MB、合计超过 2MB，或引用媒体类型不被最终 Model Capability 支持时同样明确列出原因。校验失败不创建 Pending Node，也不提交 Provider 请求。
 3. 通过 Generation Settings 生成不可变的运行快照，并冻结本次使用的 Model Operation、能力 Schema 版本和目录 Revision。
 4. 根据同一 Model Capability Catalog 检查输入类型与数量、画幅、Resolution Tier、视频时长和输出数量；前端预检后，服务端在 Provider Adapter 前再次校验。
@@ -159,7 +159,7 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 | --- | --- | --- |
 | 普通 API 图片，包括 APIMART、Gemini CLI、即梦等 | `POST /api/canvas-image-tasks` | 后台任务，前端按 task ID 轮询 |
 | 具备 `image.layer_decomposition` 能力的图片模型 | `POST /api/canvas-layer-decomposition-tasks` | 一个付费 Generation Run；前端按同一 task ID 恢复，并交付底图、Manifest 与 1–16 个独立图层 |
-| ComfyUI | `POST /api/canvas-comfy-tasks` | 后台任务，前端轮询 |
+| ComfyUI | `POST /api/canvas-comfy-tasks` | 后台任务；H3 使用独立 `workflow_inputs`，前端消费阶段进度并按原任务恢复 |
 | API 视频 | `POST /api/canvas-video-tasks` | 后台任务，先返回 task ID；前端通过 `GET /api/canvas-video-tasks/{task_id}` 轮询 |
 | Prompt/LLM 节点 | `POST /api/canvas-llm-tasks` | 后台任务，前端轮询 |
 | Composer 提示词优化 | `POST /api/canvas-llm` | 同步返回文字，失败保留输入；空模型输出保留空 `text`，由界面显示失败，不把错误说明当成优化结果 |
@@ -357,6 +357,12 @@ to use dreamina_cli` 时，后端保留原文并返回 HTTP 403，前端以权�
 - [`backend/infinite_canvas/providers/http_impl.py`](../../backend/infinite_canvas/providers/http_impl.py)
 - [`backend/infinite_canvas/providers/comfyui_impl.py`](../../backend/infinite_canvas/providers/comfyui_impl.py)
 - [`backend/infinite_canvas/providers/runninghub_impl.py`](../../backend/infinite_canvas/providers/runninghub_impl.py)
+
+### ComfyUI 工作流进度与恢复
+
+Workflow Runtime 将 ComfyUI 阶段进度传回同一 Generation Run。远端 prompt ID 检查点先保存，再继续跟踪；队列位置和步数是有界的公开字段，阶段变化时清空旧百分比，重复事件不重复持久化，终态或已取消执行者的迟到事件被忽略。WebSocket 事件按 prompt ID 匹配，断开后以 queue/history 查询；恢复只查询原任务，不重复提交。单次监控超时保留恢复资格。ComfyUI 工作流冻结托管媒体交付要求，保存失败保留已完成的远端输出检查点，恢复只重试保存，不重复生成。
+
+Canvas active Run 投影保留 `provider_id`、输出类型及公开进度，刷新恢复因此能识别视频工作流并走 ComfyUI 查询入口。最终输出筛选规则保存在检查点中，首次运行与恢复都只交付相同输出节点。H3 的具体模板、参数、素材和验收范围见 [H3 Composer 接入](comfyui-h3-workflows.md)。
 
 ### 6.1 确定性的本地图片处理
 
