@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
+import threading
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -22,7 +24,8 @@ from .core import (
 
 ImageExecutor = Callable[..., Awaitable[Any]]
 ProviderLookup = Callable[[str], dict[str, Any]]
-RemoteCheckpoint = Callable[[Pending | Queued], None]
+RemoteCheckpoint = Callable[[Pending | Queued], Awaitable[None] | None]
+ProviderProgress = Callable[[Mapping[str, Any]], None]
 
 
 async def _call_with_remote_checkpoint(
@@ -46,6 +49,36 @@ async def _call_with_remote_checkpoint(
         else:
             kwargs["on_remote"] = checkpoint
     return await executor(*args, **kwargs)
+
+
+def _workflow_callback(callback: Callable | None, *, wait: bool = False):
+    """Deliver worker events on the owning loop, including SQLite writes.
+
+    Remote identity must be checkpointed before the worker polls. Progress is
+    observational and may be queued without blocking model execution.
+    """
+    if callback is None:
+        return None
+    loop = asyncio.get_running_loop()
+    owner_thread = threading.get_ident()
+
+    async def deliver(value):
+        result = callback(value)
+        if inspect.isawaitable(result):
+            await result
+
+    def receive(value):
+        if threading.get_ident() == owner_thread:
+            result = callback(value)
+            if inspect.isawaitable(result):
+                return asyncio.ensure_future(result)
+            return result
+        if wait:
+            return asyncio.run_coroutine_threadsafe(deliver(value), loop).result()
+        loop.call_soon_threadsafe(callback, value)
+        return None
+
+    return receive
 
 
 @dataclass(frozen=True)
@@ -923,11 +956,23 @@ def build_workflow_registry(
         payload,
         operation,
         checkpoint=None,
+        progress=None,
     ):
+        options = {}
+        if progress is not None and operation in {
+            "comfyui", "comfyui-saved", "comfyui-recovery"
+        }:
+            try:
+                inspect.signature(executor).bind_partial(on_progress=progress)
+            except TypeError:
+                pass
+            else:
+                options["on_progress"] = _workflow_callback(progress)
         output = await _call_with_remote_checkpoint(
             executor,
             payload,
-            checkpoint=checkpoint,
+            checkpoint=_workflow_callback(checkpoint, wait=True),
+            **options,
         )
         normalized = _structured_output(output)
         status = (
@@ -1303,6 +1348,7 @@ class ProviderRuntime:
         payload: Any,
         provider_id: str = "",
         checkpoint: RemoteCheckpoint | None = None,
+        progress: ProviderProgress | None = None,
     ) -> ExecutionResult:
         if self.workflow_registry is None:
             raise RuntimeError("workflow registry is not configured")
@@ -1319,6 +1365,7 @@ class ProviderRuntime:
             operation=operation,
             payload=payload,
             checkpoint=checkpoint,
+            progress=progress,
         )
 
     def text_delivery(self, payload: Any) -> TextDelivery:

@@ -77,6 +77,32 @@ function generationProviderRunIdentity(context={},index=0){
         generation_request_index:index
     } : {};
 }
+function generationProviderWorkflowErrorMessage(code, fallback=''){
+    const keys = {
+        'comfy.h3.invalid_reference':'smart.workflowUnsupportedReference',
+        'comfy.h3.reference_kind':'smart.workflowUnsupportedReference',
+        'comfy.h3.reference_count':'smart.workflowErrorReferences',
+        'comfy.h3.reference_duration_unknown':'smart.workflowErrorDurationUnknown',
+        'comfy.h3.reference_duration':'smart.workflowErrorDuration',
+        'comfy.h3.reference_duration_total':'smart.workflowErrorDuration',
+        'comfy.h3.prompt_reference_missing':'smart.workflowErrorPromptReference',
+        'comfy.h3.invalid_template':'smart.workflowErrorTemplate',
+        'comfy.h3.invalid_adapter':'smart.workflowErrorTemplate',
+        'comfy.h3.invalid_duration':'smart.workflowSettingsUnavailable',
+        'comfy.h3.invalid_resolution':'smart.workflowSettingsUnavailable',
+        'comfy.h3.backend_mismatch':'smart.workflowReferenceUploadFailed',
+        'comfy.h3.backend_unavailable':'smart.workflowErrorOffline',
+        'comfy.h3.audio_track_missing':'smart.workflowErrorAudioMissing',
+        'comfy.execution_interrupted':'smart.workflowErrorInterrupted',
+        'comfy.execution_failed':'smart.workflowErrorExecution',
+        'comfy.execution_timeout':'smart.workflowErrorTimeout',
+        'comfy.execution_no_outputs':'smart.workflowErrorNoOutputs',
+        'generation.output_save_failed':'smart.workflowProgressSaveRetry',
+        'comfy.queue_timeout':'smart.workflowErrorQueueTimeout'
+    };
+    const key = keys[String(code || '').split(':')[0].trim()];
+    return key ? tr(key) : fallback || String(code || '');
+}
 async function generationProviderPostTask(endpoint, payload, context={}){
     if(context.localSubmission){
         return window.SmartCanvasModules.localGenerationSubmissions.post(endpoint, payload, context);
@@ -88,9 +114,11 @@ async function generationProviderPostTask(endpoint, payload, context={}){
     });
     if(!response.ok){
         const data = await response.clone().json().catch(() => null);
-        const error = new Error(await smartResponseErrorMessage(response, tr('smart.errRunFailed')));
+        const code = data?.detail?.code || data?.error?.code || data?.code || (typeof data?.detail === 'string' ? data.detail : '');
+        const fallback = await smartResponseErrorMessage(response, tr('smart.errRunFailed'));
+        const error = new Error(generationProviderWorkflowErrorMessage(code, fallback));
         error.status = response.status;
-        error.code = data?.detail?.code || data?.error?.code || data?.code || '';
+        error.code = code;
         throw error;
     }
     return response.json();
@@ -143,6 +171,106 @@ async function generationProviderComfyName(ref){
     ref.comfy_name = name;
     return name;
 }
+function generationProviderValidateWorkflowReferences(refs, capability){
+    const counts = {image:0,video:0,audio:0};
+    (refs || []).forEach(ref => {
+        const kind = ref.kind || mediaKindForItem(ref);
+        if(!Object.prototype.hasOwnProperty.call(counts, kind)) throw new Error(tr('smart.workflowUnsupportedReference'));
+        counts[kind]++;
+    });
+    for(const kind of ['image','video','audio']){
+        const maximum = capability[`max_${kind === 'image' ? 'images' : kind === 'video' ? 'videos' : 'audios'}`];
+        const minimum = capability[`min_${kind === 'image' ? 'images' : kind === 'video' ? 'videos' : 'audios'}`] || 0;
+        if(counts[kind] < minimum || (maximum != null && counts[kind] > maximum)){
+            throw new Error(trf('smart.workflowReferenceCount', {
+                kind:tr(kind === 'image' ? 'smart.kindImage' : kind === 'video' ? 'smart.kindVideo' : 'smart.kindAudio'),
+                minimum,maximum:maximum ?? minimum
+            }));
+        }
+    }
+    if(refs.length < Number(capability.min_references || 0) || (capability.max_references != null && refs.length > capability.max_references)){
+        throw new Error(trf('smart.workflowReferenceTotal', {minimum:capability.min_references || 0,maximum:capability.max_references}));
+    }
+}
+async function generationProviderReferenceDuration(blob, kind){
+    if(!['video','audio'].includes(kind)) return 0;
+    return new Promise((resolve, reject) => {
+        const media = document.createElement(kind);
+        const url = URL.createObjectURL(blob);
+        const finish = (duration=0) => {
+            clearTimeout(timeout);
+            media.onloadedmetadata = media.onerror = null;
+            media.removeAttribute('src');
+            media.load();
+            URL.revokeObjectURL(url);
+            if(Number.isFinite(duration) && duration > 0) resolve(duration);
+            else reject(new Error(tr('smart.workflowErrorDurationUnknown')));
+        };
+        const timeout = setTimeout(() => finish(), 15000);
+        media.preload = 'metadata';
+        media.onloadedmetadata = () => finish(Number(media.duration));
+        media.onerror = () => finish();
+        media.src = url;
+    });
+}
+async function generationProviderWorkflowUpload(ref, workflowName){
+    // Always bind this upload to the selected workflow. Old comfy_name values
+    // carry no machine identity and must not be reused for this submission.
+    const response = await fetch(ref.url);
+    if(!response.ok) throw new Error(tr('smart.workflowReferenceUploadFailed'));
+    const blob = await response.blob();
+    const kind = ref.kind || mediaKindForItem(ref);
+    const duration = ['video','audio'].includes(kind) ? await generationProviderReferenceDuration(blob, kind) : 0;
+    const form = new FormData();
+    form.append('files', blob, ref.name || 'reference');
+    const upload = await fetch(`/api/upload?workflow_json=${encodeURIComponent(workflowName)}`, {method:'POST',body:form});
+    if(!upload.ok){
+        const message = await smartResponseErrorMessage(upload, tr('smart.workflowReferenceUploadFailed'));
+        throw new Error(generationProviderWorkflowErrorMessage(message, message));
+    }
+    const data = await upload.json();
+    const remote = data.files?.[0]?.comfy_upload;
+    if(!remote?.name || !remote?.backend) throw new Error(tr('smart.workflowReferenceUploadFailed'));
+    return {
+        ...remote,
+        kind:ref.kind || mediaKindForItem(ref),
+        instance_id:ref.inputInstanceId || (typeof inputRefKey === 'function' ? inputRefKey(ref) : ''),
+        include_audio:ref.include_audio === true,
+        ...(duration > 0 ? {duration} : {})
+    };
+}
+async function generationProviderSubmitH3(prompt, refs, runSettings, workflow, context){
+    const capability = workflow.capability;
+    generationProviderValidateWorkflowReferences(refs, capability);
+    const options = smartComfyVideoOptions(runSettings, capability);
+    if(!capability.durations?.includes(options.duration)
+        || !capability.resolutions?.includes(options.resolution)
+        || !capability.aspect_ratios?.includes(options.aspect_ratio)) throw new Error(tr('smart.workflowSettingsUnavailable'));
+    const references = [];
+    for(const ref of refs){
+        const key = typeof inputRefKey === 'function' ? inputRefKey(ref) : '';
+        const includeAudio = Object.prototype.hasOwnProperty.call(runSettings.comfyVideoAudio || {}, key)
+            ? runSettings.comfyVideoAudio[key] === true : ref.include_audio === true;
+        references.push(await generationProviderWorkflowUpload({...ref,include_audio:includeAudio}, runSettings.comfyWorkflow));
+    }
+    const task = await generationProviderCreateComfyTask({
+        prompt,
+        workflow_json:runSettings.comfyWorkflow,
+        workflow_inputs:{adapter:'h3',...options,references},
+        type:'workflow-custom',
+        client_id:smartClientId,
+        ...generationProviderRunIdentity(context)
+    }, context);
+    if(!task.task_id) throw new Error(tr('smart.errRunFailed'));
+    const receipt = generationProviderPending([{
+        taskId:task.task_id,status:String(task.status || ''),kind:capability.output_kind,
+        transport:'comfy',type:'comfy',stage:task.stage || 'comfy-queued',
+        progress_current:task.progress_current ?? null,progress_total:task.progress_total ?? null,
+        progress_percent:task.progress_percent ?? null,queue_position:task.queue_position ?? null
+    }], capability.output_kind);
+    await context.onAccepted?.(receipt);
+    return receipt;
+}
 async function generationProviderSubmitComfy(prompt, refs, runSettings, context={}){
     const allRefs = refs || [];
     const imageRefs = imageRefsOnly(allRefs);
@@ -169,6 +297,7 @@ async function generationProviderSubmitComfy(prompt, refs, runSettings, context=
         if(!response.ok) throw new Error(await response.text());
         return response.json();
     });
+    if(workflow.capability?.adapter === 'h3') return generationProviderSubmitH3(prompt, allRefs, runSettings, workflow, context);
     const fields = workflow.config?.fields || [];
     const values = {};
     fields.filter(field => generationProviderFieldKind(field) === 'prompt').forEach((field, index) => {
@@ -610,6 +739,7 @@ window.SmartCanvasModules.generationProvider = Object.freeze({
     submit(options={}){
         return submitGenerationProvider(options);
     },
+    workflowErrorMessage: generationProviderWorkflowErrorMessage,
     fieldKind(field){
         return generationProviderFieldKind(field);
     },

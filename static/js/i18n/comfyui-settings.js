@@ -1,6 +1,8 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "comfy.h3PreviewDesc": { zh: "此工作流在画布中运行，可直接选择参考素材和生成参数。", en: "Run this workflow on the canvas, where you can choose references and generation settings." },
+        "comfy.useVideoComposer": { zh: "已可在画布的视频模型菜单中选择此工作流，添加参考素材，并选择时长、分辨率和画幅。", en: "Choose this workflow from the video model menu on the canvas, add references, and select the duration, resolution, and aspect ratio." },
         "comfy.title": { zh: "工作流设置", en: "Workflow settings" },
         "comfy.subtitle": { zh: "选择 ComfyUI 工作流。设置画布中可以调整的参数。", en: "Choose a ComfyUI workflow and the inputs users can edit on the canvas." },
         "comfy.localWorkflowMode": { zh: "本地 ComfyUI 工作流", en: "Local ComfyUI workflow" },

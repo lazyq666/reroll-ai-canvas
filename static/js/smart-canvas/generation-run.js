@@ -405,7 +405,7 @@ function generationSubmissionAcceptance(targets, operationId, options={}){
 }
 async function generationRunVideoNamingPrefix(runSettings, refs){
     const capabilityModule = window.SmartCanvasModules.videoCapabilities;
-    if(runSettings.apiKind !== 'video' || !capabilityModule?.load) return '';
+    if(!isApiLikeEngine(runSettings.engine) || runSettings.apiKind !== 'video' || !capabilityModule?.load) return '';
     const context = typeof smartVideoCapabilityProviderContext === 'function' ? smartVideoCapabilityProviderContext(runSettings) : {};
     const capability = await capabilityModule.load(runSettings.videoProvider, runSettings.videoModel, context);
     const effectiveSettings = capabilityModule.applyComposerOptions(runSettings, capability);
@@ -840,6 +840,12 @@ function appendGenerationCascadeRefs(node, refs, ctx=null){
     return rememberRoundOutputs(ctx, node, additions);
 }
 function generationRunSupportedInputKinds(runPlan, runSettings={}, refs=[]){
+    const workflowCapability = runSettings.engine === 'comfy' && typeof smartComfyCapability === 'function'
+        ? smartComfyCapability(runSettings)
+        : null;
+    if(workflowCapability){
+        return new Set(['image','video','audio'].filter(kind => Number(workflowCapability[`max_${kind}s`]) > 0));
+    }
     const capability = runSettings.inputCapabilities || runSettings.input_capabilities || runSettings.capabilities?.inputs || {};
     const explicit = capability.media_types
         || capability.mediaTypes

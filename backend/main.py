@@ -3802,6 +3802,7 @@ def rollback_update(req: RollbackRequest):
         UPDATE_LOCK.release()
 
 class GenerateRequest(BaseModel):
+    workflow_inputs: Dict[str, Any] = Field(default_factory=dict)
     prompt: str = ""
     width: int = 1024
     height: int = 1024
@@ -6634,26 +6635,39 @@ def download_output(request: Request, url: str, name: str = "", inline: bool = F
     return StreamingResponse(stream_remote(), media_type=content_type, headers=headers, status_code=upstream.status_code)
 
 @app.post("/api/upload")
-async def upload_image(files: List[UploadFile] = File(...)):
+async def upload_image(files: List[UploadFile] = File(...), workflow_json: str = ""):
     if len(files) > MAX_UPLOAD_FILES:
         raise HTTPException(status_code=413, detail="一次上传的文件数量过多")
+    # Resolve the workflow before accepting media. A targeted upload chooses one
+    # configured device and returns its full identity for the execution snapshot.
+    # Device addresses are never persisted into Workspace workflow config.
+    target_backends = _provider_implementation.get_comfyui_instances()["instances"]
+    if workflow_json:
+        _provider_implementation.get_workflow(workflow_json)
+        target_backends = target_backends[:1]
     uploaded_files = []
     for file in files:
         content = await read_upload_limited(file)
         success_count = 0
         last_result = None
-        for addr in COMFYUI_INSTANCES:
+        for addr in target_backends:
             try:
                 files_data = {'image': (file.filename, content, file.content_type)}
                 response = requests.post(f"http://{addr}/upload/image", files=files_data, timeout=5)
                 if response.status_code == 200:
-                    last_result = response.json()
+                    last_result = {**response.json(), "backend": addr}
                     success_count += 1
             except Exception as e:
                 print(f"Upload error for {addr}: {e}")
 
         if success_count > 0 and last_result:
-            uploaded_files.append({"comfy_name": last_result.get("name", file.filename)})
+            remote = {
+                "name": last_result.get("name", file.filename),
+                "subfolder": last_result.get("subfolder") or "",
+                "type": last_result.get("type") or "input",
+                "backend": last_result["backend"],
+            }
+            uploaded_files.append({"comfy_name": remote["name"], "comfy_upload": remote})
         else:
             raise HTTPException(status_code=500, detail="Failed to upload to any backend")
 
@@ -8490,6 +8504,11 @@ async def get_canvas_layer_decomposition_task(task_id: str):
 async def create_canvas_comfy_task(payload: GenerateRequest):
     if not os.path.isfile(workflow_path_from_name(payload.workflow_json)):
         raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow_detail = _provider_implementation.get_workflow(payload.workflow_json)
+    capability = workflow_detail.get("capability") or {}
+    output_kind = capability.get("output_kind") or (workflow_detail.get("config") or {}).get("output_kind") or "image"
+    if output_kind not in {"image", "video", "audio", "text"}:
+        output_kind = "image"
     owner, key, target = _generation_target(payload)
     try:
         run = await _GENERATION_RUNS.start(
@@ -8498,6 +8517,7 @@ async def create_canvas_comfy_task(payload: GenerateRequest):
                 payload,
                 provider_id="comfyui",
                 publication="history",
+                effect_context={"require_managed_media": True},
             ),
             key=key,
             owner=owner,
@@ -8506,6 +8526,7 @@ async def create_canvas_comfy_task(payload: GenerateRequest):
             public_metadata={
                 "type": "comfy",
                 "workflow_json": payload.workflow_json,
+                "output_kind": output_kind,
             },
         )
     except Exception as exc:
@@ -10036,6 +10057,14 @@ def get_active_canvas_generation_runs(canvas_id: str):
                 "provider_id": run.provider_id,
                 "created_at": run.created_at,
                 "updated_at": run.updated_at,
+                **{
+                    key: value for key, value in (run.public_metadata or {}).items()
+                    if key in {
+                        "type", "output_kind", "workflow_json", "stage", "phase",
+                        "progress", "progress_current", "progress_total",
+                        "progress_percent", "queue_position",
+                    }
+                },
             }
             for run in runs
             if run.target is not None
@@ -11566,6 +11595,9 @@ class WorkflowField(BaseModel):
     random_enabled: bool = False
 
 class WorkflowConfig(BaseModel):
+    adapter: str = ""
+    output_node_ids: List[str] = Field(default_factory=list)
+    output_kind: str = ""
     title: str = ""
     fields: List[WorkflowField] = []
     mini_cards: Dict[str, Any] = {}
@@ -11575,6 +11607,8 @@ class WorkflowUploadRequest(BaseModel):
     workflow: Dict[str, Any]
 
 class WorkflowRunRequest(BaseModel):
+    workflow_inputs: Dict[str, Any] = Field(default_factory=dict)
+    prompt: str = ""
     fields: Dict[str, Any] = {}
     config: WorkflowConfig
     client_id: str = ""
@@ -11620,6 +11654,7 @@ async def run_workflow(name: str, payload: WorkflowRunRequest):
             {"name": name, "payload": payload},
             provider_id="comfyui",
             publication="history",
+            effect_context={"require_managed_media": True},
         )
     )
 

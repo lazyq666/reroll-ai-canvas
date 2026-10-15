@@ -98,6 +98,7 @@ let workflows = [];
 let selectedName = '';
 let currentWorkflow = null;     // 原始 JSON
 let currentConfig = null;       // { title, fields:[...] }
+let currentCapability = null;   // Runtime projection; not saved with Workflow Config.
 let isBuiltin = false;
 let previewValues = {};         // field_id -> 发给后端的值（图片：comfy 文件名）
 let previewRandomActive = {};   // field_id -> 筛子运行时是否激活；未设置时默认激活
@@ -278,6 +279,7 @@ async function selectWorkflow(name){
         setStatus(tr('comfy.loading'));
         const data = await fetch(`/api/workflows/${encodeURIComponent(name)}`).then(r=>r.json());
         currentWorkflow = data.workflow;
+        currentCapability = data.capability || null;
         currentConfig = data.config || { title:name.replace('.json',''), fields:[] };
         if(!currentConfig.fields) currentConfig.fields = [];
         if(!currentConfig.mini_cards) currentConfig.mini_cards = {};
@@ -914,7 +916,23 @@ function closeImagePreview(){
     if(img) img.src = '';
 }
 
+function workflowUsesComposer(){
+    return currentCapability?.adapter === 'h3';
+}
+function workflowComposerNotice(){
+    return `<ic-alert tone="neutral">${escapeHtml(tr('comfy.useVideoComposer'))}</ic-alert>`;
+}
 function renderPreview(){
+    const description = document.querySelector('#previewCard .preview-desc');
+    if(description){
+        const key = workflowUsesComposer() ? 'comfy.h3PreviewDesc' : 'comfy.previewDesc';
+        description.dataset.i18n = key;
+        description.textContent = tr(key);
+    }
+    if(workflowUsesComposer()){
+        previewCard.innerHTML = workflowComposerNotice();
+        return;
+    }
     const fields = currentConfig?.fields || [];
     if(!fields.length){
         previewCard.innerHTML = `<ic-empty-state title="${escapeAttr(tr('comfy.previewEmpty').replace('<br>', ' '))}" label="${escapeAttr(tr('comfy.previewEmpty').replace('<br>', ' '))}"></ic-empty-state>`;
@@ -1000,6 +1018,11 @@ function renderWorkspaceView(){
 
 function renderMiniCanvasPreview(target = previewCard, large = false){
     if(!target) return;
+    if(workflowUsesComposer()){
+        target.hidden = false;
+        target.innerHTML = workflowComposerNotice();
+        return;
+    }
     const promptFields = currentConfig.fields.filter(f => fieldKind(f) === 'prompt');
     const imageFields = currentConfig.fields.filter(f => fieldKind(f) === 'image');
     const videoFields = currentConfig.fields.filter(f => fieldKind(f) === 'video');
@@ -1238,6 +1261,10 @@ async function uploadSelectedMedia(file, request){
 
 async function onRun(){
     if(!selectedName || !currentConfig) return;
+    if(workflowUsesComposer()){
+        setStatus(tr('comfy.useVideoComposer'));
+        return;
+    }
     const btn = document.getElementById('runBtn');
     if(btn){ btn.loading = true; btn.querySelector('span').textContent = tr('comfy.runningTest'); }
     setStatus(tr('comfy.runningTest'));
@@ -1369,6 +1396,7 @@ async function deleteSelectedWorkflow(){
         selectedName = '';
         currentWorkflow = null;
         currentConfig = null;
+        currentCapability = null;
         renderEditor();
         renderPreview();
         renderWorkspaceView();

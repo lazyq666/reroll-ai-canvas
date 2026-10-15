@@ -118,3 +118,72 @@ const literalAt = sandbox.window.SmartCanvasModules.promptAuthoring.resolve({
 });
 assert.equal(literalAt.prompt,'@图片1 旁边写上 @标题');
 console.log('Composer mixed media references: PASS');
+
+// H3 compiles only structured mentions for the selected workflow, with video
+// soundtracks numbered before standalone audio. Ordinary API text is unchanged.
+sandbox.smartComfyCapability = source => source.engine === 'comfy' && source.comfyWorkflow === 'H3.json' ? {adapter:'h3'} : null;
+const h3Settings = {engine:'comfy',comfyMode:'custom',comfyWorkflow:'H3.json',comfyVideoAudio:{'instance|video':true}};
+promptInput.childNodes = mixedParts;
+const h3Node = {id:'h3',inputRefOrder:['instance|image-2','instance|video','instance|audio','instance|image-1']};
+const h3 = sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node:h3Node,defaultImages:refs,settings:h3Settings});
+assert.equal(h3.prompt,'<Audio 2> 控制语速； <Picture 2> 控制村民； <Picture 1> 控制狼人； <Video 1> 控制镜头。');
+assert.deepEqual(Array.from(h3.refs,ref=>ref.inputInstanceId),['image-2','video','audio','image-1']);
+assert.equal(h3.refs.find(ref=>ref.kind==='video').include_audio,true);
+assert.equal(h3.displayPrompt,dreamina.displayPrompt);
+sandbox.tr = key => english[key] || key;
+const h3English = sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node:h3Node,defaultImages:refs,settings:h3Settings});
+assert.equal(h3English.prompt,h3.prompt);
+sandbox.tr = key => translations[key] || key;
+const h3Muted = sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node:h3Node,defaultImages:refs,settings:{...h3Settings,comfyVideoAudio:{}}});
+assert.ok(h3Muted.prompt.startsWith('<Audio 1>'));
+const apiAfterH3 = sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node:{id:'target'},defaultImages:refs,settings:dreaminaSettings});
+assert.equal(apiAfterH3.prompt,dreamina.prompt);
+assert.ok(apiAfterH3.refs.every(ref=>!Object.hasOwn(ref,'include_audio')));
+promptInput.childNodes = [token(duplicateB),{nodeType:3,textContent:' sees '},token(duplicateA),{nodeType:3,textContent:' and literal 图1'}];
+const h3Duplicates = sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node:{id:'duplicates'},defaultImages:[duplicateA,duplicateB],settings:h3Settings});
+assert.equal(h3Duplicates.prompt,'<Picture 2> sees <Picture 1> and literal 图1');
+assert.deepEqual(Array.from(h3Duplicates.refs,ref=>ref.inputInstanceId),['first','second']);
+console.log('H3 reference ordering and API isolation: PASS');
+
+// Removing a referenced instance is caught for H3 before dispatch.
+sandbox.blockedInputRefKeys = () => new Set(['instance|second']);
+const h3Missing = sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node:{id:'deleted'},defaultImages:[duplicateA,duplicateB],settings:h3Settings});
+assert.equal(h3Missing.validationErrors[0],'smart.workflowErrorPromptReference');
+assert.deepEqual(Array.from(h3Missing.refs,ref=>ref.inputInstanceId),['first']);
+
+
+// Duplicate video URLs are independent instances. Reordering or deleting one
+// cannot move its original-audio choice to another instance or stale the labels.
+sandbox.blockedInputRefKeys = () => new Set();
+const videoA={url:'same.mp4',name:'same.mp4',kind:'video',inputInstanceId:'video-a'};
+const videoB={...videoA,inputInstanceId:'video-b'};
+const audioA={url:'same.wav',name:'same.wav',kind:'audio',inputInstanceId:'audio-a'};
+const audioB={...audioA,inputInstanceId:'audio-b'};
+const duplicateMedia=[videoA,videoB,audioA,audioB];
+promptInput.childNodes=duplicateMedia.flatMap((ref,index)=>[...(index ? [{nodeType:3,textContent:' / '}] : []),token(ref)]);
+for(const [selected,expected] of [
+  [[], '<Video 1> / <Video 2> / <Audio 1> / <Audio 2>'],
+  [['video-b'], '<Video 1> / <Video 2> / <Audio 2> / <Audio 3>'],
+  [['video-a','video-b'], '<Video 1> / <Video 2> / <Audio 3> / <Audio 4>']
+]){
+  const source={...h3Settings,comfyVideoAudio:Object.fromEntries(selected.map(id=>[`instance|${id}`,true]))};
+  const ordered=sandbox.window.SmartCanvasModules.promptAuthoring.resolve({node:{id:'media'},defaultImages:duplicateMedia,settings:source});
+  assert.equal(ordered.prompt,expected);
+  const reversed=sandbox.window.SmartCanvasModules.promptAuthoring.resolve({
+    node:{id:'media',inputRefOrder:['instance|audio-b','instance|video-b','instance|audio-a','instance|video-a']},
+    defaultImages:duplicateMedia,settings:source
+  });
+  assert.equal(reversed.prompt,`<Video 2> / <Video 1> / <Audio ${selected.length+2}> / <Audio ${selected.length+1}>`);
+  assert.deepEqual(Array.from(reversed.refs.filter(ref=>ref.kind==='video'),ref=>[ref.inputInstanceId,ref.include_audio]),
+    [['video-b',selected.includes('video-b')],['video-a',selected.includes('video-a')]]);
+}
+sandbox.blockedInputRefKeys=()=>new Set(['instance|video-b']);
+promptInput.childNodes=[token(videoA),{nodeType:3,textContent:' with '},token(audioA)];
+const deletedAudio=sandbox.window.SmartCanvasModules.promptAuthoring.resolve({
+  node:{id:'media'},defaultImages:duplicateMedia,
+  settings:{...h3Settings,comfyVideoAudio:{'instance|video-b':true}}
+});
+assert.equal(deletedAudio.prompt,'<Video 1> with <Audio 1>');
+assert.equal(deletedAudio.validationErrors.length,0);
+assert.equal(deletedAudio.refs.find(ref=>ref.kind==='video').include_audio,false);
+console.log('H3 duplicate video/audio instance boundaries: PASS');

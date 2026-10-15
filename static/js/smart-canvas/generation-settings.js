@@ -95,6 +95,25 @@ function normalizeSmartVideoModeSettings(target, preferMultimodal=false){
 function isApiLikeEngine(engine){
     return ['api', 'volcengine'].includes(String(engine || '').toLowerCase());
 }
+// Workflow capabilities are supplied by the workflow owner, never inferred from its title.
+function smartComfyCapability(source=settings){
+    if(source?.engine !== 'comfy' || source?.comfyMode !== 'custom') return null;
+    const name = String(source.comfyWorkflow || '');
+    const cached = typeof comfyWorkflowCache !== 'undefined' ? comfyWorkflowCache[name] : null;
+    const listed = typeof comfyWorkflows !== 'undefined' ? comfyWorkflows.find(item => item.name === name) : null;
+    return cached?.capability || listed?.capability || null;
+}
+function smartComfyOutputKind(source=settings){
+    return smartComfyCapability(source)?.output_kind || 'image';
+}
+function smartComfyVideoOptions(source=settings, capability=smartComfyCapability(source)){
+    const choose = (value, options, fallback) => options?.includes(value) ? value : options?.includes(fallback) ? fallback : options?.[0];
+    return {
+        duration:choose(Number(source.comfyDuration), capability?.durations, capability?.defaults?.duration),
+        resolution:choose(source.comfyResolution, capability?.resolutions, capability?.defaults?.resolution),
+        aspect_ratio:choose(source.comfyAspect, capability?.aspect_ratios, capability?.defaults?.aspect_ratio)
+    };
+}
 function smartLoopRoundSettings(runSettings, ctx=smartLoopContext){
     const next = {...(runSettings || {})};
     const imageCountEngine = isApiLikeEngine(next.engine)
@@ -269,7 +288,20 @@ function constrainSmartNodeGenerationSettings(node, source={}){
     const eligibility = typeof smartNodeGenerationEligibility === 'function'
         ? smartNodeGenerationEligibility(node)
         : {forcedApiKind:''};
-    if(eligibility.forcedApiKind !== 'video') return target;
+    if(eligibility.forcedApiKind !== 'video' || smartComfyOutputKind(target) === 'video') return target;
+    if(target.engine === 'comfy'){
+        // Recent API snapshots may carry the old Comfy text-mode defaults.
+        // Resolve a video workflow before applying the video-node fallback.
+        const recent = recentSmartSettingsForMode('comfy:custom');
+        const restored = {...target, ...recent, engine:'comfy', comfyMode:'custom', apiKind:'video'};
+        if(smartComfyOutputKind(restored) === 'video') return restored;
+        const workflow = typeof comfyWorkflows !== 'undefined'
+            ? comfyWorkflows.find(item => item.capability?.output_kind === 'video')
+            : null;
+        if(workflow){
+            return {...target, engine:'comfy', comfyMode:'custom', comfyWorkflow:workflow.name, comfyParams:{}, apiKind:'video'};
+        }
+    }
     const requestedEngine = isApiLikeEngine(target.engine) ? target.engine : 'api';
     const modeSettings = {...target, engine:requestedEngine, apiKind:'video'};
     const recent = recentSmartSettingsForMode(smartSettingsModeKey(modeSettings));
@@ -335,7 +367,8 @@ function smartGenerationSettingsForRun({
         }
     }
     normalizeSmartVideoModeSettings(runSettings, true);
-    const outputKind = isApiLikeEngine(runSettings.engine) && runSettings.apiKind === 'video' ? 'video' : 'image';
+    const outputKind = runSettings.engine === 'comfy' ? smartComfyOutputKind(runSettings)
+        : isApiLikeEngine(runSettings.engine) && runSettings.apiKind === 'video' ? 'video' : 'image';
     const expectedCount = outputKind === 'video' || runSettings.engine === 'runninghub' || runSettings.engine === 'comfy'
         ? 1
         : Math.max(1, Math.min(8, Number(runSettings.count || 1)));
@@ -368,9 +401,12 @@ function persistActiveSmartSettings(){
         && !(subject.images || []).some(item => item?.url)
         && !smartNodeInFlight(subject)
     ){
-        subject.referenceGenerationKind = settings.apiKind === 'video'
-            ? 'video'
-            : 'image';
+        const outputKind = settings.engine === 'comfy' ? smartComfyOutputKind(settings)
+            : isApiLikeEngine(settings.engine) && settings.apiKind === 'video' ? 'video' : 'image';
+        if(subject.referenceGenerationKind !== outputKind){
+            subject.referenceGenerationKind = outputKind;
+            render({syncVirtualization:false,nodeIds:[subject.id],skipDynamicParamsRefresh:true});
+        }
     }
     rememberRecentSmartSettings(settings, subject);
 }
