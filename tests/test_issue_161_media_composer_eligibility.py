@@ -122,7 +122,6 @@ assert.equal(runBtn.label, 'smart.run');
         self.assertIn("referenceGenerationKind(subject)", persistence)
         self.assertIn("!(subject.images || []).some(item => item?.url)", persistence)
         self.assertIn("!smartNodeInFlight(subject)", persistence)
-        self.assertIn("subject.referenceGenerationKind = settings.apiKind === 'video'", persistence)
 
         gate = self.run_source[
             self.run_source.index("async function runGeneration("):
@@ -130,6 +129,45 @@ assert.equal(runBtn.label, 'smart.run');
         ]
         self.assertIn("!nodeEligibility.imageAllowed", gate)
         self.assertIn("runPlan.outputKind !== 'video'", gate)
+
+    def test_empty_node_kind_follows_engine_output_and_preserves_existing_media(self):
+        result = subprocess.run(["node", "-e", """
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const node = {id:'target', images:[], referenceGenerationKind:'image'};
+let running = false;
+const sandbox = {
+    window:{SmartCanvasModules:{}},
+    composer:{classList:{contains:()=>true}}, activeComposerNode:()=>node,
+    referenceGenerationKind:()=>node.referenceGenerationKind,
+    smartNodeInFlight:()=>running, render(){},
+    comfyWorkflows:[{name:'H3.json',capability:{output_kind:'video'}}],
+};
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync('static/js/smart-canvas/generation-settings.js','utf8'),sandbox);
+sandbox.activeComposerNode=()=>node;
+sandbox.rememberRecentSmartSettings=()=>{};
+for(const [value, expected] of [
+    [{engine:'api',apiKind:'video'}, 'video'],
+    [{engine:'api',apiKind:'image'}, 'image'],
+    [{engine:'comfy',comfyMode:'custom',comfyWorkflow:'H3.json',apiKind:'image'}, 'video'],
+    [{engine:'comfy',comfyMode:'text',apiKind:'video'}, 'image'],
+]) {
+    vm.runInContext('settings='+JSON.stringify(value),sandbox);
+    sandbox.persistActiveSmartSettings();
+    assert.equal(node.referenceGenerationKind,expected);
+    assert.equal(node.runSettings.engine,value.engine);
+}
+vm.runInContext("settings={engine:'api',apiKind:'video'}",sandbox);
+node.images=[{url:'existing.png'}];
+sandbox.persistActiveSmartSettings();
+assert.equal(node.referenceGenerationKind,'image','existing output keeps its media kind');
+node.images=[];running=true;
+sandbox.persistActiveSmartSettings();
+assert.equal(node.referenceGenerationKind,'image','running output keeps its accepted kind');
+"""], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
 
     def test_kind_toggle_is_disabled_and_guarded_when_video_is_forced(self):
         toggle = self.host[

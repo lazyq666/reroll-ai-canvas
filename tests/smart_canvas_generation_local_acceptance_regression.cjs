@@ -43,6 +43,10 @@ const sandbox = {
 };
 sandbox.window.SmartCanvasModules.canvasPersistence=sandbox.generationRunPersistenceModule;
 vm.createContext(sandbox);
+const settingsSource = fs.readFileSync('static/js/smart-canvas/generation-settings.js', 'utf8');
+vm.runInContext(settingsSource.slice(
+    settingsSource.indexOf('function isApiLikeEngine('),
+    settingsSource.indexOf('function smartComfyCapability(')), sandbox);
 vm.runInContext(fs.readFileSync('static/js/smart-canvas/local-generation-submissions.js','utf8'),sandbox);
 vm.runInContext(functionSource(providerSource,'async function generationProviderPostTask(', '\nasync function generationProviderCreateComfyTask('), sandbox);
 vm.runInContext(functionSource(runSource,'function generationSubmissionAcceptance(', '\nasync function submitAndSettleGenerationProvider('), sandbox);
