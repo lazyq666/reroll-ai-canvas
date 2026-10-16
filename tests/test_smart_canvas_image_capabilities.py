@@ -10,6 +10,13 @@ MODULE = ROOT / "static/js/smart-canvas/image-capabilities.js"
 
 
 class SmartCanvasImageCapabilityTests(unittest.TestCase):
+    def test_composer_custom_dimensions_model_switch(self):
+        result = subprocess.run(
+            ["node", "--test", "tests/composer_custom_dimensions.test.cjs"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     def run_module(self, expression):
         script = textwrap.dedent(f"""
             const fs = require('fs');

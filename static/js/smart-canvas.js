@@ -3584,6 +3584,8 @@ function renderDynamicParams({force=false}={}){
     restoreDynamicParamsScroll(scrollState);
     updatePromptPlaceholder();
     persistActiveSmartSettings();
+    // Rendering reconciles model-specific settings, including clearing unsupported pixel dimensions.
+    syncRunButtonState();
     if(window.lucide) lucide.createIcons();
 }
 function renderApiParams(){
