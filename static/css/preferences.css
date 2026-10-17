@@ -167,3 +167,24 @@
     flex-direction: column;
   }
 }
+
+/* App connection settings follow the canvas settings label/control layout. */
+#agent-access-dialog .agent-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  min-height: var(--ui-control-height-m);
+}
+#agent-access-dialog .agent-settings-row > :first-child { flex: 0 0 auto; }
+#agent-access-dialog .agent-settings-row > :last-child { min-width: 0; }
+#agent-access-dialog .agent-settings-copy { display: grid; gap: var(--ui-space-1); }
+#agent-access-dialog .agent-settings-copy .preferences-note { white-space: normal; }
+#agent-access-dialog ic-number-input { width: 6rem; flex: 0 0 auto; }
+#agent-access-dialog ic-number-input::part(form-control-label) { display: none; }
+#agent-access-dialog .agent-address { overflow-wrap: anywhere; text-align: right; color: var(--ui-color-text-secondary); }
+#agent-access-dialog #agent-save-status:empty { display: none; }
+@media (max-width: 560px) {
+  #agent-access-dialog .agent-settings-row { flex-wrap: wrap; }
+  #agent-access-dialog ic-tabs { margin-inline-start: auto; max-width: 100%; }
+}

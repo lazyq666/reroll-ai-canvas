@@ -55,6 +55,20 @@ flowchart TD
 再次生成与循环入口沿用原提交流程。该试用范围和未完成的实机验收见
 [云端 Active Spec 第 3.1 节](../active/2026-09-07-optional-cloud-records-onedrive-media-spec.md#31-连续生成本地接收后台提交)。
 
+### 外部 Agent 请求运行
+
+Agent API 只创建编排 Mutation 或 Agent Run Request。具备 `run` 权限的请求由同账号打开的
+编辑端领取，按账号限制同时领取 1–8 条（默认 2），可选逐条确认。租约 60 秒，编辑端每
+15 秒续租；未提交请求 24 小时过期。撤销令牌、关闭总开关或权限失效阻止后续领取。
+
+领取后调用同一 Generation Run 入口，输入从目标节点的 Prompt Authoring 草稿解析，避免使用
+当前选中的另一节点 Composer。保存确认、能力预检、Provider 提交、恢复及 Target Guard
+继续由既有所有者负责。正式任务状态与输出来自节点/Generation Run；Agent 意图不另建一套
+生成任务。未领取的请求可在节点动作菜单取消。请求已提交或节点不再是草稿时，重复领取不会
+再次提交，Agent 撤销也不得删除已经运行的任务。
+
+范围与尚待实机验收项见 [F17 规格](../active/2026-10-17-agent-mcp-canvas-authoring-spec.md)。
+
 ## 3. 关键名词翻译
 
 | 代码名 | 产品语言 | 作用 |

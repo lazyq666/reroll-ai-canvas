@@ -2247,6 +2247,40 @@ class SqliteCanvasStore:
             },
         )
 
+    @contextmanager
+    def agent_state(self):
+        """Private Workspace Agent intents, on the selected SQLite authority.
+
+        Metadata storage also works through the fenced cloud adapter without
+        silently creating a local fallback or doing runtime schema migration.
+        These intents do not constitute Canvas content or advance its Revision.
+        """
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                row = connection.execute("SELECT value FROM store_metadata WHERE key='agent_v1'").fetchone()
+                state = json.loads(row[0]) if row else {}
+                before = _json(state)
+                yield state
+                if _json(state) != before:
+                    connection.execute("INSERT OR REPLACE INTO store_metadata(key,value) VALUES ('agent_v1',?)", (_json(state),))
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+
+    def mutation_receipt(self, canvas_id: str, actor: Mapping[str, Any], operation_id: str) -> dict | None:
+        """Read an actor's accepted Mutation without exposing private history."""
+        with self._connect() as connection:
+            self._require_actor(self._canvas_row(connection, canvas_id), actor)
+            row = connection.execute(
+                "SELECT result_json, actor_id FROM canvas_operation_receipts WHERE canvas_id=? AND operation_id=?",
+                (canvas_id, operation_id),
+            ).fetchone()
+            if row is None or row['actor_id'] != actor['id']:
+                return None
+            return _json_object(row['result_json']).get('event')
+
     def _mutation_realtime_state(
         self,
         connection: sqlite3.Connection,

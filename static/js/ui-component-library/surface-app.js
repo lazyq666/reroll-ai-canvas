@@ -3,8 +3,8 @@
     window.history.scrollRestoration = 'manual';
   }
 
-  const SURFACE_MANIFEST_URL = '/static/design-system/infinite-canvas-ui/surface-manifest.json?v=asset-b711f742b4cd';
-  const LEGACY_MANIFEST_URL = '/static/design-system/live-catalog/manifest.json?v=asset-fc79c879cf51';
+  const SURFACE_MANIFEST_URL = '/static/design-system/infinite-canvas-ui/surface-manifest.json?v=asset-c17f9b0658ec';
+  const LEGACY_MANIFEST_URL = '/static/design-system/live-catalog/manifest.json?v=asset-4a4033bdbe4d';
   const SEMANTIC_BASELINE_URL = '/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5';
   const model = window.InfiniteCanvasUiSurfaceModel;
   const tabs = [...document.querySelectorAll('[data-surface-tab]')];

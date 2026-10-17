@@ -933,7 +933,7 @@ async function runGeneration(options={}){
             refs:(options.request.refs || []).filter(ref => ref?.url),
             validationErrors:[...(options.request.validationErrors || [])]
         }
-        : promptAuthoringModule.resolve({
+        : (options.fromDraft ? promptAuthoringModule.resolveFromNodeDraft : promptAuthoringModule.resolve)({
             node,
             consumeDefault:true,
             context:runContext,
@@ -972,6 +972,10 @@ async function runGeneration(options={}){
         }
     };
     const meta = snapshotRunMeta(prompt, node.id, request.displayPrompt, refs, runSettings);
+    if(options.fromDraft){
+        meta.promptHtml = node.promptDraftHtml || escapeHtml(node.promptDraftText || request.displayPrompt || prompt);
+        meta.promptText = node.promptDraftText || request.displayPrompt || prompt;
+    }
     if(options.request){
         const editablePrompt = request.displayPrompt || prompt;
         meta.promptHtml = escapeHtml(editablePrompt);
@@ -993,7 +997,7 @@ async function runGeneration(options={}){
             expectedCount:1,
             meta:inheritSourceConnections ? stripRunInputMeta(meta) : meta,
             connectSource:completedOutputHasMedia ? null : options.connectSource,
-            selectOutput:true,
+            selectOutput:!options.fromDraft,
             outputKind:logKind,
             refs,
             inheritSourceConnections
@@ -1070,7 +1074,7 @@ async function runGeneration(options={}){
             expectedCount,
             meta:pendingMeta,
             connectSource:parallelConnectSource,
-            selectOutput:true,
+            selectOutput:!options.fromDraft,
             outputKind:logKind,
             refs,
             reuseSource:reuseGenerationNodeForBatch,
@@ -1085,7 +1089,7 @@ async function runGeneration(options={}){
             expectedCount,
             meta:pendingMeta,
             connectSource:parallelConnectSource,
-            selectOutput:true,
+            selectOutput:!options.fromDraft,
             outputKind:logKind,
             refs,
             inheritSourceConnections:inheritParallelSourceConnections
@@ -1153,7 +1157,7 @@ async function runGeneration(options={}){
             });
         if(result.deferred){
             delete pendingNode._runMetaTargetId;
-            clearPromptInput({preserveDraft:true});
+            if(!options.fromDraft) clearPromptInput({preserveDraft:true});
             generationRunPersistenceModule.schedule();
             return;
         }
@@ -1224,7 +1228,7 @@ async function runGeneration(options={}){
         pendingNodes.forEach(target => {
             delete target.generationPreviousPresentation;
         });
-        clearPromptInput({preserveDraft:true});
+        if(!options.fromDraft) clearPromptInput({preserveDraft:true});
         generationRunPersistenceModule.schedule();
     } catch(e) {
         if(locallyAccepted || e?.generationLocallyAccepted){
@@ -1254,7 +1258,7 @@ async function runGeneration(options={}){
                     nodeIds:[branchNode.id],
                     options:{skipUndo:true,render:false,save:false}
                 });
-                selectedId = node.id;
+                if(!options.fromDraft) selectedId = node.id;
             } else if(!useBatchOutputs) {
                 if((pendingNode.images || []).length){
                     restoreGenerationPresentationSnapshot(pendingNode);
@@ -1275,7 +1279,7 @@ async function runGeneration(options={}){
                     Object.keys(node).forEach(key => { delete node[key]; });
                     Object.assign(node, generationBatchSeedSnapshot);
                 }
-                selectedId = node.id;
+                if(!options.fromDraft) selectedId = node.id;
             }
             await queueLocally(node);
             return;
@@ -1291,7 +1295,7 @@ async function runGeneration(options={}){
                 nodeIds:[branchNode.id],
                 options:{skipUndo:true,render:false,save:false}
             });
-            selectedId = node.id;
+            if(!options.fromDraft) selectedId = node.id;
         } else {
             if((pendingNode.images || []).length){
                 restoreGenerationPresentationSnapshot(pendingNode);
@@ -1556,7 +1560,7 @@ async function regenerateGenerationRun(nodeId){
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.generationRun = Object.freeze({
-    run({nodeId='', mode='single', onAccepted=null, onQueued=null, onLocalAccepted=null}={}){
+    run({nodeId='', mode='single', onAccepted=null, onQueued=null, onLocalAccepted=null, fromDraft=false}={}){
         const node = nodeId ? nodes.find(item => item.id === nodeId) : window.SmartCanvasModules.viewportSelection.selection.node();
         if(mode === 'loop'){
             if(!generationRunOnline()){
@@ -1565,12 +1569,12 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             return activeGenerationCascadeModule()?.run({nodeId, node});
         }
         if(mode !== 'single') return Promise.resolve(false);
-        if(node?.id && selectedId !== node.id){
+        if(!fromDraft && node?.id && selectedId !== node.id){
             selectedId = node.id;
             selectedIds = [];
             selectedImage = {nodeId:'', index:-1};
         }
-        return runGeneration({node, onAccepted, onQueued, onLocalAccepted});
+        return runGeneration({node, onAccepted, onQueued, onLocalAccepted, fromDraft});
     },
     processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,processorKind=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
