@@ -163,6 +163,20 @@ Reroll 服务运行在自己的电脑上；Canvas、Managed Media 与生成历�
 
 使用本地 ComfyUI H3 时，管理员先在“工作流设置”中配置实例并导入兼容的 API 工作流，随后即可在视频模型菜单按工作流名称选择。Reroll 所在机器需能访问该实例，并安装可通过 `PATH` 执行的 `ffprobe`（通常随 FFmpeg 提供），用于提交前检查参考视频和音频。支持的模板、参数与验证范围见 [H3 工作流说明](docs/current/comfyui-h3-workflows.md)。
 
+### 外部 Agent 编排画布
+
+在要使用 Agent 的电脑上打开 Reroll，进入账号菜单的“应用连接”，选择 Codex、Claude 桌面版或
+Claude Code 和系统，点击“下载安装”。解压后退出所选应用，双击 `Install.command`（macOS）
+或 `Install.cmd`（Windows）；安装器准备独立运行环境、备份原配置并自动配置 MCP。重启应用后
+首次调用 Reroll，在网页核对识别码并点击“同意”，即可长期连接，无需手动填写配置或令牌。管理员可在“应用连接”中关闭所有连接。
+跨设备请用服务器的局域网地址打开网页再下载；`127.0.0.1` 只指当前设备。首次安装需要联网，
+安装器不安装 Codex / Claude 本身；系统可能要求确认打开下载的程序。全局关闭时由管理员批准并开启；
+Designer 需要管理员已启用接入。桥接运行在 Agent 所在电脑，通过浏览器使用的地址连接 Reroll；支持
+批量编排、引用素材、预检、安全撤销与结果下载。配对包含编排和 `run` 权限，运行任务需要此权限，并保持
+同账号画布页面打开。全局默认关闭，允许读取的本地目录默认空。
+安装、环境变量和操作流程见 [MCP 桥接说明](tools/reroll-mcp/README.md)，验证范围见
+[Agent MCP 规格](docs/active/2026-10-17-agent-mcp-canvas-authoring-spec.md)。
+
 ### 环境检查与依赖修复
 
 ```bash

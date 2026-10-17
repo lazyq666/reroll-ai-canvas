@@ -407,3 +407,34 @@ _Avoid_: Managed Media, Device State, Workspace Data
 **API Settings Package（API 设置包）**:
 用于备份和跨设备转移 Provider 连接、秘密及完整 Model 配置的加密产物；包括 CLI 的共享模型设置，但不转移 CLI 登录状态、Account 或其他设备配置。
 _Avoid_: Raw Environment Backup, CLI Session Backup, Workspace Export
+
+
+### 外部 Agent 创作
+
+**Agent Pairing（Agent 配对）**:
+账号持有人在网页上批准外部 Agent 连接的过程；批准后授予可撤销的长期访问凭证。
+_Avoid_: Login Session, OAuth Login
+
+**Agent Token（Agent 令牌）**:
+代表一个 Account、带权限范围且可撤销的外部程序访问凭证。
+_Avoid_: API Key, Session, Share Link
+
+**Generation Recipe（生成配方）**:
+外部 Agent 声明一个生成任务的 Prompt、参考输入、Model 和参数；写入后成为 Node 的 Prompt Authoring 与 Generation Settings。
+_Avoid_: Workflow, Prompt Template, Generation Run
+
+**Agent Submission（Agent 提交）**:
+一次可整体撤销的 Agent 创作写入，对应一个 Canvas Mutation 与 Operation ID。
+_Avoid_: Generation Batch, Batch Generation
+
+**Agent Target Canvas（Agent 目标画布）**:
+一个 Agent 会话当前明确指向的 Smart Canvas，在用户重新选择之前保持稳定。
+_Avoid_: Current Workspace, Canvas Selection
+
+**Editor Context（编辑端上下文）**:
+某个 Account 当前编辑端的聚焦、Canvas Viewport 与 Canvas Selection 临时信息，不属于共享创作内容。
+_Avoid_: Realtime Presence, Canvas Mutation
+
+**Agent Run Request（Agent 运行请求）**:
+Agent 请求运行一个生成 Node、等待该 Account 编辑端接纳执行的意图。
+_Avoid_: Generation Run, Queue Job

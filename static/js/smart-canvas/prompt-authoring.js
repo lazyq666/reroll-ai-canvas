@@ -109,6 +109,7 @@ function collectPromptAuthoringParts(root=promptInput){
             const kind = node.dataset.kind || 'image';
             parts.push({
                 type:'image',
+                referenceMode:node.dataset.referenceMode || '',
                 kind,
                 url:node.dataset.url || '',
                 name:node.dataset.name || (kind === 'audio' ? promptAuthoringText('smart.kindAudio') : promptAuthoringText('smart.kindImage')),
@@ -309,6 +310,13 @@ function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault
         context
     )
         .filter(img => !blockedRefs.has(inputRefKey(img)));
+    // Agent connection mentions resolve against the live input, never a stale URL snapshot.
+    parts.forEach(part => {
+        if(part.type !== 'image' || part.referenceMode !== 'connection') return;
+        const current = filteredDefaultImages.find(ref => ref.nodeId === part.nodeId && Number(ref.imageIndex) === Number(part.imageIndex));
+        if(current) Object.assign(part, current);
+        else part.url = '';
+    });
     const mentionedRefs = parts
         .filter(part => part.type === 'image' && part.url && !blockedRefs.has(inputRefKey(part)))
         .map(part => ({...part, kind:part.kind || 'image'}));

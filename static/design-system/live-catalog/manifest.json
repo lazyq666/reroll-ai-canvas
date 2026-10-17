@@ -270,7 +270,7 @@
       "stylesheets": [
         "/static/css/design-tokens.css?v=asset-b180cf511553",
         "/static/css/account-ui.css?v=asset-afb40097bdcd",
-        "/static/css/preferences.css?v=asset-2f0141ea1d6e"
+        "/static/css/preferences.css?v=asset-3114ba58003f"
       ],
       "inlineStyles": [
         "html.studio-route-booting body {\n            visibility: hidden !important;\n        }",

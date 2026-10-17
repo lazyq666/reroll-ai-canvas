@@ -1,0 +1,66 @@
+{
+  "recipe": {
+    "kind": "video",
+    "prompt": "@主角在@场景中",
+    "params": {
+      "duration_seconds": 5,
+      "aspect_ratio": "16:9"
+    },
+    "refs": {
+      "主角": {
+        "node": "source-0"
+      },
+      "场景": {
+        "node": "source-1"
+      }
+    }
+  },
+  "node": {
+    "type": "smart-image",
+    "referenceGenerationKind": "video",
+    "promptDraftText": "@主角在@场景中",
+    "manualInputRefs": [],
+    "inputRefOrder": [
+      "source-0|0",
+      "source-1|0"
+    ]
+  },
+  "settings": {
+    "engine": "api",
+    "apiKind": "video",
+    "videoProvider": "fixture",
+    "videoModel": "video",
+    "videoDuration": 5,
+    "videoAspect": "16:9"
+  },
+  "visual_order": {
+    "rectangles": [
+      {
+        "id": "a",
+        "x": 300,
+        "y": 10,
+        "height": 220,
+        "width": 280
+      },
+      {
+        "id": "b",
+        "x": 0,
+        "y": 20,
+        "height": 220,
+        "width": 280
+      },
+      {
+        "id": "c",
+        "x": 0,
+        "y": 400,
+        "height": 220,
+        "width": 280
+      }
+    ],
+    "ids": [
+      "b",
+      "a",
+      "c"
+    ]
+  }
+}

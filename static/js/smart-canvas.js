@@ -8760,6 +8760,7 @@ function smartNodeToolbarActionHtml(node, action){
     </ic-button>`;
 }
 function smartNodeToolbarActionsHtml(node, actions=[]){
+    if(window.SmartCanvasModules?.agentEditor?.waiting(node.id)) actions=[...actions,{key:'cancel-agent-run',icon:'close',label:tr('agent.cancelRun'),enabled:true}];
     if(!actions.length) return '';
     return `<ic-smart-node-toolbar label="${escapeAttr(tr('smart.nodeActions'))}" data-smart-node-menu="1">${actions.map(action => smartNodeToolbarActionHtml(node, action)).join('')}</ic-smart-node-toolbar>`;
 }
@@ -9823,7 +9824,7 @@ function render(options={}){
             focusControl:'',
             runtimeStatus:canvasFarMode
                 ? smartContainerNavigationBadgeHtml(node, navigationTitle)
-                : nodeFarMode || body.includes('data-generation-pending-node') ? '' : runTimePillHtml(node),
+                : window.SmartCanvasModules?.agentEditor?.waiting(node.id) ? `<ic-badge kind="label" size="small">${escapeHtml(tr('agent.waiting'))}</ic-badge>` : nodeFarMode || body.includes('data-generation-pending-node') ? '' : runTimePillHtml(node),
             annotationSelection:isAnnotation
                 ? '<div class="smart-annotation-selection" aria-hidden="true"><span data-corner="nw"></span><span data-corner="ne"></span><span data-corner="se"></span><span data-corner="sw"></span></div>'
                 : '',
@@ -12987,6 +12988,7 @@ async function runSmartContextMenuAction(action, state){
         return;
     }
     if(action === 'copy'){ copySelectedNodes(); return; }
+    if(action === 'cancel-agent-run'){ window.SmartCanvasModules.agentEditor.cancel(node.id); return; }
     if(action === 'copy-node-id'){ await copySmartText(node.id, tr('smart.nodeIdCopied')); return; }
     if(action === 'duplicate'){
         canvasMutation.duplicate({
@@ -13816,6 +13818,18 @@ function syncComposerMentionTokenLabels(node, refs=[], editor=promptInput){
     });
     let changed = false;
     editor.querySelectorAll('.mention-image-token').forEach(token => {
+        if(token.dataset.referenceMode === 'connection'){
+            const current = refs.find(ref => ref.nodeId === token.dataset.nodeId && Number(ref.imageIndex) === Number(token.dataset.imageIndex));
+            if(current && (token.dataset.url !== current.url || !token.querySelector('img,video,.mention-audio-thumb'))){
+                token.dataset.url = current.url;
+                token.dataset.inputInstanceId = current.inputInstanceId || '';
+                token.dataset.outputId = current.outputId || '';
+                token.dataset.kind = current.kind || 'image';
+                token.querySelectorAll('img,video').forEach(media => media.remove());
+                token.insertAdjacentHTML('afterbegin', mentionTokenMediaHtml(current));
+                changed = true;
+            }
+        }
         const label = labelsByKey.get(inputRefKey(composerMentionTokenReference(token)));
         if(!label) return;
         const labelElement = composerMentionTokenLabelElement(token);
