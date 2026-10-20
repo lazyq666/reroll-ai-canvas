@@ -15,7 +15,8 @@ class ProjectLayoutTests(unittest.TestCase):
         )
 
     def test_optional_browser_and_photoshop_plugins_are_removed(self):
-        self.assertFalse((ROOT / "tools").exists())
+        self.assertEqual({"reroll-mcp"}, {path.name for path in (ROOT / "tools").iterdir() if path.name != ".DS_Store"})
+        self.assertTrue((ROOT / "tools" / "reroll-mcp" / "pyproject.toml").is_file())
         self.assertTrue(
             (
                 ROOT

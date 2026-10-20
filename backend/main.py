@@ -606,6 +606,8 @@ async def canvas_realtime_endpoint(
                         close_code, close_category = 1012, "cloud-transition"
                         await websocket.close(code=1012)
                         return
+                    if await AGENT_API.receive(session, actor, message):
+                        continue
                     await CANVAS_SYNC.receive_realtime(
                         session,
                         actor,
@@ -643,6 +645,7 @@ async def canvas_realtime_endpoint(
             session.actor_id, session.canvas_id, close_code, close_category,
             round((time.monotonic() - connected_at) * 1000),
         )
+        AGENT_API.disconnect(session)
         await CANVAS_SYNC.close_realtime(session)
 
 
@@ -12106,3 +12109,35 @@ _BATCH_GENERATION = (TursoBatchGeneration if CLOUD_WORKSPACE_RUNTIME else BatchG
     provider_limit=int(os.getenv("BATCH_GENERATION_PROVIDER_CONCURRENCY", "32")),
     user_limit=int(os.getenv("BATCH_GENERATION_USER_CONCURRENCY", "32")),
 )
+
+
+# Account-scoped authoring routes; provider execution remains in the editor.
+from infinite_canvas.agent_api import AgentAPI
+
+
+def agent_available_models():
+    return [{"provider_id":p["id"], "model":model, "kind":kind}
+            for p in load_api_providers() if p.get("enabled", True)
+            for kind in ("image", "video") for model in p.get(kind + "_models", [])]
+
+
+def agent_media_path(url):
+    from urllib.parse import unquote, urlsplit
+    parsed = urlsplit(str(url))
+    if parsed.scheme or parsed.netloc or not parsed.path.startswith("/assets/"):
+        return None
+    root = Path(managed_media_directory()).resolve()
+    candidate = (root / unquote(parsed.path[len("/assets/"):])).resolve()
+    return candidate if candidate.is_relative_to(root) else None
+
+
+AGENT_API = AgentAPI(
+    auth=AUTH_SYSTEM, sync=CANVAS_SYNC, catalog=MODEL_CAPABILITY_CATALOG,
+    resolve_model=resolved_model_capability, list_models=agent_available_models,
+    media=current_workspace_media, assets=current_workspace_asset_library,
+    database=lambda:current_workspace_content().canvas_content,
+    media_path=agent_media_path, upload_extensions=AI_REFERENCE_EXTENSIONS,
+    max_upload_bytes=MAX_UPLOAD_BYTES,
+    version=Path(BASE_DIR, "VERSION").read_text().strip(),
+)
+AGENT_API.install(app)

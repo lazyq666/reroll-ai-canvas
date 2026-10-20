@@ -1708,6 +1708,8 @@ function canvasPersistenceHandleSocketMessage(event){
         ){
             canvasPersistenceRequestResync('heartbeat-revision');
         }
+    } else if(String(message.type || '').startsWith('agent_')){
+        window.SmartCanvasModules?.agentEditor?.receive(message);
     } else if(String(message.type || '').startsWith('presence_')){
         window.SmartCanvasModules?.realtimePresence?.receive?.(message);
     }
@@ -1753,6 +1755,7 @@ function canvasPersistenceConnect(){
     socket.onopen = () => {
         canvasPersistenceLastPongAt = Date.now();
         canvasPersistenceStartHeartbeat();
+        window.SmartCanvasModules?.agentEditor?.reconnect();
     };
     socket.onmessage = canvasPersistenceHandleSocketMessage;
     socket.onclose = event => {

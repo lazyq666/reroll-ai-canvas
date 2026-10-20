@@ -1350,6 +1350,40 @@ class CanvasSync:
             ]
         )[0]
 
+    def mutation_receipt(self, canvas_id, actor, operation_id):
+        if self._canvas_store is not None:
+            return self._canvas_store().mutation_receipt(canvas_id, actor, operation_id)
+        canvas = self.read(canvas_id, actor, write=True)
+        receipt = canvas.get('_realtime', {}).get('receipts', {}).get(operation_id)
+        if receipt and receipt.get('actor_id') == actor['id']:
+            record = next((r for r in canvas.get('_realtime', {}).get('history', []) if r.get('operation_id') == operation_id), {})
+            return {**copy.deepcopy(receipt), 'operation_id': operation_id, 'changes': copy.deepcopy(record.get('changes', {}))}
+        return None
+
+    async def commit_prepared_operation(self, canvas_id, actor, operation_id, prepare, *, dry_run=False):
+        """Resolve a server intent and commit under the same per-Canvas lock.
+
+        The callback receives the authorized current projection and prior receipt.
+        This keeps reference resolution and exact spatial planning indivisible
+        with respect to other Canvas mutations, including Generation Outputs.
+        """
+        async with self._operation_lock(canvas_id):
+            canvas = await self._run_store(self.read, canvas_id, actor)
+            receipt = await self._run_store(self.mutation_receipt, canvas_id, actor, operation_id)
+            operation, result = prepare(canvas, receipt)
+            if operation is None or dry_run:
+                return result
+            session = RealtimeSession(canvas_id=canvas_id, client_id='', websocket=None,
+                                      actor_id=actor['id'], access_epoch=0, access_scope={}, revision=0)
+            outgoing, target_only = await self._run_store(
+                self._commit_realtime_message, session, actor, {'operation': operation})
+            if outgoing.get('type') == 'mutation_rejected':
+                raise CanvasSyncError(409, {'code': outgoing.get('code'), 'revision': outgoing.get('revision')})
+            self._remember_revision(canvas_id, int(outgoing.get('revision') or 0))
+            if not target_only:
+                await self._notifier.broadcast_canvas_message(canvas_id, outgoing)
+            return {**result, 'revision': outgoing.get('revision')}
+
     async def commit_staged_operation(
         self, canvas_id: str, actor: Dict[str, Any],
         operation: Dict[str, Any], *, client_id: str = "",
@@ -1797,6 +1831,22 @@ class CanvasSync:
             )
         return CanvasSyncResult(canvas=canvas)
 
+    async def create_agent_canvas(self, actor, canvas_id, title):
+        """Retry a server-assigned creation identity under the ordinary creation lock."""
+        async with self._administration_lock:
+            try:
+                existing = self.read(canvas_id, actor, write=True)
+            except CanvasSyncError as error:
+                if error.status_code != 404:
+                    raise
+            else:
+                return CanvasSyncResult(canvas=existing)
+            values = {"_agent_canvas_id": canvas_id, "title": title,
+                      "kind": "smart", "project": DEFAULT_PROJECT_ID}
+            if self._canvas_store is not None:
+                return await self._create_store_canvas(actor, values)
+            return self._create_canvas(actor, values)
+
     async def submit(
         self,
         command: CanvasCommand,
@@ -2148,7 +2198,7 @@ class CanvasSync:
             )
         kind = "smart"
         canvas = {
-            "id": uuid.uuid4().hex,
+            "id": str(values.get("_agent_canvas_id") or uuid.uuid4().hex),
             "title": (
                 values.get("title")
                 or "未命名画布"

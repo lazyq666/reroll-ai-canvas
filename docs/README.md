@@ -55,6 +55,7 @@
 - [Generation Run 生成链路](current/generation-pipeline.md)
 - [ComfyUI H3 工作流与 Composer](current/comfyui-h3-workflows.md)
 - [局部修复（已实现，待真实模型验收）](active/2026-09-24-local-image-repair.md)
+- [Agent MCP 画布编排与批量生成（Implemented，待实机验收）](active/2026-10-17-agent-mcp-canvas-authoring-spec.md)
 - [Canvas Mutation 单 Node 移动快速通道](current/canvas-mutation-single-node-move-fast-path.md)
 - [Canvas Sync 实施合同](current/canvas-sync-implementation.md)
 - [Smart Canvas 节点自动避让](current/smart-canvas-node-auto-placement.md)

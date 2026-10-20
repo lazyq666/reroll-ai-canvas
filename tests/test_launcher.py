@@ -38,7 +38,7 @@ SPEC.loader.exec_module(launcher)
 
 class LauncherPathTests(unittest.TestCase):
     def test_only_documented_operator_entry_scripts_are_exposed(self):
-        script_suffixes = {".bat", ".command", ".sh", ".ps1"}
+        script_suffixes = {".bat", ".cmd", ".command", ".sh", ".ps1"}
         ignored_directory_names = {
             ".agents",
             ".codex",
@@ -48,6 +48,7 @@ class LauncherPathTests(unittest.TestCase):
             ".venv",
             ".worktrees",
             "node_modules",
+            "local-state",
         }
         scripts = {
             path.relative_to(PROJECT_DIR).as_posix()
@@ -64,6 +65,9 @@ class LauncherPathTests(unittest.TestCase):
                 "安装GPT-Image-2助手-Windows.bat",
                 "安装GPT-Image-2助手-macOS.command",
                 "scripts/install_gpt_image_2_helper_windows.ps1",
+                "tools/reroll-mcp/installer/Install.command",
+                "tools/reroll-mcp/installer/Install.cmd",
+                "tools/reroll-mcp/installer/Install.ps1",
                 "admin-tools/多人协作性能测试-macOS.command",
                 "admin-tools/抠图并行容量测试-macOS.command",
             },

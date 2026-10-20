@@ -32,11 +32,11 @@
   <link rel="stylesheet" href="/static/css/account-avatar.css?v=asset-e1cd44d31e57">
   <link rel="stylesheet" href="/static/css/studio-shell.css?v=asset-44c59ef8913c">
   <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=asset-1a1c83c38ef0">
-  <link rel="stylesheet" href="/static/css/preferences.css?v=asset-2f0141ea1d6e">
+  <link rel="stylesheet" href="/static/css/preferences.css?v=asset-3114ba58003f">
   <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-3ba4cc278f6d">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-2cc8196a8d49"></script>
+    <script src="/static/js/i18n.js?v=asset-4df71f3f9b38"></script>
     <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
   <link rel="stylesheet" href="/static/css/page-loading.css?v=asset-48cf584c51c9">
 </head>
@@ -120,6 +120,7 @@
             </ic-button>
           </section>
           <span role="separator" aria-hidden="true"></span>
+          <ic-menu-item value="agent-access" kind="command" label="Agent 访问" data-i18n-label="agent.title" onclick="openAgentAccess()"></ic-menu-item>
           <ic-menu-item id="account-logout" value="logout" kind="command" icon="logout" tone="danger" label="退出登录" data-i18n-label="auth.logout"></ic-menu-item>
         </ic-menu>
       </div>
@@ -150,6 +151,8 @@
   <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-1b1437b2321d"></script>
   <script type="module" src="/static/js/studio-entry-motion.js?v=asset-be9d77ac1c16"></script>
   <script src="/static/js/studio-shell.js?v=asset-8789a0c3c42c" defer></script>
+  <script src="/static/js/agent-pairing.js?v=asset-0dc0ec1ba521" defer></script>
+  <script src="/static/js/agent-access.js?v=asset-dad83ba7f49f" defer></script>
   <script src="/static/js/preferences.js?v=asset-0be3dde73154" defer></script>
   <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db" defer></script>
   <script src="/static/js/account-session.js?v=asset-488cce3783d2" defer></script>

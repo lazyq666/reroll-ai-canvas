@@ -192,6 +192,85 @@ class AuthSystem:
         self._backup_existing_database_once()
         self._initialize()
 
+    def agent_settings(self, user_id: str = "") -> dict:
+        with self._connect() as connection:
+            rows = dict(connection.execute("SELECT key, value FROM agent_preferences"))
+        prefs = json.loads(rows.get(user_id, '{}'))
+        return {"enabled": rows.get('enabled') == 'true',
+                "concurrency": prefs.get('concurrency', 2),
+                "confirmation": prefs.get('confirmation', False)}
+
+    def save_agent_settings(self, actor: dict, values: dict) -> dict:
+        if 'enabled' in values and actor['role'] != 'admin':
+            raise PermissionError('forbidden')
+        prefs = self.agent_settings(actor['id'])
+        concurrency = values.get('concurrency', prefs['concurrency'])
+        if type(concurrency) is not int or not 1 <= concurrency <= 8:
+            raise ValueError('invalid_concurrency')
+        for key in ('enabled', 'confirmation'):
+            if key in values and type(values[key]) is not bool:
+                raise ValueError('invalid_setting')
+        with self._connect() as connection:
+            if 'enabled' in values:
+                connection.execute("INSERT OR REPLACE INTO agent_preferences VALUES ('enabled', ?)",
+                                   (json.dumps(values['enabled']),))
+            connection.execute("INSERT OR REPLACE INTO agent_preferences VALUES (?, ?)",
+                               (actor['id'], json.dumps({"concurrency": concurrency,
+                                "confirmation": values.get('confirmation', prefs['confirmation'])})))
+        return self.agent_settings(actor['id'])
+
+    def create_agent_token(self, actor: dict, name: str, scopes: list, days: int = 0) -> dict:
+        if actor.get('role') not in {'admin', 'designer'} or actor.get('status') != 'active':
+            raise PermissionError('forbidden')
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80:
+            raise ValueError('invalid_name')
+        if not isinstance(scopes, list) or 'authoring' not in scopes or set(scopes) - {'authoring', 'run'}:
+            raise ValueError('invalid_scopes')
+        if type(days) is not int or days not in (0, 30, 90):
+            raise ValueError('invalid_expiry')
+        token = 'reroll_agent_' + secrets.token_urlsafe(32)
+        now = int(time.time())
+        token_id = uuid.uuid4().hex
+        with self._connect() as connection:
+            connection.execute('BEGIN IMMEDIATE')
+            count = connection.execute('SELECT count(*) FROM agent_tokens WHERE user_id=? AND revoked_at IS NULL AND (expires_at=0 OR expires_at>?)', (actor['id'], now)).fetchone()[0]
+            if count >= 10:
+                raise ValueError('token_limit')
+            connection.execute('INSERT INTO agent_tokens(id,user_id,token_hash,name,scopes,created_at,expires_at) VALUES (?,?,?,?,?,?,?)',
+                               (token_id, actor['id'], self._token_hash(token), name.strip(), json.dumps(sorted(set(scopes))), now, now + days*86400 if days else 0))
+        return {"id": token_id, "token": token, "name": name.strip(), "scopes": scopes}
+
+    def list_agent_tokens(self, actor: dict) -> list:
+        with self._connect() as connection:
+            connection.execute('DELETE FROM agent_tokens WHERE revoked_at < ?', (int(time.time()) - 90*86400,))
+            rows = connection.execute('SELECT id,user_id,name,scopes,created_at,expires_at,revoked_at,last_used_at,last_ip FROM agent_tokens' + ('' if actor['role'] == 'admin' else ' WHERE user_id=?'),
+                                      () if actor['role'] == 'admin' else (actor['id'],)).fetchall()
+        return [{**dict(row), 'scopes': json.loads(row['scopes'])} for row in rows]
+
+    def revoke_agent_token(self, actor: dict, token_id: str) -> None:
+        with self._connect() as connection:
+            row = connection.execute('SELECT user_id FROM agent_tokens WHERE id=?', (token_id,)).fetchone()
+            if row is None or (row['user_id'] != actor['id'] and actor['role'] != 'admin'):
+                raise PermissionError('forbidden')
+            connection.execute('UPDATE agent_tokens SET revoked_at=? WHERE id=?', (int(time.time()), token_id))
+
+    def authenticate_agent(self, token: str, ip: str) -> tuple[dict, dict]:
+        if not self.agent_settings()['enabled']:
+            raise PermissionError('agent_access_disabled')
+        if not token.startswith('reroll_agent_') or len(token) > 200:
+            raise PermissionError('unauthorized')
+        digest = self._token_hash(token)
+        now = int(time.time())
+        with self._connect() as connection:
+            row = connection.execute('SELECT * FROM agent_tokens WHERE token_hash=?', (digest,)).fetchone()
+            if row is None or not hmac.compare_digest(row['token_hash'], digest) or row['revoked_at'] is not None or (row['expires_at'] and row['expires_at'] <= now):
+                raise PermissionError('unauthorized')
+            user = connection.execute('SELECT * FROM users WHERE id=?', (row['user_id'],)).fetchone()
+            if user is None or user['status'] != 'active' or user['role'] not in {'designer', 'admin'}:
+                raise PermissionError('forbidden')
+            connection.execute('UPDATE agent_tokens SET last_used_at=?,last_ip=? WHERE id=?', (now, ip, row['id']))
+        return self.public_user(user), {"id": row['id'], "scopes": json.loads(row['scopes'])}
+
     def _secure_storage_permissions(self) -> None:
         if self.secure_directory:
             try:
@@ -252,6 +331,13 @@ class AuthSystem:
             connection.execute("PRAGMA journal_mode = WAL")
             connection.executescript(
                 """
+                CREATE TABLE IF NOT EXISTS agent_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS agent_tokens (
+                    id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    token_hash TEXT NOT NULL UNIQUE, name TEXT NOT NULL, scopes TEXT NOT NULL,
+                    created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL DEFAULT 0,
+                    revoked_at INTEGER, last_used_at INTEGER, last_ip TEXT NOT NULL DEFAULT ''
+                );
                 CREATE TABLE IF NOT EXISTS users (
                     id TEXT PRIMARY KEY,
                     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -2053,9 +2139,34 @@ def install_access_control(
                         content={"detail": "请先完成首次运行设置"},
                     )
                 return RedirectResponse(url="/setup", status_code=303)
+        if path in {'/api/agent/pairing/start', '/api/agent/pairing/status'} and method == 'POST':
+            if _cross_site_write(request, method):
+                return JSONResponse(status_code=403, content={'code': 'forbidden'})
+            return await call_next(request)
         if _is_public_path(path, method):
             return await call_next(request)
 
+        if path.startswith("/api/agent/v1/"):
+            try:
+                authorization = request.headers.get("authorization", "")
+                bearer = authorization[7:] if authorization.startswith("Bearer ") else ""
+                user, agent_token = auth.authenticate_agent(bearer, request.client.host if request.client else "")
+                if user_enricher is not None:
+                    user = user_enricher(user)
+                request.state.user = user
+                request.state.agent_token = agent_token
+                context_token = _CURRENT_USER.set(user)
+                try:
+                    return await call_next(request)
+                finally:
+                    _CURRENT_USER.reset(context_token)
+            except PermissionError as error:
+                code = str(error)
+                return JSONResponse(status_code=401 if code == "unauthorized" else 403,
+                                    content={"code": code, "message": code.replace("_", " "), "details": {}})
+        # Bearer credentials never establish a browser session, even with cookies.
+        if request.headers.get("authorization", "").startswith("Bearer "):
+            return JSONResponse(status_code=401, content={"detail": "unauthorized"})
         user = auth.user_for_session(request.cookies.get(SESSION_COOKIE, ""))
         if not user:
             if path.startswith("/api/") or method not in {"GET", "HEAD"}:

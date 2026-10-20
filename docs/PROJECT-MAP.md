@@ -59,6 +59,9 @@ flowchart TB
     DEVICE["Device State / Cache<br/>密钥 · 本机连接 · 模型缓存"]
     EXTERNAL["外部生成服务"]
 
+    AGENT["外部 Agent · 本地 stdio 桥接"] --> AGENTAPI["Agent API v1 · 网页配对 / Account 令牌"]
+    AGENTAPI --> AUTH
+    AGENTAPI --> CANVAS
     UI --> API
     API --> AUTH
     API --> CANVAS
@@ -254,6 +257,7 @@ Prompt Authoring → Generation Settings → Generation Run → Provider → Com
 | F14 | 更新、回退、配置迁移与发布维护 | `partial` | `launcher.py`、更新路由和维护脚本；[前端资源版本](current/frontend-asset-versions.md)由 `sync_frontend_assets.py` 统一管理引用、依赖图与缓存合同，[生成器回归](../tests/test_frontend_assets.py)和[真实缓存升级回归](../tests/frontend_cache_upgrade_browser.cjs)覆盖漏同步阻断与命名保存；`frontend-update.js` 消费 `/api/app-info` 的版本与清单摘要，提示长期打开页面在画布保存确认后刷新，[更新提醒回归](../tests/frontend_update_browser.cjs)覆盖失败保护与父子页面协调；[Public readiness 发布验收](current/public-readiness.md)已为 Current：固定提交、Linux 独立检查与 main 强制规则已验证；[交付行为回归](../tests/test_readiness_delivery.py)覆盖隔离、版本竞争与规则漂移；其余发布维护总规格仍待补齐 |
 | F15 | 产品知识地图与功能规格体系 | `current` | 本页、[知识库入口](README.md)和[规格模板](FEATURE-SPEC-TEMPLATE.md) |
 | F16 | 实验室与 Suno 音乐 | `current` | [Suno 音乐实验室](current/suno-music-lab.md)；[Create 布局设计记录](archive/2026-10-14-suno-create-layout-prototype.md)；同屏创作/工作区、简单/详细展开、统一播放器与逐曲封面；三个在售版本、1–4 首本地参考、独立 Cover/Inspire、单参考人声或纯音乐改编、试听/移除/复用、个人历史与 MP3/M4A/WAV 下载，复用 Generation Run；`tests/test_music_lab.py` 与 `tests/music_lab_browser.cjs`，通信与下载已实测，参考效果独立验收 |
+| F17 | Agent MCP 画布编排与批量生成 | `active` | [Agent MCP 规格](active/2026-10-17-agent-mcp-canvas-authoring-spec.md)；`backend/infinite_canvas/agent_api.py`、`backend/infinite_canvas/agent_pairing.py`、`backend/infinite_canvas/agent_installer.py`（无凭证安装包）、`tools/reroll-mcp/`、`tests/test_agent_api.py`、`tests/test_agent_installer.py`、`tests/agent_canvas_browser_smoke.cjs`；[LAZ-88](https://linear.app/lazyq/issue/LAZ-88) |
 
 Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 对应 F05 / F13 的图片分辨率与宽高比双 Badge。布局、固定画幅对比图标、比例识别容差、尺寸恢复及可访问说明统一由 [UI 设计与交互指南](current/ui-design-guidelines.md)定义；`image-metadata.js` 只负责尺寸与比例计算，页面负责显示，公共 `ic-icon` 负责图标。回归入口为 [比例与尺寸来源测试](../tests/smart_canvas_image_metadata.test.cjs)和[真实页面、双语及日志验收](../tests/issue_21_image_metadata_browser_app.cjs)。
 

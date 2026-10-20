@@ -170,6 +170,19 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 
 `workspace_asset_library.json` 是 Workspace Asset Library 的发布目录，只保存素材条目、Publisher 和私有来源快照；图片字节继续位于 `assets/` 的 Managed Media 区域。相同媒体以内容摘要幂等复用，取消共享只移除条目，不删除画布图片或媒体文件。列表 API 不公开来源 Project、Canvas 或 Node。完整合同见[工作区资产库与本地引用](workspace-asset-library.md)，架构取舍见 [ADR-0004](../adr/0004-workspace-asset-library-publication-boundary.md)。Prompt Template 封面是这一通用媒体规则的窄例外，由 [ADR-0007](../adr/0007-prompt-library-directory-owns-cover-media.md) 定义的 Prompt Library 专属目录拥有。
 
+### Agent 编排数据
+
+Agent Run Request、上传媒体的账号授权、非画布调用回执及幂等键绑定保存在所选 Canvas
+SQLite authority 的 `store_metadata.agent_v1` 中。云端 Workspace 使用同一 fenced adapter，
+不创建本地权威副本；兼容 JSON Workspace 的这些非画布意图保存在 Workspace 的
+`canvas-content.sqlite3`。它们不推进 Canvas Revision，正式节点与 Submission 回执仍由
+Canvas Sync 的 Mutation/历史负责。运行请求 24 小时未提交则过期，终态记录在创建 7 天后清理。
+上传仍进入 `assets/input/imported/`，复用 Managed Media 的内容摘要、导入租约与清理保护。
+
+Editor Context 只保留在当前进程内存，60 秒无心跳或连接关闭即失效，不随 Workspace 导出。
+迁移或回滚不需要改写既有节点；关闭 Agent 总开关即可停止接入。已写入的节点保持可编辑。
+详见 [ADR-0019](../adr/0019-account-agent-canvas-authoring.md) 与 [F17 规格](../active/2026-10-17-agent-mcp-canvas-authoring-spec.md)。
+
 ### Prompt Template 的所有范围
 
 - “通用” Prompt Template 与 Category 保存在 `<workspace>/data/prompt-libraries/prompt_libraries.json`，封面字节保存在相邻的 `covers/`，共同组成可单独检查和备份的 Prompt Library 目录。存量多个内部 Library 通过兼容投影共同呈现，读写不得静默合并、覆盖或丢弃仍受支持的隐藏字段；已退出合同的 `scene` 与 `scene_en` 在模板规范化时移除。
@@ -198,6 +211,11 @@ Workspace 不包含活动账号库、成员列表、membership 或按 Workspace 
 └── legacy-account-migration.json
 ```
 
+`auth.db` 的 `agent_tokens` 保存 Account 所属令牌的 SHA-256 哈希、权限、过期/撤销时间和最近使用来源；
+手动令牌的明文仅在创建响应中出现；配对令牌只在 Agent 设备生成和保存。`agent_preferences` 保存默认关闭的安装级总开关及账号的运行并发/确认偏好。
+`agent_pairings` 保存 10 分钟配对请求（哈希、自报客户端名、识别码、来源 IP、状态），新请求到来时清理过期记录；网页列表只返回未过期的待批准请求。
+它们随 Instance 保留，不随 Workspace 搬迁；令牌关联账号删除时级联删除，撤销记录保留 90 天。
+
 `auth.db` 是当前设备上这些本地服务共用的活动账号库。账号、会话和 `users.role`
 在所有 Workspace 中保持不变；分享、私有视图和内容审计通过 `workspace_id` 关联当前内容。可用
 `INFINITE_CANVAS_INSTANCE_STATE_DIR` 显式覆盖，主要用于测试和受控管理；选择或搬动
@@ -206,6 +224,19 @@ Workspace 不会改变这个位置。
 `model-capability-workbench.json` 保存安装级 Administrator 共用的 Model Capability Evidence、Draft、Review State 与 Published 投影。它以版本化 JSON 原子替换；只有 Published 能力投影参与运行目录 Revision，Evidence、草稿和退回记录不会改变生成合同。该文件不包含 Provider 凭证，也不随 Workspace 搬迁或 Device Cache 清理。 历史外部导入产生的 Published、Evidence、Draft 和 `maintenance_origin` 元数据继续保留；移除导入功能不会清除或迁移已保存能力。旧数据仍参与目录解析，后续可在模型详情中人工修改。 API 与模型备份会导出配置模型的能力基线与已发布配置，跨设备恢复时与平台及密钥一起回滚；不复制整个安装状态或审核历史，详情见 [API Settings Package](api-settings-package.md)。
 
 ### Device State
+
+Agent 设备的 `~/.config/reroll/mcp/<server-client-digest>.json` 保存配对凭证及批准状态，不进入
+Workspace、服务端响应或日志。默认目录创建权限为 `0700`，凭证文件以 `0600` 原子写入，
+首次并发创建使用原子独占发布，重启复用同一凭证。`REROLL_CREDENTIAL_DIR` 可覆盖专用目录；
+显式 `REROLL_AGENT_TOKEN` 优先，保持旧配置兼容。详情见 [MCP 桥接说明](../../tools/reroll-mcp/README.md)。
+
+Agent 安装器的设备运行目录独立于 Reroll 服务器：macOS 为
+`~/Library/Application Support/Reroll/agent`，Windows 为 `%LOCALAPPDATA%\Reroll\agent`。
+其中 `releases/<source-digest>/` 是可重建的隔离运行环境，旧版本保留以便回滚，`uv/` 与 `python/`
+为托管依赖，`cache/` 为可重建缓存。安装器只合并客户端的 `reroll` 配置项；原配置的
+`.reroll-backup-<id>` 文件保存在原配置旁，以私有权限写入，可能包含用户已有秘密，属于 Device State，
+不能上传或随 Workspace 搬迁。退出应用后恢复备份即可回滚；卸载需先移除 MCP 配置，网页撤销授权
+另行完成。路径、环境覆盖与安装失败行为见 [MCP 桥接说明](../../tools/reroll-mcp/README.md)。
 
 | 系统 | 默认目录 |
 | --- | --- |
