@@ -2285,7 +2285,7 @@
       ]
     },
     "static/js/smart-canvas/image-capabilities.js": {
-      "version": "asset-df4e7e68b9fc",
+      "version": "asset-e00fcca34e64",
       "dependencies": []
     },
     "static/js/smart-canvas/image-edit-controls.js": {
@@ -2671,7 +2671,7 @@
       ]
     },
     "static/smart-canvas.html": {
-      "version": "asset-ece383890fdc",
+      "version": "asset-0562264afd72",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/design-tokens.css",
@@ -2767,7 +2767,7 @@
       ]
     },
     "static/update-notes.json": {
-      "version": "asset-cd2af1c98aff",
+      "version": "asset-7d3346174aa7",
       "dependencies": []
     },
     "static/vendor/css/fonts.css": {
