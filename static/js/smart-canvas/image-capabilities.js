@@ -44,7 +44,10 @@ function smartImageCapabilityClean(value, providerId='', modelId=''){
         aspect_ratios:ratios.length ? ratios : fallback.aspect_ratios,
         resolution_tiers:tiers,
         default_resolution_tier:value.default_resolution_tier ? String(value.default_resolution_tier).toUpperCase() : null,
-        known:Boolean(value.known),
+        // Published unified contracts can confirm models absent from the legacy
+        // registry. A failed/unconfirmed load must still preserve saved settings.
+        known:Boolean(value.known || (value.model_capability?.catalog_revision
+            && value.model_capability.support_state === 'supported')),
         show_resolution_control:tiers.length > 1,
         supports_custom_resolution:value.supports_custom_resolution === true,
         supports_transparent_png:value.supports_transparent_png === true

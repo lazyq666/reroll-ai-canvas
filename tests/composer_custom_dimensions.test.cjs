@@ -68,8 +68,8 @@ function composer({cached=true}={}){
     const dimensions = (width,height) => listeners['ic-change']({
         stopPropagation:noop,detail:{field:'customSize',value:{width,height}},
     });
-    return {sandbox,api,dimensions,load:() => resolveCapability({
-        operation:'image.generate',media_contract:{...base,supports_custom_resolution:false},
+    return {sandbox,api,dimensions,load:(overrides={}) => resolveCapability({
+        operation:'image.generate',media_contract:{...base,supports_custom_resolution:false},...overrides,
     })};
 }
 
@@ -131,5 +131,49 @@ test('a render deferred by an open settings popover refreshes the button when it
     await settle();
     sandbox.smartComposerOwnedOverlayOpen = () => false;
     sandbox.renderDynamicParams();
+    assert.equal(sandbox.runBtn.disabled,false);
+});
+
+
+test('published unified capability clears hidden dimensions even when the legacy known flag is false', async () => {
+    const {sandbox,api,dimensions,load} = composer({cached:false});
+    dimensions('1920','656');
+    sandbox.setDynamicSetting('modelChoice','preset-model');
+    assert.equal(sandbox.runBtn.disabled,true);
+    load({catalog_revision:'published-revision',support_state:'supported',media_contract:{
+        ...api.fallback('test','preset-model'),known:false,supports_custom_resolution:false,
+    }});
+    await settle();
+    assert.equal(sandbox.settings.pixelWidth,'','hidden dimensions must be reconciled against the published contract');
+    assert.equal(sandbox.settings.pixelHeight,'');
+    assert.equal(sandbox.settings.ratio,'wide');
+    assert.equal(sandbox.settings.resolution,'2k');
+    assert.equal(api.resolveForSubmission(sandbox.settings,[],sandbox.smartCurrentImageCapability()).valid,true);
+    assert.equal(sandbox.runBtn.disabled,false);
+});
+
+test('a failed unified capability load preserves dimensions until the model can be confirmed', async () => {
+    const {sandbox,api,dimensions,load} = composer({cached:false});
+    dimensions('1920','656');
+    sandbox.setDynamicSetting('modelChoice','preset-model');
+    load({catalog_revision:'',support_state:'unknown',media_contract:api.fallback('test','preset-model')});
+    await settle();
+    assert.equal(sandbox.settings.pixelWidth,'1920');
+    assert.equal(sandbox.settings.pixelHeight,'656');
+    assert.equal(sandbox.runBtn.disabled,true);
+});
+
+test('opening a saved node reconciles inherited dimensions without requiring a model change', async () => {
+    const {sandbox,api,load} = composer({cached:false});
+    load({catalog_revision:'published-revision',support_state:'supported',media_contract:{
+        ...api.fallback('test','preset-model'),supports_custom_resolution:false,
+    }});
+    await api.load('test','preset-model');
+    Object.assign(sandbox.settings,{model:'preset-model',pixelWidth:'1920',pixelHeight:'656'});
+    sandbox.syncRunButtonState();
+    assert.equal(sandbox.runBtn.disabled,true);
+    sandbox.renderDynamicParams();
+    assert.equal(sandbox.settings.pixelWidth,'');
+    assert.equal(sandbox.settings.pixelHeight,'');
     assert.equal(sandbox.runBtn.disabled,false);
 });

@@ -73,20 +73,42 @@ const root=path.resolve(__dirname,'..');
   await page.waitForTimeout(17000);
   const executed=[...await page.evaluate(()=>window.agentExecuted),...await page2.evaluate(()=>window.agentExecuted)];
   assert.equal(executed.length,3);assert.equal(new Set(executed).size,3);
-  // Full shell dialog, bilingual forms and one-time config.
+  // Current connection UI: installer download, autosaved preferences and browser approval.
+  await page2.close();
   await page.goto(base+'/static/index.html');await page.waitForFunction(()=>typeof window.openAgentAccess==='function');await page.evaluate(()=>openAgentAccess());
-  await page.waitForFunction(()=>document.querySelector('#agent-name'));
-  await page.evaluate(()=>{document.querySelector('#agent-name').value='Browser token';});
-  await page.locator('[data-action="create"]').click();await page.waitForFunction(()=>document.querySelector('#agent-secret'));
-  assert.match(await page.locator('#agent-secret').evaluate(e=>e.value),/reroll_agent_/);
+  await page.locator('#agent-concurrency').waitFor();
+  const downloadPromise=page.waitForEvent('download');
+  await page.locator('[data-action="download-installer"]').click();
+  const download=await downloadPromise;
+  assert.match(download.suggestedFilename(),/^Reroll-MCP-codex-macos\.zip$/);
+  assert.equal(await download.failure(),null);
+  const saved=page.waitForResponse(r=>r.url().endsWith('/api/account/agent-access') && r.request().method()==='PATCH');
+  await page.locator('#agent-concurrency').evaluate(e=>{e.value='3';e.dispatchEvent(new Event('change',{bubbles:true}));});
+  assert.equal((await saved).status(),200);
   for(const lang of ['en','zh'])for(const theme of ['light','dark']){
    await page.evaluate(({lang,theme})=>{window.StudioI18n.set(lang);window.StudioTheme.set(theme);},{lang,theme});
+   assert.equal(await page.locator('#agent-concurrency').evaluate(e=>e.value),'3');
+   assert.equal(await page.locator('#agent-install-client').getAttribute('label'),await page.evaluate(()=>StudioI18n.t('agent.install.client')));
    await page.screenshot({path:`/tmp/agent-access-${lang}-${theme}.png`});
-   await page.locator('#agent-secret').scrollIntoViewIfNeeded();
-   await page.screenshot({path:`/tmp/agent-secret-${lang}-${theme}.png`});
   }
-  await page.locator('[data-action="close"]').click();await page.waitForTimeout(300);assert.equal(await page.locator('#agent-secret').count(),0);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>!document.querySelector('#agent-access-dialog').open);
+  await page.evaluate(()=>openAgentAccess());
+  assert.equal(await page.locator('#agent-concurrency').evaluate(e=>e.value),'3');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>!document.querySelector('#agent-access-dialog').open);
+  const crypto=require('node:crypto');
+  const pairingToken='reroll_agent_'+crypto.randomBytes(32).toString('hex');
+  const pairingResponse=await fetch(base+'/api/agent/pairing/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Browser pairing',token_hash:crypto.createHash('sha256').update(pairingToken).digest('hex')})});
+  assert.equal(pairingResponse.status,200);
+  const pairing=await pairingResponse.json();
+  await page.locator('#agent-pairing-dialog [data-decision="yes"]').waitFor();
+  assert.ok((await page.locator('#agent-pairing-dialog').innerText()).includes(pairing.code));
+  await page.locator('#agent-pairing-dialog [data-decision="yes"]').click();
+  await page.locator('#agent-pairing-dialog').waitFor({state:'detached'});
+  const paired=await fetch(base+'/api/agent/pairing/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:pairingToken})});
+  assert.equal((await paired.json()).state,'approved');
   assert.deepEqual(errors,[]);
-  console.log('Agent browser: PASS (live mentions, replacement, refresh, real Provider payload parity, isolated drafts, dual-editor claims, bilingual token UI)');
+  console.log('Agent browser: PASS (live mentions, replacement, refresh, real Provider payload parity, isolated drafts, dual-editor claims, installer download, autosaved preferences, bilingual UI, browser pairing)');
  } finally {await browser.close();child.kill('SIGINT');if(logs.includes('ERROR'))console.error(logs);}
 })().catch(e=>{console.error(e);process.exitCode=1;});

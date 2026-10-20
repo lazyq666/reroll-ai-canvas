@@ -56,7 +56,7 @@
       ]
     },
     "static/canvas-list.html": {
-      "version": "asset-be324bff83d1",
+      "version": "asset-76213c67ff50",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/canvas-list.css",
@@ -75,7 +75,7 @@
       ]
     },
     "static/canvas.html": {
-      "version": "asset-680f2cf152bc",
+      "version": "asset-801ffcdd3139",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/images/brand/favicon.png",
@@ -1040,7 +1040,7 @@
       "dependencies": []
     },
     "static/index.html": {
-      "version": "asset-fe0e640e1cbc",
+      "version": "asset-52393f8e7e1f",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/cli-updates.css",
@@ -1140,7 +1140,7 @@
       "dependencies": []
     },
     "static/js/agent-pairing.js": {
-      "version": "asset-deee83b06afd",
+      "version": "asset-0dc0ec1ba521",
       "dependencies": []
     },
     "static/js/angle-3d.js": {
@@ -2301,7 +2301,7 @@
       ]
     },
     "static/js/smart-canvas/image-capabilities.js": {
-      "version": "asset-df4e7e68b9fc",
+      "version": "asset-e00fcca34e64",
       "dependencies": []
     },
     "static/js/smart-canvas/image-edit-controls.js": {
@@ -2687,7 +2687,7 @@
       ]
     },
     "static/smart-canvas.html": {
-      "version": "asset-7f28eb748373",
+      "version": "asset-feb3ef6a80c6",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/design-tokens.css",
@@ -2785,7 +2785,7 @@
       ]
     },
     "static/update-notes.json": {
-      "version": "asset-cb5c072601e5",
+      "version": "asset-1e3fdc9dd324",
       "dependencies": []
     },
     "static/vendor/css/fonts.css": {

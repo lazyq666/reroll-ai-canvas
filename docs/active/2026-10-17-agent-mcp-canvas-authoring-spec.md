@@ -454,7 +454,7 @@ stateDiagram-v2
 ### Implementation verification（2026-10-17）
 
 - HTTP/SQLite：`tests/test_agent_api.py` 覆盖认证撤销、私有画布拒绝、10 个视频任务共享 3 图 + 1 音频输入、两个导入素材复用、整批预检、零写入 dry run、幂等冲突、重命名后重试、字段级更新、安全撤销、选择隔离、租约/并发/过期，以及真实图像能力默认值和像素尺寸。
-- 真实 Chrome：`tests/agent_canvas_browser_smoke.cjs` 通过。共享 JSON fixture 同时检查 Python/JS 节点合同和视觉排序；验证 Composer 标记、替换源图、刷新、手动/Agent 的真实生成 HTTP 请求一致、假 Provider 回传、后台运行不覆盖当前 Composer 草稿、双页面每请求只执行一次、一次性令牌、中英切换与 Light/Dark。截图在测试机器 `/tmp/agent-access-*.png` 和 `/tmp/agent-secret-*.png`，不进入仓库。
+- 真实 Chrome：`tests/agent_canvas_browser_smoke.cjs` 通过。共享 JSON fixture 同时检查 Python/JS 节点合同和视觉排序；验证 Composer 标记、替换源图、刷新、手动/Agent 的真实生成 HTTP 请求一致、假 Provider 回传、后台运行不覆盖当前 Composer 草稿、双页面每请求只执行一次。当前连接 UI 的自动化验收覆盖安装包下载、设置自动保存与重开持久化、中英切换与 Light/Dark、网页配对批准；截图在测试机器 `/tmp/agent-access-*.png`，不进入仓库。
 - MCP：`tools/reroll-mcp/tests/` 的 5 项测试通过，包含官方 SDK 启动 stdio 进程、19 个工具与 prompt、目录隔离、重试键复用、锁定目标与安全下载。
 - 回归：认证、Canvas Sync、真实主应用 SQLite authority、Model Capability、媒体清理、核心 i18n、文档地图、现有 Node 合同与多输入事务测试通过。共享 i18n 校验及前端资源同步/check 通过。
 - 实机补验：用户指定 Chrome，并授权一张真实生成。已安装 Codex CLI 通过 stdio MCP 在独立画布「Agent MCP · Codex 实机验收 · 2026-10-17」完成模型能力读取、dry run、创建一个任务和一次 `run_tasks`。无编辑器时请求排队；Chrome 打开该画布后自动执行。`apimart / gemini-3.1-flash-image-preview` 返回一张 1024×1024 JPEG，任务回写 `succeeded`，刷新后保留提示词/参数/图片；Codex `download_outputs` 下载成功，文件可解码（672,295 字节）。没有追加生成或付费重试。
@@ -575,3 +575,7 @@ Claude Code CLI 从生成的用户文件报告 Connected，Codex CLI 成功解�
 补充布局：参考画布设置的左右排布，名称靠左、控件靠右；少于 4 个选项直接外显。应用（三项）和系统（两项）均使用共享 ic-tabs，选择值继续用于下载且随语言切换保留；启动文件提示随系统更新。非法数量输入不提交并恢复最近的有效值，避免共享控件进入不可编辑状态。
 
 验收：Chrome 真实键盘输入数量 5→6，服务 PATCH 200，刷新后保持 6；恢复 5 后刷新确认。应用/系统外显选择、安装文件联动、中英文切换、Escape 关闭通过，底部按钮已移除。Node 5 项（包含请求串行、失败保留/关闭重开/重试、Shadow DOM 事件路径）、安装包/文档 10 项、i18n 4659 keys、资源 check 和 diff check 通过。实际连接开关及生成确认未改变。
+
+### PR review regression（2026-10-20）
+
+浏览器 smoke 已更新为当前安装器与自动保存界面，移除对旧手动令牌控件的依赖。复验发现配对弹窗在首次渲染前调用显示会产生 `showModal` 初始化错误；配对入口现等待共享组件完成首次渲染后显示。最小浏览器复现修复前失败、修复后通过，完整画布浏览器回归同时验证无页面错误与批准后的授权状态。原生 Windows、第二台 LAN 设备与 Claude Desktop GUI 等既有实机 gate 仍保留，不据此晋升 Current。

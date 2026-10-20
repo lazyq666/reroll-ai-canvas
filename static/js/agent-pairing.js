@@ -64,7 +64,9 @@
                 event.preventDefault();
                 if (!busy) decide(false);
             });
-            error = ''; render(); document.body.appendChild(dialog); await dialog.show();
+            error = ''; render(); document.body.appendChild(dialog);
+            await dialog.updateComplete;
+            await dialog.show();
         } catch (_) { /* Retry transient/offline states without interrupting work. */ }
         finally { polling = false; }
     }
