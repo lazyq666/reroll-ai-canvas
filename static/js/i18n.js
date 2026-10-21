@@ -6,7 +6,7 @@
         '/static/js/i18n/onboarding.js?v=asset-c0905b266684',
         '/static/js/i18n/workspace.js?v=asset-7215af28bacf',
         '/static/js/i18n/model-management.js?v=asset-cdfb2e799470',
-        '/static/js/i18n/preferences.js?v=asset-79741367d5cf',
+        '/static/js/i18n/preferences.js?v=asset-16ec8b39f15f',
         '/static/js/i18n/cloud-storage.js?v=asset-d576e6096d48',
         '/static/js/cloud-records.js?v=asset-672387e62ee0',
         '/static/js/i18n/batch-generation.js?v=asset-6fc9182239cf',
