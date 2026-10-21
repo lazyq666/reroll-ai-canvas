@@ -72,10 +72,10 @@ test('pairing defers behind a modal, escapes client names, localizes, and never 
     }
     const request={id:'request', name:'<script>bad</script>',ip:'127.0.0.1',code:'ABC123'};
     let approved = false, resolveWrite;
-    const window={StudioI18n:{t:key=>language+':'+key},addEventListener:(name,fn)=>events[name]=fn}; window.top=window;
+    const window={StudioI18n:{t:key=>language+':'+key},addEventListener:(name,fn)=>events[name]=fn,dispatchEvent(){}}; window.top=window;
     vm.runInNewContext(fs.readFileSync('static/js/agent-pairing.js','utf8'),{
         window, document:{visibilityState:'visible',querySelector:()=>blocker,addEventListener(){},createElement:()=>{const el=new Element();elements.push(el);return el;},body:{appendChild(){}}},
-        customElements:{whenDefined:async()=>{}},setInterval:fn=>poll=fn,
+        customElements:{whenDefined:async()=>{}},setInterval:fn=>poll=fn,Event,
         fetch:async(path,options)=>{
             if(options){writes.push(JSON.parse(options.body));await new Promise(resolve=>resolveWrite=resolve);approved=true;}
             return {ok:true,json:async()=>options?{state:'approved'}:{requests:approved?[]:[request],account:'designer',enabled:true}};

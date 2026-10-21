@@ -26,6 +26,7 @@
         const origin = globalThis.location?.origin || '';
         dialog.label = tr('agent.title');
         dialog.innerHTML = `<div class="preferences-body">
+            <div id="agent-pairing-notice" aria-live="polite"></div>
             ${!state ? `<p role="status">${esc(tr('agent.loading'))}</p>` : `
             <section class="preferences-section">
             <div class="agent-settings-row">
@@ -65,6 +66,13 @@
             ${error && !downloadErrors[error] ? `<ic-alert tone="danger">${esc(tr('agent.error'))}</ic-alert><ic-button data-action="retry">${esc(tr('agent.retry'))}</ic-button>` : ''}
         </div>`;
         renderSaveStatus();
+        renderPairingNotice();
+    }
+    function renderPairingNotice() {
+        const notice = dialog?.querySelector('#agent-pairing-notice');
+        if (!notice) return;
+        const content = window.AgentPairing?.pending() ? `<ic-alert tone="warning">${esc(tr('agent.pair.pending'))}</ic-alert><ic-button data-action="review-pairing">${esc(tr('agent.pair.review'))}</ic-button>` : '';
+        if (notice.innerHTML !== content) notice.innerHTML = content;
     }
     function renderSaveStatus() {
         const status = dialog?.querySelector('#agent-save-status');
@@ -111,6 +119,10 @@
             dialog=document.createElement('ic-dialog'); dialog.id='agent-access-dialog'; dialog.className='preferences-dialog'; dialog.setAttribute('size','medium');
             dialog.addEventListener('click',async event=>{
                 const action=event.target.closest('[data-action]')?.dataset.action;
+                if(action==='review-pairing') {
+                    await dialog.hide();
+                    return window.AgentPairing?.review();
+                }
                 if(action==='download-installer') {
                     const client=selected('#agent-install-client','codex');
                     const platform=selected('#agent-install-platform','macos');
@@ -142,4 +154,5 @@
         await perform(async()=>{user=(await api('/api/auth/me')).user; await reload();});
     };
     window.addEventListener('studio-lang-change',()=>{if(dialog?.open) render();});
+    window.addEventListener('agent-pairing-change',renderPairingNotice);
 })();

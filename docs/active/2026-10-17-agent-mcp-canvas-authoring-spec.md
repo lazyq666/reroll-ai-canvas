@@ -317,7 +317,7 @@ stateDiagram-v2
 - `GET /api/account/agent-pairings`、`POST /api/account/agent-pairings/{id}`：只走浏览器 Session；列出 Instance 待批准请求、原子批准/拒绝。跨站写入与 Bearer 均不能批准。
 - 每请求 10 分钟；同时保留最多 32 个未过期请求、同 IP 最多 5 个（包括拒绝），正文最多 2 KiB。限流 `pairing_rate_limited`，稍后重试。
 - 拒绝、Escape、关闭均不授予权限，同一请求在到期前保持拒绝。过期、重复审批返回 `pairing_closed`，多账号竞争只有第一次成功。
-- 网页每 3 秒检查，隐藏标签不检查，其他弹窗关闭后再展示。未登录时需先登录；未打开网页时 Agent 提示地址和识别码。
+- 网页每 3 秒检查，隐藏标签不检查，其他弹窗关闭后再展示；应用连接窗口显示待授权提示与“查看请求”，点击后先关闭设置窗口，再显示独立配对窗口，不代为同意或拒绝。请求失效后提示移除。未登录时需先登录；未打开网页时 Agent 提示地址和识别码。
 - 已授权凭证立即受撤销、账号停用、权限变更和总开关约束。缓存凭证撤销返回 `authorization_revoked`，再次调用发起新配对；总开关关闭不自行重新启用。
 - 桥接缓存为 Agent 设备 Device State，按服务地址、客户端名隔离，默认 `~/.config/reroll/mcp/`，`REROLL_CREDENTIAL_DIR` 可覆盖；`REROLL_CLIENT_NAME` 可覆盖自报名字。私有原子写入，缓存无法读取时失败，不输出秘密。
 
@@ -579,3 +579,8 @@ Claude Code CLI 从生成的用户文件报告 Connected，Codex CLI 成功解�
 ### PR review regression（2026-10-20）
 
 浏览器 smoke 已更新为当前安装器与自动保存界面，移除对旧手动令牌控件的依赖。复验发现配对弹窗在首次渲染前调用显示会产生 `showModal` 初始化错误；配对入口现等待共享组件完成首次渲染后显示。最小浏览器复现修复前失败、修复后通过，完整画布浏览器回归同时验证无页面错误与批准后的授权状态。原生 Windows、第二台 LAN 设备与 Claude Desktop GUI 等既有实机 gate 仍保留，不据此晋升 Current。
+
+
+### 2026-10-20 待配对提示补验
+
+应用连接窗口打开时，用局部更新显示待授权提示，不重绘设置或中断自动保存。`node tests/agent_pairing_browser.cjs` 在真实 Chrome 与隔离服务中复现旧版无提示，并验证修复后的查看入口、请求失效清除、中英切换和键盘操作；首次配对无点击不发送决定，Escape 仅发送一次拒绝。拒绝记录没有历史触发方式或审批者字段，不能据状态反推具体用户操作。
