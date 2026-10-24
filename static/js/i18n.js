@@ -11,11 +11,11 @@
         '/static/js/cloud-records.js?v=asset-672387e62ee0',
         '/static/js/i18n/batch-generation.js?v=asset-6fc9182239cf',
         '/static/js/i18n/runtime.js?v=asset-79ccf6645e07',
-        '/static/js/i18n/music.js?v=asset-3bd298f518cf',
+        '/static/js/i18n/music.js?v=asset-0a39d18bfaa5',
         '/static/js/i18n/studio.js?v=asset-1b9c7049dc10',
         '/static/js/i18n/api-settings.js?v=asset-d4e27ef9dfd8',
         '/static/js/i18n/canvas.js?v=asset-28dcb54266bc',
-        '/static/js/i18n/smart-canvas.js?v=asset-ab1f1a16ca67',
+        '/static/js/i18n/smart-canvas.js?v=asset-183d403edd94',
         '/static/js/i18n/comfyui-settings.js?v=asset-6700cf6d6c3f',
     ];
     const tags = scripts.map(src => '<script src="' + src + '"></script>').join('');

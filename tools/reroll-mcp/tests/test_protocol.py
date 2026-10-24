@@ -24,10 +24,10 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 tools = await session.list_tools()
-                self.assertEqual(19, len(tools.tools))
+                self.assertEqual(22, len(tools.tools))
                 names = {t.name for t in tools.tools}
                 self.assertTrue(
-                    {"create_generation_tasks", "run_tasks", "download_outputs"}
+                    {"create_generation_tasks", "run_tasks", "download_outputs", "get_generation_task", "preview_media", "read_node_reference"}
                     <= names
                 )
                 prompt = await session.get_prompt("author_canvas")

@@ -6,6 +6,7 @@ is a view of owned Runs, not a second history database.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import ipaddress
 import math
@@ -483,9 +484,29 @@ def music_run_public(run) -> dict:
             "recoverable": run.recoverable and run.status not in {"succeeded", "failed", "cancelled"}, "remote_task_id": next(iter(run.remote_refs), "")}
 
 
+async def delete_failed_music_record(*, runs, cleanup, root, sqlite_authority: bool,
+                                    run_id: str, owner: str) -> dict:
+    """Erase one failed Run under the composition's exclusive media gate."""
+    record = await runs.failed_record_for_deletion(run_id, owner=owner, surface="suno")
+    if record is None:
+        return {"deleted": True, "file_count": 0, "total_bytes": 0, "retained_count": 0}
+    urls = [ref.get("url", "") for ref in record["public_metadata"].get("references", [])]
+    for output in (record.get("result"), (record.get("prepared_output") or {}).get("result"),
+                   (record.get("provider_output") or {}).get("legacy")):
+        if isinstance(output, dict):
+            for item in output.get("items", []):
+                if isinstance(item, dict):
+                    urls.extend(item.get(key, "") for key in ("url", "image_url", "image_large_url"))
+    result = await asyncio.to_thread(cleanup.remove_record_files, root, run_id,
+                                    [url for url in urls if isinstance(url, str) and url],
+                                    sqlite_authority=sqlite_authority)
+    await runs.erase_failed_record(run_id, owner=owner, surface="suno")
+    return {"deleted": True, **result}
+
+
 def create_music_router(*, runs: Callable, actor: Callable, providers: Callable,
                         provider_lookup: Callable, download_file: Callable, import_reference: Callable | None = None,
-                        probe_reference: Callable = reference_duration) -> APIRouter:
+                        probe_reference: Callable = reference_duration, delete_record: Callable | None = None) -> APIRouter:
     router = APIRouter(prefix="/api/music")
 
     def owner():
@@ -624,6 +645,17 @@ def create_music_router(*, runs: Callable, actor: Callable, providers: Callable,
     @router.get("/runs/{run_id}")
     async def detail(run_id: str):
         return music_run_public(await owned(run_id))
+
+    @router.delete("/runs/{run_id}")
+    async def delete(run_id: str):
+        user = owner()
+        if delete_record is None:
+            raise HTTPException(503, detail={"code": "music.deleteUnavailable"})
+        try:
+            return await delete_record(run_id, user)
+        except GenerationRunError as exc:
+            code = "music.notFound" if exc.status_code == 404 else "music.cannotDelete"
+            raise HTTPException(exc.status_code, detail={"code": code}) from exc
 
     @router.post("/runs/{run_id}/resume")
     async def resume(run_id: str):

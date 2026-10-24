@@ -24,6 +24,10 @@ independently transferred handoff codes, local recovery receipts and fail-closed
 [ADR-0012](0012-manual-workspace-media-cleanup.md) defines manual reclamation of
 unreferenced Workspace media and separates record deletion from physical deletion.
 
+[ADR-0019](0019-failed-music-record-erasure.md) adds explicitly confirmed failed
+music content erasure with scoped, reference-checked media reclamation and a
+content-free receipt preventing paid-request replay.
+
 [ADR-0014](0014-optional-cloud-sqlite-authority.md) proposes optional cloud
 placement for Workspace SQLite records while media remain in OneDrive. It is
 implemented as an opt-in pilot; broader acceptance is still pending.

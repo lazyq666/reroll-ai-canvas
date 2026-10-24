@@ -7,6 +7,7 @@
 - **Applies to**：第一阶段（编排写入）与第二阶段（画布代为运行）；第三阶段（无浏览器提交）另立规格
 - **Supersedes**：无
 - **Superseded by**：无
+- **P0 节点修改扩展**：[完整读取、图片预览与安全修改合同](../current/agent-task-editing.md)（LAZ-89，2026-10-22；该接口范围已通过隔离 stdio MCP 验收，不改变本规格其余实机 gate）
 - **Related ADRs**：[ADR-0001 Workspace 数据边界](../adr/0001-workspace-data-boundary.md)、[ADR-0008 默认允许局域网访问](../adr/0008-lan-access-by-default.md)、[ADR-0009 统一模型能力目录](../adr/0009-unified-model-capability-catalog.md)、[ADR-0011 位置意图属于 Canvas Mutation](../adr/0011-placement-intent-belongs-to-canvas-mutation.md)、[ADR-0016 Canvas 媒体名称分配](../adr/0016-canvas-media-name-allocation.md)、[ADR-0019 Account Agent 编排](../adr/0019-account-agent-canvas-authoring.md)
 - **Domain terms**：Smart Canvas、Node、Image Node、Prompt Node、Frame、Connection、Canvas Mutation、Operation ID、Canvas Revision、Canvas Selection、Canvas Viewport、Realtime Presence、Reference Input Instance、Prompt Authoring、Generation Settings、Generation Run、Pending Node、Model Capability Catalog、Managed Media、Workspace Asset Library、Account、Designer、Administrator、Guest Account；新增术语见第 8 节与 CONTEXT.md
 

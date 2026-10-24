@@ -101,7 +101,17 @@ Connections go directly to `REROLL_URL`; ambient proxy environment variables are
 It uses the [official MCP Python SDK v1](https://py.sdk.modelcontextprotocol.io/v1/)
 with a `<2` dependency boundary; it exposes stdio only.
 
-Start with `get_current_canvas`, `get_selection` and `get_model_capability`.
+When the user supplies a `Reroll workspace=... canvas=... nodes=...` line, start with
+`read_node_reference(reference)` and pass the complete line. It verifies every target
+and returns its latest persisted content, full text, type and version. Use the returned
+explicit `canvas_id` for subsequent editing calls. Reading this explicit reference
+preserves the session's existing Canvas lock and does not need an open editor.
+On any failure, explain the diagnostic and wait for the user's decision. Do not edit
+a valid subset or substitute a title search. Successful reading identifies objects;
+the user's separate instruction determines whether to edit, and existing version
+checks still apply. See [the reference contract](../../docs/current/node-references.md).
+
+For work without a copied reference, start with `get_current_canvas`, `get_selection` and `get_model_capability`.
 `create_generation_tasks` accepts 1–50 recipes; `capability.authoring.parameters` lists the fields
 that can be authored through the existing Composer settings; refs support `node`, `node_name`,
 `selection` (1-based), `asset`, `media`, `search` and `file`. A node's media `index`
@@ -124,6 +134,43 @@ The first selected Canvas stays locked until `use_canvas` or `create_canvas`.
 Without one, requests wait up to 24 hours. Authoring alone never triggers generation.
 `get_task_status`, `download_outputs` and `undo_submission` operate on task or submission IDs.
 Undo refuses subsequent edit conflicts and tasks that have started running.
+
+## Editing an existing task without a browser
+
+The bridge exposes 22 tools. Use `get_generation_task(node_id)` for the full persisted
+prompt, settings, editability, node version and ordered input instances. `get_canvas`
+only provides a 200-character summary and explicitly reports truncation.
+Use `search_media` then `preview_media` to see actual image pixels (native MCP image
+content, full frame and alpha preserved). Preview sources are `{media_id}`, `{asset_id}`,
+`{node_id, media_index}` or `{node_id, output_id}`; ambiguous selections return candidates.
+`max_edge` defaults to 1600 and supports 64–4096, without upscaling. Video/audio previews
+are not included. Detail, preview and save only require the service and an approved
+credential; no open editor is needed.
+
+Call `update_generation_task` with `expected_node_revision` from the detail, `changes`,
+and `dry_run=true`. Save with the same version, `dry_run=false`, and a stable
+`idempotency_key`. Read `get_generation_task` independently afterward. Saving returns
+the full persisted `after`, new node/canvas versions, `persisted:true` and
+`generation_started:false`. A conflicting version changes nothing. A retry of the same
+key/request returns the original saved result, even after subsequent edits.
+
+Only specified fields change; `params` merges by key. If `refs` is supplied,
+`refs_mode="replace"` replaces all effective media inputs; `{}` clears them. Preserve
+desired inputs using the detail's `recipe.refs`, including `{input: reference_id}` for
+task-scoped independent input instances. `{node, output_id}` binds a specific output;
+multi-output sources never silently choose the latest. Historical references remain
+stored but cannot reappear as inputs after replacement. Import local files explicitly
+before an update. `return_after` is accepted; the full result is always returned.
+
+Compatibility: calls without a version retain the original unchecked save behavior;
+they cannot use dry run and do not provide the new readback guarantees. New callers
+should always use the versioned flow. API-backed draft image/video tasks are editable;
+other engines and runtime-dependent Loop/Splitter inputs are outside this P0 contract.
+See the [full interface contract](../../docs/current/agent-task-editing.md).
+
+After upgrading server code, restart the service. Reinstall/restart an installed bridge
+to expose the new tools. Neither updating source files nor a test process upgrades an
+already-running user service or client.
 
 Tests:
 

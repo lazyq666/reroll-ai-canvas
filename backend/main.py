@@ -197,6 +197,7 @@ from infinite_canvas.generation_runs import (
     GenerationEffectPorts,
     GenerationOutputPorts,
     GenerationRunError,
+    GenerationRunLifecycleProjectionError,
     GenerationRunValidation,
     GenerationRuns,
     ImageRun,
@@ -11862,7 +11863,7 @@ _GENERATION_EFFECTS = (
     )
 )
 
-from infinite_canvas.music_lab import MusicGenerationExecutor, create_music_router
+from infinite_canvas.music_lab import MusicGenerationExecutor, create_music_router, delete_failed_music_record
 
 def _music_provider_config(provider_id):
     provider = get_api_provider_exact(provider_id)
@@ -11899,6 +11900,35 @@ _GENERATION_RUNS = GenerationRuns(
     ),
 )
 generation_run_control.install(_GENERATION_RUNS)
+
+
+async def _delete_music_record(run_id: str, owner: str):
+    if CLOUD_TRANSITION_PUBLISHED:
+        raise TursoError('cloud_storage_restart_required')
+    if CLOUD_WORKSPACE_RUNTIME is not None:
+        raise HTTPException(409, detail={"code": "music.deleteCloudUnsupported"})
+    try:
+        async with MEDIA_CLEANUP_GATE.exclusive():
+            if active_generation_run_count():
+                raise MediaCleanupError("busy")
+            work = asyncio.create_task(delete_failed_music_record(
+                runs=_GENERATION_RUNS, cleanup=MEDIA_CLEANUP,
+                root=WORKSPACE_SERVICE.current().managed_media.parent,
+                sqlite_authority=WORKSPACE_STORAGE_COMPOSITION.mode == "sqlite",
+                run_id=run_id, owner=owner,
+            ))
+            try:
+                return await asyncio.shield(work)
+            except asyncio.CancelledError:
+                await work
+                raise
+    except MediaCleanupError as exc:
+        code = {"busy": "music.deleteBusy", "delete_failed": "music.deleteFilesFailed"}.get(exc.code, "music.deleteCheckFailed")
+        raise HTTPException(409, detail={"code": code}) from exc
+    except (OSError, GenerationRunLifecycleProjectionError) as exc:
+        raise HTTPException(500, detail={"code": "music.deleteFailed"}) from exc
+
+
 app.include_router(create_music_router(
     runs=lambda: _GENERATION_RUNS,
     actor=lambda: require_current_user("admin", "designer"),
@@ -11906,6 +11936,7 @@ app.include_router(create_music_router(
     provider_lookup=_music_provider_config,
     download_file=lambda request, url, **options: download_output(request, url, **options),
     import_reference=lambda content, **options: current_workspace_media().import_bytes(content, **options).public(),
+    delete_record=_delete_music_record,
 ))
 
 

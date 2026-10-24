@@ -13,6 +13,13 @@ PLACEMENT_MODULE = ROOT / "static/js/smart-canvas/node-placement.js"
 
 
 class SmartCanvasPersistenceModuleTests(unittest.TestCase):
+    def test_agent_composer_preserves_complete_node_identity(self):
+        result = subprocess.run(
+            ['node', '--test', 'tests/smart_canvas_agent_composer_identity_regression.cjs'],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_local_submission_refresh_preserves_operations_and_rerenders_receipts(self):
         result = subprocess.run(
             ['node', 'tests/smart_canvas_local_submission_restore_regression.cjs'],
@@ -1115,6 +1122,7 @@ class SmartCanvasPersistenceModuleTests(unittest.TestCase):
                 "observeExternalCommit",
                 "online",
                 "receive",
+                "referenceIdentity",
                 "release",
                 "resync",
                 "retry",

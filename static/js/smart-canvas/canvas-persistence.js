@@ -15,6 +15,7 @@ let canvasPersistenceStatusValue = 'idle';
 let canvasPersistenceStorageErrorCode = '';
 let canvasPersistenceReconnectAttempt = 0;
 let canvasPersistenceRevision = 0;
+let canvasPersistenceWorkspaceId = '';
 let canvasPersistenceConfirmedDocument = null;
 let canvasPersistenceOpeningSourceDocument = null;
 let canvasPersistenceOpeningBaselineDocument = null;
@@ -763,7 +764,7 @@ function canvasPersistenceAssignDocument(
             cloneSmartSettings(sharedDefaultSettings);
         const activeComposerNodeId =
             typeof lastComposerNodeId === 'string'
-                ? String(lastComposerNodeId).split(':')[0]
+                ? String(lastComposerNodeId).replace(/:node$/, '')
                 : '';
         const activeComposerNode = activeComposerNodeId
             ? nodes.find(
@@ -835,7 +836,7 @@ function canvasRealtimeApplierCanApplyDuringComposerFocus(patch){
     if(!active || !composerElement?.contains?.(active)) return false;
     const protectedNodeIds = new Set();
     const composerNodeId = typeof lastComposerNodeId === 'string'
-        ? String(lastComposerNodeId).split(':')[0]
+        ? String(lastComposerNodeId).replace(/:node$/, '')
         : '';
     if(composerNodeId) protectedNodeIds.add(composerNodeId);
     if(typeof selectedId !== 'undefined' && selectedId){
@@ -1552,6 +1553,7 @@ function canvasPersistenceObservedRevision(){
     );
 }
 function canvasPersistenceApplySnapshot(message){
+    if(typeof message.workspace_id === 'string') canvasPersistenceWorkspaceId = message.workspace_id;
     const openingSource = canvasPersistenceOpeningSourceDocument;
     const openingBaseline = canvasPersistenceOpeningBaselineDocument;
     const openingSnapshot = Boolean(openingSource && openingBaseline);
@@ -2098,6 +2100,9 @@ window.SmartCanvasModules.canvasPersistence = Object.freeze({
                 || canvasPersistenceInFlight
             )
         });
+    },
+    referenceIdentity(){
+        return Object.freeze({workspace_id:canvasPersistenceWorkspaceId, canvas_id:canvasId});
     },
     revert({operationId=''}={}){
         return canvasPersistenceRevert(operationId);

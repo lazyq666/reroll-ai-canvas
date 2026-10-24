@@ -4,6 +4,7 @@ import json
 import os
 from urllib.parse import quote
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ImageContent, TextContent
 from bridge import Bridge, BridgeError
 
 mcp = FastMCP("Reroll Canvas")
@@ -102,6 +103,21 @@ def get_canvas(
 
 
 @mcp.tool()
+def read_node_reference(reference: str) -> dict:
+    """Read ALL exact targets in a copied `Reroll workspace=... canvas=... nodes=...` line.
+
+    Reads latest saved content, including full text and generation task details.
+    Explicit reference routing does not use or change the session's Canvas lock,
+    current selection, service or Workspace. Possession does not grant access.
+    Only after the entire reference succeeds, use existing editing tools with
+    the returned explicit canvas_id and node revisions for the user's request.
+    On ANY failure, report the problem and await the user's decision; never
+    substitute names or edit a valid subset. This read never generates or edits.
+    """
+    return call(lambda: client().request("POST", "node-references/read", body={"reference": reference}))
+
+
+@mcp.tool()
 def get_selection(canvas: str = "") -> dict:
     """Read this Account's private selection in stable visual order."""
     return call(lambda: client().request("GET", target(canvas) + "/selection"))
@@ -194,22 +210,64 @@ def create_prompt_nodes(
 
 
 @mcp.tool()
+def get_generation_task(node_id: str, canvas: str = "") -> dict:
+    """Read a persisted task by exact ID, including its unabridged prompt, settings,
+    node_revision, editability, ordered effective inputs and validation. Does not
+    require an editor. Use this before update_generation_task and again after save.
+    """
+    return call(lambda: client().request("GET", target(canvas) + "/tasks/" + quote(node_id, safe="")))
+
+
+@mcp.tool()
+def preview_media(source: dict, canvas: str = "", max_edge: int = 1600) -> list[TextContent | ImageContent]:
+    """See actual image pixels without a browser. Source is exactly one of:
+    {media_id: id}, {asset_id: id}, {node_id: id, media_index: 0}, or
+    {node_id: id, output_id: id}. Ambiguous sources return candidates, never the
+    latest output. max_edge is 64–4096; images only shrink, retain the whole frame
+    and transparency. Video/audio preview is not supported. Read-only, no uploads.
+    """
+    result = call(lambda: client().request("POST", target(canvas) + "/media/preview",
+                 body={"source": source, "max_edge": max_edge}))
+    if "code" in result:
+        return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+    return [TextContent(type="text", text=json.dumps(result["metadata"], ensure_ascii=False)),
+            ImageContent(type="image", **result["image"])]
+
+
+@mcp.tool()
 def update_generation_task(
-    node_id: str, changes: dict, canvas: str = "", idempotency_key: str = ""
+    node_id: str, changes: dict, canvas: str = "", idempotency_key: str = "",
+    expected_node_revision: str = "", dry_run: bool = False, refs_mode: str = "replace",
+    return_after: bool = True,
 ) -> dict:
-    """Update only specified recipe fields on a draft generation Node.
+    """Validate or atomically update specified fields on a persisted draft task.
 
     Allowed changes: prompt, title, kind, model, params, refs. A model change must be
     {"model": {"provider_id": "...", "model": "..."}}, never a model string.
+    First get_generation_task, then pass its expected_node_revision and dry_run=true.
+    Save using the same expected version and a stable idempotency_key. Refs replace
+    ALL effective media inputs; omitted fields stay unchanged, params merge by key.
+    Refs support {node: id, output_id: id} or {node: id, index: 0}; multiple outputs
+    require explicit selection. Preserve existing independent input instances using
+    {input: reference_id} from get_generation_task; this selector is task-scoped.
+    Import local files separately with import_media.
+    Always returns full after/validation; return_after is accepted for compatibility.
+    Never starts generation. Calls without a version retain legacy unchecked-save
+    behavior and cannot dry_run; use the versioned form for reliable editing.
     """
-    return call(
-        lambda: client().request(
-            "PATCH",
-            target(canvas) + "/tasks/" + quote(node_id, safe=""),
-            body=client().recipes([changes])[0],
-            key=idempotency_key or None,
-        )
-    )
+    def update():
+        if expected_node_revision and not dry_run and not idempotency_key:
+            raise BridgeError("idempotency_key_required")
+        if "refs" in changes and not isinstance(changes["refs"], dict):
+            raise BridgeError("invalid_refs")
+        if any("file" in ref for ref in changes.get("refs", {}).values() if isinstance(ref, dict)):
+            raise BridgeError("import_media_first")
+        body = ({"changes": changes, "expected_node_revision": expected_node_revision,
+                 "dry_run": dry_run, "refs_mode": refs_mode, "return_after": return_after}
+                if expected_node_revision or dry_run else changes)
+        return client().request("PATCH", target(canvas) + "/tasks/" + quote(node_id, safe=""),
+                                body=body, key=idempotency_key or None)
+    return call(update)
 
 
 @mcp.tool()
@@ -285,7 +343,7 @@ def cancel_run_requests(request_ids: list[str], canvas: str = "") -> dict:
 @mcp.prompt()
 def author_canvas() -> str:
     """Guide for reference-aware, safe Canvas authoring."""
-    return """Resolve get_current_canvas, get_selection and get_model_capability first. Use 1–50 recipes: {kind: image|video, prompt, title?, model: {provider_id, model}?, params: {}, refs: {label: source}}. Source is node, node_name, selection (1-based), asset, media, search or local file; node index is 0-based. Declare @labels explicitly; longest label wins and Chinese needs no spaces. Duplicate sources merge. Ask the user when references are ambiguous. First/last-frame video uses ordered first_frame / last_frame roles, never mixed with audio/video. All-around video must meet the catalog's combined limits. Always dry_run before submitting; dry_run does not upload local files. Keep the session target locked during batches. Authoring never runs or incurs generation costs. Only call run_tasks when requested; execution requires this Account's browser editor. Report the Canvas name and submission ID."""
+    return """If the user supplies a copied Reroll node reference, call read_node_reference with the complete line first. On any failure, report it and wait for the user; never edit a valid subset or substitute another object. After whole-reference success, use its explicit canvas_id and node versions for the requested work. The read preserves the existing Canvas lock. Otherwise resolve get_current_canvas and get_selection. Read get_model_capability before authoring. Use 1–50 recipes: {kind: image|video, prompt, title?, model: {provider_id, model}?, params: {}, refs: {label: source}}. Source is node, node_name, selection (1-based), asset, media, search or local file; node index is 0-based, output_id pins an exact generation output. Declare @labels explicitly; longest label wins and Chinese needs no spaces. Duplicate sources merge; task-scoped input identities preserve separate existing instances. Ask the user when references are ambiguous. First/last-frame video uses ordered first_frame / last_frame roles, never mixed with audio/video. All-around video must meet the catalog's combined limits. Always dry_run before submitting; dry_run does not upload local files. To edit an existing task: get_generation_task, search_media and preview_media, update_generation_task with expected_node_revision and dry_run=true, save with the same version and a stable idempotency_key, then independently get_generation_task again. Refs replace all media inputs; retain desired inputs from recipe.refs. No browser is required for these reads or edits. Keep the session target locked during batches. Authoring never runs or incurs generation costs. Only call run_tasks when requested; execution requires this Account's browser editor. Report the Canvas name and submission ID."""
 
 
 def main():

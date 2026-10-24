@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-06
 - Source: Issue #25
+- Scoped amendment: [ADR-0019](0019-failed-music-record-erasure.md) supersedes the record-only deletion rule for explicitly confirmed failed Suno records; all other protections remain in force.
 
 ## Context
 

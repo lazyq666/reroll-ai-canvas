@@ -1699,6 +1699,8 @@ class GenerationRuns:
             existing_id = self._keys.get((owner, key)) if key else None
             existing = self._runs.get(existing_id or "")
             if existing is not None:
+                if existing.public_metadata.get("deleted_surface"):
+                    raise GenerationRunConflict("Generation Run 已删除，请使用新的 operation ID")
                 if existing.request_hash != request_hash:
                     raise GenerationRunConflict(
                         "相同 Generation operation ID 的请求内容不一致"
@@ -2798,6 +2800,62 @@ class GenerationRuns:
         cursor = (base64.urlsafe_b64encode(json.dumps([records[-1].created_at, records[-1].id]).encode()).decode()
                   if more else "")
         return records, cursor
+
+    async def failed_record_for_deletion(self, run_id: str, *, owner: str, surface: str):
+        """Return owned terminal content for scoped erasure, never an active Run.
+
+        The caller coordinates Workspace media references before erasing this
+        record. A content-free receipt makes repeated deletion idempotent.
+        """
+        await self.query(run_id, owner=owner)
+        await self.wait_for_lifecycle_projection(through_current=True)
+        with self._lock:
+            run = self._runs[run_id]
+            self._require_owner(run, owner)
+            if run.public_metadata.get("deleted_surface") == surface:
+                return None
+            if not surface or run.public_metadata.get("surface") != surface:
+                raise GenerationRunNotFound("Generation Run 不存在")
+            task = self._tasks.get(run_id) or self._owners.get(run_id)
+            if (run.status != "failed" or run.target is not None
+                    or run.request_data.get("publication") or (task is not None and not task.done())):
+                raise GenerationRunConflict("只有已结束的失败记录可以删除")
+            return copy.deepcopy(run.stored())
+
+    async def erase_failed_record(self, run_id: str, *, owner: str, surface: str) -> None:
+        """Erase stored user content while keeping only the paid-request receipt."""
+        previous = await self.failed_record_for_deletion(run_id, owner=owner, surface=surface)
+        if previous is None:
+            return
+        receipt = _Run(
+            id=run_id, kind=previous["kind"], status="failed", owner=owner,
+            key=previous["key"], request_hash=previous["request_hash"],
+            request_data={}, effect_context={}, provider_id="",
+            created_at=previous["created_at"], updated_at=float(self._now()),
+            phase="finished", public_metadata={"deleted_surface": surface},
+        )
+        # Persist before replacing the live value. A failed write must not hide
+        # a record that would reappear after restarting the service.
+        if self._path() is None and self._lifecycle_store is not None:
+            await self._lifecycle_store.persist(receipt.stored())
+        with self._lock:
+            original = self._runs[run_id]
+            self._runs[run_id] = receipt
+            try:
+                if self._path() is not None:
+                    self._persist_locked(receipt)
+            except Exception:
+                self._runs[run_id] = original
+                raise
+            for index in (self._requests, self._runtime_results, self._events, self._tasks, self._owners):
+                index.pop(run_id, None)
+            for key, ids in list(self._remote_runs.items()):
+                if run_id in ids:
+                    ids.remove(run_id)
+                    if not ids:
+                        self._remote_runs.pop(key)
+            self._pausing.discard(run_id)
+        await self.wait_for_lifecycle_projection(through_current=True)
 
     def get(
         self,

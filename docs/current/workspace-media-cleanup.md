@@ -60,6 +60,14 @@ SQLite authority 下，`data/` 根目录中符合双库发布/恢复临时命名
 
 ## API 与实现
 
+音乐页另有显式的单条失败记录删除，见 [Suno 音乐](suno-music-lab.md) 与
+[ADR-0019](../adr/0019-failed-music-record-erasure.md)。该入口复用相同请求排空、
+引用扫描与物理身份复核，只将被删除记录的引用从本次检查中排除，并将候选范围
+限定为其实际参考/输出 URL；其他账号、Canvas、恢复内容和会话保护继续有效。
+记录所有者可确认此限定操作，不获得全工作区扫描权限；管理员扫描/确认接口保持原范围。
+任一文件删除失败时保留记录供重试，成功后由 Generation Run 清除本地用户内容。
+本次会话受保护文件不强制删除，也不承诺随记录删除立即释放全部关联容量。
+
 | 接口 | 请求 | 响应 |
 | --- | --- | --- |
 | `POST /api/workspace-storage-settings/cleanup/scan` | 无 | `scan_id`, `file_count`, `total_bytes` |

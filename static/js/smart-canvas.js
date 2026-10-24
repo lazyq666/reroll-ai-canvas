@@ -11942,6 +11942,7 @@ function smartShortcutLabel(key){
     const apple = shortcutPlatform() === 'apple';
     const primary = apple ? '⌘' : 'Ctrl+';
     if(key === 'copy') return `${primary}C`;
+    if(key === 'copy-node-reference') return `${primary}L`;
     if(key === 'copy-image') return apple ? '⇧⌘C' : 'Ctrl+Shift+C';
     if(key === 'duplicate') return `${primary}D`;
     if(key === 'paste') return `${primary}V`;
@@ -11998,6 +11999,7 @@ function smartContextMenuSections(state){
             structure.push(smartContextMenuItem('remove-selection-from-group', tr('smart.contextRemoveSelectionFromGroup'), 'logout'));
         }
         common.push(smartContextMenuItem('copy', trf('smart.contextCopyCount', {n:count}), 'copy', smartShortcutLabel('copy')));
+        common.push(smartContextMenuItem('copy-node-reference', tr('smart.contextCopyNodeReference'), 'copy', smartShortcutLabel('copy-node-reference')));
         common.push(smartContextMenuItem('copy-node-id', tr('smart.contextCopyNodeId'), 'copy', '', {shiftOnly:true}));
         common.push(smartContextMenuItem('duplicate', trf('smart.contextDuplicateCount', {n:count}), 'create-copy', smartShortcutLabel('duplicate')));
         common.push(smartContextMenuItem('clear-selection', tr('smart.contextClearSelection'), 'cursor'));
@@ -12081,6 +12083,7 @@ function smartContextMenuSections(state){
     const hasConnections = (canvas?.connections || []).some(conn => conn.from === node.id || conn.to === node.id);
     if(hasConnections) structure.push(smartContextMenuItem('disconnect-all', tr('smart.contextDisconnectAll'), 'disconnect'));
     common.push(smartContextMenuItem('copy', tr('smart.contextCopy'), 'copy', smartShortcutLabel('copy')));
+    common.push(smartContextMenuItem('copy-node-reference', tr('smart.contextCopyNodeReference'), 'copy', smartShortcutLabel('copy-node-reference')));
     common.push(smartContextMenuItem('copy-node-id', tr('smart.contextCopyNodeId'), 'copy', '', {shiftOnly:true}));
     if(!inFlightMedia){
         common.push(smartContextMenuItem('duplicate', tr('smart.contextDuplicate'), 'create-copy', smartShortcutLabel('duplicate')));
@@ -12114,6 +12117,63 @@ function smartContextTargetFromEvent(event, nodeId){
         mediaIndex:item ? Number(item.dataset.refImageIndex ?? item.dataset.imageIndex ?? 0) : -1
     };
 }
+let smartReferenceFeedback = null;
+function refreshSmartReferenceFeedback(){
+    if(!smartReferenceFeedback?.element?.isConnected) return;
+    smartReferenceFeedback.element.textContent = trf(`smart.${smartReferenceFeedback.key}`, {count:smartReferenceFeedback.count});
+}
+function notifySmartReference(key, count=0){
+    smartReferenceFeedback?.element?.dismiss();
+    const tone = key.startsWith('referenceCopied') ? 'success' : key === 'referenceSaving' ? 'neutral' : 'danger';
+    const element = customElements.get('ic-toast')?.notify(trf(`smart.${key}`, {count}), {
+        tone, duration:key === 'referenceSaving' ? 15000 : tone === 'danger' ? 6000 : 1800
+    });
+    smartReferenceFeedback = {key, count, element};
+}
+function assertSmartReferenceIdentity(target){
+    const current = canvasPersistence.referenceIdentity();
+    if(target.workspace_id !== current.workspace_id || target.canvas_id !== current.canvas_id
+        || target.node_ids.some(id => !nodes.some(node => node.id === id))){
+        throw Object.assign(new Error('referenceChanged'), {code:'referenceChanged'});
+    }
+}
+const copySmartNodeReference = window.SmartCanvasModules.nodeReference.createCopyAction({
+    capture(){
+        return {...canvasPersistence.referenceIdentity(), node_ids:[...new Set(
+            window.SmartCanvasModules.viewportSelection.selection.ids()
+        )]};
+    },
+    async save(target){
+        assertSmartReferenceIdentity(target);
+        savePromptDraftForCurrent();
+        await canvasPersistence.checkpoint({timeout:5000});
+        assertSmartReferenceIdentity(target);
+    },
+    async validate(target, reference){
+        const response = await fetch(`/api/canvases/${encodeURIComponent(target.canvas_id)}/node-reference`, {
+            method:'POST', headers:{'Content-Type':'application/json'}, cache:'no-store',
+            body:JSON.stringify({reference}), signal:AbortSignal.timeout(5000)
+        });
+        if(!response.ok){
+            const error = await response.json().catch(() => ({}));
+            const code = ['workspace_mismatch','canvas_mismatch','node_not_found','forbidden'].includes(error.code)
+                ? 'referenceChanged' : error.code === 'node_reference_too_large' ? 'referenceTooLarge' : 'referenceSaveFailed';
+            throw Object.assign(new Error(code), {code});
+        }
+        assertSmartReferenceIdentity(target);
+    },
+    write(text){
+        if(navigator.clipboard?.write && typeof ClipboardItem !== 'undefined'){
+            return navigator.clipboard.write([new ClipboardItem({
+                'text/plain':text.then(value => new Blob([value], {type:'text/plain'}))
+            })]);
+        }
+        return text.then(async value => {
+            if(!await copyTextToClipboard(value)) throw Object.assign(new Error('Clipboard rejected'), {name:'NotAllowedError'});
+        });
+    },
+    notify:notifySmartReference
+});
 async function copySmartText(text, message=tr('smart.copied')){
     const value = String(text || '');
     if(!value) return false;
@@ -12988,6 +13048,7 @@ async function runSmartContextMenuAction(action, state){
         return;
     }
     if(action === 'copy'){ copySelectedNodes(); return; }
+    if(action === 'copy-node-reference'){ await copySmartNodeReference(); return; }
     if(action === 'cancel-agent-run'){ window.SmartCanvasModules.agentEditor.cancel(node.id); return; }
     if(action === 'copy-node-id'){ await copySmartText(node.id, tr('smart.nodeIdCopied')); return; }
     if(action === 'duplicate'){
@@ -17234,6 +17295,16 @@ window.addEventListener('keydown', e => {
     const key = String(e.key || '').toLowerCase();
     if(document.querySelector('ic-dialog[open],ic-confirmation-dialog[open]')) return;
     if(isPromptTemplatePanelOpen()) return;
+    if(window.SmartCanvasModules.nodeReference.shortcut(e, shortcutPlatform())
+        && !smartModalOwnsWheel() && !smartComposerEditingSessionActive()
+        && !isEditableTarget(e.target) && !smartCanvasChromeTarget(e.target)
+        && (e.target === document.body || e.target === shell || shell.contains(e.target))
+        && window.SmartCanvasModules.viewportSelection.selection.ids().length){
+        e.preventDefault();
+        closeSmartNodeContextMenu();
+        void copySmartNodeReference();
+        return;
+    }
     const keyboardZoomDirection = smartCanvasKeyboardZoomDirection(e);
     if(keyboardZoomDirection && !smartModalOwnsWheel() && !isEditableTarget(e.target)){
         e.preventDefault();
@@ -18293,6 +18364,8 @@ window.addEventListener('message', event => {
     }
 });
 window.addEventListener('studio-lang-change', () => {
+    refreshSmartReferenceFeedback();
+    if(smartContextMenuState && smartNodeContextMenu?.hasAttribute('open')) renderSmartNodeContextMenu(smartContextMenuState);
     applySmartCanvasDockPosition(smartCanvasDockPosition);
     refreshSmartCanvasSettings();
     renderDynamicParams({force:true});
