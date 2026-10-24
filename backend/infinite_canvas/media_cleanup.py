@@ -1,8 +1,9 @@
 """Manual, conservative collection of unreferenced Workspace media.
 
 The application freezes HTTP work and realtime mutations during collection.
-Only a previously previewed set can be removed; references are read again at
-confirmation. Media used during this service session is temporarily pinned.
+Manual cleanup removes only a previously previewed set; confirmed record erasure
+removes only that record's released files. Both recheck references, and media
+used during this service session is temporarily pinned.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ import unicodedata
 from contextlib import asynccontextmanager, closing
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 from .media import _MEDIA_EXTENSIONS
 
@@ -95,7 +96,8 @@ class MediaCleanupTraffic:
             "/api/workspace-storage-settings/cleanup/confirm",
             "/api/workspace-storage-settings/cloud",
         }
-        if scope["type"] != "http" or path in cleanup_paths:
+        record_deletion = scope.get("method") == "DELETE" and re.fullmatch(r"/api/music/runs/[^/]+", path)
+        if scope["type"] != "http" or path in cleanup_paths or record_deletion:
             return await self.app(scope, receive, send)
         async with self.gate.activity():
             code = self.admission(path) if self.admission else None
@@ -197,7 +199,7 @@ class WorkspaceMediaCleanup:
                 raise
             return json.loads(self._close_backup_containers(text))
 
-    def _database(self, path: Path, used: set[str]) -> None:
+    def _database(self, path: Path, used: set[str], *, released_run_id: str = "") -> None:
         # Reconnect catch-up events and idempotency acknowledgements are not
         # restorable content. Bounded canvas_mutations *are* roots (both sides).
         ignored = {"canvas_events", "canvas_operation_receipts", "applied_generation_effects"}
@@ -220,7 +222,14 @@ class WorkspaceMediaCleanup:
                     # only a claimed writer (or unknown state) prevents scanning.
                     if connection.execute(f"SELECT 1 FROM {quoted} WHERE state NOT IN ('pending', 'completed') LIMIT 1").fetchone():
                         raise MediaCleanupError("busy")
-                cursor = connection.execute(query)
+                parameters = ()
+                if released_run_id and table in {
+                    "generation_runs", "generation_run_payloads", "generation_run_attempts",
+                    "generation_run_remote_refs", "generation_run_outputs",
+                }:
+                    query += " WHERE run_id <> ?"
+                    parameters = (released_run_id,)
+                cursor = connection.execute(query, parameters)
                 columns = [column[0] for column in cursor.description]
                 for row in cursor:
                     for column, value in zip(columns, row):
@@ -253,7 +262,7 @@ class WorkspaceMediaCleanup:
             and wal.stat().st_size == 0
         )
 
-    def _references(self, root: Path, *, sqlite_authority: bool) -> set[str]:
+    def _references(self, root: Path, *, sqlite_authority: bool, released_run_id: str = "") -> set[str]:
         used: set[str] = set()
         data = root / "data"
         if not data.is_dir() or data.is_symlink():
@@ -287,12 +296,19 @@ class WorkspaceMediaCleanup:
                     continue
                 recovery_backup = relative[0] == 'recovery' and name.endswith('.json.bak')
                 if path.suffix in {".sqlite3", ".db"}:
-                    self._database(path, used)
+                    self._database(path, used, released_run_id=(
+                        released_run_id if sqlite_authority and path == data / "generation-runs.sqlite3" else ""
+                    ))
                 elif name.endswith(("-wal", "-shm", "-journal")):
                     if not path.with_name(re.sub(r"-(wal|shm|journal)$", "", name)).is_file():
                         raise MediaCleanupError()
                 elif path.suffix == ".json" or recovery_backup:
                     payload = self._reference_json(path, recovery_backup=recovery_backup)
+                    if released_run_id and not sqlite_authority and path == data / "generation-runs.json":
+                        if not isinstance(payload, dict) or not isinstance(payload.get("runs"), list):
+                            raise MediaCleanupError()
+                        payload = {**payload, "runs": [run for run in payload["runs"]
+                            if not isinstance(run, dict) or run.get("id") != released_run_id]}
                     if folder == data and name == "generation-effects.json" and isinstance(payload, dict) and payload.get("pending"):
                         raise MediaCleanupError("busy")
                     self._collect_value(payload, used)
@@ -308,10 +324,11 @@ class WorkspaceMediaCleanup:
             used.update(self._leases)
         return used
 
-    def _candidates(self, root: Path, *, sqlite_authority: bool) -> list[Candidate]:
+    def _candidates(self, root: Path, *, sqlite_authority: bool,
+                    released_run_id: str = "", only_paths: set[str] | None = None) -> list[Candidate]:
         if (root / "assets").is_symlink():
             raise MediaCleanupError()
-        used = self._references(root, sqlite_authority=sqlite_authority)
+        used = self._references(root, sqlite_authority=sqlite_authority, released_run_id=released_run_id)
         result = []
         for kind in ("input", "output", "uploads"):
             base = root / "assets" / kind
@@ -322,6 +339,8 @@ class WorkspaceMediaCleanup:
                 dirs[:] = [name for name in dirs if not name.startswith('.') and not (folder / name).is_symlink()]
                 for name in files:
                     path = folder / name
+                    if only_paths is not None and str(path.relative_to(root)) not in only_paths:
+                        continue
                     if (name.startswith(".") or not re.fullmatch(r"[\w .-]+", name)
                             or path.suffix.lower() not in _MEDIA_EXTENSIONS
                             or unicodedata.normalize("NFC", name).casefold() in used
@@ -337,6 +356,50 @@ class WorkspaceMediaCleanup:
                         continue
                     result.append(Candidate(str(path.relative_to(root)), fingerprint))
         return result
+
+    def remove_record_files(self, root: Path, run_id: str, urls: list[str], *, sqlite_authority: bool) -> dict:
+        """Reclaim only the terminal record's released, unshared local media.
+
+        Called under the same traffic/generation exclusion as manual cleanup.
+        Session leases, recovery content, all other Runs and Canvas references
+        still protect files. A failed unlink keeps the record available to retry.
+        """
+        paths = set()
+        for url in urls:
+            parsed = urlsplit(url)
+            if parsed.scheme or parsed.netloc:
+                continue
+            value = unquote(parsed.path)
+            parts = value.lstrip("/").split("/")
+            if (value.startswith("/assets/") and len(parts) >= 3
+                    and parts[1] in {"input", "output", "uploads"}
+                    and all(part not in {"", ".", ".."} for part in parts) and "\\" not in value):
+                paths.add("/".join(parts))
+        if not paths:
+            return {"file_count": 0, "total_bytes": 0, "retained_count": 0}
+        try:
+            options = {"sqlite_authority": sqlite_authority, "released_run_id": run_id, "only_paths": paths}
+            candidates = self._candidates(root, **options)
+            eligible = {item.relative: item for item in self._candidates(root, **options)}
+            present = {relative for relative in paths if (root / relative).exists()}
+            removed = total = failed = 0
+            for item in candidates:
+                if eligible.get(item.relative) != item:
+                    continue
+                path = root / item.relative
+                try:
+                    if path.resolve() != path or self._fingerprint(path) != item.fingerprint:
+                        continue
+                    path.unlink()
+                    removed += 1
+                    total += item.size
+                except (OSError, MediaCleanupError):
+                    failed += 1
+            if failed:
+                raise MediaCleanupError("delete_failed")
+            return {"file_count": removed, "total_bytes": total, "retained_count": len(present) - removed}
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            raise MediaCleanupError() from exc
 
     def scan(self, root: Path, owner: str, *, sqlite_authority: bool) -> dict:
         try:

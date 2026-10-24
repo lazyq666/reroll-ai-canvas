@@ -5,21 +5,17 @@
 <title data-i18n="nav.lab">实验室</title>
 <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
 <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-<script src="/static/js/i18n.js?v=asset-4df71f3f9b38"></script>
+<script src="/static/js/i18n.js?v=asset-a3111d6ad98f"></script>
 <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
 <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
-<link rel="stylesheet" href="/static/css/music-lab.css?v=asset-f363322534c7">
+<link rel="stylesheet" href="/static/css/music-lab.css?v=asset-d00ba1594ba2">
 </head><body>
 <main class="lab-page">
 <section id="labLanding">
   <header class="lab-heading"><ic-heading level="1" data-i18n="nav.lab">实验室</ic-heading></header>
-  <ic-card class="lab-card" size="large">
-    <div class="music-mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-    <span class="music-brand">Suno</span>
-    <ic-heading level="2" data-i18n="music.title">音乐生成</ic-heading>
-    <p class="muted" data-i18n="music.cardDescription">用文字或参考音频创作音乐</p>
-    <ic-button id="enterSuno" hierarchy="primary" href="#suno" data-i18n="music.enter">开始创作</ic-button>
-  </ic-card>
+  <a id="enterSuno" class="lab-card" href="#suno" aria-label="进入 Suno 音乐创作" data-i18n-aria-label="music.openSuno">
+    <ic-card tone="subtle"><img src="/static/images/music/suno-entry.png?v=asset-be6ada70c4dc" width="739" height="415" alt=""></ic-card>
+  </a>
 </section>
 <section id="sunoWorkbench" hidden>
 <div class="mobile-navigation"><ic-radio-group id="musicView" name="music-view" value="create" orientation="horizontal" appearance="tabs-underline" label="音乐生成" data-i18n-label="music.title"><ic-radio value="create" label="创作音乐" data-i18n-label="music.compose"></ic-radio><ic-radio value="library" label="我的音乐" data-i18n-label="music.library"></ic-radio></ic-radio-group></div>
@@ -32,12 +28,11 @@
 <div id="musicForm" class="composer-scroll">
 <div class="add-tools"><ic-button id="chooseReferences" size="small" hierarchy="secondary" ghost><ic-icon name="add" slot="start" size="small" aria-hidden="true"></ic-icon><span data-i18n="music.addAudio">参考音频</span></ic-button><ic-button id="openPersona" size="small" hierarchy="secondary" ghost><ic-icon name="add" slot="start" size="small" aria-hidden="true"></ic-icon><span data-i18n="music.personaId">Persona ID</span></ic-button><ic-button id="inspireReference" size="small" hierarchy="secondary" ghost><ic-icon name="app" slot="start" size="small" aria-hidden="true"></ic-icon><span data-i18n="music.inspireShort">灵感</span></ic-button></div>
 <section id="referenceFields" aria-label="参考音乐" data-i18n-aria-label="music.references" hidden><div id="referenceDrop" class="reference-drop">
-<ic-select id="referenceMode" name="reference-mode" value="cover" size="small" aria-label="参考方式" data-i18n-aria-label="music.referenceMode"><option value="cover" data-i18n="music.referenceCover">改编 Cover</option><option value="inspo" data-i18n="music.referenceInspire">灵感 Inspire</option></ic-select>
+<ic-segmented-control id="referenceMode" data-component-name="ic-segmented-control-large" value="cover" size="large" label="参考方式" data-i18n-label="music.referenceMode"><button type="button" data-value="cover" data-i18n="music.referenceCover">改编 Cover</button><button type="button" data-value="inspo" data-i18n="music.referenceInspire">灵感 Inspire</button></ic-segmented-control>
 <p id="referenceVoiceHint" hidden class="hint" data-i18n="music.referenceVoiceHint">借鉴风格创作新曲，不保留原旋律</p>
 <p id="coverHint" hidden class="hint" data-i18n="music.coverHint">保留旋律改编；1 首，不足 8 分钟</p>
 <div id="referenceList"></div>
 <div class="reference-foot"><span id="referenceCount" class="hint"></span><ic-button id="chooseMoreReferences" size="xs" hierarchy="quiet"><ic-icon name="add" slot="start" size="small" aria-hidden="true"></ic-icon><span data-i18n="music.addReference">添加音频</span></ic-button></div>
-<p class="hint reference-limits" data-i18n="music.referenceLimit">每首不超过 50 MB</p><p class="hint" data-i18n="music.hostingHint">生成时临时公开托管音频</p>
 <p id="coverWarning" class="hint history-error" role="status" hidden data-i18n="music.coverOneReference">改编需要 1 首参考，请移除多余音频。</p>
 </div></section>
 <input id="referenceFiles" type="file" accept=".mp3,.wav,.m4a,.aac,.ogg,.flac" multiple hidden aria-label="选择音频" data-i18n-aria-label="music.chooseAudio">
@@ -63,16 +58,15 @@
 <div class="setting-row"><ic-checkbox id="setAudioWeight" size="small" label="调整参考" data-i18n-label="music.setAudioWeight"></ic-checkbox></div><div id="audioWeightFields"><div class="range-setting"><span class="range-label" aria-hidden="true" data-i18n="music.referenceWeight">参考强度</span><ic-slider appearance="media" id="audioWeight" min="0" max="100" step="1" value="50" size="small" label="参考强度" data-i18n-label="music.referenceWeight"></ic-slider><output id="audioWeightValue">50%</output></div><p class="hint parameter-hint" data-i18n="music.referenceWeightHint">控制整体影响，不代表相似度</p></div>
 <ic-input id="inlinePersona" name="inline_persona_id" maxlength="200" size="small" label="人设编号" data-i18n-label="music.persona"></ic-input><p id="unsupportedReference" class="hint" hidden data-i18n="music.unsupportedReference">灵感创作不支持时长和人设</p>
 </div></details>
-<ic-input id="songTitle" name="title" size="small" appearance="plain" aria-label="歌名" data-i18n-aria-label="music.trackTitle" placeholder="歌名（可选）" data-i18n-placeholder="music.optionalTitle"><ic-icon name="audio-lines" slot="start" size="small" aria-hidden="true"></ic-icon></ic-input><div class="provider-row"><span data-i18n="music.provider">服务平台</span><ic-select id="provider" name="provider" size="small" hierarchy="quiet" aria-label="服务平台" data-i18n-aria-label="music.provider"></ic-select></div>
+<ic-input id="songTitle" name="title" size="small" aria-label="歌名" data-i18n-aria-label="music.trackTitle" placeholder="歌名（可选）" data-i18n-placeholder="music.optionalTitle"><ic-icon name="audio-lines" slot="start" size="small" aria-hidden="true"></ic-icon></ic-input><div class="provider-row"><span data-i18n="music.provider">服务平台</span><ic-select id="provider" name="provider" size="small" hierarchy="quiet" aria-label="服务平台" data-i18n-aria-label="music.provider"></ic-select></div>
 </div>
 <footer class="create-footer"><div class="submit-row"><ic-icon-button shape="pill" id="resetDraft" icon="delete" size="large" background="ghost" label="清空创作草稿" data-i18n-label="music.resetDraft"></ic-icon-button><ic-button id="submitMusic" shape="pill" hierarchy="primary" size="large" disabled><ic-icon name="app" slot="start" size="small" aria-hidden="true"></ic-icon><span data-i18n="music.generate">生成音乐</span></ic-button></div><p class="hint" data-i18n="music.paidHint">点击生成后，按平台规则扣费</p></footer>
 </section>
 <section id="libraryView" class="library-panel" aria-label="我的工作区" data-i18n-aria-label="music.workspace">
 <header class="history-heading"><h2 data-i18n="music.workspace">我的工作区</h2><ic-icon-button shape="pill" id="refreshMusic" icon="refresh" size="small" background="ghost" label="刷新" data-i18n-label="music.refresh"></ic-icon-button></header>
-<div class="library-toolbar"><ic-input id="searchMusic" shape="pill" name="search-music" type="search" size="small" aria-label="搜索已加载的音乐" data-i18n-aria-label="music.search" placeholder="搜索已加载的音乐" data-i18n-placeholder="music.search" clearable><ic-icon slot="start" name="search" size="small" aria-hidden="true"></ic-icon></ic-input><ic-select id="librarySort" shape="pill" name="library-sort" value="newest" size="small" hierarchy="quiet" aria-label="排序" data-i18n-aria-label="music.sort" title="收藏和跨全部历史的最早排序暂不可用" data-i18n-title="music.libraryUnavailable"><option value="newest" data-i18n="music.newest">最新优先</option><option value="oldest" disabled data-i18n="music.oldestUnavailable">最早优先（暂不可用）</option></ic-select><div id="libraryLayout" role="group" class="library-view-toggle" aria-label="曲库视图" data-i18n-aria-label="music.libraryLayout"><ic-icon-button shape="pill" data-value="list" icon="menu" size="small" hierarchy="quiet" toggle pressed label="列表" data-i18n-label="music.listView"></ic-icon-button><ic-icon-button shape="pill" data-value="grid" icon="arrange" size="small" hierarchy="quiet" toggle label="网格" data-i18n-label="music.gridView"></ic-icon-button></div></div>
-<div class="library-filters"><div id="libraryFilter" role="group" aria-label="筛选音乐" data-i18n-aria-label="music.libraryFilter"><ic-button shape="pill" data-value="all" size="xs" hierarchy="secondary" toggle pressed data-i18n="music.allMusic">全部</ic-button><ic-button shape="pill" data-value="session" size="xs" hierarchy="quiet" toggle data-i18n="music.sessionMusic">本次生成</ic-button><ic-button id="favoriteFilter" shape="pill" size="xs" disabled title="暂不支持收藏" data-i18n-title="music.favoritesUnavailable" data-i18n="music.favorites">已收藏</ic-button></div><span id="trackCount" class="hint"></span></div>
-<p class="library-notice" data-i18n="music.libraryUnavailable">收藏和跨全部历史的最早排序暂不可用</p>
-<div id="libraryScroll" class="library-scroll"><div class="library-group-label"><span id="historyGroupLabel" data-i18n="music.recentMusic">最近生成</span><span id="readyToPlayHint" data-i18n="music.readyToPlay" hidden>可试听</span></div><p id="historyStatus" class="hint empty-history" role="status" data-i18n="music.loading">加载中</p><ic-button id="clearMusicFilters" shape="pill" size="small" hidden data-i18n="music.clearFilters">清除筛选</ic-button><div id="historyList" class="history-list" data-layout="list"></div><ic-button id="moreHistory" hierarchy="quiet" data-i18n="music.more">加载更多</ic-button></div>
+<div class="library-toolbar"><ic-input id="searchMusic" shape="pill" name="search-music" type="search" size="small" aria-label="搜索已加载的音乐" data-i18n-aria-label="music.search" placeholder="搜索已加载的音乐" data-i18n-placeholder="music.search" clearable><ic-icon slot="start" name="search" size="small" aria-hidden="true"></ic-icon></ic-input><ic-select id="librarySort" shape="pill" name="library-sort" value="newest" size="small" hierarchy="quiet" aria-label="排序" data-i18n-aria-label="music.sort"><option value="newest" data-i18n="music.newest">最新优先</option><option value="oldest" disabled data-i18n="music.oldestUnavailable">最早优先（暂不可用）</option></ic-select><div id="libraryLayout" role="group" class="library-view-toggle" aria-label="曲库视图" data-i18n-aria-label="music.libraryLayout"><ic-icon-button shape="pill" data-value="list" icon="menu" size="small" hierarchy="quiet" toggle pressed label="列表" data-i18n-label="music.listView"></ic-icon-button><ic-icon-button shape="pill" data-value="grid" icon="arrange" size="small" hierarchy="quiet" toggle label="网格" data-i18n-label="music.gridView"></ic-icon-button></div></div>
+<div class="library-filters"><div id="libraryFilter" role="group" aria-label="筛选音乐" data-i18n-aria-label="music.libraryFilter"><ic-button shape="pill" data-value="all" size="xs" hierarchy="secondary" toggle pressed data-i18n="music.allMusic">全部</ic-button><ic-button shape="pill" data-value="session" size="xs" hierarchy="quiet" toggle data-i18n="music.sessionMusic">本次生成</ic-button><ic-button id="favoriteFilter" shape="pill" size="xs" disabled title="暂不支持收藏" data-i18n-title="music.favoritesUnavailable" data-i18n="music.favorites">已收藏</ic-button></div></div>
+<div id="libraryScroll" class="library-scroll"><p id="historyStatus" class="hint empty-history" role="status" data-i18n="music.loading">加载中</p><ic-button id="clearMusicFilters" shape="pill" size="small" hidden data-i18n="music.clearFilters">清除筛选</ic-button><div id="historyList" class="history-list" data-layout="list"></div><ic-button id="moreHistory" hierarchy="quiet" data-i18n="music.more">加载更多</ic-button></div>
 </section>
 </div>
 <footer id="musicPlayer" class="music-player" aria-label="音乐播放器" data-i18n-aria-label="music.player">
@@ -97,8 +91,16 @@
 <ic-button id="applyPrompt" size="small" slot="footer" hierarchy="primary" data-i18n="music.apply">完成</ic-button>
 </ic-dialog>
 <ic-dialog id="recordDialog" size="small" variant="compact" label="音乐详情" data-i18n-label="music.recordDetails"><div id="detailFeedback" class="music-feedback" slot="header-actions"></div><section id="recordDetail" class="detail-panel"></section></ic-dialog>
+<ic-menu id="musicRecordMenu" label="记录操作" data-i18n-label="music.recordActions" trigger="dropdown" selection="command" size="small" placement="block-end" alignment="end">
+<ic-menu-item kind="command" value="details" icon="info" label="音乐详情" data-i18n-label="music.recordDetails"></ic-menu-item>
+<ic-menu-item kind="command" value="delete" icon="delete" tone="danger" label="删除记录" data-i18n-label="music.deleteRecord"></ic-menu-item>
+</ic-menu>
+<ic-dialog id="deleteRecordDialog" size="small" variant="compact" label="删除这条失败记录？" data-i18n-label="music.deleteRecordQuestion">
+<div class="field-stack"><strong id="deleteRecordName" class="delete-record-name"></strong><p class="hint" data-i18n="music.deleteRecordHint">将永久删除记录内容及未被使用的本地关联文件，无法撤销。共享或仍在使用的文件会保留。</p><p id="deleteRecordError" class="hint" role="alert" hidden></p></div>
+<ic-button id="cancelDeleteRecord" slot="footer" size="small" data-i18n="common.cancel">取消</ic-button><ic-button id="confirmDeleteRecord" slot="footer" size="small" hierarchy="primary" tone="danger" data-i18n="music.deleteRecord">删除记录</ic-button>
+</ic-dialog>
 </section></main>
 <div id="musicFeedback" class="music-feedback" hidden></div>
 <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-1b1437b2321d"></script>
-<script src="/static/js/music-lab.js?v=asset-5922397efaa2" defer></script>
+<script src="/static/js/music-lab.js?v=asset-61ddd764a11e" defer></script>
 </body></html>

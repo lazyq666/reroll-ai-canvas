@@ -9,6 +9,8 @@ import json
 import math
 import re
 import time
+import base64
+import io
 from collections import defaultdict, deque
 from contextlib import contextmanager
 from pathlib import Path
@@ -19,8 +21,11 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
 
-from .canvas_realtime import NODE_GAP
+from .canvas_realtime import NODE_GAP, apply_operation, CanvasRealtimeError
 from .canvas_sync import CanvasSyncError
+from . import agent_inputs
+from .node_references import parse_reference, NodeReferenceError
+from .workspace_storage import WorkspaceStorageError
 
 
 class AgentError(ValueError):
@@ -120,17 +125,9 @@ def visual_order(items):
 def media_refs(canvas):
     result = []
     for node in canvas.get("nodes", []):
-        for index, media in enumerate(node.get("images") or []):
-            if isinstance(media, dict) and media.get("url"):
-                result.append(
-                    {
-                        **media,
-                        "nodeId": node["id"],
-                        "imageIndex": index,
-                        "sourceNodeTitle": node.get("title", ""),
-                        "kind": media.get("kind", "image"),
-                    }
-                )
+        result.extend(agent_inputs.node_media(node))
+    for ref in result:
+        ref["media_id"] = agent_inputs.media_id(ref)
     return result
 
 
@@ -140,7 +137,7 @@ def mention_html(prompt, refs):
     pattern = (
         re.compile(
             "@("
-            + "|".join(re.escape(k) for k in sorted(refs, key=len, reverse=True))
+            + "|".join(re.escape(k) + (r"(?!\d)" if k[-1:].isdigit() else "") for k in sorted(refs, key=len, reverse=True))
             + ")"
         )
         if refs
@@ -153,7 +150,9 @@ def mention_html(prompt, refs):
         attrs = {
             "url": ref.get("url", ""),
             "kind": ref["kind"],
-            "name": ref.get("name", match[1]),
+            # Prompt Authoring reads data-name as the authored alias, not as
+            # the media filename. Keep both text and token bound to that alias.
+            "name": match[1],
             "node-id": ref.get("nodeId", ""),
             "image-index": ref.get("imageIndex", 0),
             "output-id": ref.get("outputId", ""),
@@ -395,19 +394,25 @@ class AgentAPI:
 
     def known_media(self, actor, canvas):
         refs = media_refs(canvas)
+        # Persisted direct attachments and mention snapshots are authorized by
+        # their owning Canvas, even when they have no standalone Image Node.
+        for node in canvas.get("nodes", []):
+            for field in ("manualInputRefs", "recipeSourceRefs", "runInputRefs", "runPromptRefs"):
+                refs.extend(agent_inputs.display_media(r) for r in node.get(field, []) if r.get("url"))
+            refs.extend(r for r in agent_inputs.MentionParser(node.get("promptDraftHtml", "")).tokens if r.get("url"))
         refs.extend(self.library(actor))
         with self.data() as state:
             refs.extend(state["media"].get(actor["id"], {}).values())
         return refs
 
-    def resolve_refs(self, actor, canvas, refs, *, dry_run=False):
+    def resolve_refs(self, actor, canvas, refs, *, dry_run=False, current_node=None):
         if not isinstance(refs, dict) or len(refs) > 100:
             raise AgentError("invalid_refs")
         available = media_refs(canvas)
         resolved, errors, warnings = {}, [], []
         seen = set()
         for label, source in refs.items():
-            if not re.fullmatch(r"[^\s@]{1,40}", label) or not isinstance(source, dict):
+            if not re.fullmatch(r"[^@\r\n]{1,512}", label) or not label.strip() or not isinstance(source, dict):
                 raise AgentError("invalid_reference_label")
             selectors = set(source) & {
                 "node",
@@ -417,11 +422,13 @@ class AgentAPI:
                 "media",
                 "file",
                 "search",
+                "input",
             }
             if len(selectors) != 1 or set(source) - selectors - {
                 "kind",
                 "role",
                 "index",
+                "output_id",
             }:
                 raise AgentError("invalid_reference_source", {"label": label})
             selector = next(iter(selectors))
@@ -429,6 +436,9 @@ class AgentAPI:
             candidates = []
             if selector == "node":
                 candidates = [r for r in available if r["nodeId"] == value]
+            elif selector == "input" and current_node:
+                candidates = [r for r in agent_inputs.effective_inputs(canvas, current_node)[0]
+                              if agent_inputs.ref_key(r) == value]
             elif selector == "node_name":
                 candidates = [r for r in available if r["sourceNodeTitle"] == value]
             elif selector == "selection":
@@ -453,7 +463,7 @@ class AgentAPI:
                 candidates = [
                     r
                     for r in self.known_media(actor, canvas)
-                    if r.get("media_id") == value
+                    if agent_inputs.media_id(r) == value
                 ]
                 unique = {}
                 for r in candidates:
@@ -494,6 +504,10 @@ class AgentAPI:
                 candidates = [
                     r for r in candidates if r.get("imageIndex") == source["index"]
                 ]
+            if "output_id" in source:
+                if "index" in source or selector != "node" or not isinstance(source["output_id"], str) or not source["output_id"]:
+                    raise AgentError("invalid_reference_source", {"label": label})
+                candidates = [r for r in candidates if r.get("outputId") == source["output_id"]]
             if len(candidates) != 1:
                 errors.append(
                     {
@@ -513,11 +527,7 @@ class AgentAPI:
                 raise AgentError("invalid_reference_role")
             ref["role"] = source.get("role", "")
             ref.setdefault("kind", "image")
-            key = (
-                (ref.get("nodeId"), ref.get("imageIndex"))
-                if ref.get("nodeId")
-                else ref.get("media_id") or ref.get("url")
-            )
+            key = agent_inputs.ref_key(ref)
             if key in seen:
                 warnings.append({"code": "duplicate_reference", "label": label})
             seen.add(key)
@@ -555,74 +565,158 @@ class AgentAPI:
         return capability
 
     def current_task_refs(self, canvas, node):
-        """Read current inputs for a partial update, including edits made in the UI."""
-        refs = []
-        available = media_refs(canvas)
-        for edge in canvas.get("connections", []):
-            if edge.get("to") != node["id"] or edge.get("kind") != "input":
-                continue
-            source = next((n for n in canvas["nodes"] if n["id"] == edge["from"]), {})
-            candidates = [r for r in available if r["nodeId"] == edge["from"]]
-            output_id = edge.get("sourceOutputId") or (
-                source.get("activeOutputId")
-                if source.get("generationOutputNode")
-                else None
-            )
-            if output_id:
-                candidates = [r for r in candidates if r.get("outputId") == output_id]
-            elif source.get("generationOutputNode"):
-                candidates = candidates[:1]
-            refs.extend({**r, "referenceMode": "connection"} for r in candidates)
-        refs.extend(copy.deepcopy(node.get("manualInputRefs", [])))
+        return agent_inputs.effective_inputs(canvas, node)[1]
 
-        def key(ref):
-            return (
-                "instance|" + ref["inputInstanceId"]
-                if ref.get("inputInstanceId")
-                else (
-                    "output|" + ref["outputId"]
-                    if ref.get("outputId")
-                    else f"{ref.get('nodeId')}|{ref.get('imageIndex',0)}"
-                )
-            )
+    def available_media_path(self, url):
+        try:
+            path = self.media_path(url)
+            return Path(path) if path and Path(path).is_file() else None
+        except (OSError, ValueError, WorkspaceStorageError):
+            return None
 
-        order = {
-            value: index for index, value in enumerate(node.get("inputRefOrder", []))
-        }
-        refs.sort(key=lambda ref: order.get(key(ref), len(order)))
-        for ref in refs:
-            ref["role"] = node.get("videoFrameRoles", {}).get(
-                key(ref), ref.get("role", "")
-            )
-        aliases = node.get("agentRecipe", {}).get("refs", {})
-        result = {}
-        for index, ref in enumerate(refs):
-            matching = [
-                label
-                for label, source in aliases.items()
-                if (
-                    source.get("node") == ref.get("nodeId")
-                    and source.get("node")
-                    and source.get("index", ref.get("imageIndex"))
-                    == ref.get("imageIndex")
-                )
-                or (source.get("media") and source["media"] == ref.get("media_id"))
-                or (
-                    source.get("node_name")
-                    and source["node_name"] == ref.get("sourceNodeTitle")
-                )
-            ]
-            label = (
-                re.sub(r"[\s@]", "", str(ref.get("name", "")))[:35]
-                or f"reference{index+1}"
-            )
-            if label in result:
-                label = f"{label}{index+1}"
-            for alias in matching or [label]:
-                result[alias] = ref
-        return result
+    @staticmethod
+    def task_node(canvas, node_id):
+        node = next((n for n in canvas["nodes"] if n["id"] == node_id), None)
+        if node is None:
+            raise AgentError("node_not_found", {"node_id": node_id}, 404)
+        if not node.get("referenceGenerationKind"):
+            raise AgentError("not_generation_task", {"node_id": node_id}, 422)
+        return node
+
+    def task_recipe(self, canvas, node):
+        kind = node["referenceGenerationKind"]
+        current = node.get("runSettings", canvas.get("settings", {}))
+        mapping = VIDEO_PARAMS if kind == "video" else IMAGE_PARAMS
+        params = {k: copy.deepcopy(current[v]) for k, v in mapping.items()
+                  if v in current and current[v] not in ("", None)}
+        if kind == "image":
+            if "aspect_ratio" in params:
+                params["aspect_ratio"] = IMAGE_RATIOS.get(params["aspect_ratio"], params["aspect_ratio"])
+            if "resolution_tier" in params:
+                params["resolution_tier"] = str(params["resolution_tier"]).upper()
+            if current.get("pixelWidth") and current.get("pixelHeight"):
+                params["custom_size"] = f"{current['pixelWidth']}x{current['pixelHeight']}"
+                params.pop("aspect_ratio", None)
+                params.pop("resolution_tier", None)
+        bindings = self.current_task_refs(canvas, node)
+        return {"kind": kind, "title": node.get("title", ""),
+                "prompt": agent_inputs.draft_prompt(node),
+                "model": {"provider_id": current.get("videoProvider" if kind == "video" else "provider_id"),
+                          "model": current.get("videoModel" if kind == "video" else "model")},
+                "params": params,
+                "refs": {label: agent_inputs.reference_source(ref) for label, ref in bindings.items()}}
+
+    def task_detail(self, actor, canvas, node_id, *, validate=True):
+        node = self.task_node(canvas, node_id)
+        refs, _, errors, warnings = agent_inputs.effective_inputs(canvas, node)
+        editable = task_state(node) == "draft"
+        settings = node.get("runSettings", canvas.get("settings", {}))
+        reason = None if editable else "node_not_editable"
+        if settings.get("engine", "api") != "api":
+            editable, reason = False, "engine_not_authorable"
+        if validate and editable:
+            try:
+                _, report = self.compile(actor, {"id": "validation"}, canvas,
+                    {"tasks": [{}], "dry_run": True, "strict_update": True},
+                    "agent:validation", node_id)
+                warnings.extend(report["warnings"])
+            except AgentError as error:
+                errors.extend(error.details.get("errors") or error.details.get("references")
+                              or [{"code": error.code, **error.details}])
+        if not editable:
+            errors.append({"code": reason, "field": "state"})
+        return {"canvas_id": canvas["id"], "node_id": node_id,
+                "frame_id": next((n["id"] for n in canvas["nodes"] if n.get("type") == "smart-frame"
+                                  and node_id in n.get("items", [])), None),
+                "state": task_state(node), "editable": editable, "edit_block_reason": reason,
+                "node_revision": agent_inputs.revision(canvas, node),
+                "canvas_revision": canvas.get("revision", 0),
+                "recipe": self.task_recipe(canvas, node),
+                "run_settings": copy.deepcopy(settings),
+                "text_inputs": agent_inputs.text_inputs(canvas, node),
+                "resolved_inputs": [{"reference_id": r["reference_id"], "labels": r["labels"],
+                    "binding_label": r["binding_label"], "display_number": r["display_number"],
+                    "position": r["position"], "kind": r["kind"], "name": r.get("name", ""),
+                    "node_id": r.get("nodeId"), "media_index": r.get("imageIndex"),
+                    "output_id": r.get("outputId"), "input_instance_id": r.get("inputInstanceId"),
+                    "media_id": r["media_id"], "preview_source": {"media_id": r["media_id"]},
+                    "origin": r["origin"], "source_path": r.get("source_path", []),
+                    "role": r.get("role", "")} for r in refs],
+                "validation": {"valid": not errors, "errors": errors, "warnings": warnings}}
+
+    def preview(self, actor, canvas, source, max_edge):
+        from PIL import Image, ImageOps, UnidentifiedImageError
+
+        if not isinstance(source, dict) or type(max_edge) is not int or not 64 <= max_edge <= 4096:
+            raise AgentError("invalid_preview_request", {"max_edge": {"minimum": 64, "maximum": 4096}})
+        selectors = set(source) & {"node_id", "media_id", "asset_id"}
+        if len(selectors) != 1 or set(source) - selectors - {"media_index", "output_id"}:
+            raise AgentError("invalid_media_source")
+        selector = next(iter(selectors))
+        if not isinstance(source[selector], str) or not source[selector]:
+            raise AgentError("invalid_media_source")
+        if selector != "node_id" and set(source) != {selector}:
+            raise AgentError("invalid_media_source")
+        if selector == "node_id":
+            candidates = [r for r in media_refs(canvas) if r["nodeId"] == source[selector]]
+            if "media_index" in source and "output_id" in source:
+                raise AgentError("invalid_media_source")
+            if "media_index" in source:
+                if type(source["media_index"]) is not int or source["media_index"] < 0:
+                    raise AgentError("invalid_media_source")
+                candidates = [r for r in candidates if r["imageIndex"] == source["media_index"]]
+            if "output_id" in source:
+                if not isinstance(source["output_id"], str) or not source["output_id"]:
+                    raise AgentError("invalid_media_source")
+                candidates = [r for r in candidates if r.get("outputId") == source["output_id"]]
+        elif selector == "asset_id":
+            candidates = [agent_inputs.display_media(r) for r in self.library(actor) if r.get("id") == source[selector]]
+        else:
+            candidates = [agent_inputs.display_media(r) for r in self.known_media(actor, canvas)
+                          if agent_inputs.media_id(r) == source[selector]]
+            candidates = list({r["url"]: r for r in candidates}.values())
+        if not candidates:
+            raise AgentError("reference_not_found", {"field": "source"}, 404)
+        if len(candidates) != 1:
+            raise AgentError("ambiguous_reference", {"candidates": [
+                {"node_id": r.get("nodeId"), "media_index": r.get("imageIndex"), "output_id": r.get("outputId"),
+                 "media_id": agent_inputs.media_id(r), "name": r.get("name", "")} for r in candidates]}, 409)
+        ref = candidates[0]
+        if ref.get("kind", "image") != "image":
+            raise AgentError("preview_type_unsupported", {"kind": ref.get("kind")}, 422)
+        path = self.available_media_path(ref["url"])
+        if not path:
+            raise AgentError("media_unavailable", status=404)
+        if Path(path).stat().st_size > 32 * 1024 * 1024:
+            raise AgentError("preview_size_limit", status=413)
+        try:
+            content = Path(path).read_bytes()
+            with Image.open(io.BytesIO(content)) as original:
+                if original.width * original.height > 40_000_000:
+                    raise AgentError("preview_size_limit", status=413)
+                picture = ImageOps.exif_transpose(original)
+                original_size = list(picture.size)
+                alpha = "A" in picture.getbands() or "transparency" in picture.info
+                picture = picture.convert("RGBA" if alpha else "RGB")
+                picture.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+                buffer = io.BytesIO()
+                picture.save(buffer, format="PNG")
+                pixels = buffer.getvalue()
+                if len(pixels) > 12 * 1024 * 1024:
+                    raise AgentError("preview_size_limit", {"hint": "Retry with a smaller max_edge."}, 413)
+                return {"metadata": {"media_id": agent_inputs.media_id(ref), "node_id": ref.get("nodeId"),
+                    "output_id": ref.get("outputId"), "media_index": ref.get("imageIndex"),
+                    "kind": "image", "name": ref.get("name", ""), "original_size": original_size,
+                    "preview_size": list(picture.size), "thumbnail": list(picture.size) != original_size,
+                    "has_alpha": alpha, "content_sha256": hashlib.sha256(content).hexdigest()},
+                    "image": {"mimeType": "image/png", "data": base64.b64encode(pixels).decode("ascii")}}
+        except (OSError, ValueError, UnidentifiedImageError, Image.DecompressionBombError) as error:
+            if isinstance(error, AgentError):
+                raise
+            raise AgentError("preview_decode_failed", status=422) from error
 
     def compile(self, actor, token, canvas, body, operation_id, update_id=""):
+        strict_update = bool(update_id and body.get("strict_update"))
         recipes = body.get("tasks")
         reports = []
         prompts_only = body.get("type") == "prompts"
@@ -637,49 +731,22 @@ class AgentAPI:
             [],
         )
         if update_id:
-            original = next((n for n in canvas["nodes"] if n["id"] == update_id), None)
+            original = self.task_node(canvas, update_id)
             if (
                 not original
                 or task_state(original) != "draft"
                 or not original.get("referenceGenerationKind")
             ):
-                raise AgentError("task_not_draft", status=409)
+                raise AgentError("node_not_editable" if strict_update else "task_not_draft", status=409)
             patch = recipes[0]
-            previous = copy.deepcopy(original.get("agentRecipe", {}))
-            previous["kind"] = original["referenceGenerationKind"]
-            current = original.get("runSettings", canvas.get("settings", {}))
-            previous["model"] = {
-                "provider_id": current.get(
-                    "videoProvider" if previous["kind"] == "video" else "provider_id"
-                ),
-                "model": current.get(
-                    "videoModel" if previous["kind"] == "video" else "model"
-                ),
-            }
-            mapping = VIDEO_PARAMS if previous["kind"] == "video" else IMAGE_PARAMS
-            previous["params"] = {
-                k: current[v]
-                for k, v in mapping.items()
-                if v in current and current[v] not in ("", None)
-            }
-            previous["params"].pop("reference_mode", None)
-            if previous["kind"] == "image":
-                params = previous["params"]
-                if "aspect_ratio" in params:
-                    params["aspect_ratio"] = IMAGE_RATIOS.get(
-                        params["aspect_ratio"], params["aspect_ratio"]
-                    )
-                if "resolution_tier" in params:
-                    params["resolution_tier"] = str(params["resolution_tier"]).upper()
-                if current.get("pixelWidth") and current.get("pixelHeight"):
-                    params["custom_size"] = (
-                        f"{current['pixelWidth']}x{current['pixelHeight']}"
-                    )
-                    params.pop("aspect_ratio", None)
-                    params.pop("resolution_tier", None)
-            previous["prompt"] = original.get(
-                "promptDraftText", previous.get("prompt", "")
-            )
+            previous = self.task_recipe(canvas, original)
+            if body.get("expected_node_revision") is not None:
+                actual = agent_inputs.revision(canvas, original)
+                if body["expected_node_revision"] != actual:
+                    raise AgentError("revision_conflict", {"field": "expected_node_revision",
+                        "current_node_revision": actual, "canvas_revision": canvas.get("revision", 0)}, 409)
+            if strict_update and original.get("runSettings", {}).get("engine", "api") != "api":
+                raise AgentError("engine_not_authorable", status=422)
             recipes = [{**previous, **patch}]
             if "params" in patch:
                 recipes[0]["params"] = {**previous["params"], **patch["params"]}
@@ -718,16 +785,33 @@ class AgentAPI:
                     [],
                     [],
                 )
+                if strict_update:
+                    _, _, input_errors, input_warnings = agent_inputs.effective_inputs(canvas, original)
+                    errors.extend(input_errors)
+                    warnings.extend(input_warnings)
             else:
                 refs, missing, notices = self.resolve_refs(
                     actor,
                     canvas,
                     recipe.get("refs", {}),
                     dry_run=body.get("dry_run") is True,
+                    current_node=original if update_id else None,
                 )
             unresolved.extend({"task": i + 1, **e} for e in missing)
             warnings.extend({"task": i + 1, **e} for e in notices)
-            settings = copy.deepcopy(canvas.get("settings") or {})
+            if strict_update:
+                errors.extend(agent_inputs.unresolved_mentions(prompt, refs))
+                errors.extend({"code": "unresolved_reference", "field": "text_inputs", "reference_id": ref["reference_id"]}
+                              for ref in agent_inputs.text_inputs(canvas, original) if ref.get("error"))
+                for mention in agent_inputs.MentionParser(original.get("promptDraftHtml", "")).tokens:
+                    label = mention.get("name")
+                    if label and "@" + label in prompt and label not in refs:
+                        errors.append({"code": "unresolved_reference", "field": "prompt", "label": label})
+                for label, ref in refs.items():
+                    if not self.available_media_path(ref["url"]):
+                        errors.append({"code": "reference_not_found", "field": "refs", "label": label})
+            settings = copy.deepcopy(original.get("runSettings", canvas.get("settings", {}))
+                                     if update_id else canvas.get("settings") or {})
             kind = recipe.get("kind", "image")
             if not prompts_only:
                 if kind not in ("image", "video"):
@@ -765,16 +849,16 @@ class AgentAPI:
                 capability = self.capability(
                     model["provider_id"], model["model"], operation
                 )
+                if strict_update and capability.get("support_state") != "supported":
+                    errors.append({"code": "capability_unknown", "field": "model", "operation": operation})
                 params = recipe.get("params", {})
                 if not isinstance(params, dict):
                     raise AgentError("invalid_params")
                 counts = {k: 0 for k in ("image", "video", "audio", "text")}
-                counts["text"] = int(bool(prompt))
+                counts["text"] = int(bool(prompt) or bool(update_id and agent_inputs.text_inputs(canvas, original)))
                 unique = {
                     (
-                        (r.get("nodeId"), r.get("imageIndex"))
-                        if r.get("nodeId")
-                        else r.get("media_id") or r["url"]
+                        agent_inputs.ref_key(r)
                     ): r
                     for r in refs.values()
                 }
@@ -971,12 +1055,31 @@ class AgentAPI:
                 elif kind == "image":
                     settings["pixelWidth"] = settings["pixelHeight"] = ""
                 settings["catalog_revision"] = capability["catalog_revision"]
+                if update_id:
+                    preserved = copy.deepcopy(original.get("runSettings", canvas.get("settings", {})))
+                    requested_params = patch.get("params", {})
+                    setting_fields = {mapping[key] for key in requested_params if key in mapping}
+                    if "custom_size" in requested_params or (kind == "image" and set(requested_params) & {"aspect_ratio", "resolution_tier"}):
+                        setting_fields.update(("pixelWidth", "pixelHeight"))
+                    if "reference_mode" in requested_params:
+                        setting_fields.update(("videoUseFrameRoles", "videoMultimodal", "_videoMultimodalUserSet"))
+                    if set(patch) & {"model", "kind"}:
+                        setting_fields.update(("engine", "apiKind"))
+                        setting_fields.update(("videoProvider", "videoModel") if kind == "video" else ("provider_id", "model"))
+                    if setting_fields:
+                        setting_fields.add("catalog_revision")
+                    preserved.update({key: settings[key] for key in setting_fields if key in settings})
+                    settings = preserved
             node_id = update_id or f"{operation_id}:task:{i}"
             manual, order, roles_map = [], [], {}
+            source_items = defaultdict(set)
+            for ref in refs.values():
+                if ref.get("nodeId"):
+                    source_items[ref["nodeId"]].add(ref.get("imageIndex"))
             for ref in refs.values():
                 if update_id and "refs" not in patch:
                     continue
-                if not ref.get("nodeId"):
+                if not ref.get("nodeId") and not ref.get("inputInstanceId"):
                     media_key = ref.get("media_id") or ref["url"]
                     if media_key not in imported:
                         source_id = f"{operation_id}:media:{len(imported)}"
@@ -1005,18 +1108,20 @@ class AgentAPI:
                     ref.pop("outputId", None)
                     ref.update(nodeId=imported[media_key]["id"], imageIndex=0)
                 source = next(
-                    (n for n in canvas.get("nodes", []) if n["id"] == ref["nodeId"]),
+                    (n for n in canvas.get("nodes", []) if n["id"] == ref.get("nodeId")),
                     None,
                 )
-                snapshot = bool(
+                snapshot = bool(ref.get("inputInstanceId") or source and source.get("type") == "smart-group" or (
                     source
                     and len(source.get("images", [])) > 1
-                    and not (source.get("generationOutputNode") and ref.get("outputId"))
-                )
+                    and (len(source_items[ref["nodeId"]]) > 1
+                         or not (source.get("generationOutputNode") and ref.get("outputId")))
+                ))
                 if snapshot:
-                    ref["inputInstanceId"] = (
+                    ref["referenceMode"] = "snapshot"
+                    ref["inputInstanceId"] = ref.get("inputInstanceId") or (
                         "agent-ref:"
-                        + digest([node_id, ref["nodeId"], ref["imageIndex"]])[:24]
+                        + digest([node_id, ref.get("nodeId"), ref.get("imageIndex")])[:24]
                     )
                     if not any(
                         m["inputInstanceId"] == ref["inputInstanceId"] for m in manual
@@ -1026,8 +1131,8 @@ class AgentAPI:
                         {
                             "task": i + 1,
                             "code": "snapshot_reference",
-                            "node_id": ref["nodeId"],
-                            "index": ref["imageIndex"],
+                            "node_id": ref.get("nodeId"),
+                            "index": ref.get("imageIndex"),
                         }
                     )
                 else:
@@ -1086,6 +1191,9 @@ class AgentAPI:
             if prompts_only:
                 node.update(text=prompt)
             else:
+                if update_id and "refs" in patch:
+                    order.extend(ref["reference_id"] for ref in agent_inputs.text_inputs(canvas, original)
+                                 if ref["reference_id"] not in order)
                 node.update(
                     referenceGenerationKind=kind,
                     runSettings=settings,
@@ -1128,6 +1236,7 @@ class AgentAPI:
                     e
                     for e in canvas.get("connections", [])
                     if e["to"] == update_id and e.get("kind") == "input"
+                    and e["from"] not in {ref.get("node_id") for ref in agent_inputs.text_inputs(canvas, original)}
                 ],
                 "connection_adds": connections,
             }
@@ -1155,10 +1264,28 @@ class AgentAPI:
                         "videoFrameRoles",
                         "promptDraftHtml",
                         "promptDraftText",
+                        "recipeSourceRefs",
+                        "blockedInputRefs",
+                        "inputNodeIds",
                     )
                 )
+                # Historical references become a fallback when there are no
+                # live connections. Keep history but block obsolete inputs.
+                old_refs = [r for key in ("recipeSourceRefs", "runInputRefs", "runPromptRefs", "manualInputRefs")
+                            for r in original.get(key, [])]
+                old_refs.extend(agent_inputs.node_media(original))
+                old_refs.extend(agent_inputs.effective_inputs(canvas, original)[0])
+                blocked = sorted({agent_inputs.ref_key(r) for r in old_refs if agent_inputs.ref_key(r)}
+                                 - set(created[0]["inputRefOrder"]))
+                text_nodes = {ref.get("node_id") for ref in agent_inputs.text_inputs(canvas, original)}
+                changes["node_updates"].extend(
+                    {"id": update_id, "path": [key], "value": value}
+                    for key, value in (("recipeSourceRefs", []), ("blockedInputRefs", blocked),
+                                       ("inputNodeIds", [key for key in original.get("inputNodeIds", []) if key in text_nodes])))
             if "title" in changed:
                 fields.add("title")
+            if "kind" in changed:
+                fields.add("referenceGenerationKind")
             changes["node_updates"] = [
                 entry for entry in changes["node_updates"] if entry["path"][0] in fields
             ]
@@ -1166,6 +1293,13 @@ class AgentAPI:
                 changes.pop("connection_removes", None)
                 changes.pop("connection_adds", None)
                 changes.pop("node_creates", None)
+                if strict_update and any(r.get("url") and not r.get("inputInstanceId")
+                                                       for r in original.get("manualInputRefs", [])):
+                    normalized = copy.deepcopy(original.get("manualInputRefs", []))
+                    for index, ref in enumerate(normalized):
+                        if ref.get("url") and ref.get("kind") != "text" and not ref.get("inputInstanceId"):
+                            ref["inputInstanceId"] = "legacy-manual:" + agent_inputs.fingerprint([original["id"], index, ref])[:24]
+                    changes["node_updates"].append({"id": update_id, "path": ["manualInputRefs"], "value": normalized})
         result = {
             "status": "success",
             "submission_id": operation_id,
@@ -1286,7 +1420,38 @@ class AgentAPI:
                     "revision": receipt.get("revision"),
                     "duplicate": True,
                 }
-            return self.compile(actor, token, canvas, body, operation_id, update_id)
+            operation, result = self.compile(actor, token, canvas, body, operation_id, update_id)
+            if update_id and body.get("strict_update"):
+                # Use the same deterministic mutation engine as persistence for
+                # the proposal and frozen retry receipt, never an echo of changes.
+                proposal = copy.deepcopy(canvas)
+                try:
+                    apply_operation(proposal, operation, actor["id"])
+                except CanvasRealtimeError as error:
+                    raise AgentError(error.code, status=409) from error
+                after = self.task_detail(actor, proposal, update_id)
+                if not after["validation"]["valid"]:
+                    raise AgentError("rejected", after["validation"], 422)
+                after["validation"]["warnings"].extend(result["warnings"])
+                result.update(after=after, node_revision=after["node_revision"],
+                    canvas_revision=after["canvas_revision"],
+                    changed_fields=sorted(body["tasks"][0]),
+                    persisted=not body.get("dry_run"), generation_started=False,
+                    validation=after["validation"])
+                # Metadata stores an immutable snapshot for retries after later
+                # edits. Copy it so the response cannot acquire a reference cycle.
+                for item in operation["changes"].get("node_updates", []):
+                    if item["path"] == ["agentSubmission"]:
+                        item["value"]["result"] = copy.deepcopy(result)
+            return operation, result
+
+        def readback(persisted, result):
+            if not update_id or not body.get("strict_update"):
+                return result
+            after = self.task_detail(actor, persisted, update_id, validate=False)
+            after["validation"] = copy.deepcopy(result["after"]["validation"])
+            return {**result, "after": after, "node_revision": after["node_revision"],
+                    "canvas_revision": after["canvas_revision"], "validation": after["validation"]}
 
         try:
             result = await self.sync.commit_prepared_operation(
@@ -1295,6 +1460,7 @@ class AgentAPI:
                 operation_id,
                 prepare,
                 dry_run=body.get("dry_run") is True,
+                readback=readback,
             )
         except CanvasSyncError as error:
             code = (
@@ -1625,6 +1791,45 @@ class AgentAPI:
             except CanvasSyncError:
                 raise AgentError("forbidden", status=403)
 
+        def reference_targets(request, body, canvas_id=None):
+            if set(body) != {"reference"}:
+                raise AgentError("invalid_node_reference")
+            try:
+                reference = parse_reference(body["reference"])
+            except NodeReferenceError as error:
+                raise AgentError(error.code, error.details) from None
+            if reference["workspace_id"] != self.sync.workspace_identity():
+                raise AgentError("workspace_mismatch", status=409)
+            if canvas_id is not None and reference["canvas_id"] != canvas_id:
+                raise AgentError("canvas_mismatch", status=409)
+            # Read one authorized persisted snapshot. Do not reveal missing IDs
+            # until access to this exact Canvas has succeeded.
+            document = read_canvas(request, reference["canvas_id"])
+            by_id = {node["id"]: node for node in document["nodes"]}
+            missing = [node_id for node_id in reference["node_ids"] if node_id not in by_id]
+            if missing:
+                raise AgentError("node_not_found", {"node_ids": missing}, 404)
+            return reference, document, by_id
+
+        @app.post("/api/canvases/{canvas_id}/node-reference")
+        async def confirm_node_reference(canvas_id: str, request: Request):
+            reference, document, _ = reference_targets(request, await self.body(request), canvas_id)
+            return {**reference, "canvas_revision": document.get("revision", 0)}
+
+        @app.post(prefix + "/node-references/read")
+        async def read_node_reference(request: Request):
+            reference, document, by_id = reference_targets(request, await self.body(request))
+            targets = []
+            for node_id in reference["node_ids"]:
+                node = by_id[node_id]
+                detail = {"node_id": node_id, "type": node.get("type"),
+                          "node_revision": agent_inputs.revision(document, node),
+                          "content": copy.deepcopy(node)}
+                if node.get("referenceGenerationKind"):
+                    detail["generation_task"] = self.task_detail(actor(request), document, node_id)
+                targets.append(detail)
+            return {**reference, "canvas_revision": document.get("revision", 0), "nodes": targets}
+
         @app.get(prefix + "/canvases/{canvas_id}")
         async def get_canvas(
             canvas_id: str,
@@ -1677,6 +1882,8 @@ class AgentAPI:
                         "prompt": str(n.get("promptDraftText", n.get("text", "")))[
                             :200
                         ],
+                        "prompt_length": len(str(n.get("promptDraftText", n.get("text", "")))),
+                        "prompt_truncated": len(str(n.get("promptDraftText", n.get("text", "")))) > 200,
                         "frame_id": membership.get(n["id"]),
                         "state": task_state(n),
                     }
@@ -1723,6 +1930,14 @@ class AgentAPI:
                     + self.library(actor(request), query)
                 )[:200]
             }
+
+        @app.post(prefix + "/canvases/{canvas_id}/media/preview")
+        async def preview_media(canvas_id: str, request: Request):
+            document = read_canvas(request, canvas_id)
+            body = await self.body(request)
+            if set(body) - {"source", "max_edge"}:
+                raise AgentError("invalid_preview_request")
+            return self.preview(actor(request), document, body.get("source"), body.get("max_edge", 1600))
 
         @app.post(prefix + "/media")
         async def import_media(request: Request, file: UploadFile = File(...)):
@@ -1809,7 +2024,34 @@ class AgentAPI:
         async def update_task(canvas_id: str, node_id: str, request: Request):
             read_canvas(request, canvas_id)
             body = await self.body(request)
+            if "changes" in body:
+                if set(body) - {"changes", "expected_node_revision", "dry_run", "refs_mode", "return_after"}:
+                    raise AgentError("invalid_update_request")
+                if not isinstance(body["changes"], dict):
+                    raise AgentError("invalid_recipe")
+                if not isinstance(body.get("expected_node_revision"), str) or not body["expected_node_revision"]:
+                    raise AgentError("expected_node_revision_required")
+                if "refs" in body["changes"] and body.get("refs_mode") != "replace":
+                    raise AgentError("refs_mode_required", {"allowed": ["replace"]})
+                if body.get("refs_mode", "replace") != "replace":
+                    raise AgentError("invalid_refs_mode", {"allowed": ["replace"]})
+                if "return_after" in body and type(body["return_after"]) is not bool:
+                    raise AgentError("invalid_return_after")
+                # File import is a separate, explicit action. Updating a task
+                # cannot upload as a side effect, in either validation or save.
+                if "refs" in body["changes"] and not isinstance(body["changes"]["refs"], dict):
+                    raise AgentError("invalid_refs")
+                if any("file" in ref for ref in body["changes"].get("refs", {}).values() if isinstance(ref, dict)):
+                    raise AgentError("import_media_first")
+                return await self.submit(request, canvas_id, {"tasks": [body["changes"]],
+                    "expected_node_revision": body["expected_node_revision"],
+                    "dry_run": body.get("dry_run", False), "strict_update": True,
+                    "refs_mode": body.get("refs_mode", "replace")}, node_id)
             return await self.submit(request, canvas_id, {"tasks": [body]}, node_id)
+
+        @app.get(prefix + "/canvases/{canvas_id}/tasks/{node_id}")
+        async def generation_task(canvas_id: str, node_id: str, request: Request):
+            return self.task_detail(actor(request), read_canvas(request, canvas_id), node_id)
 
         @app.post(prefix + "/canvases/{canvas_id}/submissions/{submission_id}/undo")
         async def undo(canvas_id: str, submission_id: str, request: Request):

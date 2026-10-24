@@ -7,6 +7,7 @@
 - **Applies to**：第一阶段（编排写入）与第二阶段（画布代为运行）；第三阶段（无浏览器提交）另立规格
 - **Supersedes**：无
 - **Superseded by**：无
+- **P0 节点修改扩展**：[完整读取、图片预览与安全修改合同](../current/agent-task-editing.md)（LAZ-89，2026-10-22；该接口范围已通过隔离 stdio MCP 验收，不改变本规格其余实机 gate）
 - **Related ADRs**：[ADR-0001 Workspace 数据边界](../adr/0001-workspace-data-boundary.md)、[ADR-0008 默认允许局域网访问](../adr/0008-lan-access-by-default.md)、[ADR-0009 统一模型能力目录](../adr/0009-unified-model-capability-catalog.md)、[ADR-0011 位置意图属于 Canvas Mutation](../adr/0011-placement-intent-belongs-to-canvas-mutation.md)、[ADR-0016 Canvas 媒体名称分配](../adr/0016-canvas-media-name-allocation.md)、[ADR-0019 Account Agent 编排](../adr/0019-account-agent-canvas-authoring.md)
 - **Domain terms**：Smart Canvas、Node、Image Node、Prompt Node、Frame、Connection、Canvas Mutation、Operation ID、Canvas Revision、Canvas Selection、Canvas Viewport、Realtime Presence、Reference Input Instance、Prompt Authoring、Generation Settings、Generation Run、Pending Node、Model Capability Catalog、Managed Media、Workspace Asset Library、Account、Designer、Administrator、Guest Account；新增术语见第 8 节与 CONTEXT.md
 
@@ -317,7 +318,7 @@ stateDiagram-v2
 - `GET /api/account/agent-pairings`、`POST /api/account/agent-pairings/{id}`：只走浏览器 Session；列出 Instance 待批准请求、原子批准/拒绝。跨站写入与 Bearer 均不能批准。
 - 每请求 10 分钟；同时保留最多 32 个未过期请求、同 IP 最多 5 个（包括拒绝），正文最多 2 KiB。限流 `pairing_rate_limited`，稍后重试。
 - 拒绝、Escape、关闭均不授予权限，同一请求在到期前保持拒绝。过期、重复审批返回 `pairing_closed`，多账号竞争只有第一次成功。
-- 网页每 3 秒检查，隐藏标签不检查，其他弹窗关闭后再展示。未登录时需先登录；未打开网页时 Agent 提示地址和识别码。
+- 网页每 3 秒检查，隐藏标签不检查，其他弹窗关闭后再展示；应用连接窗口显示待授权提示与“查看请求”，点击后先关闭设置窗口，再显示独立配对窗口，不代为同意或拒绝。请求失效后提示移除。未登录时需先登录；未打开网页时 Agent 提示地址和识别码。
 - 已授权凭证立即受撤销、账号停用、权限变更和总开关约束。缓存凭证撤销返回 `authorization_revoked`，再次调用发起新配对；总开关关闭不自行重新启用。
 - 桥接缓存为 Agent 设备 Device State，按服务地址、客户端名隔离，默认 `~/.config/reroll/mcp/`，`REROLL_CREDENTIAL_DIR` 可覆盖；`REROLL_CLIENT_NAME` 可覆盖自报名字。私有原子写入，缓存无法读取时失败，不输出秘密。
 
@@ -579,3 +580,8 @@ Claude Code CLI 从生成的用户文件报告 Connected，Codex CLI 成功解�
 ### PR review regression（2026-10-20）
 
 浏览器 smoke 已更新为当前安装器与自动保存界面，移除对旧手动令牌控件的依赖。复验发现配对弹窗在首次渲染前调用显示会产生 `showModal` 初始化错误；配对入口现等待共享组件完成首次渲染后显示。最小浏览器复现修复前失败、修复后通过，完整画布浏览器回归同时验证无页面错误与批准后的授权状态。原生 Windows、第二台 LAN 设备与 Claude Desktop GUI 等既有实机 gate 仍保留，不据此晋升 Current。
+
+
+### 2026-10-20 待配对提示补验
+
+应用连接窗口打开时，用局部更新显示待授权提示，不重绘设置或中断自动保存。`node tests/agent_pairing_browser.cjs` 在真实 Chrome 与隔离服务中复现旧版无提示，并验证修复后的查看入口、请求失效清除、中英切换和键盘操作；首次配对无点击不发送决定，Escape 仅发送一次拒绝。拒绝记录没有历史触发方式或审批者字段，不能据状态反推具体用户操作。

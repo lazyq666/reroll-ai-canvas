@@ -554,6 +554,10 @@ class CanvasSync:
                     )
             raise
 
+    def workspace_identity(self) -> str:
+        """Current content boundary, also sent with editor snapshots."""
+        return str(self._workspace_id() or "")
+
     def read(
         self,
         canvas_id: str,
@@ -1051,6 +1055,7 @@ class CanvasSync:
                     {
                         "type": "canvas_snapshot",
                         "canvas_id": canvas_id,
+                        "workspace_id": self.workspace_identity(),
                         "client_id": safe_client_id,
                         "revision": revision,
                         "canvas": snapshot,
@@ -1360,12 +1365,14 @@ class CanvasSync:
             return {**copy.deepcopy(receipt), 'operation_id': operation_id, 'changes': copy.deepcopy(record.get('changes', {}))}
         return None
 
-    async def commit_prepared_operation(self, canvas_id, actor, operation_id, prepare, *, dry_run=False):
+    async def commit_prepared_operation(self, canvas_id, actor, operation_id, prepare, *, dry_run=False, readback=None):
         """Resolve a server intent and commit under the same per-Canvas lock.
 
         The callback receives the authorized current projection and prior receipt.
         This keeps reference resolution and exact spatial planning indivisible
         with respect to other Canvas mutations, including Generation Outputs.
+        Optional readback projects the persisted document under this same lock;
+        it must be read-only. Dry runs and duplicate receipts skip this callback.
         """
         async with self._operation_lock(canvas_id):
             canvas = await self._run_store(self.read, canvas_id, actor)
@@ -1382,7 +1389,11 @@ class CanvasSync:
             self._remember_revision(canvas_id, int(outgoing.get('revision') or 0))
             if not target_only:
                 await self._notifier.broadcast_canvas_message(canvas_id, outgoing)
-            return {**result, 'revision': outgoing.get('revision')}
+            result = {**result, 'revision': outgoing.get('revision')}
+            if readback is not None:
+                persisted = await self._run_store(self.read, canvas_id, actor)
+                result = readback(persisted, result)
+            return result
 
     async def commit_staged_operation(
         self, canvas_id: str, actor: Dict[str, Any],

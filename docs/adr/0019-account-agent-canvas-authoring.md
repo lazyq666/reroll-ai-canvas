@@ -54,3 +54,30 @@ Agent Run Request 保存在 Workspace 的 Canvas SQLite authority，由同账号
 
 本功能增加 Instance 配对、令牌表及 Workspace 的运行意图、上传授权与非画布调用回执。
 画布内容、Mutation 历史和输出依旧由原有权威负责；上传授权不能成为绕过 Private Canvas 的入口。
+
+## 2026-10-22：持久化节点读取与修改闭环
+
+[LAZ-89](https://linear.app/lazyq/issue/LAZ-89) 的 P0 通过同一 Agent API 增加
+完整节点详情和原生 MCP 图片预览，并扩展原更新入口。读取投影解析已保存的
+Prompt Authoring / Smart Group / Reference Input Instance 状态，与编辑器现有函数
+使用相同 fixture 对照；它不编译 Provider 请求，不承担运行时 Loop/Splitter 求值。
+因此浏览器关闭时可以读、看图和保存，执行仍保持上述编辑端边界。
+
+节点版本使用目标节点与有效输入依赖的内容指纹，避免其他节点更新造成无谓冲突。
+Canvas Sync 在同一操作锁内检查版本、原子保存并读取存储结果；原 Mutation 回执
+保留完整结果快照，使断线重试和后续节点编辑并存。没有第二个 Canvas 写入者或
+独立编辑日志。直接附带的旧素材经当前 Canvas 授权后才可预览；服务端只读取现有
+Managed Media resolver 返回的受控路径，桥接不接收服务器任意路径。
+
+与新增后端生成编译器相比，这个选择保持当前生成责任不变；代价是读取投影必须
+随 JS 引用合同同步演进，使用同数据对照测试防止漂移。接口、兼容策略与限制以
+[节点修改 Current 合同](../current/agent-task-editing.md)为准。
+
+## 2026-10-23：以持久对象身份交接给 Agent
+
+[LAZ-90](https://linear.app/lazyq/issue/LAZ-90) 的节点引用携带 Workspace、Canvas 和明确的 Node ID。
+编辑器通过现有 Canvas Sync 确认保存后，再由同账号只读检查全部目标，才完成复制。Agent 读取
+使用当前 Workspace 与既有 Account 授权，整份验证后读取一个持久快照；直接路由不改变 MCP
+已锁定的 Canvas。与依赖短期 Editor Context 或复制内容快照相比，这让选区变化和编辑器关闭
+不影响定位，代价是失效对象必须明确失败；后续修改仍需独立的权限和版本检查。协议、容量、
+错误与交互见[节点引用合同](../current/node-references.md)，不新增授权能力或跨节点编辑事务。

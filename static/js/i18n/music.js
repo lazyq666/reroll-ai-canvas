@@ -22,9 +22,20 @@
 "music.optionalTitle": {"zh": "歌名（可选）", "en": "Song title (optional)"},
 "music.resetDraft": {"zh": "清空创作草稿", "en": "Clear creation draft"},
 "music.draftCleared": {"zh": "已清空创作草稿", "en": "Creation draft cleared."},
-"music.recentMusic": {"zh": "最近生成", "en": "Recent generations"},
-"music.readyToPlay": {"zh": "可试听", "en": "Ready to play"},
 "music.workspace": {"zh": "我的工作区", "en": "My workspace"},
+"music.recordActions": {"zh": "记录操作", "en": "Record actions"},
+"music.deleteRecord": {"zh": "删除记录", "en": "Delete record"},
+"music.deleteRecordQuestion": {"zh": "删除这条失败记录？", "en": "Delete this failed record?"},
+"music.deleteRecordHint": {"zh": "将永久删除记录内容及未被使用的本地关联文件，无法撤销。共享或仍在使用的文件会保留。", "en": "Permanently delete this record and its unused local files. This cannot be undone. Shared files and files still in use will be kept."},
+"music.recordDeleted": {"zh": "记录及未使用的本地文件已删除", "en": "Record and unused local files deleted."},
+"music.recordDeletedRetained": {"zh": "记录已删除，共享或仍在使用的文件已保留", "en": "Record deleted. Shared files and files still in use were kept."},
+"music.deleteUnavailable": {"zh": "删除服务未就绪，请重启 Reroll 后重试", "en": "Deletion is unavailable. Restart Reroll and try again."},
+"music.cannotDelete": {"zh": "只能删除已结束的失败记录", "en": "Only finished, failed records can be deleted."},
+"music.deleteBusy": {"zh": "工作区正在处理任务，请稍后重试删除", "en": "The workspace is processing tasks. Try deleting again shortly."},
+"music.deleteCloudUnsupported": {"zh": "云端工作区暂不支持删除记录及本地文件", "en": "Deleting records and local files is not yet supported in cloud workspaces."},
+"music.deleteCheckFailed": {"zh": "无法确认关联文件是否仍在使用，记录未删除，请稍后重试", "en": "Unable to check whether linked files are still in use. The record was kept. Try again later."},
+"music.deleteFilesFailed": {"zh": "部分本地文件未能删除，记录已保留，请重试", "en": "Some local files could not be deleted. The record was kept. Try again."},
+"music.deleteFailed": {"zh": "未能确认删除结果，请重试；已完成的删除不会重复执行", "en": "Unable to confirm deletion. Try again; completed deletions will not run twice."},
 "music.addAudio": {"zh": "参考音频", "en": "Audio"},
 "music.personaId": {"zh": "Persona ID", "en": "Persona ID"},
 "music.moreOptions": {"zh": "更多设置", "en": "More options"},
@@ -43,8 +54,6 @@
 "music.sort": {"zh": "排序", "en": "Sort"},
 "music.newest": {"zh": "最新优先", "en": "Newest first"},
 "music.oldestUnavailable": {"zh": "最早优先（暂不可用）", "en": "Oldest first (unavailable)"},
-"music.libraryUnavailable": {"zh": "收藏和跨全部历史的最早排序暂不可用", "en": "Favorites and oldest-first sorting across all history are not available yet."},
-"music.loadedTracks": {"zh": "已加载 {count} 首", "en": "{count} tracks loaded"},
 "music.player": {"zh": "音乐播放器", "en": "Music player"},
 "music.previousTrack": {"zh": "上一首", "en": "Previous track"},
 "music.nextTrack": {"zh": "下一首", "en": "Next track"},
@@ -101,13 +110,9 @@
         "zh": "音乐生成",
         "en": "Music generation"
     },
-    "music.cardDescription": {
-        "zh": "用文字或参考音频创作音乐",
-        "en": "Create music from a description or reference audio."
-    },
-    "music.enter": {
-        "zh": "开始创作",
-        "en": "Start creating"
+    "music.openSuno": {
+        "zh": "进入 Suno 音乐创作",
+        "en": "Create music with Suno"
     },
     "music.back": {
         "zh": "返回",
@@ -622,14 +627,6 @@
     "music.chooseAudio": {
         "zh": "选择音频",
         "en": "Choose audio"
-    },
-    "music.referenceLimit": {
-        "zh": "每首不超过 50 MB",
-        "en": "Up to 50 MB per file"
-    },
-    "music.hostingHint": {
-        "zh": "生成时临时公开托管音频",
-        "en": "Generating temporarily hosts your audio at publicly accessible links."
     },
     "music.setAudioWeight": {
         "zh": "调整参考",
