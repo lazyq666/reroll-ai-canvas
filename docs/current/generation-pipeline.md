@@ -655,6 +655,15 @@ APIMart 文档声明：`size` 覆盖提示词中的 `--ar`；`hd` / `--hd` 仅�
 `surface=suno` 查询现有 Run，包含失败记录；SQLite 使用时间和 ID 游标，旧 JSON Workspace
 使用同一语义的内存投影。记录持有的音频引用沿用媒体清理保护。
 
+本人已结束的失败音乐记录可通过 `DELETE /api/music/runs/{id}` 显式删除。
+服务端在同一媒体清理排空锁内回收该记录关联且未被其他内容或会话保护的本地文件，
+再清除权威 Run 中的请求、参数、错误、参考、远端编号、Provider 输出与结果。
+保留不含用户内容的最小 operation 回执，旧幂等键返回冲突，不能重新触发收费；
+音乐列表、详情和引用入口不再返回这条记录。文件检查/删除失败保留记录供重试；
+部分已删文件不恢复，重复删除幂等成功。活动任务、其他账号和云端权威不支持此操作。
+这是 [ADR-0019](../adr/0019-failed-music-record-erasure.md) 规定的局部例外，
+其他 History 删除与媒体回收仍遵循现有独立流程。
+
 已有文件的下载不调用 Provider；准备其他格式是独立收费任务，以账号、来源 Run、曲目序号、
 排序去重后的格式组合复用回执，刷新和后端重启后仍有效。终态失败不提供无效的继续查询动作。
 
@@ -664,6 +673,7 @@ APIMart 文档声明：`size` 覆盖提示词中的 `--ar`；`hd` / `--hd` 仅�
 | --- | --- |
 | 同一 Run 多槽位原子交付、任务回执迟到、部分槽位替换及刷新幂等 | `tests/test_canvas_store.py`、`tests/shared_run_slots_browser_app.py` + `tests/shared_run_slots_browser_test.cjs`（真实 SQLite / HTTP / WebSocket，固定 Provider 结果） |
 | Suno 参数、账号隔离、音乐查询恢复、媒体保存与收费下载回执 | `tests/test_music_lab.py`、`tests/music_lab_browser.cjs` |
+| 失败音乐记录清除、JSON/SQLite 重启、旧收费请求防重及共享媒体保护 | `tests/test_music_record_deletion.py`、`tests/test_music_record_deletion_http.py`、`tests/music_lab_browser.cjs --deletion-only` |
 | Generation Run 生命周期、去重、恢复和迟到结果 | `tests/test_generation_runs.py` |
 | Depth Anything 模型清单、下载校验、推理合同、本地执行器、HTTP Target Guard 与真实页面生命周期 | `tests/test_depth_processor.py`、`tests/test_local_image_processor.py`、`tests/test_issue_152_depth_map.py`、`tests/issue_152_depth_map_browser_smoke.cjs` |
 | SQLite 图片/视频/文字 Run、重启、History 分页/删除与通知重放，且 legacy JSON 不变 | `tests/test_generation_runs_sqlite_authority.py`、`tests/test_main_sqlite_authority_integration.py` |

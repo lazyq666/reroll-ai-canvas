@@ -45,6 +45,7 @@
             const response = await fetch('/api/account/agent-pairings');
             if (!response.ok) { await close(); return; }
             snapshot = await response.json();
+            window.dispatchEvent(new Event('agent-pairing-change'));
             if (current) {
                 if (!snapshot.requests.some(item=>item.id===current.id)) await close();
                 return;
@@ -71,6 +72,7 @@
         finally { polling = false; }
     }
     window.addEventListener('studio-lang-change',render);
+    window.AgentPairing = { pending: () => Boolean(snapshot?.requests?.length), review: poll };
     document.addEventListener('visibilitychange',poll);
     setInterval(poll, 3000);
     poll();

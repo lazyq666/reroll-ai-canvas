@@ -206,6 +206,10 @@ _Avoid_: 画布、画布框、框架（中文界面名称）, Smart Group, Secti
 可在 Smart Canvas 之间移动的一组 Node、其内部 Connection 和相关资源。
 _Avoid_: Workflow, Smart Cascade, Clipboard
 
+**Node Reference（节点引用）**:
+用于向 Agent 指明一个 Workspace、Canvas 和一组明确 Node 身份的定位文本；它读取最新持久内容，不授予访问权限，也不固定内容快照。
+_Avoid_: Share Link, Node Package, Reference Input Instance, 节点深链接
+
 **Reference Input Instance（参考输入实例）**:
 某个媒体在 Prompt Authoring 或 Generation Run 输入中的一次独立出现；同一媒体重复引用时，每次出现仍保持独立身份。
 _Avoid_: Media URL, Generation Output, Source File

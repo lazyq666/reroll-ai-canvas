@@ -6,7 +6,7 @@
         await mountMusicPrototype();
         return;
     }
-    await Promise.all(['ic-button', 'ic-select', 'ic-radio-group', 'ic-checkbox', 'ic-textarea', 'ic-input', 'ic-slider', 'ic-number-input', 'ic-dialog', 'ic-icon-button', 'ic-alert', 'ic-toast', 'ic-segmented-control', 'ic-icon'].map(name => customElements.whenDefined(name)));
+    await Promise.all(['ic-button', 'ic-select', 'ic-radio-group', 'ic-checkbox', 'ic-textarea', 'ic-input', 'ic-slider', 'ic-number-input', 'ic-dialog', 'ic-icon-button', 'ic-alert', 'ic-toast', 'ic-segmented-control', 'ic-icon', 'ic-generation-pending', 'ic-menu', 'ic-menu-item'].map(name => customElements.whenDefined(name)));
     const { createStackedFeedbackQueue } = await import('/static/js/infinite-canvas-ui/feedback-progress/stacked-feedback-queue.js?v=asset-b6a51c897f96');
     const $ = id => document.getElementById(id);
     const tr = key => window.StudioI18n.t(key);
@@ -14,7 +14,8 @@
     const active = new Set(['queued', 'running', 'pending', 'in_progress', 'processing']);
     const state = { records: new Map(), selected: '', selectedIndex: null, downloadTrack: null, example: 0, exporting: new Set(), cursor: '', busy: false, loading: false,
         references: [], config: null, configLoading: false, historyError: '', notices: new Map(), toasts: new Map(),
-        detailSignature: '', view: 'create', search: '', filter: 'all', sessionRuns: new Set(), playing: null, playerSignature: '', failedArtwork: new Set(), librarySignatures: new Map(), receipts: new Map(), formats: new Map() };
+        detailSignature: '', view: 'create', search: '', filter: 'all', sessionRuns: new Set(), playing: null, playerSignature: '', failedArtwork: new Set(), librarySignatures: new Map(), receipts: new Map(), formats: new Map(),
+        deletedRecords: new Set(), deleteTarget: null, deleting: false, menuRecord: '', menuAnchor: null };
     const feedbackStacks = new Map(['musicFeedback', 'detailFeedback'].map(id => [id, createStackedFeedbackQueue({
         edge: 'start', visibleCount: 3, stackStepPx: 19, scaleStep: .045, exitDuration: 200,
         setPresented: (alert, visible) => alert.toggleAttribute('data-ic-stack-hidden', !visible),
@@ -80,6 +81,7 @@
             const response = await fetch('/api/music' + path, { ...options, signal: controller.signal,
                 headers: { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...options.headers } });
             const data = await response.json().catch(() => null);
+            const fallback = options.method === 'DELETE' ? 'music.deleteFailed' : options.method === 'POST' ? 'music.networkError' : 'music.loadFailed';
             if (response.status === 401 && !data?.detail?.code) throw new Error('music.sessionExpired');
             if (response.status === 403 && !data?.detail?.code) throw new Error('music.accessDenied');
             if (response.status === 404 && !data?.detail?.code) throw new Error('music.serviceUnavailable');
@@ -93,9 +95,9 @@
                     return String(entry.msg).match(/music\.[A-Za-z]+/)?.[0];
                 }).find(Boolean);
                 throw new Error(code === 'music.invalidLyrics' && ($('lyricsMode').value === 'automatic') ? 'music.invalidTheme'
-                    : code || (response.status === 422 ? 'music.invalidSettings' : options.method === 'POST' ? 'music.networkError' : 'music.loadFailed'));
+                    : code || (response.status === 422 ? 'music.invalidSettings' : fallback));
             }
-            if (!data) throw new Error(options.method === 'POST' ? 'music.networkError' : 'music.loadFailed');
+            if (!data) throw new Error(fallback);
             return data;
         } finally { clearTimeout(timer); }
     }
@@ -112,7 +114,7 @@
     function invalidField(key, id) {
         const error = new Error(key); error.fieldId = id; return error;
     }
-    function operation() { return state.references.length ? $('referenceMode').value : 'generate'; }
+    function operation() { return state.references.length ? $('referenceMode').getAttribute('value') : 'generate'; }
     function coverTags() { return ($('musicType').checked ? [$('prompt').value, $('style').value] : [$('style').value]).map(value => String(value || '').trim()).filter(Boolean).join(', '); }
     function coverError() {
         if (operation() === 'inspo' && $('musicType').checked) return 'music.inspireInstrumental';
@@ -134,6 +136,7 @@
         $('version').disabled = state.busy;
         $('composerMode').toggleAttribute('disabled', state.busy);
         $('referenceMode').hidden = !reference;
+        $('referenceMode').toggleAttribute('disabled', state.busy);
         $('lyricsMode').hidden = false; $('lyricsMode').disabled = instrumental;
         $('referenceVoiceHint').hidden = !inspiration;
         $('coverHint').hidden = !cover;
@@ -173,7 +176,8 @@
         if (['style', 'negativeTags', 'duration'].includes(id)) setComposerMode('detailed');
         if ($('advancedOptions').contains($(id))) $('advancedOptions').open = true;
         if (id === 'persona') $('personaDialog').show();
-        $(id).focus();
+        if (id === 'referenceMode') $('referenceMode').querySelector('[aria-checked="true"]')?.focus();
+        else $(id).focus();
     }
     function setComposerMode(mode) {
         $('composerMode').setAttribute('value', mode);
@@ -452,16 +456,7 @@
                     for (const [index, item] of items.entries()) if (matchesTrack(record, item, query)) tracks.append(libraryTrackCard(record, item, index, exports));
                     row.append(tracks);
                 } else {
-                    // A run without songs still needs its real progress, error and recovery entry.
-                    const heading = text('div', '', 'record-heading');
-                    const open = button('music.recordDetails', () => select(record.id), 'quiet');
-                    open.className = 'history-item'; open.replaceChildren(text('span', recordTitle(record), 'history-title'));
-                    heading.append(open, text('p', `${timestamp(record.created_at)} · ${record.params?.version || 'APIMart'} · ${tr('music.operation.' + record.operation)}`, 'hint'), badge(record)); row.append(heading);
-                    if (active.has(record.status)) row.append(text('p', tr('music.pendingHint'), 'hint'));
-                    if (record.error_code) row.append(text('p', tr(record.error_code), 'history-error'));
-                    const actions = text('div', '', 'track-actions');
-                    if (['generate', 'inspo', 'cover'].includes(record.operation)) actions.append(button('music.reuse', () => reuse(record), 'quiet'));
-                    actions.append(button('music.recordDetails', () => select(record.id), 'quiet')); row.append(actions);
+                    row.append(libraryTrackCard(record, null, null, []));
                 }
                 state.librarySignatures.set(record.id, signature);
                 if (old) old.replaceWith(row);
@@ -470,19 +465,53 @@
             if (next !== row) $('historyList').insertBefore(row, next || null);
         }
         for (const [id, row] of current) if (!present.has(id)) row.remove();
+        if (state.menuAnchor && !state.menuAnchor.isConnected) $('musicRecordMenu').hide('programmatic');
         $('historyStatus').hidden = !state.historyError && visible.length > 0;
         $('clearMusicFilters').hidden = state.loading || !!state.historyError || visible.length > 0 || (!query && state.filter === 'all');
         if (state.historyError || (!visible.length && !state.loading)) {
             const key = state.historyError || (query || state.filter === 'session' ? 'music.noResults' : 'music.emptyHistory');
             $('historyStatus').setAttribute('data-i18n', key); $('historyStatus').textContent = tr(key);
         }
-        $('historyGroupLabel').textContent = tr(state.filter === 'session' ? 'music.sessionMusic' : 'music.recentMusic');
-        $('readyToPlayHint').hidden = !visible.some(record => record.result?.items?.some(item => item.url));
         $('moreHistory').hidden = !state.cursor;
-        $('trackCount').textContent = trf('music.loadedTracks', { count: visible.reduce((n, r) => n + (r.result?.items?.filter(item => matchesTrack(r, item, query)).length || 0), 0) });
         updatePlayer(); renderDownload();
     }
     function select(id, index = null) { state.selected = id; state.selectedIndex = index; renderHistory(); renderDetail(); $('recordDialog').show(); }
+    function openRecordMenu(record, anchor) {
+        const menu = $('musicRecordMenu');
+        if (menu.hasAttribute('open') && state.menuAnchor === anchor) { menu.hide('trigger'); return; }
+        state.menuRecord = record.id; state.menuAnchor = anchor; menu.show(anchor);
+    }
+    function showDeleteRecord(record) {
+        if (!record || record.status !== 'failed' || state.deleting) return;
+        state.deleteTarget = record;
+        $('deleteRecordName').textContent = recordTitle(record); $('deleteRecordName').title = recordTitle(record);
+        $('deleteRecordError').hidden = true; $('deleteRecordError').removeAttribute('data-i18n');
+        $('deleteRecordDialog').show();
+    }
+    async function deleteRecord() {
+        if (!state.deleteTarget || state.deleting) return;
+        const id = state.deleteTarget.id;
+        state.deleting = true; $('confirmDeleteRecord').loading = true; $('cancelDeleteRecord').disabled = true;
+        $('deleteRecordError').hidden = true;
+        try {
+            const result = await api('/runs/' + encodeURIComponent(id), { method: 'DELETE' });
+            state.deletedRecords.add(id); state.records.delete(id); state.sessionRuns.delete(id); state.librarySignatures.delete(id);
+            const removedReferences = state.references.filter(ref => ref.run_id === id);
+            if (removedReferences.includes(state.playing?.reference)) clearPlayer();
+            state.references = state.references.filter(ref => ref.run_id !== id);
+            if (state.selected === id) { state.selected = ''; state.selectedIndex = null; await $('recordDialog').hide(); }
+            renderReferences(); updateForm(); renderHistory(); renderDetail(true);
+            state.deleting = false;
+            await $('deleteRecordDialog').hide();
+            $('refreshMusic').focus();
+            notify(result.retained_count ? 'music.recordDeletedRetained' : 'music.recordDeleted', 'success');
+        } catch (error) {
+            const key = errorKey(error, 'music.deleteFailed');
+            $('deleteRecordError').setAttribute('data-i18n', key); $('deleteRecordError').textContent = tr(key); $('deleteRecordError').hidden = false;
+        } finally {
+            state.deleting = false; $('confirmDeleteRecord').loading = false; $('cancelDeleteRecord').disabled = false;
+        }
+    }
     function clearFilters() {
         state.search = ''; state.filter = 'all'; $('searchMusic').value = '';
         for (const item of $('libraryFilter').querySelectorAll('[data-value]')) {
@@ -602,11 +631,30 @@
         icon.setAttribute('slot', 'start'); icon.setAttribute('size', 'x-small'); icon.setAttribute('aria-hidden', 'true');
         control.prepend(icon); return control;
     }
+    function runArtwork(record) {
+        const box = text('div', '', 'track-artwork track-status-artwork');
+        if (active.has(record.status)) {
+            const pending = document.createElement('ic-generation-pending');
+            pending.setAttribute('kind', 'image');
+            pending.setAttribute('state', record.status === 'queued' ? 'queued' : 'generating');
+            pending.setAttribute('count', '1');
+            pending.setAttribute('label', tr(statusKey(record)));
+            box.append(pending);
+        } else {
+            const icon = document.createElement('ic-icon');
+            icon.setAttribute('name', record.status === 'failed' ? 'error' : 'audio-lines');
+            icon.setAttribute('size', 'medium'); icon.setAttribute('aria-hidden', 'true');
+            box.append(icon, text('span', tr(statusKey(record)), 'track-artwork-status'));
+            box.setAttribute('role', 'img'); box.setAttribute('aria-label', tr(statusKey(record)));
+        }
+        return box;
+    }
     function libraryTrackCard(record, item, index, exports) {
-        const card = text('article', '', 'library-track'); card.dataset.trackKey = record.id + ':' + index;
-        const title = item.title || trf('music.track', { number: item.audio_index || index + 1 });
-        const art = artwork(item, title); card.append(art);
-        if (item.url) {
+        const card = text('article', '', 'library-track'); card.dataset.state = record.status;
+        if (item) card.dataset.trackKey = record.id + ':' + index;
+        const title = item ? item.title || trf('music.track', { number: item.audio_index || index + 1 }) : recordTitle(record);
+        const art = item ? artwork(item, title) : runArtwork(record); card.append(art);
+        if (item?.url) {
             art.setAttribute('role', 'group');
             const overlay = text('div', '', 'artwork-controls');
             const play = document.createElement('ic-icon-button'); play.setAttribute('shape', 'pill'); play.dataset.playKey = record.id + ':' + index;
@@ -616,10 +664,14 @@
         }
         const copy = text('div', '', 'track-copy'), heading = text('div', '', 'track-heading');
         const open = button('music.recordDetails', () => select(record.id, index), 'quiet');
-        open.className = 'history-item track-title'; open.setAttribute('size', 'xs'); open.replaceChildren(text('strong', title));
+        open.className = 'history-item track-title'; open.setAttribute('size', 'xs'); open.title = title; open.replaceChildren(text('strong', title));
         const version = record.params?.version || 'Suno';
         heading.append(open, text('span', `${version.toUpperCase()} · ${tr('music.operation.' + record.operation)}`, 'track-version'));
-        copy.append(heading, text('p', item.display_tags || item.tags || record.params?.style || record.params?.tags || record.params?.prompt || '', 'track-description'));
+        if (!item && active.has(record.status)) heading.append(text('span', tr(statusKey(record)), 'track-version'));
+        const description = !item && record.error_code ? tr(record.error_code)
+            : item?.display_tags || item?.tags || record.params?.style || record.params?.tags || record.params?.prompt || '';
+        const detail = text('p', description, 'track-description'); detail.title = description;
+        copy.append(heading, detail);
         const actions = text('div', '', 'track-actions');
         const favorite = document.createElement('ic-icon-button'); favorite.setAttribute('shape', 'pill'); favorite.setAttribute('icon', 'heart');
         favorite.setAttribute('size', 'xs'); favorite.setAttribute('background', 'ghost'); favorite.disabled = true;
@@ -628,28 +680,30 @@
             const reuseButton = actionIcon(button('music.reuse', () => reuse(record), 'quiet'), 'restore');
             reuseButton.setAttribute('size', 'xs'); reuseButton.setAttribute('shape', 'pill'); actions.append(reuseButton);
         }
-        if (item.url) {
+        if (item?.url) {
             const save = button('music.download', () => openDownload(record.id, index), 'quiet');
             save.textContent = tr('music.downloadAction');
             save.setAttribute('size', 'xs'); save.setAttribute('shape', 'pill'); actions.append(actionIcon(save, 'download'));
-        } else copy.append(text('p', tr('music.noPlayback'), 'hint'));
+        } else if (item) copy.append(text('p', tr('music.noPlayback'), 'hint'));
         for (const [name, key, handler] of [
             ['restore', 'music.reuse', () => reuse(record)], ['download', 'music.downloadAction', () => openDownload(record.id, index)],
         ]) {
-            if (name === 'download' && !item.url) continue;
+            if (name === 'download' && !item?.url) continue;
             if (name === 'restore' && !['generate', 'inspo', 'cover'].includes(record.operation)) continue;
             const compact = document.createElement('ic-icon-button'); compact.className = 'mobile-track-action';
             compact.setAttribute('icon', name); compact.setAttribute('label', tr(key)); compact.setAttribute('size', 'xs'); compact.setAttribute('shape', 'pill'); compact.setAttribute('background', 'ghost');
             compact.addEventListener('click', handler); actions.append(compact);
         }
         copy.append(actions);
-        for (const output of exports.filter(output => output.params?.audio_index === item.audio_index)) {
+        for (const output of exports.filter(output => item && output.params?.audio_index === item.audio_index)) {
             const openExport = button('music.exportFormats', () => select(output.id), 'quiet'); openExport.setAttribute('size', 'xs');
             openExport.textContent = `${tr('music.exportFormats')} · ${tr(statusKey(output))}`; copy.append(openExport);
         }
         const details = document.createElement('ic-icon-button'); details.setAttribute('shape', 'pill'); details.className = 'track-more';
         details.setAttribute('icon', 'more'); details.setAttribute('size', 'small'); details.setAttribute('background', 'ghost');
-        details.setAttribute('label', tr('music.recordDetails')); details.addEventListener('click', () => select(record.id, index));
+        details.setAttribute('label', tr(record.status === 'failed' ? 'music.recordActions' : 'music.recordDetails'));
+        if (record.status === 'failed') details.setAttribute('aria-haspopup', 'menu');
+        details.addEventListener('click', () => record.status === 'failed' ? openRecordMenu(record, details) : select(record.id, index));
         card.append(copy, details); return card;
     }
     function trackCard(record, item, index) {
@@ -773,7 +827,7 @@
         $('version').value = p.version;
         for (const [id, key] of Object.entries({ prompt: 'prompt', songTitle: 'title', style: 'style', negativeTags: 'negative_tags', persona: 'persona_id', vocalGender: 'vocal_gender', variety: 'variety', audioFormat: 'audio_format' })) $(id).value = p[key] ?? (['vocalGender', 'variety', 'audioFormat'].includes(id) ? 'auto' : '');
         $('musicType').checked = !!p.instrumental;
-        $('referenceMode').value = record.operation === 'inspo' ? 'inspo' : 'cover';
+        $('referenceMode').setAttribute('value', record.operation === 'inspo' ? 'inspo' : 'cover');
         $('lyricsMode').value = p.auto_lyrics || (record.operation === 'generate' && !p.custom) ? 'automatic' : 'manual';
         $('maxMode').checked = !!p.max_mode;
         if (record.operation === 'inspo') $('style').value = p.tags || '';
@@ -789,13 +843,14 @@
         if (!quiet) $('refreshMusic').loading = true;
         try {
             const page = await api('/history' + (more && state.cursor ? '?cursor=' + encodeURIComponent(state.cursor) : ''));
-            for (const record of page.items) state.records.set(record.id, record);
+            for (const record of page.items) if (!state.deletedRecords.has(record.id)) state.records.set(record.id, record);
             if (more || !state.cursor || !quiet) state.cursor = page.next_cursor;
             const visibleIds = new Set(page.items.map(item => item.id));
             await Promise.all([...state.records.values()].filter(record => active.has(record.status) && !visibleIds.has(record.id)).map(async record => {
-                const updated = await api('/runs/' + encodeURIComponent(record.id)); state.records.set(updated.id, updated);
+                const updated = await api('/runs/' + encodeURIComponent(record.id));
+                if (!state.deletedRecords.has(updated.id)) state.records.set(updated.id, updated);
             }));
-            if (!state.selected && page.items.length) state.selected = page.items[0].id;
+            if (!state.selected) state.selected = page.items.find(item => !state.deletedRecords.has(item.id))?.id || '';
             state.historyError = ''; clearNotice('historyMessage');
             state.loading = false; renderHistory(); renderDetail();
         } catch (error) {
@@ -854,11 +909,12 @@
         for (const id of ['musicType', 'overrideWeights', 'setAudioWeight', 'setDuration', 'maxMode']) $(id).checked = false;
         for (const id of ['vocalGender', 'variety', 'audioFormat']) $(id).value = 'auto';
         for (const id of ['styleWeight', 'weirdness', 'audioWeight']) $(id).value = 50;
-        $('version').value = 'v6'; $('lyricsMode').value = 'automatic'; $('referenceMode').value = 'cover'; $('duration').value = 60;
+        $('version').value = 'v6'; $('lyricsMode').value = 'automatic'; $('referenceMode').setAttribute('value', 'cover'); $('duration').value = 60;
         $('advancedOptions').open = false; setComposerMode('detailed'); updateForm();
         $('musicForm').scrollTop = 0; clearNotice('musicMessage'); notify('music.draftCleared', 'success');
     });
     $('composerMode').addEventListener('ic-change', event => setComposerMode(event.detail.value));
+    $('referenceMode').addEventListener('ic-change', updateForm);
     $('libraryLayout').addEventListener('click', event => {
         const control = event.target.closest('[data-value]'); if (!control) return;
         $('historyList').dataset.layout = control.dataset.value;
@@ -873,7 +929,7 @@
     $('librarySort').addEventListener('change', () => { $('librarySort').value = 'newest'; });
     $('chooseMoreReferences').addEventListener('click', () => $('referenceFiles').click());
     $('inspireReference').addEventListener('click', () => {
-        $('referenceMode').value = 'inspo'; updateForm(); if (!state.references.length) showReferenceDialog();
+        $('referenceMode').setAttribute('value', 'inspo'); updateForm(); if (!state.references.length) showReferenceDialog();
     });
     $('openPersona').addEventListener('click', () => $('personaDialog').show());
     $('closePersona').addEventListener('click', () => $('personaDialog').hide());
@@ -912,9 +968,19 @@
     $('persona').addEventListener('input', updateForm);
     $('inlinePersona').addEventListener('input', () => { $('persona').value = $('inlinePersona').value; updateForm(); });
     $('recordDialog').addEventListener('ic-after-hide', () => { $('recordDetail').querySelectorAll('audio').forEach(audio => audio.pause()); clearNotice('detailMessage'); });
+    $('musicRecordMenu').addEventListener('ic-select', event => {
+        const record = state.records.get(state.menuRecord);
+        $('musicRecordMenu').hide('selection');
+        if (event.detail.value === 'delete') showDeleteRecord(record);
+        else if (record) select(record.id);
+    });
+    $('confirmDeleteRecord').addEventListener('click', deleteRecord);
+    $('cancelDeleteRecord').addEventListener('click', () => $('deleteRecordDialog').hide());
+    $('deleteRecordDialog').addEventListener('ic-hide', event => { if (state.deleting) event.preventDefault(); });
+    $('deleteRecordDialog').addEventListener('ic-after-hide', () => { state.deleteTarget = null; if (state.menuAnchor?.isConnected) state.menuAnchor.focus(); });
     $('refreshMusic').addEventListener('click', reloadMusic);
     $('moreHistory').addEventListener('click', () => loadHistory(true));
-    for (const id of ['musicType', 'referenceMode', 'lyricsMode', 'overrideWeights', 'setDuration', 'setAudioWeight']) $(id).addEventListener('change', updateForm);
+    for (const id of ['musicType', 'lyricsMode', 'overrideWeights', 'setDuration', 'setAudioWeight']) $(id).addEventListener('change', updateForm);
     for (const id of ['prompt', 'style']) $(id).addEventListener('input', updateForm);
     $('examplePrompt').addEventListener('click', () => {
         $('prompt').value = tr('music.example' + (state.example++ % 3 + 1));
@@ -934,6 +1000,7 @@
     addEventListener('hashchange', route);
     addEventListener('studio-lang-change', () => {
         updateForm(); renderReferences(); renderHistory(); renderDetail(true);
+        if (state.deleteTarget) { $('deleteRecordName').textContent = recordTitle(state.deleteTarget); $('deleteRecordName').title = recordTitle(state.deleteTarget); }
         state.notices.forEach(renderNotice);
         for (const [toast, key] of state.toasts) {
             if (toast.isConnected) toast.textContent = tr(key); else state.toasts.delete(toast);

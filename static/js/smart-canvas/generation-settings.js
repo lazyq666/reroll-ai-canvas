@@ -387,7 +387,8 @@ function activeSettingsSubject(){
 }
 function activeComposerNode(){
     if(!lastComposerNodeId) return null;
-    const id = String(lastComposerNodeId).split(':')[0] || '';
+    // Composer adds this suffix; colons inside the Node ID are part of its identity.
+    const id = String(lastComposerNodeId).replace(/:node$/, '');
     const node = nodes.find(n => n.id === id);
     return isSmartRunnableNode(node) ? node : null;
 }

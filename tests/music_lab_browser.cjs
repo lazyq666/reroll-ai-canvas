@@ -6,6 +6,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const records = []; const submissions = []; let configured = true, failHistory = false, failExport = false, paidExports = 0, startupStatus = process.argv.includes('--missing-service') ? 404 : 200;
+const deletions = [], deletedRecords = new Set(); let failDelete = false, holdNextHistory = null, holdNextDeletion = null;
 const audioBytes = Buffer.alloc(44 + 16000); audioBytes.write('RIFF'); audioBytes.writeUInt32LE(audioBytes.length-8,4); audioBytes.write('WAVEfmt ',8); audioBytes.writeUInt32LE(16,16); audioBytes.writeUInt16LE(1,20); audioBytes.writeUInt16LE(1,22); audioBytes.writeUInt32LE(8000,24); audioBytes.writeUInt32LE(16000,28); audioBytes.writeUInt16LE(2,32); audioBytes.writeUInt16LE(16,34); audioBytes.write('data',36); audioBytes.writeUInt32LE(16000,40);
 function json(res,code,value){res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(value));}
 function completed(record) { record.status='succeeded'; record.result={credits_cost:.5,items:[{kind:'audio',audio_id:'a1',audio_index:1,title:'Rain <script>alert(1)</script>',lyrics:'雨落在窗边\nA quiet night',duration:10.3,image_url:'/assets/test-cover-1.svg',image_large_url:'/assets/test-cover-large-1.svg',url:'/assets/output/a.wav',format:'wav'},{kind:'audio',audio_id:'a2',audio_index:2,title:'Second take',image_url:'/assets/test-cover-missing.png',url:'/assets/output/b.wav',format:'wav'}]}; }
@@ -20,7 +21,11 @@ const server=http.createServer(async(req,res)=>{
  if(pathname==='/api/workspace-storage-settings') return json(res,200,{active:{workspace_directory:'/test'},configured:{}});
  if(['/api/music/config','/api/music/history'].includes(pathname) && startupStatus !== 200) return json(res,startupStatus,{detail:'Not Found'});
  if(pathname==='/api/music/config') return json(res,200,{providers:configured?[{id:'apimart',name:'APIMart'}]:[],versions:['v6','v6-wild','v6-mini'],formats:['mp3','m4a','wav']});
- if(pathname==='/api/music/history') return json(res,failHistory?503:200,failHistory?{}:{items:records,next_cursor:''});
+ if(pathname==='/api/music/history') {
+  const result=failHistory?{}:{items:structuredClone(records),next_cursor:''};
+  if(holdNextHistory){const hold=holdNextHistory;holdNextHistory=null;await new Promise(resolve=>hold(resolve));}
+  return json(res,failHistory?503:200,result);
+ }
  if(pathname.startsWith('/api/music/')){
   let body='';for await(const chunk of req)body+=chunk;
   const multipart=req.headers['content-type']?.startsWith('multipart/form-data');
@@ -32,6 +37,16 @@ const server=http.createServer(async(req,res)=>{
    records.unshift(record);return json(res,202,record);
   }
   const rid=pathname.split('/')[4], record=records.find(item=>item.id===rid);
+  if(req.method==='DELETE'&&pathname==='/api/music/runs/'+rid){
+   deletions.push(rid);
+   if(holdNextDeletion){const hold=holdNextDeletion;holdNextDeletion=null;await new Promise(resolve=>hold(resolve));}
+   if(failDelete)return json(res,409,{detail:{code:'music.deleteFilesFailed'}});
+   if(deletedRecords.has(rid))return json(res,200,{deleted:true,file_count:0,retained_count:0});
+   if(!record)return json(res,404,{detail:{code:'music.notFound'}});
+   if(record.status!=='failed')return json(res,409,{detail:{code:'music.cannotDelete'}});
+   records.splice(records.indexOf(record),1);deletedRecords.add(rid);
+   return json(res,200,{deleted:true,file_count:1,retained_count:1});
+  }
   if(pathname.endsWith('/downloads')){
    if(failExport) return json(res,403,{detail:{code:'music.credentialsRejected'}});
    let output=records.find(item=>item.source_run_id===rid);
@@ -77,7 +92,8 @@ async function assertMediaControls(frame, page) {
  const boxHeight=await frame.locator('#referenceFields').evaluate(el=>el.getBoundingClientRect().height);
  console.log('Create reference card height:',boxHeight);
  assert.ok(boxHeight<=220,'One reference stays in a compact card without a redundant upload placeholder');
- assert.equal(await frame.locator('#referenceMode').evaluate(el=>el.localName),'ic-select');
+ assert.equal(await frame.locator('#referenceMode').evaluate(el=>el.localName),'ic-segmented-control');
+ assert.equal(await frame.locator('#referenceMode').getAttribute('size'),'large');
  assert.equal(await frame.locator('#referenceList audio[controls]').count(),0,'Reference preview uses the shared player');
  await frame.locator('#referenceList [data-reference-play]').click();
  await frame.locator('#playerProgress:not([disabled])').waitFor();
@@ -173,9 +189,157 @@ async function assertCreateLibraryLayout(frame) {
  assert.equal(await frame.locator('.music-record .record-heading').count(),0,'Successful tracks do not repeat a task title above their song titles');
  await frame.locator('.library-track ic-icon-button[icon="heart"] ic-icon[data-icon-status="ready"]').first().waitFor();
 }
+function seedLibraryStates() {
+ for (const [i,status] of ['running','queued','failed','succeeded'].entries()) {
+  const record={id:'state-'+status,status,operation:'cover',created_at:Date.now()/1000-i*1000,provider_id:'apimart',params:{version:'v6',custom:true,title:['夜航','雨后散步','远方的灯','慢一点'][i],prompt:'温柔的钢琴与低音',style:'Ambient piano'},error_code:status==='failed'?'music.contentRejected':'',result:null};
+  record.references=[{name:'reference.wav',size:audioBytes.length,url:'/api/music/runs/'+record.id+'/references/0'}];
+  if(status==='succeeded'){completed(record);record.result.items[0].title=record.params.title;}
+  records.push(record);
+ }
+ // Missing titles fall back to the prompt; both it and provider titles can be much longer than a row.
+ records.find(r=>r.id==='state-running').params.title='';
+ records.find(r=>r.id==='state-running').params.prompt='女巫的解药救了头狼，猎人那一枪卡在了膛，守卫守住了漫长夜晚的最后一道门。'.repeat(8);
+ records.find(r=>r.id==='state-queued').params.title='A very long English song title for the journey beyond the mountains and across the sea '.repeat(6);
+ records.find(r=>r.id==='state-succeeded').result.items[1].title='AnUnbrokenProviderSongTitle'.repeat(16);
+}
+async function assertTrackTextLayout(frame) {
+ await frame.locator('.library-track ic-icon-button[icon="heart"] ic-icon[data-icon-status="ready"]').first().waitFor();
+ const rows=await frame.locator('#historyList').evaluate(root=>[...root.querySelectorAll('.library-track')].map(card=>{
+  const box=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width};};
+  const title=card.querySelector('.track-title strong'),host=card.querySelector('.track-title');
+  return {state:card.dataset.state,card:box(card),copy:box(card.querySelector('.track-copy')),title:box(title),host:box(host),description:box(card.querySelector('.track-description')),icon:box(card.querySelector('.track-actions ic-icon-button[icon="heart"] ic-icon')),versions:[...card.querySelectorAll('.track-version')].map(box),truncated:title.scrollWidth>title.clientWidth,ellipsis:getComputedStyle(title).textOverflow,longTitle:title.textContent.length>100,overflow:card.scrollWidth>card.clientWidth+1};
+ }));
+ for(const row of rows) {
+  assert.ok(Math.abs(row.title.left-row.description.left)<=1,`Song title and description share the same left edge: ${JSON.stringify(row)}`);
+  assert.ok(Math.abs(row.icon.left-row.description.left)<=1,`The first action icon visually aligns with the text: ${JSON.stringify(row)}`);
+  assert.ok(row.title.left>=row.host.left-1&&row.title.right<=row.host.right+1,'Title text stays inside its button');
+  assert.ok(row.host.right<=row.copy.right+1&&row.versions.every(v=>v.left>=row.copy.left-1&&v.right<=row.copy.right+1),'Titles and metadata stay in the text column');
+  assert.ok(row.versions.every(v=>v.top>=row.title.bottom-1||v.bottom<=row.title.top+1||v.left>=row.title.right),'Title text never covers model or status labels');
+  assert.equal(row.overflow,false,'Long text must not overflow a row or grid cell');
+  if(row.longTitle){assert.equal(row.truncated,true,'Long titles are constrained to available space');assert.equal(row.ellipsis,'ellipsis');}
+ }
+}
+async function assertLibraryStates(frame,page) {
+ const row=status=>frame.locator('[data-run-id="state-'+status+'"]');
+ await assertTrackTextLayout(frame);
+ await frame.locator('#historyList').screenshot({path:'/private/tmp/suno-library-alignment-final.png'});
+ const fullPrompt=records.find(r=>r.id==='state-running').params.prompt;
+ assert.equal(await row('running').locator('.track-title').getByRole('button').getAttribute('title'),fullPrompt,'Hover retains the complete title');
+ await row('running').locator('.track-title').getByRole('button').press('Enter');
+ await frame.locator('#recordDetail .settings-details > summary').click();
+ await frame.locator('#recordDetail').getByText(fullPrompt,{exact:true}).waitFor();
+ await page.keyboard.press('Escape');await frame.locator('#recordDialog').waitFor({state:'hidden'});
+ await row('succeeded').locator('.track-title').first().click();
+ await frame.locator('#recordDetail h2').getByText('慢一点',{exact:true}).waitFor();
+ await page.keyboard.press('Escape');await frame.locator('#recordDialog').waitFor({state:'hidden'});
+ for(const status of ['running','queued','failed']) {
+  assert.equal(await row(status).locator('.library-track').count(),1,status+' uses the same song row as completed music');
+  assert.equal(await row(status).locator('[data-play-key]').count(),0,'Unfinished audio must not offer playback');
+  const shape=await row(status).locator('.library-track').evaluate(el=>{const art=el.querySelector('.track-artwork').getBoundingClientRect();return {height:el.getBoundingClientRect().height,width:art.width,artHeight:art.height};});
+  assert.equal(shape.height,109,'State rows preserve the regular song height');assert.equal(shape.width,80);assert.equal(shape.artHeight,80);
+ }
+ const pending=row('running').locator('ic-generation-pending');
+ assert.equal(await pending.getAttribute('kind'),'image');assert.equal(await pending.getAttribute('state'),'generating');
+ assert.equal(await row('queued').locator('ic-generation-pending').getAttribute('state'),'queued');
+ assert.equal(await pending.evaluate(el=>el.shadowRoot.querySelector('[part="base"]').getBoundingClientRect().height),78,'The animation fits inside the 80px cover and its 1px border without cropping');
+ await pending.evaluate(el=>el.dataset.identity='retained');await frame.locator('#refreshMusic').click();
+ assert.equal(await pending.getAttribute('data-identity'),'retained','Unchanged polling keeps the animation instance');
+ assert.equal(await row('failed').locator('.track-artwork ic-icon[name="error"]').count(),1);
+ await row('failed').getByText('平台内容审核未通过，请核对音频与描述',{exact:true}).waitFor();
+ await row('failed').locator('.track-more').click();await frame.locator('#musicRecordMenu [value="details"]').click();await frame.locator('#recordDetail').getByText('平台内容审核未通过，请核对音频与描述',{exact:true}).waitFor();await page.keyboard.press('Escape');
+ await frame.locator('#referenceFiles').setInputFiles({name:'reference.wav',mimeType:'audio/wav',buffer:audioBytes});
+ const mode=frame.locator('#referenceMode');assert.equal(await mode.evaluate(el=>el.localName),'ic-segmented-control');assert.equal(await mode.getAttribute('size'),'large');
+ await mode.getByRole('radio',{name:'灵感 Inspire',exact:true}).click();assert.equal(await mode.getAttribute('value'),'inspo');
+ assert.equal(await frame.locator('#setDuration').evaluate(el=>el.disabled),true,'Segmented selection updates dependent controls');
+ await mode.getByRole('radio',{name:'灵感 Inspire',exact:true}).press('ArrowLeft');assert.equal(await mode.getAttribute('value'),'cover');
+ assert.equal(await frame.locator('#setDuration').evaluate(el=>el.disabled),false);
+ await page.locator('#lang-toggle-btn').click();await row('failed').getByText('The provider rejected the audio or prompt during content review.',{exact:true}).waitFor();
+ assert.equal(await mode.getAttribute('aria-label'),'Reference mode');assert.equal(await pending.getAttribute('label'),'Processing');
+ await assertTrackTextLayout(frame);
+ await frame.locator('#libraryLayout [data-value="grid"]').click();
+ const grid=await frame.locator('#historyList').evaluate(el=>[...el.querySelectorAll('.library-track')].map(card=>{const a=card.querySelector('.track-artwork').getBoundingClientRect();return {width:card.getBoundingClientRect().width,artWidth:a.width,artHeight:a.height};}));
+ assert.ok(Math.max(...grid.map(r=>r.width))-Math.min(...grid.map(r=>r.width))<2,'All states occupy one equal grid cell');
+ assert.ok(grid.every(r=>Math.abs(r.artWidth-r.artHeight)<1),'Every grid cover is square');
+ await assertTrackTextLayout(frame);
+ await page.screenshot({path:'/private/tmp/suno-states-grid.png'});
+ await frame.locator('#libraryLayout [data-value="list"]').click();
+ for(const theme of ['light','dark']){if(await page.locator('html').getAttribute('data-ui-theme')!==theme) await page.locator('#theme-toggle-btn').click();await frame.locator('html[data-ui-theme="'+theme+'"]').waitFor();await page.screenshot({path:'/private/tmp/suno-states-'+theme+'.png'});}
+ await page.setViewportSize({width:390,height:844});await frame.locator('#musicView ic-radio[value="library"]').click();
+ assert.equal(await frame.locator('html').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
+ await assertTrackTextLayout(frame);
+ await page.screenshot({path:'/private/tmp/suno-states-narrow.png'});
+ await frame.locator('#libraryLayout [data-value="grid"]').click();await assertTrackTextLayout(frame);
+ await frame.locator('#libraryLayout [data-value="list"]').click();
+ const run=records.find(r=>r.id==='state-running');run.status='failed';run.error_code='music.hostingFailed';await frame.locator('#refreshMusic').click();
+ await row('running').getByText('Audio hosting failed. Generation has not been submitted.',{exact:true}).waitFor();
+ assert.equal(await row('running').locator('ic-generation-pending').count(),0,'Failure removes the animation');
+ completed(run);await frame.locator('#refreshMusic').click();await row('running').locator('[data-play-key]').first().waitFor();
+ assert.equal(await row('running').locator('.library-track').count(),2,'Completion replaces one task row with its real songs');
+ assert.equal(await row('running').locator('ic-generation-pending').count(),0);
+ assert.equal(submissions.length,0,'Viewing and switching modes never submits generation');
+}
+async function assertLibraryDeletion(frame,page) {
+ const failed=frame.locator('[data-run-id="state-failed"]');
+ const openDelete=async()=>{
+  await failed.locator('.track-more').getByRole('button').press('Enter');
+  await frame.locator('#musicRecordMenu [value="delete"]').click();
+  await frame.locator('#deleteRecordDialog').getByRole('dialog').waitFor();
+  await frame.locator('#deleteRecordDialog').evaluate(el=>el.show());
+ };
+ await failed.getByRole('button',{name:'沿用设置',exact:true}).click();
+ assert.equal(await frame.locator('#referenceList .reference-card').count(),1);
+ await frame.locator('[data-run-id="state-succeeded"] [data-play-key]').first().click();
+ await frame.locator('#playerAudio').evaluate(el=>{el.pause();el.dataset.identity='preserved';});
+ const source=await frame.locator('#playerAudio').getAttribute('src');
+ await openDelete();await frame.locator('#cancelDeleteRecord').click();
+ await frame.locator('#deleteRecordDialog').getByRole('dialog').waitFor({state:'hidden'});
+ assert.equal(deletions.length,0,'Cancel never requests deletion');
+ await openDelete();await page.keyboard.press('Escape');await frame.locator('#deleteRecordDialog').getByRole('dialog').waitFor({state:'hidden'});
+ assert.equal(deletions.length,0,'Escape never requests deletion');
+ await openDelete();
+ await page.screenshot({path:'/private/tmp/suno-delete-confirm-zh.png'});
+ await page.locator('#lang-toggle-btn').click();await frame.locator('#deleteRecordDialog[label="Delete this failed record?"]').waitFor({state:'attached'});
+ assert.equal(await frame.locator('#confirmDeleteRecord').innerText(),'Delete record');
+ assert.match(await frame.locator('#deleteRecordDialog').innerText(),/Shared files and files still in use/);
+ failDelete=true;await frame.locator('#confirmDeleteRecord').click();
+ await frame.locator('#deleteRecordError').getByText('Some local files could not be deleted. The record was kept. Try again.',{exact:true}).waitFor();
+ assert.equal(await failed.count(),1,'File deletion failures leave the record and retry available');
+ await page.locator('#lang-toggle-btn').click();await frame.locator('#deleteRecordError').getByText('部分本地文件未能删除，记录已保留，请重试',{exact:true}).waitFor();
+ await page.locator('#theme-toggle-btn').click();await frame.locator('html[data-ui-theme="dark"]').waitFor();
+ await page.screenshot({path:'/private/tmp/suno-delete-error-dark.png'});
+ await page.setViewportSize({width:390,height:844});
+ assert.equal(await frame.locator('#deleteRecordDialog').getByRole('dialog').evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}),true,'The confirmation fits a narrow viewport');
+ await page.screenshot({path:'/private/tmp/suno-delete-narrow.png'});
+ await page.setViewportSize({width:1500,height:1050});
+ await frame.locator('#cancelDeleteRecord').click();await frame.locator('#deleteRecordDialog').getByRole('dialog').waitFor({state:'hidden'});
+ failDelete=false;
+ let releaseHistory;const captured=new Promise(resolve=>{holdNextHistory=release=>{releaseHistory=release;resolve();};});
+ await frame.locator('#refreshMusic').click();await captured;
+ let releaseDeletion;const deleting=new Promise(resolve=>{holdNextDeletion=release=>{releaseDeletion=release;resolve();};});
+ await openDelete();await frame.locator('#confirmDeleteRecord').click();
+ await deleting;
+ assert.equal(await frame.locator('#cancelDeleteRecord').evaluate(el=>el.disabled),true,'Cancellation is disabled while deletion is committing');
+ await page.keyboard.press('Escape');
+ await frame.locator('#deleteRecordDialog').getByRole('dialog').waitFor();
+ await frame.locator('#confirmDeleteRecord').evaluate(el=>el.click());
+ assert.equal(deletions.length,2,'A repeated click cannot send another deletion');
+ releaseDeletion();
+ await failed.waitFor({state:'detached'});releaseHistory();
+ await frame.locator('#refreshMusic:not([loading])').waitFor();
+ assert.equal(await failed.count(),0,'An older in-flight history response cannot resurrect a deleted record');
+ assert.equal(await frame.locator('#playerAudio').getAttribute('src'),source,'Deleting a failed record preserves another song in the player');
+ assert.equal(await frame.locator('#playerAudio').getAttribute('data-identity'),'preserved');
+ assert.equal(await frame.locator('#referenceList .reference-card').count(),0,'References reused from the deleted record leave the current draft');
+ assert.equal(deletions.length,2,'One failed request and one explicit retry');
+ await page.reload();await frame.locator('#submitMusic:not([disabled])').waitFor();
+ assert.equal(await failed.count(),0,'Reload reads the persisted deletion');
+ assert.equal(submissions.length,0,'Deleting records never submits paid generation');
+}
 (async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const base='http://127.0.0.1:'+server.address().port;
+ if(process.argv.includes('--states-only')||process.argv.includes('--deletion-only')||process.argv.includes('--serve-states')) seedLibraryStates();
+ if(process.argv.includes('--serve-states')){console.log(base+'/studio?page=music');return;}
  if(process.argv.includes('--serve') || process.argv.includes('--layout-only') || process.argv.includes('--media-only')) {
   for(let i=0;i<4;i++){const record={id:'preview-'+i,status:'succeeded',operation:'generate',created_at:Date.now()/1000-i*1000,params:{version:'v6',custom:true,title:['夜航','远方的灯','雨后散步','慢一点'][i],prompt:'温柔的钢琴与低音',style:'Ambient piano'},provider_id:'apimart',error_code:''};completed(record);record.result.items[0].title=record.params.title;record.result.items[1].title=record.params.title+' II';records.push(record);}
   if(process.argv.includes('--serve')) {console.log(base+'/studio?page=music');return;}
@@ -185,11 +349,13 @@ async function assertCreateLibraryLayout(frame) {
   const page=await browser.newPage({viewport:{width:1500,height:1050},acceptDownloads:true});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>localStorage.setItem('studio_brand_entry_seen','1'));
-  if(process.argv.includes('--layout-only') || process.argv.includes('--composer-only') || process.argv.includes('--media-only')) {
+  if(process.argv.includes('--layout-only') || process.argv.includes('--composer-only') || process.argv.includes('--media-only') || process.argv.includes('--states-only') || process.argv.includes('--deletion-only')) {
    await page.goto(base+'/studio?page=music');
    const frame=page.frameLocator('#frame-lab');
    await frame.locator('#submitMusic:not([disabled])').waitFor();
-   if(process.argv.includes('--media-only')) { await assertMediaControls(frame,page); }
+   if(process.argv.includes('--deletion-only')) { await frame.locator('[data-run-id="state-failed"]').waitFor();await assertLibraryDeletion(frame,page); }
+   else if(process.argv.includes('--states-only')) { await frame.locator('[data-run-id="state-running"]').waitFor();await assertLibraryStates(frame,page); }
+   else if(process.argv.includes('--media-only')) { await assertMediaControls(frame,page); }
    else if(process.argv.includes('--composer-only')) { await assertComposerLayout(frame); await assertDraftControls(frame,page); await page.screenshot({path:'/private/tmp/suno-composer-desktop.png'}); }
    else { await frame.locator('.library-track').first().waitFor(); await assertCreateLibraryLayout(frame); }
    assert.deepEqual(errors,[]);console.log('music Create layout: PASS');return;
@@ -293,7 +459,8 @@ async function assertCreateLibraryLayout(frame) {
   await frame.locator('.history-item').waitFor();assert.equal(submissions.length,1);
   const first=submissions[0].data.settings;assert.equal(first.custom,true);assert.equal(first.instrumental,true);assert.equal(first.style_weight,0);assert.equal(first.duration,10);assert.equal([...first.title].length,80);assert.ok(!('audio_weight' in first));
   assert.equal(await frame.locator('#libraryView').isVisible(),true);assert.equal(await frame.locator('#createView').isVisible(),true,'Desktop keeps composer visible beside results');
-  assert.match(await frame.locator('#libraryView').innerText(),/离开页面后仍会继续处理/);
+  assert.match(await frame.locator('#libraryView').innerText(),/处理中/);
+  assert.equal(await frame.locator('#historyList ic-generation-pending[kind="image"][state="generating"]').count(),1);
   completed(records[0]);await frame.locator('#refreshMusic').click();await frame.locator('#historyList [data-play-key]').first().waitFor();
   await assertCreateLibraryLayout(frame);
   assert.equal(await frame.locator('#historyList .library-track').count(),2);assert.equal(await frame.locator('#historyList script').count(),0);
@@ -380,7 +547,7 @@ async function assertCreateLibraryLayout(frame) {
   await page.locator('#lang-toggle-btn').click();await frame.getByText('Cover adaptation needs one reference. Remove the extra files to continue.',{exact:true}).waitFor();
   await page.locator('#lang-toggle-btn').click();
   await frame.locator('#musicType').click();
-  await frame.locator('#referenceMode').getByRole('combobox').press('ArrowDown');await frame.locator('#referenceMode').getByRole('option',{name:'灵感 Inspire',exact:true}).click();
+  await frame.locator('#referenceMode').getByRole('radio',{name:'灵感 Inspire',exact:true}).click();
   assert.equal(await frame.locator('#referenceList .reference-card').count(),4);assert.equal(await frame.locator('#submitMusic button').isEnabled(),true);
   assert.equal(await frame.locator('#duration').evaluate(el=>el.disabled),true);
   await frame.locator('#referenceFiles').setInputFiles([refFile]);assert.equal(await frame.locator('#referenceList .reference-card').count(),4);
@@ -405,7 +572,7 @@ async function assertCreateLibraryLayout(frame) {
   while(await frame.locator('#referenceList .reference-card').count()>1) await frame.locator('#referenceList [data-reference-remove]').last().click();
   await frame.locator('#musicType').click();
   assert.equal(await frame.locator('#submitMusic button').isEnabled(),false,'Inspire must not silently claim instrumental output');
-  await frame.locator('#referenceMode').getByRole('combobox').press('ArrowDown');await frame.locator('#referenceMode').getByRole('option',{name:'改编 Cover',exact:true}).click();
+  await frame.locator('#referenceMode').getByRole('radio',{name:'改编 Cover',exact:true}).click();
   await frame.locator('#prompt textarea').fill('🎹'.repeat(1000));await frame.locator('#submitMusic').click();
   await frame.locator('#musicMessage').filter({hasText:'音乐描述与曲风补充合计最多 1000 字（含分隔符）'}).waitFor();assert.equal(submissions.length,3);
   await frame.locator('#prompt textarea').fill('温柔钢琴');
@@ -423,7 +590,7 @@ async function assertCreateLibraryLayout(frame) {
   assert.equal(await frame.locator('#style').evaluate(el=>el.value),'ambient piano');
   // Cover is an explicit intent, including vocal covers and history reuse.
   await frame.locator('#musicType').click();
-  assert.equal(await frame.locator('#referenceMode').evaluate(el=>el.value),'cover');
+  assert.equal(await frame.locator('#referenceMode').getAttribute('value'),'cover');
   await frame.locator('#lyricsMode').getByRole('combobox').press('ArrowDown');await frame.locator('#lyricsMode').getByRole('option',{name:'自填歌词',exact:true}).click();
   await frame.locator('#prompt textarea').fill('Keep this melody with my lyrics');
   await frame.locator('#submitMusic').click();await frame.locator('.music-record').nth(4).waitFor();
@@ -439,7 +606,7 @@ async function assertCreateLibraryLayout(frame) {
 
   completed(records[0]);await frame.locator('#refreshMusic').click();
   await frame.locator('.music-record').first().getByText('沿用设置',{exact:true}).first().click();
-  assert.equal(await frame.locator('#referenceMode').evaluate(el=>el.value),'cover');
+  assert.equal(await frame.locator('#referenceMode').getAttribute('value'),'cover');
   assert.equal(await frame.locator('#musicType').evaluate(el=>el.checked),false);
   const savedHistoryCount = await frame.locator('.music-record').count();
   await frame.locator('#historyList [data-play-key]').first().click();
