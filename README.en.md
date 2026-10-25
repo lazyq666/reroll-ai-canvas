@@ -63,11 +63,11 @@ https://github.com/user-attachments/assets/d3bb0d76-85bc-460c-b5a2-c11912522e57
 
 ### Accounts, roles & sharing
 
-Permissions for a small team should be simple. Reroll has just three roles: Administrators run the workspace, Designers focus on creating, and Guests can look but not edit. New teammates request an account on the sign-in page; once an Administrator approves it, they get access project by project. Canvases can be private or shared.
+Permissions for a small team should be simple. Reroll has just three roles: Administrators run the workspace, Designers focus on creating, and Guest accounts can sign in to restricted pages but cannot open canvas editing or admin pages. New teammates request an account on the sign-in page; once an Administrator approves it, they get access project by project. Canvases can be private or shared.
 
 Need a client to review something? Send a read-only link. They don't need to sign up, and you can revoke the link with one click when the project wraps. Permissions apply all the way through page access, canvas editing and generation tasks.
 
-[Roles and permissions →](docs/PROJECT-MAP.md#用户角色与权限)
+[Roles and permissions →](docs/PROJECT-MAP.md#用户和权限)
 
 </td>
 <td width="52%">
@@ -117,7 +117,7 @@ https://github.com/user-attachments/assets/0fcb8b20-a045-40c7-85bb-1cc4bffe9997
 
 Reroll runs on your own computer. Canvases, media files and generation history are stored in a workspace folder you choose, and teammates on the same trusted network join from their browser.
 
-Requests leave your machine only when you call an online model, and then only to the AI provider you configured.
+When you use an online model, generation requests are sent to the AI provider you configured.
 
 [Local and LAN access →](docs/current/local-network-access.md)
 
@@ -218,7 +218,7 @@ While the service runs, the launcher keeps watch over the backend. To stop it, p
 
 ## Taking turns on two computers
 
-If your local SQLite workspace lives in OneDrive and you switch between two computers, hand it over with **Data storage location → Close workspace for handoff** rather than just switching machines.
+If your local SQLite workspace lives in OneDrive and you switch between two computers, hand it over with **Storage location → Close workspace for handoff** rather than just switching machines.
 
 - After the first successful handoff, the next launch asks for the handoff code from the previous computer. Before you start, wait until OneDrive has finished syncing on both sides.
 - Simply closing the tab or terminal does not complete a handoff. After an unexpected exit, recover on the original computer.
