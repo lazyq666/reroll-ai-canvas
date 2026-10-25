@@ -3,9 +3,12 @@
 </h1>
 
 <p align="center">
-  <strong>面向图片与视频生成的本地优先 AI 无限画布工作台。</strong><br />
-  在一张可协作的画布中组织提示词、参考素材、生成流程与结果。<br />
-  <sub>A local-first AI canvas for image and video generation, visual workflows, asset management, and small-team collaboration.</sub>
+  <strong>跑在你自己电脑上的 AI 无限画布，给一起出图、出视频的小团队。</strong><br />
+  提示词、参考素材、生成过程和结果都摊在同一张画布上，大家同时在场，谁改了什么一眼就能看到。
+</p>
+
+<p align="center">
+  <b>简体中文</b> · <a href="README.en.md">English</a>
 </p>
 
 <p align="center">
@@ -27,10 +30,10 @@
 </p>
 
 > [!NOTE]
-> Reroll AI Canvas 使用带非商业限制的源码公开许可（source-available），不是 OSI 定义的开源软件。使用、分发或二次开发前请阅读 [LICENSE](LICENSE)。
+> Reroll AI Canvas 使用带非商业限制的源码公开许可（source-available），不是 OSI 定义的开源软件。使用、分发或二次开发前，请先读一遍 [LICENSE](LICENSE)。
 
 > [!IMPORTANT]
-> 本项目基于 [hero8152/Infinite-Canvas](https://github.com/hero8152/Infinite-Canvas) 修改开发，是独立维护的非官方衍生版本。原作者、原项目链接、版权声明与许可要求均予以保留。
+> 本项目在 [hero8152/Infinite-Canvas](https://github.com/hero8152/Infinite-Canvas) 的基础上修改而来，是独立维护的非官方衍生版本。原作者、原项目链接、版权声明与许可要求都完整保留。
 
 ## 特色
 
@@ -40,14 +43,16 @@
 
 ### 实时多人协作
 
-在同一张 Smart Canvas 中查看协作者和实时指针，并以接近 Figma 的选择、拖动、缩放、平移与快捷键习惯共同编辑。服务端权威 Revision 与结构化 Mutation 让并发修改可协调、可恢复。
+大家打开同一张 Smart Canvas 就能一起干活：谁的指针停在哪儿一目了然，选择、拖动、缩放、平移和快捷键都是接近 Figma 的熟悉手感。有人改了提示词、连了线、点了生成，所有人都会马上看到。
+
+几个人同时改也不怕打架：服务端统一记录每一个版本，并发修改可以协调，出了问题也能恢复。
 
 [实时协作说明 →](docs/current/realtime-collaboration-performance.md)
 
 </td>
 <td width="52%">
 
-<!-- GIF PLACEHOLDER: 多位协作者的实时指针与画布编辑 -->
+https://github.com/user-attachments/assets/e67f68b3-e5dd-4e43-adef-dcd82fdc8c87
 
 </td>
 </tr>
@@ -56,14 +61,16 @@
 
 ### 账号、角色与分享
 
-内置管理员、设计师和访客角色，支持账号申请与审核、按 Project 授权、私有或共享 Canvas，以及可随时撤销的只读分享链接。权限边界覆盖页面入口、画布编辑与生成任务。
+小团队的权限，本该简单。Reroll 只有三种角色：管理员把控全局，设计师专心创作，访客只看不改。新同事在登录页提交申请，管理员审核后按 Project 分配能进的项目；画布可以私有，也可以共享。
+
+想给客户看稿？发一个只读链接就行，对方不用注册；项目结束了，随时一键撤销。权限会一直管到页面入口、画布编辑和生成任务。
 
 [项目与权限地图 →](docs/PROJECT-MAP.md#用户角色与权限)
 
 </td>
 <td width="52%">
 
-<!-- GIF PLACEHOLDER: 账号申请、角色、Project 授权与只读分享的概念演示 -->
+https://github.com/user-attachments/assets/7ffc8d13-75d1-4b9d-a53f-a5849caf7fdd
 
 </td>
 </tr>
@@ -72,14 +79,16 @@
 
 ### 内置创作工具
 
-从图片节点直接使用智能分层、角度控制、智能抠图、灯光参考、深度图和反推提示词。常用处理入口与结果都留在 Canvas 上，便于继续连接、比较和复用。
+常用的图片处理不用再来回导出、导入。在图片节点上直接用智能分层、角度控制、智能抠图、灯光参考、深度图和反推提示词就行。
+
+处理结果就留在画布上，和原图连在一起，接着连线、对比、复用都很顺手。
 
 [生成链路 →](docs/current/generation-pipeline.md)
 
 </td>
 <td width="52%">
 
-<!-- GIF PLACEHOLDER: 六种快速工具依次切换的剪辑 -->
+https://github.com/user-attachments/assets/2ca6cc47-8b29-4feb-88f2-aa20c981b8d5
 
 </td>
 </tr>
@@ -88,14 +97,14 @@
 
 ### 提示词模板库与资产库
 
-在 Workspace 中整理可复用的 Prompt Template 与创作素材。搜索、预览并把模板或媒体带回当前工作流，减少重复输入和跨应用搬运。
+好用的提示词和好素材，都值得再用一次。把它们收进 Workspace 的模板库和资产库，需要时搜一下、预览一眼，就能带回当前的画布。不用再翻聊天记录，也不用在几个软件之间来回搬。
 
 [Workspace 资产库 →](docs/current/workspace-asset-library.md)
 
 </td>
 <td width="52%">
 
-<!-- GIF PLACEHOLDER: 提示词模板库与 Workspace 资产库 -->
+https://github.com/user-attachments/assets/f0a772c9-0aa5-4388-b4b2-c98910c7869b
 
 </td>
 </tr>
@@ -104,14 +113,16 @@
 
 ### 局域网部署，本地优先
 
-Reroll 服务运行在自己的电脑上；Canvas、Managed Media 与生成历史保存在用户选择的 Workspace。默认可从可信局域网访问，只有调用在线模型时才把相关请求发送给所配置的 AI 服务商。
+Reroll 跑在你自己的电脑上。画布、媒体文件和生成历史都存放在你选定的 Workspace 里；同一个可信局域网里的伙伴，打开浏览器就能加入。
+
+只有在调用在线模型时，相关请求才会发给你配置的 AI 服务商。
 
 [本机与局域网访问 →](docs/current/local-network-access.md)
 
 </td>
 <td width="52%">
 
-<!-- GIF PLACEHOLDER: 本机 Workspace 与局域网设备访问 -->
+https://github.com/user-attachments/assets/b9573ee8-578e-4312-8c9d-a2d730834f62
 
 </td>
 </tr>
@@ -120,62 +131,72 @@ Reroll 服务运行在自己的电脑上；Canvas、Managed Media 与生成历�
 
 ### 批量生成工作台
 
-将多模型、多任务的生成计划集中到独立工作台，持续跟踪队列、任务状态和结果；在 Smart Canvas 中也可以用“批量运行”节点按序替换变量并执行相邻生成流程。
+想一口气试几个提示词、几个模型？在独立的批量生成工作台里一次排好计划，提交前逐条确认任务清单，之后队列、进度和结果画廊都在同一个地方看。
+
+画布里也有“批量运行”节点，可以按顺序替换变量，依次跑完相邻的生成流程。
 
 [批量运行节点 →](docs/current/smart-canvas-batch-run-node.md)
 
 </td>
 <td width="52%">
 
-<!-- GIF PLACEHOLDER: 批量生成工作台与结果画廊 -->
+https://github.com/user-attachments/assets/5834952d-1498-4a80-8c81-3e3358353db7
 
 </td>
 </tr>
 </table>
 
-**更多能力：** Frame 与 Smart Group、图片/视频/音频/文字节点、可读的 Connection、生成历史、模型与 API 管理、ComfyUI / RunningHub / ModelScope / CLI 兼容，以及可迁移的加密配置备份。
+<sub>短片由真实界面录屏和动效剪辑而成，其中抠图前后对比和局域网部分是示意动画。</sub>
+
+**还有这些：** 用 Frame 和 Smart Group 给画布分区整理；图片、视频、音频、文字节点；读得懂的连线（Connection）；完整的生成历史；模型与 API 管理；兼容 ComfyUI、RunningHub、ModelScope 和 CLI；以及可以随身带走的加密配置备份。
 
 ---
 
 ## 快速开始
 
-无需预先安装 Python。统一启动器会按需准备 Reroll 专用的 Python 3.12 环境、创建虚拟环境并安装锁定版本的依赖，不会覆盖系统 Python。
+不用先装 Python。统一启动器会按需给 Reroll 单独准备一套 Python 3.12 环境，创建虚拟环境并安装锁定版本的依赖，不会动你系统里原有的 Python。
 
 ### 1. 启动 Reroll
 
 | 平台 | 快速启动器 |
 | --- | --- |
 | Windows 10/11 | 双击 `启动服务-Windows.bat`（Start Reroll for Windows） |
-| macOS | 首次使用时右键打开 `启动服务-macOS.command`，以后可直接双击（Start Reroll for macOS） |
+| macOS | 第一次使用时右键打开 `启动服务-macOS.command`，以后直接双击即可（Start Reroll for macOS） |
 | Linux / 终端 | 运行 `bash 启动服务-macOS.command` |
 
-启动完成后访问 `http://127.0.0.1:3000/`。若 3000 端口已占用，启动器会自动尝试 3001、3002 等后续端口。
+启动完成后，在浏览器打开 `http://127.0.0.1:3000/`。如果 3000 端口被占用了，启动器会自动顺延到 3001、3002 等端口。
 
-> 首次启动需要联网下载运行环境和依赖。AI 生成是否需要联网，取决于你使用在线 API 还是本地 ComfyUI。
+> 第一次启动需要联网下载运行环境和依赖。之后生成时要不要联网，取决于你用的是在线 API 还是本地 ComfyUI。
 
-### 2. 创建管理员并审核账号
+### 2. 创建管理员，连上 AI 服务
 
-首次进入依次创建本机管理员、选择作品保存位置、选择已有 AI 服务并逐个连接。至少一个服务通过连接和模型检查后，点击“开始创作”进入画布列表；其他服务可稍后在 API 设置中添加。已有安装不强制重复引导。之后，其他用户可以在登录页提交设计师账号申请；管理员在“账号管理”页面审核申请，并为设计师分配可访问的 Project。访客账号不能进入 Canvas 编辑或管理通道。
+第一次打开时，Reroll 会带你走完几步：创建本机管理员，选择作品的保存位置，再挑选要用的 AI 服务并逐个连接。只要有一个服务通过了连接和模型检查，就可以点“开始创作”进入画布列表；其他服务以后在 API 设置里随时添加。已经装好的实例不会被要求重走一遍。
 
-### 3. 新建 Canvas
+之后，其他人可以在登录页申请设计师账号。管理员在“账号管理”页面审核申请，并为设计师分配可以访问的 Project。访客账号不能进入画布编辑和管理页面。
 
-选择 Workspace 后，在 Project 中新建 Smart Canvas。拖入参考素材、添加 Prompt 或 Generation Node，再用 Connection 组织输入、参考与结果之间的关系。
+### 3. 新建一张画布
 
-使用本地 ComfyUI H3 时，管理员先在“工作流设置”中配置实例并导入兼容的 API 工作流，随后即可在视频模型菜单按工作流名称选择。Reroll 所在机器需能访问该实例，并安装可通过 `PATH` 执行的 `ffprobe`（通常随 FFmpeg 提供），用于提交前检查参考视频和音频。支持的模板、参数与验证范围见 [H3 工作流说明](docs/current/comfyui-h3-workflows.md)。
+选好 Workspace，在 Project 里新建一张 Smart Canvas。把参考素材拖进来，加上 Prompt 或 Generation Node，再用 Connection 把输入、参考和结果串起来。
 
-### 外部 Agent 编排画布
+如果要用本地 ComfyUI H3：管理员先在“工作流设置”里配置实例，并导入兼容的 API 工作流，之后就能在视频模型菜单里按工作流名称选用。Reroll 所在的机器需要能访问这个实例，还要装好可以通过 `PATH` 执行的 `ffprobe`（一般随 FFmpeg 一起提供），用来在提交前检查参考视频和音频。支持的模板、参数和验证范围见 [H3 工作流说明](docs/current/comfyui-h3-workflows.md)。
 
-在要使用 Agent 的电脑上打开 Reroll，进入账号菜单的“应用连接”，选择 Codex、Claude 桌面版或
-Claude Code 和系统，点击“下载安装”。解压后退出所选应用，双击 `Install.command`（macOS）
-或 `Install.cmd`（Windows）；安装器准备独立运行环境、备份原配置并自动配置 MCP。重启应用后
-首次调用 Reroll，在网页核对识别码并点击“同意”，即可长期连接，无需手动填写配置或令牌。管理员可在“应用连接”中关闭所有连接。
-跨设备请用服务器的局域网地址打开网页再下载；`127.0.0.1` 只指当前设备。首次安装需要联网，
-安装器不安装 Codex / Claude 本身；系统可能要求确认打开下载的程序。全局关闭时由管理员批准并开启；
-Designer 需要管理员已启用接入。桥接运行在 Agent 所在电脑，通过浏览器使用的地址连接 Reroll；支持
-批量编排、引用素材、预检、安全撤销与结果下载。配对包含编排和 `run` 权限，运行任务需要此权限，并保持
-同账号画布页面打开。全局默认关闭，允许读取的本地目录默认空。
-安装、环境变量和操作流程见 [MCP 桥接说明](tools/reroll-mcp/README.md)，验证范围见
-[Agent MCP 规格](docs/active/2026-10-17-agent-mcp-canvas-authoring-spec.md)。
+### 让外部 Agent 帮你编排画布
+
+想让 Codex、Claude 桌面版或 Claude Code 直接在画布上帮你批量编排？三步就能连上：
+
+1. 在要运行 Agent 的那台电脑上打开 Reroll，进入账号菜单的“应用连接”，选好应用和系统，点“下载安装”。
+2. 解压后先退出所选的应用，再双击 `Install.command`（macOS）或 `Install.cmd`（Windows）。安装器会准备独立的运行环境，备份原有配置，并自动配好 MCP。
+3. 重启应用。第一次调用 Reroll 时，在网页上核对识别码并点“同意”，之后就会一直保持连接，不需要手动填写配置或令牌。
+
+还有几点需要知道：
+
+- 在另一台设备上安装时，请用服务器的局域网地址打开网页再下载；`127.0.0.1` 只代表当前这台设备。
+- 首次安装需要联网。安装器不会帮你安装 Codex 或 Claude 本身；系统也可能会请你确认是否打开下载的程序。
+- 这项接入全局默认关闭，需要管理员批准并开启；设计师要等管理员启用接入后才能使用。管理员随时可以在“应用连接”里关闭所有连接。
+- 桥接程序运行在 Agent 所在的电脑上，通过浏览器使用的地址连接 Reroll，支持批量编排、引用素材、预检、安全撤销和下载结果。
+- 配对时会一并授予编排和 `run` 权限，运行任务需要这项权限；运行期间请保持同一账号的画布页面开着。允许读取的本地目录默认为空。
+
+安装、环境变量和操作流程见 [MCP 桥接说明](tools/reroll-mcp/README.md)，验证范围见 [Agent MCP 规格](docs/active/2026-10-17-agent-mcp-canvas-authoring-spec.md)。
 
 ### 环境检查与依赖修复
 
@@ -189,7 +210,29 @@ Designer 需要管理员已启用接入。桥接运行在 Agent 所在电脑，�
 ./启动服务-macOS.command install --force
 ```
 
-启动器会在服务运行期间持续监督后端。建议在原启动窗口按 `Ctrl+C` 停止；关闭启动窗口、终端标签页或外层启动任务时，后端也会检测到监督关系断开并完成安全清理。不要绕过统一启动入口直接运行后端，否则 Workspace 切换等受控重启无法由启动器接续。
+服务运行期间，启动器会一直看护后端。想停下来时，建议在原来的启动窗口按 `Ctrl+C`；直接关掉启动窗口、终端标签页或外层启动任务也没关系，后端会发现看护已经断开，并安全收尾。请不要绕过统一启动入口直接运行后端，否则像切换 Workspace 这样的受控重启就没人接手了。
+
+---
+
+## 在两台电脑之间轮流使用工作区
+
+如果你把本地 SQLite 工作区放在 OneDrive 里，想在两台电脑之间轮流使用，请走“数据存储位置 → 安全关闭并交接”，不要直接换机。
+
+- 第一次交接成功后，下一次启动需要输入上一台电脑给出的交接编号。开始之前，先等两边的 OneDrive 都同步完成。
+- 直接关闭标签页或终端，不算完成交接；如果是异常退出，需要回到原来那台电脑上恢复。
+- 恢复页会列出具体的冲突文件。核对过编号和完整数据之后，你可以明确选择保留主记录，系统会先备份，再隔离多出来的记录副本。
+- 关闭失败时，可以在列表里查看数据库副本之间的画布和节点差异。内容相同的副本默认已选中，不同的副本需要你自己核对。确认保留当前文件后，系统会先备份，再删除选中的副本并重试交接。数据库冲突不会自动合并。
+
+这项功能已经完成本地测试，真实的双设备验收还在进行中。详见[工作区安全交接](docs/active/2026-09-27-workspace-handoff.md)。
+
+也可以选用 [Turso 在线交接](docs/active/2026-09-29-online-workspace-handoff.md)：在这台关闭服务，另一台启动时就会自动验收，不用再输交接编号。
+
+- 先升级并停止两端的服务，然后在每台电脑本机的 Device State 里配置私有的 `handoff-service.json`。
+- 原来那台电脑执行 `python scripts/configure_handoff.py --initialize`，第二台执行 `python scripts/configure_handoff.py`。
+- 令牌不放进仓库，也不放进 OneDrive；正式内容仍然保存在本地。
+- 遇到网络失败、原设备还没交接，或者同步不完整的情况，Reroll 会拒绝打开工作区。
+
+在线交接已经通过真实 Turso 的隔离测试，真实的双设备 OneDrive 验收还在进行中。配置细节和恢复边界见上面的说明。
 
 ---
 
@@ -209,22 +252,22 @@ Designer 需要管理员已启用接入。桥接运行在 Agent 所在电脑，�
 
 ### 数据与部署边界
 
-- 服务默认监听 `0.0.0.0`，便于同一可信局域网内的设备访问；如需仅允许本机访问，可在项目 `.env` 中设置 `INFINITE_CANVAS_HOST=127.0.0.1` 并重启。
-- 局域网访问不等于公网部署。公网环境需要自行配置 HTTPS 反向代理、安全 Cookie、可信访问边界和备份策略。
-- 当前协作服务按单个 Uvicorn Worker 设计，不支持多 Worker、多实例或跨服务器同步。
-- Reroll 面向个人创作者与可信小团队，不是成熟的互联网多租户 SaaS。
+- 服务默认监听 `0.0.0.0`，方便同一可信局域网里的设备访问。如果只想让本机访问，在项目的 `.env` 里设置 `INFINITE_CANVAS_HOST=127.0.0.1` 并重启即可。
+- 局域网访问不等于公网部署。要放到公网上，需要自己配置 HTTPS 反向代理、安全 Cookie、可信的访问边界和备份策略。
+- 当前的协作服务按单个 Uvicorn Worker 设计，不支持多 Worker、多实例或跨服务器同步。
+- Reroll 面向个人创作者和彼此信任的小团队，不是成熟的互联网多租户 SaaS。
 
 ---
 
 ## 参与贡献
 
-欢迎提交 Bug、需求、文档修正与实现建议：
+欢迎提 Bug、需求、文档修正和实现建议：
 
-- 提交前先搜索[已有 Issues](https://github.com/lazyq666/reroll-ai-canvas/issues)，避免重复。
-- Bug 请尽量提供可复现步骤、系统和浏览器版本；截图中不要包含 API Key、Cookie、私网地址或本机绝对路径。
-- 开始编码前请阅读[贡献指南](CONTRIBUTING.md)和项目根目录的 [AGENTS.md](AGENTS.md)。
-- 前端资源修改后，运行 `python3.12 scripts/sync_frontend_assets.py` 并提交生成的引用更新。升级后的页面通过普通刷新加载新代码，未变化的资源继续复用缓存；规则与验收见[前端资源版本](docs/current/frontend-asset-versions.md)。
-- 产品中的用户可见文案需要同时提供中文与英文，并接入共享 i18n 资源。
+- 提交前先搜一下[已有 Issues](https://github.com/lazyq666/reroll-ai-canvas/issues)，避免重复。
+- 报 Bug 时尽量附上复现步骤、系统和浏览器版本；截图里请不要出现 API Key、Cookie、私网地址或本机绝对路径。
+- 动手写代码之前，请先读一读[贡献指南](CONTRIBUTING.md)和项目根目录的 [AGENTS.md](AGENTS.md)。
+- 改了前端资源之后，运行 `python3.12 scripts/sync_frontend_assets.py`，并提交生成的引用更新。升级后的页面普通刷新就能加载新代码，没变的资源继续走缓存；规则与验收见[前端资源版本](docs/current/frontend-asset-versions.md)。
+- 产品里用户能看到的文案，需要同时提供中文和英文，并接入共享的 i18n 资源。
 
 ---
 
@@ -236,7 +279,7 @@ Designer 需要管理员已启用接入。桥接运行在 Agent 所在电脑，�
 - 原项目视频教程：[YouTube](https://youtu.be/r_y_9ALr7fg)
 - 原项目配套 Chrome 插件：[Chrome Web Store](https://chromewebstore.google.com/detail/ajfhnbklbmpfaaookhfakohabnpmlcic)
 
-感谢原作者公开完整项目，为无限画布、模型调用、素材管理与创作工具提供了核心基础。如果问题只出现在 Reroll 衍生版本中，请优先在本仓库反馈，避免给原作者增加与其代码无关的排查负担。
+谢谢原作者把完整的项目公开出来。无限画布、模型调用、素材管理和创作工具这些核心基础，都来自原项目。如果某个问题只在 Reroll 衍生版本里出现，请先在本仓库反馈，别让原作者去排查与他的代码无关的问题。
 
 ---
 
@@ -249,19 +292,3 @@ Designer 需要管理员已启用接入。桥接运行在 Agent 所在电脑，�
 - 二次开发时应同时保留原作者 `hero8152`、原项目链接，以及 Reroll 衍生版本的修改来源。
 
 这是一份带非商业限制的源码公开许可，不是 MIT、Apache-2.0 等标准 OSI 开源许可证。随仓库分发的第三方代码、字体、图标和服务标识继续适用各自条款，详见[第三方声明](THIRD_PARTY_NOTICES.md)。许可解释以 [LICENSE](LICENSE) 和原项目权利人的说明为准。
-
-### OneDrive 轮流使用工作区
-
-本地 SQLite 工作区可从“数据存储位置 → 安全关闭并交接”准备换机。首次成功交接后，
-下一次启动需要上一台提供的交接编号；请先等待两端 OneDrive 同步完成。直接关闭标签页
-或终端不代表已完成交接，异常退出需回原安装恢复。此功能已完成本地测试，真实双设备
-验收仍待完成。恢复页可列出具体冲突文件；核对编号和完整数据后，可明确保留主记录、备份
-并隔离记录副本。关闭失败时，可在列表查看数据库副本的画布和节点差异；相同副本默认选中，
-不同副本需自行核对。确认保留当前文件后，先备份再删除所选副本并重试交接。数据库冲突不自动合并。详见[工作区安全交接](docs/active/2026-09-27-workspace-handoff.md)。
-
-可选的 [Turso 在线交接](docs/active/2026-09-29-online-workspace-handoff.md) 实现“关闭本服务器 →
-另一台启动自动验收”，免输交接编号。须先升级并停止两端服务，在每台的本机 Device State
-配置私有 `handoff-service.json`；原设备执行 `python scripts/configure_handoff.py --initialize`，
-第二台执行 `python scripts/configure_handoff.py`。令牌不放入仓库或 OneDrive。正式内容继续本地
-保存；网络失败、原设备未交接或同步不完整时拒绝打开。已通过真实 Turso 隔离测试，真实双设备
-OneDrive 验收仍待完成，配置细节及恢复边界见上述说明。
