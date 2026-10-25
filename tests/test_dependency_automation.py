@@ -9,6 +9,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DependencyAutomationTests(unittest.TestCase):
+    def test_routine_version_prs_are_disabled_for_all_ecosystems(self):
+        config = yaml.safe_load((ROOT / '.github/dependabot.yml').read_text())
+        updates = config['updates']
+        self.assertTrue(updates, 'keep updater configuration for security fixes')
+        for update in updates:
+            with self.subTest(ecosystem=update['package-ecosystem']):
+                self.assertEqual(update.get('open-pull-requests-limit'), 0,
+                                 'only security fixes should create automatic PRs')
+                self.assertNotIn('target-branch', update,
+                                 'security updates must use the default branch')
+                self.assertFalse(update.get('ignore'),
+                                 'do not suppress vulnerable dependency updates')
+
     def test_locked_requirements_have_a_paired_source_without_a_generated_header(self):
         # Dependabot may remove uv's header. A same-stem .in must remain so the
         # generated pins never become independently editable direct requirements.
