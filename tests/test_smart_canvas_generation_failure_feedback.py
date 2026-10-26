@@ -19,6 +19,65 @@ CURRENT_SPEC = ROOT / "docs/current/smart-canvas-generation-failure-feedback.md"
 
 
 class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
+    def test_transport_timeouts_override_generic_status_without_guessing_empty_history(self):
+        values = self.run_module("""
+            const timeoutNames = ['ConnectTimeout','ReadTimeout','WriteTimeout','PoolTimeout','TimeoutError'];
+            const cases = timeoutNames.flatMap(name => [
+                {technicalError:`provider_network_timeout: ${name}`, httpStatus:0},
+                {technicalError:`provider_network_timeout: ${name}`, httpStatus:500},
+            ]);
+            cases.push({errorCode:'provider_network_timeout', httpStatus:502});
+            cases.push({technicalError:'httpx.ConnectTimeout', httpStatus:500});
+            cases.push({technicalError:'生成失败', httpStatus:500, runMs:20040});
+            cases.push({technicalError:'APIMART 图片接口错误（HTTP 500）：Internal server error', httpStatus:500});
+            process.stdout.write(JSON.stringify(cases.map(value => feedback.classify(value))));
+        """)
+        for value in values[:-2]:
+            self.assertEqual('network_timeout', value['category'])
+            self.assertEqual({}, value['billingEvidence'])
+        for value in values[-2:]:
+            self.assertEqual('provider_internal_error', value['category'])
+
+    def test_confirmed_timeout_history_and_diagnostic_switch_language_without_fake_upstream(self):
+        payload = self.run_module("""
+            const storage = new Map();
+            sandbox.localStorage = {getItem:key => storage.get(key), setItem:(key,value) => storage.set(key,value)};
+            sandbox.document = {querySelectorAll:() => [], addEventListener(){}, documentElement:{setAttribute(){}}};
+            sandbox.CustomEvent = function(type, init){ return {type,...init}; };
+            sandbox.window.dispatchEvent = () => {};
+            for(const file of ['static/js/i18n-core.js','static/js/i18n/smart-canvas.js']){
+                vm.runInContext(fs.readFileSync(file,'utf8'),sandbox);
+            }
+            const i18n = sandbox.window.StudioI18n;
+            const saved = {...feedback.classify({technicalError:'Internal server error',httpStatus:500}),
+                technicalError:'provider_network_timeout: ConnectTimeout'};
+            const unknownHistory = feedback.classify({technicalError:'生成失败',httpStatus:500});
+            const task = {status:'failed',technicalError:'provider_network_timeout: ConnectTimeout',httpStatus:0};
+            const values = ['zh','en','zh'].map(lang => {
+                i18n.set(lang);
+                return {
+                    detail:feedback.localize(saved,i18n.t),
+                    unknownHistory:feedback.localize(unknownHistory,i18n.t),
+                    report:feedback.diagnosticReport({tasks:[task],createdAt:1793000906506}, {translate:i18n.t,format:i18n.tf}),
+                };
+            });
+            process.stdout.write(JSON.stringify(values));
+        """)
+        self.assertEqual(payload[0], payload[2])
+        self.assertEqual('连接超时', payload[0]['detail']['title'])
+        self.assertEqual('Connection timed out', payload[1]['detail']['title'])
+        for value in payload:
+            self.assertEqual('network_timeout', value['detail']['category'])
+            self.assertEqual('provider_internal_error', value['unknownHistory']['category'])
+            self.assertIn('provider_network_timeout: ConnectTimeout', value['report'])
+            self.assertNotIn('smart.error.', value['report'])
+            self.assertNotIn('上游原文', value['report'])
+            self.assertNotIn('Upstream error:', value['report'])
+        self.assertIn('技术错误: provider_network_timeout: ConnectTimeout', payload[0]['report'])
+        self.assertIn('Technical error: provider_network_timeout: ConnectTimeout', payload[1]['report'])
+        self.assertIn('HTTP 状态码: -', payload[0]['report'])
+        self.assertIn('HTTP status: -', payload[1]['report'])
+
     def test_reference_role_failure_reclassifies_historical_errors_in_both_languages(self):
         values = self.run_module("""
             const storage = new Map();

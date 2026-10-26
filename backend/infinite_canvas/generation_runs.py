@@ -29,6 +29,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal, Protocol, TypeAlias
 
+import httpx
+
 from .generation_run_lifecycle import GenerationRunEffectIntent
 from .generation_publication import (
     GenerationPublication,
@@ -407,6 +409,26 @@ def _exception_status_code(exc: BaseException) -> int:
         if status_code:
             return status_code
     return 0
+
+
+def generation_failure_details(exc: BaseException) -> tuple[str, int]:
+    """Keep transport timeouts distinct from an actual HTTP error response."""
+    chain = tuple(_exception_chain(exc))
+    has_response = any(
+        getattr(getattr(current, "response", None), "status_code", 0)
+        for current in chain
+    )
+    if not has_response:
+        for current in chain:
+            if isinstance(current, httpx.TimeoutException):
+                # Transport errors can have an empty message. Persist a safe
+                # marker and the type, without fabricating an upstream status
+                # or copying request URLs/credentials from exception strings.
+                return f"provider_network_timeout: {type(current).__name__}", 0
+    return (
+        str(getattr(exc, "detail", "") or exc),
+        _exception_status_code(exc) or 500,
+    )
 
 
 def _transient_recovery_error(exc: BaseException) -> bool:
@@ -1922,7 +1944,7 @@ class GenerationRuns:
                     )
                     else "failed"
                 )
-                detail = str(getattr(exc, "detail", "") or exc)
+                detail, status_code = generation_failure_details(exc)
                 run.error = (
                     "恢复任务缺少当前可用的提供方凭证；"
                     "出于安全考虑，一次性凭证不会写入磁盘，也不会自动重提任务。"
@@ -1930,9 +1952,7 @@ class GenerationRuns:
                     if missing_recovery_credential
                     else detail
                 )
-                run.status_code = int(
-                    _exception_status_code(exc) or 500
-                )
+                run.status_code = status_code
                 run.recoverable = (
                     False
                     if (
@@ -2051,6 +2071,23 @@ class GenerationRuns:
             options = candidate
         try:
             return await execute(request, **options)
+        except Exception as exc:
+            detail, status_code = generation_failure_details(exc)
+            if child_index is not None and detail.startswith("provider_network_timeout:"):
+                with self._lock:
+                    run = self._runs[run_id]
+                    attempt = run.child_attempts[child_index]
+                    raw = attempt.get("raw")
+                    attempt["error"] = detail
+                    attempt["raw"] = {
+                        **(dict(raw) if isinstance(raw, Mapping) else {}),
+                        "status_code": status_code,
+                    }
+                    if not str(attempt.get("remote_ref") or ""):
+                        attempt["status"] = "failed"
+                    # A known remote task stays queryable; this must never
+                    # turn a query timeout into a fresh paid submission.
+            raise
         finally:
             # A cancelled worker thread can still deliver already-read events.
             active = False
@@ -2563,6 +2600,7 @@ class GenerationRuns:
                 with self._lock:
                     self._owners[run_id] = consumer_task
             failed_detail = ""
+            failed_status_code = None
             completed = False
             saw_complete = False
             paused = False
@@ -2572,6 +2610,8 @@ class GenerationRuns:
                         failed_detail = (
                             event.detail or "流式生成返回错误"
                         )
+                        if failed_detail.startswith("provider_network_timeout:"):
+                            failed_status_code = 0
                     elif event.kind is TextStreamEventKind.COMPLETE:
                         saw_complete = True
                     yield event
@@ -2587,14 +2627,16 @@ class GenerationRuns:
                     )
                 raise
             except BaseException as exc:
+                detail, status_code = generation_failure_details(exc)
                 self._finish_stream(
                     run_id,
                     status="failed",
                     error=(
                         failed_detail
-                        or str(exc)
+                        or detail
                         or "流式连接已提前关闭"
                     ),
+                    status_code=failed_status_code if failed_detail else status_code,
                 )
                 raise
             finally:
@@ -2605,6 +2647,7 @@ class GenerationRuns:
                         run_id,
                         status="failed" if failed_detail else "succeeded",
                         error=failed_detail,
+                        status_code=failed_status_code,
                     )
                 elif not paused:
                     self._finish_stream(
@@ -2624,6 +2667,7 @@ class GenerationRuns:
         *,
         status: str,
         error: str,
+        status_code: int | None = None,
     ) -> None:
         with self._lock:
             self._load_locked()
@@ -2632,7 +2676,11 @@ class GenerationRuns:
                 return
             run.status = status
             run.error = error
-            run.status_code = 500 if status == "failed" else 0
+            run.status_code = (
+                status_code
+                if status_code is not None
+                else 500 if status == "failed" else 0
+            )
             run.effects_done = status == "succeeded"
             run.phase = "finished"
             run.updated_at = float(self._now())

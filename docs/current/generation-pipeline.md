@@ -347,6 +347,18 @@ Provider Runtime 根据 Provider 配置、协议和模型能力选择适配器�
 视频适配器包括即梦 CLI、RunningHub 和通用 HTTP；文字适配器包括 Codex CLI、
 Gemini CLI 和通用 HTTP/流式 HTTP；ComfyUI 与专用工作流进入 Workflow Registry。
 
+### 后台启动的网络环境
+
+HTTP Provider 默认沿用 Reroll 服务进程的网络环境。HTTPX 默认读取 `HTTP_PROXY`、
+`HTTPS_PROXY`、`ALL_PROXY` 及对应小写变量；未配置时直接连接。需要代理的设备应提供
+实际可用的代理 URL，并让 `NO_PROXY` 保留 `localhost,127.0.0.1,::1`，避免本机 API
+经过外网代理。代理地址属于本机启动配置，不写入共享 Provider 配置或 Workspace 内容。
+
+通过 LaunchManager / launchd 后台启动时，应在对应 Reroll 启动项中显式配置所需网络变量，
+不能依赖交互终端的初始化脚本。变更后须重新加载父启动项，再检查新服务进程的环境与连通性；
+应用内受控重启只替换子服务，仍沿用现有父启动器的环境。代理不可用时，生成按网络失败反馈，
+不自动改用其他代理或重新提交收费任务。
+
 Dreamina CLI 的每次调用使用新子进程，并复用运行 Reroll 的系统用户登录环境。
 API 设置中的 CLI 状态检查执行版本查询和 `user_credit`，不提交生成任务；查询成功
 不等同于本次生成的权限检查一定通过。CLI 明确返回 `current account is not allowed
@@ -506,6 +518,15 @@ HTTP 429 和“额度不足”返回，不再压成笼统的 502“无法生成�
 Generation Run、effect/publication 回执和批量任务也使用同一 Turso 权威。新设备只能在
 前一设备没有未完成任务时接管；未结束的生成恢复仍须回到原设备及其 Provider 凭据。
 未知远程提交不自动重试或回退本地，保留现有 Operation ID 与输出目标校验。
+
+Generation Run 捕获本地网络超时时，错误保存为 `provider_network_timeout: <异常类型>`，
+保留连接、读取、写入或连接池等待的具体超时类型；持久化重读、子任务诊断和前端反馈沿用该信息。
+没有收到 HTTP 响应时 `status_code=0`，不以本地兜底值冒充上游 HTTP 500/504；实际 HTTP 错误
+继续保留真实状态与安全响应信息。同步 HTTP API 对明确的本地网络超时返回 504 与同一技术标记，
+该状态属于本地 API 响应，不改写 Generation Run 的上游诊断状态。CLI 执行超时等已有明确说明的
+本地错误保留原语义，不因内部通用 `TimeoutError` 被重判为网络超时。
+超时分类不增加恢复资格，也不触发收费请求重提：已有远端编号仍只查询
+原任务，没有编号和已保存输出时仍不能安全恢复。历史空错误与耗时不能替代缺失的异常证据。
 
 前端对图片、视频、ComfyUI 和文字后台任务按 task ID 查询。视频提交先创建后台
 Generation Run 并把 task ID 返回前端，不再让一个等待供应商的 inline HTTP 请求承担唯一恢复

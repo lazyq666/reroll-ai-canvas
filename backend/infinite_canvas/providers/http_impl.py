@@ -5236,6 +5236,12 @@ async def execute_http_text_stream(provider, payload, messages):
                         delta = text_delta_from_chat_chunk(chunk)
                         if delta:
                             yield {"type": "delta", "delta": delta}
+        except httpx.TimeoutException as exc:
+            log_net_error("对话(流式) 网络/TLS错误", exc)
+            yield {
+                "type": "error",
+                "detail": f"provider_network_timeout: {type(exc).__name__}",
+            }
         except httpx.HTTPError as exc:
             log_net_error("对话(流式) 网络/TLS错误", exc)
             yield {
