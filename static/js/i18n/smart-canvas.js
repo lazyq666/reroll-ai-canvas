@@ -882,6 +882,8 @@
         "smart.noVideoModel": { zh: "暂无视频模型", en: "No video model" },
         "smart.fallbackChanged": { zh: "{setting}“{previous}”已不可用，已切换为“{next}”", en: "{setting} “{previous}” is unavailable. Switched to “{next}”." },
         "smart.fallbackCleared": { zh: "{setting}“{previous}”已不可用，当前没有可用选项", en: "{setting} “{previous}” is unavailable and no alternative is configured." },
+        "smart.modelUnavailable": { zh: "所选模型已不可用，请重新选择模型", en: "The selected model is unavailable. Choose another model." },
+        "smart.modelUnavailableLabel": { zh: "{model}（不可用）", en: "{model} (unavailable)" },
         "smart.selectionUnavailable": { zh: "{setting}“{previous}”已不可用，请重新选择", en: "{setting} “{previous}” is unavailable. Please select another option." },
         "smart.rhConfig": { zh: "RunningHub 配置", en: "RunningHub configuration" },
         "smart.rhNoConfig": { zh: "暂无 RunningHub 配置", en: "No RunningHub configuration" },

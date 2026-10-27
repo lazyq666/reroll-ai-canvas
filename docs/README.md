@@ -56,6 +56,7 @@
 - [ComfyUI H3 工作流与 Composer](current/comfyui-h3-workflows.md)
 - [局部修复（已实现，待真实模型验收）](active/2026-09-24-local-image-repair.md)
 - [Agent MCP 画布编排与批量生成（Implemented，待实机验收）](active/2026-10-17-agent-mcp-canvas-authoring-spec.md)
+  - [Agent 草稿落位、模型降级与视频任务类型复盘](active/2026-10-27-agent-draft-placement-and-model-downgrade-retro.md)
 - [Agent MCP 节点读取、图片预览与安全修改](current/agent-task-editing.md)
 - [Smart Canvas 节点引用与 Agent 精确读取](current/node-references.md)
 - [Canvas Mutation 单 Node 移动快速通道](current/canvas-mutation-single-node-move-fast-path.md)

@@ -159,6 +159,53 @@ class CompleteApiSettingsBackupTests(unittest.TestCase):
         self.package.import_encrypted(legacy, "test-password")
         self.assertTrue(any(p["id"] == "codex" for p in main.load_api_providers()))
 
+    def test_alias_inventory_round_trip_preserves_raw_provider_models_and_visibility(self):
+        for models in (["Seedance2.5"], ["Seedance2.5", "seedance2.5"]):
+            with self.subTest(models=models):
+                provider = main.normalize_provider({"id": "jimeng", "name": "Dreamina",
+                    "protocol": "jimeng", "video_models": models,
+                    "model_names": {"Seedance2.5": "My video model"}})
+                main.save_api_providers([provider])
+                upper_id = main.available_model_id("jimeng", "Seedance2.5")
+                main.save_imported_model_settings({"video": [upper_id], "hidden": {"video": [upper_id]}})
+                package = self.export()
+                before = _decrypt_payload(package, "test-password")
+                self.assertEqual(list(models), before["providers"][0]["video_models"])
+                self.assertEqual([{"provider_id": "jimeng", "model": "seedance2.5", "visible": False}],
+                                 before["model_order"]["video"])
+                self.assertEqual(2, self.package.preview_encrypted(package, "test-password")["version"])
+                self.package.import_encrypted(package, "test-password")
+                restored = _decrypt_payload(self.export(), "test-password")
+                self.assertEqual(before["providers"], restored["providers"])
+                self.assertEqual(before["model_order"], restored["model_order"])
+                self.assertEqual("My video model", main.available_models()["video"][0]["name"])
+
+    def test_legacy_raw_alias_order_imports_once_and_retains_any_hidden_alias(self):
+        main.save_api_providers([main.normalize_provider({"id": "jimeng", "name": "Dreamina",
+            "protocol": "jimeng", "video_models": ["seedance2.0_vip", "Seedance2.5", "seedance2.5"]})])
+        payload = _decrypt_payload(self.export(), "test-password")
+        payload["model_order"]["video"] = [
+            {"provider_id": "jimeng", "model": "Seedance2.5", "visible": False},
+            {"provider_id": "jimeng", "model": "seedance2.0_vip", "visible": True},
+            {"provider_id": "jimeng", "model": "seedance2.5", "visible": True},
+        ]
+        package = _encrypt_payload(payload, "test-password")
+        self.package.preview_encrypted(package, "test-password")
+        self.package.import_encrypted(package, "test-password")
+        entries = main.available_models()["video"]
+        self.assertEqual(["seedance2.5", "seedance2.0_vip"], [e["model"] for e in entries])
+        self.assertEqual([False, True], [e["visible"] for e in entries])
+        settings = json.loads((self.root / "models.json").read_text())
+        self.assertEqual(2, len(settings["video"]))
+        self.assertEqual([main.available_model_id("jimeng", "seedance2.5")], settings["hidden"]["video"])
+
+        for invalid in (payload["model_order"]["video"] * 2,
+                        [payload["model_order"]["video"][0]]):
+            with self.subTest(invalid=invalid):
+                payload["model_order"]["video"] = invalid
+                with self.assertRaises(ApiSettingsTransferError):
+                    self.package.preview_encrypted(_encrypt_payload(payload, "test-password"), "test-password")
+
 
 if __name__ == "__main__":
     unittest.main()

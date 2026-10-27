@@ -85,7 +85,7 @@ def get_canvas(
     offset: int = 0,
     limit: int = 200,
 ) -> dict:
-    """Read a paginated, compact Canvas view. Maximum 200 Nodes per page."""
+    """Read a compact Canvas view with current geometry. Maximum 200 Nodes per page."""
     return call(
         lambda: client().request(
             "GET",
@@ -119,7 +119,7 @@ def read_node_reference(reference: str) -> dict:
 
 @mcp.tool()
 def get_selection(canvas: str = "") -> dict:
-    """Read this Account's private selection in stable visual order."""
+    """Read this Account's private selection and geometry in stable visual order."""
     return call(lambda: client().request("GET", target(canvas) + "/selection"))
 
 
@@ -133,7 +133,13 @@ def list_models() -> dict:
 def get_model_capability(
     provider: str, model: str, operation: str = "image.generate"
 ) -> dict:
-    """Read authoritative input limits and parameter names before authoring a recipe."""
+    """Read authoritative input limits and parameter names before authoring a recipe.
+
+    For video use operation="video.generate". output.audio.default describes
+    default audio generation (null means unconfirmed); output.audio.configurable
+    describes whether it can be controlled. An unavailable generate_audio toggle
+    does not imply silent output. Only author fields in authoring.parameters.
+    """
     return call(
         lambda: client().request(
             "GET",
@@ -185,6 +191,10 @@ def create_generation_tasks(
     are accepted. Read get_model_capability for this model's supported param values.
     Refs maps @labels to source objects, e.g. {"hero": {"node": "node-id"}}.
     title, params and refs are optional. Dry run never uploads or mutates.
+    Placement is near existing refs, else centered in the editor viewport (origin
+    when offline), with two-dimensional obstacle avoidance. The receipt includes
+    frame_geometry and task_geometries. Independently read get_generation_task
+    after creation to verify current geometry, model, parameters and inputs.
     """
     return call(
         lambda: client().submit(
@@ -212,7 +222,7 @@ def create_prompt_nodes(
 @mcp.tool()
 def get_generation_task(node_id: str, canvas: str = "") -> dict:
     """Read a persisted task by exact ID, including its unabridged prompt, settings,
-    node_revision, editability, ordered effective inputs and validation. Does not
+    node_revision, editability, geometry, frame_geometry, effective inputs and validation. Does not
     require an editor. Use this before update_generation_task and again after save.
     """
     return call(lambda: client().request("GET", target(canvas) + "/tasks/" + quote(node_id, safe="")))

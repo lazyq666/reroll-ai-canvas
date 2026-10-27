@@ -15,6 +15,15 @@ MATTING_MODULE = ROOT / "static/js/smart-canvas/smart-matting.js"
 
 
 class SmartCanvasGenerationOutputTests(unittest.TestCase):
+    def test_completed_video_kind_survives_all_delivery_paths_and_reload(self):
+        result = subprocess.run(
+            ["node", "tests/smart_canvas_generation_video_kind_regression.cjs"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_output_lifecycle_is_owned_by_its_module(self):
         host = HOST.read_text(encoding="utf-8")
         run_source = RUN_MODULE.read_text(encoding="utf-8")

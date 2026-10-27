@@ -284,6 +284,44 @@ class AgentTaskEditingTests(unittest.TestCase):
         after = self.node()["runSettings"]
         self.assertEqual({**settings, "videoDuration": 10, "catalog_revision": "fixture-v1"}, after)
 
+    def test_legacy_seedance_audio_flag_is_not_an_editable_recipe_parameter(self):
+        self.api.resolve_model = self.api.catalog.resolve
+        self.api.models = lambda: [
+            {"provider_id": "jimeng", "model": "Seedance2.5", "kind": "video"}
+        ]
+        self.mutate({"node_updates": [
+            {"id": "draft", "path": ["runSettings", key], "value": value}
+            for key, value in (("videoProvider", "jimeng"),
+                               ("videoModel", "Seedance2.5"),
+                               ("videoGenerateAudio", False))
+        ]}, "legacy-seedance-audio")
+        original_settings = copy.deepcopy(self.node()["runSettings"])
+        before = self.detail()
+        self.assertTrue(before["validation"]["valid"], before["validation"])
+        self.assertNotIn("generate_audio", before["recipe"]["params"])
+        self.assertEqual(original_settings, before["run_settings"])
+
+        for index, changes in enumerate((
+            {"title": "Updated title"}, {"prompt": "更新后的分镜"},
+        )):
+            result = self.update(changes, key=f"legacy-seedance-edit-{index}")
+            self.assertEqual(200, result.status_code, result.text)
+            current = self.detail()
+            self.assertTrue(current["validation"]["valid"], current["validation"])
+            self.assertNotIn("generate_audio", current["recipe"]["params"])
+            self.assertEqual(original_settings, current["run_settings"])
+            self.assertEqual(original_settings, self.node()["runSettings"])
+
+        saved = self.document()
+        for value in (False, True):
+            result = self.update({"params": {"generate_audio": value}},
+                                 key=f"legacy-seedance-reject-{value}")
+            self.assertEqual(422, result.status_code, result.text)
+            self.assertTrue(any(error["code"] == "parameter_unknown"
+                                and error["field"] == "generate_audio"
+                                for error in result.json()["details"]["errors"]))
+            self.assertEqual(saved, self.document())
+
     def test_missing_bytes_and_input_limits_reject_save_and_preview(self):
         self.capability["inputs"]["image"]["maximum"] = 5
         result = self.update({"title": "invalid count"})

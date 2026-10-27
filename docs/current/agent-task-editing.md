@@ -20,6 +20,7 @@
 | `state`, `editable`, `edit_block_reason` | 首期可改 API 模型的 draft；pending/running/failed/succeeded 或其他引擎只读 |
 | `node_revision` | 不透明内容指纹，涵盖节点、有效媒体/文字输入与输入连接。目标节点或其输入变化会失效；无关节点编辑不会失效。它不是递增整数 |
 | `canvas_revision` | 读取快照对应的 Canvas Revision |
+| `geometry`, `frame_geometry` | 实际持久化的 `{x,y,width,height}`；无所属分区时 `frame_geometry` 为 null。`resolved_inputs[].position` 仍只表示输入顺序 |
 | `recipe` | `prompt`, `title`, `kind`, `model`, `params`, `refs`，可用于部分更新 |
 | `run_settings` | 节点实际保存的完整 Generation Settings，包括非 Agent 可编辑字段；不从目录默认值重建 |
 | `resolved_inputs` | 按实际生成输入顺序排列的媒体清单 |
@@ -31,6 +32,27 @@
 写入仍遵守既有 100,000 字符上限。`get_canvas` 保留 200 字摘要，并增加
 `prompt_truncated` 与 `prompt_length`；完整内容只在详情接口读取。
 
+创建回执返回 `frame_geometry` 和按 Node ID 索引的 `task_geometries`，由提交后的持久快照读取。
+`get_canvas` 和 `get_selection` 摘要也提供 `geometry`。幂等重试保留原提交回执，
+独立详情读取则反映节点后续移动后的当前位置。默认落位以参考节点附近为优先，详见 F17 规格。
+
+对于旧完成视频被误写为 `referenceGenerationKind=image` 的节点，仅在已有
+`generationOutputNode=true` 时以明确同类输出媒体、输出模式或冻结的生成模式纠正读取投影，
+随后才回退已有身份。`recipe.kind/model/params` 使用对应视频设置；读取不迁移历史、
+不修改原始 `run_settings`、提示词、引用或输出。
+
+## 模型选择与兼容
+
+`list_models` 与编辑器使用同一可见模型清单，遵守管理员显隐、排序与 Provider 边界。
+仅即梦维护目录中确认属于同一模型的大小写别名共享身份，例如 `Seedance2.5` 与
+`seedance2.5`；VIP、不同模型及其他 Provider 不合并。新配方规范为目录 Model ID，
+已有大写草稿仍可校验、改标题或提示词，局部更新不重写未修改的 `runSettings`。
+旧大小写能力记录仍可按相同身份读取。
+
+原模型隐藏、删除或不可用时保留选择与时长，详情返回 `model_unavailable`，写入明确拒绝；
+编辑器显示不可用选择并要求重新选择，运行入口同样拒绝。不能静默换成列表首项、
+换 Provider 或按另一模型压缩时长。打开 Composer 不是发现错误的前提。
+
 引用解析对照现有编辑器的 `promptAuthoring`、`referenceInstances` 和 Smart Container：
 
 - 展开当前 input Connection 与旧 `inputNodeIds`，遵循同一来源节点去重规则。
@@ -41,6 +63,23 @@
 - `binding_label` 使用稳定的图片/视频/音频编号；`labels` 是提示词绑定别名，不能把编号当成别名。详情不改写提示词。
 - 已有未固定输出的连线按编辑器 active output 规则读取，并给出 `active_output_binding` 警告和本次实际输出 ID；显式新绑定不能省略多输出选择。
 - 旧手动引用没有实例 ID 时，读取返回确定的 `legacy-manual:` 身份，后续版本化保存补齐相同 ID；读取本身不迁移或写入。
+
+## 视频音频能力
+
+编写视频配方前以 `operation="video.generate"` 读取 `get_model_capability`。
+`output.audio.default` 表示默认是否生成音频，`null` 表示尚未确认；
+`output.audio.configurable` 表示当前接入是否允许调整音频参数。
+`authoring.parameters` 只列出当前能力实际声明且能映射到 Composer 设置的参数。
+当其中没有 `generate_audio` 时，配方省略该参数；显式填写会得到 `parameter_unknown`。
+
+Dreamina 的 Seedance 2.0/2.5 返回 `output.audio={default:true, configurable:false}`：
+默认生成音频，当前接入没有关闭开关。旧字段
+`composer_options.generate_audio="unsupported"` 只描述开关能力，不能据此推断视频无声。
+能力目录保留旧发布记录兼容，并在管理员保存后保持音频默认值与可控参数一致。
+旧草稿里保存的不可控 `videoGenerateAudio` 仅从 `recipe.params` 中省略，原始
+`run_settings` 和持久设置保持不变，仍可修改标题或提示词；这不允许显式提交该参数。
+详细语义见[模型能力目录](../active/2026-09-04-model-capability-catalog.md#42-视频音频输出与参数控制)。
+该返回值不检查单个视频文件的音轨，也不要求用实际生成来确认已维护的默认值。
 
 ## 图片预览
 

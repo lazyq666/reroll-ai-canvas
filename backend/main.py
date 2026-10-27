@@ -2614,6 +2614,8 @@ def available_models(providers=None, *, include_hidden=True) -> Dict[str, List[D
     saved_order = settings["order"]
     hidden = {kind: set(settings["hidden"].get(kind) or []) for kind in AVAILABLE_MODEL_FIELDS}
     grouped = {kind: [] for kind in AVAILABLE_MODEL_FIELDS}
+    aliases = {}
+    names_by_provider = {}
     for provider in providers:
         if not isinstance(provider, dict) or provider.get("enabled", True) is False:
             continue
@@ -2622,28 +2624,55 @@ def available_models(providers=None, *, include_hidden=True) -> Dict[str, List[D
             continue
         provider_name = str(provider.get("name") or provider_id).strip() or provider_id
         model_names = provider.get("model_names") if isinstance(provider.get("model_names"), dict) else {}
+        names_by_provider[provider_id] = model_names
         for kind, field in AVAILABLE_MODEL_FIELDS.items():
             for model in model_list_from_values(provider.get(field) or []):
-                entry_id = available_model_id(provider_id, model)
-                visible = entry_id not in hidden[kind]
-                if not include_hidden and not visible:
+                canonical = MODEL_CAPABILITY_CATALOG.canonical_model_id(provider_id, model, kind)
+                entry_id = available_model_id(provider_id, canonical)
+                key = (kind, entry_id)
+                if key in aliases:
+                    aliases[key]["aliases"].append(model)
+                    aliases[key]["alias_ids"].append(available_model_id(provider_id, model))
                     continue
-                grouped[kind].append({
+                model_aliases = list(dict.fromkeys([model,
+                    *MODEL_CAPABILITY_CATALOG.model_case_aliases(provider_id, canonical, kind),
+                    *(name for name in model_names if MODEL_CAPABILITY_CATALOG.canonical_model_id(
+                        provider_id, name, kind) == canonical)]))
+                entry = {
                     "id": entry_id,
                     "type": kind,
                     "provider_id": provider_id,
                     "provider_name": provider_name,
-                    "model": model,
-                    "name": str(model_names.get(model) or model).strip() or model,
-                    "visible": visible,
-                })
+                    "model": canonical,
+                    "name": canonical,
+                    "visible": True,
+                    "aliases": model_aliases,
+                    "alias_ids": [available_model_id(provider_id, alias) for alias in model_aliases],
+                }
+                aliases[key] = entry
+                grouped[kind].append(entry)
     for kind, entries in grouped.items():
         rank = {model_id: index for index, model_id in enumerate(saved_order.get(kind) or [])}
+        for entry in entries:
+            entry["aliases"] = list(dict.fromkeys(entry["aliases"]))
+            entry["alias_ids"] = list(dict.fromkeys(entry["alias_ids"]))
+            # Any legacy hidden alias keeps the logical model hidden. Saving the
+            # administrator list migrates these settings to the canonical ID.
+            entry["visible"] = not hidden[kind].intersection(entry["alias_ids"])
+            names = names_by_provider[entry["provider_id"]]
+            candidates = sorted(entry["aliases"], key=lambda model: rank.get(
+                available_model_id(entry["provider_id"], model), len(rank)))
+            entry["name"] = str(next((names[model] for model in
+                [entry["model"], *candidates] if names.get(model)), entry["model"])).strip() or entry["model"]
+        def entry_rank(entry):
+            return min((rank[value] for value in entry["alias_ids"] if value in rank), default=None)
         original_rank = {entry["id"]: index for index, entry in enumerate(entries)}
         entries.sort(key=lambda entry: (
-            0 if entry["id"] in rank else 1,
-            rank.get(entry["id"], original_rank[entry["id"]]),
+            0 if entry_rank(entry) is not None else 1,
+            entry_rank(entry) if entry_rank(entry) is not None else original_rank[entry["id"]],
         ))
+        if not include_hidden:
+            grouped[kind] = [entry for entry in entries if entry["visible"]]
     return grouped
 
 def save_available_model_order(
@@ -2656,24 +2685,36 @@ def save_available_model_order(
     hidden = {}
     for kind, entries in inventory.items():
         valid_ids = [entry["id"] for entry in entries]
-        valid_set = set(valid_ids)
+        canonical_ids = {alias: entry["id"] for entry in entries
+                         for alias in entry.get("alias_ids", [entry["id"]])}
         requested = payload.get(kind) if isinstance(payload, dict) else []
         requested = requested if isinstance(requested, list) else []
         selected = list(dict.fromkeys(
-            str(model_id or "").strip()
+            canonical_ids[str(model_id or "").strip()]
             for model_id in requested
-            if str(model_id or "").strip() in valid_set
+            if str(model_id or "").strip() in canonical_ids
         ))
         order[kind] = [*selected, *[model_id for model_id in valid_ids if model_id not in selected]]
         if visible is None:
-            hidden[kind] = [model_id for model_id in previous["hidden"].get(kind, []) if model_id in valid_set]
+            hidden[kind] = list(dict.fromkeys(canonical_ids[model_id]
+                for model_id in previous["hidden"].get(kind, []) if model_id in canonical_ids))
         else:
             requested_visible = visible.get(kind) if isinstance(visible.get(kind), list) else []
-            visible_ids = {
+            visible_alias_ids = {
                 str(model_id or "").strip()
                 for model_id in requested_visible
-                if str(model_id or "").strip() in valid_set
+                if str(model_id or "").strip() in canonical_ids
             }
+            visible_ids = {canonical_ids[alias] for alias in visible_alias_ids}
+            listed_alias_ids = {str(model_id or "").strip() for model_id in requested
+                                if str(model_id or "").strip() in canonical_ids}
+            for entry in entries:
+                # An older page may still list separate alias rows. Preserve a
+                # hidden row when that page saves; a current canonical-only
+                # page can explicitly show its single logical model row.
+                listed = listed_alias_ids.intersection(entry.get("alias_ids", [entry["id"]]))
+                if listed - visible_alias_ids:
+                    visible_ids.discard(entry["id"])
             hidden[kind] = [model_id for model_id in valid_ids if model_id not in visible_ids]
     saved = {**order, "hidden": hidden}
     path = available_models_file()
@@ -2699,9 +2740,10 @@ def save_available_model_names(names: Dict[str, str]) -> None:
         providers = load_api_providers()
         inventory = available_models(providers, include_hidden=True)
         entries_by_id = {
-            entry["id"]: entry
+            alias: entry
             for entries in inventory.values()
             for entry in entries
+            for alias in entry.get("alias_ids", [entry["id"]])
         }
         providers_by_id = {
             str(provider.get("id") or "").strip(): provider
@@ -12156,9 +12198,9 @@ from infinite_canvas.agent_api import AgentAPI
 
 
 def agent_available_models():
-    return [{"provider_id":p["id"], "model":model, "kind":kind}
-            for p in load_api_providers() if p.get("enabled", True)
-            for kind in ("image", "video") for model in p.get(kind + "_models", [])]
+    return [{"provider_id": entry["provider_id"], "model": entry["model"], "kind": kind}
+            for kind, entries in available_models(include_hidden=False).items()
+            if kind in ("image", "video") for entry in entries]
 
 
 def agent_media_path(url):

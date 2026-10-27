@@ -334,7 +334,7 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         typeof smartCatalogHasSelection === 'function'
         && !smartCatalogHasSelection('image', runSettings.provider_id, runSettings.model)
     ){
-        throw new Error(tr('smart.errNoApiModel'));
+        throw new Error(tr('smart.modelUnavailable'));
     }
     const capabilityModule = window.SmartCanvasModules.imageCapabilities;
     let capability = capabilityModule?.current?.(runSettings.provider_id, runSettings.model);
@@ -503,7 +503,11 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
             runSettings.videoModel
         )
     ){
-        throw new Error(tr('smart.errNoVideoModel'));
+        throw new Error(tr('smart.modelUnavailable'));
+    }
+    if(runSettings.videoProvider === 'jimeng' && typeof smartCatalogEntry === 'function'){
+        const entry = smartCatalogEntry('video', runSettings.videoProvider, runSettings.videoModel);
+        if(entry) runSettings = {...runSettings, videoModel:entry.model};
     }
     try {
         const uploadedRefs = applyUploadedUrlsToSmartRefs(refs, runSettings);
@@ -517,6 +521,12 @@ async function generationProviderSubmitVideo(prompt, refs, runSettings, context=
             runSettings.videoModel,
             videoCapabilityContext
         );
+        const supportedModelIds = videoCapability?.supported_model_ids;
+        const canonicalModel = runSettings.videoProvider === 'jimeng'
+            ? videoCapabilities?.canonicalModel?.('jimeng', runSettings.videoModel,
+                supportedModelIds?.length ? supportedModelIds : null)
+            : '';
+        if(canonicalModel) runSettings = {...runSettings, videoModel:canonicalModel};
         const optionSettings = videoCapabilities?.applyComposerOptions(runSettings, videoCapability) || runSettings;
         const jimengCapability = runSettings.videoProvider === 'jimeng' ? videoCapability : null;
         const resolvedState = videoCapabilities.resolve(

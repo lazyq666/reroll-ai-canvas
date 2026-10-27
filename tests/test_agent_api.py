@@ -403,6 +403,39 @@ class AgentApiTests(unittest.TestCase):
         self.assertEqual("rejected", self.post(body).json()["code"])
         self.assertEqual(0, self.sync.read("canvas-test", self.admin)["revision"])
 
+    def test_seedance_capability_reports_default_audio_and_recipe_omits_toggle(self):
+        self.api.resolve_model = self.api.catalog.resolve
+        self.api.models = lambda: [
+            {"provider_id": "jimeng", "model": "Seedance2.5", "kind": "video"}
+        ]
+        response = self.client.get(
+            "/api/agent/v1/models/jimeng/Seedance2.5",
+            params={"operation": "video.generate"},
+        )
+        self.assertEqual(200, response.status_code, response.text)
+        capability = response.json()
+        self.assertEqual({"default": True, "configurable": False}, capability["output"].get("audio"))
+        self.assertNotIn("generate_audio", capability["parameters"])
+        self.assertNotIn("generate_audio", capability["authoring"]["parameters"])
+
+        body = {"tasks": [{
+            "kind": "video", "prompt": "A bird sings",
+            "model": {"provider_id": "jimeng", "model": "Seedance2.5"},
+            "params": {"duration_seconds": 4, "resolution": "480p", "aspect_ratio": "16:9"},
+        }]}
+        response = self.post(body, key="seedance-audio")
+        self.assertEqual(200, response.status_code, response.text)
+        node = next(n for n in self.sync.read("canvas-test", self.admin)["nodes"]
+                    if n["id"] == response.json()["task_ids"][0])
+        self.assertNotIn("videoGenerateAudio", node["runSettings"])
+
+        body["dry_run"] = True
+        body["tasks"][0]["params"]["generate_audio"] = False
+        response = self.post(body, key="seedance-unsupported-audio")
+        self.assertEqual("rejected", response.json()["code"])
+        self.assertTrue(any(error["field"] == "generate_audio" and error["code"] == "parameter_unknown"
+                            for error in response.json()["details"]["errors"]))
+
     def test_private_canvas_forbidden(self):
         private = {**self.canvas, "id": "private-test", "visibility": "private"}
         self.store.commit(
