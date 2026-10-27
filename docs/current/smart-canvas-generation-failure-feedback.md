@@ -32,7 +32,7 @@
 
 左侧把每条 Generation History 记录当作一个对应 Node 的任务，并按“今天”“昨天”“本月”“上个月”或更早月份的真实时间分组。失败任务以更高的信息层级显示用户可理解的概括原因；成功任务使用更低高度。两种状态都可以选择查看详情。索引不显示成功、失败或总数统计，也不放置或预留复制按钮。索引标题固定为“任务成功 / 任务失败 / 任务部分完成 · Prompt 第一句”，使用 Regular 字重并单行省略；失败状态图标与概括原因放在同一行。成功记录不显示状态图标：存在引用图时仅显示缩略图，不存在引用图时文字占满整行。左侧滚动面使用 Canvas Surface，Modal 内滚动条与 Prompt Node 的细滚动条规范一致。右侧详情标题仍为“任务类型 · 任务名称”：优先使用当前 Node 的用户自定义名称，没有名称时使用 Prompt 第一句，不生成临时摘要。右侧始终保留完整 Prompt。
 
-右侧是连续信息面，不叠加多层卡片，整个内容面使用 `--ui-space-5` Padding。它展示状态、Node 与完整时间、输出设置、Model、Provider、耗时、失败概括、Reference Input Instance 缩略图和完整提示词；引用图可以打开轻量预览。成功详情标题不显示状态图标；失败状态图标放入失败概括模块，图标容器与图标等大且不带独立背景。失败概括模块使用 `--ui-color-action-secondary-danger` 背景和 `--ui-radius-s` 圆角，不使用左侧 Border。Generation Run ID、上游任务 ID、HTTP / 错误码和经过脱敏的 Provider 原文放在默认收起的“技术详情”中。
+右侧是连续信息面，不叠加多层卡片，整个内容面使用 `--ui-space-5` Padding。它展示状态、Node 与完整时间、输出设置、Model、Provider、耗时、失败概括、Reference Input Instance 缩略图和完整提示词；引用图可以打开轻量预览。成功详情标题不显示状态图标；失败状态图标放入失败概括模块，图标容器与图标等大且不带独立背景。失败概括模块使用 `--ui-color-action-secondary-danger` 背景和 `--ui-radius-s` 圆角，不使用左侧 Border。Generation Run ID、上游任务 ID、HTTP / 错误码和经过脱敏的技术错误放在默认收起的“技术详情”中；技术错误可以来自本地执行或 Provider 响应，不能统称为上游原文。
 
 Modal Shell 使用共享 `ic-dialog` 并挂载在 Canvas 手势根之外。Modal 打开后，初始焦点进入当前任务，而不是强制聚焦关闭按钮；因此关闭 Tooltip 不会在没有 Hover 或键盘导航时自动出现。
 Modal 必须拥有其范围内的 Pointer 与 Wheel 输入：按下、松开或单击内容不得改变底层 Canvas Selection、打开 Node 的 Prompt Authoring，也不得启动画布手势；左右滚动区仍可正常滚动，但滚轮与触控板事件不得穿透为底层 Canvas 的平移或缩放。
@@ -56,6 +56,16 @@ Modal 内任意区域的 `contextmenu` 事件不得冒泡打开 Canvas 的创建
 | provider unavailable | 平台暂时不可用 | 稍后重试或更换 Provider |
 | target changed | Node 已删除、权限变化或结果已过期 | 保留生成历史，不写回旧目标 |
 | unknown | 尚未分类 | 复制诊断并重试 |
+
+本地连接、响应读取、请求写入或连接池等待超时保留 `provider_network_timeout: <异常类型>`，
+例如 `ConnectTimeout`、`ReadTimeout`、`WriteTimeout` 或 `PoolTimeout`，
+并使用 `network_timeout` 分类。没有收到 HTTP 响应时，诊断 HTTP 状态为 `0`，界面与复制报告
+显示 `-`，不得补成平台返回的 500 或 504。明确的超时标记优先于历史记录中的笼统平台错误分类，
+中英文切换重新解析用户说明；只有空错误、500 或接近超时阈值的耗时，不能作为重判旧记录的依据。
+同步 HTTP API 可用本地 504 响应表达网关等待超时，但保留明确的本地超时标记；
+Generation Run 的上游诊断状态仍为 `0`，不将该 API 响应冒充为平台返回值。
+真实的上游 HTTP 500 继续按平台内部错误处理。详情和报告使用“技术错误 / Technical error”字段，
+保留经过脱敏的异常类型或响应内容；缺少任务编号与账单证据时，不据此承诺请求未到达平台或未扣费。
 
 提交前画布同步超时使用 `canvas_sync_incomplete`，说明本次生成请求尚未提交，并提示
 等待画布恢复同步后重试。历史记录中“实时同步尚未完成，生成任务未提交”、智能分层的
@@ -87,6 +97,7 @@ CLI helper 返回结构化错误时，`error.message` 与经过脱敏的 `error.
 
 - 单项、部分和全部失败的数量、标题与操作名正确。
 - Alert 在用户处理前持续存在；详情可展开，诊断可复制且已脱敏。
+- 四种 HTTPX 网络超时保留具体异常类型，并在中英文反馈与报告中显示连接超时；没有 HTTP 响应时不填造状态码。真实 HTTP 500 与缺少底层证据的旧记录不会仅凭耗时被重判为网络超时。
 - CLI helper 的结构化上游错误详情可见；日志 ID 对账变化后，“查看详情”仍能按稳定 Generation Run ID 聚焦本次失败。
 - 同一 Generation Run 的本地与服务器失败合并为一条，保留真实引用图数量、Provider、Model、Node、请求参数和具体技术错误，不追加“没有返回图片”的第二条兜底失败。
 - Modal 只呈现日期分组任务索引与当前详情；成功和失败任务都可选，失败层级更强，成功行更紧凑，索引无统计和复制动作。

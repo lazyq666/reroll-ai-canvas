@@ -32,5 +32,31 @@ vm.runInContext(slice('static/js/smart-canvas/generation-run.js', 'function gene
     response=new Response('Upstream unavailable',{status:503});
     await assert.rejects(vm.runInContext('generationProviderPostTask("/api/canvas-image-tasks",{})',sandbox),
         error=>error.status===503&&error.message==='Upstream unavailable');
-    console.log('PASS: structured submission failures retain HTTP status, error code and reason');
+    Object.assign(sandbox.window.SmartCanvasModules, {
+        generationSettings:{}, generationPending:{}, generationOutput:{}, canvasPersistence:{},
+    });
+    sandbox.setTimeout=resolve=>{resolve();return 0;};
+    vm.runInContext(fs.readFileSync('static/js/smart-canvas/generation-recovery.js','utf8'),sandbox);
+    vm.runInContext('generationRecoveryTaskStillPending=()=>true; generationRecoveryProjectImageProcessor=()=>{};',sandbox);
+    for(const [index,testCase] of [
+        {error:'provider_network_timeout: ConnectTimeout',status:0,category:'network_timeout'},
+        {error:'provider_network_timeout: ReadTimeout',status:500,category:'network_timeout'},
+        {error:'',status:500,category:'provider_internal_error'},
+        {error:'APIMART 图片接口错误（HTTP 500）：Internal server error',status:500,category:'provider_internal_error'},
+    ].entries()){
+        const task={status:'failed',error:testCase.error,status_code:testCase.status,
+            diagnostics:{http_status:testCase.status,provider_id:'apimart',upstream_task_ids:[]}};
+        response=new Response(JSON.stringify(task),{status:200});
+        let rejection;
+        try {await vm.runInContext(`generationRecoveryPollTask('timeout-replay-${index}')`,sandbox);}
+        catch(error){rejection=error;}
+        assert.ok(rejection,'failed persisted task must reject the actual polling path');
+        sandbox.rejection=rejection;
+        const detail=vm.runInContext('generationRunFailureDetail(rejection)',sandbox);
+        assert.equal(detail.category,testCase.category);
+        assert.equal(detail.httpStatus,testCase.status,'local timeout must not acquire an invented upstream status');
+        if(testCase.error)assert.equal(detail.technicalError,testCase.error);
+        assert.deepEqual(Array.from(rejection.generationTask.diagnostics.upstream_task_ids),[]);
+    }
+    console.log('PASS: submission and polled failures preserve evidence and distinguish network timeouts from upstream HTTP errors');
 })().catch(error=>{console.error(error);process.exitCode=1;});

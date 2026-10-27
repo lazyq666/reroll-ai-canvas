@@ -18,7 +18,7 @@
         {category:'rate_limited', retryability:'retry_later', statuses:[429], signals:['rate-limiting requests','rate limit','too many requests']},
         {category:'provider_busy', retryability:'retry_later', statuses:[503], signals:['service busy','provider busy','all channels failed','no available channel']},
         {category:'processing_timeout', retryability:'retry_later', statuses:[], signals:['maximum processing time','exceeded 15 minutes','processing timeout','task timed out']},
-        {category:'network_timeout', retryability:'retry_later', statuses:[408,504], signals:['gateway timeout','context deadline exceeded','network timeout','read timeout','connect timeout']},
+        {category:'network_timeout', retryability:'retry_later', statuses:[408,504], signals:['provider_network_timeout','connecttimeout','readtimeout','writetimeout','pooltimeout','gateway timeout','context deadline exceeded','network timeout','read timeout','connect timeout']},
         {category:'connection_interrupted', retryability:'retry_later', statuses:[], signals:['provider_connection_interrupted','disconnected','connection reset','connection aborted','tls error','broken pipe']},
         {category:'prompt_too_long', retryability:'modify_then_retry', statuses:[], signals:['prompt too long','prompt length exceeds','maximum prompt length','提示词过长','提示词长度','超过稳定上限']},
         {category:'unsupported_size', retryability:'modify_then_retry', statuses:[], signals:['aspect ratio','resolution invalid','invalid resolution','size invalid','unsupported size','image size must be auto','invalid value \'1k\' for \'--size','所选画幅或分辨率已不可用','画幅或分辨率已不可用','分辨率已不可用','画幅已不可用']},
@@ -113,9 +113,14 @@
     }
     function localize(error, translate){
         const tr = typeof translate === 'function' ? translate : key => key;
-        // Older clients may have saved an unknown classification before a
-        // diagnostic rule existed. Resolve it again when displaying history.
-        const value = error?.category && error.category !== 'unknown' ? error : classify(error);
+        // Revisit unknown errors and generic server errors with explicit timeout
+        // evidence. Empty historical failures cannot identify a network cause.
+        const classified = classify(error);
+        const correctedTimeout = error?.category === 'provider_internal_error'
+            && classified.category === 'network_timeout';
+        const value = error?.category && error.category !== 'unknown' && !correctedTimeout
+            ? error
+            : classified;
         return {
             ...value,
             title:tr(value.titleKey),

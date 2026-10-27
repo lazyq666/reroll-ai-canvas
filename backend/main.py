@@ -209,6 +209,7 @@ from infinite_canvas.generation_runs import (
     VideoRun,
     WorkflowRun,
     WorkspaceGenerationEffects,
+    generation_failure_details,
     generation_run_control,
 )
 from infinite_canvas.media import WorkspaceMediaService
@@ -7550,12 +7551,20 @@ async def _attach_fetch_time_capability_review(
         }
     return response
 
+def _generation_failure_http_status(detail, status_code=0):
+    if status_code:
+        return int(status_code)
+    # This is the local API response status, not an upstream HTTP response.
+    return 504 if str(detail).startswith("provider_network_timeout:") else 500
+
+
 def _raise_generation_http(error):
-    if isinstance(error, HTTPException):
+    detail, status_code = generation_failure_details(error)
+    if isinstance(error, HTTPException) and not detail.startswith("provider_network_timeout:"):
         raise error
     raise HTTPException(
-        status_code=int(getattr(error, "status_code", 500) or 500),
-        detail=getattr(error, "detail", None) or str(error),
+        status_code=_generation_failure_http_status(detail, status_code),
+        detail=detail,
     ) from error
 
 
@@ -7597,7 +7606,7 @@ async def _run_generation_inline(request, payload=None):
         _raise_generation_http(exc)
     if run.status in {"failed", "cancelled"}:
         raise HTTPException(
-            status_code=run.status_code or 500,
+            status_code=_generation_failure_http_status(run.error, run.status_code),
             detail=run.error or "生成任务执行失败",
         )
     if run.status == "jimeng_pending" and isinstance(
@@ -7660,7 +7669,7 @@ async def _query_generation_remote(
         if failure_as_result and run.result is not None:
             return run.result
         raise HTTPException(
-            status_code=run.status_code or 500,
+            status_code=_generation_failure_http_status(run.error, run.status_code),
             detail=run.error or "任务查询失败",
         )
     return run.result
@@ -7906,7 +7915,7 @@ async def build_online_image_result(payload: OnlineImageRequest):
         raise run.result
     if run.status != "succeeded":
         raise HTTPException(
-            status_code=run.status_code or 500,
+            status_code=_generation_failure_http_status(run.error, run.status_code),
             detail=run.error or "生成任务提交失败",
         )
     return run.result

@@ -170,6 +170,8 @@ Once it's up, open `http://127.0.0.1:3000/` in your browser. If port 3000 is tak
 
 > The first launch needs an internet connection to download the runtime and dependencies. Whether generation needs one later depends on whether you use online APIs or a local ComfyUI.
 
+When starting Reroll through a background tool such as LaunchManager, explicitly configure that job's proxy environment if your online APIs require it, then reload the job. See the [network and timeout notes](docs/current/generation-pipeline.md#后台启动的网络环境) for defaults and activation details, and `.env.example` for optional variables.
+
 ### 2. Create an administrator and connect AI services
 
 The first time you open Reroll, it walks you through a few steps: create the local Administrator, choose where your work is saved, then pick the AI services you want and connect them one by one. As soon as one service passes its connection and model checks, click **Start creating** to reach your canvases; you can add more services later in **API settings**. Existing installations are not asked to repeat this setup.

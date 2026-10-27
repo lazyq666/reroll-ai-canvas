@@ -1500,7 +1500,7 @@
         "smart.diagnosticUpstreamTaskId": { zh: "上游任务 ID", en: "Upstream task ID" },
         "smart.diagnosticCategory": { zh: "错误分类", en: "Error category" },
         "smart.diagnosticUserMessage": { zh: "用户说明", en: "User-facing message" },
-        "smart.diagnosticTechnicalError": { zh: "上游原文", en: "Upstream error" },
+        "smart.diagnosticTechnicalError": { zh: "技术错误", en: "Technical error" },
         "smart.diagnosticErrorCode": { zh: "上游错误码", en: "Upstream error code" },
         "smart.diagnosticHttpStatus": { zh: "HTTP 状态码", en: "HTTP status" },
         "smart.diagnosticBilling": { zh: "费用或退款证据", en: "Billing or refund evidence" },
