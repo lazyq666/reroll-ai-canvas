@@ -13,6 +13,13 @@ HTML = ROOT / "static/smart-canvas.html"
 
 
 class SmartCanvasVideoCapabilityTests(unittest.TestCase):
+    def test_saved_model_identity_and_unavailable_settings_are_preserved(self):
+        result = subprocess.run(
+            ["node", "tests/smart_model_selection.test.cjs"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def run_module(self, expression):
         script = textwrap.dedent(
             f"""

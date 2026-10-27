@@ -874,7 +874,8 @@ class ModelCapabilityMatrix:
             if isinstance(contract, Mapping) and contract.get("type") == "boolean":
                 supported = key in selected_options
                 contract["values"] = [False, True] if supported else [False]
-                contract["default"] = False
+                if operation != "video.generate" or key != "generate_audio":
+                    contract["default"] = False
                 contract["visible"] = supported
                 contract["editable"] = supported
         if operation in {"image.generate", "image.edit"}:
@@ -905,6 +906,31 @@ class ModelCapabilityMatrix:
                 media_contract["composer_options"] = composer_options
         if operation == "video.generate":
             ModelCapabilityMatrix._apply_video_choice(candidate, choice)
+            media_contract = candidate["media_contract"]
+            audio_output = output.get("audio")
+            if not isinstance(audio_output, Mapping):
+                audio_output = media_contract.get("audio_output")
+            audio_default = (
+                audio_output.get("default")
+                if isinstance(audio_output, Mapping) else None
+            )
+            configurable = "generate_audio" in selected_options
+            audio_parameter = parameters.get("generate_audio")
+            if configurable and isinstance(audio_parameter, dict):
+                if isinstance(audio_parameter.get("default"), bool):
+                    audio_default = audio_parameter["default"]
+                elif isinstance(audio_default, bool):
+                    audio_parameter["default"] = audio_default
+                else:
+                    audio_parameter.pop("default", None)
+            else:
+                parameters.pop("generate_audio", None)
+            audio_contract = {
+                "default": audio_default if isinstance(audio_default, bool) else None,
+                "configurable": configurable,
+            }
+            output["audio"] = copy.deepcopy(audio_contract)
+            media_contract["audio_output"] = copy.deepcopy(audio_contract)
         return candidate
 
 __all__ = [

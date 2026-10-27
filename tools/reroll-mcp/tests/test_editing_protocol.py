@@ -52,7 +52,32 @@ class EditingProtocolTests(unittest.IsolatedAsyncioTestCase):
                         self.assertNotIn("code", data, data)
                         return data
 
+                    # Exercise the actual capability catalog through the shipped MCP bridge.
+                    fixture_resolver = fixture.api.resolve_model
+                    fixture.api.resolve_model = fixture.api.catalog.resolve
+                    try:
+                        capability = await call("get_model_capability", {
+                            "provider": "jimeng", "model": "Seedance2.5", "operation": "video.generate",
+                        })
+                        self.assertEqual({"default": True, "configurable": False}, capability["output"]["audio"])
+                        self.assertNotIn("generate_audio", capability["parameters"])
+                        self.assertNotIn("generate_audio", capability["authoring"]["parameters"])
+                    finally:
+                        fixture.api.resolve_model = fixture_resolver
+
                     await call("use_canvas", {"canvas": "canvas-test"})
+                    creation = {"tasks": [{"kind": "video", "prompt": "@hero moves",
+                        "model": {"provider_id": "fixture", "model": "video"},
+                        "params": {"duration_seconds": 12, "aspect_ratio": "3:4", "resolution": "720p"},
+                        "refs": {"hero": {"node": "source-0"}}}], "idempotency_key": "geometry-mcp"}
+                    await call("create_generation_tasks", {**creation, "dry_run": True})
+                    created = await call("create_generation_tasks", creation)
+                    created_id = created["task_ids"][0]
+                    created_detail = await call("get_generation_task", {"node_id": created_id})
+                    self.assertEqual(created["task_geometries"][created_id], created_detail["geometry"])
+                    self.assertEqual(created["frame_geometry"], created_detail["frame_geometry"])
+                    summary = await call("get_canvas", {"frame": created["frame_id"]})
+                    self.assertEqual(created_detail["geometry"], summary["nodes"][0]["geometry"])
                     before = await call("get_generation_task", {"node_id": "draft"})
                     self.assertEqual(fixture.long_prompt, before["recipe"]["prompt"])
                     self.assertEqual(7, len(before["resolved_inputs"]))
@@ -87,14 +112,28 @@ class EditingProtocolTests(unittest.IsolatedAsyncioTestCase):
                     retry = await call("update_generation_task", args)
                     self.assertEqual(saved["after"], retry["after"])
             # Independent bridge process; authoritative persisted read, no cached editor.
+            completed = {**fixture.node(), "id": "legacy-completed-video",
+                "referenceGenerationKind": "image", "generationOutputNode": True,
+                "outputKind": "video", "images": [{"url": "/assets/completed.mp4", "kind": "video"}]}
+            await asyncio.to_thread(fixture.mutate,
+                {"node_creates": [fixture.api.creation(completed)]}, "completed-video")
+            persisted_snapshot = fixture.document()
             async with stdio_client(parameters) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
+                    created_again = await session.call_tool("get_generation_task", {"canvas": "canvas-test", "node_id": created_id})
+                    self.assertEqual(created_detail["geometry"], json.loads(created_again.content[0].text)["geometry"])
                     result = await session.call_tool("get_generation_task", {"canvas": "canvas-test", "node_id": "draft"})
                     current = json.loads(result.content[0].text)
                     self.assertEqual(saved["node_revision"], current["node_revision"])
                     self.assertEqual(saved["after"]["recipe"], current["recipe"])
                     self.assertTrue(current["validation"]["valid"], current["validation"])
+                    result = await session.call_tool("get_generation_task", {"canvas": "canvas-test", "node_id": "legacy-completed-video"})
+                    completed_detail = json.loads(result.content[0].text)
+                    self.assertEqual("video", completed_detail["recipe"]["kind"])
+                    self.assertEqual({"provider_id": "fixture", "model": "video"}, completed_detail["recipe"]["model"])
+                    self.assertEqual(12, completed_detail["recipe"]["params"]["duration_seconds"])
+                    self.assertEqual(persisted_snapshot, fixture.document(), "readback must not migrate history")
             self.assertEqual({}, fixture.api.contexts, "no editor ever connected")
             with fixture.api.data() as state:
                 self.assertEqual({}, state["runs"], "saving never queued a generation")

@@ -2926,7 +2926,8 @@ function providerImageModels(providerId){
     return (apiProviders || []).find(p => p.id === providerId)?.image_models || [];
 }
 function smartModelCatalog(kind){
-    const managed = Array.isArray(availableModels?.[kind]) ? availableModels[kind] : [];
+    const hasManagedCatalog = Array.isArray(availableModels?.[kind]);
+    const managed = hasManagedCatalog ? availableModels[kind] : [];
     const videoCapabilities = window.SmartCanvasModules.videoCapabilities;
     const supportedJimengVideoModels = kind === 'video'
         ? (videoCapabilities?.supportedModels?.('jimeng') || [])
@@ -2952,7 +2953,7 @@ function smartModelCatalog(kind){
             }];
         });
     };
-    if(managed.length){
+    if(hasManagedCatalog){
         return normalizeJimengVideoEntries(managed);
     }
     const field = kind === 'image' ? 'image_models' : kind === 'video' ? 'video_models' : 'chat_models';
@@ -2969,30 +2970,31 @@ function smartCatalogEntry(kind, providerId='', model=''){
     const entries = smartModelCatalog(kind);
     const requestedProvider = String(providerId || '').trim();
     const requestedModel = String(model || '').trim();
-    const exact = entries.find(
-        entry =>
-            entry.provider_id === requestedProvider
-            && entry.model === requestedModel
-    );
-    if(exact) return exact;
-    // An explicit provider is a billing/credential boundary. Never cross it
-    // just because another provider exposes a model with the same name.
-    if(requestedProvider){
-        return entries.find(entry => entry.provider_id === requestedProvider)
-            || null;
-    }
+    const canonicalModel = (provider, value) => {
+        const module = window.SmartCanvasModules.videoCapabilities;
+        return kind === 'video' && provider === 'jimeng'
+            ? module?.canonicalModel?.(provider, value) || value
+            : value;
+    };
+    // A saved model is an explicit choice. Only authoritative aliases may
+    // resolve it; choosing a different model requires a user action.
     if(requestedModel){
-        return entries.find(entry => entry.model === requestedModel)
-            || null;
+        return entries.find(entry =>
+            (!requestedProvider || entry.provider_id === requestedProvider)
+            && (canonicalModel(entry.provider_id, entry.model)
+                === canonicalModel(entry.provider_id, requestedModel)
+                || (kind === 'video' && entry.provider_id === 'jimeng'
+                    && Array.isArray(entry.aliases) && entry.aliases.includes(requestedModel)))
+        ) || null;
+    }
+    if(requestedProvider){
+        return entries.find(entry => entry.provider_id === requestedProvider) || null;
     }
     return entries[0] || null;
 }
 function smartCatalogHasSelection(kind, providerId='', model=''){
-    return smartModelCatalog(kind).some(
-        entry =>
-            entry.provider_id === providerId
-            && entry.model === model
-    );
+    if(!providerId || !model) return false;
+    return Boolean(smartCatalogEntry(kind, providerId, model));
 }
 let smartSettingsFallbackNotice = {message:'', at:0};
 function notifySmartSettingFallback(setting, previous, next=''){
@@ -3073,9 +3075,12 @@ function notifySmartApiSelectionFallback(before, target=settings, {notify=false}
     const nextModel = video
         ? smartModelSelectionLabel(after.videoProvider, after.videoModel)
         : smartModelSelectionLabel(after.provider_id, after.model);
+    const equivalentVideoModel = before.videoProvider === after.videoProvider
+        && before.videoProvider === 'jimeng'
+        && smartCatalogEntry('video', before.videoProvider, before.videoModel)?.model === after.videoModel;
     const modelChanged = video
         ? before.videoProvider !== after.videoProvider
-            || before.videoModel !== after.videoModel
+            || (before.videoModel !== after.videoModel && !equivalentVideoModel)
         : before.provider_id !== after.provider_id
             || before.model !== after.model;
     if(previousModel && modelChanged){
@@ -3086,7 +3091,6 @@ function notifySmartApiSelectionFallback(before, target=settings, {notify=false}
         );
     } else if(
         previousModel
-        && smartModelCatalog(video ? 'video' : 'image').length
         && !smartCatalogHasSelection(
             video ? 'video' : 'image',
             video ? after.videoProvider : after.provider_id,
@@ -3119,7 +3123,10 @@ function renderCatalogModelControl(kind){
     const title = video ? tr('smart.videoModel') : tr('smart.imageModel');
     const noModelLabel = video ? tr('smart.noVideoModel') : tr('smart.noImageModel');
     const available = entries.length || workflows.length;
-    const options = entries.map(entry => `<option value="${escapeAttr(entry.id)}" ${smartModelVendorOptionAttributes(entry.model, entry.provider_id, entry.provider_name)} ${entry.id === current?.id ? 'selected' : ''}>${escapeHtml(entry.name || entry.model)}</option>`).join('')
+    const unavailable = !workflowSelected && !current && model
+        ? `<option value="__unavailable_model__" selected disabled>${escapeHtml(trf('smart.modelUnavailableLabel', {model:smartModelSelectionLabel(providerId, model)}))}</option>`
+        : '';
+    const options = unavailable + entries.map(entry => `<option value="${escapeAttr(entry.id)}" ${smartModelVendorOptionAttributes(entry.model, entry.provider_id, entry.provider_name)} ${entry.id === current?.id ? 'selected' : ''}>${escapeHtml(entry.name || entry.model)}</option>`).join('')
         + (workflows.length ? `<option value="__workflow_heading__" disabled>${escapeHtml(tr('smart.workflow'))}</option>${workflows.map(workflow => `<option value="${escapeAttr(`workflow:${workflow.name}`)}" data-start-icon="workflow" ${workflowSelected && workflow.name === settings.comfyWorkflow ? 'selected' : ''}>${escapeHtml(workflow.title || workflow.name.replace(/\.json$/i,''))}</option>`).join('')}` : '');
     return `<ic-select class="catalog-model-select" name="${video ? 'video-model' : 'image-model'}" aria-label="${escapeAttr(title)}" hierarchy="quiet" placement="top" data-smart-select-param="${param}" data-component-variant="model-picker" data-legal-combination="model-picker-vertical-manual-label" ${available ? '' : 'disabled'}>
         ${options || `<option value="__no_model__" selected disabled>${escapeHtml(noModelLabel)}</option>`}
@@ -3183,8 +3190,10 @@ function smartVideoComposerState({reconcile=true}={}){
     const module = window.SmartCanvasModules.videoCapabilities;
     const refs = smartVideoCapabilityReferences();
     const capability = smartCurrentVideoCapability();
-    const optionSettings = module.applyComposerOptions(settings, capability);
-    if(reconcile) settings = optionSettings;
+    const selectionAvailable = settings.engine !== 'api'
+        || smartCatalogHasSelection('video', settings.videoProvider, settings.videoModel);
+    const optionSettings = selectionAvailable ? module.applyComposerOptions(settings, capability) : {...settings};
+    if(reconcile && selectionAvailable) settings = optionSettings;
     if(settings.videoProvider !== 'jimeng'){
         return {
             capability,
@@ -3193,7 +3202,7 @@ function smartVideoComposerState({reconcile=true}={}){
             state:module.resolve(optionSettings, refs, capability)
         };
     }
-    const resolved = reconcile
+    const resolved = reconcile && selectionAvailable
         ? module.reconcile(optionSettings, refs, capability)
         : {settings:optionSettings,state:module.resolve(optionSettings, refs, capability),invalidated:[]};
     if(reconcile) settings = {...settings,...resolved.settings};
@@ -3231,10 +3240,9 @@ function smartComposerSelectionValidationActive(){
 }
 function sanitizeSmartApiSelection(target=settings, options={}){
     if(!target || typeof target !== 'object') return target;
-    if(options.notify && !smartComposerSelectionValidationActive()) return target;
     const before = smartApiSelectionSnapshot(target);
     const finish = () => {
-        notifySmartApiSelectionFallback(before, target, options);
+        notifySmartApiSelectionFallback(before, target, {...options,notify:options.notify && smartComposerSelectionValidationActive()});
         return target;
     };
     if((target.engine || 'api') === 'api'){
@@ -3249,27 +3257,19 @@ function sanitizeSmartApiSelection(target=settings, options={}){
         if(target.apiKind === 'video'){
             target.videoProvider = 'volcengine';
             const models = volcengineVideoModels();
-            if(models.length && !models.includes(target.videoModel)) target.videoModel = models[0];
+            if(models.length && !target.videoModel) target.videoModel = models[0];
         } else {
             target.provider_id = 'volcengine';
             const models = providerImageModels('volcengine');
-            if(models.length && !models.includes(target.model)) target.model = models[0];
+            if(models.length && !target.model) target.model = models[0];
         }
         return finish();
     }
     clearVolcengineSelectionOutsideVolcengine(target);
-    if(target.provider_id){
-        const models = providerImageModels(target.provider_id);
-        if(models.length && !models.includes(target.model)) target.model = models[0] || '';
-    }
     if((target.engine || 'api') === 'api' && (target.apiKind || 'image') !== 'video'){
         const allowAuto = isGptImageAutoSizeModel(target.model);
         if(!target.resolution) target.resolution = allowAuto ? defaultSmartApiResolution(target.model) : '1k';
         if(!allowAuto && target.resolution === 'auto') target.resolution = '1k';
-    }
-    if(target.videoProvider){
-        const models = providerVideoModels(target.videoProvider);
-        if(models.length && !models.includes(target.videoModel)) target.videoModel = models[0] || '';
     }
     return finish();
 }
@@ -3292,8 +3292,11 @@ function videoProviderById(providerId){
 function providerVideoModels(providerId){
     if(providerId === 'volcengine') return volcengineVideoModels();
     const provider = videoApiProviders().find(p => p.id === providerId);
-    const models = provider?.video_models || DEFAULT_VIDEO_MODELS;
-    return [...new Set(models)];
+    const models = provider?.video_models || [];
+    const module = window.SmartCanvasModules.videoCapabilities;
+    return [...new Set(models.map(model => providerId === 'jimeng'
+        ? module?.canonicalModel?.(providerId, model) || model
+        : model))];
 }
 function volcengineVideoModels(){
     const provider = (apiProviders || []).find(p => p.id === 'volcengine');
@@ -4966,6 +4969,7 @@ async function loadSmartVideoCapabilityForCurrentSettings(){
         smartVideoCapabilityProviderContext(settings)
     );
     if(sequence !== smartVideoCapabilityLoadSequence) return capability;
+    if(settings.engine === 'api' && !smartCatalogHasSelection('video', settings.videoProvider, settings.videoModel)) return capability;
     settings = window.SmartCanvasModules.videoCapabilities.applyComposerOptions(settings, capability);
     if(settings.videoProvider === 'jimeng'){
         const reconciled = window.SmartCanvasModules.videoCapabilities.reconcile(

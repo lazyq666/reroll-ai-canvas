@@ -515,6 +515,7 @@ class SmartCanvasGenerationModuleTests(unittest.TestCase):
             ];
             const sandbox = {{
                 smartModelCatalog:() => catalog,
+                window:{{SmartCanvasModules:{{}}}},
             }};
             vm.createContext(sandbox);
             vm.runInContext({json.dumps(source)}, sandbox);
@@ -547,10 +548,7 @@ class SmartCanvasGenerationModuleTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["exact"]["provider_id"], "provider-b")
-        self.assertEqual(
-            payload["sameProviderFallback"]["model"],
-            "shared-model",
-        )
+        self.assertIsNone(payload["sameProviderFallback"])
         self.assertIsNone(payload["removedProvider"])
         self.assertEqual(payload["blank"]["provider_id"], "provider-a")
 

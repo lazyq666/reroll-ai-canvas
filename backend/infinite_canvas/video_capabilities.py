@@ -70,6 +70,28 @@ class VideoCapabilityRegistry:
                 return {}
         return value if isinstance(value, dict) else {}
 
+    def canonical_model_id(self, provider_id: str, model_id: str) -> str:
+        """Resolve maintained case aliases only within their Provider boundary."""
+        model = _clean_text(model_id)
+        payload = self._payload()
+        if _clean_text(provider_id) != _clean_text(payload.get("provider_id")):
+            return model
+        return next((_clean_text(item["model_id"]) for item in payload.get("models", [])
+                     if isinstance(item, Mapping)
+                     and _clean_text(item.get("model_id")).casefold() == model.casefold()), model)
+
+    def model_case_aliases(self, provider_id: str, model_id: str) -> list[str]:
+        """Keep known legacy settings IDs resolvable after discovery drops an alias."""
+        canonical = self.canonical_model_id(provider_id, model_id)
+        payload = self._payload()
+        if _clean_text(provider_id) != _clean_text(payload.get("provider_id")):
+            return [canonical]
+        record = next((item for item in payload.get("models", [])
+                       if item.get("model_id") == canonical), {})
+        return list(dict.fromkeys([canonical, *(
+            value for value in record.get("case_aliases", [])
+            if _clean_text(value).casefold() == canonical.casefold())]))
+
     @staticmethod
     def _route_matches(
         route: Mapping[str, Any],
@@ -196,6 +218,10 @@ class VideoCapabilityRegistry:
                 else {}
             ),
             "composer_option_definitions": copy.deepcopy(option_definitions),
+            "audio_output": {
+                "default": None,
+                "configurable": backend_path.get("composer_options", {}).get("generate_audio") == "user_toggle",
+            },
             "composer_policy": copy.deepcopy(
                 payload.get("composer_policy")
                 if requested_provider == maintained_provider
@@ -223,6 +249,8 @@ class VideoCapabilityRegistry:
         if not isinstance(profile, Mapping):
             return base
         source = payload.get("source")
+        audio_output = profile.get("audio_output")
+        audio_default = audio_output.get("default") if isinstance(audio_output, Mapping) else None
         return {
             **base,
             "known": True,
@@ -236,6 +264,10 @@ class VideoCapabilityRegistry:
                 model.get("access_requirement")
             ) or None,
             "capability_profile_id": profile_id,
+            "audio_output": {
+                **base["audio_output"],
+                "default": audio_default if isinstance(audio_default, bool) else None,
+            },
             "commands": copy.deepcopy(
                 profile.get("commands")
                 if isinstance(profile.get("commands"), Mapping)

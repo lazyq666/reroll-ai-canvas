@@ -129,9 +129,30 @@ The recipe's `model` is an object, not a model-name string:
 Use only parameters listed in `capability.authoring.parameters`; hidden catalog
 defaults are validated automatically and do not need explicit overrides.
 
+For video, pass `operation="video.generate"` to `get_model_capability`.
+`output.audio.default` describes whether audio generation is enabled by default
+(`null` means unconfirmed), while `output.audio.configurable` describes whether the
+audio option can be adjusted. The maintained Dreamina Seedance 2.0/2.5 profiles
+default to audio on and expose no audio toggle. Omit `params.generate_audio` when
+it is absent from `authoring.parameters`. The legacy
+`composer_options.generate_audio="unsupported"` describes the unavailable control;
+it does not mean that generated video is silent. These fields describe generation
+behavior; they do not inspect an individual output file's audio track.
+
 The first selected Canvas stays locked until `use_canvas` or `create_canvas`.
 `run_tasks` requires run scope and an open editor signed in to the same Account.
 Without one, requests wait up to 24 hours. Authoring alone never triggers generation.
+
+New submissions are placed near their existing reference Nodes. Without an
+existing reference they are centered in the editor viewport, or near the Canvas
+origin when offline, with deterministic avoidance in both axes. Existing Nodes
+stay in place. Creation receipts include `frame_geometry` and `task_geometries`
+(`{x, y, width, height}` in Canvas coordinates). Dry runs return planned geometry;
+idempotent retries return the original receipt even after a later move. After
+creation, independently call `get_generation_task` to verify its current
+`geometry`, `frame_geometry`, model, parameters and inputs. `get_canvas` and
+`get_selection` also return current Node geometry.
+
 `get_task_status`, `download_outputs` and `undo_submission` operate on task or submission IDs.
 Undo refuses subsequent edit conflicts and tasks that have started running.
 

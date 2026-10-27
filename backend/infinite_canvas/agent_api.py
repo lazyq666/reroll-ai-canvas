@@ -11,6 +11,7 @@ import re
 import time
 import base64
 import io
+import heapq
 from collections import defaultdict, deque
 from contextlib import contextmanager
 from pathlib import Path
@@ -77,6 +78,13 @@ def node_role(node):
         "smart-brush": "brush-stroke",
         "smart-text": "text-annotation",
     }.get(node.get("type"), "image")
+
+
+def node_geometry(node):
+    """Public Canvas coordinates, independent of a private editor viewport."""
+    return {"x": node.get("x", 0), "y": node.get("y", 0),
+            "width": node.get("w", node.get("width", 280)),
+            "height": node.get("h", node.get("height", 220))}
 
 
 def visual_order(items):
@@ -378,6 +386,7 @@ class AgentAPI:
                 "node_id": n["id"],
                 "name": n.get("title", ""),
                 "indices": lookup[n["id"]].get("indices"),
+                "geometry": node_geometry(n),
             }
             for n in nodes
         ]
@@ -557,9 +566,10 @@ class AgentAPI:
                 ),
             }
         capability["authoring"] = {
-            "parameters": list(
-                VIDEO_PARAMS if operation == "video.generate" else IMAGE_PARAMS
-            ),
+            "parameters": [
+                key for key in (VIDEO_PARAMS if operation == "video.generate" else IMAGE_PARAMS)
+                if key in capability.get("parameters", {})
+            ],
             "prompt_maximum_characters": 100000,
         }
         return capability
@@ -585,10 +595,25 @@ class AgentAPI:
 
     def task_recipe(self, canvas, node):
         kind = node["referenceGenerationKind"]
+        if node.get("generationOutputNode") is True:
+            outputs = [item for item in node.get("images", []) if item.get("url")]
+            result_kind = (outputs[0].get("kind") if outputs and all(
+                item.get("kind") == outputs[0].get("kind") for item in outputs) else None)
+            kind = next((value for value in (result_kind, node.get("outputKind"),
+                node.get("generationInputSnapshot", {}).get("settings", {}).get("apiKind"), kind)
+                if value in ("image", "video")), kind)
         current = node.get("runSettings", canvas.get("settings", {}))
         mapping = VIDEO_PARAMS if kind == "video" else IMAGE_PARAMS
         params = {k: copy.deepcopy(current[v]) for k, v in mapping.items()
                   if v in current and current[v] not in ("", None)}
+        if kind == "video" and "generate_audio" in params and current.get("engine", "api") == "api":
+            capability = self.capability(
+                current.get("videoProvider"), current.get("videoModel"), "video.generate"
+            )
+            if "generate_audio" not in capability.get("parameters", {}):
+                # Old UI drafts persisted this flag even when the adapter had no
+                # audio control. Keep runSettings intact; expose only writable input.
+                params.pop("generate_audio")
         if kind == "image":
             if "aspect_ratio" in params:
                 params["aspect_ratio"] = IMAGE_RATIOS.get(params["aspect_ratio"], params["aspect_ratio"])
@@ -608,6 +633,8 @@ class AgentAPI:
 
     def task_detail(self, actor, canvas, node_id, *, validate=True):
         node = self.task_node(canvas, node_id)
+        frame = next((n for n in canvas["nodes"] if n.get("type") == "smart-frame"
+                      and node_id in n.get("items", [])), None)
         refs, _, errors, warnings = agent_inputs.effective_inputs(canvas, node)
         editable = task_state(node) == "draft"
         settings = node.get("runSettings", canvas.get("settings", {}))
@@ -626,8 +653,9 @@ class AgentAPI:
         if not editable:
             errors.append({"code": reason, "field": "state"})
         return {"canvas_id": canvas["id"], "node_id": node_id,
-                "frame_id": next((n["id"] for n in canvas["nodes"] if n.get("type") == "smart-frame"
-                                  and node_id in n.get("items", [])), None),
+                "frame_id": frame["id"] if frame else None,
+                "geometry": node_geometry(node),
+                "frame_geometry": node_geometry(frame) if frame else None,
                 "state": task_state(node), "editable": editable, "edit_block_reason": reason,
                 "node_revision": agent_inputs.revision(canvas, node),
                 "canvas_revision": canvas.get("revision", 0),
@@ -831,9 +859,10 @@ class AgentAPI:
                         {"task": i + 1, "field": "model", "code": "model_required"}
                     )
                     continue
+                identity = self.catalog.canonical_model_id(model["provider_id"], model["model"], kind)
                 if not any(
                     m.get("provider_id") == model["provider_id"]
-                    and m.get("model") == model["model"]
+                    and self.catalog.canonical_model_id(m.get("provider_id"), m.get("model"), kind) == identity
                     and m.get("kind") == kind
                     for m in self.models()
                 ):
@@ -841,6 +870,8 @@ class AgentAPI:
                         {"task": i + 1, "field": "model", "code": "model_unavailable"}
                     )
                     continue
+                if not update_id or "model" in patch:
+                    model = {**model, "model": identity}
                 operation = (
                     "video.generate"
                     if kind == "video"
@@ -1222,6 +1253,8 @@ class AgentAPI:
             [] if update_id else created,
             frame_id,
             body.get("title", ""),
+            reference_ids={ref["node_id"] for report in reports
+                           for ref in report["references"] if ref.get("node_id")},
         )
         if update_id:
             changes = {
@@ -1308,6 +1341,9 @@ class AgentAPI:
             "frame_id": frame_id if not update_id or imported else None,
             "node_count": len(changes.get("node_creates", [])),
             "warnings": warnings,
+            "frame_geometry": node_geometry(frame) if not update_id or imported else None,
+            "task_geometries": {n["id"]: node_geometry(original if update_id else n)
+                                for n in created},
         }
         if body.get("dry_run") is True:
             result["resolved_tasks"] = reports
@@ -1332,7 +1368,7 @@ class AgentAPI:
     def creation(node):
         return {"node": node, "placement": {"mode": "exact", "gap": NODE_GAP}}
 
-    def layout(self, actor, canvas, media, tasks, frame_id, title):
+    def layout(self, actor, canvas, media, tasks, frame_id, title, *, reference_ids=()):
         columns = min(5, max(1, math.ceil(math.sqrt(len(tasks)))))
         task_width = max((node["w"] for node in tasks), default=280)
         task_stride = task_width + NODE_GAP
@@ -1343,24 +1379,20 @@ class AgentAPI:
         )
         contexts = self.context(actor, canvas["id"])
         viewport = contexts[0]["viewport"] if contexts else {}
-        obstacles = canvas.get("nodes", [])
-        right = max((n.get("x", 0) + n.get("w", 280) for n in obstacles), default=0)
-        x, y = (
-            viewport.get("x", right + NODE_GAP) + viewport.get("width", 0) / 2,
-            viewport.get("y", 0) + viewport.get("height", 0) / 2,
-        )
-        for _ in range(len(obstacles) + 1):
-            collisions = [
-                n
-                for n in obstacles
-                if x < n.get("x", 0) + n.get("w", 280) + NODE_GAP
-                and x + width + NODE_GAP > n.get("x", 0)
-                and y < n.get("y", 0) + n.get("h", 220) + NODE_GAP
-                and y + height + NODE_GAP > n.get("y", 0)
-            ]
-            if not collisions:
-                break
-            x = max(n.get("x", 0) + n.get("w", 280) + NODE_GAP for n in collisions)
+        obstacles = [node_geometry(n) for n in canvas.get("nodes", [])]
+        references = [node_geometry(n) for n in canvas.get("nodes", []) if n["id"] in reference_ids]
+        if references:
+            left, top = min(n["x"] for n in references), min(n["y"] for n in references)
+            right = max(n["x"] + n["width"] for n in references)
+            bottom = max(n["y"] + n["height"] for n in references)
+            center_x, center_y = (left + right) / 2, (top + bottom) / 2
+        else:
+            # Editor Context already contains world coordinates after zoom.
+            # With no online editor, origin is stable regardless of remote Nodes.
+            center_x = viewport.get("x", 0) + viewport.get("width", 0) / 2
+            center_y = viewport.get("y", 0) + viewport.get("height", 0) / 2
+        x, y = self.nearby_position(center_x - width / 2, center_y - height / 2,
+                                    width, height, obstacles)
         frame = {
             "id": frame_id,
             "type": "smart-frame",
@@ -1382,6 +1414,41 @@ class AgentAPI:
                 y=y + NODE_GAP + (i // columns) * row_stride,
             )
         return frame, [*media, *tasks]
+
+    @staticmethod
+    def nearby_position(origin_x, origin_y, width, height, obstacles):
+        """Search obstacle boundaries in both axes, nearest displacement first.
+
+        Each candidate keeps one coordinate and moves the other to a blocking
+        edge. Coordinates therefore come from finite edge sets, and the stable
+        priority is independent of Canvas array order. Only new Nodes move.
+        """
+        pending, seen = [], set()
+
+        def offer(x, y):
+            if (x, y) in seen:
+                return
+            seen.add((x, y))
+            dx, dy = x - origin_x, y - origin_y
+            # Equal distances prefer right, then down, for readable input flow.
+            heapq.heappush(pending, (dx * dx + dy * dy, -dx, -dy, x, y))
+
+        offer(origin_x, origin_y)
+        while pending:
+            _, _, _, x, y = heapq.heappop(pending)
+            collisions = [n for n in obstacles
+                          if x < n["x"] + n["width"] + NODE_GAP
+                          and x + width + NODE_GAP > n["x"]
+                          and y < n["y"] + n["height"] + NODE_GAP
+                          and y + height + NODE_GAP > n["y"]]
+            if not collisions:
+                return x, y
+            for n in collisions:
+                offer(n["x"] + n["width"] + NODE_GAP, y)
+                offer(n["x"] - width - NODE_GAP, y)
+                offer(x, n["y"] + n["height"] + NODE_GAP)
+                offer(x, n["y"] - height - NODE_GAP)
+        raise AgentError("placement_failed", status=409)
 
     @staticmethod
     def receipt_metadata(receipt):
@@ -1446,6 +1513,12 @@ class AgentAPI:
             return operation, result
 
         def readback(persisted, result):
+            nodes = {n["id"]: n for n in persisted.get("nodes", [])}
+            frame = nodes.get(result["frame_id"])
+            result = {**result,
+                      "frame_geometry": node_geometry(frame) if frame else None,
+                      "task_geometries": {node_id: node_geometry(nodes[node_id])
+                                          for node_id in result["task_ids"] if node_id in nodes}}
             if not update_id or not body.get("strict_update"):
                 return result
             after = self.task_detail(actor, persisted, update_id, validate=False)
@@ -1886,6 +1959,7 @@ class AgentAPI:
                         "prompt_truncated": len(str(n.get("promptDraftText", n.get("text", "")))) > 200,
                         "frame_id": membership.get(n["id"]),
                         "state": task_state(n),
+                        "geometry": node_geometry(n),
                     }
                     for n in nodes[offset : offset + limit]
                 ],

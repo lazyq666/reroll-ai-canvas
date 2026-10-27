@@ -43,7 +43,8 @@
     "unsupported_by_omission": true,
     "strict_validation": true,
     "resolution_value_format": "Values match the lowercase CLI input format.",
-    "model_profile_rule": "Each model inherits command constraints from capability_profile_id.",
+    "model_profile_rule": "Each model inherits command constraints and audio output defaults from capability_profile_id.",
+    "audio_output": "Audio output defaults are independent of Composer toggle visibility. Maintainer confirmed default-on audio for the maintained Seedance 2.0/2.5 profiles on 2026-10-26.",
     "first_use_note": "Some models may require one initial generation on Dreamina Web when the backend returns AigcComplianceConfirmationRequired."
   },
   "composer_policy": {
@@ -97,7 +98,7 @@
     }
   },
   "composer_option_contract": {
-    "visibility_rule": "Only options with mode=user_toggle are rendered as Composer toggles. automatic is applied by the backend, schema is rendered only by a model/workflow schema owner, and unsupported is omitted.",
+    "visibility_rule": "Only options with mode=user_toggle are rendered as Composer toggles. automatic is applied by the backend, schema is rendered only by a model/workflow schema owner, and unsupported is omitted. These modes describe parameter control, not output behavior; unsupported generate_audio does not mean silent video.",
     "modes": ["user_toggle", "automatic", "schema", "unsupported"],
     "definitions": {
       "enhance_prompt": {
@@ -431,6 +432,7 @@
   },
   "capability_profiles": {
     "seedance2.0-standard": {
+      "audio_output": {"default": true},
       "commands": {
         "text2video": {
           "duration_seconds": {"minimum": 4, "maximum": 15},
@@ -468,6 +470,7 @@
       }
     },
     "seedance2.0-vip-resolution": {
+      "audio_output": {"default": true},
       "commands": {
         "text2video": {
           "duration_seconds": {"minimum": 4, "maximum": 15},
@@ -505,6 +508,7 @@
       }
     },
     "seedance2.5-vip": {
+      "audio_output": {"default": true},
       "commands": {
         "text2video": {
           "duration_seconds": {"minimum": 4, "maximum": 30},
@@ -545,6 +549,7 @@
   "models": [
     {
       "model_id": "seedance2.0",
+      "case_aliases": ["Seedance2.0"],
       "capability_profile_id": "seedance2.0-standard",
       "access_requirement": "not_declared_by_cli_help"
     },
@@ -570,6 +575,7 @@
     },
     {
       "model_id": "seedance2.5",
+      "case_aliases": ["Seedance2.5"],
       "capability_profile_id": "seedance2.5-vip",
       "access_requirement": "vip_only"
     }

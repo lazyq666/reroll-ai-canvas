@@ -57,6 +57,14 @@
 
 该合同已由 Issue #31 的 Provider 接入、Manifest 持久化和 Smart Canvas 重建消费。运行链路、恢复边界与图层交付以[当前生成链路](../current/generation-pipeline.md#44-智能分层的专用交付)为准；能力目录仍只负责声明和校验边界，不承担请求、下载或画布交付。
 
+### 4.2 视频音频输出与参数控制
+
+`video.generate` 的 `output.audio` 明确区分两个事实：`default` 为音频生成的默认值（`true` / `false`，未确认时为 `null`）；`configurable` 为当前接入是否提供可调音频参数。视频专有合同 `media_contract.audio_output` 返回相同投影。默认值由精确 Model Profile 或已发布能力维护，不能从控件是否可见推断。
+
+维护目录中的 Dreamina Seedance 2.0/2.5 默认生成音频（2026-10-26 由维护者确认），当前 CLI 没有输出音频开关。因此返回 `output.audio={default:true, configurable:false}`，不声明 `parameters.generate_audio`。`composer_options.generate_audio="unsupported"` 只表示接入不能调整这一参数，不表示静音。参考音频输入与输出音频默认值互相独立。
+
+只有可控时才声明 `parameters.generate_audio`；参数默认值与 `output.audio.default` 一致，未知时省略参数默认值。Schema 控制的接入只有在实际模型或工作流参数已发布为可编辑时才对外暴露。旧发布记录中的隐藏固定 `false` 不得覆盖默认有声事实；管理员保存模型详情也不能把不可控音频重新生成为固定 `false`。这些元数据描述生成行为，不代替对某个结果文件音轨的检查。
+
 ## 5. 用户可观察行为
 
 模型详情点击后立即打开 Dialog，以公共 `ic-loading` 品牌加载态等待能力数据；等待时隐藏旧表单并禁用保存，取消仍可用。并发读取复用同一请求；加载失败保留 Dialog 内错误提示，可关闭后重开重试。保存“指定分辨率”后核对服务返回的能力投影；若未接受该选择，保留表单并提示重试（应用刚更新时需重启服务），不得显示保存成功。成功保存后立即更新模型列表能力标签，并通过既有模型变更通知让已打开的 Composer 清除旧能力缓存、重新读取设置。

@@ -558,6 +558,95 @@ class ModelCapabilityMatrixTests(unittest.TestCase):
                 ]["each"],
             )
 
+    def test_video_audio_defaults_survive_matrix_save_and_catalog_reopen(self):
+        resource_paths = tuple(ROOT / "resources" / name for name in (
+            "image-model-capabilities.json", "video-model-capabilities.json",
+            "text-model-capabilities.json",
+        ))
+        cases = (
+            (True, None, False, True),
+            (True, None, True, True),
+            (None, None, True, None),
+            (None, True, True, True),
+            (None, False, True, False),
+            (True, True, False, True),
+        )
+        for output_default, parameter_default, configurable, expected_default in cases:
+            with self.subTest(
+                output_default=output_default, parameter_default=parameter_default,
+                configurable=configurable,
+            ), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "workbench.json"
+
+                def make_catalog():
+                    return ModelCapabilityCatalog(
+                        image_registry=ImageCapabilityRegistry(resource_paths[0]),
+                        video_registry=VideoCapabilityRegistry(resource_paths[1]),
+                        text_path=resource_paths[2], revision_paths=resource_paths,
+                        published_path=path,
+                    )
+
+                catalog = make_catalog()
+                workbench = ModelCapabilityWorkbench(path)
+                capability = self.video_capability("first")
+                for identity_key in ("provider_id", "model_id", "operation"):
+                    capability.pop(identity_key)
+                initial_configurable = parameter_default is not None
+                capability["output"]["audio"] = {
+                    "default": output_default, "configurable": initial_configurable,
+                }
+                capability["media_contract"]["audio_output"] = copy.deepcopy(
+                    capability["output"]["audio"]
+                )
+                capability["media_contract"]["composer_options"] = {
+                    "generate_audio": "user_toggle" if initial_configurable else "unsupported",
+                }
+                if initial_configurable:
+                    capability["parameters"]["generate_audio"]["default"] = parameter_default
+                else:
+                    capability["parameters"].pop("generate_audio")
+                workbench.publish_manual_capabilities(
+                    records=[{
+                        "provider_id": "first", "model_id": "shared-video",
+                        "operation": "video.generate", "capability": capability,
+                    }],
+                    active_catalog_revision=catalog.revision, actor_id="admin-test",
+                    activate=catalog.refresh,
+                )
+                matrix = ModelCapabilityMatrix(
+                    inventory=lambda: {
+                        "image": [], "video": [self.video_inventory()["video"][0]],
+                        "text": [],
+                    },
+                    catalog=catalog, workbench=workbench,
+                )
+                operation = matrix.snapshot()["models"][0]["operations"][0]
+                operation["options"] = ["generate_audio"] if configurable else []
+                matrix.apply(
+                    model_id="shared-video", actor_id="admin-test", operations=[operation],
+                )
+                expected_audio = {
+                    "default": expected_default, "configurable": configurable,
+                }
+                published = workbench.snapshot()["published"]["capabilities"][0]["capability"]
+                self.assertEqual(expected_audio, published["output"]["audio"])
+                self.assertEqual(expected_audio, published["media_contract"]["audio_output"])
+                if not configurable:
+                    self.assertNotIn("generate_audio", published["parameters"])
+                reopened = make_catalog().resolve("first", "shared-video", "video.generate")
+                self.assertEqual(expected_audio, reopened["output"]["audio"])
+                self.assertEqual(expected_audio, reopened["media_contract"]["audio_output"])
+                audio_parameter = reopened["parameters"].get("generate_audio")
+                if configurable:
+                    self.assertEqual([False, True], audio_parameter["values"])
+                    self.assertTrue(audio_parameter["editable"])
+                    if expected_default is None:
+                        self.assertNotIn("default", audio_parameter)
+                    else:
+                        self.assertIs(expected_default, audio_parameter["default"])
+                else:
+                    self.assertNotIn("generate_audio", reopened["parameters"])
+
     def test_exposes_high_value_tags_from_the_runtime_catalog(self):
         class TaggedCatalog(FakeCatalog):
             def resolve(self, provider_id, model_id, operation):

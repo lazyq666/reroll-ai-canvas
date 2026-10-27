@@ -346,7 +346,7 @@ class SmartCanvasGenerationProviderPendingTests(unittest.TestCase):
                 "smart.errWorkflowUnavailable",
                 "smart.errRhConfigUnavailable",
                 "smart.errMsModelUnavailable",
-                "smart.errNoApiModel",
+                "smart.modelUnavailable",
                 "smart.errNoVideoModel",
             ],
         )

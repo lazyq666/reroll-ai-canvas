@@ -207,8 +207,22 @@ function generationOutputAddExactConnection(connection){
     return true;
 }
 function generationOutputReferenceKind(node, preferredKind=''){
+    const outputs = (node?.images || []).filter(item => item?.url);
+    // Completed media and the frozen output mode are stronger evidence than
+    // the legacy reference identity, which older image splitting overwrote.
+    const resultKind = outputs.length
+        && outputs.every(item => ['image','video'].includes(item.kind)
+            && item.kind === outputs[0].kind)
+        ? outputs[0].kind
+        : '';
+    const outputEvidence = node?.generationOutputNode === true ? [
+        resultKind,
+        node?.outputKind,
+        node?.generationInputSnapshot?.settings?.apiKind
+    ] : [];
     return [
         preferredKind,
+        ...outputEvidence,
         node?.referenceGenerationKind,
         node?.outputKind,
         node?.generationInputSnapshot?.settings?.apiKind,
@@ -736,10 +750,11 @@ function generationOutputSplitCompletedImages(source, options={}){
     if(!source || !isSmartImageNode(source) || source.generationOutputNode !== true){
         return [source].filter(Boolean);
     }
-    generationOutputEnsureReferenceKind(source, 'image');
+    const kind = generationOutputEnsureReferenceKind(source);
     generationOutputEnsureNodeState(source);
     const images = (source.images || []).filter(image => image?.url);
-    if(images.length <= 1 || String(source.outputKind || images[0]?.kind || 'image') !== 'image'){
+    if(images.length <= 1 || kind !== 'image'
+        || String(source.outputKind || images[0]?.kind || 'image') !== 'image'){
         return [source];
     }
     const incomingConnections = generationOutputIncomingConnections(source);

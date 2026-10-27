@@ -9,6 +9,7 @@ from infinite_canvas.model_capabilities import (
     ModelCapabilityContext,
 )
 from infinite_canvas.model_capability_workbench import ModelCapabilityWorkbench
+from infinite_canvas.model_settings_backup import ModelSettingsBackup
 from infinite_canvas.video_capabilities import VideoCapabilityRegistry
 
 
@@ -34,6 +35,102 @@ def catalog(*, published_path=None) -> ModelCapabilityCatalog:
 
 
 class ModelCapabilityCatalogTests(unittest.TestCase):
+    def test_seedance_audio_defaults_on_without_an_authorable_toggle(self):
+        registry = catalog()
+        for model in ("seedance2.0", "seedance2.0fast", "seedance2.0_vip",
+                      "seedance2.0fast_vip", "seedance2.0mini", "Seedance2.5"):
+            with self.subTest(model=model):
+                capability = registry.resolve("jimeng", model, "video.generate")
+                self.assertEqual(
+                    {"default": True, "configurable": False},
+                    capability["output"].get("audio"),
+                )
+                self.assertNotIn("generate_audio", capability["parameters"])
+                self.assertEqual(
+                    capability["output"]["audio"],
+                    capability["media_contract"]["audio_output"],
+                )
+
+    def test_unknown_video_audio_default_is_not_inferred_from_toggle_visibility(self):
+        registry = catalog()
+        for context, configurable in (
+            (ModelCapabilityContext(), True),
+            (ModelCapabilityContext(protocol="openai", base_url="https://video.example"), True),
+            (ModelCapabilityContext(protocol="runninghub"), False),
+        ):
+            with self.subTest(context=context):
+                capability = registry.resolve("custom", "future-video", "video.generate", context=context)
+                self.assertEqual(
+                    {"default": None, "configurable": configurable},
+                    capability["output"].get("audio"),
+                )
+                audio_parameter = capability["parameters"].get("generate_audio")
+                if configurable:
+                    self.assertEqual([False, True], audio_parameter["values"])
+                    self.assertNotIn("default", audio_parameter)
+                else:
+                    self.assertIsNone(audio_parameter)
+
+    def test_legacy_published_hidden_audio_false_does_not_override_output_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model-capability-workbench.json"
+            registry = catalog(published_path=path)
+            ModelCapabilityWorkbench(path).publish_manual_capabilities(
+                records=[{
+                    "provider_id": "jimeng", "model_id": "Seedance2.5",
+                    "operation": "video.generate",
+                    "capability": {
+                        "support_state": "supported", "inputs": {}, "output": {},
+                        "parameters": {"generate_audio": {
+                            "type": "boolean", "values": [False], "default": False,
+                            "visible": False, "editable": False,
+                        }},
+                    },
+                }],
+                active_catalog_revision=registry.revision, actor_id="admin-test",
+                activate=registry.refresh,
+            )
+            capability = catalog(published_path=path).resolve("jimeng", "Seedance2.5", "video.generate")
+            self.assertNotIn("generate_audio", capability["parameters"])
+            self.assertEqual({"default": True, "configurable": False}, capability["output"]["audio"])
+            backup = registry.backup_contract("jimeng", "Seedance2.5", "video.generate")
+            self.assertNotIn("generate_audio", backup["parameters"])
+            self.assertEqual(capability["output"]["audio"], backup["output"]["audio"])
+            transfer = ModelSettingsBackup(registry, ModelCapabilityWorkbench(path), lambda *_: ModelCapabilityContext())
+            records = transfer.export([{"id": "jimeng", "video_models": ["Seedance2.5"]}])
+            self.assertNotIn("generate_audio", records[0]["capability"]["parameters"])
+            restored_path = Path(directory) / "restored.json"
+            restored = catalog(published_path=restored_path)
+            ModelSettingsBackup(restored, ModelCapabilityWorkbench(restored_path), lambda *_: ModelCapabilityContext()).restore(records)
+            reopened = restored.resolve("jimeng", "Seedance2.5", "video.generate")
+            self.assertNotIn("generate_audio", reopened["parameters"])
+            self.assertEqual(capability["output"]["audio"], reopened["output"]["audio"])
+
+    def test_published_schema_audio_toggle_keeps_its_explicit_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model-capability-workbench.json"
+            registry = catalog(published_path=path)
+            ModelCapabilityWorkbench(path).publish_manual_capabilities(
+                records=[{
+                    "provider_id": "custom", "model_id": "workflow-video",
+                    "operation": "video.generate",
+                    "capability": {
+                        "support_state": "supported", "inputs": {}, "output": {},
+                        "media_contract": {"composer_options": {"generate_audio": "schema"}},
+                        "parameters": {"generate_audio": {
+                            "type": "boolean", "values": [False, True], "default": False,
+                            "visible": True, "editable": True,
+                        }},
+                    },
+                }],
+                active_catalog_revision=registry.revision, actor_id="admin-test",
+                activate=registry.refresh,
+            )
+            capability = registry.resolve("custom", "workflow-video", "video.generate")
+            self.assertEqual({"default": False, "configurable": True}, capability["output"]["audio"])
+            self.assertEqual([False, True], capability["parameters"]["generate_audio"]["values"])
+            self.assertIs(False, capability["parameters"]["generate_audio"]["default"])
+
     def test_parameter_names_are_not_filtered_by_word_fragments(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "model-capability-workbench.json"

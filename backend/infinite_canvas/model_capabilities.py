@@ -102,6 +102,14 @@ class ModelCapabilityContext:
 class ModelCapabilityCatalog:
     """Resolve and validate all media capabilities through one interface."""
 
+    def canonical_model_id(self, provider_id: str, model_id: str, kind: str) -> str:
+        return (self._video_registry.canonical_model_id(provider_id, model_id)
+                if kind == "video" else _clean(model_id))
+
+    def model_case_aliases(self, provider_id: str, model_id: str, kind: str) -> list[str]:
+        return (self._video_registry.model_case_aliases(provider_id, model_id)
+                if kind == "video" else [_clean(model_id)])
+
     def __init__(
         self,
         *,
@@ -297,16 +305,58 @@ class ModelCapabilityCatalog:
                     support_state="unknown",
                     source="fallback",
                 )
-            return self._apply_published_capability(capability, active_context)
+            resolved = self._apply_published_capability(capability, active_context)
+            if normalized_operation == "video.generate":
+                self._normalize_video_audio(resolved)
+            return resolved
+
+    @staticmethod
+    def _normalize_video_audio(capability: dict[str, Any]) -> None:
+        """Keep audio output facts separate from controllable request parameters."""
+        media = capability["media_contract"]
+        mode = media.get("composer_options", {}).get("generate_audio")
+        parameters = capability["parameters"]
+        parameter = parameters.get("generate_audio", {})
+        configurable = mode == "user_toggle" or (
+            mode in (None, "schema") and parameter.get("editable") is True
+        )
+        audio = capability["output"].get("audio", media.get("audio_output", {}))
+        default = audio.get("default")
+        if configurable and isinstance(parameter.get("default"), bool):
+            default = parameter["default"]
+        if not configurable:
+            # Older Published records encoded unavailable controls as fixed false.
+            parameters.pop("generate_audio", None)
+        audio = {
+            "default": default if isinstance(default, bool) else None,
+            "configurable": configurable,
+        }
+        capability["output"]["audio"] = audio
+        media["audio_output"] = copy.deepcopy(audio)
 
     def backup_contract(self, provider_id, model_id, operation, *, context=None):
         """Snapshot configured limits before this device narrows them at runtime."""
         with self._lock:
             resolved = self.resolve(provider_id, model_id, operation, context=context)
-            configured = self._published_capabilities.get((
+            configured = self._published_capability((
                 _clean(provider_id).lower(), _clean(model_id), _clean(operation).lower()
             ))
-            return self._merge_capability(resolved, configured) if configured else resolved
+            backup = self._merge_capability(resolved, configured) if configured else resolved
+            if _clean(operation).lower() == "video.generate":
+                self._normalize_video_audio(backup)
+            return backup
+
+    def _published_capability(self, identity):
+        provider, model, operation = identity
+        if operation != "video.generate":
+            return self._published_capabilities.get(identity)
+        canonical = self.canonical_model_id(provider, model, "video")
+        configured = self._published_capabilities.get((provider, canonical, operation))
+        if configured is not None:
+            return configured
+        return next((value for (p, m, op), value in self._published_capabilities.items()
+            if p == provider and op == operation
+            and self.canonical_model_id(p, m, "video") == canonical), None)
 
     def _apply_published_capability(
         self,
@@ -318,7 +368,7 @@ class ModelCapabilityCatalog:
             _clean(capability.get("model_id")),
             _clean(capability.get("operation")).lower(),
         )
-        patch = self._published_capabilities.get(identity)
+        patch = self._published_capability(identity)
         if not isinstance(patch, Mapping):
             return copy.deepcopy(dict(capability))
         merged = self._merge_capability(capability, patch)
@@ -909,6 +959,8 @@ class ModelCapabilityCatalog:
             },
         }
         for key, mode in option_modes.items():
+            if key == "generate_audio" and mode != "user_toggle":
+                continue
             parameters[_clean(key)] = {
                 "type": "boolean",
                 "values": [False, True] if mode == "user_toggle" else [False],
@@ -917,6 +969,12 @@ class ModelCapabilityCatalog:
                 "visible": mode == "user_toggle",
                 "editable": mode == "user_toggle",
             }
+            if key == "generate_audio":
+                audio_default = media.get("audio_output", {}).get("default")
+                if isinstance(audio_default, bool):
+                    parameters[key]["default"] = audio_default
+                else:
+                    parameters[key].pop("default", None)
         fallback_reference_maximum = (
             context.video_reference_maximum
             if context.video_reference_maximum is not None
@@ -1006,6 +1064,7 @@ class ModelCapabilityCatalog:
                 "duration_seconds": duration_bounds,
                 "aspect_ratios": _unique(ratios),
                 "resolutions": _unique(resolutions),
+                "audio": copy.deepcopy(media.get("audio_output", {})),
             },
             parameters=parameters,
             media_contract=media,

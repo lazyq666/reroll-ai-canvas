@@ -119,7 +119,7 @@ class ApiSettingsPackage:
             imported = _normalize_imported_settings(adapter, payload)
             current = adapter.load_providers()
             if payload["version"] == 2:
-                _validate_complete_order(payload, imported)
+                _validate_complete_order(adapter, payload, imported)
                 _required_adapter_dependency(adapter.validate_capabilities, "validate_capabilities")(
                     payload.get("capabilities"), imported
                 )
@@ -293,25 +293,36 @@ def _merge_complete_providers(current, imported):
     return merged
 
 
-def _validate_complete_order(payload, imported):
+def _inventory_model_ids(entries):
+    """Use the available-model authority for canonical and legacy identities."""
+    return {(entry["provider_id"], model): entry["id"]
+            for entry in entries for model in {entry["model"], *entry.get("aliases", [])}}
+
+
+def _validate_complete_order(adapter, payload, imported):
     fields = {"image": "image_models", "video": "video_models", "text": "chat_models"}
     order = payload.get("model_order")
     if not isinstance(order, dict) or set(order) != set(fields):
         raise ApiSettingsTransferError("api.invalidBackup")
-    for kind, field in fields.items():
-        expected = {(p["id"], model) for p in imported for model in p.get(field, [])}
+    inventory = _complete_inventory(adapter, imported)
+    for kind in fields:
+        lookup = _inventory_model_ids(inventory[kind])
+        expected = {entry["id"] for entry in inventory[kind]}
         entries = order[kind]
-        seen = set()
+        seen, seen_models = set(), set()
         if not isinstance(entries, list):
             raise ApiSettingsTransferError("api.invalidBackup")
         for entry in entries:
             if not isinstance(entry, dict) or type(entry.get("visible")) is not bool:
                 raise ApiSettingsTransferError("api.invalidBackup")
             key = (entry.get("provider_id"), entry.get("model"))
-            if not all(isinstance(value, str) for value in key) or key not in expected or key in seen:
+            if not all(isinstance(value, str) for value in key) or key not in lookup or key in seen:
                 raise ApiSettingsTransferError("api.invalidBackup")
             seen.add(key)
-        if seen != expected:
+            seen_models.add(lookup[key])
+        # Older packages listed every raw alias. New exports list each logical
+        # model once; both must cover exactly the configured logical inventory.
+        if seen_models != expected:
             raise ApiSettingsTransferError("api.invalidBackup")
 
 
@@ -320,11 +331,13 @@ def _restore_complete_order(adapter, payload, imported, merged):
     inventory = _complete_inventory(adapter, merged)
     settings = {"hidden": {}}
     for kind, entries in inventory.items():
-        lookup = {(e["provider_id"], e["model"]): e["id"] for e in entries}
+        lookup = _inventory_model_ids(entries)
         incoming = payload["model_order"][kind]
-        settings[kind] = [lookup[(e["provider_id"], e["model"])] for e in incoming]
-        settings["hidden"][kind] = [lookup[(e["provider_id"], e["model"])]
-                                    for e in incoming if not e["visible"]]
+        settings[kind] = list(dict.fromkeys(lookup[(e["provider_id"], e["model"])] for e in incoming))
+        # Match the model-list merge rule: a legacy hidden alias keeps the
+        # logical model hidden, regardless of another alias's visible setting.
+        settings["hidden"][kind] = list(dict.fromkeys(lookup[(e["provider_id"], e["model"])]
+                                    for e in incoming if not e["visible"]))
         for entry in entries:
             if entry["provider_id"] not in imported_ids:
                 settings[kind].append(entry["id"])
@@ -610,7 +623,7 @@ def _import_api_settings_payload(
         imported = _without_local_cli_collisions(current, imported)
     capabilities = []
     if complete:
-        _validate_complete_order(payload, imported)
+        _validate_complete_order(adapter, payload, imported)
         capabilities = _required_adapter_dependency(
             adapter.validate_capabilities, "validate_capabilities"
         )(payload.get("capabilities"), imported)
