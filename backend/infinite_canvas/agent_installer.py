@@ -13,15 +13,18 @@ from fastapi.responses import JSONResponse, Response
 ROOT = Path(__file__).resolve().parents[2]
 CLIENTS = {'codex', 'claude-code', 'claude-desktop'}
 PLATFORMS = {'macos', 'windows'}
-PACKAGE_FILES = ('pyproject.toml', 'reroll_mcp.py', 'bridge.py', 'credentials.py')
+PACKAGE_FILES = (
+    'pyproject.toml', 'reroll_mcp.py', 'bridge.py', 'credentials.py',
+    'reroll_cli.py', 'reroll_cli_i18n.py',
+)
 
 
-def catalog(language):
+def catalog(language, namespace='agent.install.'):
     # Installer copy shares the browser's bilingual authority; only literal JSON
     # entries in the reserved agent.install namespace are exported.
     source = (ROOT / 'static/js/i18n/preferences.js').read_text('utf-8')
-    entries = re.findall(r'^\s*"(agent\.install\.[\w]+)":\s*(\{[^\n]+\}),?\s*$', source, re.M)
-    return {key: json.loads(value)[language] for key, value in entries}
+    entries = re.findall(r'^\s*"(agent\.(?:install|cli)\.[\w]+)":\s*(\{[^\n]+\}),?\s*$', source, re.M)
+    return {key: json.loads(value)[language] for key, value in entries if key.startswith(namespace)}
 
 
 def build_bundle(options):

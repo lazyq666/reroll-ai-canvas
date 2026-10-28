@@ -504,7 +504,14 @@ async def jimeng_models_payload():
         }
     return result
 
-def gemini_cli_image_size_instruction(size="", model=""):
+def gemini_cli_image_size_instruction(size="", model="", *, aspect_ratio="", resolution_tier=""):
+    if aspect_ratio != "" or resolution_tier != "":
+        constraints = []
+        if aspect_ratio:
+            constraints.append(f"原生生成画幅：{aspect_ratio}。")
+        if resolution_tier:
+            constraints.append(f"使用模型原生分辨率档位：{resolution_tier}。")
+        return "".join(constraints) + "保留模型生成图片的真实像素，不得通过后处理放大伪装原生档位。"
     size_text = str(size or "").strip()
     model_text = str(model or "").strip()
     match = re.match(r"^\s*(\d{2,5})\s*[xX*]\s*(\d{2,5})\s*$", size_text)
@@ -1013,6 +1020,8 @@ async def generate_codex_provider_image(
     provider=None,
     transparent_png=False,
     preserve_geometry=False,
+    aspect_ratio="",
+    resolution_tier="",
 ):
     ref_paths, temp_paths = await codex_reference_paths(reference_images)
     try:
@@ -1023,6 +1032,8 @@ async def generate_codex_provider_image(
             ref_paths,
             transparent_png=transparent_png,
             **({"preserve_geometry": True} if preserve_geometry else {}),
+            **({"aspect_ratio": aspect_ratio} if aspect_ratio != "" else {}),
+            **({"resolution_tier": resolution_tier} if resolution_tier != "" else {}),
         )
         if skill_result:
             return skill_result
@@ -1298,6 +1309,8 @@ async def generate_codex_provider_image_via_gpt_image_2_skill(
     *,
     transparent_png=False,
     preserve_geometry=False,
+    aspect_ratio="",
+    resolution_tier="",
 ):
     exe = gpt_image_2_skill_executable()
     if not exe:
@@ -1312,6 +1325,18 @@ async def generate_codex_provider_image_via_gpt_image_2_skill(
         attempts.append((["--provider", "openai", "--api-key", fallback_api_key], "openai"))
     last_message = ""
     for attempt_index, (attempt_provider_args, attempt_provider) in enumerate(attempts):
+        native_dimensions = aspect_ratio != "" or resolution_tier != ""
+        native_size = None
+        if resolution_tier:
+            native_size = size if attempt_provider != "codex" and all(parse_size_pair(size)) else resolution_tier
+        size_args = (
+            (["--size", native_size] if native_size else [])
+            if native_dimensions else
+            ["--size", gpt_image_2_skill_size_arg(size, model, prompt, attempt_provider)]
+        )
+        native_prompt = str(prompt)
+        if aspect_ratio:
+            native_prompt += f"\nOutput aspect ratio: {aspect_ratio}."
         out_path = os.path.join(
             _ports.generation_output_directory(),
             f"gpt_image_2_{uuid.uuid4().hex}.png",
@@ -1336,10 +1361,10 @@ async def generate_codex_provider_image_via_gpt_image_2_skill(
                 ("生成纯色底图", [
                     *shared_args,
                     "images", mode,
-                    "--prompt", gpt_image_2_skill_transparent_source_prompt(prompt),
+                    "--prompt", gpt_image_2_skill_transparent_source_prompt(native_prompt if native_dimensions else prompt),
                     "--out", source_path,
                     "--model", gpt_image_2_skill_model_arg(model, attempt_provider),
-                    "--size", gpt_image_2_skill_size_arg(size, model, prompt, attempt_provider),
+                    *size_args,
                     "--quality", "high",
                     "--format", "png",
                     *[
@@ -1363,10 +1388,10 @@ async def generate_codex_provider_image_via_gpt_image_2_skill(
             args = [
                 *shared_args,
                 "images", mode,
-                "--prompt", gpt_image_2_skill_prompt_arg(prompt, size, attempt_provider),
+                "--prompt", native_prompt if native_dimensions else gpt_image_2_skill_prompt_arg(prompt, size, attempt_provider),
                 "--out", out_path,
                 "--model", gpt_image_2_skill_model_arg(model, attempt_provider),
-                "--size", gpt_image_2_skill_size_arg(size, model, prompt, attempt_provider),
+                *size_args,
                 "--quality", "high",
                 "--format", "png",
             ]
@@ -1437,7 +1462,7 @@ async def generate_codex_provider_image_via_gpt_image_2_skill(
         candidate_paths.extend([path for path in reported_paths if path and os.path.isfile(path)])
         urls = []
         for path in candidate_paths:
-            processed_path = codex_postprocess_image_to_requested_size(path, size, attempt_provider, **({"preserve_geometry": True} if preserve_geometry else {}))
+            processed_path = codex_postprocess_image_to_requested_size(path, size, attempt_provider, **({"preserve_geometry": True} if preserve_geometry or native_dimensions else {}))
             url = codex_output_url_from_path(processed_path or path)
             if url:
                 urls.append(url)
@@ -1501,6 +1526,8 @@ async def generate_jimeng_provider_image(
     reference_images=None,
     provider=None,
     on_remote=None,
+    aspect_ratio="",
+    resolution_tier="",
 ):
     validation_error = jimeng_image_prompt_validation_error(
         prompt, model, reference_images
@@ -1535,8 +1562,6 @@ async def generate_jimeng_provider_image(
                 "image2image",
                 f"--images={','.join(image_paths)}",
                 f"--prompt={prompt}",
-                f"--ratio={jimeng_ratio_from_size(size)}",
-                f"--resolution_type={jimeng_image_resolution(model, size, 'image2image')}",
                 f"--poll={poll_seconds}",
             ]
             if model_version:
@@ -1546,12 +1571,16 @@ async def generate_jimeng_provider_image(
             args = [
                 "text2image",
                 f"--prompt={prompt}",
-                f"--ratio={jimeng_ratio_from_size(size)}",
-                f"--resolution_type={jimeng_image_resolution(model, size, 'text2image')}",
                 f"--poll={poll_seconds}",
             ]
             if model_version:
                 args.append(f"--model_version={model_version}")
+        selected_ratio = aspect_ratio if aspect_ratio != "" else jimeng_ratio_from_size(size)
+        selected_tier = resolution_tier if resolution_tier != "" else jimeng_image_resolution(model, size, "image2image" if refs else "text2image")
+        if selected_ratio:
+            args.append(f"--ratio={selected_ratio}")
+        if selected_tier:
+            args.append(f"--resolution_type={str(selected_tier).lower()}")
         raw = await run_jimeng_cli(args, timeout=jimeng_poll_seconds() + 120)
         failure = jimeng_failure_reason(raw)
         if failure:
@@ -1808,7 +1837,7 @@ def codex_cli_executable():
         return configured
     return shutil.which("codex") or shutil.which("codex.exe") or shutil.which("codex.cmd") or ""
 
-async def generate_gemini_cli_provider_image(prompt, size, model, reference_images=None, provider=None, *, preserve_geometry=False):
+async def generate_gemini_cli_provider_image(prompt, size, model, reference_images=None, provider=None, *, preserve_geometry=False, aspect_ratio="", resolution_tier=""):
     ref_paths, temp_paths = await gemini_cli_reference_paths(reference_images)
     try:
         executable = gemini_cli_executable()
@@ -1822,6 +1851,9 @@ async def generate_gemini_cli_provider_image(prompt, size, model, reference_imag
         if ref_paths:
             ref_text = "\n参考图片本地路径：\n" + "\n".join(ref_paths)
         size_context = f"{model or ''} {prompt or ''}"
+        native_dimensions = aspect_ratio != "" or resolution_tier != ""
+        size_instruction = gemini_cli_image_size_instruction(size, size_context,
+            **({"aspect_ratio": aspect_ratio, "resolution_tier": resolution_tier} if native_dimensions else {}))
         if antigravity:
             image_paths_instruction = (
                 f"ImagePaths: {json.dumps(ref_paths, ensure_ascii=False)}\n"
@@ -1834,14 +1866,14 @@ async def generate_gemini_cli_provider_image(prompt, size, model, reference_imag
                 f"ImageName: {image_name}\n"
                 f"Prompt: {prompt}\n"
                 f"{image_paths_instruction}"
-                f"{gemini_cli_image_size_instruction(size, size_context)}\n"
+                f"{size_instruction}\n"
                 "如果工具失败，请保留工具返回的原始错误信息，不要改写成通用说明。"
             )
         else:
             image_prompt = (
                 f"你正在为 Reroll 生成图片。\n"
                 f"任务：{prompt}\n\n"
-                f"{gemini_cli_image_size_instruction(size, size_context)}\n"
+                f"{size_instruction}\n"
                 f"{ref_text}\n\n"
                 f"请把本次任务的最终图片保存到这个独立本地目录：{run_output_directory}\n"
                 "不要读取、引用或修改其他输出目录中的图片。\n"
@@ -1903,7 +1935,7 @@ async def generate_gemini_cli_provider_image(prompt, size, model, reference_imag
                 )
                 shutil.copy2(path, publish_source)
             processed_path = codex_postprocess_image_to_requested_size(
-                publish_source, size, "gemini-cli", **({"preserve_geometry": True} if preserve_geometry else {})
+                publish_source, size, "gemini-cli", **({"preserve_geometry": True} if preserve_geometry or native_dimensions else {})
             )
             url = gemini_cli_publish_output(processed_path or publish_source)
             if url and url not in urls:

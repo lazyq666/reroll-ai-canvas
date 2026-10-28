@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock
@@ -28,12 +29,56 @@ COMMON_ASPECT_RATIOS = (
 EXTENDED_ASPECT_RATIOS = (*COMMON_ASPECT_RATIOS, "21:9", "9:21")
 FALLBACK_RESOLUTION_TIERS = ("1K", "2K", "4K")
 ASPECT_RATIO_TOLERANCE = 0.01
+AUTOMATIC_ASPECT_RATIO_TOLERANCE = 0.07
 # Some providers align image dimensions to a latent/image grid.  Keep the
-# reference-image matching contract at 1%, while allowing a tiny additional
+# strict geometric validation at 1%, while allowing a tiny additional
 # margin for outputs that the existing cover materializer can turn into the
 # promised ratio with a negligible edge crop. Nano Banana 2 returns 33:14 for
 # a requested 21:9 (1.0204%).
 MATERIALIZABLE_ASPECT_RATIO_TOLERANCE = 0.011
+
+
+# Legacy Canvas geometry is a transport hint, independent from the catalog's
+# native tier identity. A parity regression reads every preset from the actual
+# Canvas source so these compatibility values cannot silently drift.
+_IMAGE_REQUEST_PRESETS = {
+    "1:1": {"1K": "1024x1024", "2K": "2048x2048", "4K": "4096x4096"},
+    "2:3": {"1K": "1024x1536", "2K": "1360x2048", "4K": "2352x3520"},
+    "3:2": {"1K": "1536x1024", "2K": "2048x1360", "4K": "3520x2352"},
+    "3:4": {"1K": "1008x1344", "2K": "1536x2048", "4K": "2448x3264"},
+    "4:3": {"1K": "1344x1008", "2K": "2048x1536", "4K": "3264x2448"},
+    "9:16": {"1K": "720x1280", "2K": "1152x2048", "4K": "2160x3840"},
+    "16:9": {"1K": "1280x720", "2K": "2048x1152", "4K": "3840x2160"},
+    "21:9": {"1K": "1280x544", "2K": "2048x880", "4K": "3840x1648"},
+    "9:21": {"1K": "544x1280", "2K": "880x2048", "4K": "1648x3840"},
+}
+
+
+def image_request_size(ratio: str | None, resolution: str | None) -> str:
+    """Encode flat settings for legacy pixel transports without limiting tiers.
+
+    Native adapters receive the catalog's ratio and tier separately; neither
+    their spelling nor their applicability is inferred from these pixels.
+    Named native tiers therefore need no synthetic pixel promise here.
+    """
+    if not ratio:
+        return resolution or "auto"
+    if not resolution:
+        return ratio
+    tier = str(resolution).upper()
+    preset = _IMAGE_REQUEST_PRESETS.get(ratio, {}).get(tier)
+    if preset:
+        return preset
+    numeric = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)K", tier)
+    if not numeric:
+        return ratio
+    long_side = float(numeric[1]) * 1024
+    aspect = aspect_ratio_value(ratio)
+    width_hint = long_side if aspect >= 1 else long_side * aspect
+    height_hint = long_side / aspect if aspect >= 1 else long_side
+    width = max(16, round(width_hint / 16) * 16)
+    height = max(16, round(height_hint / 16) * 16)
+    return f"{width}x{height}"
 
 
 def _clean_text(value: Any) -> str:

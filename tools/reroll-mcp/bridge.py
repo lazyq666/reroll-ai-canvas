@@ -7,6 +7,7 @@ import fnmatch
 import json
 import mimetypes
 import os
+import re
 from pathlib import Path
 import time
 from urllib.parse import quote, urlsplit
@@ -91,7 +92,7 @@ class Bridge:
         except OSError:
             raise BridgeError('credential_store_unavailable') from None
 
-    def request(self, method, path, *, body=None, params=None, key=None, files=None):
+    def request(self, method, path, *, body=None, params=None, key=None, files=None, deadline=None, clock=time.monotonic):
         self.authorize()
         headers = (
             {"Idempotency-Key": key or uuid.uuid4().hex} if method != "GET" else {}
@@ -101,6 +102,12 @@ class Bridge:
                 if files:
                     for value in files.values():
                         value[1].seek(0)
+                timeout_options = {}
+                if deadline is not None:
+                    remaining = deadline - clock()
+                    if remaining <= 0:
+                        raise TimeoutError()
+                    timeout_options['timeout'] = min(60, remaining)
                 response = self.client.request(
                     method,
                     "api/agent/v1/" + path.lstrip("/"),
@@ -108,12 +115,18 @@ class Bridge:
                     params=params,
                     headers=headers,
                     files=files,
+                    **timeout_options,
                 )
                 break
             except (httpx.TransportError, httpx.TimeoutException):
+                if deadline is not None and clock() >= deadline:
+                    raise TimeoutError() from None
                 if attempt == 2:
                     raise BridgeError("server_unreachable") from None
-                time.sleep(0.2 * (attempt + 1))
+                delay = 0.2 * (attempt + 1)
+                if deadline is not None:
+                    delay = min(delay, max(0, deadline - clock()))
+                time.sleep(delay)
         if not response.is_success:
             try:
                 data = response.json()
@@ -268,13 +281,24 @@ class Bridge:
             key=key,
         )
 
+    @staticmethod
+    def valid_download_url(value):
+        if not isinstance(value, str):
+            return False
+        parsed = urlsplit(value)
+        if parsed.scheme or parsed.netloc or parsed.fragment:
+            return False
+        media = re.fullmatch(r'/api/agent/v1/media/[A-Za-z0-9_-]+/content', parsed.path)
+        image_run = re.fullmatch(r'/api/agent/v1/image-runs/[A-Za-z0-9_-]+/outputs/[0-9]+', parsed.path)
+        return bool(media or image_run and not parsed.query)
+
     def download(self, tasks):
         self.download_directory.mkdir(parents=True, exist_ok=True)
         saved = []
         for task in tasks:
             for output in task.get("outputs", []):
                 url = output.get("download_url", "")
-                if not url.startswith("/api/agent/v1/media/") or urlsplit(url).netloc:
+                if not self.valid_download_url(url):
                     raise BridgeError("invalid_download_url")
                 name = Path(output.get("name", "output").replace("\\", "/")).name
                 if name in ("", ".", ".."):

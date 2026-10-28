@@ -202,6 +202,18 @@ Good to know:
 
 For setup, environment variables and the workflow, see the [MCP bridge guide](tools/reroll-mcp/README.md); the verification scope is in the [agent MCP spec](docs/active/2026-10-17-agent-mcp-canvas-authoring-spec.md).
 
+### Generate images from the terminal
+
+The `tools/reroll-mcp` package also provides `reroll`. List current models with `reroll models --json`, then run
+`reroll generate "Your prompt" --provider ID --model ID --ratio 3:4 --resolution 2K --json`
+to generate and download one image. Add `--image ./reference.png` repeatedly for image editing.
+After approving the CLI's first pairing request in the browser, only the Reroll background service needs to stay running.
+`REROLL_URL` defaults to `http://127.0.0.1:3000`; output goes to `reroll-output` under the current directory.
+Use `reroll result RUN_ID --json` to retrieve the original task after an interruption or download failure.
+Your account must allow automatic runs; the CLI does not change confirmation preferences.
+See [CLI installation](tools/reroll-mcp/README.md#reroll-cli) for the one-time setup, executable location and environment requirements.
+
+
 ### Check the environment and repair dependencies
 
 ```bash

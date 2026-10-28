@@ -121,5 +121,16 @@ class BridgeTests(unittest.TestCase):
             )
 
 
+    def test_image_run_download_allowlist_does_not_accept_paths_urls_or_redirect_targets(self):
+        self.assertTrue(Bridge.valid_download_url('/api/agent/v1/image-runs/run-id/outputs/0'))
+        self.assertTrue(Bridge.valid_download_url('/api/agent/v1/media/digest/content?canvas=canvas-id'))
+        for value in ('https://other/api/agent/v1/image-runs/run-id/outputs/0',
+                      '/api/agent/v1/image-runs/../outputs/0',
+                      '/api/agent/v1/image-runs/run-id/outputs/0?url=http://other',
+                      '/api/agent/v1/media/../../secrets',
+                      '/api/agent/v1/media/id%2f..%2f..%2fsecret/content'):
+            self.assertFalse(Bridge.valid_download_url(value),value)
+
+
 if __name__ == "__main__":
     unittest.main()

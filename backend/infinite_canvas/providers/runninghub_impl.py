@@ -424,6 +424,8 @@ async def generate_runninghub_provider_image(
     reference_images=None,
     provider=None,
     on_remote=None,
+    aspect_ratio="",
+    resolution_tier="",
 ):
     entry = runninghub_entry_config_from_model(provider, model)
     if entry:
@@ -435,22 +437,28 @@ async def generate_runninghub_provider_image(
             provider,
             entry,
             on_remote=on_remote,
+            **({"aspect_ratio": aspect_ratio} if aspect_ratio != "" else {}),
+            **({"resolution_tier": resolution_tier} if resolution_tier != "" else {}),
         )
     model_def = await runninghub_model_definition(provider, model)
     endpoint = runninghub_task_endpoint(provider, model_def.get("endpoint") or model)
     params = model_def.get("params") if isinstance(model_def.get("params"), list) else []
     aspect = runninghub_aspect_from_size(size, "1:1")
     resolution = runninghub_resolution_from_size(size, "2k")
+    if aspect_ratio != "":
+        aspect = aspect_ratio
+    if resolution_tier != "":
+        resolution = resolution_tier
     body = {"prompt": prompt}
-    if runninghub_schema_field(params, "aspectRatio"):
+    if aspect and runninghub_schema_field(params, "aspectRatio"):
         field = runninghub_schema_field(params, "aspectRatio")
-        body["aspectRatio"] = runninghub_schema_value(field, aspect)
-    elif runninghub_schema_field(params, "ratio"):
+        body["aspectRatio"] = runninghub_image_parameter(field, aspect) if aspect_ratio != "" else runninghub_schema_value(field, aspect)
+    elif aspect and runninghub_schema_field(params, "ratio"):
         field = runninghub_schema_field(params, "ratio")
-        body["ratio"] = runninghub_schema_value(field, aspect)
-    if runninghub_schema_field(params, "resolution"):
+        body["ratio"] = runninghub_image_parameter(field, aspect) if aspect_ratio != "" else runninghub_schema_value(field, aspect)
+    if resolution and runninghub_schema_field(params, "resolution"):
         field = runninghub_schema_field(params, "resolution")
-        body["resolution"] = runninghub_schema_value(field, resolution)
+        body["resolution"] = runninghub_image_parameter(field, resolution) if resolution_tier != "" else runninghub_schema_value(field, resolution)
     width, height = parse_size_pair(size)
     if width and height:
         if runninghub_schema_field(params, "width"):
@@ -474,6 +482,11 @@ async def generate_runninghub_provider_image(
             else:
                 body[key] = image_urls[0]
         runninghub_apply_schema_defaults(body, params)
+        if aspect_ratio is None:
+            body.pop("aspectRatio", None)
+            body.pop("ratio", None)
+        if resolution_tier is None:
+            body.pop("resolution", None)
         response = await client.post(endpoint, headers=runninghub_json_headers(provider), json=body)
         response.raise_for_status()
         raw = response.json()
@@ -651,6 +664,17 @@ def runninghub_schema_value(field, preferred=None):
     if default is not None and str(default) != "":
         return default
     return options[0] if options else preferred
+
+
+def runninghub_image_parameter(field, requested):
+    """Map a catalog setting to schema spelling without choosing another value."""
+    options = runninghub_schema_options(field)
+    if not options:
+        return requested
+    for option in options:
+        if str(option).casefold() == str(requested).casefold():
+            return option
+    raise HTTPException(422, detail={"code": "parameter_value", "field": field.get("fieldKey") or field.get("fieldName"), "allowed": options})
 
 def runninghub_provider_with_workflow_store(provider):
     if not isinstance(provider, dict) or provider.get("id") != "runninghub":
@@ -979,6 +1003,8 @@ async def generate_runninghub_entry_image(
     provider,
     entry,
     on_remote=None,
+    aspect_ratio="",
+    resolution_tier="",
 ):
     """运行 RunningHub 工作流 / AI 应用（与智能画布一致的运行方式），返回首张图片结果。"""
     kind = entry["kind"]
@@ -989,6 +1015,10 @@ async def generate_runninghub_entry_image(
     timeout = httpx.Timeout(connect=20.0, read=1800.0, write=240.0, pool=20.0)
     aspect = runninghub_aspect_from_size(size, "")
     resolution = runninghub_resolution_from_size(size, "")
+    if aspect_ratio != "":
+        aspect = aspect_ratio
+    if resolution_tier != "":
+        resolution = resolution_tier
     width, height = parse_size_pair(size)
     def requested_size_field_value(field):
         names = {
@@ -997,9 +1027,9 @@ async def generate_runninghub_entry_image(
             str(field.get("label") or "").strip().lower(),
         }
         if aspect and names & {"aspectratio", "aspect_ratio", "ratio"}:
-            return runninghub_schema_value(field, aspect)
+            return runninghub_image_parameter(field, aspect) if aspect_ratio != "" else runninghub_schema_value(field, aspect)
         if resolution and "resolution" in names:
-            return runninghub_schema_value(field, resolution)
+            return runninghub_image_parameter(field, resolution) if resolution_tier != "" else runninghub_schema_value(field, resolution)
         if width and "width" in names:
             return width
         if height and "height" in names:
@@ -1021,6 +1051,10 @@ async def generate_runninghub_entry_image(
             node_id = str(field.get("nodeId") or "").strip()
             field_name = str(field.get("fieldName") or "").strip()
             if not node_id or not field_name:
+                continue
+            names = {str(field.get(key) or "").strip().lower() for key in ("fieldName", "fieldKey", "label")}
+            if (aspect_ratio is None and names & {"aspectratio", "aspect_ratio", "ratio"}
+                    or resolution_tier is None and "resolution" in names):
                 continue
             kind_f = rh_field_kind(field)
             if kind_f in ("image", "video", "audio"):

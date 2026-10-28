@@ -2,12 +2,29 @@ import io
 import json
 import unittest
 import zipfile
+import runpy
+from pathlib import Path
 from infinite_canvas.agent_installer import build_bundle, catalog, PACKAGE_FILES
 from infinite_canvas.auth_system import SESSION_COOKIE
 from tests import test_agent_api
 
 
 class BundleTests(unittest.TestCase):
+    def test_packaged_cli_copy_matches_shared_bilingual_resources(self):
+        source = Path(__file__).resolve().parents[1] / 'tools/reroll-mcp/reroll_cli_i18n.py'
+        messages = runpy.run_path(str(source))['MESSAGES']
+        for language in ('zh', 'en'):
+            exported = catalog(language, namespace='agent.cli.')
+            self.assertEqual({'agent.cli.' + key: value[language] for key, value in messages.items()}, exported)
+
+    def test_cli_command_and_translations_ship_in_downloaded_package(self):
+        archive = zipfile.ZipFile(io.BytesIO(build_bundle(dict(
+            client='codex', platform='macos', language='en', url='http://localhost:3000'
+        ))))
+        self.assertIn('Reroll-MCP/mcp/reroll_cli.py', archive.namelist())
+        self.assertIn('Reroll-MCP/mcp/reroll_cli_i18n.py', archive.namelist())
+        self.assertIn(b'reroll = "reroll_cli:main"', archive.read('Reroll-MCP/mcp/pyproject.toml'))
+
     def test_all_clients_platforms_and_languages_are_portable_and_secret_free(self):
         for client in ('codex', 'claude-code', 'claude-desktop'):
             for platform in ('macos', 'windows'):

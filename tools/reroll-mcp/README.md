@@ -199,3 +199,127 @@ Tests:
 python -m pip install tomlkit==0.13.3
 python -m unittest discover -s tools/reroll-mcp/tests
 ```
+
+<a id="reroll-cli"></a>
+
+## Reroll image CLI / 图片命令行
+
+The same Python package also installs `reroll`. It generates one image through the
+running Reroll service, using its configured Providers. It does not start the service
+or ask for a Provider API key. After initial browser pairing, no Canvas page or
+browser needs to remain open for CLI image generation. MCP `run_tasks` continues to
+use the browser editor; these are different execution entry points.
+
+同一个 Python 包也提供 `reroll` 命令。它复用后台服务已配置的 Provider，一次生成并下载一张图片；
+不负责启动服务，也不需要额外输入 Provider API Key。首次网页配对后，CLI 生图无需保持浏览器或
+画布页面打开。原有 MCP `run_tasks` 仍由画布编辑端执行。
+
+From the repository root, install once with Python 3.12 in an isolated environment:
+在仓库根目录使用 Python 3.12 一次性安装：
+
+```sh
+python3.12 -m venv "$HOME/.local/share/reroll-cli"
+"$HOME/.local/share/reroll-cli/bin/python" -m pip install ./tools/reroll-mcp
+export PATH="$HOME/.local/share/reroll-cli/bin:$PATH"
+reroll --help
+```
+
+The executable is `~/.local/share/reroll-cli/bin/reroll`. Add the `export PATH` line to
+your shell profile (for example `~/.zshrc`) if you want it available in future terminals.
+Reinstall from the updated checkout to upgrade. The package supports Python 3.11+;
+Python 3.12 is the project-supported runtime. Pillow validates input files and the
+actual downloaded image format and dimensions.
+
+可执行文件位于 `~/.local/share/reroll-cli/bin/reroll`。将上述 `export PATH` 行加入 shell 配置
+（例如 `~/.zshrc`），之后新开的终端也能直接调用。升级后从新代码重新安装。包要求 Python 3.11+，
+项目验证使用 Python 3.12；Pillow 用于检查真实图片格式与尺寸。
+
+On Windows PowerShell / Windows PowerShell 安装：
+
+```powershell
+py -3.12 -m venv "$env:LOCALAPPDATA\Reroll\cli"
+& "$env:LOCALAPPDATA\Reroll\cli\Scripts\python.exe" -m pip install ./tools/reroll-mcp
+$env:Path = "$env:LOCALAPPDATA\Reroll\cli\Scripts;$env:Path"
+reroll --help
+```
+
+Windows executable: `%LOCALAPPDATA%\Reroll\cli\Scripts\reroll.exe`. Add its `Scripts`
+folder to your user PATH for future terminals. The web MCP installer also includes
+the `reroll` executable inside its installed release environment; it does not change
+your shell PATH.
+
+Windows 可执行文件为 `%LOCALAPPDATA%\Reroll\cli\Scripts\reroll.exe`。将该 `Scripts` 目录加入
+用户 PATH，可供后续终端调用。网页 MCP 安装包的环境内也包含 `reroll`，但不会修改 shell PATH。
+
+```sh
+export REROLL_URL=http://127.0.0.1:3000
+reroll models --json
+reroll generate 'A quiet mountain landscape' \
+  --provider '<provider_id>' --model '<model_id>' \
+  --ratio 3:4 --resolution 2K --output ./results --json
+reroll generate 'Keep image 1’s character and use image 2’s palette' \
+  --provider '<provider_id>' --model '<model_id>' \
+  --image ./character.png --image ./palette.png \
+  --ratio 3:4 --resolution 2K --output ./results --json
+reroll result '<run_id>' --output ./results --json
+```
+
+Use exact IDs and operation capabilities from `models`; `image.generate` and
+`image.edit` can differ. Omitted ratio/tier values use only declared defaults.
+`auto` needs exactly one reference input. Multiple images require an explicit ratio;
+repeating one file still counts as two inputs. Reference order is preserved. Only
+files explicitly passed with `--image` are read; uploads contain bytes and basenames.
+`--size`, `--width`, `--height`, arbitrary Provider parameters, video and multiple
+outputs are outside this version.
+
+请使用 `models` 返回的准确身份与操作能力，文生图与图生图的能力可能不同。省略比例或档位时，
+只采用目录声明的默认值。`auto` 必须恰好一张参考输入；多图必须明确指定比例，重复同一文件也
+计为两张，顺序保持不变。CLI 只读取 `--image` 明确指定的文件，上传不包含本机完整路径。
+本版不接受精确像素、任意 Provider 参数、视频或多张输出。
+
+`REROLL_URL` defaults to `http://127.0.0.1:3000`; set it explicitly for another port
+or device. The first command returns `authorization_required`: sign in at that
+address, approve the matching request code, then retry. CLI credentials use the
+existing private cache, with the default client name `Reroll CLI`; the MCP client's
+grant is separate unless `REROLL_CLIENT_NAME` deliberately matches. Revocation and
+account/role/Agent access settings are checked on each operation. Accounts requiring
+per-run confirmation return `confirmation_required`; change that preference in
+Reroll yourself if you want unattended CLI runs. The CLI does not change it.
+
+`REROLL_URL` 默认指向 `http://127.0.0.1:3000`，使用其他端口或电脑时请显式设置。首次调用会返回
+`authorization_required`；在对应服务登录、核对并批准识别码后，重试原命令即可。CLI 使用现有
+私有授权缓存，默认名称为 `Reroll CLI`；除非主动设置相同的 `REROLL_CLIENT_NAME`，它与 MCP
+客户端分别授权。每次操作仍检查授权、角色与接入设置。开启逐条确认的账号会收到
+`confirmation_required`，请自行在 Reroll 已有设置中调整，CLI 不会修改该偏好。
+
+Set `REROLL_LANGUAGE=zh` or `en` to select CLI copy; otherwise the shell locale is used.
+In `--json` mode stdout contains one result object; progress and diagnostics go to
+stderr. Success is returned only after a readable local image is saved. The default
+output is `./reroll-output`, relative to the command's current directory. Existing
+files are never overwritten; real format extensions and measured pixels are reported.
+
+设置 `REROLL_LANGUAGE=zh` 或 `en` 选择文案；未设置时使用 shell 语言。`--json` 的 stdout
+只有一个完整对象，进度写入 stderr。只有图片已下载且可读取才返回成功。输出目录默认为命令
+所在目录下的 `./reroll-output`，同名文件追加序号，保留真实格式并返回实测像素尺寸。
+
+| Exit / 退出码 | Meaning / 含义 |
+| --- | --- |
+| 0 | Image saved / 图片已保存 |
+| 1 | Known input, authorization, generation or download failure / 已知失败 |
+| 2 | Missing or unsupported command arguments / 命令用法错误 |
+| 3 | Wait ended with a known Run ID; use `result` / 已知任务继续运行，使用 `result` 取回 |
+| 4 | Submission unconfirmed; keep `request_id` and retry the original input / 提交结果未知，保留请求身份对账 |
+| 130 | Interrupted; an accepted run is not canceled / 用户中断，已接收任务不取消 |
+
+Waiting, including download, is limited to 900 seconds per command. A timeout or
+Ctrl-C does not cancel the server task. Use `result <run_id>` after a known-run timeout
+or download failure. For an unconfirmed submission, repeat `generate` with the
+reported `--request-id` and the original prompt, images, ratio and resolution.
+The same ID and inputs reconcile the original Run, including after model/default
+changes; different inputs produce `request_conflict`. An ordinary new `generate`
+uses a fresh ID. Never replace the ID automatically after an unknown response.
+
+每次等待任务与下载最多 900 秒，超时或 Ctrl-C 不取消服务端任务。已知任务超时或下载失败后，
+使用 `result <run_id>` 取回原结果。提交结果未知时，使用返回的 `--request-id`，以及原提示词、
+图片、比例与档位原样重试 `generate`。即使模型或默认值后来变化，同一身份与输入仍对账原任务；
+不同输入返回 `request_conflict`。普通的新 `generate` 自动创建新身份，不应在未知响应后自动换号。
