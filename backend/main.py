@@ -7717,8 +7717,8 @@ async def _query_generation_remote(
     return run.result
 
 
-def _online_image_run(payload, *, publication="online-image"):
-    provider = get_api_provider(payload.provider_id)
+def _compile_flat_image_run(payload, *, provider, publication="online-image", infer_aspect_ratio=True):
+    """Compile one flat image intent for both Canvas HTTP and Agent clients."""
     default_model = (provider.get("image_models") or [IMAGE_MODEL])[0]
     model = selected_model(payload.model, default_model)
     payload.model = model
@@ -7730,7 +7730,7 @@ def _online_image_run(payload, *, publication="online-image"):
     if custom_size and (payload.target_aspect_ratio or payload.reference_aspect_ratio or payload.resolution_tier or payload.local_repair):
         raise HTTPException(status_code=422, detail={"code": "custom_size_exclusive", "field": "custom_size"})
     target_aspect_ratio = str(payload.target_aspect_ratio or "").strip()
-    if not custom_size and not target_aspect_ratio:
+    if infer_aspect_ratio and not custom_size and not target_aspect_ratio:
         match = re.fullmatch(
             r"\s*(\d+)\s*[xX*]\s*(\d+)\s*",
             str(payload.size or ""),
@@ -7752,17 +7752,17 @@ def _online_image_run(payload, *, publication="online-image"):
         else snap_size_to_multiple(payload.size, 16)
     )
     refs = [
-        ref.dict() for ref in payload.reference_images if ref.url
+        ref.model_dump() for ref in payload.reference_images if ref.url
     ]
     image_inputs = image_references(refs)
     operation = "image.edit" if image_inputs else "image.generate"
     model_capability = resolved_model_capability(
         provider["id"], model, operation
     )
-    capability_parameters = {
-        "count": int(payload.n),
-        "quality": str(payload.quality or "auto").strip().lower() or "auto",
-    }
+    parameter_definitions = model_capability.get("parameters") or {}
+    capability_parameters = {"count": int(payload.n)} if "count" in parameter_definitions else {}
+    if "quality" in parameter_definitions:
+        capability_parameters["quality"] = str(payload.quality or "auto").strip().lower() or "auto"
     if custom_size:
         capability_parameters["custom_size"] = payload.size
     if target_aspect_ratio:
@@ -7864,6 +7864,67 @@ def _online_image_run(payload, *, publication="online-image"):
         references=tuple(image_inputs),
         count=int(payload.n),
         publication=publication,
+    )
+
+
+def _online_image_run(payload, *, publication="online-image"):
+    return _compile_flat_image_run(
+        payload, provider=get_api_provider(payload.provider_id), publication=publication,
+    )
+
+
+def _agent_image_request_size(ratio, resolution):
+    """Translate catalog settings to the existing image transport's size field.
+
+    These are the same standard geometry presets used by Canvas sizeForRun.
+    They are internal transport values, never additional CLI input parameters.
+    """
+    if not ratio:
+        return resolution or "auto"
+    if not resolution:
+        # A model without an independent resolution setting retains its native
+        # default; the materialization contract still enforces the chosen ratio.
+        return "auto"
+    presets = {
+        "1:1": ("1024x1024", "2048x2048", "4096x4096"),
+        "2:3": ("1024x1536", "1360x2048", "2352x3520"),
+        "3:2": ("1536x1024", "2048x1360", "3520x2352"),
+        "3:4": ("1008x1344", "1536x2048", "2448x3264"),
+        "4:3": ("1344x1008", "2048x1536", "3264x2448"),
+        "9:16": ("720x1280", "1152x2048", "2160x3840"),
+        "16:9": ("1280x720", "2048x1152", "3840x2160"),
+        "21:9": ("1280x544", "2048x880", "3840x1648"),
+        "9:21": ("544x1280", "880x2048", "1648x3840"),
+    }
+    tier = str(resolution).upper()
+    columns = {"1K": 0, "2K": 1, "4K": 2}
+    if tier not in columns:
+        raise HTTPException(422, detail={"code": "resolution_transport_unsupported", "field": "resolution_tier", "actual": resolution})
+    if ratio in presets:
+        return presets[ratio][columns[tier]]
+    # Extended catalog ratios use the same grid alignment as the existing
+    # transport, while the shared materializer restores the exact final ratio.
+    numerator, denominator = map(int, str(ratio).split(":"))
+    long_side = {"1K": 1280, "2K": 2048, "4K": 3840}[tier]
+    scale = long_side / max(numerator, denominator)
+    width = max(16, round(numerator * scale / 16) * 16)
+    height = max(16, round(denominator * scale / 16) * 16)
+    return f"{width}x{height}"
+
+
+def _compile_agent_image_run(intent):
+    """Adapt an authorized, catalog-resolved headless intent to flat compilation."""
+    payload = OnlineImageRequest(
+        prompt=intent["prompt"], provider_id=intent["provider_id"], model=intent["model"],
+        size=_agent_image_request_size(intent.get("ratio"), intent.get("resolution")),
+        target_aspect_ratio=intent.get("ratio") or "",
+        reference_aspect_ratio=intent.get("reference_aspect_ratio") or "",
+        resolution_tier=intent.get("resolution") or "",
+        reference_images=intent.get("references") or [],
+        catalog_revision=intent.get("catalog_revision") or "",
+    )
+    return _compile_flat_image_run(
+        payload, provider=get_api_provider_exact(payload.provider_id), infer_aspect_ratio=False,
     )
 
 
@@ -11729,10 +11790,20 @@ for _provider_export_name in _provider_implementation._CATEGORY_EXPORTS:
     globals()[_provider_export_name] = getattr(
         _provider_implementation, _provider_export_name
     )
+def _generation_provider_config(provider_id):
+    """Resolve a frozen Run without accepting the legacy selection fallback."""
+    provider = get_api_provider(provider_id)
+    if str(provider.get("id") or "").strip().lower() != str(provider_id or "").strip().lower():
+        raise HTTPException(409, detail={"code": "provider_unavailable"})
+    return provider
+
+
 _PROVIDER_RUNTIME = ProviderRuntime(
     # Keep the legacy patch/export name as the lookup adapter while callers
     # migrate to the registry seam.
-    provider_lookup=lambda provider_id: get_api_provider(provider_id),
+    # A Run already froze a concrete Provider identity during compilation.
+    # Removal must fail rather than rerouting that intent to another Provider.
+    provider_lookup=_generation_provider_config,
     image_registry=build_image_registry(
         ImageExecutors(
             http=_provider_implementation.generate_http_provider_image,
@@ -12193,7 +12264,7 @@ _BATCH_GENERATION = (TursoBatchGeneration if CLOUD_WORKSPACE_RUNTIME else BatchG
 )
 
 
-# Account-scoped authoring routes; provider execution remains in the editor.
+# Account-scoped authoring and headless flat image Generation Run routes.
 from infinite_canvas.agent_api import AgentAPI
 
 
@@ -12221,5 +12292,8 @@ AGENT_API = AgentAPI(
     media_path=agent_media_path, upload_extensions=AI_REFERENCE_EXTENSIONS,
     max_upload_bytes=MAX_UPLOAD_BYTES,
     version=Path(BASE_DIR, "VERSION").read_text().strip(),
+    image_runs=lambda: _GENERATION_RUNS,
+    compile_image=_compile_agent_image_run,
+    image_prompt_maximum=ONLINE_IMAGE_PROMPT_MAX_LENGTH,
 )
 AGENT_API.install(app)

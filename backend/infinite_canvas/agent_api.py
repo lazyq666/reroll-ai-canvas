@@ -232,6 +232,9 @@ class AgentAPI:
         upload_extensions,
         max_upload_bytes,
         version="",
+        image_runs=None,
+        compile_image=None,
+        image_prompt_maximum=20000,
     ):
         self.auth, self.sync, self.catalog = auth, sync, catalog
         self.resolve_model, self.models = resolve_model, list_models
@@ -246,6 +249,10 @@ class AgentAPI:
             max_upload_bytes,
             version,
         )
+        self.image_prompt_maximum = image_prompt_maximum
+        self.image_runs, self.compile_image = image_runs, compile_image
+        from .agent_image_runs import AgentImageRuns
+        self.direct_images = AgentImageRuns(self)
         self.contexts = {}
         self.writes = defaultdict(deque)
         self._databases = set()
@@ -1662,6 +1669,13 @@ class AgentAPI:
     async def handle_run_message(self, session, actor, message):
         if not self.auth.agent_settings()["enabled"]:
             return
+        async with self.direct_images.locks[str(actor["id"])]:
+            direct_active = await self.direct_images.active_count(actor)
+            return await self._handle_run_message(session, actor, message, direct_active)
+
+    async def _handle_run_message(self, session, actor, message, direct_active=0):
+        if not self.auth.agent_settings()["enabled"]:
+            return
         request_id = message.get("id")
         canvas = self.sync.read(session.canvas_id, actor, write=True)
         with self.data() as state:
@@ -1704,7 +1718,7 @@ class AgentAPI:
                         r["user_id"] == actor["id"] and r["state"] == "claimed"
                         for r in state["runs"].values()
                     )
-                    if active < self.auth.agent_settings(actor["id"])["concurrency"]:
+                    if active + direct_active < self.auth.agent_settings(actor["id"])["concurrency"]:
                         row.update(
                             state="claimed",
                             client_id=session.client_id,
@@ -1763,13 +1777,12 @@ class AgentAPI:
 
         @app.exception_handler(AgentError)
         async def error_handler(request, error):
+            message = str(error)
+            if request.url.path.startswith("/api/agent/v1/image-runs"):
+                message = self.direct_images.message(error.code, self.direct_images.language(request))
             return JSONResponse(
                 status_code=error.status,
-                content={
-                    "code": error.code,
-                    "message": str(error),
-                    "details": error.details,
-                },
+                content={"code": error.code, "message": message, "details": error.details},
             )
 
         def actor(request):
@@ -1975,9 +1988,28 @@ class AgentAPI:
                 )
             }
 
+        @app.post(prefix + "/image-runs")
+        async def submit_image_run(request: Request):
+            self.rate_limit(actor(request))
+            return await self.direct_images.submit(actor(request), request.state.agent_token, await self.body(request), self.direct_images.language(request))
+
+        @app.get(prefix + "/image-runs/by-request/{request_id}")
+        async def lookup_image_run(request_id: str, request: Request):
+            run = await self.direct_images.lookup(actor(request), request.state.agent_token, request_id)
+            return self.direct_images.public(run, self.direct_images.language(request))
+
+        @app.get(prefix + "/image-runs/{run_id}")
+        async def get_image_run(run_id: str, request: Request):
+            return self.direct_images.public(await self.direct_images.query(actor(request), request.state.agent_token, run_id), self.direct_images.language(request))
+
+        @app.get(prefix + "/image-runs/{run_id}/outputs/{index}")
+        async def download_image_run(run_id: str, index: int, request: Request):
+            return await self.direct_images.download(actor(request), request.state.agent_token, run_id, index)
+
         @app.get(prefix + "/models")
         async def models():
-            return {"models": self.models()}
+            return {"models": self.models(), "image_prompt_maximum": self.image_prompt_maximum, "media_upload": {"maximum_bytes": self.max_upload_bytes,
+                    "extensions": sorted(self.upload_extensions)}}
 
         @app.get(prefix + "/models/{provider}/{model:path}")
         async def capability(
