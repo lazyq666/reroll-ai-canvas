@@ -12,7 +12,7 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
 
 from .generation_runs import Background, ACTIVE_STATUSES, GenerationRunError
-from .image_capabilities import normalize_image_aspect
+from .image_capabilities import AUTOMATIC_ASPECT_RATIO_TOLERANCE, normalize_image_aspect
 
 
 class AgentImageRuns:
@@ -160,7 +160,8 @@ class AgentImageRuns:
             if len(refs) != 1:
                 self.fail("auto_ratio_requires_one_image")
             ratio, _ = normalize_image_aspect(refs[0]["natural_w"], refs[0]["natural_h"],
-                capability.get("parameters", {}).get("aspect_ratio", {}).get("values", []))
+                capability.get("parameters", {}).get("aspect_ratio", {}).get("values", []),
+                tolerance=AUTOMATIC_ASPECT_RATIO_TOLERANCE)
             if ratio is None:
                 self.fail("auto_ratio_unavailable")
             reference_aspect_ratio = f'{refs[0]["natural_w"]}:{refs[0]["natural_h"]}'

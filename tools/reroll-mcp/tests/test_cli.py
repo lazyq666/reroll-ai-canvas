@@ -62,7 +62,7 @@ class CliTests(unittest.TestCase):
             return httpx.Response(200, json=self.capability)
         if path == '/api/agent/v1/media':
             return httpx.Response(200, json={'media_id':'same-image'})
-        if path.startswith('/api/agent/v1/image-runs/by-request/'):
+        if path == '/api/agent/v1/image-runs/by-request':
             return httpx.Response(404,json={'code':'run_not_found'})
         if path == '/api/agent/v1/image-runs':
             body = json.loads(request.content)
@@ -197,7 +197,7 @@ class CliTests(unittest.TestCase):
                     'ratio':'3:4','resolution':'2k'}
         original_handle = self.handle
         def handle(request):
-            if request.url.path == '/api/agent/v1/image-runs/by-request/accepted':
+            if request.url.path == '/api/agent/v1/image-runs/by-request' and request.url.params.get('request_id') == 'accepted':
                 self.calls.append(request)
                 return httpx.Response(200,json=self.run_payload(existing))
             if request.url.path == '/api/agent/v1/image-runs':

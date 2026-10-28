@@ -1993,7 +1993,7 @@ class AgentAPI:
             self.rate_limit(actor(request))
             return await self.direct_images.submit(actor(request), request.state.agent_token, await self.body(request), self.direct_images.language(request))
 
-        @app.get(prefix + "/image-runs/by-request/{request_id}")
+        @app.get(prefix + "/image-runs/by-request")
         async def lookup_image_run(request_id: str, request: Request):
             run = await self.direct_images.lookup(actor(request), request.state.agent_token, request_id)
             return self.direct_images.public(run, self.direct_images.language(request))

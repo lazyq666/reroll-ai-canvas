@@ -1,6 +1,6 @@
 # Reroll CLI：后台图片生成
 
-- Status: Implemented；真实 Provider 验收通过前不提升为 Current
+- Status: Current；自动化、独立安装与真实 Provider 生成及下载已验证
 - Tracked by: [LAZ-106](https://linear.app/lazyq/issue/LAZ-106/reroll-cli)，父任务 LAZ-105
 - Approved source: LAZ-106 附件《Reroll CLI 需求文档》v1.0（2026-10-27）
 - Feature: F17
@@ -31,7 +31,7 @@ Reroll 已初始化、打开 Workspace、配置可用图片模型且账号完成
 
 省略设置时只采用目录明确声明的默认值，保存为本次 Run 设置；不适用参数省略时不发送、输出为 null，显式提供则失败。模型要求参数但没有默认值时要求补充，返回选项。提交前重新核对当前能力；无法满足原输入时失败，不换模型或更改设置。
 
-`--ratio auto` 仅接受恰好一个参考输入，使用实际图片尺寸和既有图片画幅规则解析。无图、两个以上输入、无法识别尺寸或匹配能力时要求明确比例；同图重复两次仍算两个输入。多参考图必须明确提供非 auto 比例。最终输出沿用现有 Provider 参数转换与画幅物化规则。
+`--ratio auto` 仅接受恰好一个参考输入，使用实际图片尺寸和既有图片画幅的 7% 归一化规则解析，同时冻结参考图的精确原始比例供输出物化。无图、两个以上输入、无法识别尺寸或匹配能力时要求明确比例；同图重复两次仍算两个输入。多参考图必须明确提供非 auto 比例。最终输出沿用现有 Provider 参数转换与画幅物化规则。
 
 ## 授权和服务端合同
 
@@ -41,7 +41,7 @@ Reroll 已初始化、打开 Workspace、配置可用图片模型且账号完成
 | --- | --- |
 | `POST /api/agent/v1/image-runs` | 验证请求身份、Prompt、模型、尺寸与有序 Managed Media 输入，提交或对账原 Run |
 | `GET /api/agent/v1/image-runs/{id}` | 读取当前账号自己的 Run 状态、冻结设置与输出身份 |
-| `GET /api/agent/v1/image-runs/by-request/{request_id}` | 在重新预检前找回当前账号已接收的请求；随后以原输入 POST 对账摘要，不重新生成 |
+| `GET /api/agent/v1/image-runs/by-request?request_id=...` | 在重新预检前找回当前账号已接收的请求；身份不作为 URL 路径解析，随后以原输入 POST 对账摘要，不重新生成 |
 | `GET /api/agent/v1/image-runs/{id}/outputs/{index}` | 只下载该账号该 Run 的指定输出 |
 
 服务端从已授权 Managed Media 解析参考输入，不接受本机路径或任意远端 URL。上传、模型、能力、配对沿用已有 Agent API。输出不能通过猜测 ID 跨账号访问，也不接受服务器路径或任意 URL 作为下载目标；Bridge 只允许上述受控路径。
@@ -67,7 +67,7 @@ generate 和 result 每次等待上限为 900 秒。到期只停止 CLI 等待�
 
 下载保持实际图片格式与扩展名；同名按序号避让，不覆盖已有文件；失败临时文件清理。只有校验后的最终文件已保存且可读，才能返回成功。
 
-## 验收与毕业门槛
+## 验收与验证入口
 
 自动验收以 CLI 进程（stdout、退出码、本机图片）和 Agent HTTP API 为公共边界，外部 Provider 用可控替身；安装以临时独立环境验证，不改用户当前环境。真实 Provider 验收须使用已经授权的模型与样例，并实际下载检查图片。
 
@@ -86,7 +86,7 @@ generate 和 result 每次等待上限为 900 秒。到期只停止 CLI 等待�
 | A11 | 未授权、撤销、总开关、逐条确认、账号隔离与并发上限 |
 | A12 | 独立安装可调用 reroll、help、模型查询、地址与双语错误 |
 
-只有自动化、安装、真实服务／Provider 与项目发布门槛全部通过后，才可将本规格提升到 Current。实际验证命令、结果及待验收项记录在 LAZ-106 与 PR，避免将模拟 Provider 结果写成真实生成已通过。
+真实服务验收使用已配置的 APIMart `gemini-3.1-flash-image-preview`，通过独立安装的 CLI 完成一次 `0.5K` 文生图和一次 `1K` 单图编辑，实际下载并检查 PNG、JPEG 文件及像素尺寸；再次执行 result 取回原任务。验收未使用浏览器编辑端。具体版本、验证结果与发布状态记录在 LAZ-106 和 PR。
 
 自动化入口：`tests/test_agent_image_runs.py` 覆盖 HTTP 运行、账号归属、并发与冻结请求恢复；
 `tests/test_flat_image_compilation.py` 对照新旧入口及删除 Provider 后拒绝改路；

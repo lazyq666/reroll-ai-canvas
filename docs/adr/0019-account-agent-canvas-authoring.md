@@ -86,7 +86,7 @@ Managed Media resolver 返回的受控路径，桥接不接收服务器任意路
 
 ## 2026-10-28：无画布目标的 CLI 图片生成
 
-[LAZ-106](https://linear.app/lazyq/issue/LAZ-106/reroll-cli) 及其[独立规格](../active/2026-10-28-reroll-cli.md)
+[LAZ-106](https://linear.app/lazyq/issue/LAZ-106/reroll-cli) 及其[独立规格](../current/reroll-cli.md)
 定义第三阶段的窄入口：`reroll generate` 在完成相同网页配对后，以 Account 身份提交单张图片任务，
 不创建 Canvas 或 Node，也不需要打开的编辑端。画布 `run_tasks` 仍使用原有编辑端执行合同。
 

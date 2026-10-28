@@ -311,7 +311,7 @@ def main(argv=None, *, bridge_factory=Bridge, clock=time.monotonic, sleep=time.s
             existing = None
             if args.request_id:
                 try:
-                    existing = bridge.request('GET','image-runs/by-request/' + quote(args.request_id,safe=''))
+                    existing = bridge.request('GET','image-runs/by-request',params={'request_id':args.request_id})
                 except BridgeError as error:
                     if error.code != 'run_not_found':
                         raise

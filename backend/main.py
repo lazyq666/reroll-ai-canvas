@@ -157,6 +157,7 @@ from infinite_canvas.generation_settings import GenerationSettingsService
 from infinite_canvas.prompt_optimization import (PromptOptimizationSettings, load_settings as load_prompt_optimization_settings, save_settings as save_prompt_optimization_settings)
 from infinite_canvas.image_capabilities import (
     ImageCapabilityRegistry,
+    image_request_size,
     intersect_capabilities,
     normalize_image_aspect,
 )
@@ -7759,6 +7760,9 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
     model_capability = resolved_model_capability(
         provider["id"], model, operation
     )
+    resolution_values = (model_capability.get("parameters") or {}).get("resolution_tier", {}).get("values", [])
+    resolution_tier = next((value for value in resolution_values
+                            if isinstance(value, str) and value.casefold() == resolution_tier.casefold()), resolution_tier)
     parameter_definitions = model_capability.get("parameters") or {}
     capability_parameters = {"count": int(payload.n)} if "count" in parameter_definitions else {}
     if "quality" in parameter_definitions:
@@ -7853,6 +7857,7 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
             "target_aspect_ratio": target_aspect_ratio,
             "reference_aspect_ratio": reference_aspect_ratio,
             "resolution_tier": resolution_tier,
+            "native_image_settings": True,
             "transparent_png": transparent_png,
             "catalog_revision": model_capability["catalog_revision"],
             "capability_schema_version": model_capability[
@@ -7873,50 +7878,11 @@ def _online_image_run(payload, *, publication="online-image"):
     )
 
 
-def _agent_image_request_size(ratio, resolution):
-    """Translate catalog settings to the existing image transport's size field.
-
-    These are the same standard geometry presets used by Canvas sizeForRun.
-    They are internal transport values, never additional CLI input parameters.
-    """
-    if not ratio:
-        return resolution or "auto"
-    if not resolution:
-        # A model without an independent resolution setting retains its native
-        # default; the materialization contract still enforces the chosen ratio.
-        return "auto"
-    presets = {
-        "1:1": ("1024x1024", "2048x2048", "4096x4096"),
-        "2:3": ("1024x1536", "1360x2048", "2352x3520"),
-        "3:2": ("1536x1024", "2048x1360", "3520x2352"),
-        "3:4": ("1008x1344", "1536x2048", "2448x3264"),
-        "4:3": ("1344x1008", "2048x1536", "3264x2448"),
-        "9:16": ("720x1280", "1152x2048", "2160x3840"),
-        "16:9": ("1280x720", "2048x1152", "3840x2160"),
-        "21:9": ("1280x544", "2048x880", "3840x1648"),
-        "9:21": ("544x1280", "880x2048", "1648x3840"),
-    }
-    tier = str(resolution).upper()
-    columns = {"1K": 0, "2K": 1, "4K": 2}
-    if tier not in columns:
-        raise HTTPException(422, detail={"code": "resolution_transport_unsupported", "field": "resolution_tier", "actual": resolution})
-    if ratio in presets:
-        return presets[ratio][columns[tier]]
-    # Extended catalog ratios use the same grid alignment as the existing
-    # transport, while the shared materializer restores the exact final ratio.
-    numerator, denominator = map(int, str(ratio).split(":"))
-    long_side = {"1K": 1280, "2K": 2048, "4K": 3840}[tier]
-    scale = long_side / max(numerator, denominator)
-    width = max(16, round(numerator * scale / 16) * 16)
-    height = max(16, round(denominator * scale / 16) * 16)
-    return f"{width}x{height}"
-
-
 def _compile_agent_image_run(intent):
     """Adapt an authorized, catalog-resolved headless intent to flat compilation."""
     payload = OnlineImageRequest(
         prompt=intent["prompt"], provider_id=intent["provider_id"], model=intent["model"],
-        size=_agent_image_request_size(intent.get("ratio"), intent.get("resolution")),
+        size=image_request_size(intent.get("ratio"), intent.get("resolution")),
         target_aspect_ratio=intent.get("ratio") or "",
         reference_aspect_ratio=intent.get("reference_aspect_ratio") or "",
         resolution_tier=intent.get("resolution") or "",

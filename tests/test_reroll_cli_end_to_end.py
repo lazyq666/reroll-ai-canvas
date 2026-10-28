@@ -61,7 +61,7 @@ class CliHttpAcceptanceTests(unittest.TestCase):
                 listing = run('models')
                 self.assertEqual({'image.generate', 'image.edit'}, set(listing['models'][0]['operations']))
                 generated = run('generate', 'Original\ntext', '--provider', 'fixture', '--model', 'image',
-                    '--ratio', '3:4', '--resolution', '2K', '--request-id', 'cli-http-generate')
+                    '--ratio', '3:4', '--resolution', '2K', '--request-id', 'cli/http generate?one#')
                 self.assertEqual('image.generate', generated['operation'])
                 with Image.open(generated['outputs'][0]['path']) as image:
                     self.assertEqual((30, 40), image.size)

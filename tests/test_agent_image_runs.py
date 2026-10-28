@@ -197,7 +197,7 @@ class AgentImageRunApiTests(unittest.TestCase):
     def test_request_lookup_frozen_settings_and_api_limits(self):
         accepted = self.submit().json()
         original = self.wait(accepted["run_id"]).json()
-        lookup = self.client.get("/api/agent/v1/image-runs/by-request/test-request")
+        lookup = self.client.get("/api/agent/v1/image-runs/by-request", params={"request_id": "test-request"})
         self.assertEqual(accepted["run_id"], lookup.json()["run_id"])
         self.api.image_prompt_maximum = 2
         self.assertEqual(original["run_id"], self.submit().json()["run_id"])
@@ -207,6 +207,14 @@ class AgentImageRunApiTests(unittest.TestCase):
         self.auth.save_agent_settings(self.fixture.admin, {"enabled": False})
         response = self.client.get("/api/agent/v1/image-runs/" + accepted["run_id"])
         self.assertEqual(403, response.status_code)
+
+    def test_request_lookup_preserves_printable_ids_without_path_interpretation(self):
+        for request_id in ('.', '..', 'automation/run 1', 'job?one#two', 'percent%2Fvalue'):
+            with self.subTest(request_id=request_id):
+                accepted = self.submit(request_id=request_id).json()
+                lookup = self.client.get('/api/agent/v1/image-runs/by-request', params={'request_id': request_id})
+                self.assertEqual(200, lookup.status_code, lookup.text)
+                self.assertEqual(accepted['run_id'], lookup.json()['run_id'])
 
     def test_editor_and_direct_runs_share_account_concurrency(self):
         from infinite_canvas.canvas_sync import RealtimeSession
@@ -243,4 +251,25 @@ class AgentImageRunApiTests(unittest.TestCase):
         self.assertEqual("succeeded", self.wait(accepted.json()["run_id"]).json()["status"])
         response = self.submit(request_id="bad\nrequest")
         self.assertEqual("invalid_request_id", response.json()["code"])
+        self.assertEqual(1, len(self.adapter.calls))
+
+    def test_auto_ratio_uses_existing_seven_percent_reference_tolerance(self):
+        self.capabilities["image.edit"]["parameters"]["aspect_ratio"]["values"] = ["16:9"]
+        image = io.BytesIO()
+        Image.new("RGB", (405, 240), "red").save(image, "PNG")
+        reference = self.upload("within-tolerance.png", image.getvalue())
+        accepted = self.submit(images=[reference], ratio="auto")
+        self.assertEqual(200, accepted.status_code, accepted.text)
+        result = self.wait(accepted.json()["run_id"]).json()
+        self.assertEqual("auto", result["settings"]["requested_ratio"])
+        self.assertEqual("16:9", result["settings"]["ratio"])
+        self.assertEqual("16:9", self.adapter.calls[0].settings["target_aspect_ratio"])
+        source = self.adapter.calls[0].references[0]
+        self.assertEqual((405, 240), (source["natural_w"], source["natural_h"]))
+        image = io.BytesIO()
+        Image.new("RGB", (360, 240), "red").save(image, "PNG")
+        reference = self.upload("outside-tolerance.png", image.getvalue())
+        rejected = self.submit(request_id="outside-tolerance", images=[reference], ratio="auto")
+        self.assertEqual(422, rejected.status_code, rejected.text)
+        self.assertEqual("auto_ratio_unavailable", rejected.json()["code"])
         self.assertEqual(1, len(self.adapter.calls))

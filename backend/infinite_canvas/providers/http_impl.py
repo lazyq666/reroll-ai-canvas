@@ -65,6 +65,7 @@ except Exception:
 from .ports import DynamicPorts, HttpPorts
 from .core import Pending
 from ..layer_decomposition import parse_apimart_layer_decomposition
+from ..image_capabilities import image_request_size
 from .implementation import (
     codex_cli_executable,
     codex_decode_output,
@@ -1574,9 +1575,12 @@ def apimart_video_duration(duration) -> int:
         value = 5
     return max(4, min(15, value))
 
-async def generate_volcengine_provider_image(prompt, size, model, reference_images=None, provider=None):
+async def generate_volcengine_provider_image(prompt, size, model, reference_images=None, provider=None, *, aspect_ratio="", resolution_tier=""):
     endpoint = volcengine_endpoint_url(provider)
-    size = normalize_volcengine_size(size, model)
+    if aspect_ratio and not all(parse_size_pair(size)):
+        size = image_request_size(aspect_ratio, resolution_tier or "2K")
+    if not resolution_tier:
+        size = normalize_volcengine_size(size, model)
     body = {
         "model": model,
         "prompt": prompt,
@@ -2511,6 +2515,7 @@ async def generate_http_provider_image(
     custom_size=False,
     operation="image.generate",
     resolution_tier="",
+    aspect_ratio="",
 ):
     provider = _ports.get_api_provider(provider_id)
     requested_count = max(1, min(8, int(n or 1)))
@@ -2649,6 +2654,11 @@ async def generate_http_provider_image(
                 "prompt": prompt,
                 "size": apimart_size,
             }
+            if aspect_ratio != "":
+                if aspect_ratio is None:
+                    body.pop("size", None)
+                else:
+                    body["size"] = aspect_ratio
             if image_refs:
                 body["image_urls"] = [_ports.reference_to_data_url(ref, max_size=1536) for ref in image_refs[:_ports.ONLINE_IMAGE_REFERENCE_MAX]]
             midjourney_url = _ports.provider_endpoint_url(provider, "image_generation_endpoint", "/v1/midjourney/generations")
@@ -2721,6 +2731,11 @@ async def generate_http_provider_image(
                     model,
                     has_reference=bool(image_refs),
                 )
+            if not custom_size:
+                if aspect_ratio != "":
+                    apimart_size = aspect_ratio
+                if resolution_tier != "":
+                    resolution = str(resolution_tier).lower() if resolution_tier is not None else ""
             # APIMart 的其他图片模型（包括 GPT-Image-2）仍走 /images/generations，
             # 通过 image_urls 传参考图，不使用 OpenAI multipart /images/edits。
             body = {
@@ -2730,6 +2745,8 @@ async def generate_http_provider_image(
                 "size": apimart_size,
                 "official_fallback": False,
             }
+            if apimart_size is None:
+                body.pop("size", None)
             if resolution:
                 body["resolution"] = resolution
             if transparent_png:
@@ -3572,7 +3589,7 @@ def yuli_openai_size(aspect_ratio: str) -> str:
         return "9x16"
     return "16x9"
 
-async def generate_gemini_provider_image(prompt, size, model, reference_images=None, provider=None):
+async def generate_gemini_provider_image(prompt, size, model, reference_images=None, provider=None, *, aspect_ratio="", resolution_tier=""):
     model_name = gemini_model_name(model)
     endpoint = gemini_endpoint_url(provider, model_name)
     parts = [{"text": prompt.strip()}]
@@ -3587,12 +3604,18 @@ async def generate_gemini_provider_image(prompt, size, model, reference_images=N
             "imageConfig": gemini_image_config(size),
         },
     }
+    image_config = body["generationConfig"]["imageConfig"]
+    for field, value in (("aspectRatio", aspect_ratio), ("imageSize", resolution_tier)):
+        if value is None:
+            image_config.pop(field, None)
+        elif value != "":
+            image_config[field] = value
     async with httpx.AsyncClient(timeout=httpx.Timeout(connect=20.0, read=1800.0, write=120.0, pool=20.0)) as client:
         response = await client.post(endpoint, headers=api_headers(provider=provider), json=body)
         response.raise_for_status()
         raw = response.json()
         image_data = unwrap_apimart_response(raw) if is_apimart_provider(provider) else raw
-        if not is_apimart_provider(provider):
+        if not is_apimart_provider(provider) and resolution_tier == "":
             image_data = gemini_fit_inline_results(image_data, size)
         return extract_image(image_data), raw
 

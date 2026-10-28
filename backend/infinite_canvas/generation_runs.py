@@ -3571,6 +3571,14 @@ class ProviderGenerationExecutor:
                 if settings.get("operation") == "image.layer_decomposition"
                 else {}
             )
+            if isinstance(self._runtime, ProviderRuntime) and settings.get("native_image_settings") is True and settings.get("size_mode") != "custom" and settings.get("operation") != "image.layer_decomposition":
+                # Native parameter identities and deliberate omissions are
+                # independent from the legacy size geometry. Empty strings
+                # retain legacy inference; None means the catalog omits it.
+                if "target_aspect_ratio" in settings:
+                    operation_kwargs["aspect_ratio"] = settings.get("target_aspect_ratio") or None
+                if "resolution_tier" in settings:
+                    operation_kwargs["resolution_tier"] = settings.get("resolution_tier") or None
             return await execute_image(
                 request.prompt,
                 str(settings.get("size") or "1024x1024"),

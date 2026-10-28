@@ -64,6 +64,7 @@ except Exception:
 
 from .ports import DynamicPorts, ModelScopePorts
 from .core import Pending
+from ..image_capabilities import image_request_size
 from .implementation import (
     extract_image,
     parse_size_pair,
@@ -107,11 +108,16 @@ async def generate_modelscope_provider_image(
     reference_images=None,
     provider=None,
     on_remote=None,
+    aspect_ratio="",
+    resolution_tier="",
 ):
     clean_token = _ports.modelscope_api_key()
     if not clean_token:
         raise HTTPException(status_code=400, detail="未配置 ModelScope API Key，请在 API 设置中填写。")
     width, height = parse_size_pair(size)
+    if aspect_ratio and not (width and height):
+        size = image_request_size(aspect_ratio, resolution_tier or "1K")
+        width, height = parse_size_pair(size)
     refs = []
     for ref in (reference_images or [])[:_ports.ONLINE_IMAGE_REFERENCE_MAX]:
         if not ref.get("url"):
@@ -131,6 +137,8 @@ async def generate_modelscope_provider_image(
         payload["width"] = width
         payload["height"] = height
         payload["size"] = f"{width}x{height}"
+    elif resolution_tier:
+        payload["size"] = resolution_tier
     if refs:
         payload["image_url"] = refs
 
