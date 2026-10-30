@@ -209,6 +209,8 @@ https://github.com/user-attachments/assets/5834952d-1498-4a80-8c81-3e3358353db7
 首次在网页批准 CLI 配对后，日常生图只需保持 Reroll 后台运行。`REROLL_URL` 未设置时连接
 `http://127.0.0.1:3000`，结果默认保存到当前目录的 `reroll-output`。中断或下载失败后，
 可用 `reroll result RUN_ID --json` 取回原任务。账号须允许自动运行，CLI 不会修改确认偏好。
+CLI 图片生成不设应用层并发上限；升级服务端并重启后生效，已有 CLI 无需重装。
+账号“画布并发”设置仅用于 Agent 画布任务，具体边界见 [CLI 运行合同](docs/current/reroll-cli.md)。
 一次性安装、终端可执行文件位置与环境要求见[CLI 安装说明](tools/reroll-mcp/README.md#reroll-cli)。
 
 

@@ -1669,13 +1669,6 @@ class AgentAPI:
     async def handle_run_message(self, session, actor, message):
         if not self.auth.agent_settings()["enabled"]:
             return
-        async with self.direct_images.locks[str(actor["id"])]:
-            direct_active = await self.direct_images.active_count(actor)
-            return await self._handle_run_message(session, actor, message, direct_active)
-
-    async def _handle_run_message(self, session, actor, message, direct_active=0):
-        if not self.auth.agent_settings()["enabled"]:
-            return
         request_id = message.get("id")
         canvas = self.sync.read(session.canvas_id, actor, write=True)
         with self.data() as state:
@@ -1718,7 +1711,7 @@ class AgentAPI:
                         r["user_id"] == actor["id"] and r["state"] == "claimed"
                         for r in state["runs"].values()
                     )
-                    if active + direct_active < self.auth.agent_settings(actor["id"])["concurrency"]:
+                    if active < self.auth.agent_settings(actor["id"])["concurrency"]:
                         row.update(
                             state="claimed",
                             client_id=session.client_id,

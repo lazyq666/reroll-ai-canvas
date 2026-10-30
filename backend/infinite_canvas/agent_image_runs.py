@@ -20,7 +20,7 @@ class AgentImageRuns:
 
     def __init__(self, api):
         self.api = api
-        self.locks = defaultdict(asyncio.Lock)
+        self._submission_locks = defaultdict(asyncio.Lock)
 
     @staticmethod
     def language(request):
@@ -48,20 +48,6 @@ class AgentImageRuns:
             self.fail("run_scope_required", status=403)
         if actor.get("role") not in ("admin", "designer"):
             self.fail("forbidden", status=403)
-
-    async def active_count(self, actor):
-        if not callable(self.api.image_runs):
-            return 0
-        runs = self.api.image_runs()
-        if runs is None:
-            return 0
-        count, cursor = 0, ""
-        while True:
-            records, cursor = await runs.list_owned(owner=str(actor["id"]), surface=self.surface,
-                                                    limit=100, cursor=cursor)
-            count += sum(run.status in ACTIVE_STATUSES for run in records)
-            if not cursor:
-                return count
 
     def request(self, body):
         if set(body) - {"request_id", "prompt", "provider_id", "model", "images", "ratio", "resolution"}:
@@ -202,22 +188,14 @@ class AgentImageRuns:
         signature = digest(value)
         owner, key = str(actor["id"]), self.surface + ":" + value["request_id"]
         runs = self.service()
-        async with self.locks[owner]:
+        # Serialize receipt checks for idempotency, not background generation.
+        async with self._submission_locks[owner]:
             existing = await runs.find_by_key(owner=owner, key=key)
             if existing is not None:
                 if existing.public_metadata.get("input_hash") != signature:
                     self.fail("request_conflict", status=409)
                 return self.public(existing, language)
-            direct_count = await self.active_count(actor)
-            with self.api.data() as state:
-                self.api.refresh_runs(state)
-                editor_count = sum(row["user_id"] == actor["id"] and row["state"] == "claimed"
-                                   for row in state["runs"].values())
-            if direct_count + editor_count >= self.api.auth.agent_settings(actor["id"])["concurrency"]:
-                self.fail("concurrency_limit", status=429)
             request, metadata = self.compile(actor, value)
-            # Compilation is synchronous; submission has no asynchronous gap
-            # in which another request can consume this Account's slot.
             try:
                 run = await runs.start(request, owner=owner, key=key, delivery=Background(),
                     public_metadata={"surface": self.surface, "request_id": value["request_id"],
