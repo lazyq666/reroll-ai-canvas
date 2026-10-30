@@ -200,9 +200,9 @@ We don't recommend doing that directly. Reroll is built for individuals and smal
 
 - **Generate video with a local ComfyUI:** connect your ComfyUI and workflows in **Workflow settings**; see the [H3 workflow notes](docs/current/comfyui-h3-workflows.md).
 - **Let Codex or Claude work on your canvas:** download the installer from **App connections** in the account menu, then click **Yes, allow** once in the browser to connect. An Administrator has to turn this on first. See the [MCP bridge guide](tools/reroll-mcp/README.md).
-- **Generate images from the terminal:** `reroll generate "your prompt" …` generates and downloads an image; see the [Reroll CLI guide](docs/current/reroll-cli.md).
+- **Generate images from the terminal:** `reroll generate "your prompt" …` generates and downloads an image. CLI generation has no application concurrency cap after a server update and restart; existing CLI installations keep working. **Canvas tasks at once** applies only to Agent canvas tasks. See the [Reroll CLI guide](docs/current/reroll-cli.md).
 - **Start Reroll in the background with LaunchManager or similar:** if your online services need a proxy, configure that job's network environment; see [network setup for background launches](docs/current/generation-pipeline.md#后台启动的网络环境).
-- **Take turns on two computers (OneDrive):** before switching, use **Storage location → Close workspace for handoff**; see [workspace handoff](docs/active/2026-09-27-workspace-handoff.md). [Turso online handoff](docs/active/2026-09-29-online-workspace-handoff.md) skips typing the handoff code.
+- **Take turns on two computers (OneDrive):** before switching, use **Storage location → Close workspace for handoff**; see [workspace handoff](docs/active/2026-09-27-workspace-handoff.md). [Turso online handoff](docs/active/2026-09-29-online-workspace-handoff.md) skips typing the handoff code. Real two-device acceptance is still in progress.
 
 ## Troubleshooting
 

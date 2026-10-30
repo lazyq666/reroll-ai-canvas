@@ -129,7 +129,7 @@
         "agent.enabled": {"zh": "允许连接", "en": "Allow connections"},
         "agent.available": {"zh": "连接已开启", "en": "Connections enabled"},
         "agent.disabled": {"zh": "请联系管理员开启连接", "en": "Ask an administrator to enable connections."},
-        "agent.concurrency": {"zh": "同时生成", "en": "Tasks at once"},
+        "agent.concurrency": {"zh": "画布并发", "en": "Canvas tasks at once"},
         "agent.confirmation": {"zh": "生成确认", "en": "Confirm before generating"},
         "agent.tokenLimit": {"zh": "每个账号最多保留 10 个有效令牌", "en": "Each account can have up to 10 active tokens"},
         "agent.error": {"zh": "操作失败，请重试", "en": "Something went wrong. Try again."},

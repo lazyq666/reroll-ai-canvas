@@ -198,9 +198,9 @@ Reroll 本身不收费，个人和公司内部都可以用。用在线模型生�
 
 - **用本地 ComfyUI 生成视频：** 在“工作流设置”里接入你的 ComfyUI 和工作流，见 [H3 工作流说明](docs/current/comfyui-h3-workflows.md)。
 - **让 Codex 或 Claude 帮你操作画布：** 在账号菜单的“应用连接”里下载安装包，装好后在网页上点一次“同意”就能连上，管理员需要先开启这项功能。见 [MCP 桥接说明](tools/reroll-mcp/README.md)。
-- **在终端里直接生成图片：** 用 `reroll generate "提示词" …` 生成并下载图片，见 [Reroll CLI 说明](docs/current/reroll-cli.md)。
+- **在终端里直接生成图片：** 用 `reroll generate "提示词" …` 生成并下载图片。CLI 生图不设应用层并发上限；升级服务端并重启后生效，已有 CLI 无需重装。“画布并发”仅控制 Agent 画布任务，见 [Reroll CLI 说明](docs/current/reroll-cli.md)。
 - **用 LaunchManager 等工具在后台启动：** 如果在线服务需要代理，要给启动项单独配置网络环境，见[后台启动的网络环境](docs/current/generation-pipeline.md#后台启动的网络环境)。
-- **在两台电脑之间轮流使用（OneDrive）：** 换电脑前用“保存位置 → 安全关闭并交接”，见[工作区安全交接](docs/active/2026-09-27-workspace-handoff.md)；也可以用 [Turso 在线交接](docs/active/2026-09-29-online-workspace-handoff.md)，省去手动输入交接编号。
+- **在两台电脑之间轮流使用（OneDrive）：** 换电脑前用“保存位置 → 安全关闭并交接”，见[工作区安全交接](docs/active/2026-09-27-workspace-handoff.md)；也可以用 [Turso 在线交接](docs/active/2026-09-29-online-workspace-handoff.md)，省去手动输入交接编号。真实双设备验收仍在进行中。
 
 ## 遇到问题
 

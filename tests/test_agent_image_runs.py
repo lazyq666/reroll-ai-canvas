@@ -4,6 +4,7 @@ import copy
 import io
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -147,7 +148,7 @@ class AgentImageRunApiTests(unittest.TestCase):
         response = self.client.get(original["outputs"][0]["download_url"])
         self.assertEqual(self.png, response.content)
 
-    def test_authorization_confirmation_concurrency_and_account_isolation(self):
+    def test_authorization_confirmation_and_account_isolation(self):
         self.auth.save_agent_settings(self.fixture.admin, {"confirmation": True})
         self.assertEqual("confirmation_required", self.submit().json()["code"])
         self.auth.save_agent_settings(self.fixture.admin, {"confirmation": False, "concurrency": 1})
@@ -156,11 +157,8 @@ class AgentImageRunApiTests(unittest.TestCase):
         self.client.headers["Authorization"] = "Bearer " + authoring["token"]
         self.assertEqual("run_scope_required", self.submit().json()["code"])
         self.client.headers["Authorization"] = saved_token
-        self.adapter.block = True
         accepted = self.submit().json()
-        self.assertEqual("concurrency_limit", self.submit(request_id="other").json()["code"])
         self.assertEqual(accepted["run_id"], self.submit().json()["run_id"])
-        self.adapter.block = False
         result = self.wait(accepted["run_id"]).json()
         other_token = self.auth.create_agent_token(self.fixture.other, "other", ["authoring", "run"])
         self.client.headers["Authorization"] = "Bearer " + other_token["token"]
@@ -169,6 +167,41 @@ class AgentImageRunApiTests(unittest.TestCase):
         self.client.headers["Authorization"] = saved_token
         self.auth.revoke_agent_token(self.fixture.admin, self.fixture.token["id"])
         self.assertEqual(401, self.client.get("/api/agent/v1/image-runs/" + accepted["run_id"]).status_code)
+
+    def test_cli_runs_exceed_old_account_limit_across_clients_and_models(self):
+        self.auth.save_agent_settings(self.fixture.admin, {"concurrency": 1})
+        other_client = self.auth.create_agent_token(self.fixture.admin, "second-cli", ["authoring", "run"])
+        tokens = [self.fixture.token["token"], other_client["token"]]
+        models = [{"provider_id": "fixture", "model": "image"},
+                  {"provider_id": "secondary", "model": "image-2"}]
+        self.api.models = lambda: [{**model, "kind": "image"} for model in models]
+        self.api.resolve_model = lambda provider, model, operation: {
+            **copy.deepcopy(self.capabilities[operation]), "provider_id": provider, "model_id": model}
+
+        def submit(index):
+            return self.client.post("/api/agent/v1/image-runs",
+                json={"request_id": f"parallel-{index}", "prompt": "Concurrent image", **models[index % 2]},
+                headers={"Authorization": "Bearer " + tokens[index % 2]})
+
+        self.adapter.block = True
+        try:
+            with ThreadPoolExecutor(max_workers=12) as pool:
+                responses = list(pool.map(submit, [*range(12), 0, 0, 0]))
+            for response in responses:
+                self.assertEqual(200, response.status_code, response.text)
+                self.assertEqual("pending", response.json()["status"])
+            run_ids = [response.json()["run_id"] for response in responses]
+            self.assertEqual(12, len(set(run_ids)))
+            self.assertEqual([run_ids[0]] * 3, run_ids[-3:])
+            for _ in range(100):
+                if len(self.adapter.calls) == 12:
+                    break
+                time.sleep(.005)
+            self.assertEqual(12, len(self.adapter.calls))
+        finally:
+            self.adapter.block = False
+        for run_id in set(run_ids):
+            self.assertEqual("succeeded", self.wait(run_id).json()["status"])
 
     def test_invalid_images_and_account_only_media_do_not_reach_provider(self):
         bad = self.upload("bad.png", b"not an image")
@@ -216,7 +249,7 @@ class AgentImageRunApiTests(unittest.TestCase):
                 self.assertEqual(200, lookup.status_code, lookup.text)
                 self.assertEqual(accepted['run_id'], lookup.json()['run_id'])
 
-    def test_editor_and_direct_runs_share_account_concurrency(self):
+    def test_editor_and_cli_runs_do_not_consume_each_others_concurrency(self):
         from infinite_canvas.canvas_sync import RealtimeSession
         actor = self.fixture.admin
         self.auth.save_agent_settings(actor, {"concurrency": 1})
@@ -224,25 +257,29 @@ class AgentImageRunApiTests(unittest.TestCase):
         accepted = self.submit().json()
         session = RealtimeSession(canvas_id="canvas-test", client_id="editor", websocket="editor",
                                   actor_id=actor["id"], access_epoch=0, access_scope={}, revision=0)
-        response = self.client.post("/api/agent/v1/canvases/canvas-test/submissions", json={"tasks": [{
+        recipe = {
             "kind": "image", "prompt": "editor", "model": {"provider_id": "fixture", "model": "image"},
-            "params": {"aspect_ratio": "1:1", "resolution_tier": "1K"}}]},
+            "params": {"aspect_ratio": "1:1", "resolution_tier": "1K"}}
+        response = self.client.post("/api/agent/v1/canvases/canvas-test/submissions", json={"tasks": [recipe, recipe]},
             headers={"Idempotency-Key": "editor-draft"})
         self.assertEqual(200, response.status_code, response.text)
         response = self.client.post("/api/agent/v1/canvases/canvas-test/run-requests",
             json={"node_ids": response.json()["task_ids"]}, headers={"Idempotency-Key": "editor-run"})
         self.assertEqual(200, response.status_code, response.text)
-        editor_request = response.json()["requests"][0]["id"]
-        # Source is a draft; an active direct Run must prevent the editor lease.
+        editor_requests = response.json()["requests"]
+        # CLI work does not occupy the editor's one lease, in either direction.
         self.client.portal.call(self.api.handle_run_message, session, actor,
-                                {"type": "agent_run_claim", "id": editor_request})
+                                {"type": "agent_run_claim", "id": editor_requests[0]["id"]})
+        self.assertTrue(self.fixture.notifier.sent[-1][1]["claimed"])
+        another = self.submit(request_id="while-editor-claimed")
+        self.assertEqual(200, another.status_code, another.text)
+        # Canvas requests still share the existing account preference.
+        self.client.portal.call(self.api.handle_run_message, session, actor,
+                                {"type": "agent_run_claim", "id": editor_requests[1]["id"]})
         self.assertFalse(self.fixture.notifier.sent[-1][1]["claimed"])
         self.adapter.block = False
-        self.wait(accepted["run_id"])
-        self.client.portal.call(self.api.handle_run_message, session, actor,
-                                {"type": "agent_run_claim", "id": editor_request})
-        self.assertTrue(self.fixture.notifier.sent[-1][1]["claimed"])
-        self.assertEqual("concurrency_limit", self.submit(request_id="while-editor-claimed").json()["code"])
+        for run_id in (accepted["run_id"], another.json()["run_id"]):
+            self.assertEqual("succeeded", self.wait(run_id).json()["status"])
 
     def test_unconfirmed_capability_uses_existing_catalog_validation_and_request_ids_are_printable(self):
         self.capabilities["image.generate"]["support_state"] = "unknown"
