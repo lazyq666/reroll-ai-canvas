@@ -88,6 +88,9 @@ const root=path.resolve(__dirname,'..');
   for(const lang of ['en','zh'])for(const theme of ['light','dark']){
    await page.evaluate(({lang,theme})=>{window.StudioI18n.set(lang);window.StudioTheme.set(theme);},{lang,theme});
    assert.equal(await page.locator('#agent-concurrency').evaluate(e=>e.value),'3');
+   const concurrencyLabel=lang==='zh'?'画布并发':'Canvas tasks at once';
+   assert.equal(await page.locator('#agent-concurrency-label').innerText(),concurrencyLabel);
+   assert.equal(await page.locator('#agent-concurrency').getAttribute('label'),concurrencyLabel);
    assert.equal(await page.locator('#agent-install-client').getAttribute('label'),await page.evaluate(()=>StudioI18n.t('agent.install.client')));
    await page.screenshot({path:`/tmp/agent-access-${lang}-${theme}.png`});
   }

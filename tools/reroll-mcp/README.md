@@ -292,6 +292,15 @@ Reroll yourself if you want unattended CLI runs. The CLI does not change it.
 客户端分别授权。每次操作仍检查授权、角色与接入设置。开启逐条确认的账号会收到
 `confirmation_required`，请自行在 Reroll 已有设置中调整，CLI 不会修改该偏好。
 
+CLI image generation has no application concurrency cap. **Canvas tasks at once**
+only controls Agent canvas task claims; CLI runs do not share those slots. Provider
+limits still apply. Updating and restarting the server activates this behavior for
+existing CLI installations; no CLI reinstall or preference change is needed.
+
+CLI 图片生成不设应用层并发上限。“画布并发”只控制 Agent 画布任务领取，与 CLI 不共享额度。
+Provider 自身的限制仍适用。升级服务端并重启即可生效，已有 CLI 无需重装，也无需修改账号偏好。
+完整行为见 [CLI 运行合同](../../docs/current/reroll-cli.md)。
+
 Set `REROLL_LANGUAGE=zh` or `en` to select CLI copy; otherwise the shell locale is used.
 In `--json` mode stdout contains one result object; progress and diagnostics go to
 stderr. Success is returned only after a readable local image is saved. The default

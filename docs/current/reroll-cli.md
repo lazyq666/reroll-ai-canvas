@@ -1,8 +1,8 @@
 # Reroll CLI：后台图片生成
 
 - Status: Current；自动化、独立安装与真实 Provider 生成及下载已验证
-- Tracked by: [LAZ-106](https://linear.app/lazyq/issue/LAZ-106/reroll-cli)，父任务 LAZ-105
-- Approved source: LAZ-106 附件《Reroll CLI 需求文档》v1.0（2026-10-27）
+- Tracked by: [LAZ-106](https://linear.app/lazyq/issue/LAZ-106/reroll-cli)，父任务 LAZ-105；并发策略调整 [LAZ-107](https://linear.app/lazyq/issue/LAZ-107)
+- Approved source: LAZ-106 附件《Reroll CLI 需求文档》v1.0（2026-10-27）；并发策略按 2026-10-30 用户明确要求（LAZ-107）更新
 - Feature: F17
 
 ## 目标与边界
@@ -35,7 +35,16 @@ Reroll 已初始化、打开 Workspace、配置可用图片模型且账号完成
 
 ## 授权和服务端合同
 
-首次连接继续使用现有网页配对及可撤销 Account 凭证。每次请求检查账号、Role、总接入开关、运行 scope 和账号偏好。逐条确认开启时直接返回 `confirmation_required`，CLI 不修改偏好；并发遵守已有账号上限。
+首次连接继续使用现有网页配对及可撤销 Account 凭证。每次请求检查账号、Role、总接入开关、运行 scope 和账号偏好。逐条确认开启时直接返回 `confirmation_required`，CLI 不修改偏好。
+
+CLI 后台图片生成不设置应用层并发数量上限。同一账号通过多个 CLI 进程、客户端凭证或模型／Provider
+发起的独立请求均可同时执行，不会因已有运行数量返回 `concurrency_limit`。Provider 自身的排队、限流
+及运行资源仍可能影响执行；CLI 按现有错误合同反馈，不自动重发收费请求。
+
+“应用连接 → 画布并发”仅限制 Agent 画布任务的编辑端领取，默认 2，允许 1–8，修改后对后续领取生效。
+后台 CLI 任务不占画布领取额度，已领取的画布任务也不限制 CLI 提交。已有账号保存的 `concurrency`
+值及存储结构保持有效，无需迁移。升级服务端并重启后，旧 CLI 即可使用新规则，不需要重装 CLI、
+修改账号偏好或设置环境变量。请求身份检查仍串行保护幂等性，生成执行在后台并行推进。
 
 | 接口 | 责任 |
 | --- | --- |
@@ -83,12 +92,12 @@ generate 和 result 每次等待上限为 900 秒。到期只停止 CLI 等待�
 | A08 | 单个 JSON、正确退出码、真实图片与尺寸 |
 | A09 | 同身份重试只有一个 Run、不同输入冲突、未知响应保留身份 |
 | A10 | 超时不取消、原结果恢复、下载重试不重新生成 |
-| A11 | 未授权、撤销、总开关、逐条确认、账号隔离与并发上限 |
+| A11 | 未授权、撤销、总开关、逐条确认与账号隔离；超过原 8 个并发仍可运行，CLI 与画布领取互不占用额度 |
 | A12 | 独立安装可调用 reroll、help、模型查询、地址与双语错误 |
 
 真实服务验收使用已配置的 APIMart `gemini-3.1-flash-image-preview`，通过独立安装的 CLI 完成一次 `0.5K` 文生图和一次 `1K` 单图编辑，实际下载并检查 PNG、JPEG 文件及像素尺寸；再次执行 result 取回原任务。验收未使用浏览器编辑端。具体版本、验证结果与发布状态记录在 LAZ-106 和 PR。
 
-自动化入口：`tests/test_agent_image_runs.py` 覆盖 HTTP 运行、账号归属、并发与冻结请求恢复；
+自动化入口：`tests/test_agent_image_runs.py` 覆盖 HTTP 运行、账号归属、跨客户端／模型的 12 个模拟并发任务、并发重复请求去重、画布领取隔离与冻结请求恢复；
 `tests/test_flat_image_compilation.py` 对照新旧入口及删除 Provider 后拒绝改路；
 `tests/test_reroll_cli.py` 将 CLI 进程／连接合同纳入标准测试；
 `tests/test_reroll_cli_end_to_end.py` 用真实 CLI 子进程、HTTP 服务、生产编译器与模拟 Provider
