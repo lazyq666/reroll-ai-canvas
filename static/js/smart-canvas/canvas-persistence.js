@@ -97,7 +97,21 @@ function canvasPersistencePlainObject(value){
 }
 function canvasPersistenceEqual(left,right){
     if(left === right) return true;
-    return JSON.stringify(left) === JSON.stringify(right);
+    // JSON object key order is not shared content. In particular, rewriting
+    // media metadata keys must not repeatedly submit an equivalent array that
+    // the server correctly acknowledges without advancing the Revision.
+    if(Array.isArray(left) || Array.isArray(right)){
+        return Array.isArray(left) && Array.isArray(right)
+            && left.length === right.length
+            && left.every((value,index) => canvasPersistenceEqual(value,right[index]));
+    }
+    if(canvasPersistencePlainObject(left) && canvasPersistencePlainObject(right)){
+        const keys = Object.keys(left);
+        return keys.length === Object.keys(right).length
+            && keys.every(key => Object.prototype.hasOwnProperty.call(right,key)
+                && canvasPersistenceEqual(left[key],right[key]));
+    }
+    return false;
 }
 function canvasPersistenceConnectionKey(connection={}){
     return [
@@ -1371,6 +1385,37 @@ function canvasRealtimeApplierApply(message){
         canvasPersistenceInFlight
         && canvasPersistenceInFlight.operation.operation_id === operationId
     );
+    if(message.changed === false){
+        // A successful no-op acknowledges an operation, not another Revision.
+        // It can refer to a revision already received but held behind a gesture.
+        if(!canvasPersistenceChangesEmpty(message.changes || {})){
+            canvasPersistenceRequestResync('invalid-message');
+            return false;
+        }
+        if(!Number.isSafeInteger(incomingRevision) || incomingRevision < 0
+            || incomingRevision > canvasPersistenceObservedRevision()){
+            canvasPersistenceRequestResync('revision-gap');
+            return false;
+        }
+        if(!ownInFlight) return true;
+        if(canvasPersistenceLocalInteractionActive() || incomingRevision > canvasPersistenceRevision){
+            if(!canvasPersistenceQueuedMessages.some(queued =>
+                queued.changed === false && queued.operation_id === operationId
+            )) canvasPersistenceQueuedMessages.push(message);
+            if(!canvasPersistenceLocalInteractionActive()) canvasPersistenceFlushQueuedMessages();
+            return true;
+        }
+        const following = canvasPersistencePendingAfterInFlight(canvasPersistenceSharedDocument());
+        canvasPersistenceInFlight = null;
+        canvasPersistenceRecordAccepted(message);
+        canvasPersistenceAssignDocument(canvasPersistenceApplyChanges(
+            canvasPersistenceConfirmedDocument,following
+        ));
+        canvasPersistenceReconcileTerminalGenerationState(canvasPersistenceConfirmedDocument);
+        canvasPersistenceRememberExternalCommit(operationId,incomingRevision);
+        canvasPersistenceSave();
+        return true;
+    }
     if(
         !ownInFlight
         && operationId
@@ -1414,10 +1459,7 @@ function canvasRealtimeApplierApply(message){
         canvasPersistenceLocalInteractionActive()
         && !canvasPersistenceRemoteDeletesActiveNode(changes)
     ){
-        const expectedQueuedRevision =
-            canvasPersistenceRevision
-            + canvasPersistenceQueuedMessages.length
-            + 1;
+        const expectedQueuedRevision = canvasPersistenceObservedRevision() + 1;
         if(incomingRevision !== expectedQueuedRevision){
             canvasPersistenceRequestResync('queued-revision-gap');
             return false;
@@ -1542,14 +1584,8 @@ function canvasPersistenceFlushQueuedMessages(){
     return true;
 }
 function canvasPersistenceObservedRevision(){
-    if(!canvasPersistenceQueuedMessages.length){
-        return canvasPersistenceRevision;
-    }
-    return Number(
-        canvasPersistenceQueuedMessages[
-            canvasPersistenceQueuedMessages.length - 1
-        ]?.revision
-        ?? canvasPersistenceRevision
+    return canvasPersistenceQueuedMessages.reduce((revision,message) =>
+        Math.max(revision,Number(message?.revision || 0)),canvasPersistenceRevision
     );
 }
 function canvasPersistenceApplySnapshot(message){
@@ -1576,6 +1612,12 @@ function canvasPersistenceApplySnapshot(message){
         ?? message.canvas?.revision
         ?? 0
     );
+    // Discard buffered revisions already included in the snapshot. An HTTP
+    // refresh can race with newer socket messages; keep those for ordered replay.
+    const newerMessages = canvasPersistenceQueuedMessages.filter(queued =>
+        Number(queued?.revision || 0) > canvasPersistenceRevision
+    );
+    canvasPersistenceQueuedMessages.splice(0,canvasPersistenceQueuedMessages.length,...newerMessages);
     const snapshotDocument = canvasPersistenceCompactDocument(
         message.canvas || {}
     );

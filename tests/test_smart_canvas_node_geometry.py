@@ -277,6 +277,20 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
                 self.assertEqual(max(result['layout']['width'], result['layout']['height']), 352)
                 self.assertEqual((result['savedWidth'], result['savedHeight']), (352, 352))
 
+    def test_completed_image_with_pending_dimensions_matches_default_output_size(self):
+        result = run_node_geometry("""
+            const image = {url:'output.jpg',natural_w:1696,natural_h:2528};
+            const nodes = [
+                {id:'complete',type:'smart-image',generationOutputNode:true,scale:2,images:[image]},
+                {id:'restored',type:'smart-image',generationOutputNode:true,w:440,h:440,images:[image]},
+                {id:'stable',type:'smart-image',generationOutputNode:true,
+                    generationMediaW:440,generationMediaH:440,images:[image]}
+            ];
+            const session = geometry.createSession({nodes});
+            process.stdout.write(JSON.stringify(nodes.map(node => session.measure(node.id).footprint)));
+        """)
+        self.assertEqual([(295, 440)] * 3, [(item['width'], item['height']) for item in result])
+
     def test_generated_image_without_dimensions_keeps_saved_preview_bounds(self):
         result = run_node_geometry("""
             const node = {id:'result',type:'smart-image',generationMediaW:352,generationMediaH:264,
@@ -284,6 +298,21 @@ class SmartCanvasNodeGeometryTests(unittest.TestCase):
             process.stdout.write(JSON.stringify(geometry.createSession({nodes:[node]}).measure(node.id).layout));
         """)
         self.assertEqual((result['width'], result['height']), (352, 264))
+
+    def test_generated_preview_fitting_preserves_valid_user_resize_and_uploaded_image_rules(self):
+        result = run_node_geometry("""
+            const image = {url:'portrait.jpg',natural_w:1000,natural_h:1500};
+            const nodes = [
+                {id:'resized',type:'smart-image',generationOutputNode:true,w:640,h:960,images:[image]},
+                {id:'upload',type:'smart-image',w:440,h:440,images:[image]}
+            ];
+            const before = JSON.stringify(nodes);
+            const session = geometry.createSession({nodes});
+            const sizes = nodes.map(node => session.measure(node.id).footprint);
+            process.stdout.write(JSON.stringify({sizes,unchanged:before === JSON.stringify(nodes)}));
+        """)
+        self.assertEqual([(640, 960), (440, 660)], [(item['width'], item['height']) for item in result['sizes']])
+        self.assertTrue(result['unchanged'])
 
     def test_layer_manifest_overrides_stale_square_preview_and_generation_size(self):
         result = run_node_geometry("""

@@ -352,7 +352,7 @@ let selectedImage = {{nodeId:'', index:-1}};
         self.assertNotIn("openAssetDestinationPicker", self.script)
         self.assertNotIn("'add-selection-assets'", self.script)
 
-    def test_delete_targets_selected_media_inside_smart_group(self):
+    def test_delete_targets_selected_media_inside_smart_group_or_multi_image_node(self):
         start = self.script.index("function smartDeleteSelectionTarget")
         end = self.script.index("\nfunction deleteSelectedSmartSelection", start)
         helper = self.script[start:end]
@@ -365,12 +365,19 @@ let selectedImage = {{nodeId:'', index:-1}};
 const group = {{id:'group-1', type:'smart-group', images:[{{url:'a'}}, {{url:'b'}}], items:['prompt-1']}};
 const prompt = {{id:'prompt-1', type:'smart-prompt', images:[]}};
 const standalone = {{id:'image-1', type:'smart-image', images:[{{url:'c'}}]}};
-const nodes = [group, prompt, standalone];
+const multi = {{id:'multi', type:'smart-image', images:[{{url:'d'}}, {{url:'e'}}]}};
+const legacy = {{id:'legacy', images:[{{url:'f'}}, {{url:'g'}}]}};
+const nodes = [group, prompt, standalone, multi, legacy];
 const targets = [
     smartDeleteSelectionTarget(nodes, 'group-1', [], {{nodeId:'group-1', index:1}}),
     smartDeleteSelectionTarget(nodes, 'prompt-1', [], {{nodeId:'', index:-1}}),
     smartDeleteSelectionTarget(nodes, 'image-1', [], {{nodeId:'image-1', index:0}}),
-    smartDeleteSelectionTarget(nodes, '', ['group-1', 'prompt-1'], {{nodeId:'group-1', index:0}})
+    smartDeleteSelectionTarget(nodes, '', ['group-1', 'prompt-1'], {{nodeId:'group-1', index:0}}),
+    smartDeleteSelectionTarget(nodes, 'multi', [], {{nodeId:'multi', index:1}}),
+    smartDeleteSelectionTarget(nodes, 'legacy', [], {{nodeId:'legacy', index:0}}),
+    smartDeleteSelectionTarget(nodes, 'multi', [], {{nodeId:'multi', index:9}}),
+    smartDeleteSelectionTarget(nodes, 'multi', [], {{nodeId:'image-1', index:0}}),
+    smartDeleteSelectionTarget(nodes, '', ['multi', 'image-1'], {{nodeId:'multi', index:1}})
 ];
 console.log(JSON.stringify(targets));
 """,
@@ -386,7 +393,12 @@ console.log(JSON.stringify(targets));
                 '[{"kind":"media","nodeId":"group-1","index":1},'
                 '{"kind":"nodes","ids":["prompt-1"]},'
                 '{"kind":"nodes","ids":["image-1"]},'
-                '{"kind":"nodes","ids":["group-1","prompt-1"]}]'
+                '{"kind":"nodes","ids":["group-1","prompt-1"]},'
+                '{"kind":"media","nodeId":"multi","index":1},'
+                '{"kind":"media","nodeId":"legacy","index":0},'
+                '{"kind":"nodes","ids":["multi"]},'
+                '{"kind":"nodes","ids":["multi"]},'
+                '{"kind":"nodes","ids":["multi","image-1"]}]'
             ),
         )
         self.assertIn("deleteSelectedSmartSelection({preserveFrameContents:", self.script)

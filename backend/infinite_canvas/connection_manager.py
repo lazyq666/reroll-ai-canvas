@@ -48,6 +48,8 @@ class _CanvasOutbound:
     task: asyncio.Task[Any] | None = None
     wake: asyncio.Event = field(default_factory=asyncio.Event)
     pending_messages: int = 0
+    # Backlog budget excludes the single initial, already-authorized snapshot.
+    # It is still serialized by this worker and counted in pending_messages.
     pending_bytes: int = 0
     last_revision: int | None = None
     presence_snapshot: tuple[str, int] | None = None
@@ -389,6 +391,16 @@ class ConnectionManager:
             return False
         message_type = str(message.get("type") or "")
         revision = max(0, int(message.get("revision") or 0))
+        initial_snapshot = (
+            message_type == "canvas_snapshot"
+            and outbound.last_revision is None
+            and outbound.pending_messages == 0
+        )
+        # A complete Canvas is one indivisible protocol message, not accumulated
+        # edits from a slow client. Let that first snapshot through regardless of
+        # Canvas size, with at most one snapshot plus the bounded delta backlog
+        # retained per connection. Reconnects still use the same ordered worker.
+        queued_bytes = 0 if initial_snapshot else byte_size
         if message_type == "canvas_snapshot":
             outbound.last_revision = revision
         elif (
@@ -409,7 +421,7 @@ class ConnectionManager:
             outbound.last_revision = revision
         if (
             outbound.pending_messages >= self.canvas_queue_max_messages
-            or outbound.pending_bytes + byte_size
+            or outbound.pending_bytes + queued_bytes
             > self.canvas_queue_max_bytes
         ):
             self._schedule_canvas_close(
@@ -419,13 +431,13 @@ class ConnectionManager:
             )
             return False
         outbound.pending_messages += 1
-        outbound.pending_bytes += byte_size
+        outbound.pending_bytes += queued_bytes
         timing_message = (
             dict(message)
             if "server_received_monotonic_ns" in message
             else None
         )
-        outbound.queue.put_nowait((payload, byte_size, timing_message))
+        outbound.queue.put_nowait((payload, queued_bytes, timing_message))
         outbound.wake.set()
         return True
 

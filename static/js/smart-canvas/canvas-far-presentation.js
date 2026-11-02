@@ -46,6 +46,35 @@
         </div>`;
     }
 
+    function mediaGrid(items, layout) {
+        const columns = Math.max(1, Number(layout.cols) || Math.min(4, Math.ceil(Math.sqrt(items.length))));
+        const thumb = Math.max(1, Number(layout.thumb) || Math.floor((Number(layout.width) - 32 - (columns - 1) * 8) / columns));
+        const height = Math.max(1, Number(layout.gridHeight) || Number(layout.height) - 32);
+        const visible = [];
+        let top = 0;
+        for(let offset = 0; offset < items.length && top < height; offset += columns) {
+            const row = items.slice(offset, offset + columns);
+            visible.push(...row.map((item, index) => ({...item, index:item.index ?? offset + index})));
+            top += Math.max(...row.map(item => thumb / Math.max(.05, Number(item.aspectRatio) || 1))) + 8;
+        }
+        return `<div class="far-node-media-grid" data-columns="${columns}" data-thumb="${thumb}" data-height="${height}" style="--far-media-cols:${columns};--far-media-thumb:${thumb}px;--far-media-height:${height}px">${visible.map(item => {
+            const aspect = Math.max(.05, Number(item.aspectRatio) || 1);
+            return `<div class="far-node-media${item.selected ? ' image-selected' : ''}" data-image-index="${escapeHtml(item.index)}" data-media-signature="${escapeHtml(item.signature || '')}" data-aspect="${aspect}" style="aspect-ratio:${aspect}">${item.markup || `<ic-icon name="${item.kind === 'audio' ? 'audio' : 'video'}" size="medium" aria-hidden="true"></ic-icon>`}</div>`;
+        }).join('')}</div>`;
+    }
+
+    // Share pages disallow inline style attributes; apply geometry through CSSOM.
+    function applyLayout(root) {
+        root.querySelectorAll('.far-node-media-grid').forEach(grid => {
+            grid.style.setProperty('--far-media-cols', grid.dataset.columns);
+            grid.style.setProperty('--far-media-thumb', `${grid.dataset.thumb}px`);
+            grid.style.setProperty('--far-media-height', `${grid.dataset.height}px`);
+            grid.querySelectorAll('.far-node-media').forEach(item => {
+                item.style.aspectRatio = item.dataset.aspect;
+            });
+        });
+    }
+
     function render({
         kind = 'other',
         layout = {},
@@ -69,6 +98,7 @@
         if (kind === 'prompt' || kind === 'prompt-generation') {
             return promptSkeleton(labels.prompt || '', layout.height);
         }
+        if (media.items?.length > 1) return mediaGrid(media.items, layout);
         if (media.kind === 'audio') {
             const width = Math.max(1, Number(layout.width) || 1);
             const height = Math.max(1, Number(layout.height) || 1);
@@ -82,5 +112,5 @@
         return `<div class="far-node-marker"><span>${escapeHtml(labels.marker || '')}</span></div>`;
     }
 
-    return Object.freeze({ promptLineCount, render });
+    return Object.freeze({ promptLineCount, render, applyLayout });
 });

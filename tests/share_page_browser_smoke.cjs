@@ -373,6 +373,20 @@ async function main() {
     const roles = accessibilityNodes.map(node => node.role?.value).filter(Boolean);
     const accessibleNames = accessibilityNodes.map(node => node.name?.value).filter(Boolean);
 
+    await cdp.send('Input.dispatchMouseEvent', { type:'mouseWheel', x:720, y:450, deltaX:0, deltaY:1200 }, sessionId);
+    await waitFor(cdp, sessionId, "document.documentElement.dataset.canvasLod === 'far'", 'far media group');
+    const farMediaGroup = await evaluate(cdp, sessionId, `(() => {
+      const group = document.querySelector('[data-id="multi-image-auto"]');
+      const cells = [...group.querySelectorAll('.far-node-media')];
+      return {
+        images:group.querySelectorAll('.far-node-media-grid img').length,
+        indices:cells.map(cell => cell.dataset.imageIndex),
+        columns:cells.length === 2 && cells[1].getBoundingClientRect().left > cells[0].getBoundingClientRect().left,
+        visible:cells.every(cell => cell.getBoundingClientRect().width > 0 && cell.getBoundingClientRect().height > 0),
+        controls:group.querySelectorAll('video,audio,button,.image-name-badge').length,
+      };
+    })()`);
+
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/share/large-token?token-review-theme=light` }, sessionId);
     await waitFor(cdp, sessionId, `document.querySelector('#share-loading')?.hidden === true && document.documentElement.dataset.canvasLod === 'far' && document.querySelectorAll('.share-node').length === ${largeCanvasFixture.nodes.length}`, 'large share canvas');
     const largeCanvas = await evaluate(cdp, sessionId, `(() => {
@@ -456,6 +470,7 @@ async function main() {
         mediaBoundary: state.mediaReads >= 2,
         panZoom: zoomed.transform !== desktop.stageTransform && zoomed.nodes === desktop.nodeCount,
         connectionStrokeScales: zoomed.strokeWidth === desktop.links.strokeWidth && zoomed.effectiveScreenStrokeWidth > desktop.links.effectiveScreenStrokeWidth,
+        farMediaGroup:farMediaGroup.images === 2 && farMediaGroup.indices.join(',') === '0,1' && farMediaGroup.columns && farMediaGroup.visible && farMediaGroup.controls === 0,
         largeCanvasConnections: largeCanvas.scale < 0.2 && largeCanvas.strokeWidth === 2 && largeCanvas.effectiveScreenStrokeWidth < 0.4,
         largeCanvasPerformance: largeCanvas.lodMode === 'far' && largeCanvas.farNodes === largeCanvasFixture.nodes.length && largeCanvas.imageSource.includes('w=512') && largeCanvas.virtualization?.totalNodeCount === largeCanvasFixture.nodes.length && largeCanvasDetail.lodMode === 'detail' && largeCanvasDetail.mountedNodes > 0 && largeCanvasDetail.mountedNodes < largeCanvasDetail.totalNodes && largeCanvasDetail.totalNodes === largeCanvasFixture.nodes.length && /[?&]w=(512|1024|2048)(?:&|$)/.test(largeCanvasDetail.imageSource),
         accessibility: roles.includes('main') && roles.includes('group'),
@@ -473,6 +488,7 @@ async function main() {
       narrow,
       largeCanvas,
       largeCanvasDetail,
+      farMediaGroup,
       failure,
       requests: state,
       screenshots: { lightDesktop: lightScreenshot, selection: selectionScreenshot, darkNarrow: darkScreenshot },

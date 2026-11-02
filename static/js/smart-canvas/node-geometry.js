@@ -290,8 +290,13 @@
     function singleImageLayout(node) {
         const image = node.images?.[0];
         const size = nodeMediaSize(node);
-        const savedMediaWidth = Number(node.generationMediaW);
-        const savedMediaHeight = Number(node.generationMediaH);
+        // Older reused generation drafts can retain only the pending w/h.
+        // Those dimensions bound the preview just like generationMediaW/H;
+        // treating the width alone as a resize stretches portrait footprints.
+        const legacyPreview = node.generationOutputNode === true
+            && node.type !== 'smart-layer-decomposition';
+        const savedMediaWidth = Number(node.generationMediaW || (legacyPreview ? node.w : 0));
+        const savedMediaHeight = Number(node.generationMediaH || (legacyPreview ? node.h : 0));
         if (
             (node.type !== 'smart-layer-decomposition' || !(Number(node.w) > 24))
             && Number.isFinite(savedMediaWidth)

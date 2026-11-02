@@ -1,6 +1,6 @@
 /* Private editor context and leased Agent execution via the existing run owner. */
 (() => {
-    const active = new Map(), requested = new Set(), confirmations = new Map();
+    const active = new Map(), requested = new Map(), consumed = new Set(), confirmations = new Map();
     let lastSent=0, focused=false, queued=[];
     const send = message => window.SmartCanvasModules?.canvasPersistence?.sendPresence(message);
     const tr = key => window.StudioI18n?.t?.(key) || key;
@@ -32,8 +32,15 @@
         document.body.appendChild(dialog);await dialog.show();
     }
     async function execute(message) {
+        // Only a reply to this editor's outstanding claim can authorize a run.
+        // Older servers also label renewal ACKs as claims; those may arrive after
+        // completion, so active alone is not a sufficient duplicate guard.
+        if(!requested.has(message.id) || requested.get(message.id)!==message.node_id) return;
         requested.delete(message.id);
-        if(!message.claimed || active.has(message.id)) return;
+        if(message.claimed!==true || message.state!=='claimed' || active.has(message.id) || consumed.has(message.id)) return;
+        // Keep the request consumed for this page's lifetime, including failures
+        // and reconnects. An explicit retry gets a new Agent Run Request ID.
+        consumed.add(message.id);
         active.set(message.id,true);
         let accepted=false;
         try {
@@ -53,14 +60,14 @@
             }});
         } else if(message.type==='agent_run_requests') {
             const previous=JSON.stringify(queued);
-            queued=message.requests.filter(r=>['queued','awaiting_confirmation'].includes(r.state));
+            queued=message.requests.filter(r=>['queued','awaiting_confirmation'].includes(r.state) && !consumed.has(r.id));
             for(const [id,close] of confirmations) if(!queued.some(r=>r.id===id && r.state==='awaiting_confirmation')) void close();
             if(previous!==JSON.stringify(queued)) render();
             for(const request of queued) {
                 if(request.state==='awaiting_confirmation') {void confirm(request);continue;}
-                if(!active.has(request.id) && !requested.has(request.id)) {requested.add(request.id);send({type:'agent_run_claim',id:request.id});}
+                if(!active.has(request.id) && !requested.has(request.id)) {requested.set(request.id,request.node_id);send({type:'agent_run_claim',id:request.id});}
             }
-        } else if(message.type==='agent_run_claim') {
+        } else if(message.type==='agent_run_claim' || message.type==='agent_run_status') {
             // A claim acknowledgement precedes the next context heartbeat. Stop
             // advertising a cancellable waiting request as soon as it is claimed.
             if(message.state && !['queued','awaiting_confirmation'].includes(message.state)) {
@@ -68,7 +75,12 @@
                 queued=queued.filter(r=>r.id!==message.id);
                 if(previous!==queued.length) render();
             }
-            void execute(message).catch(()=>toast(tr('agent.runFailed')));
+            if(['submitted','failed','cancelled','expired'].includes(message.state)) {
+                requested.delete(message.id);
+                consumed.add(message.id);
+            } else if(message.type==='agent_run_claim') {
+                void execute(message).catch(()=>toast(tr('agent.runFailed')));
+            }
         }
     }
     window.SmartCanvasModules.agentEditor=Object.freeze({receive,reportContext,

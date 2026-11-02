@@ -1377,12 +1377,21 @@ class AgentAPI:
 
     def layout(self, actor, canvas, media, tasks, frame_id, title, *, reference_ids=()):
         columns = min(5, max(1, math.ceil(math.sqrt(len(tasks)))))
-        task_width = max((node["w"] for node in tasks), default=280)
+        # Drafts grow when the editor starts generation. Reserve the full default
+        # media display envelope (260 x 220 at scale 2), independent of output
+        # aspect ratio, so running/completed tasks retain NODE_GAP. Keep the
+        # actual draft geometry and already placed Nodes unchanged.
+        task_width = max((max(node["w"], 520) if node.get("referenceGenerationKind")
+                          else node["w"] for node in tasks), default=280)
+        task_height = max((max(node["h"], 440) if node.get("referenceGenerationKind")
+                           else node["h"] for node in tasks), default=220)
         task_stride = task_width + NODE_GAP
-        row_stride = 220 + NODE_GAP
-        width = NODE_GAP + task_stride * columns + (280 + NODE_GAP if media else 0)
-        height = NODE_GAP * 2 + row_stride * max(
-            len(media), math.ceil(len(tasks) / columns), 1
+        media_width = max((node["w"] for node in media), default=280)
+        media_stride = max((node["h"] for node in media), default=220) + NODE_GAP
+        row_stride = task_height + NODE_GAP
+        width = NODE_GAP + task_stride * columns + (media_width + NODE_GAP if media else 0)
+        height = NODE_GAP * 2 + max(
+            media_stride * len(media), row_stride * max(math.ceil(len(tasks) / columns), 1)
         )
         contexts = self.context(actor, canvas["id"])
         viewport = contexts[0]["viewport"] if contexts else {}
@@ -1411,12 +1420,12 @@ class AgentAPI:
             "items": [node["id"] for node in [*media, *tasks]],
         }
         for i, n in enumerate(media):
-            n.update(x=x + NODE_GAP, y=y + NODE_GAP + i * row_stride)
+            n.update(x=x + NODE_GAP, y=y + NODE_GAP + i * media_stride)
         for i, n in enumerate(tasks):
             n.update(
                 x=x
                 + NODE_GAP
-                + (280 + NODE_GAP if media else 0)
+                + (media_width + NODE_GAP if media else 0)
                 + (i % columns) * task_stride,
                 y=y + NODE_GAP + (i // columns) * row_stride,
             )
@@ -1734,13 +1743,18 @@ class AgentAPI:
                         ),
                     )
             response = {
-                "type": "agent_run_claim",
+                # Renewal/report acknowledgements may arrive after the editor's
+                # run finishes. They carry state, never permission to execute.
+                "type": "agent_run_claim" if kind == "agent_run_claim" else "agent_run_status",
                 "id": request_id,
                 "node_id": row["node_id"],
-                "claimed": row["state"] == "claimed"
-                and row["client_id"] == session.client_id,
                 "state": row["state"],
             }
+            if kind == "agent_run_claim":
+                response["claimed"] = (
+                    row["state"] == "claimed"
+                    and row["client_id"] == session.client_id
+                )
         await self.sync._notifier.send_canvas_message(session.websocket, response)
 
     def install(self, app):

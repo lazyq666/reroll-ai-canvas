@@ -26,6 +26,15 @@ The browser test uses the production Canvas page with an isolated local API fixt
 
 ## Browser tests
 
+`node tests/image_group_interaction_browser_smoke.cjs` serves the production
+Smart Canvas through isolated Playwright routes and uses its transient review
+session. It checks Image group thumbnail selection in Light/Dark and Chinese/English,
+Delete/Backspace scope, far-view selection across zoom changes, whole-node
+deletion, and ten-image splitting against standalone import sizes, order, the
+shared 64-unit node gap and serialized reload. It needs Chrome
+(or `SMART_CANVAS_BROWSER`) but no server, credentials or Workspace writes.
+The transient session does not exercise server-backed save or Undo/Redo.
+
 Files ending in `_browser_smoke.cjs` are targeted acceptance gates rather than
 one globally runnable suite. Many start their own temporary server. Tests that
 exercise a complete page may instead use a paired preview server in another
@@ -82,6 +91,25 @@ The server, accounts and workspace are removed on exit. `PYTHON`,
 `SMART_CANVAS_BROWSER` and `PRESENCE_LIVE_PORT` override local executables/port;
 `PRESENCE_LIVE_STEADY_MS` and `PRESENCE_LIVE_CHURN_ROUNDS` adjust repetition.
 This regression does not replace the original Canvas or two-device LAN gates.
+
+The large-Canvas sync regression uses the full application with a temporary
+SQLite workspace, a 212-node snapshot larger than 16 MiB, and two real browser
+pages. It verifies initial delivery, a first no-op acknowledgement, concurrent
+local/remote edits, explicit reconnect, duplicate acknowledgement and three
+application heartbeats without unexpected closes or repeated saves:
+
+```bash
+node --test tests/smart_canvas_noop_ack_regression.cjs
+node tests/canvas_sync_large_browser_smoke.cjs
+```
+
+`canvas_sync_large_live_app.py` creates its fixture on an ephemeral loopback port;
+the browser runner cleans up the server and temporary workspace on exit. It has
+no Provider configuration and blocks generation requests. `PYTHON` and
+`SMART_CANVAS_BROWSER` select the local executables. The fast no-op tests obtain
+real SQLite/CanvasSync replies from `canvas_noop_ack_fixture.py`; no live service,
+account or existing Canvas is needed. Connection Manager tests separately retain
+slow-client byte/count limits while a large initial snapshot is in flight.
 
 ## Committed-snapshot readiness
 

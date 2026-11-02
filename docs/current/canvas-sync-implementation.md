@@ -17,6 +17,10 @@
   `canvas_outline` 与完整 `canvas_document`；轮廓是 Presentation，不是 Canvas
   内容，不产生 Mutation、Undo、Realtime 或持久化写入。
 - Smart Canvas 只接受非空且确实改变共享内容的 Mutation，等价、空、重复或被拒绝的 Mutation 不推进 Revision 或时间。
+- `changed:false` 的无变化确认完成对应的待确认操作，不要求 Revision 增加，
+  不制造 Undo 或重复提交。暂缓合并的队列按实际 Revision 排序，不把这类确认
+  算成一次版本递增；保留确认期间继续编辑的内容，未知的较新版本仍触发重同步。
+  JSON 对象字段顺序不属于共享内容变化，媒体数组的顺序和值仍参与比较。
 - Pin、Canvas List 位置、Project 归类、Visibility、Share、Trash、Restore、Purge
   与 owner transfer 是内容管理动作，不推进 Canvas Updated Time。
 - Smart Canvas 仍使用 Revision、operation id、删除墓碑、Connection、
@@ -58,6 +62,15 @@
 
 建立实时连接时，Canvas Sync 在同一 Canvas 操作锁内完成一次授权快照读取，再注册连接并发送首个快照。权限失败时不注册连接；锁内不允许 Mutation 插入快照读取与连接注册之间。连接前不另读一次完整快照作预检查。
 
+每条新连接的第一份完整快照使用单独的一次发送额度，允许快照大于 16 MiB。
+它仍通过同一个串行发送器排在后续 Mutation 之前，并计入 64 条消息上限；
+后续积压继续受 16 MiB 限制。单连接最多保留一份初始快照加有界的后续消息，
+后续快照或大 Mutation 不重复获得豁免，慢连接不能积累无限份完整画布。
+这不改变 `canvas_snapshot` 的 WebSocket 格式或授权边界。
+
+重连取得完整快照后，丢弃已经包含在其 Revision 内的旧暂缓消息，避免松开手势时
+再次应用旧版本。HTTP 刷新与实时消息并发时，晚于快照的暂缓版本仍按序应用。
+
 Agent 的版本化节点更新使用 `commit_prepared_operation`，在同一画布操作锁内完成
 节点版本核对、引用解析、Mutation 提交与持久化读回。可选 `readback` 回调只投影
 提交后的存储快照；dry run 与重复回执不调用它。这样 `after` 不会读到紧随其后的
@@ -97,6 +110,11 @@ Workspace content、Connection Manager 和 Auth System adapter 完成。
 - HTTP tests 锁定渐进式打开的媒体类型、事件顺序以及 Canvas ID / Revision
   在轮廓和完整文档间一致。
 - WebSocket tests 锁定 Revision、幂等、双页面顺序、断线重连，以及默认 20 条且可配置的客户端连接上限。
+- `tests/canvas_sync_large_browser_smoke.cjs` 用完整临时应用、真实 SQLite 和两个
+  Chrome 页面验证超过 16 MiB 的首次快照、无变化确认、并发编辑、重连与连续心跳；
+  不配置 Provider，也不使用现有 Workspace。
+- `tests/smart_canvas_noop_ack_regression.cjs` 将真实 CanvasSync/SQLite 回复交给
+  前端处理，覆盖焦点/手势暂缓、后续编辑、重复回执和真实版本缺口。
 - Mutation engine tests 明确拒绝 Viewport、Selection 与 Interaction preview。
 - 测试只使用临时 Workspace、fake notifier 和 fake administration adapter。
 - 新运行模块已加入应用更新与备份白名单。

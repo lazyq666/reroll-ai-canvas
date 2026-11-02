@@ -309,7 +309,7 @@
     if (measured?.supported) ({ width, height } = measured.layout);
     if (kind === 'text-annotation') ({ width, height } = smartTextSize(node));
     if (kind === 'frame') { width = Math.max(240, width); height = Math.max(160, height); }
-    const layout = { width, height };
+    const layout = { ...measured?.layout, width, height };
     return {
       id:String(node.id || index), node, index, kind, type, media, x, y, width, height, layout,
       isFrame:kind === 'frame', frameColor:kind === 'frame' ? frameColor(node) : '',
@@ -344,6 +344,17 @@
         kind:firstKind,
         markup:mediaMarkup,
         signature:first ? `${firstKind}:${first.url || ''}` : '',
+        items:entries.length > 1 ? entries.map((entry, index) => {
+          const entryKind = mediaKind(entry.item, entry.url);
+          const preview = sharedMediaPreviewUrl(entry.url, 512);
+          return {
+            index, kind:entryKind, signature:`${entryKind}:${entry.url}`,
+            aspectRatio:mediaAspectRatio(entry.item),
+            markup:entryKind === 'image' || (entryKind === 'video' && preview !== entry.url)
+              ? mediaElementMarkup(entry, { previewSize:512, previewOnly:entryKind === 'video' })
+              : '',
+          };
+        }) : [],
       },
       labels:{
         group:trf('smart.summaryImages', { count:entries.length }),
@@ -391,6 +402,7 @@
     if (kind === 'frame') element.classList.add('share-frame-node');
     element.dataset.nodeType = type || kind;
     element.dataset.shareLod = lodMode;
+    if (far) canvasFarPresentation.applyLayout(element);
     element.querySelectorAll('button,input,textarea,select,ic-button,ic-icon-button,ic-input,ic-number-input,ic-select,ic-segmented-control,ic-upload-surface')
       .forEach((control) => {
         control.setAttribute('disabled', '');

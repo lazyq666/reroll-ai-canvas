@@ -6,6 +6,49 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../static/js/smart-canvas.js'), 'utf8');
 const resolution = require('../static/js/smart-image-resolution.js');
+const farPresentation = require('../static/js/smart-canvas/canvas-far-presentation.js');
+
+function farBody(node, layout) {
+    const ctx = {
+        selectedImage:{nodeId:'',index:-1},
+        nodeKinds:{isLayerDecomposition:()=>false,isPromptFamily:()=>false,isPromptGeneration:()=>false},
+        smartContainer:{isFrame:()=>false}, smartMatting:{isActive:()=>false},
+        imageForDisplay:image=>image,
+        isAudioMediaItem:image=>image.kind === 'audio',
+        isVideoMediaItem:image=>image.kind === 'video',
+        mediaKindForItem:image=>image.kind || 'image',
+        mediaAspectRatio:image=>(image.natural_w || 1)/(image.natural_h || 1),
+        smartPreviewImgHtml:image=>`<img data-original-src="${image.url}">`,
+        smartVideoPreviewHtml:()=>'<span class="video-poster"></span>',
+        tr:key=>key, trf:(key,{count})=>`${key}:${count}`,
+        MEDIA_GROUP_MAX_VISIBLE_ROWS:4, canvasFarPresentation:farPresentation,
+    };
+    vm.createContext(ctx);
+    vm.runInContext(source.slice(source.indexOf('function farNodeBodyHtml('), source.indexOf('function jimengPendingBodyHtml(')),ctx);
+    return ctx.farNodeBodyHtml(node,layout);
+}
+
+for(const count of [2,10]) test(`far mode preserves the grid of a ${count}-image node`,()=>{
+    const images=Array.from({length:count},(_,i)=>({url:`/image-${i}.png`,kind:'image'}));
+    const html=farBody({id:'image-group',type:'smart-image',images},
+        {width:280,height:220,cols:count===2?2:4,rows:Math.ceil(count/4),visibleRows:3,thumb:50,gridHeight:180});
+    assert.equal((html.match(/<img /g)||[]).length,count,'Far mode must show each visible group image, not just the first');
+    images.forEach((image,i)=>{
+        assert.ok(html.includes(`data-image-index="${i}"`),'Keep the original media index');
+        assert.ok(html.includes(image.url),'Keep the image source');
+    });
+});
+
+test('far media grid bounds mounted rows and preserves mixed-media aspect ratios without players',()=>{
+    const images=Array.from({length:100},(_,i)=>({url:`/media-${i}`,kind:i===1?'audio':i===2?'video':'image',natural_w:100,natural_h:200}));
+    const html=farBody({type:'smart-image',images}, {width:280,height:220,cols:4,thumb:50,gridHeight:180});
+    assert.equal((html.match(/data-image-index=/g)||[]).length,8,'Only rows intersecting the visible grid should mount');
+    assert.ok(html.includes('aspect-ratio:0.5'));
+    assert.ok(html.includes('name="audio"'));
+    assert.ok(html.includes('video-poster'));
+    assert.doesNotMatch(html,/<video|<audio|<button|tabindex=/);
+});
+
 function harness() {
     const loads = [];
     class Image {

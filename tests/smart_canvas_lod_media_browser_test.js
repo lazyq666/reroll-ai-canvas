@@ -64,6 +64,59 @@
             const images = [...world.querySelectorAll('.image-node[data-id="lod-0"] img[data-original-src]')];
             check(images.length === 2 && images[0] !== images[1], 'Multi-image instances collapsed');
         });
+        await test('image group keeps every visible thumbnail across both LOD directions', async () => {
+            const group = () => world.querySelector('[data-id="lod-image-group"]');
+            const images = () => [...group().querySelectorAll('img[data-original-src]')];
+            nodes.push({id:'lod-image-group',type:'smart-image',x:100,y:100,w:720,h:560,
+                images:Array.from({length:10}, (_,i) => ({url:`/static/images/test/fixture.svg?group=${i}`,
+                    kind:'image',name:`image-${i}.svg`,natural_w:1076,natural_h:1448}))});
+            try {
+                zoom(.35); render();
+                await until(() => group() && images().length === 10 && images().every(img => img.dataset.mediaState === 'ready'
+                    && img.naturalWidth > 0 && Number(getComputedStyle(img).opacity) === 1), 'Ten-image group did not load');
+                const originals = images();
+                for(const theme of ['light','dark']) {
+                    window.StudioTheme.apply(theme);
+                    for(const scale of [.2,.35,.2,.35]) {
+                        zoom(scale);
+                        await until(() => group().classList.contains(scale === .2 ? 'canvas-lod-node-far' : 'canvas-lod-node-detail'), 'Group LOD did not update');
+                        await until(() => !smartCanvasDetailRecoveryFrame, 'Group recovery did not finish');
+                        check(images().length === 10, 'Image group collapsed to its first image');
+                        images().forEach((img,i) => {
+                            check(img === originals[i], 'An existing thumbnail was replaced during zoom');
+                            check(img.naturalWidth > 0 && Number(getComputedStyle(img).opacity) === 1, 'A thumbnail became blank');
+                        });
+                        if(scale === .2) {
+                            const cells = [...group().querySelectorAll('.far-node-media')];
+                            check(cells.length === 10, 'Far mode did not preserve all media positions');
+                            check(cells[1].getBoundingClientRect().left > cells[0].getBoundingClientRect().left, 'Far media lost its columns');
+                            check(cells.every(cell => cell.getBoundingClientRect().width > 0 && cell.getBoundingClientRect().height > 0), 'Far thumbnail has no size');
+                            check(!group().querySelector('video,audio,button,.image-name-badge'), 'Far grid retained detailed controls');
+                        }
+                    }
+                }
+                return {images:10, replacements:0, themes:['light','dark']};
+            } finally {
+                nodes.splice(nodes.findIndex(node => node.id === 'lod-image-group'),1);
+                window.StudioTheme.apply('light'); render();
+            }
+        });
+        await test('compact 280 by 220 image group retains multiple visible media', async () => {
+            nodes.push({id:'lod-compact-group',type:'smart-image',x:100,y:100,w:280,h:220,
+                images:Array.from({length:10}, (_,i) => ({url:`/static/images/test/fixture.svg?compact=${i}`,
+                    kind:'image',natural_w:100,natural_h:100}))});
+            try {
+                zoom(.2); render();
+                await until(() => world.querySelector('[data-id="lod-compact-group"] .far-node-media-grid'), 'Compact group did not render');
+                const cells = [...world.querySelectorAll('[data-id="lod-compact-group"] .far-node-media')];
+                check(cells.length > 1 && cells.length < 10, 'Compact group must retain multiple visible images and cull hidden rows');
+                check(cells[0].dataset.imageIndex === '0' && cells[1].dataset.imageIndex === '1', 'Compact group changed media order');
+                return {visibleMedia:cells.length, totalMedia:10};
+            } finally {
+                nodes.splice(nodes.findIndex(node => node.id === 'lod-compact-group'),1);
+                zoom(.35); render();
+            }
+        });
         await until(settled, 'Detail images did not settle');
         await test('rapid reversals reject stale presentation work', () => exercise([.2,.35,.2,.35,.2,.35]));
         await test('dark theme preserves the same images in both directions', async () => {

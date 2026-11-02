@@ -606,6 +606,63 @@ class AgentApiTests(unittest.TestCase):
         self.assertEqual(200, second.status_code)
         self.assertEqual(first.json()["url"], second.json()["url"])
 
+    def test_renewal_and_report_replies_are_status_only_not_execution_grants(self):
+        from infinite_canvas.canvas_sync import RealtimeSession
+
+        task_ids = self.post({"tasks": [self.recipe()]}).json()["task_ids"]
+        request = self.post(
+            {"node_ids": task_ids}, key="status-only", path="/run-requests"
+        ).json()["requests"][0]
+        session = RealtimeSession(
+            canvas_id="canvas-test", client_id="editor-a", websocket="a",
+            actor_id=self.admin["id"], access_epoch=0, access_scope={}, revision=0,
+        )
+
+        def receive(kind, **fields):
+            asyncio.run(self.api.handle_run_message(
+                session, self.admin, {"type": kind, "id": request["id"], **fields}
+            ))
+            return self.notifier.sent[-1][1]
+
+        claim = receive("agent_run_claim")
+        self.assertEqual("agent_run_claim", claim["type"])
+        self.assertTrue(claim["claimed"])
+        renewal = receive("agent_run_renew")
+        self.assertEqual("agent_run_status", renewal["type"])
+        self.assertEqual("claimed", renewal["state"])
+        self.assertNotIn("claimed", renewal)
+        self.assertEqual(task_ids[0], renewal["node_id"])
+        for message in (
+            receive("agent_run_report", submitted=True),
+            receive("agent_run_renew"),
+        ):
+            self.assertEqual("agent_run_status", message["type"])
+            self.assertEqual("submitted", message["state"])
+            self.assertNotIn("claimed", message)
+        self.assertFalse(receive("agent_run_claim")["claimed"])
+
+    def test_confirmation_and_cancellation_replies_do_not_grant_execution(self):
+        from infinite_canvas.canvas_sync import RealtimeSession
+
+        self.auth.save_agent_settings(self.admin, {"confirmation": True})
+        task_ids = self.post({"tasks": [self.recipe()]}).json()["task_ids"]
+        request = self.post(
+            {"node_ids": task_ids}, key="confirm-status", path="/run-requests"
+        ).json()["requests"][0]
+        self.assertEqual("awaiting_confirmation", request["state"])
+        session = RealtimeSession(
+            canvas_id="canvas-test", client_id="editor-a", websocket="a",
+            actor_id=self.admin["id"], access_epoch=0, access_scope={}, revision=0,
+        )
+        for kind, state in (("agent_run_confirm", "queued"), ("agent_run_cancel", "cancelled")):
+            asyncio.run(self.api.handle_run_message(
+                session, self.admin, {"type": kind, "id": request["id"], "accept": True}
+            ))
+            response = self.notifier.sent[-1][1]
+            self.assertEqual("agent_run_status", response["type"])
+            self.assertEqual(state, response["state"])
+            self.assertNotIn("claimed", response)
+
     def test_claim_concurrency_lease_recovery_confirmation_and_expiry(self):
         from infinite_canvas.canvas_sync import RealtimeSession
 

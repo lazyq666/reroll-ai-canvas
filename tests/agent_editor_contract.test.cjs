@@ -33,6 +33,115 @@ test('a claimed request stops offering wait/cancel while generation is in flight
     await new Promise(setImmediate);
 });
 
+function agentEditorHarness(run) {
+    const sent = [], errors = [];
+    const modules = {
+        canvasPersistence: {sendPresence: message => sent.push(message), online: () => false, synced: async () => {}},
+        generationRun: {run},
+    };
+    vm.runInNewContext(fs.readFileSync('static/js/smart-canvas/agent-editor.js', 'utf8'), {
+        window: {SmartCanvasModules: modules, addEventListener() {}, StudioI18n: {t: key => key}},
+        document: {addEventListener() {}},
+        setInterval() {}, setTimeout() {}, render() {}, toast: message => errors.push(message),
+    });
+    const editor = modules.agentEditor;
+    return {
+        editor, sent, errors,
+        queue(id = 'request', nodeId = 'task') {
+            editor.receive({type:'agent_run_requests', requests:[{id, node_id:nodeId, state:'queued'}]});
+        },
+        reply(id = 'request', nodeId = 'task', fields = {}) {
+            editor.receive({type:'agent_run_claim', id, node_id:nodeId, state:'claimed', claimed:true, ...fields});
+        },
+    };
+}
+
+test('completed Agent requests ignore late renewal replies, stale queues and reconnect replays', async () => {
+    let runs = 0;
+    const h = agentEditorHarness(async options => { runs++; options.onAccepted(); });
+    h.queue(); h.reply();
+    await new Promise(setImmediate);
+    assert.equal(runs, 1);
+    assert.equal(h.sent.at(-1).type, 'agent_run_report');
+    assert.equal(h.sent.at(-1).submitted, true);
+
+    // Old servers use the claim message for renewals. It can arrive after the
+    // run's finally block, before the server receives its completion report.
+    h.reply();
+    h.reply('request', 'task', {type:'agent_run_status'});
+    await new Promise(setImmediate);
+    assert.equal(runs, 1, 'a late renewal reply must not create a second output');
+    h.editor.reconnect(); h.queue(); h.reply();
+    await new Promise(setImmediate);
+    assert.equal(runs, 1, 'reconnect must retain consumed request identities');
+    assert.equal(h.editor.waiting('task'), false);
+    assert.equal(h.sent.filter(message => message.type === 'agent_run_claim').length, 1);
+
+    h.queue('new-request'); h.reply('new-request');
+    await new Promise(setImmediate);
+    assert.equal(runs, 2, 'a new explicitly requested run on the same node still executes');
+});
+
+test('only a matching outstanding claim can start generation; status replies cannot grant it', async () => {
+    const runs = [];
+    const h = agentEditorHarness(async options => { runs.push(options.nodeId); options.onAccepted(); });
+    h.reply();
+    await new Promise(setImmediate);
+    assert.deepEqual(runs, [], 'unsolicited claims do not execute');
+    h.queue();
+    h.reply('request', 'other-task');
+    h.reply('request', 'task', {type:'agent_run_status'});
+    await new Promise(setImmediate);
+    assert.deepEqual(runs, [], 'wrong node and renewal status cannot consume the real claim');
+    h.reply(); h.reply();
+    await new Promise(setImmediate);
+    assert.deepEqual(runs, ['task']);
+});
+
+test('a queued claim denied by concurrency limits can be claimed on the next queue update', async () => {
+    let runs = 0;
+    const h = agentEditorHarness(async options => { runs++; options.onAccepted(); });
+    h.queue(); h.reply('request', 'task', {claimed:false, state:'queued'});
+    await new Promise(setImmediate);
+    assert.equal(runs, 0);
+    h.queue(); h.reply();
+    await new Promise(setImmediate);
+    assert.equal(runs, 1);
+    assert.equal(h.sent.filter(message => message.type === 'agent_run_claim').length, 2);
+});
+
+test('a cancellation status retires an outstanding claim before its late grant arrives', async () => {
+    let runs = 0;
+    const h = agentEditorHarness(async () => { runs++; });
+    h.queue();
+    h.reply('request', 'task', {type:'agent_run_status', state:'cancelled', claimed:false});
+    assert.equal(h.editor.waiting('task'), false);
+    h.reply(); h.queue(); h.reply();
+    await new Promise(setImmediate);
+    assert.equal(runs, 0);
+    assert.equal(h.sent.filter(message => message.type === 'agent_run_claim').length, 1);
+});
+
+test('validation failure is reported once and stale replies cannot automatically retry it', async () => {
+    let runs = 0;
+    const h = agentEditorHarness(async options => {
+        runs++;
+        if (runs === 1) throw Error('preflight failed');
+        options.onLocalAccepted();
+    });
+    h.queue(); h.reply();
+    await new Promise(setImmediate);
+    assert.equal(h.sent.at(-1).submitted, false);
+    assert.equal(h.errors.length, 1);
+    h.reply(); h.queue(); h.reply();
+    await new Promise(setImmediate);
+    assert.equal(runs, 1);
+    h.queue('retry-request'); h.reply('retry-request');
+    await new Promise(setImmediate);
+    assert.equal(runs, 2);
+    assert.equal(h.sent.at(-1).submitted, true);
+});
+
 test('connection settings omit retired token controls and warnings but retain preferences', async () => {
     let dialog;
     const writes = [];
