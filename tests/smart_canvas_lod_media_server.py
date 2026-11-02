@@ -8,6 +8,8 @@ The page runs assertions automatically and publishes JSON at /__lod-test-results
 import json
 import os
 import time
+import struct
+import zlib
 from urllib.parse import parse_qs, urlparse
 from smart_canvas_manual_server import ManualHandler, MANUAL_BOOTSTRAP, ROOT, ThreadingHTTPServer
 
@@ -77,9 +79,15 @@ class LodHandler(ManualHandler):
             if size == 2048:
                 self.send_json({'error': 'Intentional preview failure'}, 503)
                 return
-            payload = (ROOT / 'static/images/test/fixture.svg').read_bytes()
+            if size == 64:
+                chunk = lambda kind, data: struct.pack('!I', len(data)) + kind + data + struct.pack('!I', zlib.crc32(kind + data))
+                payload = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('!IIBBBBB', 64, 48, 8, 6, 0, 0, 0)) + chunk(b'IDAT', zlib.compress((b'\0' + b'\xff\0\0\x80' * 64) * 48)) + chunk(b'IEND', b'')
+                content_type = 'image/png'
+            else:
+                payload = (ROOT / 'static/images/test/fixture.svg').read_bytes()
+                content_type = 'image/svg+xml'
             self.send_response(200)
-            self.send_header('Content-Type', 'image/svg+xml')
+            self.send_header('Content-Type', content_type)
             self.end_headers()
             self.wfile.write(payload)
             return

@@ -183,10 +183,10 @@
     if (entries.length > 1) {
       const visibleRows = Math.max(1, Math.min(3, number(layout.visibleRows ?? layout.rows, 1)));
       const maxHeight = number(layout.gridHeight, visibleRows * number(layout.thumb, 96) + Math.max(0, visibleRows - 1) * 8);
-      return `<div class="thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${layout.cols};--thumb-size:${layout.thumb}px;--thumb-max-height:${maxHeight}px">${entries.map((entry, index) => `<div class="thumb-item" data-image-index="${index}" style="--thumb-media-aspect:${mediaAspectRatio(entry.item)}"><div class="thumb-media-frame">${mediaElementMarkup(entry, { width:layout.thumb, height:layout.thumb })}</div>${imageNameBadgeMarkup(entry, node)}</div>`).join('')}</div>`;
+      return `<div class="thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${layout.cols};--thumb-size:${layout.thumb}px;--thumb-max-height:${maxHeight}px">${entries.map((entry, index) => `<div class="thumb-item" data-image-index="${index}" data-media-signature="${escapeHtml(`${mediaKind(entry.item, entry.url)}:${entry.url}`)}" style="--thumb-media-aspect:${mediaAspectRatio(entry.item)}"><div class="thumb-media-frame">${mediaElementMarkup(entry, { width:layout.thumb, height:layout.thumb })}</div>${imageNameBadgeMarkup(entry, node)}</div>`).join('')}</div>`;
     }
     return entries[0]
-      ? `<div class="image-wrap has-outside-image-name" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${mediaElementMarkup(entries[0], { single:true, width:layout.width, height:layout.height })}${imageNameBadgeMarkup(entries[0], node, { outside:true })}</div>`
+      ? `<div class="image-wrap has-outside-image-name" data-image-index="0" data-media-signature="${escapeHtml(`${mediaKind(entries[0].item, entries[0].url)}:${entries[0].url}`)}" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${mediaElementMarkup(entries[0], { single:true, width:layout.width, height:layout.height })}${imageNameBadgeMarkup(entries[0], node, { outside:true })}</div>`
       : '';
   };
   const groupMedia = (node) => {
@@ -241,7 +241,7 @@
     const mediaMarkup = entries.length === 1
       ? `<div class="image-wrap smart-group-single-thumb">${mediaElementMarkup(entries[0], { width:96, height:96 })}${imageNameBadgeMarkup(entries[0], node)}</div>`
       : entries.length > 1
-        ? `<div class="thumb-grid smart-group-thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${Math.min(4, Math.ceil(Math.sqrt(entries.length)))};--thumb-size:96px;--thumb-max-height:100%">${entries.map((entry, index) => `<div class="thumb-item" data-image-index="${index}" style="--thumb-media-aspect:${mediaAspectRatio(entry.item)}"><div class="thumb-media-frame">${mediaElementMarkup(entry, { width:96, height:96 })}</div>${imageNameBadgeMarkup(entry, node)}</div>`).join('')}</div>`
+        ? `<div class="thumb-grid smart-group-thumb-grid" data-thumb-scroll="1" style="--thumb-cols:${Math.min(4, Math.ceil(Math.sqrt(entries.length)))};--thumb-size:96px;--thumb-max-height:100%">${entries.map((entry, index) => `<div class="thumb-item" data-image-index="${index}" data-media-signature="${escapeHtml(`${mediaKind(entry.item, entry.url)}:${entry.url}`)}" style="--thumb-media-aspect:${mediaAspectRatio(entry.item)}"><div class="thumb-media-frame">${mediaElementMarkup(entry, { width:96, height:96 })}</div>${imageNameBadgeMarkup(entry, node)}</div>`).join('')}</div>`
         : '';
     return `<div class="smart-group-card${entries.length ? ' has-thumbs' : ''}">
       <div class="smart-group-summary"><ic-icon name="group" size="xs" aria-hidden="true"></ic-icon><span>${escapeHtml(summary)}</span></div>
@@ -323,7 +323,7 @@
     const preview = first && firstKind !== 'audio'
       ? sharedMediaPreviewUrl(first.url, 512)
       : '';
-    const canPreview = Boolean(first && (firstKind === 'image' || preview !== first.url));
+    const canPreview = Boolean(first && firstKind === 'video' && preview !== first.url);
     const mediaMarkup = canPreview
       ? mediaElementMarkup(first, {
           single:true, width:layout.width, height:layout.height,
@@ -335,22 +335,35 @@
       : kind === 'loop'
         ? tr('smart.loop')
         : tr('smart.uploadNodeTitle');
+    const manifest = node.layerDecompositionManifest || {};
+    const layerWidth = Math.max(1, Number(manifest.canvas_width) || 1), layerHeight = Math.max(1, Number(manifest.canvas_height) || 1);
+    const layers = (node.layerDecompositionItems || []).filter(item => !item.hidden && item.media?.url).map(item => {
+      const bbox = item.absolute_bbox || [], base = item.role === 'base', url = item.media.url;
+      const preview = sharedMediaPreviewUrl(url, 64);
+      return {left:base ? 0 : Math.max(0, Number(bbox[0]) || 0) / layerWidth * 100,
+        top:base ? 0 : Math.max(0, Number(bbox[1]) || 0) / layerHeight * 100,
+        width:base ? 100 : Math.max(0, (Number(bbox[2]) || 0) - (Number(bbox[0]) || 0)) / layerWidth * 100,
+        height:base ? 100 : Math.max(0, (Number(bbox[3]) || 0) - (Number(bbox[1]) || 0)) / layerHeight * 100,
+        z:base ? 0 : Number(item.z_index) || 0, key:item.id || url, thumbnail:preview !== url ? preview : ''};
+    });
     return canvasFarPresentation.render({
+      layers,
       kind:kind === 'smart-group' ? 'group' : kind,
       layout,
       pending:Boolean(node.pending || node.queued || node.running || node.textGenerationPending || node.jimengPending?.submitId),
       group:{ count:entries.length, columns:Math.min(4, Math.max(1, Math.ceil(Math.sqrt(entries.length)))) },
       media:{
         kind:firstKind,
+        thumbnail:firstKind === 'image' && preview !== first.url ? sharedMediaPreviewUrl(first.url, 64) : '',
         markup:mediaMarkup,
         signature:first ? `${firstKind}:${first.url || ''}` : '',
         items:entries.length > 1 ? entries.map((entry, index) => {
           const entryKind = mediaKind(entry.item, entry.url);
           const preview = sharedMediaPreviewUrl(entry.url, 512);
           return {
-            index, kind:entryKind, signature:`${entryKind}:${entry.url}`,
+            index, kind:entryKind, thumbnail:entryKind === 'image' && preview !== entry.url ? sharedMediaPreviewUrl(entry.url, 64) : '', signature:`${entryKind}:${entry.url}`,
             aspectRatio:mediaAspectRatio(entry.item),
-            markup:entryKind === 'image' || (entryKind === 'video' && preview !== entry.url)
+            markup:entryKind === 'video' && preview !== entry.url
               ? mediaElementMarkup(entry, { previewSize:512, previewOnly:entryKind === 'video' })
               : '',
           };
@@ -402,7 +415,7 @@
     if (kind === 'frame') element.classList.add('share-frame-node');
     element.dataset.nodeType = type || kind;
     element.dataset.shareLod = lodMode;
-    if (far) canvasFarPresentation.applyLayout(element);
+    if (far) { canvasFarPresentation.applyLayout(element); canvasFarPresentation.queueThumbnails(element); }
     element.querySelectorAll('button,input,textarea,select,ic-button,ic-icon-button,ic-input,ic-number-input,ic-select,ic-segmented-control,ic-upload-surface')
       .forEach((control) => {
         control.setAttribute('disabled', '');
@@ -504,6 +517,7 @@
         return existing;
       }
       const fresh = renderNode(record, lodMode);
+      if (existing) canvasFarPresentation.bridgeTransition(existing, fresh);
       existing?.replaceWith(fresh);
       return fresh;
     });

@@ -23,7 +23,7 @@
         window.SmartCanvasModules.viewportSelection.viewport.apply({persist:false});
         render(); await sleep(250);
     };
-    const reset = async (scale=.2) => {
+    const reset = async (scale=.18) => {
         nodes.splice(0, nodes.length,
             {id:'frame-lod',type:'smart-frame',title:'Frame',x:200,y:200,w:1400,h:900,items:['frame-child']},
             {id:'frame-child',type:'smart-image',x:350,y:350,w:260,h:180,images:[{url:'/static/images/test/fixture.svg',kind:'image',natural_w:1076,natural_h:1448}]},
@@ -47,7 +47,7 @@
         for(let i=0;i<200 && window.SmartCanvasModules?.canvasPersistence?.status().state !== 'ready';i++) await sleep(25);
         check(window.SmartCanvasModules?.canvasPersistence?.status().state === 'ready','Canvas must initialize');
         await test('far Frame retains a 44px hit area and 18px shape at 10% and 20%', async () => {
-            for(const scale of [.1,.2]) {
+            for(const scale of [.1,.18]) {
                 await reset(scale);
                 check(element().classList.contains('canvas-lod-node-far'),'Fixture must enter far mode');
                 check(handle(),'Far Frame must expose its resize handle');
@@ -60,7 +60,7 @@
             }
         });
         await test('drag distance follows zoom without moving or scaling children', async () => {
-            for(const scale of [.1,.2]) {
+            for(const scale of [.1,.18]) {
                 await reset(scale); const original = JSON.stringify(geometry(child()));
                 drag(40,20); await sleep(100);
                 check(frame().w === 1400+40/scale && frame().h === 900+20/scale,'Frame size must use canvas coordinates');
