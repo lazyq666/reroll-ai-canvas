@@ -210,7 +210,7 @@ Workspace Asset Library 使用 X-Large `ic-dialog` 承载 `ic-workspace-asset-li
 
 Smart Canvas 远景模式中的普通 Prompt Node 文本骨架必须按 Node 内容高度计算可容纳行数，不得固定为四行；骨架保留 20px 上下内边距、9px 行高与 10px 行间距，并限制最多 24 行以控制远景 DOM 成本。远景骨架不拥有文本滚动；Pointer 位于 Prompt 骨架上时，无修饰键 Wheel 必须平移 Canvas Viewport，修饰键 Wheel 仍按画布缩放规则处理。详细模式下，未选中的普通 Prompt Node 不取得滚动优先级：即使文本纵向溢出，Pointer 位于正文上时，无修饰键 Wheel 仍平移 Canvas Viewport。点击选中 Node 后，发生纵向溢出的文本区域才拥有普通 Wheel，并且滚动位置到达顶部或底部时也不得穿透到 Canvas；选中但无溢出时 Wheel 继续平移 Canvas Viewport。空上传 Node 的远景占位背景使用 `--ui-color-surface`，生成中 Node 继续使用生成状态渐变，两者不共用背景规则。音频占位与无静态封面的视频占位只使用 Node 外壳 Border；外壳必须按自身实际圆角裁切内部填充，内部占位不得再绘制覆盖外壳的第二层 Border。
 
-Smart Canvas 在远景与详细模式之间双向切换时，两种展示形态中都存在的同一静态图片实例必须连续可见。切换复用图片元素及其加载状态，只更新布局与周围控件，不重新播放加载占位或淡入；匹配包含所属 Node、媒体位置和原始来源，重复 URL 不合并为同一实例。详细模式继续从视口中心向外分批恢复控件；远景仍只展示多图节点的首图，Smart Group 仍使用骨架，未展示的媒体不为此次修复常驻。图片预览升降档均在目标加载、解码完成且请求仍有效后替换当前来源；等待或失败期间保留当前图片，失败不提前更新已显示的清晰度档位，快速反向缩放时忽略过期结果。首次加载与新增可见图片保留原有加载反馈。视频封面、Video 与 Audio 播放器不参与跨模式静态图片复用，继续遵循远景资源释放和播放规则。验收入口：`tests/smart_canvas_lod_media_server.py` 启动真实页面回归，`tests/smart_canvas_lod_media_browser_test.js` 检查双向切换的逐帧透明度、媒体实例、主题、清晰度与视频边界；`tests/test_smart_canvas_lod_media.py` 覆盖慢加载、网络或解码失败及过期预览回调。
+Smart Canvas 在远景与详细模式之间双向切换时，两种展示形态中都存在的同一静态图片实例必须连续可见。切换复用图片元素及其加载状态，只更新布局与周围控件，不重新播放加载占位或淡入；匹配包含所属 Node、媒体位置和原始来源，重复 URL 不合并为同一实例。详细模式继续从视口中心向外分批恢复控件；远景中的多图 Image Node 保留按媒体顺序排列的缩略图网格，沿用详细模式的列数、缩略图宽度与媒体宽高比，只挂载与节点可视高度相交的顶部媒体行；不得把整个集合替换为首图。远景网格隐藏名称、元信息和操作控件，视频只展示静态封面或占位、音频只展示占位，不创建播放器或内部滚动。编辑端与只读分享使用同一远景展示规则；Smart Group 继续使用骨架，未展示的媒体不常驻。图片预览升降档均在目标加载、解码完成且请求仍有效后替换当前来源；等待或失败期间保留当前图片，失败不提前更新已显示的清晰度档位，快速反向缩放时忽略过期结果。首次加载与新增可见图片保留原有加载反馈。视频封面、Video 与 Audio 播放器不参与跨模式静态图片复用，继续遵循远景资源释放和播放规则。验收入口：`tests/smart_canvas_lod_media_server.py` 启动真实页面回归，`tests/smart_canvas_lod_media_browser_test.js` 检查双向切换的逐帧透明度、媒体实例、主题、清晰度与视频边界；`tests/test_smart_canvas_lod_media.py` 覆盖慢加载、网络或解码失败及过期预览回调。
 
 Frame 与 Smart Group 的导航 Badge 只在 Smart Canvas 远景模式渲染，详细模式不得因 Hover 或 Selected 临时显示。Badge 是对应容器 Node 的直接子元素，并以逆缩放保持 24px 屏幕高度；拖动容器或拖动 Badge 时两者必须在同一帧移动，首次按下未选中的 Badge 会先选中对应容器并进入同一个 Node 移动手势。Badge 使用 `--ui-color-surface`、1px `--ui-color-border-nodes`、`--ui-radius-s` 与 `--ui-shadow-raised`，不得使用独立 Overlay 的 12px 胶囊外观；Frame Badge 只用 Frame 语义色表达文字，不另建一套填充与 Border。
 
@@ -224,6 +224,8 @@ Frame 在远景模式下保留右下角 Resize Handle，沿用 Hover 或单选�
 普通 Prompt Node 的展开编辑使用 Nodes 家族公共 `ic-prompt-node-focus-surface`。组件拥有遮罩、`850 × 660px` 最大面板尺寸、16px 小视口安全边距、Modal 语义以及点击面板外区域与 `Escape` 请求收起的交互；展开面板不显示收起按钮。Smart Canvas 负责普通 Prompt Node 的可展开资格、正文、编辑持久化、子浮层优先级、开关状态与收起后的焦点返回。Prompt Generation Node 使用专属文字 Composer，展开时将同一个编辑 DOM 移入 Large `ic-dialog`，保留指令、光标与滚动位置；展开/收起动作位于共用外壳右上角。
 
 Text Generation 与其他 Generation Pending 状态放入 Node 时，内层生成 Surface 及其单元格必须继承 Node 外壳的实际圆角，不得因使用更大的全局 Radius 而在四角露出 Node 背景。独立使用 `ic-generation-pending` 时仍保留组件默认圆角。Image、Video 与 Text 变体都由公共组件在 Surface 上方组合同一种 Status Badge；`elapsed` 提供可选耗时文字，`label` 提供当前生成状态，`description` 在存在时作为同一 Badge 的补充信息。调用方不得在 Node 外壳另行复制运行中的 Badge。
+
+多图 Image Node（导入多张图片形成的 Image group）与 Smart Group 的直接媒体在单选一张缩略图时，只在该图片上显示选中提示；外层容器保留工具栏与 Composer 的上下文，但不重复绘制选中框。远景缩略图沿用同一选择、拖出和删除规则，切换远近缩放时保留当前图片的选中状态。此时 `Delete` / `Backspace` 只移除当前图片，保留容器和其他内容；点击容器背景选中整体、或多选节点后，删除键仍按节点选区处理。单图 Image Node 保持整节点删除。多图 Image Node 的“拆分为独立节点”按原有图片顺序创建节点，使用与单张导入相同的默认显示尺寸和原图比例，不继承组内缩略图尺寸；行列间距按展开后的实际尺寸与统一节点间距 G（64 世界单位）计算，避免图片互相遮挡，尺寸写入节点后重新载入保持一致。该行为由 `tests/image_group_interaction_browser_smoke.cjs` 的实际 Smart Canvas 页面 Pointer / Keyboard 测试覆盖；测试使用临时会话，不覆盖协作保存与服务端 Undo/Redo。
 
 除 Smart Group、Frame 以及没有实体外壳的 Text Annotation 与 Brush Stroke 保留各自反馈外，其他 Node Hover 统一使用 `--ui-shadow-overlay`。
 

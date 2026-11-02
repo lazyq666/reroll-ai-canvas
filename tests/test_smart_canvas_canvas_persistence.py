@@ -13,6 +13,13 @@ PLACEMENT_MODULE = ROOT / "static/js/smart-canvas/node-placement.js"
 
 
 class SmartCanvasPersistenceModuleTests(unittest.TestCase):
+    def test_real_noop_receipts_preserve_sync_order_and_later_edits(self):
+        result = subprocess.run(
+            ['node', '--test', 'tests/smart_canvas_noop_ack_regression.cjs'],
+            cwd=ROOT, capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_agent_composer_preserves_complete_node_identity(self):
         result = subprocess.run(
             ['node', '--test', 'tests/smart_canvas_agent_composer_identity_regression.cjs'],

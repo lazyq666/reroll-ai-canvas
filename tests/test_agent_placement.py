@@ -2,8 +2,11 @@
 
 import asyncio
 import copy
+import json
+import subprocess
 import time
 import unittest
+from pathlib import Path
 
 from infinite_canvas.agent_api import AgentAPI, node_geometry
 from infinite_canvas.canvas_realtime import NODE_GAP
@@ -74,8 +77,64 @@ class AgentPlacementTests(unittest.TestCase):
         self.assertEqual(0, frame["x"] + frame["w"] / 2)
         self.assertEqual(0, frame["y"] + frame["h"] / 2)
 
+    def test_prompt_grid_keeps_compact_spacing_and_honors_tall_nodes(self):
+        for height in (220, 520):
+            with self.subTest(height=height):
+                tasks = [{"id": str(i), "w": 316, "h": height, "type": "smart-prompt"}
+                         for i in range(6)]
+                frame, placed = self.api.layout(self.actor, {"id": "canvas", "nodes": []},
+                                               [], tasks, "frame", "")
+                self.assertEqual(316 + NODE_GAP, placed[1]["x"] - placed[0]["x"])
+                self.assertEqual(height + NODE_GAP, placed[3]["y"] - placed[0]["y"])
+                self.assertGreaterEqual(frame["y"] + frame["h"], placed[-1]["y"] + height + NODE_GAP)
+
 
 class AgentPlacementPersistenceTests(unittest.TestCase):
+    def test_generation_grid_reserves_the_rendered_output_size(self):
+        fixture = agent_fixture.AgentApiTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.api.models = lambda: [
+            {"provider_id": "apimart", "model": "gpt-image-2-official", "kind": "image"}
+        ]
+        fixture.api.resolve_model = fixture.api.catalog.resolve
+        response = fixture.post({"tasks": [{
+            "kind": "image", "prompt": "An original square illustration",
+            "model": {"provider_id": "apimart", "model": "gpt-image-2-official"},
+            "params": {"aspect_ratio": "1:1"},
+        } for _ in range(6)]}, key="output-spacing")
+        self.assertEqual(200, response.status_code, response.text)
+        result = response.json()
+        # Measure the same default media display geometry the editor uses when
+        # replacing a draft with a pending/output image; no Provider is invoked.
+        rendered = subprocess.run(["node", "-e", """
+            const geometry = require('./static/js/smart-canvas/node-geometry.js');
+            const sizes = [[1024,1024], [1600,900], [900,1600]].map(([w,h]) => {
+                const node = {id:'output', type:'smart-image', images:[{
+                    url:'/fixture.png', natural_w:w, natural_h:h
+                }]};
+                return geometry.createSession({nodes:[node]}).measure(node.id).footprint;
+            });
+            process.stdout.write(JSON.stringify(sizes));
+        """], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
+        sizes = json.loads(rendered.stdout)
+        tasks = [result["task_geometries"][node_id] for node_id in result["task_ids"]]
+        for size in sizes:
+            with self.subTest(output=size):
+                for i, left in enumerate(tasks):
+                    for right in tasks[i + 1:]:
+                        self.assertTrue(
+                            left["x"] + size["width"] + NODE_GAP <= right["x"]
+                            or right["x"] + size["width"] + NODE_GAP <= left["x"]
+                            or left["y"] + size["height"] + NODE_GAP <= right["y"]
+                            or right["y"] + size["height"] + NODE_GAP <= left["y"],
+                            f"Generated images overlap or lose their gap: {left}, {right}; output={size}",
+                        )
+                frame = result["frame_geometry"]
+                self.assertTrue(all(task["x"] + size["width"] + NODE_GAP <= frame["x"] + frame["width"]
+                                    and task["y"] + size["height"] + NODE_GAP <= frame["y"] + frame["height"]
+                                    for task in tasks))
+
     def test_creation_readback_selection_and_retry_keep_final_geometry(self):
         fixture = agent_fixture.AgentApiTests()
         fixture.setUp()

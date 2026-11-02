@@ -76,6 +76,14 @@ Agent API 只创建编排 Mutation 或 Agent Run Request。具备 `run` 权限�
 生成任务。未领取的请求可在节点动作菜单取消。请求已提交或节点不再是草稿时，重复领取不会
 再次提交，Agent 撤销也不得删除已经运行的任务。
 
+只有与本页面待领取请求及目标节点匹配的 `agent_run_claim` 成功回复可以启动生成。
+续约、确认、取消和提交报告返回 `agent_run_status`，只更新请求状态，不授予执行许可。
+编辑端在首次接纳时记住该请求身份，运行完成、校验失败或连接重建后仍不因迟到回复、
+旧队列重播再次执行；兼容旧服务端发出的同名续约回复。用户显式重试使用新的 Agent Run
+Request，仍可正常领取。代表性回归为 `tests/agent_editor_contract.test.cjs`、
+`tests/test_agent_api.py` 与 `tests/agent_run_renewal_browser_smoke.cjs`：20 个任务完成后收到
+7 条迟到续约回复及重连重播，保存刷新后仍为 20 次生成、20 个结果节点。
+
 范围与尚待实机验收项见 [F17 规格](../active/2026-10-17-agent-mcp-canvas-authoring-spec.md)。
 
 ## 3. 关键名词翻译
@@ -120,6 +128,8 @@ Composer 的提交期与 Generation Run 的执行期分开：按钮在提交期�
 如果 Provider 实际返回的图片数多于提交时冻结的输出槽位数，前端也会在结果收尾时立即拆成独立 Generation Output Node，并为它们补上同次输出集合的身份与布局。结果收尾不得给保留在原节点的单张图片套用多图集合的缩略图缩放；原节点保持普通 Image Node 的显示尺度或已有的用户尺寸调整；未保存缩放值时，拆分后的单图也使用普通 Image Node 的默认尺度。新增结果使用普通 Image Node 的默认尺度。每个拆分结果继承原节点的入向 Connection；已通过 `sourceOutputId` 指定某张结果的出向 Connection，则随对应结果迁移。旧结果画廊在加载迁移时遵循同一连接规则，避免刷新后只有保留在原节点的图片仍与上游相连。已经被旧迁移保存为独立节点、但只有一个节点保留上游连接的批次，会按同一运行快照和连续创建时间做一次受限修复；不满足唯一匹配条件时不猜测节点关系。
 
 一次运行的多个独立输出组成一个空间集合。Canvas Settings 保存横向或纵向布局，默认横向；创建 Pending 时冻结 `generationBatchLayout`，不按后来的设置改排。普通生成的新结果以实际输入父节点整体为来源，无外部父节点才用执行节点；“再次生成”则以点击节点为布局来源，旧结果不动、不复用，新结果从该节点右侧 G 开始，原参数和输入连接不变；横向放不下时换行，纵向放不下时换列，内部与外部间距共用 G = 4rem（64 世界单位）。跨次续行、续列只是软偏好，允许为了接近父节点及改善视口而打破旧起点对齐。空生成节点复用为第一项时保持身份及坐标，以其为固定首槽继续排列新增结果；容量使用发起时视口和稳定尺寸，输入关系不变。恢复和 Undo/Redo 保留已知位置；自动初始创建的并发竞争才重算新增集合。历史 `generationBatch*` 字段不改变领域中 Generation Batch 的定义。完整空间合同见[节点定位与自动避让](smart-canvas-node-auto-placement.md#4-生成结果与刚性集合)。
+
+复用空生成节点与新建 Pending Node 使用相同的媒体预览边界：保存 `generationMediaW/H` 与稳定外框标记，结果按真实图片比例完整放入该边界。旧 Generation Output 若只保留了生成时的 `w/h`，这对尺寸同样作为预览边界，不把占位框宽度单独当作图片固定宽度、再向外撑高。例如 1696×2528 的图片放入 440×440 占位框后显示为约 295×440，与默认结果尺寸一致。有效的手动等比缩放继续保留；只读测量不改写历史几何、位置或图片。普通上传图片与分层合成的尺寸合同不变。代表性回归为 `tests/test_smart_canvas_node_geometry.py` 和 `tests/agent_output_spacing_browser_smoke.cjs`，覆盖旧结果、复用草稿、手动缩放与保存刷新。
 
 新 Generation Output 在拆分前按实际功能初始化短名称，如 `t2i-01.png`、`i2i-01.webp`、`repair-01.png`。同一 Canvas 同一前缀由服务端事务持续分配编号，不因下一次生成、删除、撤销或刷新而重置；本地媒体编辑通过同一 Canvas Mutation 权威分配。扩展名取真实格式，恢复合并保护已保存名称；分配回执和编号高水位随 Canvas 的私有状态持久化，不进入可撤销内容。完整分类、重命名和下载合同见 [Smart Canvas 媒体命名与重命名](../active/2026-09-20-smart-canvas-media-naming.md)，边界见 [ADR-0016](../adr/0016-canvas-media-name-allocation.md)。
 

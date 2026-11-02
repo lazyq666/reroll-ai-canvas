@@ -602,6 +602,10 @@ html[data-ui-motion="reduced"] .connection-layer .port-drag-temp { animation:non
 .canvas-lod-node-far .far-node-media { width:100%; height:100%; overflow:hidden; }
 .canvas-lod-node-far .far-node-media > img { width:100%; height:100%; object-fit:cover; display:block; }
 .canvas-lod-node-far .far-node-media > video { width:100%; height:100%; object-fit:contain; display:block; }
+.canvas-lod-node-far .far-node-media-grid { width:100%; max-height:var(--far-media-height); display:grid; grid-template-columns:repeat(var(--far-media-cols),var(--far-media-thumb)); gap:var(--ui-space-2); justify-content:center; align-content:start; overflow:hidden; }
+.canvas-lod-node-far .far-node-media-grid > .far-node-media { height:auto; min-width:0; display:flex; align-items:center; justify-content:center; align-self:start; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-s); background:var(--ui-color-surface-subtle); color:var(--ui-color-text-tertiary); }
+.canvas-lod-node-far .far-node-media-grid > .far-node-media > img { object-fit:contain; }
+.canvas-lod-node-far .far-node-media-grid > .far-node-media.image-selected { outline:2px solid var(--ui-color-border-focus); outline-offset:-2px; }
 .canvas-lod-node-far .far-node-video-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:var(--ui-color-surface-subtle); color:var(--ui-color-action-secondary-selected-hover); }
 .canvas-lod-node-far .far-node-audio { width:100%; height:100%; min-width:0; min-height:0; padding:var(--ui-space-0); overflow:hidden; border:var(--ui-border-width-none); border-radius:var(--ui-radius-none); background:var(--ui-color-surface); color:var(--ui-color-action-secondary-selected-hover); box-shadow:var(--ui-shadow-none); backdrop-filter:none; }
 .canvas-lod-node-far .far-node-marker { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--ui-color-text-tertiary); background:var(--ui-color-surface); font-size:12px; font-weight:600; }
@@ -1866,15 +1870,18 @@ ic-canvas-node.image-node[kind].selected:not(.smart-annotation-node) .image-wrap
     border-color:transparent;
     box-shadow:var(--ui-shadow-none);
 }
-/* A selected Smart Group media item owns the visible selection indicator.
+/* A selected Smart Group or multi-image Node media item owns the selection indicator.
    Keep the Group logically selected for toolbar/keyboard routing, but do not
    draw a second host ring or the clipped outer thumbnail ring. */
-ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected) {
+ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected),
+ic-canvas-node.image-node[kind].selected:has(.thumb-grid .image-selected,.far-node-media-grid .image-selected) {
     border-color:var(--ui-color-border-nodes);
     box-shadow:var(--ui-shadow-raised);
 }
 ic-canvas-node.image-node.smart-group-node.selected:has(.image-selected)::before,
-.smart-group-node .thumb-item.image-selected::after {
+ic-canvas-node.image-node[kind].selected:has(.thumb-grid .image-selected,.far-node-media-grid .image-selected)::before,
+.smart-group-node .thumb-item.image-selected::after,
+.image-node .thumb-grid .thumb-item.image-selected::after {
     content:none;
 }
 

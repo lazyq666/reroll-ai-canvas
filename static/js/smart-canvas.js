@@ -1773,6 +1773,10 @@ function copyMediaSizeFields(source, target={}){
     return target;
 }
 function singleImageLayout(image, node, scale){
+    if(node?.generationOutputNode){
+        const generated = nodeGeometrySingleImageLayout([image], {...node,scale});
+        if(generated) return generated;
+    }
     const explicitW = Number(node?.w);
     const explicitH = Number(node?.h);
     if(Number.isFinite(explicitW) && explicitW > 24 && Number.isFinite(explicitH) && explicitH > 24){
@@ -8571,7 +8575,17 @@ function farNodeBodyHtml(node, layout){
         media:{
             kind:mediaKind,
             markup:mediaMarkup,
-            signature:image ? `${mediaKindForItem(image)}:${image.url || ''}` : ''
+            signature:image ? `${mediaKindForItem(image)}:${image.url || ''}` : '',
+            items:images.length > 1 ? images.map((item, index) => ({
+                index,
+                selected:selectedImage.nodeId === node.id && selectedImage.index === index,
+                kind:mediaKindForItem(item),
+                signature:`${mediaKindForItem(item)}:${item.url}`,
+                aspectRatio:mediaAspectRatio(item),
+                markup:isAudioMediaItem(item) ? '' : isVideoMediaItem(item)
+                    ? smartVideoPreviewHtml(item, 512, 'class="node-img" alt=""')
+                    : smartPreviewImgHtml(item, 512, 'class="node-img" draggable="false"')
+            })) : []
         },
         labels:{
             group:trf(groupRefs.length === 1 ? 'smart.summaryImageSingle' : 'smart.summaryImages', {count:groupRefs.length}),
@@ -11861,7 +11875,7 @@ function bindNodeEvents(){
             imageStudio.open({nodeId:target.targetNodeId, imageIndex:target.imageIndex});
         }, true);
         });
-        el.querySelectorAll('.thumb-item,.smart-group-single-thumb').forEach(item => {
+        el.querySelectorAll('.thumb-item,.smart-group-single-thumb,.far-node-media-grid .far-node-media').forEach(item => {
             item.addEventListener('mousedown', e => {
                 if(e.target.closest('video,audio')) return;
                 if(e.button !== 0) return;
@@ -11923,7 +11937,10 @@ function smartDeleteSelectionTarget(nodeList, primaryId, multiIds, imageSelectio
         const node = (nodeList || []).find(item => item.id === ids[0]);
         const imageIndex = Number(imageSelection?.index);
         if(
-            node?.type === 'smart-group'
+            (node?.type === 'smart-group' || (
+                (node?.type === 'smart-image' || !node?.type)
+                && node?.images?.length > 1
+            ))
             && imageSelection?.nodeId === node.id
             && Number.isInteger(imageIndex)
             && imageIndex >= 0
@@ -16488,14 +16505,27 @@ function ungroupNode(groupId){
     canvasMutation.history({action:'push'});
     const layout = imageLayout(group.images || [], nodeScale(group), group);
     const pad = 16;
-    const gap = 8;
-    const cell = Math.max(28, Math.round(layout.thumb || 96));
+    const gap = nodeGeometry.nodeGap;
+    const cols = Math.max(1, layout.cols || 1);
+    // Thumbnails are only the group's presentation. Split at the same display
+    // size as a standalone import, with row/column spacing for the larger Nodes.
+    const sizes = group.images.map(img => singleImageLayout(img, {}, MEDIA_NODE_DEFAULT_SCALE));
+    const columnWidths = Array(cols).fill(0);
+    const rowHeights = Array(Math.ceil(sizes.length / cols)).fill(0);
+    sizes.forEach((size, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        columnWidths[col] = Math.max(columnWidths[col], size.width);
+        rowHeights[row] = Math.max(rowHeights[row], size.height);
+    });
     const created = (group.images || []).map((img, index) => {
-        const col = index % Math.max(1, layout.cols || 1);
-        const row = Math.floor(index / Math.max(1, layout.cols || 1));
-        const size = thumbDisplaySize(img, cell);
-        const x = Math.round(Number(group.x || 0) + pad + col * (cell + gap) + Math.max(0, (cell - size.width) / 2));
-        const y = Math.round(Number(group.y || 0) + pad + row * (cell + gap) + Math.max(0, (cell - size.height) / 2));
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const size = sizes[index];
+        const x = Math.round(Number(group.x || 0) + pad
+            + columnWidths.slice(0, col).reduce((total, width) => total + width + gap, 0));
+        const y = Math.round(Number(group.y || 0) + pad
+            + rowHeights.slice(0, row).reduce((total, height) => total + height + gap, 0));
         const node = {
             id:uid('smart'),
             type:'smart-image',
@@ -16503,7 +16533,7 @@ function ungroupNode(groupId){
             y,
             w:size.width,
             h:size.height,
-            title:'Image',
+            title:tr('smart.kindImage'),
             images:[stripImageGenerationMeta({...img})],
             scale:MEDIA_NODE_DEFAULT_SCALE,
             created_at:Date.now()

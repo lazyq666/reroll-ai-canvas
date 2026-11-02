@@ -869,6 +869,7 @@ function smartCanvasInteractionBeginMove(event,nodeId){
         || event.button !== 0
         || event.target.closest(
             '.smart-node-floating-menu,.node-resize-handle,.thumb-item,.input-thumb,'
+            + '.far-node-media-grid .far-node-media,'
             + '.smart-group-single-thumb,.node-port,'
             + '.prompt-node-control:not(.prompt-node-text):not(.prompt-llm-instruction):not(.prompt-node-input-thumbs),'
             + '[contenteditable="true"],select,input,'

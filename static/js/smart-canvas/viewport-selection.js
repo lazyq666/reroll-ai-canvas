@@ -98,7 +98,7 @@ function smartViewportSelectionSync(){
     smartViewportSelectionNodeElements(touchedIds).forEach(el => {
         const id = el.dataset.id || '';
         el.classList.toggle('selected', smartViewportSelectionHas(id));
-        el.querySelectorAll('.thumb-item,.image-wrap').forEach(item => {
+        el.querySelectorAll('.thumb-item,.image-wrap,.far-node-media-grid .far-node-media').forEach(item => {
             const targetNodeId = item.dataset.refNodeId || id;
             const index = Number(item.dataset.refImageIndex ?? item.dataset.imageIndex ?? 0);
             item.classList.toggle(

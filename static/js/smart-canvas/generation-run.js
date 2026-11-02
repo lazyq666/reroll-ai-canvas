@@ -1119,6 +1119,11 @@ async function runGeneration(options={}){
         const pendingBox = pendingBoxSize(pendingNode.pending, {sourceNode:node, refs, settings:runSettings});
         pendingNode.w = pendingBox.w;
         pendingNode.h = pendingBox.h;
+        if(!nodeHasImages){
+            pendingNode.generationMediaW = pendingBox.w;
+            pendingNode.generationMediaH = pendingBox.h;
+            pendingNode.generationStableOuterSize = true;
+        }
         attachRunMeta(pendingNode, pendingMeta);
     }
     if(apiConcurrentRun){

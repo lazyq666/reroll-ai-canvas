@@ -251,9 +251,9 @@ class CanvasOutboundQueueTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(websocket.closed, [])
 
-    async def test_oversized_snapshot_closes_for_resync(self):
+    async def test_initial_snapshot_has_one_separate_allowance_and_keeps_message_order(self):
         self.manager = ConnectionManager(canvas_queue_max_bytes=1024)
-        websocket = FakeWebSocket()
+        websocket = FakeWebSocket(blocked=True)
         await self.connect(websocket, "oversized")
 
         accepted = await self.manager.send_canvas_message(
@@ -265,11 +265,53 @@ class CanvasOutboundQueueTests(unittest.IsolatedAsyncioTestCase):
                 "canvas": {"payload": "x" * 2048},
             },
         )
+        self.assertTrue(accepted)
+        await asyncio.wait_for(websocket.send_started.wait(), timeout=0.5)
+        for revision in (1, 2):
+            await self.manager.broadcast_canvas_message("canvas-1", {
+                "type": "canvas_mutation", "revision": revision,
+                "changes": {"node_updates": [{"id": "a", "path": ["x"], "value": revision}]},
+            })
+        self.assertEqual(websocket.closed, [])
+        websocket.release_send.set()
+        await websocket.wait_for_sent(3)
+        self.assertEqual([message["revision"] for message in websocket.sent], [0, 1, 2])
+        self.assertEqual(self.manager.canvas_outbound[websocket].pending_bytes, 0)
+        self.assertEqual(self.manager.canvas_outbound[websocket].pending_messages, 0)
+
+        # The allowance is only for the first snapshot, not every large message.
+        accepted = await self.manager.send_canvas_message(websocket, {
+            "type": "canvas_snapshot", "revision": 2, "canvas": {"payload": "x" * 2048},
+        })
         await asyncio.wait_for(websocket.closed_changed.wait(), timeout=0.5)
 
         self.assertFalse(accepted)
         self.assertEqual(websocket.closed[0][0], CANVAS_RESYNC_CLOSE_CODE)
-        self.assertEqual(websocket.sent, [])
+        self.assertEqual(len(websocket.sent), 3)
+
+    async def test_large_initial_snapshot_does_not_disable_slow_client_byte_limit(self):
+        self.manager = ConnectionManager(canvas_queue_max_bytes=1024)
+        slow, fast = FakeWebSocket(blocked=True), FakeWebSocket()
+        for websocket, name in ((slow, "slow"), (fast, "fast")):
+            await self.connect(websocket, name)
+            accepted = await self.manager.send_canvas_message(websocket, {
+                "type": "canvas_snapshot", "revision": 0,
+                "canvas": {"payload": "x" * 2048},
+            })
+            self.assertTrue(accepted)
+        await asyncio.wait_for(slow.send_started.wait(), timeout=0.5)
+        await fast.wait_for_sent(1)
+        for revision in (1, 2):
+            await self.manager.broadcast_canvas_message("canvas-1", {
+                "type": "canvas_mutation", "revision": revision,
+                "changes": {"node_updates": [{"id": "a", "path": ["text"], "value": "x" * 500}]},
+            })
+            await fast.wait_for_sent(revision + 1)
+        await asyncio.wait_for(slow.closed_changed.wait(), timeout=0.5)
+        self.assertEqual(slow.closed[0][0], CANVAS_RESYNC_CLOSE_CODE)
+        self.assertEqual(slow.sent, [])
+        self.assertEqual(fast.closed, [])
+        self.assertEqual([message["revision"] for message in fast.sent], [0, 1, 2])
 
     async def test_large_snapshot_encoding_yields_to_the_event_loop(self):
         self.manager = ConnectionManager()
