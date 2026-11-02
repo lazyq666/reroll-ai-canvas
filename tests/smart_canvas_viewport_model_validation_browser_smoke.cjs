@@ -363,7 +363,7 @@ async function settleFrames(page, count=3) {
         const lodHysteresis = [];
         let farPresentation = null;
         let farModeDoubleClickPreview = null;
-        for (const scale of [0.22, 0.24, 0.29]) {
+        for (const scale of [0.19, 0.21, 0.26]) {
             await page.evaluate(nextScale => {
                 viewport.scale = nextScale;
                 window.SmartCanvasModules.viewportSelection.viewport.apply({persist:false});
@@ -373,7 +373,7 @@ async function settleFrames(page, count=3) {
                 mode:document.querySelector('#shell')?.dataset.canvasLod || '',
                 scale:Number(viewport.scale || 0),
             })));
-            if (scale === 0.22) {
+            if (scale === 0.19) {
                 farPresentation = await page.evaluate(() => {
                     const node = id => document.querySelector(`.image-node[data-id="${id}"]`);
                     const pendingNode = node('lod-pending-node');
@@ -435,6 +435,7 @@ async function settleFrames(page, count=3) {
                     };
                     return {
                         multiImageCount:node('lod-multi-node')?.querySelectorAll('img').length ?? -1,
+                        multiSkeletonCount:node('lod-multi-node')?.querySelectorAll('.far-node-image-skeleton').length ?? -1,
                         videoElementCount:node('lod-video-node')?.querySelectorAll('video').length ?? -1,
                         videoPosterCount:node('lod-video-node')?.querySelectorAll('img').length ?? -1,
                         brokenVideoElementCount:node('lod-video-broken-node')?.querySelectorAll('video').length ?? -1,
@@ -535,7 +536,7 @@ async function settleFrames(page, count=3) {
                     window.SmartCanvasModules.viewportSelection.viewport.centerOn({x:1010, y:210});
                 });
                 await settleFrames(page, 2);
-                await page.locator('.image-node[data-id="lod-multi-node"] .far-node-media img').dblclick();
+                await page.locator('.image-node[data-id="lod-multi-node"] .far-node-media').first().dblclick();
                 await page.waitForFunction(() => window.SmartCanvasModules.imageStudio.isOpen());
                 farModeDoubleClickPreview = await page.evaluate(() => ({
                     open:window.SmartCanvasModules.imageStudio.isOpen(),
@@ -852,7 +853,7 @@ async function settleFrames(page, count=3) {
                     enabled:'true', value:'23', min:'10', max:'100', output:'23%',
                 }),
             farModeKeepsStructureAndDropsUnreadableResources:
-                farPresentation?.multiImageCount === 1
+                farPresentation?.multiImageCount === 0 && farPresentation?.multiSkeletonCount > 1
                 && farPresentation?.videoElementCount === 0
                 && farPresentation?.videoPosterCount === 1
                 && farPresentation?.brokenVideoElementCount === 0
@@ -912,7 +913,7 @@ async function settleFrames(page, count=3) {
                 && farPresentation?.diagnostics.mode === 'far'
                 && farPresentation?.diagnostics.renderSetCount >= 7
                 && farPresentation?.diagnostics.mountedNodeCount >= 7
-                && farPresentation?.diagnostics.imagePreviewCounts?.[512] >= 3
+                && farPresentation?.diagnostics.imagePreviewCounts?.[512] >= 1
                 && farPresentation?.diagnostics.videoElementCount === 0
                 && detailPresentation.promptControlCount > 0
                 && detailPresentation.groupTitle.includes('品牌灵感')

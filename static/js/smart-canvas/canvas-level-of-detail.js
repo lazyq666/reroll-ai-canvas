@@ -11,7 +11,7 @@
     root.SmartCanvasModules = root.SmartCanvasModules || {};
     root.SmartCanvasModules.canvasLevelOfDetail = levelOfDetail;
 })(typeof globalThis !== 'undefined' ? globalThis : window, function createCanvasLevelOfDetail() {
-    const DEFAULT_ENTER_THRESHOLD = 0.23;
+    const DEFAULT_ENTER_THRESHOLD = 0.20;
     const EXIT_GAP = 0.05;
     let enabled = true;
     let enterThreshold = DEFAULT_ENTER_THRESHOLD;

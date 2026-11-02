@@ -11,13 +11,14 @@ const farPresentation = require('../static/js/smart-canvas/canvas-far-presentati
 function farBody(node, layout) {
     const ctx = {
         selectedImage:{nodeId:'',index:-1},
-        nodeKinds:{isLayerDecomposition:()=>false,isPromptFamily:()=>false,isPromptGeneration:()=>false},
+        nodeKinds:{isLayerDecomposition:node=>node.type === 'smart-layer-decomposition',isPromptFamily:()=>false,isPromptGeneration:()=>false},
         smartContainer:{isFrame:()=>false}, smartMatting:{isActive:()=>false},
         imageForDisplay:image=>image,
         isAudioMediaItem:image=>image.kind === 'audio',
         isVideoMediaItem:image=>image.kind === 'video',
         mediaKindForItem:image=>image.kind || 'image',
         mediaAspectRatio:image=>(image.natural_w || 1)/(image.natural_h || 1),
+        farThumbnailUrl:image=>`/api/media-preview?w=64&url=${encodeURIComponent(image.url)}`,
         smartPreviewImgHtml:image=>`<img data-original-src="${image.url}">`,
         smartVideoPreviewHtml:()=>'<span class="video-poster"></span>',
         tr:key=>key, trf:(key,{count})=>`${key}:${count}`,
@@ -28,14 +29,17 @@ function farBody(node, layout) {
     return ctx.farNodeBodyHtml(node,layout);
 }
 
-for(const count of [2,10]) test(`far mode preserves the grid of a ${count}-image node`,()=>{
+for(const count of [1,2,10]) test(`far mode replaces a ${count}-image node with skeletons`,()=>{
     const images=Array.from({length:count},(_,i)=>({url:`/image-${i}.png`,kind:'image'}));
     const html=farBody({id:'image-group',type:'smart-image',images},
         {width:280,height:220,cols:count===2?2:4,rows:Math.ceil(count/4),visibleRows:3,thumb:50,gridHeight:180});
-    assert.equal((html.match(/<img /g)||[]).length,count,'Far mode must show each visible group image, not just the first');
+    assert.doesNotMatch(html, /<img |<video|<audio/, 'Far image nodes must not mount media');
+    assert.equal((html.match(/class="far-node-image-skeleton"/g)||[]).length,count);
+    assert.equal((html.match(/data-far-thumbnail=/g)||[]).length,count);
+    assert.match(html, /w=64/);
     images.forEach((image,i)=>{
         assert.ok(html.includes(`data-image-index="${i}"`),'Keep the original media index');
-        assert.ok(html.includes(image.url),'Keep the image source');
+        assert.ok(html.includes(image.url),'Keep the media identity for selection');
     });
 });
 
@@ -47,6 +51,14 @@ test('far media grid bounds mounted rows and preserves mixed-media aspect ratios
     assert.ok(html.includes('name="audio"'));
     assert.ok(html.includes('video-poster'));
     assert.doesNotMatch(html,/<video|<audio|<button|tabindex=/);
+});
+
+
+test('layer decomposition prepares a thumbnail without ordinary image selection',()=>{
+    const html=farBody({type:'smart-layer-decomposition',layerDecompositionItems:[{media:{url:'/layer.png'}}]}, {width:320,height:480});
+    assert.doesNotMatch(html, /<img |data-image-index/);
+    assert.match(html, /data-far-thumbnail=/);
+    assert.match(html, /far-node-image-skeleton/);
 });
 
 function harness() {
@@ -78,7 +90,7 @@ function harness() {
     }
     const tick = () => new Promise(resolve=>setImmediate(resolve));
     const load = async (index=loads.length-1) => { await loads[index].onload(); await tick(); };
-    function mode(value) { state={mode:value,resourceGeneration:state.resourceGeneration+1}; ctx.viewport.scale=value==='far'?.2:1; }
+    function mode(value) { state={mode:value,resourceGeneration:state.resourceGeneration+1}; ctx.viewport.scale=value==='far'?.18:1; }
     return {ctx,loads,img,tick,load,mode};
 }
 test('slow upgrade retains the current bitmap, ready state, and actual resolution until decoded', async()=>{
@@ -134,4 +146,30 @@ test('concurrent consumers share one pending decode; later uses validate decode 
     const later=h.ctx.preloadSmartAdaptivePreview('/same.png');
     assert.equal(h.loads.length,2,'a previously loaded URL does not guarantee a decoded image remains cached');
     await h.load(); assert.equal(await later,true);
+});
+
+test('far queue prioritizes visible work, limits requests, and ignores detached or failed results', async ()=>{
+    const oldImage = global.Image, oldWidth = global.innerWidth, oldHeight = global.innerHeight;
+    const loads = [];
+    global.innerWidth = 500; global.innerHeight = 500;
+    global.Image = class { set src(value) { this.url = value; loads.push(this); } };
+    const item = (url, left) => ({dataset:{farThumbnail:url},isConnected:true,
+        getBoundingClientRect:()=>({left,right:left+20,top:10,bottom:30}),
+        querySelector:()=>null, classList:{remove(){}},
+        replaceWith(image){this.replaced=image;}});
+    const off = item('/off',1000), visible = item('/visible',240), gone = item('/gone',230), failed = item('/failed',220);
+    try {
+        farPresentation.queueThumbnails({querySelectorAll:()=>[off, visible, gone, failed]});
+        await new Promise(resolve=>setTimeout(resolve, 10));
+        assert.deepEqual(loads.map(image=>image.url), ['/visible','/gone']);
+        gone.isConnected = false;
+        loads[1].onload();
+        assert.equal(gone.replaced, undefined);
+        assert.equal(loads[2].url, '/failed');
+        loads[2].onerror();
+        assert.equal(failed.replaced, undefined);
+        assert.equal(loads[3].url, '/off');
+        loads[0].onload(); loads[3].onload();
+        assert.equal(visible.replaced.url, '/visible');
+    } finally { global.Image=oldImage; global.innerWidth=oldWidth; global.innerHeight=oldHeight; }
 });

@@ -99,8 +99,8 @@
 
 ### 读取性能
 
-- Level of Detail 默认开启并沿用现有阈值：缩放小于 `0.23` 进入远景模式，大于 `0.28` 回到细节模式，中间区间保持当前状态，避免缩放时反复闪烁。
-- 远景模式使用公共 `canvasFarPresentation`：Prompt / Group 使用轻量骨架，图片和视频封面只请求 512 档预览，不创建完整视频或音频控件。
+- Level of Detail 默认开启并沿用现有阈值：缩放小于 `0.20` 进入远景模式，大于 `0.25` 回到细节模式，中间区间保持当前状态，避免缩放时反复闪烁。
+- 远景模式使用公共 `canvasFarPresentation`：Prompt / Group 使用轻量骨架；单图、多图及已有图片产出的节点请求缓存的 64 像素预览，保留比例、透明度、几何与媒体顺序；未就绪或失败时保留静态骨架。请求排队并优先可见区域；远近切换时保留已显示图片的临时低像素画面，直到目标图片加载并解码完成。视频封面仍只请求 512 档预览，不创建完整视频或音频控件。
 - 细节模式通过现有 `SmartImageResolution`，根据屏幕显示尺寸、缩放比例和像素密度在 512 / 1024 / 2048 三档中选择图片；预览失败时才回退原文件。
 - `CanvasVirtualization` 默认只挂载当前 Canvas Viewport 加一屏缓冲区内的 Node，并保留当前选择 Node；Connection 使用同一可见范围判断。权威 Canvas 数据仍完整保留在内存中，平移和缩放只改变浏览器实际绘制的集合，不改变或写回 Canvas。
 
@@ -122,7 +122,7 @@
 7. 分享请求不携带 Cookie；未引用媒体、失效链接与 Private Canvas 保持拒绝。
 8. 单图和多图使用与 Designer 相同的 Node Geometry 与媒体 DOM，自动尺寸和纵横比一致；不显示 `Media unavailable`、`Choose File` 或 `No file chosen` fallback；Light / Dark、宽屏 / 窄屏、平移、缩放、Minimap、Connection 与错误状态回归通过。
 9. Image Node 选中时只使用公共 Node 选择边界且贴合媒体尺寸；点击 Canvas 空白区域后选中态与 Composer 同时关闭。
-10. 大型分享 Canvas 首屏自动进入远景模式并请求 512 档媒体；放大后自动恢复细节模式与自适应图片档位，视口外 Node / Connection 不挂载，且全程不产生写请求。
+10. 大型分享 Canvas 首屏自动进入远景模式，静态图片先显示骨架，再显示缓存的 64 像素预览；放大后自动恢复真实图片、细节模式与自适应图片档位，视口外 Node / Connection 不挂载，且全程不产生写请求。
 11. 已有产出图片的 Generation Node 在远景 / 细节切换前后保持 Node Geometry 计算出的原始宽高比；放大后不得回退到通用媒体默认尺寸或通过 `object-fit: cover` 裁掉内容。
 
 ## 8. Verification plan

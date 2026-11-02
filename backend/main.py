@@ -9815,7 +9815,7 @@ async def update_canvas_meta_batch(payload: CanvasMetaBatchUpdate):
     return {"canvases": updated}
 
 SHARE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,128}$")
-SHARE_MEDIA_PREVIEW_WIDTHS = (512, 1024, 2048)
+SHARE_MEDIA_PREVIEW_WIDTHS = (64, 512, 1024, 2048)
 SHARE_CANVAS_FIELDS = {
     "id", "title", "icon", "kind", "nodes", "connections", "viewport", "created_at", "updated_at"
 }

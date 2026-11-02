@@ -59,7 +59,7 @@ function json(response, status, value) {
 }
 
 function startServer(state, port = 0) {
-  const server = http.createServer((request, response) => {
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
     if (request.method !== 'GET') state.writeRequests.push(`${request.method} ${url.pathname}`);
     if (url.pathname === '/api/shares/visual-token') {
@@ -78,6 +78,7 @@ function startServer(state, port = 0) {
     if (['/api/shares/visual-token/media/hero', '/api/shares/large-token/media/hero'].includes(url.pathname)) {
       state.mediaReads += 1;
       state.mediaPreviewWidths.push(Number(url.searchParams.get('w')) || 0);
+      if (url.pathname.includes('large-token') && url.searchParams.get('w') === '512') await delay(500);
       response.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8' });
       if (url.searchParams.get('name') === 'portrait.svg') {
         return response.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 512"><rect width="340" height="512" fill="#6d5dfc"/><circle cx="170" cy="150" r="95" fill="#c3fb78"/><rect x="70" y="300" width="200" height="150" rx="24" fill="#0f0f0f"/></svg>');
@@ -380,6 +381,8 @@ async function main() {
       const cells = [...group.querySelectorAll('.far-node-media')];
       return {
         images:group.querySelectorAll('.far-node-media-grid img').length,
+        skeletons:group.querySelectorAll('.far-node-image-skeleton').length,
+        covered:cells.every(cell => Boolean(cell.querySelector('img,canvas.lod-transition-image,.far-node-image-skeleton'))),
         indices:cells.map(cell => cell.dataset.imageIndex),
         columns:cells.length === 2 && cells[1].getBoundingClientRect().left > cells[0].getBoundingClientRect().left,
         visible:cells.every(cell => cell.getBoundingClientRect().width > 0 && cell.getBoundingClientRect().height > 0),
@@ -402,17 +405,33 @@ async function main() {
         farNodes:document.querySelectorAll('.share-node.canvas-lod-node-far').length,
         mountedNodes:document.querySelectorAll('.share-node').length,
         imageSource:document.querySelector('.share-node img')?.currentSrc || '',
+        imageSkeletons:document.querySelectorAll('.far-node-image-skeleton').length,
         virtualization:window.SmartCanvasModules?.canvasVirtualization?.diagnostics?.() || null,
       };
     })()`);
 
+    await waitFor(cdp, sessionId, `document.querySelector('[data-id="large-image"] .far-node-thumbnail')?.naturalWidth > 0`, 'loaded far share thumbnail');
+    await evaluate(cdp, sessionId, `(() => {
+      window.__shareTransitionFrames = [];
+      const start = performance.now();
+      const sample = () => {
+        const host = document.querySelector('[data-id="large-image"]');
+        if (host) window.__shareTransitionFrames.push({far:host.classList.contains('canvas-lod-node-far'),
+          visible:[...host.querySelectorAll('img,canvas.lod-transition-image')].some(img => (img.naturalWidth || (img.tagName === 'CANVAS' && img.width)) > 0 && Number(getComputedStyle(img).opacity) > 0)});
+        if (performance.now() - start < 900) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    })()`);
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 120, y: 320, deltaX: 0, deltaY: -1000 }, sessionId);
     await waitFor(cdp, sessionId, `document.documentElement.dataset.canvasLod === 'detail' && document.querySelectorAll('.share-node').length > 0 && document.querySelectorAll('.share-node').length < ${largeCanvasFixture.nodes.length}`, 'detail virtualized share canvas');
+    await delay(950);
+    const shareTransition = await evaluate(cdp, sessionId, `window.__shareTransitionFrames`);
     const largeCanvasDetail = await evaluate(cdp, sessionId, `(() => ({
       lodMode:document.documentElement.dataset.canvasLod || '',
       mountedNodes:document.querySelectorAll('.share-node').length,
       totalNodes:window.SmartCanvasModules?.canvasVirtualization?.diagnostics?.().totalNodeCount || 0,
       imageSource:document.querySelector('.share-node img')?.currentSrc || '',
+        imageSkeletons:document.querySelectorAll('.far-node-image-skeleton').length,
     }))()`);
 
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: false }, sessionId);
@@ -470,9 +489,10 @@ async function main() {
         mediaBoundary: state.mediaReads >= 2,
         panZoom: zoomed.transform !== desktop.stageTransform && zoomed.nodes === desktop.nodeCount,
         connectionStrokeScales: zoomed.strokeWidth === desktop.links.strokeWidth && zoomed.effectiveScreenStrokeWidth > desktop.links.effectiveScreenStrokeWidth,
-        farMediaGroup:farMediaGroup.images === 2 && farMediaGroup.indices.join(',') === '0,1' && farMediaGroup.columns && farMediaGroup.visible && farMediaGroup.controls === 0,
+        shareTransition:shareTransition.some(frame => frame.far) && shareTransition.some(frame => !frame.far) && shareTransition.every(frame => frame.visible),
+        farMediaGroup:farMediaGroup.covered && farMediaGroup.indices.join(',') === '0,1' && farMediaGroup.columns && farMediaGroup.visible && farMediaGroup.controls === 0,
         largeCanvasConnections: largeCanvas.scale < 0.2 && largeCanvas.strokeWidth === 2 && largeCanvas.effectiveScreenStrokeWidth < 0.4,
-        largeCanvasPerformance: largeCanvas.lodMode === 'far' && largeCanvas.farNodes === largeCanvasFixture.nodes.length && largeCanvas.imageSource.includes('w=512') && largeCanvas.virtualization?.totalNodeCount === largeCanvasFixture.nodes.length && largeCanvasDetail.lodMode === 'detail' && largeCanvasDetail.mountedNodes > 0 && largeCanvasDetail.mountedNodes < largeCanvasDetail.totalNodes && largeCanvasDetail.totalNodes === largeCanvasFixture.nodes.length && /[?&]w=(512|1024|2048)(?:&|$)/.test(largeCanvasDetail.imageSource),
+        largeCanvasPerformance: largeCanvas.lodMode === 'far' && largeCanvas.farNodes === largeCanvasFixture.nodes.length && /[?&]w=64(?:&|$)/.test(largeCanvas.imageSource) && largeCanvas.virtualization?.totalNodeCount === largeCanvasFixture.nodes.length && largeCanvasDetail.lodMode === 'detail' && largeCanvasDetail.mountedNodes > 0 && largeCanvasDetail.mountedNodes < largeCanvasDetail.totalNodes && largeCanvasDetail.totalNodes === largeCanvasFixture.nodes.length && /[?&]w=(512|1024|2048)(?:&|$)/.test(largeCanvasDetail.imageSource),
         accessibility: roles.includes('main') && roles.includes('group'),
         lightDesktop: desktop.theme === 'light' && desktop.minimap.width <= 200,
         darkNarrow: narrow.theme === 'dark' && !narrow.overflow && narrow.minimapWidth <= 160 && narrow.titleWidth < narrow.viewportWidth,

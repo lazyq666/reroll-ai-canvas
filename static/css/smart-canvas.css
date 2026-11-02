@@ -600,7 +600,15 @@ html[data-ui-motion="reduced"] .connection-layer .port-drag-temp { animation:non
 .canvas-lod-node-far .node-body { width:100%; height:100%; min-height:0; padding:var(--ui-space-0); overflow:hidden; }
 .canvas-lod-node-far :is(.image-name-badge,.image-metadata-badges,.smart-video-play,.node-hint,.run-time-pill) { display:none !important; }
 .canvas-lod-node-far .far-node-media { width:100%; height:100%; overflow:hidden; }
+.has-lod-transition { position:relative; }
+.has-lod-transition > .lod-transition-image { position:absolute; inset:0; width:100%; height:100%; max-width:none; max-height:none; object-fit:contain; display:block; opacity:1; z-index:2; pointer-events:none; border:0; image-rendering:pixelated; }
+.canvas-lod-node-far .far-node-image-skeleton.has-lod-transition { background:transparent; }
+.image-node .has-lod-transition:has(> img[data-media-state="loading"]) { background:transparent; }
+.far-node-image-skeleton.has-lod-transition > ic-icon { visibility:hidden; }
+.image-node .has-lod-transition:has(> img[data-media-state="loading"])::after { display:none; }
+.canvas-lod-node-far .far-node-image-skeleton { width:100%; height:100%; min-height:0; display:flex; align-items:center; justify-content:center; border-radius:inherit; background:color-mix(in srgb,var(--ui-color-action-secondary-selected-hover) 18%,transparent); color:var(--ui-color-action-secondary-selected-hover); }
 .canvas-lod-node-far .far-node-media > img { width:100%; height:100%; object-fit:cover; display:block; }
+.canvas-lod-node-far .far-node-media > .far-node-thumbnail { object-fit:contain; image-rendering:pixelated; }
 .canvas-lod-node-far .far-node-media > video { width:100%; height:100%; object-fit:contain; display:block; }
 .canvas-lod-node-far .far-node-media-grid { width:100%; max-height:var(--far-media-height); display:grid; grid-template-columns:repeat(var(--far-media-cols),var(--far-media-thumb)); gap:var(--ui-space-2); justify-content:center; align-content:start; overflow:hidden; }
 .canvas-lod-node-far .far-node-media-grid > .far-node-media { height:auto; min-width:0; display:flex; align-items:center; justify-content:center; align-self:start; border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-s); background:var(--ui-color-surface-subtle); color:var(--ui-color-text-tertiary); }
@@ -706,6 +714,9 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .layer-decomposition-stage { position:relative; width:100%; height:100%; overflow:hidden; background:transparent; pointer-events:none; user-select:none; }
 .layer-decomposition-item { position:absolute; min-width:0; min-height:0; margin:0; border:0; border-radius:0; background:transparent; overflow:visible; pointer-events:none; }
 .layer-decomposition-item > img { width:100%; height:100%; display:block; object-fit:fill; background:transparent; pointer-events:none; }
+.far-layer-stage .far-node-thumbnail { image-rendering:pixelated; }
+.far-layer-stage .far-node-image-skeleton { background:transparent; }
+.far-layer-stage .layer-decomposition-item:not(:first-child) .far-node-image-skeleton { visibility:hidden; }
 .layer-decomposition-item.is-hidden { opacity:0; }
 .image-repair-editor[hidden],.image-repair-fields[hidden] { display:none; }
 .image-repair-editor { position:absolute; inset:0; display:grid; grid-template-columns:minmax(0,1fr) 20rem; gap:var(--ui-space-6); padding:var(--ui-space-16) var(--ui-space-6) var(--ui-space-6); box-sizing:border-box; }
