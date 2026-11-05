@@ -193,6 +193,48 @@ After upgrading server code, restart the service. Reinstall/restart an installed
 to expose the new tools. Neither updating source files nor a test process upgrades an
 already-running user service or client.
 
+### Local repair / 局部修复
+
+`get_image_repair`, `update_image_repair`, and `run_image_repair` operate the existing
+Local repair feature. They prepare its red selection strokes and **Repair requirements**
+field, which remain visible and editable when you open the panel. They do not introduce
+pixel masks or a different compositing mode.
+
+1. Call `get_image_repair(node_id, image_index=0, canvas)` and inspect the image with
+   `preview_media(source=preview_source, canvas)`. Use the returned original width/height
+   for coordinates, even when the preview is smaller.
+2. Validate `update_image_repair` with `expected_revision` from that read. The default is
+   `dry_run=true`. For example, `changes` can be:
+
+   ```json
+   {
+     "strokes": [
+       {"tool": "brush", "size": 28, "points": [{"x": 280, "y": 240}, {"x": 720, "y": 240}, {"x": 720, "y": 420}, {"x": 280, "y": 420}, {"x": 280, "y": 240}]}
+     ],
+     "prompt": "Remove the highlights. Preserve the eye colors and positions."
+   }
+   ```
+
+3. Save with `dry_run=false`, the same revision and a stable `idempotency_key`, then read
+   independently again. The panel's existing geometry computes the green crop frame
+   when opened or executed. Optional fields: `model:{provider_id,model}`, `aspect_ratio`,
+   `resolution_tier`, `count`, `transparent_png`. Omitted fields are preserved; an empty
+   strokes list clears the selection. A rectangle uses two `{x,y}` corners. Limits:
+   64 strokes, 16384 points total, brush diameter 1–500 original pixels.
+4. Only when generation is requested, call `run_image_repair` with the latest revision
+   and a separate stable idempotency key. It requires `run` scope and an open canvas
+   editor under the same account; the existing confirmation preference still applies.
+5. Read `get_image_repair.run_requests` for request state and `output_node_ids`; pass
+   those IDs to `get_task_status` / `download_outputs`. Saved output slots prevent a
+   reclaimed request from creating another set. A slot left before submission after
+   an editor interruption may need manual retry; reusing the same key never reruns it.
+
+中文：先读取原图与版本，按原图像素写入圈选和修复要求，校验后保存；用户可打开原面板继续编辑。
+准备不会生成。显式运行后沿用现有裁剪、生成和羽化贴回；原图或草稿已变化时拒绝旧请求。
+HTTP and state ownership are documented in the
+[local repair specification](../../docs/active/2026-09-24-local-image-repair.md#agent-接入现有局部修复2026-11-04).
+Server and installed bridge upgrades/restarts are required to expose these tools.
+
 Tests:
 
 ```sh

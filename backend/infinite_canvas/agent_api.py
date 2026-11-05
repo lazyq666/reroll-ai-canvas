@@ -253,6 +253,8 @@ class AgentAPI:
         self.image_runs, self.compile_image = image_runs, compile_image
         from .agent_image_runs import AgentImageRuns
         self.direct_images = AgentImageRuns(self)
+        from .agent_image_repairs import AgentImageRepairs
+        self.image_repairs = AgentImageRepairs(self)
         self.contexts = {}
         self.writes = defaultdict(deque)
         self._databases = set()
@@ -1713,7 +1715,26 @@ class AgentAPI:
                 node = next(
                     (n for n in canvas["nodes"] if n["id"] == row["node_id"]), None
                 )
-                if not node or task_state(node) != "draft":
+                repair = row.get("image_repair")
+                repair_ready = False
+                if repair:
+                    outputs = self.image_repairs.output_ids(canvas, row["id"])
+                    if outputs:
+                        # Persisted output slots precede Provider submission. A
+                        # reclaimed lease must never create/charge a second set.
+                        row.update(state="submitted", output_node_ids=outputs)
+                    else:
+                        try:
+                            self.image_repairs.run_snapshot(canvas, row["node_id"], {
+                                "image_index": repair["image_index"],
+                                "expected_revision": repair["expected_revision"],
+                            })
+                            repair_ready = True
+                        except AgentError as error:
+                            row.update(state="failed", error=error.code)
+                if repair and not repair_ready:
+                    pass
+                elif not node or not repair and task_state(node) != "draft":
                     row["state"] = "submitted" if node else "failed"
                 else:
                     active = sum(
@@ -1742,6 +1763,8 @@ class AgentAPI:
                             else "editor_validation_failed"
                         ),
                     )
+                    if row.get("image_repair"):
+                        row["output_node_ids"] = self.image_repairs.output_ids(canvas, row["id"])
             response = {
                 # Renewal/report acknowledgements may arrive after the editor's
                 # run finishes. They carry state, never permission to execute.
@@ -1755,6 +1778,8 @@ class AgentAPI:
                     row["state"] == "claimed"
                     and row["client_id"] == session.client_id
                 )
+                if response["claimed"] and row.get("image_repair"):
+                    response["image_repair"] = copy.deepcopy(row["image_repair"])
         await self.sync._notifier.send_canvas_message(session.websocket, response)
 
     def install(self, app):
@@ -1884,6 +1909,8 @@ class AgentAPI:
             except CanvasSyncError:
                 raise AgentError("forbidden", status=403)
 
+        self.image_repairs.install(app, read_canvas)
+
         def reference_targets(request, body, canvas_id=None):
             if set(body) != {"reference"}:
                 raise AgentError("invalid_node_reference")
@@ -1923,8 +1950,10 @@ class AgentAPI:
                 targets.append(detail)
             return {**reference, "canvas_revision": document.get("revision", 0), "nodes": targets}
 
+        # Keep synchronous read projections in FastAPI's worker pool: polling a
+        # large Canvas must not block the event loop serving local image bytes.
         @app.get(prefix + "/canvases/{canvas_id}")
-        async def get_canvas(
+        def get_canvas(
             canvas_id: str,
             request: Request,
             role: str = "",
@@ -2190,7 +2219,7 @@ class AgentAPI:
                 if not meta or meta["token_id"] != request.state.agent_token["id"]:
                     raise AgentError("forbidden", status=403)
                 targets = set(meta["result"]["task_ids"])
-                if any(
+                if meta["result"].get("kind") != "image_repair" and any(
                     task_state(n) != "draft"
                     for n in canvas["nodes"]
                     if n["id"] in targets
@@ -2221,7 +2250,7 @@ class AgentAPI:
                 raise AgentError("undo_conflict", status=409)
 
         @app.get(prefix + "/canvases/{canvas_id}/tasks")
-        async def tasks(
+        def tasks(
             canvas_id: str,
             request: Request,
             submission_id: str = "",
@@ -2287,6 +2316,9 @@ class AgentAPI:
                 or len(set(ids)) != len(ids)
             ):
                 raise AgentError("invalid_task_count")
+            repair_spec = body.get("image_repair")
+            if "image_repair" in body and (not isinstance(repair_spec, dict) or len(ids) != 1):
+                raise AgentError("invalid_repair_request")
             with self.data() as state:
                 self.refresh_runs(state)
                 existing = [
@@ -2300,7 +2332,8 @@ class AgentAPI:
                     return {"canvas": self.identity(canvas), "requests": existing}
                 for nid in ids:
                     n = next((n for n in canvas["nodes"] if n["id"] == nid), None)
-                    if (
+                    repair = self.image_repairs.run_snapshot(canvas, nid, repair_spec) if repair_spec is not None else None
+                    if not repair and (
                         not n
                         or task_state(n) != "draft"
                         or not n.get("referenceGenerationKind")
@@ -2333,6 +2366,7 @@ class AgentAPI:
                         "lease_until": 0,
                         "client_id": "",
                         "error": "",
+                        **({"image_repair": repair} if repair else {}),
                     }
             items = self.run_items(actor(request), canvas_id)
             await self.notice(

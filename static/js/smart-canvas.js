@@ -7000,34 +7000,6 @@ function restoreMediaPlaybackState(media, state){
     if(media.readyState >= 1) applyTime();
     else media.addEventListener('loadedmetadata', applyTime, {once:true});
 }
-function transplantSmartLodImages(oldNodeEl, newNodeEl){
-    if(oldNodeEl.dataset.id !== newNodeEl.dataset.id) return;
-    const imagesByInstance = new Map();
-    const entries = nodeEl => [...nodeEl.querySelectorAll('.thumb-item,.image-wrap,.far-node-media')]
-        .flatMap(item => {
-            const image = item.querySelector('img[data-original-src]:not([data-preview-kind="video"])');
-            if(!image) return [];
-            const key = JSON.stringify([
-                item.dataset.refNodeId || nodeEl.dataset.id,
-                item.dataset.refImageIndex ?? item.dataset.imageIndex ?? '0',
-                image.dataset.originalSrc
-            ]);
-            return [{key,image}];
-        });
-    entries(oldNodeEl).forEach(({key,image}) => imagesByInstance.set(key,image));
-    entries(newNodeEl).forEach(({key,image:fresh}) => {
-        const image = imagesByInstance.get(key);
-        if(!image) return;
-        imagesByInstance.delete(key);
-        image.className = fresh.className;
-        image.style.cssText = fresh.style.cssText;
-        image.draggable = false;
-        image.alt = fresh.getAttribute('alt') || '';
-        // Preserve src, decode/load listeners and mediaState across LOD changes.
-        // Adaptive resolution upgrades/downgrades the visible image separately.
-        fresh.replaceWith(image);
-    });
-}
 function transplantSmartMediaElements(oldNodeEl, newNodeEl){
     const oldItems = [...(oldNodeEl?.querySelectorAll?.('.thumb-item,.image-wrap') || [])];
     const newItems = [...(newNodeEl?.querySelectorAll?.('.thumb-item,.image-wrap') || [])];
@@ -8379,7 +8351,7 @@ function layerDecompositionNodeBodyHtml(node){
         const width = base ? 100 : Math.max(0, (Number(bbox[2]) || 0) - (Number(bbox[0]) || 0)) / canvasWidth * 100;
         const height = base ? 100 : Math.max(0, (Number(bbox[3]) || 0) - (Number(bbox[1]) || 0)) / canvasHeight * 100;
         const image = imageForDisplay(item.media);
-        return `<div class="layer-decomposition-item${item.hidden ? ' is-hidden' : ''}" aria-hidden="true" style="left:${left}%;top:${top}%;width:${width}%;height:${height}%;z-index:${base ? 0 : Number(item.z_index)||0}">${smartPreviewImgHtml(image, 512, 'draggable="false" aria-hidden="true"')}</div>`;
+        return `<div class="layer-decomposition-item${item.hidden ? ' is-hidden' : ''}" data-layer-key="${escapeAttr(item.id || item.media.url)}" aria-hidden="true" style="left:${left}%;top:${top}%;width:${width}%;height:${height}%;z-index:${base ? 0 : Number(item.z_index)||0}">${smartPreviewImgHtml(image, 512, 'draggable="false" aria-hidden="true"')}</div>`;
     }).join('');
     const label = tr('smart.layerDecomposition');
     return `<span class="image-name-badge image-name-badge-outside" data-image-name="1" title="${escapeAttr(label)}"><ic-icon name="layers" size="x-small" aria-hidden="true"></ic-icon><span class="image-name-badge-copy" data-i18n="smart.layerDecomposition">${escapeHtml(label)}</span></span><div class="layer-decomposition-stage">${images}</div>`;
@@ -8523,8 +8495,24 @@ function nodeBodyHtml(node, layout){
             : 'image/*,video/*,audio/*,.png,.jpg,.jpeg,.webp,.gif,.mp4,.webm,.mov,.m4v,.mp3,.wav,.m4a,.aac,.ogg,.flac';
     return `<ic-upload-surface class="node-drop" data-upload-action="files" shape="node" label="${escapeAttr(tr('smart.createImportNode'))}" title="${escapeAttr(tr('smart.uploadNodeTitle'))}" hint="${escapeAttr(tr('smart.uploadNodeHint'))}" accept="${escapeAttr(uploadAccept)}" max-files="${SMART_UPLOAD_MAX}" max-size="${SMART_UPLOAD_MAX_BYTES}" multiple></ic-upload-surface>`;
 }
+function farThumbnailUrl(image){
+    const raw = smartOriginalMediaUrl(image);
+    return raw.startsWith('/assets/') || raw.startsWith('/api/storage-files/') ? `/api/media-preview?w=64&url=${encodeURIComponent(raw)}` : '';
+}
 function farNodeBodyHtml(node, layout){
-    if(nodeKinds.isLayerDecomposition(node)) return layerDecompositionNodeBodyHtml(node);
+    if(nodeKinds.isLayerDecomposition(node)) {
+        const manifest = node.layerDecompositionManifest || {};
+        const w = Math.max(1, Number(manifest.canvas_width) || 1), h = Math.max(1, Number(manifest.canvas_height) || 1);
+        const layers = (node.layerDecompositionItems || []).filter(item => !item.hidden && item.media?.url).map(item => {
+            const bbox = item.absolute_bbox || [], base = item.role === 'base';
+            return {left:base ? 0 : Math.max(0, Number(bbox[0]) || 0) / w * 100,
+                top:base ? 0 : Math.max(0, Number(bbox[1]) || 0) / h * 100,
+                width:base ? 100 : Math.max(0, (Number(bbox[2]) || 0) - (Number(bbox[0]) || 0)) / w * 100,
+                height:base ? 100 : Math.max(0, (Number(bbox[3]) || 0) - (Number(bbox[1]) || 0)) / h * 100,
+                z:base ? 0 : Number(item.z_index) || 0, key:item.id || item.media.url, thumbnail:farThumbnailUrl(imageForDisplay(item.media))};
+        });
+        return canvasFarPresentation.render({kind:'image', layout, layers, media:{kind:'image'}});
+    }
     const frame = smartContainer.isFrame(node);
     const groupLayout = node.type === 'smart-group'
         ? smartContainer.thumbLayout(node)
@@ -8562,10 +8550,8 @@ function farNodeBodyHtml(node, layout){
     const mediaKind = image
         ? (isAudioMediaItem(image) ? 'audio' : isVideoMediaItem(image) ? 'video' : 'image')
         : '';
-    const mediaMarkup = image && mediaKind !== 'audio'
-        ? mediaKind === 'video'
-            ? smartVideoPreviewHtml(image, 512, 'class="node-img" alt=""')
-            : smartPreviewImgHtml(image, 512, 'class="node-img" draggable="false"')
+    const mediaMarkup = image && mediaKind === 'video'
+        ? smartVideoPreviewHtml(image, 512, 'class="node-img" alt=""')
         : '';
     return canvasFarPresentation.render({
         kind:role,
@@ -8574,17 +8560,19 @@ function farNodeBodyHtml(node, layout){
         group:{count:groupRefs.length,columns:groupLayout?.cols},
         media:{
             kind:mediaKind,
+            thumbnail:mediaKind === 'image' ? farThumbnailUrl(image) : '',
             markup:mediaMarkup,
             signature:image ? `${mediaKindForItem(image)}:${image.url || ''}` : '',
             items:images.length > 1 ? images.map((item, index) => ({
                 index,
                 selected:selectedImage.nodeId === node.id && selectedImage.index === index,
                 kind:mediaKindForItem(item),
+                thumbnail:mediaKindForItem(item) === 'image' ? farThumbnailUrl(item) : '',
                 signature:`${mediaKindForItem(item)}:${item.url}`,
                 aspectRatio:mediaAspectRatio(item),
-                markup:isAudioMediaItem(item) ? '' : isVideoMediaItem(item)
+                markup:isVideoMediaItem(item)
                     ? smartVideoPreviewHtml(item, 512, 'class="node-img" alt=""')
-                    : smartPreviewImgHtml(item, 512, 'class="node-img" draggable="false"')
+                    : ''
             })) : []
         },
         labels:{
@@ -9935,12 +9923,9 @@ function render(options={}){
         } else if(existing){
             const sameLodMode = existing.classList.contains('canvas-lod-node-far')
                 === fresh.classList.contains('canvas-lod-node-far');
+            if(!sameLodMode) canvasFarPresentation.bridgeTransition(existing, fresh);
             if(reusableNodes.has(entry.node.id) && sameLodMode){
                 transplantSmartMediaElements(existing, fresh);
-            } else if(reusableNodes.has(entry.node.id)){
-                // Video/audio deliberately lose their players in far mode.
-                // Only the same static-image instance crosses this boundary.
-                transplantSmartLodImages(existing, fresh);
             }
             existing.replaceWith(fresh);
         }
@@ -9953,6 +9938,7 @@ function render(options={}){
             .find(candidate => candidate.isConnected);
         world.insertBefore(element,nextConnected || null);
     });
+    canvasFarPresentation.queueThumbnails(world);
     restoreMediaPlaybackStates(mediaStates);
     bindNodeEvents();
     if(focusedPromptNodeId){
@@ -11784,6 +11770,8 @@ function bindNodeEvents(){
             if(target) smartPlaybackBindMedia(media, target.nodeId, target.imageIndex);
         });
         el.querySelectorAll('.thumb-item,.image-wrap,.far-node-media').forEach(item => {
+            // A layer composite keeps its node-level editor gesture in far mode.
+            if(nodeKinds.isLayerDecomposition(nodeForControls)) return;
             const thumbTarget = () => {
                 const targetNodeId = item.dataset.refNodeId || id;
                 const imageIndex = Number(item.dataset.refImageIndex ?? item.dataset.imageIndex ?? 0);

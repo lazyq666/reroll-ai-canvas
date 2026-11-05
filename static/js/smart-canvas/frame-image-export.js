@@ -71,6 +71,20 @@
         }
         return {glyphs,font:style.font, color:style.color, direction:style.direction};
     }
+    function fitFilename(element){
+        if(element.scrollWidth <= element.clientWidth) return;
+        const segments=Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(element.textContent),item=>item.segment);
+        const range=document.createRange();
+        let low=0,high=segments.length;
+        while(low<high){
+            const count=Math.ceil((low+high)/2);
+            element.textContent=segments.slice(0,count).join('')+'…';
+            range.selectNodeContents(element);
+            if(range.getBoundingClientRect().width<=element.clientWidth) low=count;
+            else high=count-1;
+        }
+        element.textContent=segments.slice(0,low).join('')+'…';
+    }
     async function measure(snapshot,signal){
         const host = document.createElement('div');
         host.className = 'world smart-frame-export-measure';
@@ -91,6 +105,7 @@
                 template.content.querySelectorAll('img').forEach(img => {
                     img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/%3E';
                     img.style.visibility = 'hidden';
+                    img.removeAttribute('data-media-state');
                 });
                 template.content.querySelectorAll('.selected,.image-selected,.dragging').forEach(el => el.classList.remove('selected','image-selected','dragging'));
                 host.replaceChildren(template.content);
@@ -128,6 +143,18 @@
                         r.width -= left+(parseFloat(is.borderRightWidth)||0);
                         r.height -= top+(parseFloat(is.borderBottomWidth)||0);
                         plan.commands.push({kind:'image',url,rect:r,fit:is.objectFit,position:is.objectPosition,radius:parseFloat(is.borderTopLeftRadius)||0,clips:clipsFor(img,node,origin)});
+                        const badge=slot.querySelector('.image-name-badge');
+                        const label=badge?.querySelector('.image-name-badge-copy');
+                        const name=badge?.querySelector('.image-name-badge-name')?.textContent;
+                        if(label && name){
+                            // Keep the production filename position, without import/generation chrome.
+                            label.textContent=name;
+                            badge.replaceChildren(label);
+                            const labelStyle=getComputedStyle(label);
+                            for(const key of ['font','color','letterSpacing','lineHeight','whiteSpace','direction']) label.style[key]=labelStyle[key];
+                            texts.push({node,element:label,plan,font:labelStyle.font,filename:true,
+                                clips:[{rect:rectOf(label,origin),radius:0},...clipsFor(label,node,origin)]});
+                        }
                     });
                 }
                 plans.push(plan);
@@ -138,7 +165,8 @@
                 catch(error){ if(error.code) throw error; throw fail('font'); }
                 check(signal);
                 host.replaceChildren(item.node);
-                item.plan.commands.push({kind:'text',...textPlan(item.element,item.node.getBoundingClientRect())});
+                if(item.filename) fitFilename(item.element);
+                item.plan.commands.push({kind:'text',...textPlan(item.element,item.node.getBoundingClientRect()),clips:item.clips});
             }
         } finally { host.remove(); }
         return plans.sort((a,b) => a.z-b.z || a.order-b.order);
@@ -219,6 +247,7 @@
                                 ctx.strokeStyle=command.color; ctx.lineWidth=command.width; ctx.globalAlpha=command.opacity;
                                 ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(new Path2D(command.path));
                             } else if(command.kind==='text'){
+                                (command.clips||[]).forEach(clip=>clipRect(ctx,clip.rect,clip.radius));
                                 ctx.font=command.font; ctx.fillStyle=command.color; ctx.direction=command.direction;
                                 ctx.textAlign='left'; ctx.textBaseline='alphabetic';
                                 const metrics=ctx.measureText('Mg');

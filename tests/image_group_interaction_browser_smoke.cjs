@@ -97,11 +97,11 @@ test('Image group selection, deletion and split', async t => {
         await page.keyboard.press('Delete');
         assert.deepEqual(await state(), []);
     });
-    await t.test('Far-view thumbnails keep single-image selection and deletion through zoom changes', async () => {
+    await t.test('Far-view skeletons keep single-image selection and deletion through zoom changes', async () => {
         await install(4);
         const before = await state();
         await page.evaluate(() => {
-            viewport = {x:50,y:50,scale:0.2};
+            viewport = {x:50,y:50,scale:0.18};
             window.SmartCanvasModules.viewportSelection.viewport.apply({persist:false});
             render();
         });
@@ -111,7 +111,7 @@ test('Image group selection, deletion and split', async t => {
         assert.deepEqual(await page.evaluate(() => selectedImage), {nodeId:'image-group',index:1});
         assert.equal(await host.locator('.far-node-media.image-selected').count(), 1);
         assert.equal(await host.evaluate(node => getComputedStyle(node,'::before').content), 'none');
-        for(const scale of [1,0.2]){
+        for(const scale of [1,0.18]){
             await page.evaluate(scale => {
                 viewport.scale = scale;
                 window.SmartCanvasModules.viewportSelection.viewport.apply({persist:false});

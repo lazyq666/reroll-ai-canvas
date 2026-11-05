@@ -76,19 +76,20 @@ class SmartCanvasLevelOfDetailTests(unittest.TestCase):
             3,
         )
         self.assertIn('class="far-node-media"', result["media"])
-        self.assertIn('data-preview-size="512"', result["media"])
+        self.assertIn('far-node-image-skeleton', result["media"])
+        self.assertNotIn('<img', result["media"])
 
     def test_default_threshold_keeps_mode_stable_inside_five_percent_gap(self):
         result = run_level_of_detail(
             """
             lod.reset({scale:1});
-            const states = [0.22, 0.23, 0.24, 0.28, 0.29]
+            const states = [0.20, 0.199, 0.20, 0.24, 0.25, 0.251]
                 .map(scale => lod.update(scale).mode);
             process.stdout.write(JSON.stringify(states));
             """
         )
 
-        self.assertEqual(result, ["far", "far", "far", "far", "detail"])
+        self.assertEqual(result, ["detail", "far", "far", "far", "far", "detail"])
 
     def test_custom_thresholds_are_clamped_and_keep_fixed_exit_gap(self):
         result = run_level_of_detail(
@@ -123,9 +124,9 @@ class SmartCanvasLevelOfDetailTests(unittest.TestCase):
     def test_disabling_far_mode_returns_detail_and_invalidates_late_resources(self):
         result = run_level_of_detail(
             """
-            lod.reset({scale:0.2});
+            lod.reset({scale:0.18});
             const before = lod.diagnostics();
-            const after = lod.configure({enabled:false, scale:0.2});
+            const after = lod.configure({enabled:false, scale:0.18});
             process.stdout.write(JSON.stringify({before, after}));
             """
         )

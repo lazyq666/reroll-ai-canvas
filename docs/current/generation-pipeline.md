@@ -84,6 +84,14 @@ Request，仍可正常领取。代表性回归为 `tests/agent_editor_contract.t
 `tests/test_agent_api.py` 与 `tests/agent_run_renewal_browser_smoke.cjs`：20 个任务完成后收到
 7 条迟到续约回复及重连重播，保存刷新后仍为 20 次生成、20 个结果节点。
 
+局部修复请求是该领取协议的单图片扩展：`image_repair` 冻结来源图片、草稿和版本，领取及裁剪
+提交前复核。编辑端调用 `imageRepair.runDraft`，与面板共用裁剪准备和 `generationRun.processor`，
+不读取当前 Composer 或另建 Provider 通路。结果节点保存 `agentRepairRequestId`；领取恢复若已存在
+对应输出节点就回读它们，不创建第二批。节点保存后、真正提交前的中断允许用户检查并手工重试，
+不自动重新生成。离线不转换成独立的本地运行意图。源图保持不变，输出状态与可下载结果继续归属
+实际结果节点；`get_image_repair` 返回请求状态及结果节点 ID。来源、草稿或能力变化会使旧请求失败。
+范围与验收见[局部修复 Agent 扩展](../active/2026-09-24-local-image-repair.md#agent-接入现有局部修复2026-11-04)。
+
 范围与尚待实机验收项见 [F17 规格](../active/2026-10-17-agent-mcp-canvas-authoring-spec.md)。
 
 ## 3. 关键名词翻译

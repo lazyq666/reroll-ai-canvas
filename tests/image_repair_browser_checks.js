@@ -69,7 +69,7 @@ window.runImageRepairChecks = async function(){
         assert(!wheel.defaultPrevented,'prompt retains native scrolling');
         assert(!document.querySelector('[data-i18n="smart.repair.presetsHint"],[data-i18n="smart.repair.resizeHint"]'),'removed helper copy');
         window.StudioI18n.set('en');
-        assert($('Presets').firstElementChild.textContent==='Hand anatomy / extra fingers','preset language switch');
+        assert($('Presets').firstElementChild.textContent==='Malformed hands','preset language switch');
         assert($('Settings').getAttribute('adaptive-label')==='Auto frame','picker language switch');
         assert(window.SmartCanvasModules.modelCapabilities.errorMessage({code:'repair_aspect_mismatch'}).includes('It was not cropped or applied'),'English aspect failure');
         window.StudioI18n.set('zh');

@@ -26,45 +26,90 @@
     const settled = () => firstImages().every(img => img?.complete && img.naturalWidth > 0
         && img.dataset.mediaState === 'ready' && Number(getComputedStyle(img).opacity) === 1);
     const exercise = async scales => {
-        const originals = firstImages();
-        check(originals.every(Boolean), 'All eight images must be mounted before the test');
-        const badFrames = [];
-        let running = true, frameCount = 0;
-        const sample = () => {
-            frameCount++;
-            const images = firstImages();
-            if(images.some(img => !img || !img.complete || !img.naturalWidth
-                || Number(getComputedStyle(img).opacity) < .999)) {
-                badFrames.push(images.map(img => img ? {state:img.dataset.mediaState,
-                    opacity:Number(getComputedStyle(img).opacity), complete:img.complete} : null));
+        for(const scale of scales) {
+            zoom(scale);
+            await until(() => !smartCanvasDetailRecoveryFrame, 'Recovery batches did not finish');
+            if(scale < .20) {
+                await until(() => world.querySelectorAll('.image-node.canvas-lod-node-far').length >= 8, 'Far nodes did not render');
+                check(firstImages().every(img => !img), 'Far image nodes must release their images');
+                check(world.querySelectorAll('.far-node-image-skeleton').length >= 9, 'Far image skeletons missing');
+            } else {
+                await until(settled, 'Detail images did not recover');
+                check(new Set(firstImages()).size === 8, 'Repeated URLs must keep separate media instances');
             }
-            if(running) requestAnimationFrame(sample);
-        };
-        requestAnimationFrame(sample);
-        for(const scale of scales) { zoom(scale); await sleep(scales.length > 1 ? 45 : 400); }
-        await sleep(400);
-        await until(() => frameCount >= 10 && !smartCanvasDetailRecoveryFrame,
-            'The browser did not finish painting the recovery batches');
-        running = false;
-        const replaced = originals.filter((img,i) => img !== firstImages()[i]).length;
-        check(frameCount > 5, 'The browser must paint enough frames to observe the transition');
-        check(badFrames.length === 0 && replaced === 0,
-            `${badFrames.length} faded/blank frames; ${replaced} images replaced; first=${JSON.stringify(badFrames[0])}`);
-        check(new Set(firstImages()).size === 8, 'Duplicate URLs must keep separate media instances');
-        return {frameCount, fadedFrames:badFrames.length, replaced};
+        }
+        return {scales, restored:scales.at(-1) >= .20};
     };
     try {
         await until(() => window.SmartCanvasModules?.canvasPersistence?.status().state === 'ready', 'Canvas failed to initialize');
         zoom(.35);
         await until(settled, 'Initial images did not become visible');
-        await test('detail to far: eight nodes and repeated media URL', () => exercise([.2]));
-        await until(settled, 'Far images did not settle');
+        await test('thresholds: below 20% enters, above 25% restores', async () => {
+            const observed = [];
+            for(const [scale, mode] of [[.20,'detail'],[.199,'far'],[.20,'far'],[.24,'far'],[.25,'far'],[.251,'detail']]) {
+                zoom(scale);
+                await until(() => !smartCanvasDetailRecoveryFrame, 'Threshold recovery did not finish');
+                check(canvasLevelOfDetail.diagnostics().mode === mode, `Wrong LOD at ${scale}`);
+                if(mode === 'far') check(firstImages().every(img => !img), 'Threshold transition retained images');
+                else await until(settled, 'Threshold transition did not restore images');
+                observed.push({scale, mode});
+            }
+            return {observed};
+        });
+        await test('new far image requests no bitmap until zoomed in', async () => {
+            const url = '/static/images/test/fixture.svg?far-cold-image';
+            const host = () => world.querySelector('[data-id="lod-cold-image"]');
+            zoom(.18);
+            nodes.push({id:'lod-cold-image',type:'smart-image',x:100,y:100,w:240,h:360,
+                images:[{url,kind:'image',natural_w:240,natural_h:360}]});
+            try {
+                render();
+                await until(() => host()?.querySelector('.far-node-image-skeleton'), 'New far skeleton did not mount');
+                await sleep(100);
+                check(!host().querySelector('img'), 'New far node mounted a bitmap');
+                check(!performance.getEntriesByType('resource').some(entry => entry.name.includes('far-cold-image')), 'New far node requested its image');
+                const farWidth = host().style.width, farHeight = host().style.height;
+                zoom(.35);
+                await until(() => host()?.querySelector('img')?.naturalWidth > 0, 'New image did not load on zoom in');
+                check(host().style.width === farWidth && host().style.height === farHeight, 'Zoom changed stored node geometry');
+                return {farImageRequests:0, restored:true};
+            } finally {
+                nodes.splice(nodes.findIndex(node => node.id === 'lod-cold-image'),1);
+                zoom(.35); render();
+                await until(settled, 'Fixture did not recover');
+            }
+        });
+        await test('layer composite releases layers in far mode and restores them on zoom', async () => {
+            const host = () => world.querySelector('[data-id="lod-layers"]');
+            nodes.push({id:'lod-layers',type:'smart-layer-decomposition',x:100,y:100,w:240,h:360,
+                images:[{url:'/static/images/test/fixture.svg?layer-base',kind:'image',natural_w:240,natural_h:360}],
+                layerDecompositionManifest:{canvas_width:240,canvas_height:360},
+                layerDecompositionItems:[{role:'base',z_index:0,media:{url:'/static/images/test/fixture.svg?layer-base'}}]});
+            try {
+                zoom(.35); render();
+                await until(() => host()?.querySelector('.layer-decomposition-stage img')?.naturalWidth > 0, 'Composite did not load');
+                zoom(.18);
+                await until(() => host()?.querySelector('.far-node-image-skeleton'), 'Composite skeleton did not mount');
+                check(!host().querySelector('img'), 'Composite retained its layer images');
+                const originalSelection = {...selectedImage};
+                host().querySelector('.far-node-image-skeleton').click();
+                check(selectedImage.nodeId === originalSelection.nodeId && selectedImage.index === originalSelection.index, 'Composite skeleton acquired ordinary image selection');
+                zoom(.35);
+                await until(() => host()?.querySelector('.layer-decomposition-stage img')?.naturalWidth > 0, 'Composite did not recover');
+            } finally {
+                nodes.splice(nodes.findIndex(node => node.id === 'lod-layers'),1);
+                zoom(.35); render();
+                await until(settled, 'Fixture did not recover');
+            }
+        });
+        await test('detail to far: eight nodes and repeated media URL', () => exercise([.18]));
+        check(firstImages().every(img => !img), 'Far images must be unmounted');
         await test('far to detail: more than one recovery batch', () => exercise([.35]));
         await test('multi-image first instance stays distinct', () => {
             const images = [...world.querySelectorAll('.image-node[data-id="lod-0"] img[data-original-src]')];
             check(images.length === 2 && images[0] !== images[1], 'Multi-image instances collapsed');
         });
-        await test('image group keeps every visible thumbnail across both LOD directions', async () => {
+        await test('image group replaces every visible thumbnail with a skeleton and restores it', async () => {
             const group = () => world.querySelector('[data-id="lod-image-group"]');
             const images = () => [...group().querySelectorAll('img[data-original-src]')];
             nodes.push({id:'lod-image-group',type:'smart-image',x:100,y:100,w:720,h:560,
@@ -74,28 +119,34 @@
                 zoom(.35); render();
                 await until(() => group() && images().length === 10 && images().every(img => img.dataset.mediaState === 'ready'
                     && img.naturalWidth > 0 && Number(getComputedStyle(img).opacity) === 1), 'Ten-image group did not load');
-                const originals = images();
                 for(const theme of ['light','dark']) {
                     window.StudioTheme.apply(theme);
-                    for(const scale of [.2,.35,.2,.35]) {
+                    for(const scale of [.18,.35,.18,.35]) {
                         zoom(scale);
-                        await until(() => group().classList.contains(scale === .2 ? 'canvas-lod-node-far' : 'canvas-lod-node-detail'), 'Group LOD did not update');
+                        await until(() => group().classList.contains(scale === .18 ? 'canvas-lod-node-far' : 'canvas-lod-node-detail'), 'Group LOD did not update');
                         await until(() => !smartCanvasDetailRecoveryFrame, 'Group recovery did not finish');
-                        check(images().length === 10, 'Image group collapsed to its first image');
-                        images().forEach((img,i) => {
-                            check(img === originals[i], 'An existing thumbnail was replaced during zoom');
-                            check(img.naturalWidth > 0 && Number(getComputedStyle(img).opacity) === 1, 'A thumbnail became blank');
-                        });
-                        if(scale === .2) {
+                        if(scale === .35) {
+                            await until(() => images().length === 10 && images().every(img => img.naturalWidth > 0 && img.dataset.mediaState === 'ready'), 'Group images did not recover');
+                            images().forEach((img,i) => check(img.dataset.originalSrc.endsWith(`group=${i}`), 'Restored image order changed'));
+                        } else {
+                            check(images().length === 0, 'Far group retained real images');
+                            check(group().querySelectorAll('.far-node-image-skeleton').length === 10, 'Far group skeletons missing');
+                        }
+                        if(scale === .18) {
                             const cells = [...group().querySelectorAll('.far-node-media')];
                             check(cells.length === 10, 'Far mode did not preserve all media positions');
                             check(cells[1].getBoundingClientRect().left > cells[0].getBoundingClientRect().left, 'Far media lost its columns');
                             check(cells.every(cell => cell.getBoundingClientRect().width > 0 && cell.getBoundingClientRect().height > 0), 'Far thumbnail has no size');
+                            check(cells.every(cell => {
+                                const rect = cell.querySelector('.far-node-image-skeleton').getBoundingClientRect();
+                                const outer = cell.getBoundingClientRect();
+                                return rect.width >= outer.width - 1 && rect.height >= outer.height - 1;
+                            }), 'Skeleton does not fill its media cell');
                             check(!group().querySelector('video,audio,button,.image-name-badge'), 'Far grid retained detailed controls');
                         }
                     }
                 }
-                return {images:10, replacements:0, themes:['light','dark']};
+                return {restoredImages:10, farSkeletons:10, themes:['light','dark']};
             } finally {
                 nodes.splice(nodes.findIndex(node => node.id === 'lod-image-group'),1);
                 window.StudioTheme.apply('light'); render();
@@ -106,7 +157,7 @@
                 images:Array.from({length:10}, (_,i) => ({url:`/static/images/test/fixture.svg?compact=${i}`,
                     kind:'image',natural_w:100,natural_h:100}))});
             try {
-                zoom(.2); render();
+                zoom(.18); render();
                 await until(() => world.querySelector('[data-id="lod-compact-group"] .far-node-media-grid'), 'Compact group did not render');
                 const cells = [...world.querySelectorAll('[data-id="lod-compact-group"] .far-node-media')];
                 check(cells.length > 1 && cells.length < 10, 'Compact group must retain multiple visible images and cull hidden rows');
@@ -118,13 +169,20 @@
             }
         });
         await until(settled, 'Detail images did not settle');
-        await test('rapid reversals reject stale presentation work', () => exercise([.2,.35,.2,.35,.2,.35]));
-        await test('dark theme preserves the same images in both directions', async () => {
+        await test('rapid reversals reject stale presentation work', async () => {
+            for(const scale of [.18,.35,.18,.35,.18,.35]) { zoom(scale); await sleep(15); }
+            await until(settled, 'Images did not recover after rapid zoom');
+            await exercise([.18]);
+            await sleep(300);
+            check(firstImages().every(img => !img), 'Late image loads escaped the far skeletons');
+            return exercise([.35]);
+        });
+        await test('dark theme restores images after far skeletons', async () => {
             const theme = window.StudioTheme.get();
             try {
                 window.StudioTheme.apply('dark');
                 await until(settled, 'Theme update did not settle');
-                return await exercise([.2,.35]);
+                return await exercise([.18,.35]);
             } finally { window.StudioTheme.apply(theme); }
         });
         await test('language switching keeps both LOD presentations usable', async () => {
@@ -133,27 +191,13 @@
                 window.StudioI18n.set('en');
                 await until(settled, 'English presentation did not settle');
                 check(document.documentElement.lang === 'en', 'English UI did not apply');
-                const english = await exercise([.2,.35]);
+                const english = await exercise([.18,.35]);
                 window.StudioI18n.set('zh');
                 await until(settled, 'Chinese presentation did not settle');
                 check(document.documentElement.lang === 'zh-CN', 'Chinese UI did not apply');
-                const chinese = await exercise([.2,.35]);
+                const chinese = await exercise([.18,.35]);
                 return {english, chinese};
             } finally { window.StudioI18n.set(language); }
-        });
-        await test('different source, index and video posters cannot be transplanted as the same image', () => {
-            const shellFor = (index, url, video=false) => {
-                const el = document.createElement('div'); el.dataset.id = 'identity-test';
-                el.innerHTML = `<div class="far-node-media" data-image-index="${index}">${video
-                    ? smartVideoPreviewHtml(url) : smartPreviewImgHtml(url)}</div>`;
-                return el;
-            };
-            const old = shellFor(0, '/static/images/test/fixture.svg');
-            const image = old.querySelector('img');
-            for(const fresh of [shellFor(1, '/static/images/test/fixture.svg'), shellFor(0, '/different.svg'), shellFor(0, '/static/images/test/fixture.svg', true)]) {
-                transplantSmartLodImages(old, fresh);
-                check(old.contains(image), 'A different media instance stole the existing image');
-            }
         });
         await test('first load still uses loading feedback', async () => {
             const host = document.createElement('div');
@@ -194,7 +238,7 @@
                 await sleep(80);
                 check(img.getAttribute('src') === initial, 'Slow upgrade removed the visible image too early');
                 await until(() => img.dataset.previewSize === '1024', 'Upgrade never applied');
-                zoom(.2); refreshSmartAdaptiveImageResolution(img);
+                zoom(.18); refreshSmartAdaptiveImageResolution(img);
                 await until(() => img.dataset.previewSize === '512', 'Far mode did not release the high-resolution source');
                 const low = img.getAttribute('src');
                 zoom(2 / (window.devicePixelRatio || 1)); refreshSmartAdaptiveImageResolution(img);
@@ -217,7 +261,7 @@
             const player = world.querySelector('[data-id="lod-video"] video');
             check(player, 'Video fixture must contain a real player');
             await until(() => player.readyState >= 1, 'Video metadata did not load');
-            zoom(.2); await sleep(150);
+            zoom(.18); await sleep(150);
             check(!player.isConnected && !world.querySelector('[data-id="lod-video"] video'), 'Far mode retained a video player');
             zoom(.35); await sleep(400);
             const restored = world.querySelector('[data-id="lod-video"] video');
@@ -231,7 +275,7 @@
                     images:[{url:'/static/images/test/fixture.svg',kind:'image',natural_w:1076,natural_h:1448}]});
                 zoom(.35); render();
                 await until(settled, 'Large canvas did not settle');
-                const continuity = await exercise([.2,.35]);
+                const continuity = await exercise([.18,.35]);
                 const mounted = world.querySelectorAll(':scope > .image-node').length;
                 check(mounted < 50 && !world.querySelector('[data-id^="offscreen-"]'), 'Offscreen nodes were materialized');
                 return {...continuity, total:nodes.length, mounted};

@@ -38,7 +38,7 @@ async function main(){
         await page.waitForFunction(()=>document.documentElement.dataset.nodesStatus==='ready' && window.SmartCanvasModules.frameImageExport);
         await page.evaluate(()=>{
             applyTheme('light');
-            const image=(id,x,y,url='/export-media/red.svg')=>({id,type:'smart-image',x,y,w:200,h:150,images:[{url,kind:'image',natural_w:400,natural_h:300}]});
+            const image=(id,x,y,url='/export-media/red.svg')=>({id,type:'smart-image',x,y,w:200,h:150,images:[{url,name:`${id} 中文角色.png`,kind:'image',natural_w:400,natural_h:300}]});
             nodes.splice(0,nodes.length,
                 {id:'export-frame',type:'smart-frame',title:'版式 / Export',x:0,y:60,w:700,h:500,frameColor:'blue',items:['red','text','brush','video','prompt','duplicate','clipped']},
                 image('red',50,150),
@@ -46,7 +46,7 @@ async function main(){
                 {id:'brush',type:'smart-brush',x:290,y:300,w:150,h:80,color:'#111111',brushSize:12,points:[[5,10],[70,50],[140,10]]},
                 {id:'video',type:'smart-image',x:520,y:150,w:100,h:100,images:[{url:'/video.mp4',kind:'video',natural_w:100,natural_h:100}]},
                 {id:'prompt',type:'smart-prompt',x:490,y:340,w:190,h:130,prompt:'MUST NOT EXPORT',text:'MUST NOT EXPORT'},
-                image('duplicate',50,390),image('clipped',640,430),image('nonmember',50,150,'/export-media/green.svg')
+                {...image('duplicate',50,390),images:[{url:'/export-media/red.svg',kind:'image',natural_w:400,natural_h:300}]},image('clipped',640,430),image('nonmember',50,150,'/export-media/green.svg')
             );
             canvas.nodes=nodes;canvas.connections=[];
             selectedId='export-frame';selectedIds=[];selectedImage={nodeId:'',index:-1};
@@ -85,6 +85,37 @@ async function main(){
             return fs.readFileSync(path.join(outputDir,name));
         };
         const before=await page.evaluate(()=>JSON.stringify({nodes,connections:canvas.connections,selectedId,selectedIds,viewport}));
+        const filenameBoxes=async()=>page.evaluate(()=>{
+            const origin=world.getBoundingClientRect();
+            const scale=new DOMMatrix(getComputedStyle(world).transform).a;
+            return [...world.querySelectorAll('[data-image-index]')].filter(slot=>{
+                const img=slot.querySelector('img');
+                return img && img.closest('.image-node')?.dataset.id!=='nonmember';
+            }).map(slot=>{
+                const badge=slot.querySelector('.image-name-badge');
+                const r=badge.getBoundingClientRect();
+                return {x:Math.round((r.left-origin.left)/scale),y:Math.round((r.top-origin.top)/scale-60),
+                    width:Math.round(r.width/scale),height:Math.round(r.height/scale)};
+            });
+        });
+        const checkFilenames=async(png,boxes,multiplier=1)=>{
+            const {data,info}=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+            for(const box of boxes){
+                const x=Math.max(0,box.x*multiplier),y=Math.max(0,box.y*multiplier);
+                const right=Math.min(info.width,(box.x+box.width)*multiplier),bottom=Math.min(info.height,(box.y+box.height)*multiplier);
+                if(right<=x || bottom<=y) continue;
+                const offset=((bottom-1)*info.width+right-1)*4;
+                const background=[...data.subarray(offset,offset+3)];
+                let ink=0;
+                for(let yy=y;yy<bottom;yy++) for(let xx=x;xx<right;xx++){
+                    const at=(yy*info.width+xx)*4;
+                    if(background.reduce((sum,value,i)=>sum+Math.abs(data[at+i]-value),0)>80) ink++;
+                }
+                assert.ok(ink>12*multiplier,`filename ink at ${box.x},${box.y} (${ink} pixels)`);
+            }
+        };
+        const singleNames=await filenameBoxes();
+        assert.equal(singleNames.length,3,'single-image filename coverage includes the URL fallback and root-clipped image');
         await open();
         await checkDialogInfo();
         assert.equal(await page.locator('#smartFrameExportDialog').getAttribute('label'),'下载分区');
@@ -94,6 +125,7 @@ async function main(){
         await page.waitForFunction(()=>document.getElementById('smartFrameExportSize').textContent==='1400 × 1000 px');
         await page.locator('#smartFrameExportScale [data-value="1"]').click();
         const png=await download('light.png');
+        await checkFilenames(png,singleNames);
         const {data,info}=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
         assert.equal(info.width,700);assert.equal(info.height,500);
         const pixel=(x,y)=>[...data.subarray((y*info.width+x)*4,(y*info.width+x)*4+4)];
@@ -112,6 +144,9 @@ async function main(){
         await open();const far=await download('far.png');assert.deepEqual(far,png,'independent of viewport and LOD');
         await open();await page.locator('#smartFrameExportScale [data-value="2"]').click();
         const twice=await download('2x.png');assert.equal((await sharp(twice).metadata()).width,1400);
+        await checkFilenames(twice,singleNames,2);
+        await page.evaluate(()=>StudioI18n.set('en'));await open();
+        assert.deepEqual(await download('english-light.png'),png,'filename output excludes localized import/generation labels');
 
         await page.evaluate(()=>applyTheme('dark'));await open();
         await page.evaluate(()=>StudioI18n.set('en'));
@@ -181,7 +216,7 @@ async function main(){
         await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').dataset.motionState==='closed');
         // Containers retain original slots and never draw excluded media or descendants twice.
         await page.evaluate(()=>{
-            const image={url:'/export-media/red.svg',kind:'image',natural_w:400,natural_h:300};
+            const image={url:'/export-media/red.svg',name:'角色造型-中文与 English.png',kind:'image',natural_w:400,natural_h:300};
             nodes.splice(0,nodes.length,
                 {id:'export-frame',type:'smart-frame',title:'版式 / Export',x:0,y:60,w:1200,h:800,frameColor:'blue',items:['nested','mixed','group']},
                 {id:'nested',type:'smart-frame',x:800,y:200,w:350,h:280,frameColor:'green',items:['child']},
@@ -195,6 +230,8 @@ async function main(){
         });
         await page.waitForFunction(()=>smartCanvasDetailRecoveryReady===null);
         await page.evaluate(()=>render());
+        const containerNames=await filenameBoxes();
+        assert.equal(containerNames.length,5,'nested frame, multi-image and group filenames are all covered');
         const slots=await page.evaluate(()=>{
             const result=[];
             const origin=world.getBoundingClientRect();
@@ -212,6 +249,7 @@ async function main(){
             return result;
         });
         await open();const containers=await download('containers.png');
+        await checkFilenames(containers,containerNames);
         const containerRaw=await sharp(containers).ensureAlpha().raw().toBuffer({resolveWithObject:true});
         assert.ok(slots.length>=5,'production container fixture has visible image slots');
         for(const slot of slots){
@@ -223,7 +261,7 @@ async function main(){
         const snapshotDownload=page.waitForEvent('download');
         await page.locator('#smartFrameExportDownload').click();
         await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').dataset.exportState==='rendering');
-        await page.evaluate(()=>{nodes.find(n=>n.id==='child').x+=80;applyTheme('dark');render();});
+        await page.evaluate(()=>{const child=nodes.find(n=>n.id==='child');child.x+=80;child.images[0].name='后来改名.png';applyTheme('dark');render();});
         const snapshotFile=await snapshotDownload;
         assert.deepEqual(fs.readFileSync(await snapshotFile.path()),containers,'position and theme remain frozen');
         await page.waitForFunction(()=>document.getElementById('smartFrameExportDialog').dataset.motionState==='closed');
@@ -248,7 +286,7 @@ async function main(){
         assert.equal(capacityInfo.width,8192);assert.equal(capacityInfo.height,3906);
         const capacityMs=Date.now()-capacityStart;
         assert.deepEqual(errors,[],'no page exceptions');
-        console.log(JSON.stringify({result:'passed',checks:['PNG content','clipping','text/brush','excluded content','1x/2x','viewport/LOD','read-only','themes/i18n','failure/retry','cancel','limits','empty','latest content in one click','nested/group/mixed slots','snapshot consistency','root deletion','capacity PNG'],capacityMs,outputDir}));
+        console.log(JSON.stringify({result:'passed',checks:['PNG content','image filenames and URL fallback','long filename ellipsis','clipping','text/brush','excluded content','1x/2x','viewport/LOD','read-only','themes/i18n','failure/retry','cancel','limits','empty','latest content in one click','nested/group/mixed slots','snapshot consistency','root deletion','capacity PNG'],capacityMs,outputDir}));
     } finally {await browser.close();server.close();}
 }
 main().catch(error=>{console.error(error);server.close();process.exitCode=1;});

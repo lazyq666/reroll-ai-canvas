@@ -58,13 +58,16 @@ function setImageStudioApplyButton(label, icon='edit'){
 }
 function syncImageStudioSourceState(){
     const notice = document.getElementById('imageStudioResolutionNotice');
+    const loading = document.getElementById('imageStudioLoading');
     const applyButton = document.getElementById('imageEditApplyBtn');
     const ready = imageStudioSourceState === 'original-ready';
     const failed = imageStudioSourceState === 'failed';
+    imageEditModal.dataset.sourceState = imageStudioSourceState;
+    if(loading) loading.hidden = imageStudioSourceState !== 'loading';
     if(notice){
-        notice.hidden = imageStudioSourceState === 'idle' || ready;
+        notice.hidden = !failed;
         notice.classList.toggle('is-failed', failed);
-        notice.textContent = failed ? tr('smart.originalLoadFailed') : tr('smart.originalLoading');
+        notice.textContent = tr('smart.originalLoadFailed');
     }
     if(applyButton) applyButton.disabled = imageEditMode !== 'preview' && !ready;
 }
@@ -2555,6 +2558,10 @@ function openImageEditor(nodeId, imageIndex=0, options={}){
         ...(options.navContext || {})
     };
     cropState = {nodeId, imageIndex, x:0, y:0, w:0, h:0};
+    const sourceWidth = Number(image.natural_w || image.width);
+    const sourceHeight = Number(image.natural_h || image.height);
+    const sourceRatio = sourceWidth > 0 && sourceHeight > 0 ? sourceWidth / sourceHeight : 1;
+    imageEditModal.style.setProperty('--image-studio-source-ratio', Number.isFinite(sourceRatio) ? sourceRatio : 1);
     setImageStudioSourceState(kind === 'image' ? 'loading' : 'original-ready');
     gridCustomMode = false; gridCustomLines = []; gridCustomHistory = []; gridCustomDrag = null; gridCustomOrientation = 'h';
     gridOperationMode = 'split'; gridJoinLayout = null; gridJoinDrag = null; gridJoinImageCache = new Map(); gridJoinUserMoved = false; gridJoinGroupId = '';
