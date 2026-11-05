@@ -21,18 +21,27 @@
     }
     function validSource(s){ return currentMedia(s)?.url===s.expectedUrl; }
     function draftKey(s){ return String(s.media.media_id||s.media.output_media_id||s.media.url); }
+    function sameDraft(a,b){
+        const stable=value=>value && typeof value==='object' ? (Array.isArray(value)?value.map(stable):Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])]))) : value;
+        return JSON.stringify(stable(a??null))===JSON.stringify(stable(b??null));
+    }
     function saveDraft(){
         const s=session;
-        if(!s || s.busy || !s.source || !validSource(s)) return;
+        if(!s || s.busy || !s.source || !validSource(s)) return false;
         const node=nodes.find(n=>n.id===s.nodeId);
+        if(!s.recipe && !sameDraft(node.localRepairDrafts?.[draftKey(s)],s.savedDraft)){
+            s.draftConflict=true;message('draftChanged');return false;
+        }
         const draft=s.recipe
             ? {version:1,expectedUrl:s.expectedUrl,transform:s.recipe.transform,feather:s.recipe.feather,recipeVersion:s.recipe.version}
-            : {version:1,width:s.width,height:s.height,strokes:s.strokes,box:s.box,prompt:String($('Prompt').value||''),model:s.model?.id||'',ratio:s.ratio||'',resolution:s.resolution||'',count:s.count||1,transparentPng:s.transparentPng===true};
+            : {version:1,width:s.width,height:s.height,strokes:s.strokes,box:s.box,prompt:String($('Prompt').value||''),model:s.model?.id||s.savedDraft?.model||'',modelIdentity:s.model?{provider_id:s.model.provider_id,model:s.model.model}:s.savedDraft?.modelIdentity||null,ratio:s.ratio||'',resolution:s.resolution||'',count:s.count||1,transparentPng:s.transparentPng===true,...(s.savedDraft?.agentPrepared?{agentPrepared:true}:{})};
         const field=s.recipe?'localRepairAdjustmentDrafts':'localRepairDrafts';
         window.SmartCanvasModules.canvasMutation.update({nodeId:node.id,mutate:target=>{
             target[field]={...(target[field]||{}),[draftKey(s)]:clone(draft)};
         },options:{render:false,select:false}});
         window.SmartCanvasModules.canvasPersistence.schedule();
+        s.savedDraft=clone(draft);
+        return true;
     }
     async function loadImage(media){
         const raw=smartOriginalMediaUrl(media);
@@ -46,12 +55,26 @@
         }
         throw new Error(text('loadFailed'));
     }
-    function bounds(){
-        const points=(session?.strokes||[]).flatMap(stroke=>stroke.points.map(p=>({x:p.x,y:p.y,r:stroke.tool==='brush'?stroke.size/2:0})));
+    async function repairModels(){
+        return (await Promise.all(aiProcessorModelEntries('image').map(async entry=>{
+            try {
+                const capability=await window.SmartCanvasModules.modelCapabilities.load(entry.provider_id,entry.model,'image.edit');
+                if(Number(capability.inputs?.image?.maximum||0)<1 || !geometry.allowedRatios(capability.media_contract?.aspect_ratios || capability.parameters?.aspect_ratio?.values).length)return null;
+                const imageCapability=await window.SmartCanvasModules.imageCapabilities.load(entry.provider_id,entry.model);
+                return {...entry,capability,imageCapability};
+            } catch(_error){return null;}
+        }))).filter(Boolean);
+    }
+    function storedModel(models,draft){
+        const identity=draft?.modelIdentity;
+        return models.find(entry=>identity ? entry.provider_id===identity.provider_id && entry.model===identity.model : entry.id===draft?.model);
+    }
+    function bounds(s=session){
+        const points=(s?.strokes||[]).flatMap(stroke=>stroke.points.map(p=>({x:p.x,y:p.y,r:stroke.tool==='brush'?stroke.size/2:0})));
         if(!points.length) return null;
         const left=Math.min(...points.map(p=>p.x-p.r)),top=Math.min(...points.map(p=>p.y-p.r));
         const right=Math.max(...points.map(p=>p.x+p.r)),bottom=Math.max(...points.map(p=>p.y+p.r));
-        return {x:Math.max(0,left),y:Math.max(0,top),width:Math.min(session.width,right)-Math.max(0,left),height:Math.min(session.height,bottom)-Math.max(0,top)};
+        return {x:Math.max(0,left),y:Math.max(0,top),width:Math.min(s.width,right)-Math.max(0,left),height:Math.min(s.height,bottom)-Math.max(0,top)};
     }
     function updateCrop(resetResolution=true, preserve=false){
         const s=session;
@@ -97,7 +120,7 @@
         $('Generate').disabled=Boolean(s.busy||!s.source||!s.box||!s.model||!String($('Prompt').value||'').trim());
         $('Undo').disabled=Boolean(s.busy||!s.strokes.length);
         if(!s.recipe){
-            syncSelect('Count',Array.from({length:s.maximumCount||1},(_,index)=>({value:index+1,label:`${index+1} ${tr('smart.countUnit')}`})),s.count||1);
+            syncSelect('Count',Array.from({length:s.maximumCount||1},(_,index)=>({value:index+1,label:trf('smart.repair.countLabel',{count:index+1})})),s.count||1);
             $('Transparent').hidden=s.model?.imageCapability?.supports_transparent_png!==true;
             $('Transparent').checked=s.transparentPng===true;
             $('Settings').ratio=s.ratio||'adaptive';$('Settings').resolution=s.resolution||'';
@@ -197,7 +220,8 @@
         $('CompareHandle').setAttribute('aria-valuenow','50');
         openImageEditor(nodeId,imageIndex);
         setImageEditMode('preview');
-        const s=session={nodeId,imageIndex,media:clone(media),expectedUrl:media.url,strokes:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&media.local_repair?clone(media.local_repair):null,compare:false,comparePos:50,dirty:false,models:[],count:1,zoom:1,panX:0,panY:0};
+        const savedDraft=nodes.find(n=>n.id===nodeId)?.localRepairDrafts?.[String(media.media_id||media.output_media_id||media.url)];
+        const s=session={nodeId,imageIndex,media:clone(media),savedDraft:savedDraft?clone(savedDraft):null,expectedUrl:media.url,strokes:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&!savedDraft?.agentPrepared&&media.local_repair?clone(media.local_repair):null,compare:false,comparePos:50,dirty:false,models:[],count:1,zoom:1,panX:0,panY:0};
         setImageStudioToggleState($('Brush'),true);setImageStudioToggleState($('Rectangle'),false);
         imageEditMode='local-repair';imageEditModeTouched=true;
         imageEditModal.classList.add('local-repair-mode');$('Editor').hidden=false;
@@ -231,22 +255,14 @@
                 } catch(_error){s.presets={};presetsFailed=true;}
                 if(session!==s)return;
                 renderPresets();
-                const entries=aiProcessorModelEntries('image');
-                s.models=(await Promise.all(entries.map(async entry=>{
-                    try {
-                        const capability=await window.SmartCanvasModules.modelCapabilities.load(entry.provider_id,entry.model,'image.edit');
-                        if(Number(capability.inputs?.image?.maximum||0)<1 || !geometry.allowedRatios(capability.media_contract?.aspect_ratios || capability.parameters?.aspect_ratio?.values).length)return null;
-                        const imageCapability=await window.SmartCanvasModules.imageCapabilities.load(entry.provider_id,entry.model);
-                        return {...entry,capability,imageCapability};
-                    } catch(_error){return null;}
-                }))).filter(Boolean);
+                s.models=await repairModels();
                 if(session!==s)return;
-                const model=s.models.find(entry=>entry.id===draft?.model)||geometry.preferredModel(s.models);
+                const model=storedModel(s.models,draft)||(draft?.agentPrepared?null:geometry.preferredModel(s.models));
                 $('Model').innerHTML=s.models.map(entry=>`<option value="${escapeAttr(entry.id)}" ${smartModelVendorOptionAttributes(entry.model,entry.provider_id,entry.provider_name)}>${escapeHtml(entry.name||entry.model)}</option>`).join('')+'<span slot="start" aria-hidden="true"></span><ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>';
                 $('Model').syncOptions?.();control('Model',model?.id||'');
                 await chooseModel(model?.id||'');
                 if(draft?.resolution&&s.tiers?.includes(draft.resolution)){s.resolution=draft.resolution;sync();}
-                message(s.models.length?(presetsFailed?'presetsFailed':'selectHint'):'noModels');
+                message(model?(presetsFailed?'presetsFailed':'selectHint'):'noModels');
             }
         } catch(error){if(session===s)message(error.message===text('tooLarge')?'tooLarge':error.message===text('sourceChanged')?'sourceChanged':'loadFailed');}
         finally {if(session===s){busy(false);sync();redraw();}}
@@ -401,29 +417,73 @@
         event.preventDefault();event.stopPropagation();setComparePosition(value);
     });
     function blob(canvas){return new Promise((resolve,reject)=>canvas.toBlob(result=>result?resolve(result):reject(new Error(text('loadFailed'))),'image/png'));}
+    async function submitRepair(s,prompt,{onPrepared=null,onAccepted=null,requestId='',guard=null}={}){
+        const check=()=>{
+            if(!validSource(s))throw new Error(text('sourceChanged'));
+            guard?.();
+        };
+        check();
+        const box=clone(s.box),crop=document.createElement('canvas');crop.width=box.width;crop.height=box.height;
+        const scopeInstruction=trf('smart.repair.scopeInstruction',geometry.relativeBounds(bounds(s),box));
+        crop.getContext('2d').drawImage(s.source,-box.x,-box.y);
+        const input=await uploadCroppedBlob(await blob(crop),'repair-input.png');
+        if(!input?.url)throw new Error(text('failed'));
+        let source={url:smartOriginalMediaUrl(s.media),name:s.media.name||'',natural_w:s.width,natural_h:s.height};
+        if(!/^\/(assets|api\/storage-files)\//.test(source.url)){
+            const original=document.createElement('canvas');original.width=s.width;original.height=s.height;original.getContext('2d').drawImage(s.source,0,0);
+            const uploaded=await uploadCroppedBlob(await blob(original),'repair-source.png');if(!uploaded?.url)throw new Error(text('failed'));source={...source,url:uploaded.url};
+        }
+        check();
+        const recipe={version:2,preserve_geometry:true,source,width:s.width,height:s.height,crop:box,transform:box,feather:Math.round(Math.min(box.width,box.height)*.06)};
+        const settings={engine:'api',apiKind:'image',provider_id:s.model.provider_id,model:s.model.model,ratio:window.SmartCanvasModules.imageCapabilities.standardToRatioKey(box.ratio)||box.ratio,resolution:String(s.resolution).toLowerCase(),count:s.count||1,quality:'auto',transparentPng:s.transparentPng===true&&s.model.imageCapability.supports_transparent_png===true};
+        return window.SmartCanvasModules.generationRun.processor({
+            nodeId:s.nodeId,imageIndex:s.imageIndex,input:{...input,natural_w:box.width,natural_h:box.height},width:box.width,height:box.height,
+            prompt:[prompt,scopeInstruction].join('\n\n'),runSettings:settings,localRepair:recipe,
+            onPrepared,onAccepted,agentRepairRequestId:requestId,validateSource:check
+        });
+    }
+    // Agent execution is independent of the open Image Studio session. It uses
+    // the same crop, scope prompt, processor and composite as the Generate button.
+    async function runDraft({nodeId,requestId,repair,onAccepted}={}){
+        const editingSource=session?.nodeId===nodeId && session.imageIndex===repair.image_index;
+        if(editingSource && (session.busy||gesture))throw new Error(text('draftChanged'));
+        if(editingSource && !session.recipe && String($('Prompt').value||'')!==repair.draft.prompt)throw new Error(text('draftChanged'));
+        await window.SmartCanvasModules.canvasPersistence.synced({forGeneration:true});
+        const media=nodes.find(n=>n.id===nodeId)?.images?.[repair.image_index];
+        const guard=()=>{
+            const node=nodes.find(n=>n.id===nodeId);
+            if(node?.images?.[repair.image_index]?.url!==repair.source_url)throw new Error(text('sourceChanged'));
+            if(!sameDraft(node?.localRepairDrafts?.[repair.draft_key],repair.draft))throw new Error(text('draftChanged'));
+            if(nodes.some(n=>n.agentRepairRequestId===requestId))throw new Error(text('alreadySubmitted'));
+        };
+        guard();
+        const draft=clone(repair.draft),source=await loadImage(media);
+        if(source.naturalWidth!==repair.width||source.naturalHeight!==repair.height)throw new Error(text('sourceChanged'));
+        const models=await repairModels(),model=storedModel(models,draft);
+        if(!model)throw new Error(text('noModels'));
+        const s={nodeId,imageIndex:repair.image_index,media:clone(media),expectedUrl:repair.source_url,source,width:repair.width,height:repair.height,strokes:draft.strokes,model,count:draft.count||1,transparentPng:draft.transparentPng===true};
+        const capability=model.capability;
+        const ratios=geometry.allowedRatios(capability.media_contract?.aspect_ratios||capability.parameters?.aspect_ratio?.values);
+        const tiers=capability.media_contract?.resolution_tiers||capability.parameters?.resolution_tier?.values||[];
+        if(draft.ratio&&!ratios.includes(draft.ratio) || draft.resolution&&!tiers.includes(draft.resolution)
+            || s.count>Math.min(8,window.SmartCanvasModules.modelCapabilities.outputCountMaximum(capability,1))
+            || s.transparentPng&&!model.imageCapability.supports_transparent_png)throw new Error(text('settingsChanged'));
+        s.box=draft.box&&ratios.includes(draft.box.ratio)&&(!draft.ratio||draft.ratio===draft.box.ratio)
+            ? geometry.resize(draft.box,1,bounds(s)) : geometry.crop(bounds(s),s.width,s.height,ratios,draft.ratio);
+        if(!s.box||!String(draft.prompt||'').trim())throw new Error(text('selectHint'));
+        s.resolution=draft.resolution||geometry.nearestResolution(s.box,tiers);
+        guard();
+        return submitRepair(s,draft.prompt.trim(),{requestId,guard,onAccepted});
+    }
     async function generate(){
         const s=session;if(!s?.box||!s.model||s.busy)return;
         if(!validSource(s)){message('sourceChanged');return;}
         const prompt=String($('Prompt').value||'').trim();
         if(!prompt)return;
-        saveDraft();busy(true);message('submitting');
+        if(!saveDraft())return;
+        busy(true);message('submitting');
         try {
-            const box=clone(s.box),crop=document.createElement('canvas');crop.width=box.width;crop.height=box.height;
-            const scopeInstruction=trf('smart.repair.scopeInstruction',geometry.relativeBounds(bounds(),box));
-            crop.getContext('2d').drawImage(s.source,-box.x,-box.y);
-            const input=await uploadCroppedBlob(await blob(crop),'repair-input.png');
-            if(!input?.url)throw new Error(text('failed'));
-            let source={url:smartOriginalMediaUrl(s.media),name:s.media.name||'',natural_w:s.width,natural_h:s.height};
-            if(!/^\/(assets|api\/storage-files)\//.test(source.url)){
-                const original=document.createElement('canvas');original.width=s.width;original.height=s.height;original.getContext('2d').drawImage(s.source,0,0);
-                const uploaded=await uploadCroppedBlob(await blob(original),'repair-source.png');if(!uploaded?.url)throw new Error(text('failed'));source={...source,url:uploaded.url};
-            }
-            if(!validSource(s))throw new Error(text('sourceChanged'));
-            const recipe={version:2,preserve_geometry:true,source,width:s.width,height:s.height,crop:box,transform:box,feather:Math.round(Math.min(box.width,box.height)*.06)};
-            const settings={engine:'api',apiKind:'image',provider_id:s.model.provider_id,model:s.model.model,ratio:window.SmartCanvasModules.imageCapabilities.standardToRatioKey(box.ratio)||box.ratio,resolution:String(s.resolution).toLowerCase(),count:s.count||1,quality:'auto',transparentPng:s.transparentPng===true&&s.model.imageCapability.supports_transparent_png===true};
-            await window.SmartCanvasModules.generationRun.processor({
-                nodeId:s.nodeId,imageIndex:s.imageIndex,input:{...input,natural_w:box.width,natural_h:box.height},width:box.width,height:box.height,
-                prompt:[prompt,scopeInstruction].join('\n\n'),runSettings:settings,localRepair:recipe,
+            await submitRepair(s,prompt,{
                 onPrepared:()=>{if(session===s)window.SmartCanvasModules.imageStudio.close();}
             });
             if(session===s)message('failed');
@@ -467,5 +527,5 @@
     new ResizeObserver(redraw).observe($('Frame').parentElement);
     function translate(){if(session){$('Status').textContent=text(session.message||'selectHint');sync();redraw();}}
     window.addEventListener('studio-lang-change',translate);
-    window.SmartCanvasModules.imageRepair=Object.freeze({open,reset,translate});
+    window.SmartCanvasModules.imageRepair=Object.freeze({open,reset,translate,runDraft});
 })();

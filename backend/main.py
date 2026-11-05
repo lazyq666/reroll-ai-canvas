@@ -12235,7 +12235,7 @@ from infinite_canvas.agent_api import AgentAPI
 
 
 def agent_available_models():
-    return [{"provider_id": entry["provider_id"], "model": entry["model"], "kind": kind}
+    return [{"id": entry["id"], "provider_id": entry["provider_id"], "model": entry["model"], "kind": kind}
             for kind, entries in available_models(include_hidden=False).items()
             if kind in ("image", "video") for entry in entries]
 

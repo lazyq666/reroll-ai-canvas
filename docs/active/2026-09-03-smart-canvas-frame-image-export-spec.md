@@ -3,7 +3,7 @@
 - **Status**：Implemented（已实现并进行自动化验收；跨平台人工 Gate 完成前保持 Active）
 - **Feature ID**：F05 / F10
 - **Owners**：产品 / UI / 交互 / 前端 / 测试
-- **Last verified**：2026-09-03（真实 macOS Chrome 页面下载与 PNG 解码；详见第 17 节）
+- **Last verified**：2026-11-03（真实 macOS Chrome 页面下载与 PNG 解码；详见第 17 节）
 - **Applies to**：Smart Canvas 分区大图下载首版，发布版本待实施时确定
 - **Issue**：[GitHub #23](https://github.com/lazyq666/reroll-ai-canvas/issues/23)，已加入开发看板；验收后进入 Review，发布及所需人工验收前保持开放。
 - **Supersedes**：无
@@ -15,7 +15,7 @@
 
 用户单选 Frame（分区）后，可在 `smartNodeFloatingPortal` 浮动工具栏点击“下载”，将分区视觉排版保存为一张 PNG。屏幕外的分区内容也参与导出，无需缩小画布或分段截图。
 
-**用户确认的范围**：图片按分区内的位置、大小合成，加上文字标注、画笔、分区背景；提示词卡片、连线、视频封面不显示。排除内容后不重新排列其余内容。
+**用户确认的范围**：图片及各自文件名按分区内的位置、大小合成，加上文字标注、画笔、分区背景；提示词卡片、连线、视频封面不显示。排除内容后不重新排列其余内容。
 
 **首版规则**：以分区矩形裁切；输出 PNG；默认 1×、可选 2×；保留当前主题的分区底色；不输出标题与编辑控件；最终确认下载时冻结内容快照。用户已要求按本 Spec 实施；容量参数的跨平台发布验证仍待完成。
 
@@ -29,6 +29,7 @@
 
 - 从单选分区的浮动工具栏下载一张完整 PNG，保留支持内容的排版、空白、裁切、透明混合与叠放。
 - 图片使用原始资源；文字换行与笔迹与详细模式一致；输出不受视口、浏览器缩放和设备像素密度影响。
+- 每张图片附带其当前文件名；未命名素材沿用画布的 URL 文件名回退。单图、多图节点及编组内图片均适用，导出不改变名称或重新分配编号。
 - 加载、超限、取消、失败及重试均有明确反馈，导出不修改画布。
 
 ### Non-goals
@@ -123,7 +124,7 @@
 
 | 内容 | 输出规则 |
 | --- | --- |
-| 已完成图片，包括图片生成结果 | 只绘制媒体区域，保留位置、大小、比例、现有裁切和 Alpha；不绘制节点标题、文件名、尺寸 Badge、边框、阴影、端口或控件 |
+| 已完成图片，包括图片生成结果 | 绘制媒体区域及其文件名，保留位置、大小、比例、现有裁切和 Alpha；文件名沿用详细模式的名称、位置、字体和主题文字色，仅输出名称正文，不输出媒体图标或“已导入 / AI 生成”身份前缀。长名称在原标签宽度内省略；名称与图片一起受分区及容器裁切。不绘制节点标题、尺寸 Badge、边框、阴影、端口或控件 |
 | Text Annotation Node | 保留正文、显式与自动换行、字体、字号、字重、行高、字距与颜色；空文字不输出占位提示 |
 | Brush Stroke Node | 保留持久路径、坐标变换、宽度、颜色和透明度；沿用现有曲线、圆头和连接；不绘制命中热区或未结束的笔画预览 |
 | 根分区及后代分区 | 绘制正常背景填充；主题和裁切规则见下文 |
@@ -164,8 +165,8 @@
 导出是本地瞬时任务，不增加 Node、Generation Run 或持久 Operation ID。本地尝试标识用于隔离取消、重试和迟到回调。
 
 - Dialog 准备阶段更新目标变化引起的尺寸和空状态；点击下载时重新校验尺寸、目标身份与权限，并直接使用当时的最新内容，不因普通内容变化要求再次确认。
-- 最终确认复制一份只读快照：Workspace / Canvas / Frame 身份、支持节点与几何、资源引用、主题样式、倍率、文件名。全过程只读取该快照。
-- 快照后的普通成员移动、编辑、删除、生成完成或主题切换不混入本次结果；源资源已不可读时按素材失败处理。下一次下载读取最新内容。
+- 最终确认复制一份只读快照：Workspace / Canvas / Frame 身份、支持节点与几何、资源引用、每张图片的名称、主题样式、倍率、输出文件名。全过程只读取该快照。
+- 快照后的普通成员移动、编辑（含图片改名）、删除、生成完成或主题切换不混入本次结果；源资源已不可读时按素材失败处理。下一次下载读取最新内容。
 - 根分区被本机/协作者删除（包括 Undo）、Canvas / Workspace 切换、页面退出、登出或已知权限失效，均取消任务并清理。
 - 重试创建新尝试，读取最新快照并重新预检，不混用两次内容。
 - 所有终态均不得更改 Selection、Viewport、Undo、节点顺序/位置/内容或 Canvas Updated Time。
@@ -245,6 +246,7 @@
 | A02 内容过滤 | PNG 区域/像素 | 四类支持内容出现；提示词与内嵌参考、连线、视频等消失；空位保留 |
 | A03 视口无关 | 缩放、平移、离屏节点 | 同主题同数据在 25% / 100% / 200% 内容尺寸一致，无屏幕外遗漏 |
 | A04 原图与叠放 | 高频原图与透明重叠 | 原图清晰，Alpha 与正常图层正确；选中/Hover 不改变输出 |
+| A04b 图片文件名 | 单图、多图、编组、中文/英文/长名称、1×/2×、主题/语言/远景 | 每张支持图片显示当前名称正文，长名称省略且不越出标签/容器/分区；不带身份前缀或图标；语言及视口切换不改变文件名结果；导出中的改名不混入快照 |
 | A05 标注 | 中文/英文、换行、长词、空文、曲线/点 | 字号、换行、位置、笔宽、颜色匹配，字体失败可恢复 |
 | A06 容器与裁切 | 越界、后代分区、编组、重复 URL | 非成员不出现；越界裁切；无重复节点，同源不同实例保留；内部滚动符合 7.2 |
 | A07 背景与空状态 | Light/Dark、空分区、仅排除内容 | 主题底色正确，无标题、网格、高亮；背景图可下载 |
@@ -287,6 +289,7 @@
 | UI surfaces | [UI 指南](../current/ui-design-guidelines.md)、[Smart Canvas 页面](../../static/smart-canvas.html) |
 | Existing implementation seams | [导出模块](../../static/js/smart-canvas/frame-image-export.js)、[页面适配](../../static/js/smart-canvas/frame-image-export-host.js)、[页面与工具栏](../../static/js/smart-canvas.js)、[Smart Container](../../static/js/smart-canvas/smart-container.js)、[Node Geometry](../../static/js/smart-canvas/node-geometry.js) |
 | Regression entry | [PNG 下载 browser smoke](../../tests/smart_canvas_frame_image_export_browser_smoke.cjs)、[尺寸与成员测试](../../tests/smart_canvas_frame_image_export.test.cjs)、[原有分区工具栏 smoke](../../tests/smart_canvas_frame_toolbar_browser_smoke.cjs) |
+| Filename validation | 2026-11-03：真实 macOS Chrome PNG 下载通过单图名称、URL 文件名回退、多图/编组/嵌套分区、长名称省略、1×/2×、主题/语言/远景、只读、改名快照、重试/取消及原有容量回归；已视觉检查 Light/Dark 与编组输出。尺寸/成员 Node 测试、13 项文档及 i18n Python 测试、4756 个 i18n 键、465 项前端资源检查及 diff 检查通过。仅本地验证，未推送或部署；原 Windows 与复杂原图发布 Gate 保留。 |
 | Automated validation | 2026-09-03：`.venv/bin/python -m unittest tests.test_documentation_knowledge_map tests.test_smart_canvas_node_components tests.test_core_creation_i18n tests.test_i18n_cache_versions`，23 项通过；`node tests/smart_canvas_frame_image_export.test.cjs`、两个 browser smoke 均通过；`node static/js/i18n/validate-i18n.js` 校验 3071 个键通过；UI 资源版本 `--check`、Spec 相对链接、19 个模板章节及 `git diff --check` 通过。系统 `python3` 为 3.9，不兼容现有测试类型注解，因此使用项目虚拟环境执行 |
 | Browser/manual evidence | macOS Chrome 自动化已覆盖 PNG 内容/裁切、1×/2×、详细/远景、主题/语言、重试/取消、空分区、编组与嵌套、快照/根分区删除及 8192 × 3906 背景图编码；导出 PNG 与 Dark Dialog 已视觉检查。Windows、真实复杂原图容量及完整人工验收仍待执行，不据此毕业 Current |
 | Ablation validation | 2026-09-03：实验 A 移除配置工厂与未使用接口，实验 B 再移除内容指纹和重复确认；各轮实际 PNG smoke 通过，8 张 PNG 均与基线逐字节一致。新增“点击前改变尺寸和成员，一次下载最新内容”测试在旧逻辑失败，在简化实现通过；点击前超限仍被拒绝。尺寸/成员 Node 测试、文档/i18n 缓存/核心文案 14 项 Python 测试、3070 个 i18n 键、UI 版本及 diff 检查通过 |
@@ -306,3 +309,4 @@
 | 2026-09-03 | Implemented | 用户授权实施；新增导出模块、Dialog、中英文和实际 PNG 验收 | Issue #23；素材按张读取，在首张失败时整体终止，因此失败文案不统计全部失败数量 |
 | 2026-09-03 | Implemented | 按消融实验移除单一宿主配置工厂、未使用公开接口及内容指纹/重复确认 | 实验 A 的 8 张 PNG 与基线逐字节一致；实验 B 的一次点击下载场景先在旧逻辑失败，再验证简化实现；详细证据见 Issue #23 |
 | 2026-09-03 | Implemented | 按用户要求移除 Dialog 分区名称，范围说明合并单行并使用 tertiary 文字色 | 中英文单行、无名称、文字色和实际 PNG browser smoke 通过；文档/i18n 14 项测试与 3069 个文案键校验通过 |
+| 2026-11-03 | Implemented | 下载的分区大图加入每张图片的当前文件名；保留详细布局、长名称省略和主题色，不输出身份前缀与图标；离屏测量忽略图片临时加载状态，避免外侧文件名被误裁切 | 真实 PNG 文件名、容器、倍率、主题/语言、远景与快照回归通过；详见第 17 节 |

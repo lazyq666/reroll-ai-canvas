@@ -24,7 +24,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 tools = await session.list_tools()
-                self.assertEqual(22, len(tools.tools))
+                self.assertEqual(25, len(tools.tools))
                 names = {t.name for t in tools.tools}
                 self.assertTrue(
                     {"create_generation_tasks", "run_tasks", "download_outputs", "get_generation_task", "preview_media", "read_node_reference"}

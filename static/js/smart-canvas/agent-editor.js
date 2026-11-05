@@ -46,7 +46,11 @@
         try {
             // Synchronize the accepted Mutation before normal generation preflight.
             await window.SmartCanvasModules.canvasPersistence.synced({forGeneration:true});
-            await window.SmartCanvasModules.generationRun.run({nodeId:message.node_id,fromDraft:true,onAccepted:()=>{accepted=true;},onLocalAccepted:()=>{accepted=true;}});
+            if(message.image_repair){
+                await window.SmartCanvasModules.imageRepair.runDraft({nodeId:message.node_id,requestId:message.id,repair:message.image_repair,onAccepted:()=>{accepted=true;}});
+            } else {
+                await window.SmartCanvasModules.generationRun.run({nodeId:message.node_id,fromDraft:true,onAccepted:()=>{accepted=true;},onLocalAccepted:()=>{accepted=true;}});
+            }
         } finally {
             send({type:'agent_run_report',id:message.id,submitted:accepted});
             active.delete(message.id); reportContext();

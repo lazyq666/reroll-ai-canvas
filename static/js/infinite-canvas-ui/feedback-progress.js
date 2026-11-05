@@ -428,7 +428,7 @@ export class IcSkeleton extends IcFeedbackElement {
       :host { display:block; width:100%; min-width:1.5rem; min-height:1em; border-radius:var(--ui-radius-s); overflow:hidden; background:var(--ui-color-surface-subtle); }
       :host([shape="circle"]) { width:2.5rem; aspect-ratio:1; border-radius:50%; }
       :host([shape="rectangle"]) { min-height:5rem; border-radius:var(--ui-radius-m); }
-      .shine { width:100%; height:100%; min-height:inherit; background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--ui-color-text-primary) 8%, transparent), transparent); animation:ic-shimmer 1.4s ease-in-out infinite; }
+      .shine { display:block; width:100%; height:100%; min-height:inherit; background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--ui-color-text-primary) 8%, transparent), transparent); animation:ic-shimmer 1.4s ease-in-out infinite; }
       @keyframes ic-shimmer { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
       @media (prefers-reduced-motion:reduce) { .shine { animation:none; } }
       :host-context([data-ui-motion="reduced"]) .shine { animation:none; }

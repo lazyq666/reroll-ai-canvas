@@ -987,6 +987,10 @@ async function runGeneration(options={}){
         if(queued) await options.onQueued?.({node:target, submission:{state:'local-queued'}});
         return queued;
     };
+    // Agent repair requests are leased by the server. Do not turn a lost lease
+    // connection into an independent offline run that could execute twice.
+    if(options.agentRepairRequestId && !generationRunOnline()) return false;
+    options.validateSource?.();
     if(!generationRunOnline()){
         if(!sourceInFlight && !completedOutputHasMedia) return queueLocally(node);
         const inheritSourceConnections = completedOutputHasMedia
@@ -1099,6 +1103,7 @@ async function runGeneration(options={}){
     const pendingNode = branchNode || node;
     const pendingNodes = branchNodes.length ? branchNodes : [pendingNode];
     pendingNodes.forEach(target => {
+        if(options.agentRepairRequestId) target.agentRepairRequestId = options.agentRepairRequestId;
         if(options.processorKind) target.aiProcessorKind = options.processorKind;
         if(node.lightingPrompt && node.metadata?.lightingIntent){
             target.metadata = {...(target.metadata || {}), lightingIntent:generationRunClone(node.metadata.lightingIntent)};
@@ -1581,7 +1586,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
         }
         return runGeneration({node, onAccepted, onQueued, onLocalAccepted, fromDraft});
     },
-    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,processorKind=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true}={}){
+    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,processorKind=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true,agentRepairRequestId='',validateSource=null}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
         const targetWidth=Math.round(Number(width)||0);
         const targetHeight=Math.round(Number(height)||0);
@@ -1594,6 +1599,8 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             localRepair,
             processorKind,
             onPrepared,
+            agentRepairRequestId,
+            validateSource,
             runSettings:{...runSettings},
             onAccepted,
             throwOnSubmissionFailure,
