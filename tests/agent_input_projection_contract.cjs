@@ -13,7 +13,7 @@ function declaration(source, name) {
 }
 const ctx = {
     window: {SmartCanvasModules: {}}, nodes: fixture.canvas.nodes,
-    canvas: fixture.canvas, settings: fixture.node.runSettings, smartLoopContext: null,
+    canvas: fixture.canvas, settings: fixture.node.runSettings, smartLoopContext: null, promptInput: null,
     canvasPersistence: {schedule() {}},
     tr: key => key, trf: (key, values) => `${key}:${values.number}`,
     mediaKindForItem: item => item.kind || 'image',
