@@ -35,7 +35,8 @@ class SmartCanvasMattingTests(unittest.TestCase):
     def test_floating_menu_exposes_matting_for_images(self):
         self.assertIn("{key:'matting', icon:'cut', label:tr('smart.matting')", self.script)
         self.assertIn("if(action === 'matting')", self.script)
-        self.assertIn("smartMatting.run({node, imageIndex:index})", self.host_script)
+        self.assertIn("imageStudio.createStaticCopy(nodeId,index)", self.host_script)
+        self.assertIn("smartMatting.run({node:nodes.find(item => item.id === copy.nodeId),imageIndex:copy.imageIndex})", self.host_script)
 
     def test_click_delegates_pending_output_and_polling_to_matting_module(self):
         self.assertIn("smartMattingOutputModule.createPending({", self.matting_module)

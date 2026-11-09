@@ -33,7 +33,8 @@ class SmartCanvasSmartMattingModuleTests(unittest.TestCase):
                 self.assertNotIn(implementation, host)
 
         self.assertIn("window.SmartCanvasModules.smartMatting", source)
-        self.assertIn("smartMatting.run({node, imageIndex:index})", host)
+        self.assertIn("imageStudio.createStaticCopy(nodeId,index)", host)
+        self.assertIn("smartMatting.run({node:nodes.find(item => item.id === copy.nodeId),imageIndex:copy.imageIndex})", host)
         self.assertIn("smartMattingModule.resume();", persistence)
         self.assertIn(
             "smartMattingModule.isActive({job:node.mattingJob})",

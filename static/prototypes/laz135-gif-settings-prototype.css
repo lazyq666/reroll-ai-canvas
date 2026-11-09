@@ -19,7 +19,7 @@ h1 { color: var(--ui-color-text-secondary); }
 .prototype-stage .composer { position: relative; inset: auto; width: min(800px, 100%); translate: none; transform: none; margin-top: 20px; z-index: auto; }
 .prototype-stage .composer-card { padding: 16px 64px 16px 16px; }
 #prompt { box-sizing: border-box; width: 100%; min-height: 72px; padding: 4px 8px; resize: vertical; border: 0; background: transparent; line-height: 1.6; }
-#prompt::placeholder { color: var(--ui-color-text-secondary); }
+#prompt::placeholder { color: var(--ui-color-text-placeholder); }
 .prototype-stage .param-row { margin-top: 8px; }
 .prototype-stage .dynamic-params { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .prototype-stage .catalog-model-select { max-width: 235px; }

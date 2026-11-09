@@ -23,7 +23,7 @@ class FarThumbnailCacheTests(unittest.TestCase):
             cache = Path(temp) / 'cache'
             source_image = Path(temp) / 'source.png'
             Image.new('RGBA', (400, 200), (220, 10, 40, 80)).save(source_image)
-            namespace = dict(os=os, hashlib=hashlib, asyncio=asyncio, Image=Image, ImageOps=ImageOps,
+            namespace = dict(os=os, hashlib=hashlib, asyncio=asyncio, Path=Path, Image=Image, ImageOps=ImageOps,
                 FileResponse=FileResponse, HTTPException=HTTPException, media_preview_directory=lambda: str(cache),
                 MEDIA_PREVIEW_BUILD_SEMAPHORE=BoundedSemaphore(2), is_video_preview_file=lambda path: False,
                 image_has_alpha=lambda image: 'A' in image.getbands())

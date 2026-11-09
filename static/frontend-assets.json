@@ -144,7 +144,7 @@
       ]
     },
     "static/css/batch-generation.css": {
-      "version": "asset-56a9f4058ae3",
+      "version": "asset-206dbc9fabfe",
       "dependencies": []
     },
     "static/css/canvas-list.css": {
@@ -729,7 +729,7 @@
       ]
     },
     "static/design-system/infinite-canvas-ui/surface-manifest.json": {
-      "version": "asset-4a1f6bf06198",
+      "version": "asset-d7ce4bf70332",
       "dependencies": [
         "static/design-system/infinite-canvas-ui/ic-actions-v1.json",
         "static/design-system/infinite-canvas-ui/ic-containers-data-v1.json",
@@ -794,7 +794,7 @@
       ]
     },
     "static/design-system/live-catalog/manifest.json": {
-      "version": "asset-88e207f1650e",
+      "version": "asset-aaf1de57f5dc",
       "dependencies": [
         "static/css/account-ui.css",
         "static/css/batch-generation.css",
@@ -2508,7 +2508,7 @@
       "dependencies": []
     },
     "static/js/ui-component-library/catalog-app.js": {
-      "version": "asset-b26708803258",
+      "version": "asset-c1c9e1a3e8ee",
       "dependencies": [
         "static/design-system/live-catalog/manifest.json"
       ]
@@ -2540,7 +2540,7 @@
       "dependencies": []
     },
     "static/js/ui-component-library/surface-app.js": {
-      "version": "asset-a384a2c377da",
+      "version": "asset-74effad24a51",
       "dependencies": [
         "static/css/ui-component-library-preview.css",
         "static/design-system/infinite-canvas-ui/semantic-baseline-v1.json",
@@ -2604,7 +2604,7 @@
       ]
     },
     "static/online.html": {
-      "version": "asset-b22e62220f61",
+      "version": "asset-856820eb6582",
       "dependencies": [
         "static/css/batch-generation.css",
         "static/css/design-tokens.css",
@@ -2780,7 +2780,7 @@
       ]
     },
     "static/ui-component-library.html": {
-      "version": "asset-a29add0abb27",
+      "version": "asset-8cae7b687ce5",
       "dependencies": [
         "static/css/design-tokens.css",
         "static/css/ui-component-library.css",
