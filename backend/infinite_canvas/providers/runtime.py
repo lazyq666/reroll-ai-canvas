@@ -395,6 +395,7 @@ def _image_call(
         operation: str = "image.generate",
         resolution_tier: str | None = "",
         aspect_ratio: str | None = "",
+        image_format: dict[str, Any] | None = None,
     ) -> ExecutionResult:
         transparent_kwargs = {"transparent_png": True} if transparent_png else {}
         geometry_kwargs = {"preserve_geometry": True} if preserve_geometry and _protocol(provider) in {"codex", "gemini-cli"} else {}
@@ -407,6 +408,8 @@ def _image_call(
             else {}
         )
         if operation != "image.layer_decomposition":
+            if image_format:
+                operation_kwargs["image_format"] = image_format
             if aspect_ratio != "":
                 operation_kwargs["aspect_ratio"] = aspect_ratio
             if resolution_tier != "":
@@ -1183,6 +1186,7 @@ class ProviderRuntime:
         resolution_tier: str | None = "",
         preserve_geometry: bool = False,
         aspect_ratio: str | None = "",
+        image_format: dict[str, Any] | None = None,
     ) -> ExecutionResult:
         provider = self.provider_lookup(provider_id)
         return await self.image_registry.execute(
@@ -1202,6 +1206,7 @@ class ProviderRuntime:
             operation=operation,
             resolution_tier=resolution_tier,
             aspect_ratio=aspect_ratio,
+            **({"image_format": image_format} if image_format else {}),
         )
 
     async def generate_image(

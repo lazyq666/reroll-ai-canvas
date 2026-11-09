@@ -21,10 +21,10 @@
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
     <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
     <link rel="stylesheet" href="/static/css/online-workbench.css?v=asset-32d0e5885bce">
-    <link rel="stylesheet" href="/static/css/batch-generation.css?v=asset-11bf56a60b6f">
+    <link rel="stylesheet" href="/static/css/batch-generation.css?v=asset-206dbc9fabfe">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-adca4bd10f92"></script>
+    <script src="/static/js/i18n.js?v=asset-7af731e40181"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
     <script src="/static/js/image-preview.js?v=asset-a405bbbd0aec"></script>
 </head>
@@ -92,6 +92,7 @@
                     <aside class="batch-uniform-sidebar" aria-labelledby="batchUniformSettingsTitle">
                         <header><h3 id="batchUniformSettingsTitle" data-i18n="batch.uniformSettings">统一设置</h3></header>
                         <div class="batch-uniform-grid">
+                            <div id="batchFormatControls" hidden></div>
                             <ic-radio-group id="batchResolution" class="batch-inline-options" name="batchResolution" label="分辨率" data-i18n-label="batch.resolution" value="1k" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="1k" label="1K"></ic-radio><ic-radio value="2k" label="2K"></ic-radio><ic-radio value="4k" label="4K"></ic-radio></ic-radio-group>
                             <ic-radio-group id="batchQuality" class="batch-inline-options" name="batchQuality" label="质量" data-i18n-label="batch.quality" value="auto" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="auto" label="自动" data-i18n-label="batch.auto"></ic-radio><ic-radio value="low" label="低" data-i18n-label="online.qualityLow"></ic-radio><ic-radio value="medium" label="中" data-i18n-label="online.qualityMedium"></ic-radio><ic-radio value="high" label="高" data-i18n-label="online.qualityHigh"></ic-radio></ic-radio-group>
                             <ic-radio-group id="batchOutputsPerRun" class="batch-inline-options" name="batchOutputsPerRun" label="单次出图" data-i18n-label="batch.outputsPerSubmission" value="1" appearance="tabs" orientation="horizontal" data-legal-combination="horizontal-tab-label"><ic-radio value="1" label="1"></ic-radio><ic-radio value="2" label="2"></ic-radio><ic-radio value="3" label="3"></ic-radio><ic-radio value="4" label="4"></ic-radio></ic-radio-group>
@@ -186,7 +187,7 @@
         </ic-popover>
     </ic-dialog>
 
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-ed6ee2d637c4"></script>
-    <script src="/static/js/batch-generation.js?v=asset-cb49f5347828"></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-c09e9cef616f"></script>
+    <script src="/static/js/batch-generation.js?v=asset-d9b327647819"></script>
 </body>
 </html>

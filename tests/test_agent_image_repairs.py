@@ -87,14 +87,29 @@ class AgentImageRepairTests(unittest.TestCase):
         key = self.original["media_id"]
         draft = source["localRepairDrafts"][key]
         draft["box"] = {"x": 240, "y": 160, "width": 480, "height": 320, "ratio": "3:2"}
+        draft["promptHtml"] = "<span>Keep the old instruction</span>"
+        draft["references"] = [{"url": self.original["url"], "kind": "image", "inputInstanceId": "reference-1"}]
         self.mutate({"node_updates": [{"id": "source-0", "path": ["localRepairDrafts"], "value": {key: draft, "other": {"prompt": "keep"}}}]})
         updated = self.save({"prompt": "Only the left eye"}, key="prompt-only")
         self.assertEqual(200, updated.status_code, updated.text)
         self.assertEqual(draft["box"], self.detail()["crop"])
+        changed_draft = self.document()["nodes"][0]["localRepairDrafts"][key]
+        self.assertNotIn("promptHtml", changed_draft)
+        self.assertEqual(draft["references"], changed_draft["references"])
         self.assertEqual({"prompt": "keep"}, self.document()["nodes"][0]["localRepairDrafts"]["other"])
         self.save({"strokes": []}, key="clear")
         self.assertIsNone(self.detail()["crop"])
         self.assertEqual("repair_draft_incomplete", self.enqueue().json()["code"])
+
+    def test_default_model_prefers_sunburst_over_gpt_image_2(self):
+        self.api.models = lambda: [
+            {"kind": "image", "provider_id": "fixture", "model": "gpt-image-2"},
+            {"kind": "image", "provider_id": "fixture", "model": "gpt-image-2.5-sunburst"},
+        ]
+        changes = {key: value for key, value in self.changes.items() if key != "model"}
+        result = self.save(changes)
+        self.assertEqual(200, result.status_code, result.text)
+        self.assertEqual("gpt-image-2.5-sunburst", self.detail()["draft"]["model"]["model"])
 
     def test_rejects_bad_coordinates_size_and_model_without_canvas_changes(self):
         before = self.document()

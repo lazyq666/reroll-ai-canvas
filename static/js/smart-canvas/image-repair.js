@@ -5,14 +5,82 @@
     const $ = id => document.getElementById(`imageRepair${id}`);
     const clone = value => JSON.parse(JSON.stringify(value));
     const text = key => tr(`smart.repair.${key}`);
+    const authoring = window.SmartCanvasModules.promptAuthoring;
     let session = null, gesture = null, frame = 0;
     function currentMedia(s=session){ return nodes.find(node=>node.id===s?.nodeId)?.images?.[s?.imageIndex]; }
     function message(key){ if(session){session.message=key; $('Status').textContent=text(key);} }
     function control(id,value){ setImageStudioControlValue($(id),value); }
     function redraw(){ if(!frame) frame=requestAnimationFrame(()=>{frame=0;draw();}); }
+    function promptText(){ return authoring.plainText($('Prompt')); }
+    function cropReference(state=session){
+        return {url:state.media.url,kind:'image',inputInstanceId:'repair-crop',name:text('cropPreview')};
+    }
+    function referenceLimit(state=session){ return Number(state?.model?.capability.inputs?.image?.maximum||1); }
+    function addReference(item,{acceptedUpload=false}={}){
+        const state=session;
+        if(!state||state.busy||mediaKindForItem(item)!=='image')return null;
+        const byIdentity=new Map();
+        state.references.forEach(ref=>mentionMediaIdentityKeys(ref).forEach(key=>{
+            if(!byIdentity.has(key))byIdentity.set(key,{ref});
+        }));
+        const existing=mentionReferenceStateForItem(byIdentity,item)?.ref;
+        if(existing)return existing;
+        if(!acceptedUpload&&state.references.length+1>=referenceLimit(state)){message('referenceLimit');return null;}
+        const ref=window.SmartCanvasModules.referenceInstances.manual({...item,kind:'image',name:item.alias||item.name||tr('smart.kindImage')});
+        state.references.push(ref);
+        return ref;
+    }
+    function renderReferences(){
+        const state=session;if(!state||state.recipe)return;
+        const refs=[cropReference(state),...state.references];
+        const signature=JSON.stringify([window.StudioI18n.lang(),state.references,state.busy,Boolean(state.box)]);
+        if($('References').dataset.signature!==signature){
+            $('References').dataset.signature=signature;
+            $('References').innerHTML=refs.map((ref,index)=>{
+                if(!index&&!state.box)return '';
+                const label=trf('canvas.imageNumber',{number:index+1});
+                return `<ic-reference-thumbnail kind="image" label="${escapeAttr(label)}" src="${escapeAttr(index?smartMediaPreviewUrl(ref,512):state.cropPreviewUrl||'')}" original-src="${escapeAttr(index?smartOriginalMediaUrl(ref):'')}" alt="${escapeAttr(ref.name||label)}" ${index&&!state.busy?'removable':''} remove-label="${escapeAttr(tr('smart.removeReference'))}" data-repair-reference="${index}"></ic-reference-thumbnail>`;
+            }).join('');
+            $('References').querySelectorAll('[removable]').forEach(thumb=>thumb.addEventListener('ic-remove',()=>{
+                if(state!==session||state.busy)return;
+                const ref=state.references[Number(thumb.dataset.repairReference)-1];
+                state.references=state.references.filter(item=>item!==ref);
+                $('Prompt').querySelectorAll('.mention-image-token').forEach(token=>{
+                    if(token.dataset.inputInstanceId===ref.inputInstanceId)token.remove();
+                });
+                sync();saveDraft();redraw();
+            }));
+        }
+        $('Prompt').querySelectorAll('.mention-image-token').forEach(token=>{
+            const index=refs.findIndex(ref=>inputRefKey(ref)===inputRefKey(composerMentionTokenReference(token)));
+            if(index<0)return;
+            const label=trf('canvas.imageNumber',{number:index+1});
+            token.dataset.name=label;
+            const element=composerMentionTokenLabelElement(token);
+            if(element)element.textContent=label;
+            if(!token.querySelector('img'))token.insertAdjacentHTML('afterbegin',mentionTokenMediaHtml(refs[index],'image'));
+        });
+        bindSmartPreviewImageFallbacks($('References'));
+        bindSmartPreviewImageFallbacks($('Prompt'));
+    }
+    async function uploadReferences(files){
+        const state=session;if(!state||state.busy)return;
+        const images=files.filter(file=>file.type.startsWith('image/'));
+        if(images.length!==files.length){message('imagesOnly');return;}
+        if(state.references.length+images.length+1>referenceLimit(state)){message('referenceLimit');return;}
+        state.uploading=(state.uploading||0)+1;sync();
+        try {
+            const result=await uploadReferenceFiles(images);
+            if(session!==state)return;
+            if(!result || !result.files?.length || result.failed_count || result.clientFailures)message('referenceUploadFailed');
+            for(const item of result?.files||[])addReference(item,{acceptedUpload:true});
+            sync();saveDraft();redraw();
+        } finally {state.uploading--;if(session===state)sync();}
+    }
     function busy(value){
         if(!session) return;
         session.busy=value;
+        $('Prompt').readOnly=value;
         $('CompareHandle').setAttribute('aria-disabled',String(value));
         $('Editor').querySelectorAll('ic-select,ic-slider,ic-number-input,ic-textarea,ic-button,ic-icon-button,ic-switch,ic-generation-settings-picker').forEach(el=>{
             el.disabled=value;el.toggleAttribute('disabled',value);
@@ -34,7 +102,7 @@
         }
         const draft=s.recipe
             ? {version:1,expectedUrl:s.expectedUrl,transform:s.recipe.transform,feather:s.recipe.feather,recipeVersion:s.recipe.version}
-            : {version:1,width:s.width,height:s.height,strokes:s.strokes,box:s.box,prompt:String($('Prompt').value||''),model:s.model?.id||s.savedDraft?.model||'',modelIdentity:s.model?{provider_id:s.model.provider_id,model:s.model.model}:s.savedDraft?.modelIdentity||null,ratio:s.ratio||'',resolution:s.resolution||'',count:s.count||1,transparentPng:s.transparentPng===true,...(s.savedDraft?.agentPrepared?{agentPrepared:true}:{})};
+            : {version:1,width:s.width,height:s.height,strokes:s.strokes,box:s.box,prompt:promptText(),promptHtml:$('Prompt').innerHTML,references:s.references,model:s.model?.id||s.savedDraft?.model||'',modelIdentity:s.model?{provider_id:s.model.provider_id,model:s.model.model}:s.savedDraft?.modelIdentity||null,ratio:s.ratio||'',resolution:s.resolution||'',count:s.count||1,transparentPng:s.transparentPng===true,...(s.savedDraft?.agentPrepared?{agentPrepared:true}:{})};
         const field=s.recipe?'localRepairAdjustmentDrafts':'localRepairDrafts';
         window.SmartCanvasModules.canvasMutation.update({nodeId:node.id,mutate:target=>{
             target[field]={...(target[field]||{}),[draftKey(s)]:clone(draft)};
@@ -117,9 +185,12 @@
         $('CompareHandle').setAttribute('aria-disabled',String(s.busy));
         $('Heading').textContent=text(s.recipe?'adjust':'title');
         $('Heading').setAttribute('data-i18n',`smart.repair.${s.recipe?'adjust':'title'}`);
-        $('Generate').disabled=Boolean(s.busy||!s.source||!s.box||!s.model||!String($('Prompt').value||'').trim());
+        $('Generate').disabled=Boolean(s.busy||s.uploading||!s.source||!s.box||!s.model||!promptText().trim()||s.references.length+1>referenceLimit(s));
         $('Undo').disabled=Boolean(s.busy||!s.strokes.length);
         if(!s.recipe){
+            renderReferences();
+            if(s.model&&s.references.length+1>referenceLimit(s))message('referenceLimit');
+            else if(s.message==='referenceLimit')message('selectHint');
             syncSelect('Count',Array.from({length:s.maximumCount||1},(_,index)=>({value:index+1,label:trf('smart.repair.countLabel',{count:index+1})})),s.count||1);
             $('Transparent').hidden=s.model?.imageCapability?.supports_transparent_png!==true;
             $('Transparent').checked=s.transparentPng===true;
@@ -207,6 +278,8 @@
                 const preview=$('CropPreview'),box=s.box; const pscale=Math.min(1,320/Math.max(box.width,box.height));
                 preview.width=Math.round(box.width*pscale);preview.height=Math.round(box.height*pscale);
                 preview.getContext('2d').drawImage(s.source,-box.x*pscale,-box.y*pscale,s.width*pscale,s.height*pscale);
+                s.cropPreviewUrl=preview.toDataURL('image/png');
+                $('References').querySelector('[data-repair-reference="0"]')?.setAttribute('src',s.cropPreviewUrl);
             }
         }
     }
@@ -221,7 +294,9 @@
         openImageEditor(nodeId,imageIndex);
         setImageEditMode('preview');
         const savedDraft=nodes.find(n=>n.id===nodeId)?.localRepairDrafts?.[String(media.media_id||media.output_media_id||media.url)];
-        const s=session={nodeId,imageIndex,media:clone(media),savedDraft:savedDraft?clone(savedDraft):null,expectedUrl:media.url,strokes:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&!savedDraft?.agentPrepared&&media.local_repair?clone(media.local_repair):null,compare:false,comparePos:50,dirty:false,models:[],count:1,zoom:1,panX:0,panY:0};
+        const s=session={nodeId,imageIndex,media:clone(media),savedDraft:savedDraft?clone(savedDraft):null,expectedUrl:media.url,strokes:[],references:[],redo:[],tool:'brush',busy:false,recipe:!fresh&&!savedDraft?.agentPrepared&&media.local_repair?clone(media.local_repair):null,compare:false,comparePos:50,dirty:false,models:[],count:1,zoom:1,panX:0,panY:0};
+        if(promptQuickTargetEl===$('Prompt'))closeMentionPicker();
+        delete $('References').dataset.signature;
         setImageStudioToggleState($('Brush'),true);setImageStudioToggleState($('Rectangle'),false);
         imageEditMode='local-repair';imageEditModeTouched=true;
         imageEditModal.classList.add('local-repair-mode');$('Editor').hidden=false;
@@ -246,7 +321,8 @@
             } else {
                 const draft=nodes.find(n=>n.id===nodeId)?.localRepairDrafts?.[draftKey(s)];
                 if(draft?.version===1&&draft.width===s.width&&draft.height===s.height){s.strokes=clone(draft.strokes||[]);s.ratio=draft.ratio;s.resolution=draft.resolution;s.box=draft.box;s.count=draft.count||1;s.transparentPng=draft.transparentPng===true;}
-                control('Prompt',draft?.prompt||'');
+                s.references=clone(draft?.references||[]);
+                $('Prompt').innerHTML=structuredPromptEditorHtml(draft?.promptHtml,draft?.prompt||'');
                 let presetsFailed=false;
                 try {
                     const response=await fetch('/api/prompt-optimization-settings',{signal:AbortSignal.timeout(15000)});
@@ -279,6 +355,7 @@
     }
     function reset(){
         if(!session)return;
+        if(promptQuickTargetEl===$('Prompt'))closeMentionPicker();
         saveDraft();session=null;gesture=null;comparePointer=null;
         $('Editor').hidden=true;imageEditModal.classList.remove('local-repair-mode');
     }
@@ -374,8 +451,19 @@
         saveDraft();
     });
     $('Transparent').addEventListener('change',()=>{if(session&&!session.busy){session.transparentPng=$('Transparent').checked;saveDraft();}});
-    $('Prompt').addEventListener('input',()=>{sync();});
-    $('Prompt').addEventListener('change',saveDraft);
+    authoring.bindEditor($('Prompt'),{
+        node:()=>nodes.find(node=>node.id===session?.nodeId),
+        container:$('Composer'),
+        references:()=>session?[cropReference(),...session.references]:[],
+        accepts:item=>mediaKindForItem(item)==='image',
+        onReference:addReference,
+        onChange:()=>{if(session&&!session.busy){sync();saveDraft();}},
+        onFiles:uploadReferences,
+        onSubmit:()=>{if(!$('Generate').disabled)void generate();}
+    });
+    $('Prompt').addEventListener('change',()=>{sync();saveDraft();});
+    $('Upload').addEventListener('click',()=>{if(session&&!session.busy){$('Files').value='';$('Files').click();}});
+    $('Files').addEventListener('change',()=>void uploadReferences([...$('Files').files]));
     ['X','Y'].forEach(id=>$(id).addEventListener('change',()=>{if(session?.recipe){const value=Number($(id).value);if(Number.isFinite(value)){session.recipe.transform[id.toLowerCase()]=value;adjusted();saveDraft();}}}));
     $('Scale').addEventListener('input',()=>{if(session?.recipe){session.recipe.transform=geometry.scaled(session.recipe.crop,Number($('Scale').value)/100,session.recipe.transform);adjusted();}});
     $('Feather').addEventListener('input',()=>{if(session?.recipe){session.recipe.feather=Number($('Feather').value);adjusted();}});
@@ -417,7 +505,7 @@
         event.preventDefault();event.stopPropagation();setComparePosition(value);
     });
     function blob(canvas){return new Promise((resolve,reject)=>canvas.toBlob(result=>result?resolve(result):reject(new Error(text('loadFailed'))),'image/png'));}
-    async function submitRepair(s,prompt,{onPrepared=null,onAccepted=null,requestId='',guard=null}={}){
+    async function submitRepair(s,prompt,{references=[],onPrepared=null,onAccepted=null,requestId='',guard=null}={}){
         const check=()=>{
             if(!validSource(s))throw new Error(text('sourceChanged'));
             guard?.();
@@ -438,7 +526,8 @@
         const settings={engine:'api',apiKind:'image',provider_id:s.model.provider_id,model:s.model.model,ratio:window.SmartCanvasModules.imageCapabilities.standardToRatioKey(box.ratio)||box.ratio,resolution:String(s.resolution).toLowerCase(),count:s.count||1,quality:'auto',transparentPng:s.transparentPng===true&&s.model.imageCapability.supports_transparent_png===true};
         return window.SmartCanvasModules.generationRun.processor({
             nodeId:s.nodeId,imageIndex:s.imageIndex,input:{...input,natural_w:box.width,natural_h:box.height},width:box.width,height:box.height,
-            prompt:[prompt,scopeInstruction].join('\n\n'),runSettings:settings,localRepair:recipe,
+            references,
+            prompt:[prompt,...(references.length?[text('referenceInstruction')]:[]),scopeInstruction].join('\n\n'),runSettings:settings,localRepair:recipe,
             onPrepared,onAccepted,agentRepairRequestId:requestId,validateSource:check
         });
     }
@@ -446,8 +535,15 @@
     // the same crop, scope prompt, processor and composite as the Generate button.
     async function runDraft({nodeId,requestId,repair,onAccepted}={}){
         const editingSource=session?.nodeId===nodeId && session.imageIndex===repair.image_index;
-        if(editingSource && (session.busy||gesture))throw new Error(text('draftChanged'));
-        if(editingSource && !session.recipe && String($('Prompt').value||'')!==repair.draft.prompt)throw new Error(text('draftChanged'));
+        if(editingSource && (session.busy||session.uploading||gesture))throw new Error(text('draftChanged'));
+        const editor=document.createElement('div');
+        editor.innerHTML=structuredPromptEditorHtml(repair.draft.promptHtml,repair.draft.prompt);
+        if(editingSource && !session.recipe){
+            const current=authoring.resolveEditor({editor:$('Prompt'),references:[cropReference(),...session.references]});
+            const saved=authoring.resolveEditor({editor,references:[cropReference(),...(repair.draft.references||[])]});
+            const identities=value=>value.refs.map(ref=>[inputRefKey(ref),ref.url]);
+            if(current.prompt!==saved.prompt||!sameDraft(identities(current),identities(saved)))throw new Error(text('draftChanged'));
+        }
         await window.SmartCanvasModules.canvasPersistence.synced({forGeneration:true});
         const media=nodes.find(n=>n.id===nodeId)?.images?.[repair.image_index];
         const guard=()=>{
@@ -473,17 +569,22 @@
         if(!s.box||!String(draft.prompt||'').trim())throw new Error(text('selectHint'));
         s.resolution=draft.resolution||geometry.nearestResolution(s.box,tiers);
         guard();
-        return submitRepair(s,draft.prompt.trim(),{requestId,guard,onAccepted});
+        const authoringState=authoring.resolveEditor({editor,references:[cropReference(s),...(draft.references||[])]});
+        if(authoringState.refs.length>referenceLimit(s))throw new Error(text('referenceLimit'));
+        return submitRepair(s,authoringState.prompt,{references:authoringState.refs.slice(1),requestId,guard,onAccepted});
     }
     async function generate(){
-        const s=session;if(!s?.box||!s.model||s.busy)return;
+        const s=session;if(!s?.box||!s.model||s.busy||s.uploading)return;
         if(!validSource(s)){message('sourceChanged');return;}
-        const prompt=String($('Prompt').value||'').trim();
+        const authoringState=authoring.resolveEditor({editor:$('Prompt'),references:[cropReference(s),...s.references]});
+        const prompt=authoringState.prompt;
         if(!prompt)return;
+        if(authoringState.refs.length>referenceLimit(s)){message('referenceLimit');return;}
         if(!saveDraft())return;
         busy(true);message('submitting');
         try {
             await submitRepair(s,prompt,{
+                references:clone(authoringState.refs.slice(1)),
                 onPrepared:()=>{if(session===s)window.SmartCanvasModules.imageStudio.close();}
             });
             if(session===s)message('failed');

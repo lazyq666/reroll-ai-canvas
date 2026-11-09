@@ -109,6 +109,34 @@ class CliTests(unittest.TestCase):
     def generate_args(self, *extra):
         return ['generate','preserve me','--provider','fixture','--model','native','--output',str(self.directory),'--json',*extra]
 
+    def test_gif_quality_flags_and_original_download(self):
+        content = io.BytesIO()
+        Image.new('RGB',(32,32),'red').save(content,format='GIF',save_all=True,
+            append_images=[Image.new('RGB',(32,32),'blue')],duration=[100,200],loop=0)
+        self.png = content.getvalue()
+        code,result,_ = self.run_cli(self.generate_args('--quality','max','--output-format','gif',
+            '--frame-size','512x512','--frame-count','9','--frame-duration-ms','200','--n','1'))
+        self.assertEqual(0,code,result)
+        body = self.submissions[0]
+        self.assertEqual('max',body['quality'])
+        self.assertEqual('gif',body['output_format'])
+        self.assertEqual('512x512',body['frame_size'])
+        self.assertEqual(9,body['frame_count'])
+        self.assertEqual(200,body['frame_duration_ms'])
+        self.assertIsNone(body.get('ratio'))
+        downloaded = Path(result['outputs'][0]['path'])
+        self.assertEqual('.gif',downloaded.suffix)
+        self.assertEqual(self.png,downloaded.read_bytes())
+
+    def test_svg_original_download(self):
+        self.png = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 48"><path d="M0 0L20 30"/></svg>'
+        code,result,_ = self.run_cli(self.generate_args('--output-format','svg','--svg-model','text-model','--quality','low'))
+        self.assertEqual(0,code,result)
+        self.assertEqual({'model':'text-model'},self.submissions[0]['svg'])
+        downloaded = Path(result['outputs'][0]['path'])
+        self.assertEqual('.svg',downloaded.suffix)
+        self.assertEqual(self.png,downloaded.read_bytes())
+
     def test_ordered_duplicate_images_use_bytes_only_and_keep_both_instances(self):
         code, result, _ = self.run_cli(self.generate_args('--image',str(self.image),'--image',str(self.image),'--ratio','3:4'))
         self.assertEqual(0,code)

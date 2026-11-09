@@ -20,6 +20,7 @@ _MEDIA_EXTENSIONS = {
     ".jpeg": "image",
     ".webp": "image",
     ".gif": "image",
+    ".svg": "image",
     ".bmp": "image",
     ".avif": "image",
     ".mp4": "video",
@@ -56,6 +57,7 @@ _CONTENT_TYPE_EXTENSIONS = {
     "image/jpeg": ".jpg",
     "image/webp": ".webp",
     "image/gif": ".gif",
+    "image/svg+xml": ".svg",
     "image/avif": ".avif",
     "video/mp4": ".mp4",
     "video/webm": ".webm",
@@ -134,6 +136,17 @@ class WorkspaceMediaService:
         name: str,
         kind: str,
     ) -> ManagedMediaImport:
+        with temporary.open("rb") as source:
+            signature = source.read(512).lstrip(b"\xef\xbb\xbf \t\r\n")
+        if extension in {".svg", ".gif"} or kind == "image" and signature.startswith((b"<", b"GIF87a", b"GIF89a")):
+            from .image_originals import inspect_image
+            try:
+                metadata = inspect_image(temporary.read_bytes())
+                extension = metadata["extension"]
+                name = str(Path(name).with_suffix(extension))
+            except ValueError as exc:
+                temporary.unlink(missing_ok=True)
+                raise WorkspaceStorageError("invalid_image") from exc
         filename = f"{digest}{extension}"
         destination = self.directory / filename
         try:

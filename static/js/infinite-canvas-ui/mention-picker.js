@@ -1,4 +1,4 @@
-import { closeTopLayer, openTopLayer } from './overlay-layer.js?v=asset-5c6dc85ecbcd';
+import { activeOverlayScope, closeTopLayer, openTopLayer } from './overlay-layer.js?v=asset-5c6dc85ecbcd';
 import {
   ANCHORED_OVERLAY_MOTION_STYLES,
   nextOverlayPaint,
@@ -94,14 +94,14 @@ export class IcMentionPicker extends HTMLElement {
     if (!this.dataset.motionState) this.dataset.motionState = this.open ? 'open' : 'closed';
     this.render();
     this.syncOpenState();
-    document.addEventListener('pointerdown', this._onDocumentPointerDown);
+    document.addEventListener('pointerdown', this._onDocumentPointerDown, true);
     document.addEventListener('keydown', this._onDocumentKeyDown);
   }
 
   disconnectedCallback() {
     this._motionGeneration += 1;
     closeTopLayer(this.surface);
-    document.removeEventListener('pointerdown', this._onDocumentPointerDown);
+    document.removeEventListener('pointerdown', this._onDocumentPointerDown, true);
     document.removeEventListener('keydown', this._onDocumentKeyDown);
     this.removeViewportListeners();
     this.stopPositionTracking();
@@ -741,6 +741,8 @@ export class IcMentionPicker extends HTMLElement {
     this._anchor = nextAnchor;
     this._invoker = nextInvoker;
     this._placement = PLACEMENTS.has(placement) ? placement : 'block-start';
+    const scope = activeOverlayScope(nextInvoker);
+    if (this.parentElement !== scope) scope.append(this);
     this._invoker.setAttribute('aria-expanded', 'true');
     if (this.open && this.dataset.motionState !== 'exiting') {
       this.position();

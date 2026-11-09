@@ -719,7 +719,7 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .far-layer-stage .layer-decomposition-item:not(:first-child) .far-node-image-skeleton { visibility:hidden; }
 .layer-decomposition-item.is-hidden { opacity:0; }
 .image-repair-editor[hidden],.image-repair-fields[hidden] { display:none; }
-.image-repair-editor { position:absolute; inset:0; display:grid; grid-template-columns:minmax(0,1fr) 20rem; gap:var(--ui-space-6); padding:var(--ui-space-16) var(--ui-space-6) var(--ui-space-6); box-sizing:border-box; }
+.image-repair-editor { position:absolute; inset:0; display:grid; grid-template-columns:minmax(0,1fr) min(28rem,44vw); gap:var(--ui-space-6); padding:var(--ui-space-16) var(--ui-space-6) var(--ui-space-6); box-sizing:border-box; }
 .image-repair-viewport { min-width:0; min-height:0; display:grid; place-items:center; overflow:hidden; }
 #imageRepairCanvas { display:block; max-width:100%; max-height:100%; touch-action:none; cursor:crosshair; box-shadow:var(--ui-shadow-raised); background:repeating-conic-gradient(var(--ui-color-surface-subtle) 0 25%,var(--ui-color-surface) 0 50%) 50% / 1rem 1rem; }
 #imageRepairCanvas:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
@@ -876,6 +876,9 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .dynamic-params textarea { height:var(--ctrl-height); padding-top:var(--ui-space-1); resize:none; white-space:pre-wrap; overflow-wrap:break-word; }
 .trusted-source-row { display:inline-flex; align-items:center; gap:var(--ui-space-1); flex-wrap:wrap; }
 .dynamic-params .generation-setting-switch { padding-inline:var(--ui-space-2); color:var(--ui-color-text-secondary); font-size:var(--ui-font-size-2); }
+.dynamic-params .image-format-field { display:inline-flex; align-items:center; gap:var(--ui-space-2); font:var(--ui-text-body-compact); color:var(--ui-color-text-secondary); }
+.dynamic-params .image-format-field input { box-sizing:border-box; inline-size:4.5rem; block-size:var(--ui-control-height-s); padding:var(--ui-space-1) var(--ui-space-2); border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary); border-radius:var(--ui-radius-s); background:var(--ui-color-surface); color:var(--ui-color-text-primary); font:inherit; }
+.dynamic-params .image-format-field input:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
 .dynamic-params .generation-field-with-action { display:inline-flex; align-items:center; gap:var(--ui-space-1); }
 .dynamic-params .generation-number-input { inline-size:7.5rem; }
 .dynamic-params .generation-text-input { inline-size:10rem; }
@@ -1919,6 +1922,12 @@ ic-canvas-node.image-node[kind].selected:has(.thumb-grid .image-selected,.far-no
 .image-repair-fields small { color:var(--ui-color-text-secondary); font:var(--ui-text-caption); }
 #imageRepairTransparent[hidden],#imageRepairScope[hidden] { display:none; }
 .image-repair-panel { min-height:0; overscroll-behavior:contain; }
+.image-repair-composer.composer-card { min-width:0; backdrop-filter:none; }
+.image-repair-composer .prompt-row { height:10rem; max-height:16rem; }
+.image-repair-composer ic-prompt-composer { height:100%; min-height:0; overscroll-behavior:contain; }
+.image-repair-composer .image-repair-controls { min-width:0; flex-wrap:wrap; }
+.image-repair-composer .input-thumb-list { flex:1; min-width:0; }
+.image-repair-composer .catalog-model-select { flex-basis:100%; }
 
 .image-repair-frame { position:relative; min-width:0; min-height:0; }
 #imageRepairCompareHandle:not([hidden]) { display:block; }

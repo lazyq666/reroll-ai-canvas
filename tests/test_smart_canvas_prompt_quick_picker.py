@@ -300,6 +300,7 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
                 mentionPicker, promptInput:{}, composer:null,
                 queueMicrotask:()=>{}, fetch:async()=>({ok:true,json:async()=>({})}),
                 inputMentionCandidateImages:()=>candidates, promptQuickTargetNode:()=>null,
+                promptAuthoring:{editorContext:()=>null},
                 promptQuickNormalize:value=>String(value), inputRefKey:item=>item.id,
                 mediaKindForItem:item=>item.kind||'image', smartMediaPreviewUrl:item=>item.url,
                 tr:key=>key, promptQuickEditor:()=>({}),
@@ -420,6 +421,8 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
             ];
             const sandbox = {
                 visibleReferenceImagesFor:()=>references,
+                promptQuickEditor:()=>null,
+                promptAuthoring:{editorContext:()=>null},
                 composerInputMediaLabel:(ref, counters) => {
                     counters.image = (counters.image || 0) + 1;
                     return '图片' + counters.image;
@@ -516,6 +519,7 @@ class SmartCanvasPromptQuickPickerTests(unittest.TestCase):
             const existing = {url:'media://existing', inputInstanceId:'manual_existing'};
             const sandbox = {
                 promptInput,
+                promptAuthoring:{editorContext:()=>null},
                 mentionInsertMode:'token',
                 promptQuickEditor:()=>promptInput,
                 promptQuickTargetNode:()=>node,

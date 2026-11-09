@@ -491,7 +491,7 @@ function smartPreviewImgHtml(itemOrUrl, size=512, attrs=''){
     const preview = smartMediaPreviewUrl(itemOrUrl, size);
     const originalItem = typeof itemOrUrl === 'object' && itemOrUrl ? {...itemOrUrl, url:original} : {url:original};
     const originalDisplay = displayMediaUrl(originalItem);
-    const src = smartImagePerformanceOptimization ? preview : originalDisplay;
+    const src = smartImagePerformanceOptimization || /\.gif(?:[?#]|$)/i.test(original) ? preview : originalDisplay;
     return `<img src="${escapeHtml(src)}" data-preview-src="${escapeAttr(preview)}" data-preview-size="${Math.round(Number(size) || 512)}" data-original-src="${escapeAttr(original)}" data-media-state="loading" decoding="async"${attrs ? ` ${attrs}` : ''}>`;
 }
 function loadSmartOriginalImageDimensions(url){
@@ -652,6 +652,10 @@ function bindSmartPreviewImageFallbacks(root=document){
         img.addEventListener('load',() => { void markReady(); });
         img.addEventListener('error', () => {
             const original = img.dataset.originalSrc || '';
+            if(/\.gif(?:[?#]|$)/i.test(original)){
+                img.dataset.mediaState = 'failed';
+                return;
+            }
             if(img.dataset.previewKind === 'video'){
                 const tpl = document.createElement('template');
                 if(img.closest('.canvas-lod-node-far')){
@@ -726,6 +730,7 @@ function smartAdaptiveImageElements(root=world){
 }
 function showSmartOriginalImages(root=world){
     smartAdaptiveImageElements(root).forEach(img => {
+        if(/\.gif(?:[?#]|$)/i.test(img.dataset.originalSrc || '')) return;
         delete img.dataset.adaptivePreviewTarget;
         const target = displayMediaUrl({url:smartOriginalMediaUrl(img.dataset.originalSrc || '')});
         if(target && img.getAttribute('src') !== target) img.src = target;
@@ -734,12 +739,19 @@ function showSmartOriginalImages(root=world){
 function refreshSmartAdaptiveImageResolution(root=world){
     if(!smartImagePerformanceOptimization){
         showSmartOriginalImages(root);
-        return;
     }
     smartAdaptiveImageElements(root).forEach(img => {
         const original = smartOriginalMediaUrl(img.dataset.originalSrc || '');
         if(!original) return;
         const lodState = canvasLevelOfDetail.diagnostics();
+        if(/\.gif(?:[?#]|$)/i.test(original)){
+            const nodeId = img.closest('.image-node')?.dataset.id;
+            const play = lodState.mode !== 'far' && (selectedId === nodeId || selectedIds.includes(nodeId)) && smartImageNearViewport(img);
+            const target = play ? displayMediaUrl({url:original}) : smartMediaPreviewUrl(original,512);
+            if(img.getAttribute('src') !== target) img.src = target;
+            return;
+        }
+        if(!smartImagePerformanceOptimization) return;
         const currentSize = Number(img.dataset.previewSize) || smartPreviewSizeFromUrl(img.dataset.previewSrc);
         const targetSize = lodState.mode === 'far'
             ? 512
@@ -826,8 +838,7 @@ function setSmartImagePerformanceOptimization(value){
     const enabled = Boolean(value);
     smartImagePerformanceOptimization = enabled;
     try { localStorage.setItem(SMART_IMAGE_PERFORMANCE_STORAGE_KEY, enabled ? 'on' : 'off'); } catch(e) {}
-    if(enabled) refreshSmartAdaptiveImageResolution(world);
-    else showSmartOriginalImages(world);
+    refreshSmartAdaptiveImageResolution(world);
     refreshSmartCanvasSettings();
 }
 function setSmartCanvasInteractionSpeed(kind, percent){
@@ -3407,9 +3418,23 @@ function renderVideoToggleControl(key, label){
     const on = !!settings[key];
     return `<ic-switch class="generation-setting-switch" name="${escapeAttr(key)}" label="${escapeAttr(label)}" size="s" data-toggle-param="${escapeAttr(key)}" ${on ? 'checked' : ''}></ic-switch>`;
 }
-function renderTransparentPngControl(capability=smartCurrentImageCapability('')){
-    if(capability?.supports_transparent_png !== true) return '';
-    return `<ic-switch class="generation-setting-switch" name="transparent-png" label="${escapeAttr(tr('smart.transparentPng'))}" size="s" data-toggle-param="transparentPng" ${settings.transparentPng ? 'checked' : ''}></ic-switch>`;
+function renderImageFormatControl(capability=smartCurrentImageCapability('')){
+    const formats = capability.model_capability?.parameters?.output_format?.values || [];
+    const options = [];
+    if(capability.supports_transparent_png === true) options.push({value:'transparent_png',label:tr('smart.transparentPng')});
+    for(const format of ['gif','svg']){
+        if(formats.includes(format)) options.push({value:format,label:tr(`smart.format${format.toUpperCase()}`)});
+    }
+    if(!options.length) return '';
+    const current = settings.transparentPng ? 'transparent_png' : settings.outputFormat || '';
+    const unsupported = current && !options.some(option => option.value === current);
+    const currentLabel = current === 'transparent_png' ? tr('smart.transparentPng') : current.toUpperCase();
+    return `<ic-select name="image-format" aria-label="${escapeAttr(tr('smart.outputFormat'))}" placeholder="${escapeAttr(tr('smart.selectFormat'))}" value="${escapeAttr(current)}" hierarchy="quiet" size="small" placement="top" data-component-variant="secondary" data-smart-select-param="imageFormat">
+        <option value="__default__">${escapeHtml(tr('smart.formatDefault'))}</option>
+        ${unsupported ? `<option value="${escapeAttr(current)}" selected disabled>${escapeHtml(currentLabel)}</option>` : ''}
+        ${options.map(option => `<option value="${option.value}" ${option.value === current ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+        <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
+    </ic-select>`;
 }
 function renderVideoCapabilityToggle(capability, option, label){
     const module = window.SmartCanvasModules.videoCapabilities;
@@ -3604,7 +3629,8 @@ function renderApiParams(){
         ${renderCatalogModelControl('image')}
         ${renderSizePickerControl('', true)}
         ${renderCountVisualControl()}
-        ${renderTransparentPngControl()}
+        ${renderImageFormatControl()}
+        ${renderImageFormatControls()}
     `;
 }
 function renderApiVideoParams(){
@@ -3922,11 +3948,11 @@ function smartImageCapabilityReferences(){
 }
 function smartCurrentImageCapability(prefix=''){
     const selection = smartImageCapabilitySelection(prefix);
-    return window.SmartCanvasModules.imageCapabilities.current(selection.providerId, selection.modelId);
+    return window.SmartCanvasModules.imageCapabilities.current(selection.providerId, selection.modelId, smartImageCapabilityReferences().length ? 'image.edit' : 'image.generate');
 }
 function smartImageCapabilityWarningKey(prefix=''){
     const selection = smartImageCapabilitySelection(prefix);
-    return [prefix, selection.providerId, selection.modelId]
+    return [prefix, selection.providerId, selection.modelId, smartImageCapabilityReferences().length ? 'image.edit' : 'image.generate']
         .map(value => String(value || '').trim())
         .join('\u001f');
 }
@@ -3965,15 +3991,56 @@ function smartImageRatioOptions(prefix=''){
     }));
 }
 const pendingSmartImageCapabilityKeys = new Set();
+function smartGifSettingsState(source=settings, capability=smartCurrentImageCapability('')){
+    const contract = capability.model_capability || {};
+    const parameters = contract.parameters || {};
+    const module = window.SmartCanvasModules.modelCapabilities;
+    const frameSize = source.frameSize || '512x512';
+    const frameCount = source.frameCount ?? 9;
+    const frameDurationMs = source.frameDurationMs ?? 200;
+    const validate = size => module.validate(contract, {
+        parameters:{output_format:'gif',frame_size:size,frame_count:frameCount,frame_duration_ms:frameDurationMs},
+        catalogRevision:contract.catalog_revision,
+    });
+    const validation = validate(frameSize);
+    const sizes = [...new Set(['256x256','512x512','768x768',frameSize])];
+    const durationRule = parameters.frame_duration_ms || {};
+    const durations = [...new Set([1000,500,250,200,160,120,100,80,60,50,40,30,20,...(durationRule.values || []),frameDurationMs])]
+        .filter(value => Number.isInteger(value) && value >= Math.max(20,durationRule.minimum ?? 20)
+            && value % 10 === 0 && (durationRule.maximum == null || value <= durationRule.maximum)
+            && (!durationRule.values?.length || durationRule.values.includes(value)))
+        .sort((first,second) => second - first);
+    return {
+        sizes,
+        disabledSizes:sizes.filter(size => validate(size).errors.some(error => error.field === 'frame_size')),
+        minimum:Math.max(2,parameters.frame_count?.minimum ?? 2),
+        maximum:Math.min(16,parameters.frame_count?.maximum ?? 16),
+        durations,
+        valid:validation.valid,
+        warning:validation.valid ? '' : module.validationMessage(validation),
+    };
+}
+function syncSmartGifSettingsPicker(picker){
+    const state = smartGifSettingsState();
+    for(const [name,value] of Object.entries({
+        'disabled-frame-sizes':state.disabledSizes.join(','),
+        'frame-warning':state.warning,
+    })){
+        if(picker.getAttribute(name) !== value) picker.setAttribute(name,value);
+    }
+}
 function renderSizePickerControl(prefix='', includeSource=false, includeQuality=true){
     const ratioKey = prefix ? `${prefix}Ratio` : 'ratio';
     const resKey = prefix ? `${prefix}Resolution` : 'resolution';
     const capability = smartCurrentImageCapability(prefix);
+    const animated = !prefix && settings.outputFormat === 'gif';
+    const gifState = animated ? smartGifSettingsState(settings,capability) : null;
+    const qualities = capability.model_capability?.parameters?.quality?.values || [];
     const selection = smartImageCapabilitySelection(prefix);
     const capabilityKey = smartImageCapabilityWarningKey(prefix);
     if(selection.providerId && selection.modelId && !capability.model_capability && !pendingSmartImageCapabilityKeys.has(capabilityKey)){
         pendingSmartImageCapabilityKeys.add(capabilityKey);
-        window.SmartCanvasModules.imageCapabilities.load(selection.providerId, selection.modelId).then(() => {
+        window.SmartCanvasModules.imageCapabilities.load(selection.providerId, selection.modelId, smartImageCapabilityReferences().length ? 'image.edit' : 'image.generate').then(() => {
             if(capabilityKey === smartImageCapabilityWarningKey(prefix)) { renderDynamicParams(); syncRunButtonState(); }
         }).catch(() => {}).finally(() => pendingSmartImageCapabilityKeys.delete(capabilityKey));
     }
@@ -4004,7 +4071,7 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
     }
     const automatic = reconciled.automatic;
     const customSizingActive = !prefix && window.SmartCanvasModules.imageCapabilities.customActive(settings);
-    if(includeSource && !customSizingActive && automatic.available && settings._imageRatioExplicit !== true && settings[ratioKey] !== 'source'){
+    if(includeSource && !animated && !customSizingActive && automatic.available && settings._imageRatioExplicit !== true && settings[ratioKey] !== 'source'){
         settings[ratioKey] = 'source';
     }
     if(includeSource && settings[ratioKey] === 'source') applySourceRatioToSettings(prefix);
@@ -4022,7 +4089,7 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
     // Unknown capabilities preserve stored preferences, but the picker must
     // receive only values in its current options so it remains recoverable.
     const currentRatio = presets.includes(settings[ratioKey]) ? settings[ratioKey] : '';
-    const warning = settings._imageCapabilityWarning === true
+    const warning = qualities.length && !qualities.includes(settings.quality || 'auto') ? tr('smart.modelSettingsUnsupported') : settings._imageCapabilityWarning === true
         && settings._imageCapabilityWarningKey === warningKey
         ? tr('smart.modelSettingsUnsupported')
         : '';
@@ -4034,6 +4101,7 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
         resolution="${escapeAttr(currentRes)}"
         resolutions="${escapeAttr(tiers.map(value => value.toLowerCase()).join(','))}"
         quality="${escapeAttr(settings.quality || 'auto')}"
+        qualities="${escapeAttr(qualities.join(','))}"
         ratio-label="${escapeAttr(tr('smart.ratio'))}"
         resolution-label="${escapeAttr(tr('smart.resolution'))}"
         quality-label="${escapeAttr(tr('smart.quality'))}"
@@ -4043,19 +4111,43 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
         quality-low-label="${escapeAttr(tr('smart.qualityLow'))}"
         quality-medium-label="${escapeAttr(tr('smart.qualityMid'))}"
         quality-high-label="${escapeAttr(tr('smart.qualityHigh'))}"
-        ${!prefix && !settings.outpaintResolutionLocked && capability.supports_custom_resolution ? `custom-size-limits="${escapeAttr(JSON.stringify(capability.custom_size_limits))}" pixel-width="${escapeAttr(settings.pixelWidth ?? '')}" pixel-height="${escapeAttr(settings.pixelHeight ?? '')}"` : ''}
+        quality-xhigh-label="${escapeAttr(tr('smart.qualityXhigh'))}"
+        quality-max-label="${escapeAttr(tr('smart.qualityMax'))}"
+        ${!animated && !prefix && !settings.outpaintResolutionLocked && capability.supports_custom_resolution ? `custom-size-limits="${escapeAttr(JSON.stringify(capability.custom_size_limits))}" pixel-width="${escapeAttr(settings.pixelWidth ?? '')}" pixel-height="${escapeAttr(settings.pixelHeight ?? '')}"` : ''}
         data-smart-generation-settings
         data-smart-generation-prefix="${escapeAttr(prefix)}"
-        ${capability.show_resolution_control ? '' : 'hide-resolution'}
-        ${includeQuality ? '' : 'hide-quality'}
+        ${animated ? 'hide-ratio' : ''}
+        ${animated ? `frame-size="${escapeAttr(settings.frameSize || '512x512')}"
+            frame-sizes="${escapeAttr(gifState.sizes.join(','))}" disabled-frame-sizes="${escapeAttr(gifState.disabledSizes.join(','))}"
+            frame-count="${escapeAttr(settings.frameCount ?? 9)}" frame-count-min="${gifState.minimum}" frame-count-max="${gifState.maximum}"
+            frame-duration-ms="${escapeAttr(settings.frameDurationMs ?? 200)}" frame-duration-options="${escapeAttr(gifState.durations.join(','))}"
+            frame-warning="${escapeAttr(gifState.warning)}"` : ''}
+        ${!animated && capability.show_resolution_control ? '' : 'hide-resolution'}
+        ${includeQuality && qualities.length ? '' : 'hide-quality'}
         ${warning ? `warning="${escapeAttr(warning)}"` : ''}
     ></ic-generation-settings-picker>`;
 }
+function renderImageFormatControls(){
+    const parameters = smartCurrentImageCapability('').model_capability?.parameters || {};
+    const outputFormat = settings.outputFormat || '';
+    let html = '';
+    if(['jpeg','webp'].includes(outputFormat) || settings.outputCompression !== '' && settings.outputCompression != null){
+        html += `<label class="image-format-field">${escapeHtml(tr('smart.outputCompression'))}<input type="number" min="0" max="100" step="1" data-param="outputCompression" value="${escapeAttr(settings.outputCompression ?? '')}"></label>`;
+    }
+    if(outputFormat === 'svg'){
+        const error = smartImageCapabilityReferences().length ? 'smart.svgReferenceConflict' : !parameters.svg_model?.default ? 'smart.svgModelRequired' : '';
+        if(error) html += `<span role="status">${escapeHtml(tr(error))}</span>`;
+        if(!parameters.svg_model?.default) html += `<a href="/static/available-model-management.html">${escapeHtml(tr('smart.configureSvgModel'))}</a>`;
+    }
+    return html;
+}
 function renderCountVisualControl(){
     const value = Number(settings.count || 1);
-    const unit = tr('smart.countUnit');
+    const unit = count => tr(settings.outputFormat === 'gif'
+        ? count === 1 ? 'smart.animationUnitOne' : 'smart.animationUnit'
+        : count === 1 ? 'smart.countUnitOne' : 'smart.countUnit');
     const capability = smartCurrentImageCapability('');
-    const maximum = window.SmartCanvasModules.modelCapabilities
+    const maximum = settings.outputFormat === 'svg' ? 1 : window.SmartCanvasModules.modelCapabilities
         ?.outputCountMaximum?.(capability, 4) || 4;
     const values = Array.from({length:maximum}, (_item,index) => index + 1);
     const unsupportedCurrent = value >= 1 && !values.includes(value)
@@ -4063,7 +4155,7 @@ function renderCountVisualControl(){
         : '';
     return `<ic-select class="generation-count-select" name="generation-count" aria-label="${escapeAttr(tr('smart.count'))}" hierarchy="quiet" size="small" placement="top" data-component-variant="generation-count" data-smart-select-param="count">
         ${unsupportedCurrent}
-        ${values.map(n => `<option value="${n}" ${n === value ? 'selected' : ''}>${n}${unit ? ` ${escapeHtml(unit)}` : ''}</option>`).join('')}
+        ${values.map(n => `<option value="${n}" ${n === value ? 'selected' : ''}>${n} ${escapeHtml(unit(n))}</option>`).join('')}
         <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
     </ic-select>`;
 }
@@ -4612,6 +4704,12 @@ function smartComfyRandomValue(field){
 function setDynamicSetting(key, value){
     const requestedKey = key;
     if(key === 'rhInstanceType' && value === '__default__') value = '';
+    if(key === 'imageFormat'){
+        settings.transparentPng = value === 'transparent_png';
+        settings.outputCompression = '';
+        key = 'outputFormat';
+        value = ['gif','svg'].includes(value) ? value : '';
+    }
     const capabilityModelKeys = new Set(['modelChoice','model','msgenModel','msCustomModel','comfyWorkflow','rhConfigKey']);
     const changesImageModel = capabilityModelKeys.has(requestedKey);
     const capabilityPrefix = settings.engine === 'modelscope' ? 'ms' : '';
@@ -4642,9 +4740,10 @@ function setDynamicSetting(key, value){
         if(video){ settings.videoProvider = entry.provider_id; settings.videoModel = entry.model; key = 'videoModel'; value = entry.model; }
         else { settings.provider_id = entry.provider_id; settings.model = entry.model; key = 'model'; value = entry.model; }
     }
-    const numericKeys = new Set(['count','width','height','comfyDuration','videoDuration','customRatioWidth','customRatioHeight','customWidth','customHeight','msCustomRatioWidth','msCustomRatioHeight','msCustomWidth','msCustomHeight']);
-    const layoutKeys = new Set(['comfyDuration','comfyResolution','comfyAspect','provider_id','model','resolution','ratio','msgenModel','msCustomModel','msResolution','msRatio','videoProvider','videoModel','videoAspect','videoResolution','videoReferenceMode','comfyMode','comfyWorkflow','quality','count','rhConfigKey','rhPayment','rhInstanceType']);
+    const numericKeys = new Set(['count','frameCount','frameDurationMs','outputCompression','width','height','comfyDuration','videoDuration','customRatioWidth','customRatioHeight','customWidth','customHeight','msCustomRatioWidth','msCustomRatioHeight','msCustomWidth','msCustomHeight']);
+    const layoutKeys = new Set(['outputFormat','frameCount','frameSize','comfyDuration','comfyResolution','comfyAspect','provider_id','model','resolution','ratio','msgenModel','msCustomModel','msResolution','msRatio','videoProvider','videoModel','videoAspect','videoResolution','videoReferenceMode','comfyMode','comfyWorkflow','quality','count','rhConfigKey','rhPayment','rhInstanceType']);
     settings[key] = numericKeys.has(key) && value !== '' ? Number(value) : value;
+    if(key === 'outputFormat' && value === 'svg') settings.count = 1;
     if(changesImageModel){
         pendingSmartImageCapabilityTransition = smartImageCapabilityTransitionFinish(capabilityTransitionStart);
         delete settings._imageCapabilityWarning;
@@ -4742,6 +4841,12 @@ function bindDynamicParams(){
             }
             const video = picker.dataset.smartGenerationMode === 'video';
             const workflow = picker.dataset.smartGenerationMode === 'workflow';
+            if(!video && !workflow && !prefix && settings.outputFormat === 'gif' && ['frameSize','frameCount','frameDurationMs'].includes(field)){
+                setDynamicSetting(field,event.detail.value);
+                syncSmartGifSettingsPicker(picker);
+                syncRunButtonState();
+                return;
+            }
             const key = workflow ? (field === 'ratio' ? 'comfyAspect' : field === 'resolution' ? 'comfyResolution' : field === 'duration' ? 'comfyDuration' : '') : video
                 ? (field === 'ratio' ? 'videoAspect' : field === 'resolution' ? 'videoResolution' : field === 'duration' ? 'videoDuration' : '')
                 : field === 'ratio'
@@ -4934,7 +5039,7 @@ async function loadSmartImageCapabilityForCurrentSettings({notify=false}={}){
     if(settings.apiKind === 'video') return null;
     const sequence = ++smartImageCapabilityLoadSequence;
     const selection = smartImageCapabilitySelection(settings.engine === 'modelscope' ? 'ms' : '');
-    const capability = await window.SmartCanvasModules.imageCapabilities.load(selection.providerId, selection.modelId);
+    const capability = await window.SmartCanvasModules.imageCapabilities.load(selection.providerId, selection.modelId, smartImageCapabilityReferences().length ? 'image.edit' : 'image.generate');
     if(sequence !== smartImageCapabilityLoadSequence) return capability;
     const prefix = settings.engine === 'modelscope' ? 'ms' : '';
     const reconciled = window.SmartCanvasModules.imageCapabilities.reconcile(
@@ -5931,7 +6036,10 @@ function syncRunButtonState(node=window.SmartCanvasModules.viewportSelection.sel
     runBtn.disabled = Boolean(composerSubmission) || !isSmartRunnableNode(node)
         || generationRun.status({node}).loopRunning
         || invalidVideoReferences
+        || (settings.engine === 'api' && settings.apiKind !== 'video' && settings.outputFormat === 'gif'
+            && !smartGifSettingsState().valid)
         || (isApiLikeEngine(settings.engine) && settings.apiKind !== 'video'
+            && settings.outputFormat !== 'gif'
             && !settings.outpaintResolutionLocked
             && window.SmartCanvasModules.imageCapabilities.customActive(settings)
             && !window.SmartCanvasModules.imageCapabilities.validateCustom(settings, smartCurrentImageCapability('')).valid);
@@ -9067,7 +9175,9 @@ function runSmartNodeToolbarAction(nodeId, action, requestedImageIndex=null, tri
         return;
     }
     if(action === 'matting'){
-        smartMatting.run({node, imageIndex:index});
+        void imageStudio.createStaticCopy(nodeId,index).then(copy => {
+            if(copy) smartMatting.run({node:nodes.find(item => item.id === copy.nodeId),imageIndex:copy.imageIndex});
+        });
         return;
     }
     if(action === 'local-repair'){
@@ -13552,7 +13662,14 @@ function positionComposerForNode(node, surface=composer, maxWidth=48){
     const rect = smartContainer.presentation(node) || nodeRect(node);
     const gap = 14;
     const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const cardW = Math.max(0, Math.min(maxWidth * rootFontSize, shell.clientWidth - 28));
+    const dock = document.getElementById('smartCanvasDock');
+    const dockBounds = dock?.getBoundingClientRect();
+    const shellBounds = shell.getBoundingClientRect();
+    const minLeft = dock?.dataset.position === 'left' && dockBounds?.width
+        ? Math.max(14, dockBounds.right - shellBounds.left + 14) : 14;
+    const rightInset = dock?.dataset.position === 'right' && dockBounds?.width
+        ? Math.max(14, shellBounds.right - dockBounds.left + 14) : 14;
+    const cardW = Math.max(0, Math.min(maxWidth * rootFontSize, shell.clientWidth - minLeft - rightInset));
     const nodeLeft = viewport.x + rect.x * viewport.scale;
     const nodeTop = viewport.y + rect.y * viewport.scale;
     const nodeRight = nodeLeft + rect.width * viewport.scale;
@@ -13566,8 +13683,7 @@ function positionComposerForNode(node, surface=composer, maxWidth=48){
     }
     surface.style.visibility = 'visible';
     const anchorX = nodeLeft + rect.width * viewport.scale / 2;
-    const minLeft = 14;
-    const maxLeft = Math.max(minLeft, shell.clientWidth - cardW - 14);
+    const maxLeft = Math.max(minLeft, shell.clientWidth - cardW - rightInset);
     surface.style.width = `${cardW}px`;
     surface.style.left = `${Math.max(minLeft, Math.min(maxLeft, anchorX - cardW / 2))}px`;
     surface.style.top = `${nodeBottom + gap}px`;
@@ -15468,6 +15584,7 @@ function setPromptQuickTarget(editor=promptInput, node=null){
         : (node?.id || promptQuickTargetEl?.dataset?.nodeId || '');
 }
 function resetMentionPickerSession(){
+    mentionAssetRequest += 1;
     composer?.classList.remove('prompt-picker-open');
     promptQuickPickerItems = [];
     mentionInsertMode = 'token';
@@ -15646,11 +15763,14 @@ function mentionReferenceStateForNode(node){
     const byIdentity = new Map();
     if(!node) return byIdentity;
     const mediaCounters = {image:0, video:0, audio:0, text:0, file:0};
-    visibleReferenceImagesFor(node).forEach((ref, index) => {
+    const scopedEditor = promptAuthoring.editorContext(promptQuickEditor());
+    const scopedReferences = scopedEditor?.node()?.id === node.id ? scopedEditor.references?.() : null;
+    const scopedLabels = scopedReferences ? promptAuthoringReferenceLabels(scopedReferences) : null;
+    (scopedReferences || visibleReferenceImagesFor(node)).forEach((ref, index) => {
         const state = {
             ref,
             index,
-            label:composerInputMediaLabel(ref, mediaCounters)
+            label:scopedLabels ? scopedLabels[index] : composerInputMediaLabel(ref, mediaCounters)
         };
         mentionMediaIdentityKeys(ref).forEach(key => {
             if(!byIdentity.has(key)) byIdentity.set(key, state);
@@ -15723,7 +15843,8 @@ function renderMentionPicker(){
     const targetNode = promptQuickTargetNode();
     const allCanvasCandidates = mentionPickerCandidatesWithReferenceState(
         inputMentionCandidateImages(targetNode).filter(item =>
-            !promptQuickQuery || promptQuickNormalize(item.alias || item.name).includes(promptQuickQuery)
+            (promptAuthoring.editorContext(promptQuickEditor())?.accepts?.(item) ?? true)
+            && (!promptQuickQuery || promptQuickNormalize(item.alias || item.name).includes(promptQuickQuery))
         ),
         targetNode
     );
@@ -15877,7 +15998,10 @@ function insertPromptTemplateText(template){
     selection.addRange(range);
     mentionRange = range.cloneRange();
     closeMentionPicker();
-    if(editor === promptInput){
+    const scopedEditor = promptAuthoring.editorContext(editor);
+    if(scopedEditor){
+        scopedEditor.onChange();
+    } else if(editor === promptInput){
         delete promptInput.dataset.restoredGenerationSnapshotFor;
         delete promptInput.dataset.preserveDraftOnce;
         savePromptDraftForCurrent();
@@ -15939,10 +16063,9 @@ function removeLocalTextReference(node, inputInstanceId){
     canvasPersistence.schedule();
     return true;
 }
-async function uploadLocalReferences(files=[]){
+async function uploadReferenceFiles(files=[]){
     const selected = [...files];
-    if(!selected.length || !referenceUploadTargetId) return;
-    const targetId = referenceUploadTargetId;
+    if(!selected.length) return null;
     const limits = await loadReferenceUploadLimits();
     const maxFiles = Math.max(1, Number(limits.max_files) || 20);
     const maxBytes = Math.max(1, Number(limits.max_file_bytes) || 500 * 1024 * 1024);
@@ -15963,6 +16086,13 @@ async function uploadLocalReferences(files=[]){
         toast(error.message || tr('smart.localReferenceUploadFailed'), {tone:'danger'});
         return;
     }
+    return {...result, clientFailures};
+}
+async function uploadLocalReferences(files=[]){
+    if(!referenceUploadTargetId) return;
+    const targetId = referenceUploadTargetId;
+    const result = await uploadReferenceFiles(files);
+    if(!result) return;
     const target = nodes.find(node => node.id === targetId);
     if(!target){
         toast(tr('smart.referenceTargetMissing'), {tone:'warning'});
@@ -15995,7 +16125,7 @@ async function uploadLocalReferences(files=[]){
     });
     renderInputThumbsRow(target);
     canvasPersistence.schedule();
-    const failed = clientFailures + Number(result.failed_count || 0);
+    const failed = result.clientFailures + Number(result.failed_count || 0);
     const succeeded = Number(result.success_count || 0);
     const reasons = (result.failures || [])
         .map(item => `${item.name}${tr('smart.keyValueSeparator')}${item.reason}`)
@@ -16060,6 +16190,15 @@ function selectMentionReference(item){
     if(!item?.url) return;
     const editor = promptQuickEditor();
     const node = promptQuickTargetNode();
+    const scopedEditor = promptAuthoring.editorContext(editor);
+    if(scopedEditor){
+        const ref = scopedEditor.onReference(item);
+        if(!ref) return;
+        consumePromptTrigger('@');
+        insertMentionToken(ref, editor);
+        scopedEditor.onChange();
+        return;
+    }
     const manualMode = mentionInsertMode === 'manual-ref';
     if(!manualMode) consumePromptTrigger('@');
     if(editor !== promptInput){
@@ -16203,6 +16342,8 @@ function removeTextInputReferenceFromSelectedNode(sourceNodeId){
     canvasPersistence.schedule();
 }
 function promptQuickPickerContainer(editor=promptQuickEditor()){
+    const scopedContainer = promptAuthoring.editorContext(editor)?.container;
+    if(scopedContainer) return scopedContainer;
     if(editor === promptInput){
         return promptInput?.closest?.('.composer-card') || promptInput?.closest?.('.prompt-row');
     }

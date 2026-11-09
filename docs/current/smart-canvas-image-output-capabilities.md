@@ -4,6 +4,8 @@
 > 决策日期：2026-08-14
 > 适用范围：Smart Canvas 的 Prompt Authoring、Generation Settings 与图片 Generation Run
 
+LAZ-135 的 APIMart 六档质量和 2.6 GIF / SVG 扩展见[实施规格](../active/2026-11-05-apimart-gpt-image-2-6-gif-svg-plan.md)。本地实现通过管理员发布能力启用；2026-11-08 两个 2.6 模型的 8 次真实服务小样本全部通过，完整交付和人工验收仍待完成，详见[账户实测证据](../../resources/image-capability-audits/apimart-gpt-image-2.6-formats-2026-11-08.json)。该扩展的 GIF 使用独立拼帧尺寸合同，GIF / SVG 原件不进入本文静态 cover 路径。
+
 ## 实施阶段
 
 1. **能力合同**：以 `resources/image-model-capabilities.json` 为人工确认配置入口，后端统一执行 maintained、discovered、fallback 的来源优先级，并提供单模型与多模型交集 API。
@@ -129,10 +131,15 @@ Composer 可以显示“自动”，但执行层应把已识别结果转换为�
 - 不把失效画幅静默替换为最接近比例。
 - 单图图生图在参考图比例受新模型支持时，可以恢复“自动”；多图仍要求明确比例。
 
-### 6.6 透明 PNG
+### 6.6 输出格式与透明 PNG
 
-- 只有精确模型能力显式声明 `supports_transparent_png: true` 时，Composer 才展示“透明 PNG”开关；未知模型和未声明模型不展示。
-- 开关默认关闭。开启后，本次 Generation Run 冻结 `transparent_png: true`；后端必须再次按精确模型能力校验，不能信任前端或根据模型名猜测。
+- 2026-11-08，用户在 LAZ-135 中确认以单一格式下拉菜单替代透明 PNG 开关。复用与生成张数相同的 Small、quiet `ic-select`，放在原透明 PNG 位置。
+- 只有当前精确模型的已发布能力支持透明 PNG、GIF、SVG 中至少一项时才显示入口。未选择时显示“选择格式 / Select format”；菜单第一项为“默认格式 / Default format”，其后只列出支持的透明 PNG、GIF、SVG。
+- 选择默认格式会恢复未选中状态，清除显式输出格式、透明背景和压缩设置，按现有模型默认行为提交。选择透明 PNG 时复用 `transparent_png: true`；选择 GIF 或 SVG 时设置对应 `output_format` 并关闭透明背景，清除不兼容的压缩设置。历史设置沿用现有字段，不增加第二份持久化格式状态。
+- GIF 的分辨率、质量、帧率和帧数统一放在现有质量菜单中。帧率只提供 FPS 滑块，帧数使用同样的拖动控件，两者支持键盘；默认 5 fps、9 帧。尺寸预设为 256×256、512×512、768×768，选项与当前已发布能力共同校验，静态画幅和像素尺寸控件隐藏。
+- 帧参数继续使用 `frameSize / frameCount / frameDurationMs` 保存与提交。非预设历史尺寸和合法毫秒值原样回读，不因切换格式、修改质量或刷新画布而量化；例如 70 ms 显示为 14.29 fps，提交仍为 70 ms。FPS 档位只来自合法的基础时长、模型显式值及当前历史值。
+- 不支持的尺寸选项禁用。帧数变化使当前尺寸失效时保留原选择，菜单显示原因并禁用生成；选择合法组合后恢复。没有可用 FPS 档位时禁用滑块，能力未知或加载失败时保留参数并阻止无效提交。该 Composer 行为的验收入口为 `tests/laz_135_image_formats_browser_smoke.cjs`，整体 GIF/SVG 交付仍遵守 LAZ-135 的未完成门槛。
+- 只有精确模型能力显式声明 `supports_transparent_png: true` 时才提供“透明 PNG”选项；后端必须再次按精确模型能力校验，不能信任前端或根据模型名猜测。
 - APIMART 的 `gpt-image-2-official` 映射为 `background: "transparent"` 与 `output_format: "png"`；普通 `gpt-image-2` 路由没有这项能力。
 - Codex 的 `gpt-image-2` 不依赖原生 `--background transparent`：文生图先调用 `images generate`，带参考图时先调用 `images edit`，两者都要求生成受控纯色底 PNG，再调用 `transparent extract --method chroma --matte-color auto --profile generic --strict` 本地提取 Alpha 并执行质量门。OpenAI-compatible CLI 路径才使用 `images generate/edit --background transparent --format png`。
 - Composer 内布尔生成参数统一使用 `ic-switch` 的 Small 规格（`size="s"`，组件库变体名 `ic-switch-small`），标签字号使用 `var(--ui-font-size-2)`。
@@ -221,7 +228,7 @@ Composer 可以显示“自动”，但执行层应把已识别结果转换为�
 - 自定义比例、精确像素尺寸与自定义导出尺寸不再出现。
 - 供应商结果比例不一致时，Materialized Output 经过居中 `cover` 且源图仍保留。
 - 已按参考图比例裁切的自动模式结果不作为供应商画幅能力证据，避免历史分析把产品物化结果误判成 Provider 原始输出。
-- 透明 PNG 开关只对已确认模型可见；提交参数经过前后端双重能力约束，APIMART HTTP 与 Codex CLI 使用各自的透明背景合同；Codex 文生图和参考图编辑都走受控底色加本地 Alpha 提取流水线，而不依赖不可靠的原生 Alpha。
+- 格式菜单只对已确认支持透明 PNG、GIF 或 SVG 的模型可见；提交参数经过前后端双重能力约束，APIMART HTTP 与 Codex CLI 使用各自的透明背景合同；Codex 文生图和参考图编辑都走受控底色加本地 Alpha 提取流水线，而不依赖不可靠的原生 Alpha。
 
 ### 11.2 按需真实 API 测试
 
@@ -242,7 +249,7 @@ Composer 可以显示“自动”，但执行层应把已识别结果转换为�
 7. 批量选择模型 A 与 B 时，只展示二者共同支持的画幅和 Resolution Tier。
 8. 新模型没有能力数据时，仍可使用通用画幅和供应商默认清晰度生成。
 9. 探测脚本请求成功但返回错误比例时，报告为 `accepted_but_not_honored`，不会建议加入支持列表。
-10. 选择 APIMART `gpt-image-2-official` 或 Codex `gpt-image-2` 时出现“透明 PNG”小号开关；开启后分别提交官方 HTTP 参数或 CLI 参数。切换到普通 APIMART `gpt-image-2` 时开关消失且请求不携带透明输出设置。
+10. 选择已确认透明能力的模型时出现“选择格式”下拉菜单；选择“透明 PNG”后分别提交官方 HTTP 参数或 CLI 参数。模型不支持透明 PNG、GIF 和 SVG 时入口消失；启用 GIF/SVG 能力的模型只追加其支持项，选择“默认格式”恢复模型默认输出。
 
 ## 13. 外部参考
 

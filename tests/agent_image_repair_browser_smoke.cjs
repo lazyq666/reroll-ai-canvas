@@ -45,6 +45,7 @@ const root = path.resolve(__dirname, '..');
         const open=async()=>{
             await page.evaluate(()=>window.SmartCanvasModules.imageStudio.open({nodeId:'source-0',mode:'local-repair'}));
             await page.waitForFunction(()=>document.getElementById('imageRepairGenerate').disabled===false);
+            await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
         };
         await page.goto(base+'/static/smart-canvas.html?id=canvas-test');
         await page.waitForFunction(()=>window.SmartCanvasModules.canvasPersistence.online()&&nodes.find(n=>n.id==='source-0')?.localRepairDrafts);

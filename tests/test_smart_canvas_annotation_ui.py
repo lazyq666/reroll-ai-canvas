@@ -82,7 +82,7 @@ class SmartCanvasAnnotationUiTests(unittest.TestCase):
         self.assertIn("const SMART_IMAGE_PERFORMANCE_STORAGE_KEY = 'smartCanvasImagePerformanceOptimization'", self.smart_script)
         self.assertIn("localStorage.getItem(SMART_IMAGE_PERFORMANCE_STORAGE_KEY) !== 'off'", self.smart_script)
         self.assertIn("localStorage.setItem(SMART_IMAGE_PERFORMANCE_STORAGE_KEY, enabled ? 'on' : 'off')", self.smart_script)
-        self.assertIn("const src = smartImagePerformanceOptimization ? preview : originalDisplay", self.smart_script)
+        self.assertIn(r"const src = smartImagePerformanceOptimization || /\.gif(?:[?#]|$)/i.test(original) ? preview : originalDisplay", self.smart_script)
         self.assertIn("if(!smartImagePerformanceOptimization)", self.smart_script)
         self.assertIn("smartImagePerformanceToggle?.addEventListener('change'", self.smart_script)
         self.assertIn("setSmartImagePerformanceOptimization(event.currentTarget.checked)", self.smart_script)

@@ -57,6 +57,17 @@ MESSAGES = {
 }
 
 MESSAGES.update({
+    'quality_help': {'zh': '已发布的质量选项，例如 high 或 max。', 'en': 'Published quality setting, such as high or max.'},
+    'output_format_help': {'zh': '输出格式：png、jpeg、webp、gif 或 svg，按模型能力选择。', 'en': 'Output format: png, jpeg, webp, gif or svg, as supported by the model.'},
+    'frame_size_help': {'zh': '像素尺寸；GIF 默认为 512x512。', 'en': 'Pixel dimensions; GIF defaults to 512x512.'},
+    'svg_model_help': {'zh': '已配置的 APIMart SVG 文本模型 ID。', 'en': 'Configured APIMart text model ID for SVG.'},
+    'frame_count_help': {'zh': 'GIF 帧数：2–16，默认 9。', 'en': 'GIF frames: 2–16; default 9.'},
+    'frame_duration_ms_help': {'zh': 'GIF 每帧毫秒数：至少 20，步进 10，默认 200。', 'en': 'Milliseconds per GIF frame: at least 20, in steps of 10; default 200.'},
+    'output_compression_help': {'zh': 'JPEG/WebP 压缩质量：0–100。', 'en': 'JPEG/WebP compression quality: 0–100.'},
+    'n_help': {'zh': '输出份数；SVG 固定为 1。', 'en': 'Number of outputs; SVG requires 1.'},
+    'image_format_conflict': {'zh': '所选格式与参数不兼容。请查看模型能力。', 'en': 'The format conflicts with these settings. Check the model capabilities.'},
+    'svg_model_required': {'zh': '请先配置有效的 APIMart SVG 文本模型。', 'en': 'Configure a valid APIMart text model for SVG first.'},
+    'gif_sheet_invalid': {'zh': 'GIF 帧尺寸与帧数超出限制。', 'en': 'The GIF frame size and count exceed the limits.'},
     'image_runs_unavailable': {'zh': '当前服务不支持后台图片生成。请升级并重启 Reroll。', 'en': 'This service does not support background image runs. Update and restart Reroll.'},
     'prompt_required': {'zh': '提示词不能为空。', 'en': 'The prompt must contain text.'},
     'prompt_too_long': {'zh': '提示词超过模型限制。缩短后重试。', 'en': 'The prompt exceeds the model limit. Shorten it and retry.'},

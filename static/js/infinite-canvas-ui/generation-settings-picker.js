@@ -53,8 +53,11 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       'custom-size-limits', 'pixel-width', 'pixel-height', 'open', 'label', 'ratio', 'ratio-presets', 'resolution', 'resolutions', 'quality',
       'ratio-label', 'resolution-label', 'quality-label', 'source-label', 'source-ratio',
       'keep-ratio-label', 'adaptive-label', 'resolution-auto-label',
-      'quality-auto-label', 'quality-low-label', 'quality-medium-label', 'quality-high-label',
+      'qualities', 'quality-auto-label', 'quality-low-label', 'quality-medium-label', 'quality-high-label',
+      'quality-xhigh-label', 'quality-max-label',
       'duration', 'duration-min', 'duration-max', 'duration-step', 'duration-label',
+      'frame-size', 'frame-sizes', 'disabled-frame-sizes', 'frame-count', 'frame-count-min', 'frame-count-max',
+      'frame-duration-ms', 'frame-duration-options', 'frame-warning',
       'hide-ratio', 'hide-resolution', 'hide-quality', 'lock-ratio', 'ratio-variant', 'warning', 'disabled',
     ];
   }
@@ -143,6 +146,7 @@ export class IcGenerationSettingsPicker extends HTMLElement {
   set resolution(value) { this.setAttribute('resolution', String(value || '')); }
   get quality() { return this.getAttribute('quality') || 'auto'; }
   set quality(value) { this.setAttribute('quality', String(value || 'auto')); }
+  get qualities() { return this.hasAttribute('qualities') ? csvValues(this.getAttribute('qualities')) : [...QUALITY_VALUES]; }
   get duration() { return this.getAttribute('duration') || ''; }
   set duration(value) { this.setAttribute('duration', String(value ?? '')); }
 
@@ -174,8 +178,8 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     if (!this.hasAttribute('hide-resolution') && this.resolution && resolutions.length && !resolutions.includes(this.resolution)) {
       return 'resolution must match one resolutions value';
     }
-    if (!this.hasAttribute('hide-quality') && !QUALITY_VALUES.includes(this.quality)) {
-      return 'quality must be auto, low, medium, or high';
+    if (!this.hasAttribute('hide-quality') && !this.qualities.includes(this.quality)) {
+      return 'quality must match one qualities value';
     }
     if (this.hasAttribute('duration')) {
       const { minimum, maximum, value } = this.durationConfig();
@@ -208,6 +212,8 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       low: this.getAttribute('quality-low-label') || (english ? 'Low' : '低'),
       medium: this.getAttribute('quality-medium-label') || (english ? 'Medium' : '中'),
       high: this.getAttribute('quality-high-label') || (english ? 'High' : '高'),
+      xhigh: this.getAttribute('quality-xhigh-label') || window.StudioI18n?.t('smart.qualityXhigh') || 'xhigh',
+      max: this.getAttribute('quality-max-label') || window.StudioI18n?.t('smart.qualityMax') || 'max',
     };
   }
 
@@ -237,6 +243,37 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     return isEnglish(this) ? `${value} seconds` : `${value} 秒`;
   }
 
+  frameCountText(value) {
+    return window.StudioI18n?.format('smart.framesValue', { count: value }) || String(value);
+  }
+
+  frameRateText(milliseconds) {
+    const fps = Number(milliseconds) > 0 ? Number((1000 / Number(milliseconds)).toFixed(2)) : '—';
+    return window.StudioI18n?.format('smart.fpsValue', { fps }) || String(fps);
+  }
+
+  frameSliderMarkup(field, { label, minimum, maximum, value, ticks, labels, text, labelText, disabled = false }) {
+    const position = item => (item - minimum) / Math.max(1, maximum - minimum) * 100;
+    return `<div class="setting-section frame-settings" data-frame-section="${htmlEscape(field)}">
+      <div class="duration-heading">
+        <span class="setting-label">${htmlEscape(label)}</span>
+        <output class="duration-value">${htmlEscape(text(value))}</output>
+      </div>
+      <div class="duration-scale">
+        <div class="duration-ticks" aria-hidden="true">
+          ${ticks.map(item => `<span class="duration-tick" style="--tick-position:${position(item)}%"></span>`).join('')}
+        </div>
+        <input class="duration-slider" type="range" min="${minimum}" max="${maximum}" step="1" value="${value}"
+          data-frame-control="${htmlEscape(field)}" aria-label="${htmlEscape(label)}" aria-valuetext="${htmlEscape(text(value))}"
+          ${this.getAttribute('frame-warning') ? 'aria-describedby="frame-error"' : ''}
+          ${this.hasAttribute('disabled') || disabled || maximum < minimum ? 'disabled' : ''}>
+      </div>
+      <div class="duration-labels" aria-hidden="true">
+        ${labels.map(item => `<span class="duration-label ${item === value ? 'is-current' : ''}" style="--label-position:${position(item)}%" data-frame-label="${item}">${htmlEscape(labelText(item))}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
   emitSetting(field, value) {
     this.dispatchEvent(new CustomEvent('ic-change', {
       bubbles: true,
@@ -257,20 +294,18 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     panel.style.left = '0px';
     panel.style.top = '0px';
     const panelRect = panel.getBoundingClientRect();
-    const styles = getComputedStyle(this);
-    const gap = Number.parseFloat(styles.getPropertyValue('--ui-space-2')) || 8;
-    const margin = Number.parseFloat(styles.getPropertyValue('--ui-space-3')) || 12;
-    const centeredFallbackLeft = anchorRect.left + (anchorRect.width - panelRect.width) / 2;
+    const panelWidth = panel.offsetWidth;
+    const panelHeight = panel.offsetHeight;
+    const gap = Number.parseFloat(getComputedStyle(trigger).columnGap) || 8;
+    const margin = Number.parseFloat(getComputedStyle(panel).paddingLeft) || 12;
+    const centeredFallbackLeft = anchorRect.left + (anchorRect.width - panelWidth) / 2;
     const desiredLeft = composer ? composer.getBoundingClientRect().left + 115 : centeredFallbackLeft;
-    const viewportLeft = Math.min(
-      window.innerWidth - panelRect.width - margin,
-      Math.max(margin, desiredLeft),
-    );
-    const preferredTop = anchorRect.top - panelRect.height - gap;
+    const viewportLeft = Math.max(margin, Math.min(window.innerWidth - panelWidth - margin, desiredLeft));
+    const preferredTop = anchorRect.top - panelHeight - gap;
     const alternateTop = anchorRect.bottom + gap;
     const viewportTop = preferredTop >= margin
       ? preferredTop
-      : Math.min(window.innerHeight - panelRect.height - margin, Math.max(margin, alternateTop));
+      : Math.max(margin, Math.min(window.innerHeight - panelHeight - margin, alternateTop));
     panel.dataset.motionSide = preferredTop >= margin ? 'top' : 'bottom';
     if (isTopLayerOpen(panel)) {
       panel.style.left = `${Math.round(viewportLeft)}px`;
@@ -332,6 +367,8 @@ export class IcGenerationSettingsPicker extends HTMLElement {
   }
 
   render() {
+    const focusedFrameField = this.shadowRoot.activeElement?.dataset?.frameControl;
+    const panelScrollTop = this.panel?.scrollTop || 0;
     const ratios = orderAspectRatios(csvValues(this.getAttribute('ratio-presets')));
     const resolutions = orderResolutions(csvValues(this.getAttribute('resolutions')));
     const qualityLabels = this.qualityLabels();
@@ -351,9 +388,40 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     const ratioDisabled = disabled || (ratioLocked && !singleRatio);
     const ratioDisplay = this.ratioText() || ratioLabel;
     const entryParts = hideRatio ? [] : [ratioDisplay];
+    const showFrames = this.hasAttribute('frame-count');
+    const frameSize = this.getAttribute('frame-size') || '';
+    const frameCount = numericAttribute(this, 'frame-count', 9);
+    const frameDuration = numericAttribute(this, 'frame-duration-ms', 200);
+    const frameSizes = csvValues(this.getAttribute('frame-sizes'));
+    const disabledFrameSizes = csvValues(this.getAttribute('disabled-frame-sizes'));
+    const frameDurations = csvValues(this.getAttribute('frame-duration-options')).map(Number).filter(value => value > 0);
+    const frameCountMinimum = numericAttribute(this, 'frame-count-min', 2);
+    const frameCountMaximum = numericAttribute(this, 'frame-count-max', 16);
+    const frameText = key => window.StudioI18n?.t(`smart.${key}`) || '';
+    const frameSliders = showFrames ? [
+      ['frameDurationMs', {
+        label: frameText('frameRate'), minimum: 0, maximum: Math.max(0, frameDurations.length - 1),
+        disabled: frameDurations.length === 0,
+        value: Math.max(0, frameDurations.indexOf(frameDuration)),
+        ticks: frameDurations.map((_value, index) => index),
+        labels: frameDurations.map((value, index) => ({ value, index })).filter(({ value, index }) =>
+          index === 0 || index === frameDurations.length - 1 || [200, 100, 40].includes(value)
+        ).map(({ index }) => index),
+        text: index => this.frameRateText(frameDurations[index]),
+        labelText: index => Number((1000 / frameDurations[index]).toFixed(2)),
+      }],
+      ['frameCount', {
+        label: frameText('frameCount'), minimum: frameCountMinimum, maximum: frameCountMaximum, value: frameCount,
+        ticks: inclusiveScaleValues(frameCountMinimum, frameCountMaximum, 1),
+        labels: inclusiveScaleValues(frameCountMinimum, frameCountMaximum, 2),
+        text: value => this.frameCountText(value), labelText: value => value,
+      }],
+    ] : [];
+    if (showFrames) entryParts.unshift(frameSize.replace('x', ' × '));
     if (!hideResolution && this.resolution) entryParts.push(this.resolutionText());
     if (!hideQuality) entryParts.push(qualityLabels[this.quality] || this.quality);
     if (showDuration) entryParts.push(`${duration.value}s`);
+    if (showFrames) entryParts.push(this.frameCountText(frameCount));
 
     const pixelText = key => window.StudioI18n?.t(`smart.customSize.${key}`) || '';
     this._standardPixelLabel = '';
@@ -409,6 +477,12 @@ export class IcGenerationSettingsPicker extends HTMLElement {
         .duration-label:first-child { translate: 0 0; }
         .duration-label:last-child { translate: -100% 0; }
         .duration-label.is-current { color: var(--ic-generation-settings-selected-foreground); }
+        .segment:disabled { color: var(--ui-color-text-disabled); cursor: not-allowed; }
+        .frame-warning { margin: 0; color: var(--ui-color-text-danger); font: var(--ui-text-caption); }
+        @media (max-width: 700px) {
+          .frame-settings .segment { min-block-size: 2.5rem; }
+          .frame-settings .duration-slider, .frame-settings .duration-scale { block-size: 2.75rem; }
+        }
       </style>
       <button part="trigger" type="button" aria-expanded="${String(this.open)}" ${disabled ? 'disabled' : ''}>
         <span class="trigger-label">${htmlEscape(entryParts.join(' / '))}</span>
@@ -416,6 +490,12 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       </button>
       <section part="panel" aria-label="${htmlEscape(this.getAttribute('label') || '')}" popover="manual">
         ${this.getAttribute('warning') ? `<p class="warning">${htmlEscape(this.getAttribute('warning'))}</p>` : ''}
+        ${showFrames ? `<div class="setting-section frame-settings">
+          <span class="setting-label">${htmlEscape(resolutionLabel)}</span>
+          <div class="segments" style="--segment-count:${Math.min(3, frameSizes.length)}" role="radiogroup" aria-label="${htmlEscape(resolutionLabel)}">
+            ${frameSizes.map(value => `<button class="segment" type="button" role="radio" data-frame-size="${htmlEscape(value)}" aria-checked="${value === frameSize}" ${disabled || disabledFrameSizes.includes(value) ? 'disabled' : ''}>${htmlEscape(value.replace('x', ' × '))}</button>`).join('')}
+          </div>
+        </div>` : ''}
         ${hideRatio ? '' : `<div class="setting-section" data-standard-size>
           <span class="setting-label">${htmlEscape(ratioLabel)}</span>
           <ic-aspect-ratio-picker name="generation-ratio" label="${htmlEscape(ratioLabel)}" value="${htmlEscape(this.ratio)}" presets="${htmlEscape(ratios.join(','))}" source-label="${htmlEscape(sourceLabel)}" keep-ratio-label="${htmlEscape(this.getAttribute('keep-ratio-label') || '')}" adaptive-label="${htmlEscape(this.getAttribute('adaptive-label') || '')}" hide-label data-component-variant="${htmlEscape(this.getAttribute('ratio-variant') || 'generation-settings')}" ${this.ratio ? '' : 'required'} ${singleRatio ? 'data-selection-forced' : ''} ${ratioDisabled ? 'disabled' : ''}></ic-aspect-ratio-picker>
@@ -437,10 +517,12 @@ export class IcGenerationSettingsPicker extends HTMLElement {
         </div>` : ''}
         ${hideQuality ? '' : `<div class="setting-section">
           <span class="setting-label">${htmlEscape(qualityLabel)}</span>
-          <div class="segments" style="--segment-count:4" role="radiogroup" aria-label="${htmlEscape(qualityLabel)}">
-            ${QUALITY_VALUES.map(value => `<button class="segment" type="button" role="radio" aria-checked="${String(value === this.quality)}" aria-pressed="${String(value === this.quality)}" data-quality="${value}">${htmlEscape(qualityLabels[value])}</button>`).join('')}
+          <div class="segments" style="--segment-count:${this.qualities.length > 4 ? 3 : this.qualities.length}" role="radiogroup" aria-label="${htmlEscape(qualityLabel)}">
+            ${this.qualities.map(value => `<button class="segment" type="button" role="radio" aria-checked="${String(value === this.quality)}" aria-pressed="${String(value === this.quality)}" data-quality="${htmlEscape(value)}">${htmlEscape(qualityLabels[value] || value)}</button>`).join('')}
           </div>
         </div>`}
+        ${frameSliders.map(([field, config]) => this.frameSliderMarkup(field, config)).join('')}
+        ${showFrames && this.getAttribute('frame-warning') ? `<p id="frame-error" class="frame-warning" role="status">${htmlEscape(this.getAttribute('frame-warning'))}</p>` : ''}
         ${showDuration ? `<div class="setting-section duration-section">
           <div class="duration-heading">
             <span class="setting-label">${htmlEscape(durationLabel)}</span>
@@ -483,11 +565,36 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       this.quality = value;
       this.emitSetting('quality', value);
     }));
-    const durationSlider = this.shadowRoot.querySelector('.duration-slider');
+    this.shadowRoot.querySelectorAll('[data-frame-size]').forEach(button => button.addEventListener('click', () => {
+      this.setAttribute('frame-size', button.dataset.frameSize);
+      this.emitSetting('frameSize', button.dataset.frameSize);
+    }));
+    frameSliders.forEach(([field, config]) => {
+      const section = this.shadowRoot.querySelector(`[data-frame-section="${field}"]`);
+      const slider = section.querySelector('input');
+      slider.addEventListener('input', () => {
+        const value = Number(slider.value);
+        section.querySelector('output').textContent = config.text(value);
+        slider.setAttribute('aria-valuetext', config.text(value));
+        section.querySelectorAll('[data-frame-label]').forEach(label => {
+          label.classList.toggle('is-current', Number(label.dataset.frameLabel) === value);
+        });
+      });
+      slider.addEventListener('change', () => {
+        const value = field === 'frameDurationMs' ? frameDurations[Number(slider.value)] : Number(slider.value);
+        this.setAttribute(field === 'frameDurationMs' ? 'frame-duration-ms' : 'frame-count', value);
+        this.emitSetting(field, value);
+      });
+    });
+    if (showFrames) {
+      this.shadowRoot.querySelector('[data-frame-section="frameDurationMs"] output').textContent = this.frameRateText(frameDuration);
+      this.shadowRoot.querySelector('[data-frame-control="frameDurationMs"]').setAttribute('aria-valuetext', this.frameRateText(frameDuration));
+    }
+    const durationSlider = this.shadowRoot.querySelector('.duration-section .duration-slider');
     const previewDuration = () => {
       if (!durationSlider) return;
       const value = Number(durationSlider.value);
-      const output = this.shadowRoot.querySelector('.duration-value');
+      const output = this.shadowRoot.querySelector('.duration-section .duration-value');
       if (output) output.textContent = `${value}s`;
       durationSlider.setAttribute('aria-valuetext', this.durationAriaText(value));
       this.shadowRoot.querySelectorAll('[data-duration-label]').forEach(label => {
@@ -522,6 +629,8 @@ export class IcGenerationSettingsPicker extends HTMLElement {
     });
     this.syncPixels();
     this.syncOpenPresentation();
+    if (focusedFrameField) this.shadowRoot.querySelector(`[data-frame-control="${focusedFrameField}"]`)?.focus({ preventScroll: true });
+    if (this.panel) this.panel.scrollTop = panelScrollTop;
     if (this.open) queueMicrotask(() => this.positionPanel());
   }
 

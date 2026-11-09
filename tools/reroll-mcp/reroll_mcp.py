@@ -150,6 +150,35 @@ def get_model_capability(
 
 
 @mcp.tool()
+def generate_image(prompt: str, provider_id: str, model: str, request_id: str,
+                   images: list[dict] | None = None, params: dict | None = None) -> dict:
+    """Start one persistent image Run without an editor. Read get_model_capability first.
+
+    Images are imported media_id/name pairs. Params accepts quality, output_format,
+    frame_size, ratio, resolution, n, frame_count, frame_duration_ms, output_compression,
+    and svg: {model}. GIF size is per frame. Reuse request_id to reconcile submission.
+    """
+    return call(lambda: client().request("POST", "image-runs", body={
+        **(params or {}), "prompt": prompt, "provider_id": provider_id, "model": model,
+        "request_id": request_id, "images": images or [],
+    }, key=request_id))
+
+
+@mcp.tool()
+def get_image_run(run_id: str) -> dict:
+    """Read or recover the original image Run without submitting another generation."""
+    return call(lambda: client().request("GET", "image-runs/" + quote(run_id, safe="")))
+
+
+@mcp.tool()
+def download_image_run(run_id: str) -> dict:
+    """Save original GIF, SVG or raster outputs into the configured download folder."""
+    return call(lambda: client().download([
+        client().request("GET", "image-runs/" + quote(run_id, safe=""))
+    ]))
+
+
+@mcp.tool()
 def search_media(query: str, canvas: str = "") -> dict:
     """Search Canvas media and the Workspace Asset Library."""
     return call(

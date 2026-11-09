@@ -586,7 +586,78 @@ function resizeEditDrawCanvas(){
     resizeEditTextCanvas();
     if(imageEditMode === 'grid') refreshGridSplitPreview();
 }
+function needsStaticImageCopy(image){
+    return /\.(gif|svg)(?:[?#]|$)/i.test(image?.url || '') || ['gif','svg'].includes(image?.format);
+}
+let staticImageCopyPending = false;
+async function createStaticImageCopy(nodeId, imageIndex=0){
+    if(staticImageCopyPending || canvasPersistence.editable?.() === false) return null;
+    const node = nodes.find(item => item.id === nodeId);
+    const source = node?.images?.[imageIndex];
+    if(!source?.url) return null;
+    if(!needsStaticImageCopy(source)) return {nodeId,imageIndex};
+    staticImageCopyPending = true;
+    const sourceUrl = source.url;
+    const resumePreview = imageStudioDialogOpen();
+    let copyCreated = false;
+    const dialog = document.createElement('ic-confirmation-dialog');
+    dialog.label = tr('smart.staticCopyTitle');
+    dialog.description = tr('smart.staticCopyDescription');
+    dialog.confirmLabel = tr('smart.staticCopyCreate');
+    dialog.cancelLabel = tr('common.cancel');
+    try {
+        if(resumePreview){
+            await imageEditModal.hide('cancel');
+            closeImageEditor({dialogAlreadyHidden:true});
+        }
+        document.body.appendChild(dialog);
+        await dialog.updateComplete;
+        const approved = await new Promise(resolve => {
+            let accepted = false;
+            dialog.addEventListener('ic-confirm', () => { accepted = true; void dialog.hide('confirm'); }, {once:true});
+            dialog.addEventListener('ic-after-hide', () => resolve(accepted), {once:true});
+            dialog.show();
+        });
+        if(!approved) return null;
+        const bitmap = new Image();
+        bitmap.crossOrigin = 'anonymous';
+        bitmap.src = displayMediaUrl({url:sourceUrl});
+        await bitmap.decode();
+        const surface = document.createElement('canvas');
+        surface.width = bitmap.naturalWidth;
+        surface.height = bitmap.naturalHeight;
+        if(surface.width * surface.height > 100000000) throw new Error(tr('smart.operationFailed'));
+        surface.getContext('2d').drawImage(bitmap, 0, 0);
+        const blob = await new Promise(resolve => surface.toBlob(resolve, 'image/png'));
+        if(!blob || !nodes.includes(node) || node.images[imageIndex]?.url !== sourceUrl) return null;
+        const file = await uploadCroppedBlob(blob, `${(source.name || 'image').replace(/\.[^.]+$/, '')}_static.png`);
+        if(!file || !nodes.includes(node) || node.images[imageIndex]?.url !== sourceUrl) return null;
+        const copy = imageStudioMutationModule.create({
+            kind:'image',
+            data:{images:[{...file,kind:'image',natural_w:surface.width,natural_h:surface.height}]},
+            options:{placement:{anchor:{kind:'source',sourceNodeId:nodeId},relation:'downstream',arrangement:'single'},reveal:true}
+        });
+        copyCreated = Boolean(copy);
+        return copy ? {nodeId:copy.id,imageIndex:0} : null;
+    } catch(error){
+        toast(error.message || tr('smart.operationFailed'), {tone:'danger'});
+        return null;
+    } finally {
+        dialog.remove();
+        staticImageCopyPending = false;
+        if(resumePreview && !copyCreated && nodes.includes(node)){
+            window.SmartCanvasModules.imageStudio.open({nodeId,imageIndex,mode:'preview',groupAware:false});
+        }
+    }
+}
 function setImageEditMode(mode, userTouched=false){
+    if(mode !== 'preview' && needsStaticImageCopy(currentEditImage().image)){
+        const {node,index} = currentEditImage();
+        void createStaticImageCopy(node.id,index).then(copy => {
+            if(copy) window.SmartCanvasModules.imageStudio.open({...copy,mode,groupAware:false});
+        });
+        return;
+    }
     const editKind = mediaKindForItem(currentEditImage().image || {});
     const isVideoPreview = editKind === 'video';
     if(isVideoPreview && mode !== 'preview') mode = 'preview';
@@ -3071,6 +3142,7 @@ function applyImageEdit(){
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.imageStudio = Object.freeze({
+    createStaticCopy:createStaticImageCopy,
     isOpen(){
         return imageStudioDialogOpen();
     },
@@ -3088,6 +3160,9 @@ window.SmartCanvasModules.imageStudio = Object.freeze({
         };
     },
     open({nodeId, imageIndex=0, mode='preview', groupAware=true}={}){
+        if(mode !== 'preview' && mode !== 'layer-decomposition' && needsStaticImageCopy(nodes.find(node => node.id === nodeId)?.images?.[imageIndex])){
+            return createStaticImageCopy(nodeId,imageIndex).then(copy => copy && window.SmartCanvasModules.imageStudio.open({...copy,mode,groupAware:false}));
+        }
         if(mode==='local-repair' || (mode==='preview' && nodes.find(node=>node.id===nodeId)?.images?.[imageIndex]?.local_repair)){
             return window.SmartCanvasModules.imageRepair.open({nodeId,imageIndex});
         }

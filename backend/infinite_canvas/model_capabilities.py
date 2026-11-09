@@ -19,6 +19,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from .image_capabilities import ImageCapabilityRegistry
 from .image_dimensions import custom_size_parameter, validate_custom_image_size
+from .image_formats import validate_image_format
 from .video_capabilities import VideoCapabilityRegistry
 
 
@@ -577,6 +578,7 @@ class ModelCapabilityCatalog:
         definitions = capability.get("parameters")
         parameter_contracts = definitions if isinstance(definitions, Mapping) else {}
         normalized: dict[str, Any] = {}
+        errors.extend(validate_image_format(capability, parameters, input_counts.get("image", 0)))
         if "custom_size" in parameters:
             enabled = True in (parameter_contracts.get("custom_resolution", {}).get("values") or [])
             dimensions = parameter_contracts.get("custom_size", {}).get("dimensions")

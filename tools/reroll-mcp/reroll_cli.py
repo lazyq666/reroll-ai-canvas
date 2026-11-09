@@ -12,6 +12,7 @@ import time
 from urllib.parse import quote
 import uuid
 import warnings
+import xml.etree.ElementTree as ET
 
 import httpx
 from PIL import Image, UnidentifiedImageError
@@ -56,6 +57,10 @@ def parser():
             command.add_argument('--image', action='append', default=[], help=tr('image_help'))
             command.add_argument('--ratio', help=tr('ratio_help'))
             command.add_argument('--resolution', help=tr('resolution_help'))
+            for flag in ('quality', 'output-format', 'frame-size', 'svg-model'):
+                command.add_argument('--' + flag, help=tr(flag.replace('-', '_') + '_help'))
+            for flag in ('frame-count', 'frame-duration-ms', 'output-compression', 'n'):
+                command.add_argument('--' + flag, type=int, help=tr(flag.replace('-', '_') + '_help'))
             command.add_argument('--request-id', help=tr('request_help'))
         elif name == 'result':
             command.add_argument('run_id', nargs='?', help=tr('run_help'))
@@ -82,6 +87,24 @@ def prepare_directory(value):
 
 def image_info(source):
     try:
+        prefix = source.read(512).lstrip(b"\xef\xbb\xbf \t\r\n")
+        source.seek(0)
+        if prefix.startswith(b"<"):
+            content = source.read(8 * 1024 * 1024 + 1)
+            source.seek(0)
+            if len(content) > 8 * 1024 * 1024 or b"<!DOCTYPE" in content.upper() or b"<!ENTITY" in content.upper():
+                raise ValueError()
+            root = ET.fromstring(content)
+            if root.tag not in ("svg", "{http://www.w3.org/2000/svg}svg"):
+                raise ValueError()
+            viewport = root.get("viewBox", "").replace(",", " ").split()
+            dimensions = []
+            for index, field in enumerate(("width", "height")):
+                match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)(?:px)?", root.get(field, ""))
+                dimensions.append(float(match[1]) if match else float(viewport[index + 2]) if len(viewport) == 4 else 0)
+            if not all(0 < value <= 32768 for value in dimensions):
+                raise ValueError()
+            return *dimensions, "SVG"
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
             with Image.open(source) as image:
@@ -94,7 +117,7 @@ def image_info(source):
         if width <= 0 or height <= 0 or not kind:
             raise ValueError()
         return width, height, kind
-    except (OSError, ValueError, SyntaxError, UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+    except (OSError, ValueError, SyntaxError, ET.ParseError, UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning):
         raise BridgeError('invalid_image') from None
 
 
@@ -151,6 +174,10 @@ def validate_generate(args, cap, images):
     bounds = cap.get('inputs',{}).get('image',{})
     if len(images) > bounds.get('maximum',0) or (images and len(images) < bounds.get('minimum',0)):
         raise BridgeError('invalid_reference_count', {'minimum':bounds.get('minimum',0),'maximum':bounds.get('maximum',0)})
+    if getattr(args, 'output_format', None) == 'gif':
+        if args.ratio or args.resolution:
+            raise BridgeError('image_format_conflict')
+        return None
     if len(images) > 1 and (not args.ratio or args.ratio == 'auto'):
         raise BridgeError('explicit_ratio_required')
     if args.ratio == 'auto':
@@ -190,11 +217,21 @@ def adopt_result(result, payload):
 
 def download(bridge, result, directory, deadline, clock):
     outputs = result.get('outputs')
-    if not isinstance(outputs,list) or len(outputs) != 1:
+    if not isinstance(outputs, list) or not outputs:
         raise BridgeError('invalid_response')
-    output = outputs[0]
+    saved = []
+    for index in range(len(outputs)):
+        saved.extend(download_output(bridge, result, directory, deadline, clock, index))
+    return saved
+
+
+def download_output(bridge, result, directory, deadline, clock, index):
+    outputs = result.get('outputs')
+    if not isinstance(outputs,list) or index >= len(outputs):
+        raise BridgeError('invalid_response')
+    output = outputs[index]
     run_id = str(result['run_id'])
-    expected = '/api/agent/v1/image-runs/' + quote(run_id,safe='') + '/outputs/0'
+    expected = '/api/agent/v1/image-runs/' + quote(run_id,safe='') + '/outputs/' + str(index)
     url = output.get('download_url','')
     if url != expected or not bridge.valid_download_url(url):
         raise BridgeError('invalid_download_url')
@@ -222,7 +259,7 @@ def download(bridge, result, directory, deadline, clock):
             os.fsync(stream.fileno())
         with temporary.open('rb') as source:
             width,height,kind = image_info(source)
-        suffix = {'JPEG':'.jpg','PNG':'.png','WEBP':'.webp','GIF':'.gif','TIFF':'.tiff','BMP':'.bmp','AVIF':'.avif'}.get(kind)
+        suffix = {'JPEG':'.jpg','PNG':'.png','WEBP':'.webp','GIF':'.gif','SVG':'.svg','TIFF':'.tiff','BMP':'.bmp','AVIF':'.avif'}.get(kind)
         if suffix is None:
             suffix = next((ext for ext,fmt in Image.registered_extensions().items() if fmt == kind), None)
         if suffix is None:
@@ -340,6 +377,11 @@ def main(argv=None, *, bridge_factory=Bridge, clock=time.monotonic, sleep=time.s
                 body['ratio'] = args.ratio
             if args.resolution is not None:
                 body['resolution'] = args.resolution
+            for field in ('quality', 'output_format', 'frame_size', 'frame_count', 'frame_duration_ms', 'output_compression', 'n'):
+                if getattr(args, field, None) is not None:
+                    body[field] = getattr(args, field)
+            if args.svg_model:
+                body['svg'] = {'model': args.svg_model}
             deadline = clock() + wait_seconds
             submitting = True
             payload = bridge.request('POST','image-runs',body=body,key=result['request_id'],deadline=deadline,clock=clock)

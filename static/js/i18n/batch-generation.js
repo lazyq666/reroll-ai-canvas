@@ -1,6 +1,13 @@
 (function(){
     if(!window.StudioI18n) return;
     window.StudioI18n.register({
+        "batch.imageSettingsInvalid": {zh:"当前模型不支持这些质量或格式设置。请重新选择，或刷新后重试。",en:"These quality or format settings are not supported. Choose supported settings or refresh and try again."},
+        "batch.svgModelRequired": {zh:"请在模型管理中配置有效的 APIMart SVG 文本模型。",en:"Configure a valid APIMart text model for SVG in model management."},
+        "batch.outputFormat": {zh:"输出格式",en:"Output format"},
+        "batch.frameSize": {zh:"帧尺寸",en:"Frame size"},
+        "batch.frameCount": {zh:"帧数",en:"Frames"},
+        "batch.frameDuration": {zh:"帧时长（毫秒）",en:"Frame duration (ms)"},
+        "batch.outputCompression": {zh:"压缩质量",en:"Compression quality"},
         "batch.generationMode": { zh: "生成模式", en: "Generation mode" },
         "batch.batch": { zh: "批量生成", en: "Batch generation" },
         "batch.history": { zh: "生成历史", en: "Generation history" },
@@ -43,6 +50,8 @@
         "batch.singleChoice": { zh: "单选", en: "Single" },
         "batch.resolution": { zh: "分辨率", en: "Resolution" },
         "batch.quality": { zh: "质量", en: "Quality" },
+        "batch.qualityXhigh": { zh: "超高", en: "Extra high" },
+        "batch.qualityMax": { zh: "最高", en: "Max" },
         "batch.auto": { zh: "自动", en: "Auto" },
         "batch.outputsPerSubmission": { zh: "单次出图", en: "Images per submission" },
         "batch.submissionsPerTask": { zh: "重复次数", en: "Task repeats" },

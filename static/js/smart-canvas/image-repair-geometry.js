@@ -15,7 +15,7 @@
     function preferredModel(entries){
         const score = entry => {
             const name = `${entry.name || ''} ${entry.model || ''}`.toLowerCase();
-            return name.includes('gpt-image-2.5-suburst') ? 0 : name.includes('gpt-image-2') ? 1 : 2;
+            return /gpt(?:-image)?[- ]2\.5[- ](?:sunburst|suburst)/.test(name) ? 0 : name.includes('gpt-image-2') ? 1 : 2;
         };
         return entries.map((entry, index) => ({entry,index})).sort((a,b) => score(a.entry)-score(b.entry) || a.index-b.index)[0]?.entry || null;
     }

@@ -12,6 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from .image_dimensions import custom_size_parameter
+from .image_formats import APIMART_FORMAT_MODELS, APIMART_QUALITY_MODELS, IMAGE_FORMATS, IMAGE_QUALITIES, format_parameters
 from .model_capabilities import ModelCapabilityContext
 
 from .model_capability_workbench import (
@@ -521,6 +522,21 @@ class ModelCapabilityMatrix:
         }
         if operation == "video.generate":
             result["video"] = cls._video_projection(capabilities)
+        if operation in {"image.generate", "image.edit"}:
+            for field, parameter in (("qualities", "quality"), ("formats", "output_format")):
+                values = [_enum_values(item.get("parameters", {}).get(parameter)) for item in capabilities]
+                result[field] = [value for value in (values[0] if values else [])
+                                 if all(value in current for current in values)]
+            svg_models = [item.get("parameters", {}).get("svg_model", {}).get("default", "") for item in capabilities]
+            result["svg_model"] = svg_models[0] if svg_models and len(set(svg_models)) == 1 else ""
+            result["quality_choices"] = IMAGE_QUALITIES if all(
+                item.get("provider_id") == "apimart" and item.get("model_id") in APIMART_QUALITY_MODELS
+                for item in capabilities
+            ) else result["qualities"]
+            result["format_choices"] = IMAGE_FORMATS if all(
+                item.get("provider_id") == "apimart" and item.get("model_id") in APIMART_FORMAT_MODELS
+                for item in capabilities
+            ) else result["formats"]
         return result
 
     def apply(
@@ -880,6 +896,28 @@ class ModelCapabilityMatrix:
                 contract["editable"] = supported
         if operation in {"image.generate", "image.edit"}:
             parameters["custom_size"] = custom_size_parameter()
+            if "qualities" in choice:
+                qualities = _unique(choice["qualities"])
+                allowed = IMAGE_QUALITIES if (
+                    base.get("provider_id") == "apimart" and base.get("model_id") in APIMART_QUALITY_MODELS
+                ) else _enum_values(base.get("parameters", {}).get("quality"))
+                if not qualities or any(value not in allowed for value in qualities):
+                    raise ValueError("invalid image qualities")
+                parameters["quality"] = {
+                    "type": "enum", "values": qualities, "default": "auto" if "auto" in qualities else qualities[0],
+                    "visible": True, "editable": True, "invalidation_behavior": "clear",
+                }
+            if "formats" in choice and not choice["formats"]:
+                for key in format_parameters([]):
+                    parameters.pop(key, None)
+            elif choice.get("formats"):
+                formats = _unique(choice["formats"])
+                if (base.get("provider_id") != "apimart" or base.get("model_id") not in APIMART_FORMAT_MODELS
+                        or any(value not in IMAGE_FORMATS for value in formats) or "png" not in formats):
+                    raise ValueError("invalid image formats")
+                if operation == "image.edit":
+                    formats = [value for value in formats if value != "svg"]
+                parameters.update(format_parameters(formats, _clean(choice.get("svg_model"))))
         media_contract = candidate.get("media_contract")
         if isinstance(media_contract, dict):
             media_contract["output_count_maximum"] = output_count

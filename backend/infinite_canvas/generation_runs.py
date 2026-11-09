@@ -503,8 +503,8 @@ def _without_inline_media(value: Any) -> Any:
         )
     if isinstance(value, Mapping):
         media_payload = (
-            str(value.get("type") or "").lower() == "base64"
-            or str(value.get("mimeType") or value.get("mime") or "")
+            str(value.get("type") or "").lower() in {"base64", "b64"}
+            or str(value.get("mimeType") or value.get("mime") or value.get("mime_type") or "")
             .lower()
             .startswith(("image/", "video/", "audio/"))
         )
@@ -532,6 +532,8 @@ def _requires_managed_media(request: RunRequest) -> bool:
     return (
         isinstance(request, WorkflowRun)
         and request.effect_context.get("require_managed_media") is True
+    ) or (
+        isinstance(request, ImageRun) and bool(request.settings.get("output_format"))
     )
 
 
@@ -2484,16 +2486,17 @@ class GenerationRuns:
                     result=published,
                 )
 
-        if _requires_managed_media(request):
+        checkpoint = _provider_output_value(output)
+        sanitized_checkpoint = _without_inline_media(checkpoint)
+        inline_image = isinstance(request, ImageRun) and checkpoint != sanitized_checkpoint
+        if _requires_managed_media(request) and (not inline_image or output.remote_refs):
             # Opted-in workflows return retrievable remote sources. Preserve
             # those before downloading, so a failed save only replays the save
             # step. Other providers retain their inline-media persistence order.
             with self._lock:
                 run = self._runs[run_id]
                 run.phase = "provider_completed"
-                run.provider_output = _without_inline_media(
-                    _provider_output_value(output)
-                )
+                run.provider_output = None if inline_image else sanitized_checkpoint
                 if output.remote_refs:
                     run.remote_refs = list(output.remote_refs)
                 self._index_remote_refs_locked(run)
@@ -3592,6 +3595,9 @@ class ProviderGenerationExecutor:
                 **({"custom_size": True} if settings.get("size_mode") == "custom" else {}),
                 **({"preserve_geometry": True} if (settings.get("local_repair") or {}).get("preserve_geometry") else {}),
                 **operation_kwargs,
+                **({"image_format": {key: settings[key] for key in (
+                    "output_format", "output_compression", "frame_size", "frame_count", "frame_duration_ms", "svg_model"
+                ) if key in settings}} if settings.get("output_format") else {}),
                 **checkpoint_kwargs(execute_image),
             )
         if isinstance(request, VideoRun):
@@ -3819,6 +3825,11 @@ class WorkspaceGenerationEffects:
                     "prefix": "online_",
                     "stable_id": stable_id,
                 }
+                output_format = request.settings.get("output_format", "")
+                if output_format:
+                    save_options.update(expected_format=output_format,
+                        expected_size=str(request.settings.get("size") or "") if output_format == "gif" or request.settings.get("size_mode") == "custom" else "",
+                        expected_aspect=str(request.settings.get("target_aspect_ratio") or ""))
                 if request.publication == "batch-generation":
                     context = dict(request.effect_context)
                     try:
@@ -3852,6 +3863,8 @@ class WorkspaceGenerationEffects:
                         **save_options,
                     )
                 except TypeError:
+                    if output_format:
+                        raise
                     try:
                         local_url = await self._ports.save_image(
                             image_value,
@@ -3863,7 +3876,11 @@ class WorkspaceGenerationEffects:
                             image_value, prefix="online_"
                         )
                 if not local_url:
+                    if output_format:
+                        raise GenerationOutputSaveError("generation.output_save_failed")
                     continue
+                if output_format and not str(local_url).startswith(("/assets/", "/api/storage-files/generated/")):
+                    raise GenerationOutputSaveError("generation.output_save_failed")
                 provider_source_url = local_url
                 target_aspect_ratio = str(
                     request.settings.get("target_aspect_ratio") or ""
@@ -3874,7 +3891,7 @@ class WorkspaceGenerationEffects:
                 ).strip()
                 materialize = self._ports.materialize_image
                 preserve_geometry = (request.settings.get("local_repair") or {}).get("preserve_geometry")
-                if materialization_aspect_ratio and callable(materialize) and not preserve_geometry:
+                if materialization_aspect_ratio and callable(materialize) and not preserve_geometry and output_format not in {"gif", "svg"}:
                     local_url = await materialize(
                         provider_source_url,
                         target_aspect_ratio=materialization_aspect_ratio,
@@ -3951,6 +3968,9 @@ class WorkspaceGenerationEffects:
                     settings.get("target_aspect_ratio") or ""
                 ),
                 "quality": str(settings.get("quality") or "auto"),
+                **{key: settings[key] for key in (
+                    "output_format", "output_compression", "frame_size", "frame_count", "frame_duration_ms", "svg_model"
+                ) if key in settings},
                 "n": int(request.count or 1),
                 "submission_count": int(request.submission_count or 1),
                 "reference_images": [

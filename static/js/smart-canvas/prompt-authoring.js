@@ -299,8 +299,8 @@ function restorePromptAuthoring(node, context=null){
     if(!draft.html && draft.text) setPromptText(draft.text);
     return {...draft};
 }
-function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault=false, context=null, sourceSettings=settings){
-    const parts = collectPromptAuthoringParts();
+function resolvePromptAuthoring(node, overrideDefaultImages=null, consumeDefault=false, context=null, sourceSettings=settings, editor=promptInput){
+    const parts = collectPromptAuthoringParts(editor);
     const originalPrompt = promptAuthoringPlainText(parts);
     const blockedRefs = blockedInputRefKeys(node);
     const filteredDefaultImages = promptAuthoringDefaultImages(
@@ -623,8 +623,56 @@ function promptAuthoringMigrationSnapshot(canvas, node){
     };
 }
 
+const promptAuthoringEditorContexts = new WeakMap();
+
+function bindPromptAuthoringEditor(editor, context){
+    const controller = new AbortController();
+    const listen = (type, handler) => editor.addEventListener(type, handler, {signal:controller.signal});
+    promptAuthoringEditorContexts.set(editor, context);
+    const change = event => {
+        context.onChange();
+        maybeOpenMentionPicker(editor, context.node(), {allowOpen:promptAuthoringQuickOpenIntent(event)});
+    };
+    listen('input', change);
+    listen('compositionstart', () => { promptQuickComposing = true; });
+    listen('compositionend', event => {
+        promptQuickComposing = false;
+        change({data:event.data,inputType:'insertText'});
+    });
+    listen('keydown', event => {
+        if(handlePromptQuickPickerKeydown(event, editor)) return;
+        if((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.isComposing && !promptQuickComposing && !event.repeat){
+            event.preventDefault();
+            context.onSubmit?.();
+        }
+    });
+    listen('keyup', event => {
+        if(!['ArrowDown','ArrowUp'].includes(event.key)) maybeOpenMentionPicker(editor, context.node());
+    });
+    listen('mouseup', () => saveMentionRange(editor));
+    listen('focus', () => saveMentionRange(editor));
+    listen('paste', event => {
+        if(!event.clipboardData?.files.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        context.onFiles?.([...event.clipboardData.files]);
+    });
+    return () => {
+        if(promptQuickTargetEl === editor) closeMentionPicker();
+        controller.abort();
+        promptAuthoringEditorContexts.delete(editor);
+    };
+}
+
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.promptAuthoring = Object.freeze({
+    bindEditor:bindPromptAuthoringEditor,
+    editorContext(editor){
+        return promptAuthoringEditorContexts.get(editor);
+    },
+    resolveEditor({editor, references=[], settings:sourceSettings={engine:'api',apiKind:'image'}}){
+        return resolvePromptAuthoring(null, references, false, null, sourceSettings, editor);
+    },
     quickTrigger({text='',caret=0}={}){
         return promptAuthoringQuickTrigger(text, caret);
     },

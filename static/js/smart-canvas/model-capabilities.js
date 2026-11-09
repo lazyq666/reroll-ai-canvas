@@ -95,6 +95,36 @@ function smartModelCapabilityValidate(capability={}, {inputs={},inputRoles={},pa
         }]};
     }
     const normalizedCounts = {};
+    const outputFormat = parameters.output_format || capability.parameters?.output_format?.default;
+    if(outputFormat){
+        const reject = (field, code='image_format_conflict') => errors.push({code,field,format:outputFormat});
+        if(parameters.transparent_png && !['png','webp'].includes(outputFormat)) reject('transparent_png');
+        if('output_compression' in parameters && !['jpeg','webp'].includes(outputFormat)) reject('output_compression');
+        if(outputFormat !== 'gif') ['frame_size','frame_count','frame_duration_ms'].filter(key => key in parameters).forEach(key => reject(key));
+        if(outputFormat !== 'svg' && 'svg_model' in parameters) reject('svg_model');
+        if(outputFormat === 'svg'){
+            if(inputs.image) reject('image');
+            if((parameters.count ?? 1) !== 1) reject('count');
+            if(!parameters.svg_model) reject('svg_model','svg_model_required');
+        }
+        if(outputFormat === 'gif'){
+            if(inputs.image > 16) reject('image');
+            if(![1,2,3,4].includes(parameters.count ?? 1)) reject('count');
+            ['aspect_ratio','resolution_tier','custom_size'].filter(key => key in parameters).forEach(key => reject(key));
+            const frames = parameters.frame_count ?? 9;
+            const duration = parameters.frame_duration_ms ?? 200;
+            if(Number.isInteger(duration) && duration % 10) reject('frame_duration_ms');
+            const match = String(parameters.frame_size || '512x512').match(/^([0-9]{1,5})x([0-9]{1,5})$/);
+            const width = Number(match?.[1]), height = Number(match?.[2]);
+            const [columns,rows] = frames <= 8 ? [4,2] : frames === 9 ? [3,3] : frames <= 12 ? [4,3] : [4,4];
+            const valid = Number.isInteger(frames) && frames >= 2 && frames <= 16 && width > 0 && height > 0 && width % 16 === 0 && height % 16 === 0
+                && [[columns,rows],[rows,columns]].some(([across,down]) => {
+                    const sheetWidth = width * across, sheetHeight = height * down;
+                    return Math.max(sheetWidth,sheetHeight) <= 3840 && sheetWidth * sheetHeight <= 8294400 && Math.max(sheetWidth,sheetHeight) <= 3 * Math.min(sheetWidth,sheetHeight);
+                });
+            if(!valid) reject('frame_size','gif_sheet_invalid');
+        }
+    }
     Object.entries(inputs || {}).forEach(([kind,rawCount]) => {
         const count = Number(rawCount);
         if(!Number.isInteger(count) || count < 0){
@@ -227,6 +257,9 @@ function smartModelCapabilityErrorMessage(error={}, fallback=''){
     const field = translate(`smart.capabilityField.${String(error.field || 'unknown')}`);
     const values = {field,actual:error.actual ?? '—',minimum:error.minimum ?? '—',maximum:error.maximum ?? '—'};
     const keys = {
+        image_format_conflict:'smart.imageFormatConflict',
+        gif_sheet_invalid:'smart.gifSheetInvalid',
+        svg_model_required:'smart.svgModelRequired',
         repair_invalid:'smart.repair.invalid',
         repair_aspect_mismatch:'smart.repair.aspectMismatch',
         repair_media_missing:'smart.repair.mediaMissing',

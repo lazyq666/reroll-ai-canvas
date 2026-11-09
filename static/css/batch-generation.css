@@ -95,6 +95,9 @@
 .batch-uniform-sidebar>.batch-uniform-grid,.batch-uniform-sidebar>.batch-output-estimate,.batch-uniform-sidebar>.batch-sidebar-actions{border-top:var(--ui-border-width-thin) solid var(--ui-color-border-secondary)}
 .batch-uniform-sidebar .batch-uniform-grid{display:grid;grid-template-columns:1fr;gap:var(--ui-space-2)}
 .batch-uniform-sidebar .batch-inline-options{display:block;min-width:0;grid-column:auto}
+#batchFormatControls:not([hidden]){display:grid;gap:var(--ui-space-2)}
+#batchFormatControls label{display:flex;align-items:center;justify-content:space-between;gap:var(--ui-space-2);font:var(--ui-text-body)}
+#batchFormatControls input{width:7rem;min-width:0;color:var(--ui-color-text-primary);background:var(--ui-color-surface);border:var(--ui-border-width-thin) solid var(--ui-color-border-secondary);border-radius:var(--ui-radius-s);padding:var(--ui-space-1)}
 .batch-uniform-sidebar .batch-inline-options::part(form-control){display:grid;min-width:0;grid-template-columns:minmax(0,7.5rem) minmax(0,1fr);align-items:start;gap:var(--ui-space-3)}
 .batch-uniform-sidebar .batch-inline-options::part(form-control-label){position:static;display:flex;inline-size:auto;max-inline-size:7.5rem;min-block-size:var(--ui-density-control-height);block-size:auto;align-items:center;justify-content:flex-end;justify-self:stretch;margin:var(--ui-focus-ring-width) 0 0;padding:0;overflow:visible;clip:auto;color:var(--ui-color-text-primary);font:var(--ui-text-body);overflow-wrap:anywhere;text-align:right;white-space:normal}
 .batch-uniform-sidebar .batch-inline-options::part(form-control-input){display:flex;min-width:0;flex-flow:row wrap;justify-content:flex-start;gap:var(--ui-space-1);padding:var(--ui-focus-ring-width);overflow-x:visible}

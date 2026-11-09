@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-scope="smart-canvas">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title data-i18n="laz135Prototype.title"></title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/design-tokens.css">
+  <link rel="stylesheet" href="/static/css/smart-canvas.css">
+  <link rel="stylesheet" href="/static/prototypes/laz135-gif-settings-prototype.css">
+  <script src="/static/js/i18n-core.js"></script>
+  <script src="/static/js/i18n/smart-canvas.js"></script>
+</head>
+<body>
+  <header class="prototype-header">
+    <div class="prototype-title"><span class="wordmark">Reroll</span><h1 data-i18n="laz135Prototype.title"></h1></div>
+    <nav class="prototype-tools">
+      <button id="reset" type="button" data-i18n="laz135Prototype.reset"></button>
+      <button id="language" type="button" data-i18n="laz135Prototype.language"></button>
+      <ic-icon-button id="theme" icon="theme" hierarchy="quiet" size="s" data-i18n-label="laz135Prototype.theme"></ic-icon-button>
+    </nav>
+  </header>
+  <main class="prototype-stage" data-ui>
+    <section class="preview-node">
+      <div class="preview-heading"><h2 data-i18n="laz135Prototype.preview"></h2><button id="play" type="button" data-i18n="laz135Prototype.play"></button></div>
+      <canvas id="preview" width="512" height="512" data-i18n-aria-label="laz135Prototype.preview"></canvas>
+      <div class="preview-meta"><span id="frameReadout"></span><output id="total"></output></div>
+    </section>
+    <div id="composer" class="composer open" data-component-name="smart-composer" data-generation-kind="image">
+      <div class="composer-card">
+        <div class="prompt-row prompt-editor-shell">
+          <textarea id="prompt" rows="2" data-i18n-placeholder="laz135Prototype.prompt" data-i18n-aria-label="laz135Prototype.prompt"></textarea>
+        </div>
+        <div class="param-row">
+          <div class="dynamic-params">
+            <ic-select id="model" hierarchy="quiet" placement="top" value="sunburst" data-i18n-aria-label="smart.imageModel" class="catalog-model-select">
+              <option value="sunburst">GPT Image 2.6 Sunburst</option>
+              <option value="flare">GPT Image 2.6 Flare</option>
+              <ic-icon name="image-generate" size="small" slot="start" aria-hidden="true"></ic-icon>
+              <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
+            </ic-select>
+            <ic-generation-settings-picker id="gifSettings" class="generation-settings-picker" data-i18n-label="laz135Prototype.settings" hide-ratio hide-resolution quality="auto" qualities="auto,low,medium,high,xhigh,max" duration="9" duration-min="2" duration-max="16" duration-step="1"></ic-generation-settings-picker>
+            <ic-generation-settings-picker id="imageSettings" class="generation-settings-picker" data-i18n-label="laz135Prototype.settings" ratio="1:1" ratio-presets="1:1,4:3,3:4,16:9,9:16" resolution="1K" resolutions="1K,2K,4K" quality="auto" qualities="auto,low,medium,high,xhigh,max" hidden></ic-generation-settings-picker>
+            <ic-select id="count" class="generation-count-select" hierarchy="quiet" size="s" placement="top" value="1" data-i18n-aria-label="laz135Prototype.count">
+              <option value="1"></option><option value="2"></option><option value="3"></option><option value="4"></option>
+              <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
+            </ic-select>
+            <ic-select id="format" hierarchy="quiet" size="s" placement="top" value="gif" data-i18n-aria-label="smart.outputFormat">
+              <option value="png" data-i18n="laz135Prototype.png"></option>
+              <option value="gif" data-i18n="laz135Prototype.gif"></option>
+              <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
+            </ic-select>
+          </div>
+        </div>
+        <div class="composer-actions">
+          <ic-icon-button id="previewButton" class="run-btn" size="l" hierarchy="primary" icon="play" data-i18n-label="laz135Prototype.play"></ic-icon-button>
+        </div>
+      </div>
+    </div>
+    <p class="prototype-note" data-i18n="laz135Prototype.note"></p>
+    <details class="state-inspector"><summary data-i18n="laz135Prototype.state"></summary><pre id="settingsState"></pre></details>
+  </main>
+  <script type="module" src="/static/prototypes/laz135-gif-settings-prototype.js"></script>
+</body>
+</html>

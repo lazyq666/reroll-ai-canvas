@@ -74,21 +74,17 @@ const CHROME = process.env.IC_BROWSER_BIN || '/Applications/Google Chrome.app/Co
       focusSize: focus.getAttribute('size'),
       focusCombination: focus.dataset.actionCombination,
       params: [...composer.querySelector('#dynamicParams').children].map(item => item.localName),
-      transparent: (() => {
-        const control = composer.querySelector('ic-switch[name="transparent-png"]');
+      format: (() => {
+        const control = composer.querySelector('ic-select[name="image-format"]');
         const token = document.createElement('span');
         token.style.fontSize = 'var(--ui-font-size-2)';
-        token.style.paddingInline = 'var(--ui-space-2)';
         document.body.append(token);
         const result = {
-          label:control?.getAttribute('label'),
+          label:control?.getAttribute('placeholder'),
           size:control?.getAttribute('size'),
           fontSize:getComputedStyle(control).fontSize,
           tokenFontSize:getComputedStyle(token).fontSize,
-          paddingLeft:getComputedStyle(control).paddingLeft,
-          paddingRight:getComputedStyle(control).paddingRight,
-          tokenPaddingLeft:getComputedStyle(token).paddingLeft,
-          tokenPaddingRight:getComputedStyle(token).paddingRight,
+          options:[...control.querySelectorAll('option')].map(option=>option.textContent),
         };
         token.remove();
         return result;
@@ -113,16 +109,13 @@ const CHROME = process.env.IC_BROWSER_BIN || '/Applications/Google Chrome.app/Co
       },
       focusSize: 's',
       focusCombination: 'quiet-icon-action',
-      params: ['ic-select', 'ic-generation-settings-picker', 'ic-select', 'ic-switch'],
-      transparent: {
-        label:'透明 PNG',
-        size:'s',
+      params: ['ic-select', 'ic-generation-settings-picker', 'ic-select', 'ic-select'],
+      format: {
+        label:'选择格式',
+        size:'small',
         fontSize:'12px',
         tokenFontSize:'12px',
-        paddingLeft:'8px',
-        paddingRight:'8px',
-        tokenPaddingLeft:'8px',
-        tokenPaddingRight:'8px',
+        options:['默认格式','透明 PNG'],
       },
     });
 

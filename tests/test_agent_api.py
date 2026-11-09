@@ -291,6 +291,31 @@ class AgentApiTests(unittest.TestCase):
         self.assertEqual(40, len(canvas["connections"]))
         self.assertEqual(2, len([n for n in canvas["nodes"] if ":media:" in n["id"]]))
 
+    def test_image_format_patch_clears_only_inherited_inactive_parameters(self):
+        from tests.test_apimart_image_formats import published_catalog
+        self.api.catalog, _ = published_catalog(Path(self.tmp.name) / "formats.json")
+        self.api.resolve_model = lambda provider, model, operation: self.api.catalog.resolve(provider,model,operation)
+        self.api.models = lambda: [{"provider_id":"apimart","model":"gpt-image-2.6-flare","kind":"image"}]
+        response = self.post({"tasks":[{
+            "kind":"image","prompt":"small bird","model":{"provider_id":"apimart","model":"gpt-image-2.6-flare"},
+            "params":{"output_format":"png","quality":"max","aspect_ratio":"1:1","resolution_tier":"1K"}
+        }]})
+        self.assertEqual(200,response.status_code,response.text)
+        endpoint = "/api/agent/v1/canvases/canvas-test/tasks/" + response.json()["task_ids"][0]
+        for output_format in ("gif","png"):
+            changed = self.client.patch(endpoint,json={"params":{"output_format":output_format}},
+                headers={"Idempotency-Key":"format-"+output_format})
+            self.assertEqual(200,changed.status_code,changed.text)
+            recipe = self.client.get(endpoint).json()["recipe"]
+            self.assertEqual("max",recipe["params"]["quality"])
+            self.assertEqual(output_format,recipe["params"]["output_format"])
+            self.assertEqual(output_format == "gif","frame_count" in recipe["params"])
+            if output_format == "gif":
+                self.assertNotIn("aspect_ratio",recipe["params"])
+        invalid = self.client.patch(endpoint,json={"params":{"output_format":"gif","aspect_ratio":"1:1"}},
+            headers={"Idempotency-Key":"format-invalid"})
+        self.assertEqual(422,invalid.status_code,invalid.text)
+
     def test_draft_parameter_patch_uses_live_connections_after_source_removed(self):
         result = self.post({"tasks": [self.recipe()]}).json()
         nid = result["task_ids"][0]
