@@ -13,8 +13,8 @@ const smartImageCapabilityStandardKeys = Object.freeze(
 );
 const smartImageCapabilityCache = new Map();
 
-function smartImageCapabilityKey(providerId='', modelId=''){
-    return `${String(providerId || '').trim()}\u001f${String(modelId || '').trim()}`;
+function smartImageCapabilityKey(providerId='', modelId='', operation='image.generate'){
+    return `${String(providerId || '').trim()}\u001f${String(modelId || '').trim()}\u001f${operation}`;
 }
 function smartImageCapabilityFallback(providerId='', modelId=''){
     return {
@@ -53,17 +53,17 @@ function smartImageCapabilityClean(value, providerId='', modelId=''){
         supports_transparent_png:value.supports_transparent_png === true
     };
 }
-function smartImageCapabilityCurrent(providerId='', modelId=''){
-    return smartImageCapabilityCache.get(smartImageCapabilityKey(providerId, modelId))
+function smartImageCapabilityCurrent(providerId='', modelId='', operation='image.generate'){
+    return smartImageCapabilityCache.get(smartImageCapabilityKey(providerId, modelId, operation))
         || smartImageCapabilityFallback(providerId, modelId);
 }
-async function smartImageCapabilityLoad(providerId='', modelId=''){
-    const key = smartImageCapabilityKey(providerId, modelId);
+async function smartImageCapabilityLoad(providerId='', modelId='', operation='image.generate'){
+    const key = smartImageCapabilityKey(providerId, modelId, operation);
     const existing = smartImageCapabilityCache.get(key);
     if(existing) return existing;
     const unifiedModule = window.SmartCanvasModules.modelCapabilities;
     const unified = unifiedModule
-        ? await unifiedModule.load(providerId, modelId, 'image.generate')
+        ? await unifiedModule.load(providerId, modelId, operation)
         : null;
     const query = new URLSearchParams({provider_id:String(providerId || ''), model:String(modelId || '')});
     const value = unified
@@ -153,6 +153,7 @@ function smartImageCapabilityValidate(settings={}, {prefix='', references=[], ca
     const ratioKey = prefix ? `${prefix}Ratio` : 'ratio';
     const resolutionKey = prefix ? `${prefix}Resolution` : 'resolution';
     capability = capability || smartImageCapabilityFallback();
+    if(!prefix && settings.outputFormat === 'gif') return {valid:true,reason:'',field:''};
     if(!prefix && smartImageCustomActive(settings) && !settings.outpaintResolutionLocked) return smartImageCustomValidate(settings, capability);
     const ratioValue = String(settings?.[ratioKey] || '');
     const resolutionValue = String(settings?.[resolutionKey] || '').toUpperCase();

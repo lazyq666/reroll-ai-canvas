@@ -50,7 +50,8 @@ class AgentImageRuns:
             self.fail("forbidden", status=403)
 
     def request(self, body):
-        if set(body) - {"request_id", "prompt", "provider_id", "model", "images", "ratio", "resolution"}:
+        if set(body) - {"request_id", "prompt", "provider_id", "model", "images", "ratio", "resolution",
+                        "quality", "output_format", "output_compression", "frame_size", "frame_count", "frame_duration_ms", "svg", "n"}:
             self.fail("invalid_request")
         for key in ("request_id", "provider_id", "model"):
             if not isinstance(body.get(key), str) or not body[key].strip() or len(body[key]) > 160:
@@ -139,10 +140,17 @@ class AgentImageRuns:
             self.fail("prompt_too_long", {"maximum": self.api.image_prompt_maximum})
         operation, capability = self.capability(value)
         refs = self.references(actor, value["images"])
-        if len(refs) > 1 and (value["ratio"] is None or value["ratio"].casefold() == "auto"):
+        animated = value.get("output_format") == "gif"
+        if not animated and "frame_size" in value:
+            self.fail("image_format_conflict")
+        if not animated and len(refs) > 1 and (value["ratio"] is None or value["ratio"].casefold() == "auto"):
             self.fail("explicit_ratio_required")
         reference_aspect_ratio = ""
-        if value["ratio"] is not None and value["ratio"].casefold() == "auto":
+        if animated:
+            if value["ratio"] or value["resolution"]:
+                self.fail("image_format_conflict")
+            ratio = None
+        elif value["ratio"] is not None and value["ratio"].casefold() == "auto":
             if len(refs) != 1:
                 self.fail("auto_ratio_requires_one_image")
             ratio, _ = normalize_image_aspect(refs[0]["natural_w"], refs[0]["natural_h"],
@@ -153,8 +161,8 @@ class AgentImageRuns:
             reference_aspect_ratio = f'{refs[0]["natural_w"]}:{refs[0]["natural_h"]}'
         else:
             ratio = self.parameter(capability, "aspect_ratio", value["ratio"])
-        resolution = self.parameter(capability, "resolution_tier", value["resolution"])
-        parameters = {"count": 1} if "count" in capability.get("parameters", {}) else {}
+        resolution = None if animated else self.parameter(capability, "resolution_tier", value["resolution"])
+        parameters = {"count": value.get("n", 1)} if "count" in capability.get("parameters", {}) else {}
         if ratio is not None:
             parameters["aspect_ratio"] = ratio
         if resolution is not None:
@@ -166,6 +174,9 @@ class AgentImageRuns:
         command = {"prompt": value["prompt"], "provider_id": value["provider_id"], "model": value["model"],
             "ratio": ratio, "resolution": resolution, "reference_aspect_ratio": reference_aspect_ratio,
             "references": refs, "catalog_revision": capability["catalog_revision"]}
+        command.update({key: value[key] for key in (
+            "quality", "output_format", "output_compression", "frame_size", "frame_count", "frame_duration_ms", "svg", "n"
+        ) if key in value})
         try:
             request = self.api.compile_image(command)
         except ValidationError:
@@ -176,7 +187,10 @@ class AgentImageRuns:
             self.fail(code, {k: v for k, v in details.items() if k in {"field", "allowed", "errors"}}, error.status_code)
         return request, {"provider_id": value["provider_id"], "model": value["model"], "operation": operation,
             "settings": {"requested_ratio": value["ratio"], "ratio": ratio,
-                "requested_resolution": value["resolution"], "resolution": resolution},
+                "requested_resolution": value["resolution"], "resolution": resolution,
+                **{key: request.settings[key] for key in (
+                    "quality", "output_format", "output_compression", "frame_size", "frame_count", "frame_duration_ms", "svg_model"
+                ) if key in request.settings}},
             "inputs": [{**item, "name": item["name"] or ref.get("name", "")} for item, ref in zip(value["images"], refs)]}
 
     async def submit(self, actor, token, body, language="en"):
@@ -222,22 +236,24 @@ class AgentImageRuns:
             self.fail("run_not_found", status=404)
         if run.public_metadata.get("surface") != self.surface:
             self.fail("run_not_found", status=404)
+        if run.status in ACTIVE_STATUSES and run.recoverable and run.error:
+            run = await self.service().resume(run.id, owner=str(actor["id"]), delivery=Background())
         return run
 
     def output(self, run, index):
-        if index != 0 or run.status != "succeeded" or not isinstance(run.result, dict):
+        if not isinstance(index, int) or index < 0 or run.status != "succeeded" or not isinstance(run.result, dict):
             self.fail("output_unavailable", status=404)
         images = run.result.get("images") or []
-        if not images:
+        if index >= len(images):
             self.fail("output_unavailable", status=404)
-        url = images[0].get("url") if isinstance(images[0], dict) else images[0]
+        url = images[index].get("url") if isinstance(images[index], dict) else images[index]
         path = self.api.available_media_path(url)
         if path is None:
             self.fail("output_unavailable", status=404)
         try:
-            with Image.open(path) as image:
-                width, height = image.size
-                image.load()
+            from .image_originals import inspect_image
+            metadata = inspect_image(Path(path).read_bytes())
+            width, height = metadata["width"], metadata["height"]
         except (OSError, ValueError, UnidentifiedImageError, Image.DecompressionBombError):
             self.fail("output_unavailable", status=404)
         return path, width, height
@@ -250,9 +266,12 @@ class AgentImageRuns:
         if status == "succeeded":
             from .agent_api import AgentError
             try:
-                path, width, height = self.output(run, 0)
-                result["outputs"] = [{"download_url": f"/api/agent/v1/image-runs/{run.id}/outputs/0",
-                    "name": path.name, "width": width, "height": height}]
+                for index in range(len((run.result or {}).get("images", []))):
+                    path, width, height = self.output(run, index)
+                    from .image_originals import inspect_image
+                    metadata = inspect_image(Path(path).read_bytes())
+                    result["outputs"].append({"download_url": f"/api/agent/v1/image-runs/{run.id}/outputs/{index}",
+                        "name": path.name, "width": width, "height": height, **metadata})
             except AgentError:
                 result.update(status="failed", error={"code": "output_unavailable", "message": self.message("output_unavailable", language), "details": {}})
         elif status == "failed":
@@ -264,4 +283,7 @@ class AgentImageRuns:
     async def download(self, actor, token, run_id, index):
         run = await self.query(actor, token, run_id)
         path, _, _ = self.output(run, index)
-        return FileResponse(path, filename=Path(path).name)
+        from .image_originals import SVG_HEADERS, inspect_image
+        metadata = inspect_image(Path(path).read_bytes())
+        return FileResponse(path, filename=Path(path).name, media_type=metadata["mime"],
+                            headers=SVG_HEADERS if metadata["format"] == "svg" else None)

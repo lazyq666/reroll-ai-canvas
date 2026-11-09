@@ -1085,8 +1085,8 @@ def _valid_saved_image(path):
     try:
         if not os.path.isfile(path) or os.path.getsize(path) <= 0:
             return False
-        with Image.open(path) as image:
-            image.verify()
+        from ..image_originals import inspect_image
+        inspect_image(Path(path).read_bytes())
         return True
     except Exception:
         return False
@@ -1122,7 +1122,11 @@ async def save_ai_image_to_output(
     stable_id="",
     folder="",
     name_prefix="",
+    expected_format="",
+    expected_size="",
+    expected_aspect="",
 ):
+    from ..image_originals import inspect_image
     clean_stable_id = re.sub(
         r"[^a-zA-Z0-9_-]+",
         "_",
@@ -1148,22 +1152,30 @@ async def save_ai_image_to_output(
     relative_stem = f"{clean_folder}/{stem}" if clean_folder else stem
     filename = f"{relative_stem}.png"
     path = _ports.output_path_for(filename, category)
+    def store(content):
+        metadata = inspect_image(content)
+        if expected_format and metadata["format"] != expected_format:
+            raise ValueError("image_format_mismatch")
+        if expected_format in {"gif", "svg"} and re.fullmatch(r"[0-9]+x[0-9]+", expected_size):
+            if tuple(map(int, expected_size.split("x"))) != (metadata["width"], metadata["height"]):
+                raise ValueError("image_dimensions_mismatch")
+        if expected_format == "svg" and re.fullmatch(r"[0-9]+:[0-9]+", expected_aspect):
+            width, height = map(int, expected_aspect.split(":"))
+            if not height or abs(metadata["width"] / metadata["height"] / (width / height) - 1) > 0.07:
+                raise ValueError("image_dimensions_mismatch")
+        name = relative_stem + metadata["extension"]
+        _atomic_save_image(_ports.output_path_for(name, category), content)
+        return _ports.output_url_for(name, category)
     if clean_stable_id:
-        for extension in (".png", ".jpg", ".webp"):
+        for extension in (".png", ".jpg", ".webp", ".gif", ".svg"):
             existing_name = f"{relative_stem}{extension}"
             existing_path = _ports.output_path_for(existing_name, category)
             if _valid_saved_image(existing_path):
+                if expected_format:
+                    return store(Path(existing_path).read_bytes())
                 return _ports.output_url_for(existing_name, category)
     if image_data["type"] == "b64":
-        mime_type = str(image_data.get("mime_type") or "").lower()
-        if "jpeg" in mime_type or "jpg" in mime_type:
-            filename = filename[:-4] + ".jpg"
-            path = _ports.output_path_for(filename, category)
-        elif "webp" in mime_type:
-            filename = filename[:-4] + ".webp"
-            path = _ports.output_path_for(filename, category)
-        _atomic_save_image(path, base64.b64decode(image_data["value"]))
-        return _ports.output_url_for(filename, category)
+        return store(base64.b64decode(image_data["value"]))
     value = image_data["value"]
     if value.startswith(("/assets/", "/api/storage-files/")) or os.path.isfile(value):
         source_path = (
@@ -1172,14 +1184,9 @@ async def save_ai_image_to_output(
             else _ports.output_file_from_url(value)
         )
         if source_path and os.path.isfile(source_path):
-            extension = os.path.splitext(source_path)[1].lower()
-            if extension not in {".png", ".jpg", ".jpeg", ".webp"}:
-                extension = ".png"
-            filename = f"{relative_stem}{extension}"
-            path = _ports.output_path_for(filename, category)
-            if os.path.abspath(source_path) != os.path.abspath(path):
-                _atomic_save_image(path, Path(source_path).read_bytes())
-            return _ports.output_url_for(filename, category)
+            return store(Path(source_path).read_bytes())
+        if expected_format:
+            raise ValueError("image_download_failed")
         return value
     value = rewrite_runninghub_file_url(value)
     try:
@@ -1187,16 +1194,10 @@ async def save_ai_image_to_output(
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             response = await client.get(value)
             response.raise_for_status()
-            content_type = response.headers.get("Content-Type", "")
-            if "jpeg" in content_type or "jpg" in content_type:
-                filename = filename[:-4] + ".jpg"
-                path = _ports.output_path_for(filename, category)
-            elif "webp" in content_type:
-                filename = filename[:-4] + ".webp"
-                path = _ports.output_path_for(filename, category)
-            _atomic_save_image(path, response.content)
-            return _ports.output_url_for(filename, category)
+            return store(response.content)
     except Exception as e:
+        if expected_format or isinstance(e, ValueError):
+            raise ValueError("image_download_failed") from e
         print(f"保存上游图片失败: {e}; url={value}")
         return value
 
@@ -2296,6 +2297,36 @@ def volcengine_image_payload(ref):
         return None
     return value
 
+def static_animation_reference(ref):
+    from ..image_originals import inspect_image
+    from ..outbound_security import requests_get_public
+    value = _ports.reference_to_data_url(ref)
+    try:
+        if value.startswith("data:image/") and ";base64," in value:
+            encoded = value.split(";base64,", 1)[1]
+            if len(encoded) > 48 * 1024 * 1024:
+                raise ValueError("input_invalid")
+            content = base64.b64decode(encoded, validate=True)
+        elif value.startswith(("https://", "http://")):
+            with requests_get_public(value, stream=True, timeout=60) as response:
+                response.raise_for_status()
+                chunks = []
+                length = 0
+                for chunk in response.iter_content(64 * 1024):
+                    length += len(chunk)
+                    if length > 32 * 1024 * 1024:
+                        raise ValueError("input_invalid")
+                    chunks.append(chunk)
+                content = b"".join(chunks)
+        else:
+            raise ValueError("input_invalid")
+        metadata = inspect_image(content)
+        if metadata["format"] == "svg" or metadata["frame_count"] != 1:
+            raise ValueError("image_format_conflict")
+        return f'data:{metadata["mime"]};base64,{base64.b64encode(content).decode("ascii")}'
+    except (ValueError, OSError, requests.RequestException) as exc:
+        raise HTTPException(status_code=422, detail={"code":"image_format_conflict","field":"image","format":"gif"}) from exc
+
 def openai_video_proxy_local_image_path(ref) -> str:
     raw = ref.get("url", "") if isinstance(ref, dict) else ref
     text = str(raw or "").strip()
@@ -2483,8 +2514,10 @@ def image_output_meta(url, source_item=None):
     path = _ports.output_file_from_url(url)
     if path and os.path.exists(path):
         try:
-            with Image.open(path) as img:
-                width, height = img.size
+            from ..image_originals import inspect_image
+            metadata = inspect_image(Path(path).read_bytes())
+            width, height = metadata["width"], metadata["height"]
+            meta.update(metadata)
             if width > 0 and height > 0:
                 meta.update({
                     "natural_w": width,
@@ -2516,6 +2549,7 @@ async def generate_http_provider_image(
     operation="image.generate",
     resolution_tier="",
     aspect_ratio="",
+    image_format=None,
 ):
     provider = _ports.get_api_provider(provider_id)
     requested_count = max(1, min(8, int(n or 1)))
@@ -2525,7 +2559,9 @@ async def generate_http_provider_image(
     # 不对 GPT 尺寸做任何缩小/拦截：用户选什么尺寸就原样发给上游；
     # 若超过 GPT 的最大像素限制被上游拒绝，再由 friendly_image_error_detail 给出友好的像素上限提示。
     quality = str(quality or "").strip().lower()
-    if quality not in {"low", "medium", "high"}:
+    from ..image_formats import APIMART_QUALITY_MODELS, IMAGE_QUALITIES
+    apimart_quality = is_apimart and model in APIMART_QUALITY_MODELS
+    if quality not in (IMAGE_QUALITIES if apimart_quality else {"low", "medium", "high"}):
         quality = ""
     base_url = (provider.get("base_url") or _ports.AI_BASE_URL).rstrip("/")
     if not base_url:
@@ -2749,11 +2785,29 @@ async def generate_http_provider_image(
                 body.pop("size", None)
             if resolution:
                 body["resolution"] = resolution
+            if apimart_quality:
+                body["quality"] = quality or "auto"
             if transparent_png:
                 body["background"] = "transparent"
                 body["output_format"] = "png"
+            if image_format:
+                output_format = image_format["output_format"]
+                body["output_format"] = output_format
+                if output_format == "gif":
+                    body["size"] = image_format["frame_size"]
+                    body.pop("resolution", None)
+                    body["frame_count"] = image_format["frame_count"]
+                    body["frame_duration_ms"] = image_format["frame_duration_ms"]
+                elif output_format == "svg":
+                    body["svg"] = {"model": image_format["svg_model"]}
+                if "output_compression" in image_format:
+                    body["output_compression"] = image_format["output_compression"]
             if image_refs:
-                body["image_urls"] = [_ports.reference_to_data_url(ref, max_size=1536) for ref in image_refs[:_ports.ONLINE_IMAGE_REFERENCE_MAX]]
+                body["image_urls"] = (
+                    [await asyncio.to_thread(static_animation_reference, ref) for ref in image_refs]
+                    if image_format and image_format.get("output_format") == "gif"
+                    else [_ports.reference_to_data_url(ref, max_size=1536) for ref in image_refs[:_ports.ONLINE_IMAGE_REFERENCE_MAX]]
+                )
             response = await client.post(gen_url, headers=api_headers(provider=provider), json=body)
         elif is_gpt2 and not image_refs and not mask_refs:
             body = {"model": model, "prompt": prompt, "size": size}

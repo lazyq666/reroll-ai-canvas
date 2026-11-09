@@ -64,6 +64,9 @@
     let modelCatalog = [];
     let batchCapabilityResolution = '';
     let batchCapabilitySequence = 0;
+    let batchFormatSettings = {};
+    let batchFormats = [];
+    let batchCatalogRevision = '';
     let estimateTimer = null;
     let batchPollTimer = null;
     let currentBatchId = '';
@@ -478,6 +481,19 @@
             ? await response.json()
             : {aspect_ratios:Object.values(ratioPresetValues), resolution_tiers:['1K','2K','4K'], default_resolution_tier:'1K', blocked:false};
         if (sequence !== batchCapabilitySequence) return capability;
+        if(Array.isArray(capability.qualities)){
+            const quality = $('batchQuality');
+            const previous = quality.value;
+            const labels = {auto:'batch.auto',low:'online.qualityLow',medium:'online.qualityMedium',high:'online.qualityHigh',xhigh:'batch.qualityXhigh',max:'batch.qualityMax'};
+            quality.innerHTML = capability.qualities.map(value=>`<ic-radio value="${escape(value)}" label="${escape(tr(labels[value]))}" data-i18n-label="${labels[value]}"></ic-radio>`).join('');
+            if(previous && !capability.qualities.includes(previous)){
+                quality.insertAdjacentHTML('beforeend', `<ic-radio value="${escape(previous)}" label="${escape(previous)}" disabled></ic-radio>`);
+            }
+            quality.value = previous;
+        }
+        batchFormats = capability.formats || [];
+        batchCatalogRevision = capability.catalog_revision || '';
+        renderBatchFormatControls();
         const presetValues = (capability.aspect_ratios || [])
             .map(value => ratioPresetByValue[value]).filter(Boolean);
         const ratioPicker = $('batchRatioChoices');
@@ -489,7 +505,8 @@
         [...resolution.querySelectorAll('ic-radio')].forEach(radio => {
             radio.hidden = !tiers.includes(radio.value);
         });
-        resolution.hidden = tiers.length <= 1;
+        resolution.hidden = tiers.length <= 1 || batchFormatSettings.outputFormat === 'gif';
+        ratioPicker.closest('tr').hidden = batchFormatSettings.outputFormat === 'gif';
         if (tiers.length === 1) batchCapabilityResolution = tiers[0];
         else if (tiers.includes(resolution.value)) batchCapabilityResolution = resolution.value;
         else batchCapabilityResolution = '';
@@ -515,10 +532,38 @@
 
     const settingValue = id => $(id).value || '';
 
+    function renderBatchFormatControls(){
+        const root = $('batchFormatControls');
+        const format = batchFormatSettings.outputFormat || 'png';
+        root.hidden = !batchFormats.length && !batchFormatSettings.outputFormat;
+        const options = [...new Set([...batchFormats,format])];
+        root.innerHTML = `<ic-select label="${escape(tr('batch.outputFormat'))}" data-format-setting="outputFormat">
+            ${options.map(value=>`<option value="${escape(value)}" ${value === format ? 'selected' : ''} ${batchFormats.includes(value) ? '' : 'disabled'}>${escape(value.toUpperCase())}</option>`).join('')}
+        </ic-select>`;
+        const field = (key,label,value,min,max,step) => `<label>${escape(tr(label))}<input aria-label="${escape(tr(label))}" type="number" min="${min}" ${max ? `max="${max}"` : ''} step="${step}" data-format-setting="${key}" value="${escape(value)}"></label>`;
+        if(format === 'gif'){
+            root.innerHTML += `<label>${escape(tr('batch.frameSize'))}<input aria-label="${escape(tr('batch.frameSize'))}" data-format-setting="frameSize" value="${escape(batchFormatSettings.frameSize || '512x512')}"></label>`;
+            root.innerHTML += field('frameCount','batch.frameCount',batchFormatSettings.frameCount ?? 9,2,16,1);
+            root.innerHTML += field('frameDurationMs','batch.frameDuration',batchFormatSettings.frameDurationMs ?? 200,20,0,10);
+        }
+        if(['jpeg','webp'].includes(format) || batchFormatSettings.outputCompression !== '' && batchFormatSettings.outputCompression != null){
+            root.innerHTML += field('outputCompression','batch.outputCompression',batchFormatSettings.outputCompression ?? '',0,100,1);
+        }
+    }
+    $('batchFormatControls').addEventListener('change',event=>{
+        const key = event.target.dataset.formatSetting;
+        if(!key) return;
+        batchFormatSettings[key] = event.target.type === 'number' && event.target.value !== '' ? Number(event.target.value) : event.target.value;
+        if(key === 'outputFormat'){
+            if(event.target.value === 'svg') $('batchOutputsPerRun').value = '1';
+            updateBatchCapabilityIntersection().finally(scheduleEstimate);
+        } else scheduleEstimate();
+    });
+
     function updateDimensionMetrics() {
         const modelCount = [...document.querySelectorAll('[data-batch-model-id]')].filter(input => input.checked).length;
         $('batchModelCount').textContent = modelCount;
-        $('batchRatioCount').textContent = $('batchRatioChoices').values.length;
+        $('batchRatioCount').textContent = ($('batchRatioChoices').values || []).length;
     }
 
     function buildPayload() {
@@ -543,9 +588,11 @@
                 ],
             })),
             models:selectedModels(),
-            ratios:$('batchRatioChoices').values.map(value => ratioPresetValues[value]).filter(Boolean),
+            ratios:batchFormatSettings.outputFormat === 'gif' ? [] : $('batchRatioChoices').values.map(value => ratioPresetValues[value]).filter(Boolean),
             settings:{
-                quality:settingValue('batchQuality'), resolution:batchCapabilityResolution,
+                ...batchFormatSettings,
+                catalog_revision:batchCatalogRevision,
+                quality:settingValue('batchQuality'), resolution:batchFormatSettings.outputFormat === 'gif' ? '' : batchCapabilityResolution,
                 outputs_per_submission:Number(settingValue('batchOutputsPerRun')),
                 submissions_per_task:Number(settingValue('batchSubmissionsPerTask')),
                 desired_concurrency:Number(settingValue('batchConcurrency')),
@@ -602,7 +649,7 @@
     async function fetchJson(path, options = {}) {
         const response = await fetch(path, options);
         const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || tr('batch.requestFailed'));
+        if (!response.ok) throw new Error(typeof data.detail === 'string' && data.detail.startsWith('batch.') ? tr(data.detail) : data.detail || tr('batch.requestFailed'));
         return data;
     }
     const request = (path, body) => fetchJson(path, {
@@ -612,7 +659,7 @@
     async function updateEstimate() {
         if ($('batchGenerationMode').hidden || $('batchSetupStep').hidden) return;
         const body = buildPayload();
-        if (!body.prompt_modules.length || body.prompt_modules.some(module => !module.options.length) || !body.models.length || !body.ratios.length) {
+        if (!body.prompt_modules.length || body.prompt_modules.some(module => !module.options.length) || !body.models.length || !body.ratios.length && body.settings.outputFormat !== 'gif') {
             $('batchOutputCount').textContent = '0'; return;
         }
         try {
@@ -625,14 +672,14 @@
         updateDimensionMetrics();
         const body = buildPayload();
         const promptCounts = body.prompt_modules.map(module => module.options.length);
-        if (!promptCounts.length || promptCounts.some(count => !count) || !body.models.length || !body.ratios.length) {
+        if (!promptCounts.length || promptCounts.some(count => !count) || !body.models.length || !body.ratios.length && body.settings.outputFormat !== 'gif') {
             $('batchOutputCount').textContent = '0';
             return;
         }
         const imageCounts = body.image_variables
             .map(variable => variable.options.length)
             .filter(Boolean);
-        const combinations = [...promptCounts, ...imageCounts, body.models.length, body.ratios.length]
+        const combinations = [...promptCounts, ...imageCounts, body.models.length, body.settings.outputFormat === 'gif' ? 1 : body.ratios.length]
             .reduce((total, count) => total * count, 1);
         $('batchOutputCount').textContent = combinations
             * body.settings.outputs_per_submission
@@ -730,6 +777,9 @@
             .map(value => ratioPresetByValue[value]).filter(Boolean);
         $('batchRatioChoices').values = restoredRatios.length ? restoredRatios : ['square'];
         const settings = frozen?.settings || {};
+        batchFormatSettings = Object.fromEntries(['outputFormat','frameSize','frameCount','frameDurationMs','outputCompression','svgModel']
+            .filter(key => settings[key] != null).map(key => [key,settings[key]]));
+        renderBatchFormatControls();
         const setChoice = (id, value, fallback) => {
             const group = $(id);
             const desired = String(value ?? fallback);
@@ -739,7 +789,7 @@
             if (choice) group.value = choice.value;
         };
         setChoice('batchResolution', settings.resolution, '1k');
-        setChoice('batchQuality', settings.quality, 'auto');
+        $('batchQuality').value = settings.quality ?? 'auto';
         setChoice('batchOutputsPerRun', settings.outputs_per_submission ?? settings.outputs_per_run, '1');
         setChoice('batchSubmissionsPerTask', settings.submissions_per_task, '1');
         setChoice('batchConcurrency', settings.desired_concurrency, '2');
@@ -1107,6 +1157,11 @@
         $('batchResultGallery').innerHTML = batchDetailOutputs.map((item, index) => {
             return `<figure data-batch-output-index="${index}" tabindex="0" aria-label="${escape(item.prompt || item.name)}"><ic-media-container kind="image" label="${escape(item.prompt || item.name)}" aspect="square" fit="cover"><img src="${escape(item.url)}" loading="lazy" alt="${escape(item.prompt || tr('batch.outputs'))}"></ic-media-container><figcaption><span class="batch-result-model">${renderTaskModel(item.task)}</span><span class="batch-result-prompt" title="${escape(item.prompt)}">${escape(item.prompt)}</span></figcaption><ic-button size="small" hierarchy="secondary" tone="neutral" data-legal-comination="secondary-action" href="${escape(batchDownloadHref(item))}" download="${escape(item.name)}"><ic-icon slot="start" name="download"></ic-icon>${tr('batch.download')}</ic-button></figure>`;
         }).join('');
+        $('batchResultGallery').querySelectorAll('img').forEach(image => {
+            if(/\.gif(?:[?#]|$)/i.test(image.getAttribute('src') || '')){
+                image.src = `/api/media-preview?w=512&url=${encodeURIComponent(image.getAttribute('src'))}`;
+            }
+        });
         document.querySelectorAll('[data-batch-output-index]').forEach(figure => {
             const open = event => {
                 if (event.target.closest('ic-button')) return;
@@ -1416,6 +1471,7 @@
         renumberImageVariables();
         renderGenerationChoices();
         $('batchRatioChoices').setAttribute('label', tr('batch.aspectRatios'));
+        renderBatchFormatControls();
         if ($('batchError').dataset.errorCode === 'no-shared-model-options') {
             $('batchError').textContent = tr('batch.noSharedModelOptions');
         }

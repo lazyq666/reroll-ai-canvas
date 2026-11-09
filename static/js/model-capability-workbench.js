@@ -249,6 +249,25 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     outputSelect.setAttribute('size', 'small');
     outputSelect.setAttribute('placement', 'top');
     grid.appendChild(choiceGroup('models.outputQuantity', outputSelect));
+    const qualities = commonValues(operations, 'qualities');
+    const qualityChoices = commonValues(operations, 'quality_choices');
+    if(qualityChoices.length){
+      const controls = element('div', 'capability-option-list');
+      qualityChoices.forEach(value => controls.appendChild(checkbox(tr(`models.quality.${value}`), qualities.includes(value), {choiceKind:'quality',choiceValue:value})));
+      grid.appendChild(choiceGroup('models.imageQuality', controls));
+    }
+    const formatChoices = commonValues(operations, 'format_choices');
+    if(formatChoices.length){
+      const formats = generate?.formats || commonValues(operations, 'formats');
+      const controls = element('div', 'capability-option-list');
+      formatChoices.forEach(value => controls.appendChild(checkbox(value.toUpperCase(), formats.includes(value), {choiceKind:'format',choiceValue:value})));
+      grid.appendChild(choiceGroup('models.imageFormats', controls));
+      const svgModel = element('ic-input');
+      svgModel.setAttribute('aria-label', tr('models.svgModel'));
+      svgModel.value = generate?.svg_model || '';
+      svgModel.dataset.svgModel = 'true';
+      grid.appendChild(choiceGroup('models.svgModel', svgModel));
+    }
 
     const resolutionGroup = choiceGroup('models.allowedResolutions', resolutionOptions(allResolutions, resolutions));
     resolutionGroup.classList.add('capability-choice-group-wide');
@@ -575,6 +594,11 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
           resolutions,
           aspect_ratios: aspectRatios,
           output_count_maximum: outputMaximum,
+          ...(operation.quality_choices?.length ? {qualities:[...card.querySelectorAll('[data-choice-kind="quality"]')].filter(item => item.checked).map(item => item.dataset.choiceValue)} : {}),
+          ...(operation.format_choices?.length ? {
+            formats:[...card.querySelectorAll('[data-choice-kind="format"]')].filter(item => item.checked).map(item => item.dataset.choiceValue),
+            svg_model:getValue(card.querySelector('[data-svg-model]'))
+          } : {}),
           options,
         };
       });

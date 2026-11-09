@@ -564,6 +564,104 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
             operation.model_dump()["video"]["modes"]["first_last_frames"]
         )
 
+    async def test_admin_matrix_persists_image_format_and_quality_choices(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "workbench.json"
+            model_id = "gpt-image-2.6-sunburst"
+            catalog = self.workbench_catalog(path)
+            inventory = lambda: {
+                "image": [{"model": model_id, "provider_id": "apimart"}],
+                "video": [],
+                "text": [],
+            }
+            matrix = main.ModelCapabilityMatrix(
+                inventory=inventory,
+                catalog=catalog,
+                workbench=main.ModelCapabilityWorkbench(path),
+            )
+            qualities = ["auto", "low", "medium", "high", "xhigh", "max"]
+            formats = ["png", "gif", "svg"]
+            operations = [
+                {
+                    "operation": operation,
+                    "confirmed": True,
+                    "inputs": {"text": 1, "image": 20 if operation == "image.edit" else 0},
+                    "resolutions": ["1K", "2K", "4K"],
+                    "aspect_ratios": ["1:1", "16:9"],
+                    "output_count_maximum": 1,
+                    "options": ["transparent_png"],
+                    "qualities": qualities,
+                    "formats": formats,
+                    "svg_model": "gpt-5.4-mini",
+                }
+                for operation in ("image.generate", "image.edit")
+            ]
+            with (
+                patch.object(main, "require_current_user", return_value={"id": "admin-1"}),
+                patch.object(main, "MODEL_CAPABILITY_MATRIX", matrix),
+            ):
+                await main.update_model_capability_matrix(
+                    main.ModelCapabilityMatrixUpdatePayload(
+                        model_id=model_id, operations=operations,
+                    )
+                )
+                reopened = self.workbench_catalog(path)
+                for operation in operations:
+                    capability = reopened.resolve("apimart", model_id, operation["operation"])
+                    parameters = capability["parameters"]
+                    expected_formats = formats if operation["operation"] == "image.generate" else ["png", "gif"]
+                    self.assertEqual(expected_formats, parameters.get("output_format", {}).get("values"))
+                    self.assertEqual(qualities, parameters["quality"]["values"])
+                    self.assertEqual("gpt-5.4-mini", parameters["svg_model"]["default"])
+
+                legacy_operations = [
+                    {
+                        key: value for key, value in operation.items()
+                        if key not in {"qualities", "formats", "svg_model"}
+                    }
+                    for operation in operations
+                ]
+                await main.update_model_capability_matrix(
+                    main.ModelCapabilityMatrixUpdatePayload(
+                        model_id=model_id, operations=legacy_operations,
+                    )
+                )
+                parameters = self.workbench_catalog(path).resolve(
+                    "apimart", model_id, "image.generate",
+                )["parameters"]
+                self.assertEqual(formats, parameters["output_format"]["values"])
+                self.assertEqual(qualities, parameters["quality"]["values"])
+                self.assertEqual("gpt-5.4-mini", parameters["svg_model"]["default"])
+
+                saved_state = path.read_bytes()
+                for field, invalid in (("qualities", ["invalid"]), ("formats", ["invalid"])):
+                    with self.subTest(field=field), self.assertRaises(HTTPException) as raised:
+                        await main.update_model_capability_matrix(
+                            main.ModelCapabilityMatrixUpdatePayload(
+                                model_id=model_id,
+                                operations=[{**operations[0], field: invalid}],
+                            )
+                        )
+                    self.assertEqual(400, raised.exception.status_code)
+                    self.assertEqual(saved_state, path.read_bytes())
+
+                await main.update_model_capability_matrix(
+                    main.ModelCapabilityMatrixUpdatePayload(
+                        model_id=model_id,
+                        operations=[
+                            {**operation, "formats": [], "svg_model": ""}
+                            for operation in operations
+                        ],
+                    )
+                )
+                for operation in operations:
+                    parameters = self.workbench_catalog(path).resolve(
+                        "apimart", model_id, operation["operation"],
+                    )["parameters"]
+                    self.assertNotIn("output_format", parameters)
+                    self.assertNotIn("svg_model", parameters)
+                    self.assertEqual(qualities, parameters["quality"]["values"])
+
     async def test_external_capability_import_route_is_removed(self):
         self.assertNotIn("/api/admin/model-capability-matrix/import", {getattr(route, "path", "") for route in main.app.routes})
         self.assertFalse(hasattr(main, "ModelCapabilityImportRequest"))

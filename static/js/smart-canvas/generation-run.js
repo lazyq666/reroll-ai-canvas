@@ -1586,7 +1586,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
         }
         return runGeneration({node, onAccepted, onQueued, onLocalAccepted, fromDraft});
     },
-    processor({nodeId='',imageIndex=0,input=null,width=0,height=0,prompt='',runSettings={},localRepair=null,processorKind=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true,agentRepairRequestId='',validateSource=null}={}){
+    processor({nodeId='',imageIndex=0,input=null,references=[],width=0,height=0,prompt='',runSettings={},localRepair=null,processorKind=null,onPrepared=null,onAccepted=null,throwOnSubmissionFailure=true,agentRepairRequestId='',validateSource=null}={}){
         const node=nodeId?nodes.find(item=>item.id===nodeId):null;
         const targetWidth=Math.round(Number(width)||0);
         const targetHeight=Math.round(Number(height)||0);
@@ -1607,7 +1607,7 @@ window.SmartCanvasModules.generationRun = Object.freeze({
             request:{
                 prompt:modelPrompt,
                 displayPrompt:modelPrompt,
-                refs:[{...input,kind:input.kind||'image',nodeId:node.id,imageIndex:Number.isFinite(Number(imageIndex))?Number(imageIndex):0}]
+                refs:[{...input,kind:input.kind||'image',nodeId:node.id,imageIndex:Number.isFinite(Number(imageIndex))?Number(imageIndex):0},...references.map(ref=>({...ref}))]
             }
         });
     },

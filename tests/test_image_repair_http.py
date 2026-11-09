@@ -175,6 +175,10 @@ class ImageRepairHttpTests(unittest.TestCase):
             self.assertEqual(422, rejected.exception.status_code)
             payload.n = 1
             payload.reference_images = payload.reference_images * 2
+            run = self.main._online_image_run(payload)
+            self.assertEqual(2, len(run.references))
+            self.assertEqual('/assets/output/patch.png', run.references[0]['url'])
+            payload.reference_images = payload.reference_images * 20
             with self.assertRaises(HTTPException) as rejected:
                 self.main._online_image_run(payload)
             self.assertEqual(422, rejected.exception.status_code)

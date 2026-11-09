@@ -347,7 +347,9 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
     if(modelCapability?.media_contract){
         capability = capabilityModule.clean({...modelCapability.media_contract,model_capability:modelCapability},runSettings.provider_id,runSettings.model);
     }
-    const resolvedOutput = capabilityModule?.resolveForSubmission?.(
+    const outputFormat = runSettings.outputFormat || '';
+    const animated = outputFormat === 'gif';
+    const resolvedOutput = animated ? {valid:true} : capabilityModule?.resolveForSubmission?.(
         runSettings,
         imageReferences,
         capability
@@ -382,7 +384,15 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
     };
     if(resolvedOutput?.target_aspect_ratio) capabilityParameters.aspect_ratio = resolvedOutput.target_aspect_ratio;
     if(resolvedOutput?.custom_size) capabilityParameters.custom_size = resolvedOutput.custom_size;
-    if(!resolvedOutput?.custom_size && runSettings.resolution) capabilityParameters.resolution_tier = String(runSettings.resolution).toUpperCase();
+    if(!animated && !resolvedOutput?.custom_size && runSettings.resolution) capabilityParameters.resolution_tier = String(runSettings.resolution).toUpperCase();
+    if(outputFormat) capabilityParameters.output_format = outputFormat;
+    if(animated) Object.assign(capabilityParameters, {
+        frame_size:runSettings.frameSize || '512x512',
+        frame_count:Number(runSettings.frameCount ?? 9),
+        frame_duration_ms:Number(runSettings.frameDurationMs ?? 200)
+    });
+    if(outputFormat === 'svg') capabilityParameters.svg_model = runSettings.svgModel || modelCapability?.parameters?.svg_model?.default || '';
+    if(runSettings.outputCompression !== '' && runSettings.outputCompression != null) capabilityParameters.output_compression = Number(runSettings.outputCompression);
     if(capability?.supports_transparent_png === true && runSettings.transparentPng === true){
         capabilityParameters.transparent_png = true;
     }
@@ -398,17 +408,21 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         prompt,
         provider_id:runSettings.provider_id,
         model:runSettings.model,
-        size:resolvedOutput?.custom_size || sizeForRun(runSettings, resolvedOutput?.target_aspect_ratio),
+        size:animated ? capabilityParameters.frame_size : resolvedOutput?.custom_size || sizeForRun(runSettings, resolvedOutput?.target_aspect_ratio),
         size_mode:resolvedOutput?.custom_size ? 'custom' : 'standard',
         target_aspect_ratio:resolvedOutput?.target_aspect_ratio || '',
         reference_aspect_ratio:referenceAspectRatio,
-        resolution_tier:resolvedOutput?.custom_size ? '' : String(runSettings.resolution || '').toUpperCase(),
+        resolution_tier:animated || resolvedOutput?.custom_size ? '' : String(runSettings.resolution || '').toUpperCase(),
         quality:runSettings.quality || 'auto',
         transparent_png:capability?.supports_transparent_png === true && runSettings.transparentPng === true,
         n:count,
         reference_images:referenceImages,
         catalog_revision:modelCapability?.catalog_revision || capability?.catalog_revision || ''
     };
+    if(outputFormat) payload.output_format = outputFormat;
+    if(animated) Object.assign(payload,{frame_count:capabilityParameters.frame_count,frame_duration_ms:capabilityParameters.frame_duration_ms});
+    if(outputFormat === 'svg') payload.svg = {model:capabilityParameters.svg_model};
+    if('output_compression' in capabilityParameters) payload.output_compression = capabilityParameters.output_compression;
     if(context.localRepair) payload.local_repair = context.localRepair;
     const submitted = await generationProviderPostTask('/api/canvas-image-tasks', {
         ...payload,

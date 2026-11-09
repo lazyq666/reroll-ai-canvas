@@ -27,6 +27,13 @@ Reroll 已初始化、打开 Workspace、配置可用图片模型且账号完成
 
 ## 模型与尺寸
 
+LAZ-135 增加 `--quality`、`--output-format`、`--frame-size`、`--frame-count`、`--frame-duration-ms`、
+`--output-compression`、`--svg-model` 和 `--n`。有效范围由精确操作的已发布能力决定；
+GIF 的帧尺寸与静态图片比例分开，SVG 只允许文生且数量为 1。结果中的 settings 回读实际质量与格式；
+多份结果按索引逐一下载，GIF / SVG 保留原文件。MCP 的 `generate_image`、`get_image_run`、
+`download_image_run` 复用此后台合同。此扩展真实 Provider 验收尚待完成，边界与验证入口见
+[GIF / SVG 实施规格](../active/2026-11-05-apimart-gpt-image-2-6-gif-svg-plan.md)。
+
 有参考图时使用 `image.edit`，无图时使用 `image.generate`，分别查询精确操作能力。显式比例和档位必须支持，否则在 Provider 调用前返回合法选项。档位大小写可规范为目录拼写，不降档、不忽略；2K 等档位不承诺固定像素尺寸。
 
 省略设置时只采用目录明确声明的默认值，保存为本次 Run 设置；不适用参数省略时不发送、输出为 null，显式提供则失败。模型要求参数但没有默认值时要求补充，返回选项。提交前重新核对当前能力；无法满足原输入时失败，不换模型或更改设置。

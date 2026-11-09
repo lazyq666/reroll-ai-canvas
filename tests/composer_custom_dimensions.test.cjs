@@ -32,7 +32,7 @@ function composer({cached=true}={}){
         restoreOpenControl:noop,restoreDynamicParamsScroll:noop,updatePromptPlaceholder:noop,
         smartComfyOutputKind:() => '',clearVolcengineSelectionOutsideVolcengine:noop,syncApiKindToggleVisibility:noop,
         sanitizeSmartApiSelection:noop,normalizeApiSizeSettings:noop,
-        renderCatalogModelControl:() => '',renderCountVisualControl:() => '',renderTransparentPngControl:() => '',
+        renderCatalogModelControl:() => '',renderCountVisualControl:() => '',renderImageFormatControl:() => '',
     };
     vm.createContext(sandbox);
     for(const file of ['static/js/image-dimensions.js','static/js/smart-canvas/image-capabilities.js']){
@@ -58,12 +58,12 @@ function composer({cached=true}={}){
         multiple:16,maximum_edge:3840,maximum_aspect:3,minimum_pixels:655360,maximum_pixels:8294400,
     }};
     const cache = vm.runInContext('smartImageCapabilityCache', sandbox);
-    cache.set('test\u001fcustom-model', custom);
-    cache.set('test\u001fother-custom-model', custom);
+    cache.set(sandbox.smartImageCapabilityKey('test','custom-model'), custom);
+    cache.set(sandbox.smartImageCapabilityKey('test','other-custom-model'), custom);
     let resolveCapability;
     const loaded = new Promise(resolve => { resolveCapability = resolve; });
     sandbox.window.SmartCanvasModules.modelCapabilities = {load:() => loaded};
-    if(cached) cache.set('test\u001fpreset-model', {...base,supports_custom_resolution:false});
+    if(cached) cache.set(sandbox.smartImageCapabilityKey('test','preset-model'), {...base,supports_custom_resolution:false});
     sandbox.bindDynamicParams();
     const dimensions = (width,height) => listeners['ic-change']({
         stopPropagation:noop,detail:{field:'customSize',value:{width,height}},

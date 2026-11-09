@@ -10,6 +10,14 @@ assert.equal(geometry.preferredModel(models).id,'flagship');
 assert.equal(geometry.preferredModel(models.slice(0,2)).id,'gpt2');
 assert.equal(geometry.preferredModel([{id:'id-only',model:'prefix-GPT-IMAGE-2.5-SUBURST'}]).id,'id-only');
 assert.equal(geometry.preferredModel([]),null);
+assert.equal(geometry.preferredModel([
+    {id:'gpt2',model:'gpt-image-2'},
+    {id:'sunburst',model:'gpt-image-2.5-sunburst'}
+]).id,'sunburst');
+assert.equal(geometry.preferredModel([
+    {id:'gpt2',model:'gpt-image-2'},
+    {id:'sunburst',name:'GPT-2.5 Sunburst',model:'custom-route'}
+]).id,'sunburst');
 for(const region of [
     {x:420,y:220,width:120,height:120},
     {x:0,y:0,width:20,height:30},

@@ -94,7 +94,7 @@ Nested Modal（Modal 上再开 Modal）目前不提供独立 Token，并继续�
 1. `ic-dialog`、`ic-menu`、`ic-popover`、`ic-tooltip`、Toast 与拖拽预览的组件代码负责选择挂载位置和语义 Token；业务页面只调用公共接口。
 2. 每个页面有一个文档浮层作用域；每个打开的 `ic-dialog` 创建一个内部浮层作用域。锚点型浮层必须挂载到 Trigger 所属的最近活动作用域，而不是无条件追加到 `<body>`。
    作用域查找必须沿 Composed Tree 穿过 Shadow Root 的 Host；只在控件自己的 Light DOM 中调用 `.closest('dialog')` 会把 Modal 内的 Tooltip 或 Popover 错挂到页面作用域。
-3. Modal 内部完成任务所需的 Menu、Popover、Select 列表、Tooltip、Toast 和拖拽预览，必须在 Flat/Composed Tree 中属于活动 Dialog，或通过由该组件管理、在其后进入的 Top Layer 元素呈现。这样既能显示在 Modal 内容上方，也不会逃出 Modal 的 Focus 与 Inert 边界。WAI-ARIA 要求 Modal 外部不可交互，并要求操作 Dialog 所需的元素属于 Dialog，见 [APG Modal Dialog](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)。
+3. Modal 内部完成任务所需的 Menu、Popover、Select 列表、Tooltip、Toast 和拖拽预览，必须在 Flat/Composed Tree 中属于活动 Dialog，并按需由组件进入 Top Layer。仅显示在 Top Layer 不会解除 Dialog 外部节点的 Inert，不能代替正确挂载。共享 Mention Picker 每次打开时按当前输入框重新选择作用域，支持在普通 Composer 与修复 Dialog 之间复用；点击选项不得触发其后方的修复控件，点击 Dialog 内的选择器外部仍须关闭选择器。WAI-ARIA 要求 Modal 外部不可交互，并要求操作 Dialog 所需的元素属于 Dialog，见 [APG Modal Dialog](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)。
 4. 打开 Modal 时，组件库必须关闭或取消此前页面作用域中的 Tooltip、Menu、Popover 与拖拽预览；关闭 Modal 后再把 Focus 返回 Trigger。不得让旧 Tooltip 因为全局层级较高而显示在遮罩之上。
 5. 普通 DOM 浮层遇到 `overflow`、`transform`、`opacity` 或 Shadow DOM 边界时，组件库负责使用作用域 Portal 或标准 Top Layer；页面不能靠 `position: fixed` 与更大 `z-index` 猜测结果。Material Web 也把 Dialog 内 Select 的定位方式作为组件能力，而不是页面补丁，见 [Material Web Select](https://github.com/material-components/material-web/blob/main/docs/components/select.md#api)。
 6. 使用原生 `<dialog>.showModal()`、Popover API 或 Fullscreen API 时，组件库负责进入/退出 Top Layer、Light Dismiss、Escape、Focus 和 `::backdrop`；不存在也不得新增 `--ui-z-top-layer`。
@@ -169,6 +169,8 @@ Prompt Composer 的布尔生成参数统一使用 `ic-switch size="s"`（组件�
 Composer 与 Prompt Node 的 Reference Input Instance 缩略图统一使用公共 `ic-reference-thumbnail`。组件拥有 45px 外框、媒体或文本预览、底部标签、Hover / Focus 删除动作、键盘激活以及可取消的 `ic-activate` / `ic-remove` 事件；缩略图 Hover 时统一组合公共 `ic-thumb-hovercard`，页面不得复制浮层 DOM、样式、定位或播放逻辑。Hovercard 由公共组件挂载到当前活动编辑器或 Dialog 作用域，并通过共享 Top Layer 管理显示在其内容之上；普通与全屏 Composer、Prompt 全屏及 Dialog 中的 Image / Video / Audio / Text 预览遵守同一规则。切换活动作用域时关闭旧预览，退出完成或组件移除时释放 Top Layer 和媒体，不拦截 Pointer、不抢 Focus。Hovercard 默认显示在 Thumb 上方，使用 `var(--ui-space-2)` 间距，并让两者水平中心线对齐，不再按左边缘对齐；仅在接近视口边缘时允许为防止出屏而翻转到下方或横向偏移。Hovercard 按 `closed → entering → open → exiting` 运行，以 `var(--ui-motion-duration-fast)` 从锚点方向移动 `var(--ui-space-1)`、由 `98%` 缩放并淡入；关闭开始时立即停止媒体并移除辅助技术暴露，但保留不可交互 Surface 完成反向退出，退出期间重新 Hover 必须打断旧销毁任务。Reduced Motion 保留状态顺序，使用 `1ms` 且移除位移与缩放。Hovercard 仅供预览，不显示底部按钮，也不提供查看原图、原视频或原文的动作：图片与视频在最大 `12rem × 12rem` 范围内保持原始宽高比，长边撑满上限、短边自适应；视频进入 Hover 即播放，移出 Hover 后暂停、卸载并移除播放器。文本固定 `12rem × 8rem`，只裁切预览且不可滚动；音频固定 `12rem × 8rem`，使用九根白色竖向波形柱，以错开的负动画延迟做上下起伏，并让首尾关键帧保持一致以连续循环；Reduced Motion 下停止动画并保留静态波形。进入 Hover 即播放，移出后暂停、卸载并移除播放器。文本预览内容依次读取 `preview-text`、调用方文本数据、`aria-label` 和 `label`，完整业务调用方必须优先传入来源全文。缩略图内音频使用 `audio-lines`，文本使用 `square-text`，图标必须在扣除底部标签后的媒体显示区内居中，文本缩略图外框区域使用 `var(--ui-color-surface)`。页面只负责引用排序和提交引用增删；组件库与真实页面必须渲染同一组公共组件并执行真实 Hover 与删除交互。
 
 Composer 外壳及展开状态底部的连续圆角统一使用 `--ui-radius-m`，组件库预览与 Smart Canvas 页面不得分别覆盖为其他圆角。
+
+局部修复的修复要求在侧栏中复用 Composer 外壳、`ic-prompt-composer`、`ic-reference-thumbnail` 和 Large Primary 运行图标按钮，图片 1 为不可移除的裁剪图。侧栏桌面最多 28rem、窄屏上下排列，提示词区独立滚动；图片上传、`@` 选择器与模板插入使用共享 Prompt Authoring 能力，编辑状态归局部修复草稿所有，不影响画布中普通 Composer。引用数量变化与中英切换同步更新缩略图和 Token 编号。
 
 Dialog 的 Size 必须作为独立矩阵比较 Small、Medium、Large 与 X-Large，并在每个尺寸样例中直接说明固定宽高、内容驱动高度或视口比例等布局方式；Small 的公共最大宽度为 `28rem`，X-Large 的公共尺寸为视口宽度 `90vw`、视口高度 `92vh`。关闭策略、标题可见性和 Confirmation 后果使用各自矩阵。所有 `ic-menu` Surface 统一使用 `--ui-radius-m` 圆角，包括 Dropdown Menu、Context Menu 与 Smart Canvas Node 右键菜单；业务页面不得覆盖为其他圆角。Menu / Popover live case 的矩阵单元必须为浮层完整展开预留至少 320px 宽、420px 高，且桌面 live case 根容器不得设置固定最大宽度，不能用普通静态组件的紧凑单元裁切浮层；只有窄屏验证可以使用 360px 宽度约束。Navigation / Command 中的 Toolbar 与 Floating Toolbar 矩阵单元不得窄于 360px；复制标签包装层必须保持组件原本的内容宽度，不能把行内工具条、浮动工具条、Tabs 或 Segmented Control 强行撑满单元，也不得造成挤压、重叠或越界。Tabs 与 Segmented Control 必须把 `size="small|medium|large"` 作为独立尺寸矩阵比较；显式 Size 覆盖页面 Density，未设置 Size 时继续继承 Density，而且该尺寸合同在组件位于其他 Web Component 的 Shadow DOM 内时也必须成立。Tabs 的 `label-and-icon` 合法组合必须渲染真实 `ic-icon`，不能只在组件名称中声明 Icon；所有尺寸的 Segmented Control 选中项统一使用 `--ui-color-surface` 背景和 `--ui-color-text-primary` 文本色。
 
@@ -463,6 +465,23 @@ Quick Add 在默认、普通 Hover 与 Dark 主题下与 Node 外壳共用 `--ui
 图片节点的「合成 GIF」复用 Large `ic-ai-processor-dialog`，使用 `processor="grid-gif"`。左侧原图显示完整角色、归属折线、独立特效彩框与对齐基准；右侧包含素材排列、边界／脚底调整方式、播放速度与背景设置；控制点仅在画面中使用鼠标点击选中、拖动调整，不提供键盘快捷键和边界／对齐操作提示，不提供调整点下拉框和坐标输入。「调整方式」「GIF 播放速度」「GIF 背景」统一复用 Medium `ic-segmented-control`，标题在上，选项直接露出并左对齐；选项使用简短中英文，速度悬停说明保留每帧时长，窄屏不得截断选项；选择「透明」后用棋盘格预览并隐藏颜色选择器，切回「纯色」后恢复原颜色，棋盘格不导出。横、竖折线默认沿透明间隙自动避让角色与独立特效，可拖动控制点修正，或使用「重新自动分组与对齐」恢复自动结果；尚有素材跨越边界时明确提示。折线只决定独立特效归属，不裁切相连的角色与武器；身体中心和脚底基准可用鼠标拖动修正。窄屏上下排列，复用共享 Select、Segmented Control、Number Input 与 Color Field。详见[宫格图片合成 GIF](../active/2026-09-10-grid-gif.md)。
 
 ## Composer 提示词优化辅助动作
+
+`ic-generation-settings-picker` 的 `qualities` 属性接受当前已发布质量列表；`quality` 保留显式值，
+不匹配时显示警告并要求重新选择。超过四档时质量区按三列换行，标签由共享 i18n 提供。
+图片格式入口复用与生成张数相同的 Small、quiet `ic-select`，替代原透明 PNG 开关。
+仅支持透明 PNG、GIF、SVG 中至少一项时显示；未选择时显示“选择格式”，菜单首项为“默认格式”，
+其后按已发布能力显示支持项。选择默认格式恢复未选中状态；特殊格式互斥，不叠加独立透明开关。
+GIF 模式使用 `hide-ratio`、`hide-resolution` 隐藏静态尺寸，在同一质量菜单依次展示分辨率、
+质量、帧率和帧数。帧率只显示 FPS，与帧数一起复用视频时长滑块，实时显示数值并支持方向键、
+Home / End；不再在 Composer 参数行显示帧尺寸、帧数或毫秒输入。公共属性为
+`frame-size / frame-sizes / disabled-frame-sizes`、`frame-count / frame-count-min / frame-count-max`、
+`frame-duration-ms / frame-duration-options` 和 `frame-warning`，其中时长选项使用毫秒。
+通过 `ic-change` 的 `frameSize / frameCount / frameDurationMs` 字段提交，页面负责能力校验和持久化。
+历史非预设值保留，非法组合显示原因且阻止生成；滑块重绘保留焦点和滚动位置。
+菜单按未缩放尺寸定位，窄屏留出视口边距，触摸滑块区域至少 44px。
+格式冲突不删除参考图。Composer 定位预留左右 Dock 的实际宽度，窄屏控制项换行。
+GIF / SVG 的位图编辑通过共享确认 Dialog 创建静态副本，取消不改变原节点。
+格式合同与待验收边界见 [LAZ-135](../active/2026-11-05-apimart-gpt-image-2-6-gif-svg-plan.md)。
 
 优化失败使用现有右上角常驻 `ic-alert` 队列，显示「提示词优化失败」和具体原因，保留输入并允许手动重试。已有生成失败提示不得屏蔽优化错误。提示可关闭并随语言切换更新；没有对应日志时不提供「查看详情」动作。无动作时省略 `action-label` 属性，不传空值。
 

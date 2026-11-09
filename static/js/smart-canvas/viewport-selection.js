@@ -116,6 +116,7 @@ function smartViewportSelectionSync(){
     syncSmartNodeFloatingPortal();
     smartViewportSelectionRefreshMultiOverlay();
     scheduleConnectionLayerRefresh();
+    scheduleSmartAdaptiveImageResolution(0);
 }
 
 function smartViewportSelectionViewStateUrl(){
@@ -263,6 +264,7 @@ function smartViewportSelectionApply({persist=true}={}){
     world.classList.toggle('canvas-lod-far', lodState.mode === 'far');
     world.classList.toggle('canvas-lod-detail', lodState.mode !== 'far');
     world.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`;
+    scheduleSmartAdaptiveImageResolution();
     world.style.setProperty('--smart-overlay-inverse-scale', String(Math.min(1, 1 / viewport.scale)));
     world.style.setProperty('--smart-selection-handle-inverse-scale', String(1 / viewport.scale));
     // Scaled backdrop filters are rasterized before transform in Blink and

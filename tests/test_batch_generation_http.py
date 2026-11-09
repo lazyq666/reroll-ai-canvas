@@ -66,7 +66,7 @@ class BatchGenerationHttpTests(unittest.TestCase):
                 {"provider_id": "beta", "model": "two"},
             ],
             ratios=["16:9"],
-            settings={"resolution": "1k"},
+            settings={"resolution": "1k", "catalog_revision": main.MODEL_CAPABILITY_CATALOG.revision},
         )
         with mock.patch.object(main, "load_api_providers", return_value=providers):
             with self.assertRaisesRegex(Exception, "不共同支持当前画幅"):
@@ -88,6 +88,7 @@ class BatchGenerationHttpTests(unittest.TestCase):
                 "models": ["5.0"],
                 "ratios": ["9:16"],
                 "settings": {
+                    "catalog_revision": main.MODEL_CAPABILITY_CATALOG.revision,
                     "provider_id": "jimeng",
                     "outputs_per_run": 1,
                 },
@@ -187,7 +188,7 @@ class BatchGenerationHttpTests(unittest.TestCase):
                 ],
                 "models": ["fake-v1"],
                 "ratios": ["1:1"],
-                "settings": {"provider_id": "fake", "outputs_per_run": 1},
+                "settings": {"provider_id": "fake", "outputs_per_run": 1, "catalog_revision": main.MODEL_CAPABILITY_CATALOG.revision},
                 "excluded": [2],
             }
             suffix = uuid.uuid4().hex[:8]

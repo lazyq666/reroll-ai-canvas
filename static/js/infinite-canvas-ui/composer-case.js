@@ -63,7 +63,11 @@ const imageParams = () => `
     <option value="4">4 张</option>
     <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
   </ic-select>
-  <ic-switch class="generation-setting-switch" name="transparent-png" label="透明 PNG" size="s"></ic-switch>`;
+  <ic-select name="image-format" aria-label="格式" data-i18n-aria-label="smart.outputFormat" placeholder="选择格式" data-i18n-placeholder="smart.selectFormat" hierarchy="quiet" size="small" placement="top" data-component-variant="secondary" value="">
+    <option value="__default__" data-i18n="smart.formatDefault">默认格式</option>
+    <option value="transparent_png" data-i18n="smart.transparentPng">透明 PNG</option>
+    <ic-icon name="expand" size="small" slot="expand-icon" aria-hidden="true"></ic-icon>
+  </ic-select>`;
 
 const videoParams = () => `
   <ic-select class="catalog-model-select" name="video-model" aria-label="视频模型" hierarchy="quiet" placement="top" value="seedance-2" data-component-variant="model-picker" data-legal-combination="model-picker-vertical-manual-label">
@@ -104,6 +108,7 @@ function renderParams() {
   const video = kind === 'video';
   dynamicParams.classList.toggle('video-flow', video);
   dynamicParams.innerHTML = video ? videoParams() : imageParams();
+  window.StudioI18n.apply(dynamicParams);
   composer.dataset.generationKind = kind;
   kindToggle.value = kind;
   kindLabel.textContent = video ? '视频生成' : '图片生成';
@@ -111,6 +116,10 @@ function renderParams() {
   kindToggle.setAttribute('aria-label', video ? '切换为图片生成' : '切换为视频生成');
   setStatus(video ? '视频生成 · 参数按一列流式换行' : '图片生成 · 默认状态');
 }
+
+dynamicParams.addEventListener('change', event => {
+  if(event.target.name === 'image-format' && event.target.value === '__default__') event.target.value = '';
+});
 
 function renderReferences() {
   thumbsRow.classList.toggle('has-items', referencesVisible);

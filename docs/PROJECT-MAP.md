@@ -270,6 +270,13 @@ F05 的[统一节点定位、排列间距与 Frame 扩容规格](active/2026-09-
 
 空间实现中 `node-geometry.js` 提供共享 G、线性偏移及纯 Frame 计算，`node-placement.js` 负责整组选位，`selection-arrangement.js` 保留排序与拓扑职责；Mutation 应用事务，Persistence 保存本次位置意图并重试。WebSocket 通过 `layout_gap` 协商版本，操作与 Node 数据的边界见 [ADR-0011](adr/0011-placement-intent-belongs-to-canvas-mutation.md)。
 
+F05 / F17 的 [APIMart 质量与 GIF / SVG 扩展](active/2026-11-05-apimart-gpt-image-2-6-gif-svg-plan.md)
+由 LAZ-135 跟踪，本地实现保留 Active；2026-11-08 真实服务小样本 8/8 通过，完整交付与最终验收待完成。`image_formats.py` 负责格式约束，
+`image_originals.py` 负责真实格式检查与 SVG 安全；既有公共编译器、Generation Run、Managed Media
+和 Agent / CLI 负责执行与交付。新增 MCP `generate_image`、`get_image_run`、`download_image_run`
+复用现有后台 API。代表性入口为 `tests/test_apimart_image_formats.py`、
+`tests/laz_135_image_formats_browser_smoke.cjs`、`tests/test_reroll_cli.py`。
+
 F05 的[灯光参考编辑器](current/smart-canvas-lighting-reference.md)已经毕业为 Current：它从 Image Node 浮动工具栏进入，以 Lighting Intent 确定性生成中英文 Prompt，通过一次 Canvas Mutation 创建下游图片 Generation Node、填充 Composer，并把参数保存在来源与新 Node 上供后续微调；不导出媒体或 JSON，也不创建 Generation Run。
 
 Issue #22 的[多选快速连线与提示词生成快捷入口](active/2026-09-03-smart-canvas-multi-input-quick-add-spec.md)正在实施：公共选区 Quick Add、多选与提示词工具栏、按视觉顺序接入一个新建或已有生成节点及整体撤销已落地并通过隔离生产页面检查。状态为 `drift`：D22-01 的服务端语义前置条件尚待协议扩展决定，完整双端协作及人工验收 Gate 未完成；不能据此宣称 Issue 完成或将 Active 毕业为 Current。

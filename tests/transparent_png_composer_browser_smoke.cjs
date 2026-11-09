@@ -1,40 +1,13 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
-const path = require('node:path');
 const { chromium } = require('playwright');
+const { server } = require('./image_repair_browser_fixture.cjs');
 
-const ROOT = path.resolve(__dirname, '..');
 const CHROME = process.env.IC_BROWSER_BIN
   || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const MIME = {
-  '.css':'text/css; charset=utf-8',
-  '.html':'text/html; charset=utf-8',
-  '.js':'text/javascript; charset=utf-8',
-  '.svg':'image/svg+xml',
-};
 
 function startServer(){
   return new Promise((resolve, reject) => {
-    const server = http.createServer((request, response) => {
-      const requestPath = decodeURIComponent(
-        new URL(request.url, 'http://127.0.0.1').pathname,
-      );
-      const filePath = path.resolve(ROOT, `.${requestPath}`);
-      if(filePath !== ROOT && !filePath.startsWith(`${ROOT}${path.sep}`)){
-        response.writeHead(403).end('Forbidden');
-        return;
-      }
-      fs.readFile(filePath, (error, body) => {
-        if(error){
-          response.writeHead(error.code === 'ENOENT' ? 404 : 500).end(error.message);
-          return;
-        }
-        response.writeHead(200, {
-          'Content-Type':MIME[path.extname(filePath)] || 'application/octet-stream',
-        }).end(body);
-      });
-    });
     server.once('error', reject);
     server.listen(0, '127.0.0.1', () => resolve(server));
   });
@@ -54,11 +27,11 @@ function startServer(){
   try {
     const origin = `http://127.0.0.1:${server.address().port}`;
     await page.goto(
-      `${origin}/static/smart-canvas.html?id=transparent-png-composer-browser`,
+      `${origin}/static/smart-canvas.html?id=image-repair-browser&manual=1`,
       {waitUntil:'domcontentloaded'},
     );
-    await page.waitForFunction(() => typeof renderDynamicParams === 'function');
-    await page.evaluate(() => {
+    await page.waitForSelector('#fixture-open');
+    await page.evaluate(async () => {
       const node = {
         id:'transparent-settings-node',
         type:'smart-image',
@@ -68,10 +41,11 @@ function startServer(){
         h:220,
         images:[],
         generationOutputNode:true,
+        referenceGenerationKind:'image',
         title:'Transparent PNG settings',
       };
       canvas = {
-        id:'transparent-png-composer-browser',
+        id:'image-repair-browser',
         title:'Transparent PNG',
         nodes:[node],
         connections:[],
@@ -84,6 +58,9 @@ function startServer(){
       selectedIds = [];
       selectedImage = {nodeId:'',index:-1};
       render();
+      updateComposer();
+      Object.assign(settings,{engine:'api',apiKind:'image',provider_id:'apimart',model:'gpt-image-2',ratio:'square',resolution:'1k'});
+      await loadSmartImageCapabilityForCurrentSettings();
       renderDynamicParams();
     });
     await page.waitForFunction(
@@ -99,6 +76,9 @@ function startServer(){
         params:document.querySelector('#dynamicParams')?.innerHTML,
         composerClass:document.querySelector('#composer')?.className,
         renderType:typeof renderDynamicParams,
+        selectedId,
+        nodeIds:nodes.map(node=>node.id),
+        settings,
       }));
       throw new Error(
         `${error.message}\nstate=${JSON.stringify(state)}\nbrowserErrors=${JSON.stringify(browserErrors)}`,
@@ -122,13 +102,13 @@ function startServer(){
     });
 
     const visible = await page.locator(
-      '#dynamicParams ic-switch[name="transparent-png"]',
+      '#dynamicParams ic-select[name="image-format"]',
     ).evaluate(control => {
       const token = document.createElement('span');
       token.style.fontSize = 'var(--ui-font-size-2)';
       document.body.append(token);
       const result = {
-        label:control.getAttribute('label'),
+        label:control.getAttribute('placeholder'),
         size:control.getAttribute('size'),
         fontSize:getComputedStyle(control).fontSize,
         tokenFontSize:getComputedStyle(token).fontSize,
@@ -137,16 +117,16 @@ function startServer(){
       return result;
     });
     assert.deepEqual(visible, {
-      label:'透明 PNG',
-      size:'s',
+      label:'选择格式',
+      size:'small',
       fontSize:'12px',
       tokenFontSize:'12px',
     });
 
     const stored = await page.locator(
-      '#dynamicParams ic-switch[name="transparent-png"]',
+      '#dynamicParams ic-select[name="image-format"]',
     ).evaluate(control => {
-      control.checked = true;
+      control.value = 'transparent_png';
       control.dispatchEvent(new Event('change', {bubbles:true}));
       return settings.transparentPng;
     });
@@ -212,7 +192,7 @@ function startServer(){
       );
       renderDynamicParams();
       return !document.querySelector(
-        '#dynamicParams ic-switch[name="transparent-png"]',
+        '#dynamicParams ic-select[name="image-format"]',
       );
     });
     assert.equal(hiddenForUnsupportedModel, true);

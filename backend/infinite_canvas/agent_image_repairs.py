@@ -87,7 +87,7 @@ class AgentImageRepairs:
         else:
             def score(model):
                 name = str(model.get("model", "")).lower()
-                return 0 if "gpt-image-2.5-suburst" in name else 1 if "gpt-image-2" in name else 2
+                return 0 if any(value in name for value in ("gpt-image-2.5-sunburst", "gpt-image-2.5-suburst")) else 1 if "gpt-image-2" in name else 2
             models = sorted(models, key=score)
         for model in models:
             try:
@@ -149,6 +149,8 @@ class AgentImageRepairs:
         if not isinstance(prompt, str) or len(prompt) > self.api.image_prompt_maximum:
             raise AgentError("invalid_repair_prompt", {"maximum": self.api.image_prompt_maximum})
         draft["prompt"] = prompt
+        if "prompt" in changes and prompt != (old or {}).get("prompt", ""):
+            draft.pop("promptHtml", None)
         ratio = changes.get("aspect_ratio", draft.get("ratio", ""))
         tiers = contract.get("resolution_tiers") or params.get("resolution_tier", {}).get("values", [])
         resolution = changes.get("resolution_tier", draft.get("resolution", ""))

@@ -1438,7 +1438,7 @@ MAX_UPLOAD_BYTES = int(
 AI_REFERENCE_MAX_UPLOAD_FILES = 20
 ASSET_LIBRARY_IMPORT_MAX_FILES = 200
 ASSET_LIBRARY_IMPORT_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif"
+    ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp", ".avif"
 }
 AI_REFERENCE_EXTENSIONS = {
     ".txt",
@@ -3061,6 +3061,23 @@ async def cloud_write_admission(request: Request, call_next):
     return await call_next(request)
 
 app.mount("/static", FrontendStaticFiles(directory=STATIC_DIR), name="static")
+@app.middleware("http")
+async def secure_svg_media(request: Request, call_next):
+    response = await call_next(request)
+    if "image/svg+xml" in response.headers.get("content-type", ""):
+        from infinite_canvas.image_originals import SVG_HEADERS, inspect_svg
+        path = output_file_from_url(request.url.path)
+        if path:
+            try:
+                await asyncio.to_thread(inspect_svg, Path(path).read_bytes())
+            except (OSError, ValueError):
+                return Response(status_code=422)
+        for key, value in SVG_HEADERS.items():
+            response.headers[key] = value
+        if "content-disposition" not in response.headers:
+            response.headers["Content-Disposition"] = "inline"
+    return response
+
 app.mount(
     "/assets",
     StaticFiles(
@@ -3910,6 +3927,14 @@ class OnlineImageRequest(BaseModel):
     reference_aspect_ratio: str = ""
     resolution_tier: str = ""
     quality: str = "auto"
+    output_format: str = ""
+    output_compression: Optional[int] = Field(default=None, strict=True)
+    frame_count: Optional[int] = Field(default=None, strict=True)
+    frame_duration_ms: Optional[int] = Field(default=None, strict=True)
+    svg: Optional[Dict[str, Any]] = None
+    mask_url: Optional[str] = None
+    markup_url: Optional[str] = None
+    markup: Optional[Any] = None
     transparent_png: bool = False
     n: int = 1
     reference_images: List[AIReference] = []
@@ -5141,7 +5166,7 @@ async def ensure_matting_workers():
         )
     return MATTING_QUEUE
 
-STORAGE_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif"}
+STORAGE_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp", ".avif"}
 STORAGE_MEDIA_EXTS = STORAGE_IMAGE_EXTS | {
     ".mp4",
     ".webm",
@@ -5715,6 +5740,13 @@ def generate_video_preview_image(path: str, width: int) -> Image.Image:
             pass
 
 async def media_preview_file_response(path: str, w: int = 512, *, headers=None):
+    if Path(path).suffix.lower() == ".svg":
+        from infinite_canvas.image_originals import inspect_svg, SVG_HEADERS
+        try:
+            await asyncio.to_thread(inspect_svg, Path(path).read_bytes())
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="invalid_svg") from exc
+        return FileResponse(path, media_type="image/svg+xml", headers={**(headers or {}), **SVG_HEADERS})
     width = max(64, min(2048, int(w or 512)))
     webp_path, png_path = media_preview_cache_paths(path, width)
 
@@ -6299,6 +6331,8 @@ def sanitize_asset_name(name, fallback="asset"):
     return name[:120] or fallback
 
 def content_type_for_path(path):
+    if str(path).lower().endswith(".svg"):
+        return "image/svg+xml"
     ext = os.path.splitext(path)[1].lower()
     if ext in [".mp4", ".m4v"]:
         return "video/mp4"
@@ -7724,6 +7758,18 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
     model = selected_model(payload.model, default_model)
     payload.model = model
     capability = resolved_image_capability(provider, model)
+    output_format = str(payload.output_format or "").strip().lower()
+    animated = output_format == "gif"
+    if animated and "size" not in payload.model_fields_set:
+        payload.size = "512x512"
+    if animated and (payload.target_aspect_ratio or payload.reference_aspect_ratio or payload.resolution_tier or payload.size_mode != "standard"):
+        raise HTTPException(status_code=422, detail={"code": "image_format_conflict", "field": "size", "format": output_format})
+    if any(getattr(payload, field) is not None for field in ("mask_url", "markup_url", "markup")):
+        raise HTTPException(status_code=422, detail={"code": "image_format_conflict", "field": "markup"})
+    if output_format in {"gif", "svg"} and (payload.local_repair or any(
+        ref.role in {"mask", "markup"} or ref.name.lower().endswith("_mask.png") for ref in payload.reference_images
+    )):
+        raise HTTPException(status_code=422, detail={"code": "image_format_conflict", "field": "image"})
     transparent_png = bool(payload.transparent_png)
     custom_size = payload.size_mode == "custom"
     if payload.size_mode not in {"standard", "custom"}:
@@ -7731,7 +7777,7 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
     if custom_size and (payload.target_aspect_ratio or payload.reference_aspect_ratio or payload.resolution_tier or payload.local_repair):
         raise HTTPException(status_code=422, detail={"code": "custom_size_exclusive", "field": "custom_size"})
     target_aspect_ratio = str(payload.target_aspect_ratio or "").strip()
-    if infer_aspect_ratio and not custom_size and not target_aspect_ratio:
+    if infer_aspect_ratio and not custom_size and not animated and not target_aspect_ratio:
         match = re.fullmatch(
             r"\s*(\d+)\s*[xX*]\s*(\d+)\s*",
             str(payload.size or ""),
@@ -7749,7 +7795,7 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
     )
     request_size = (
         payload.size
-        if native_gemini or custom_size
+        if native_gemini or custom_size or animated
         else snap_size_to_multiple(payload.size, 16)
     )
     refs = [
@@ -7764,7 +7810,39 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
     resolution_tier = next((value for value in resolution_values
                             if isinstance(value, str) and value.casefold() == resolution_tier.casefold()), resolution_tier)
     parameter_definitions = model_capability.get("parameters") or {}
+    output_format = output_format or parameter_definitions.get("output_format", {}).get("default", "")
+    format_settings = {}
+    if output_format:
+        format_settings["output_format"] = output_format
+    if animated:
+        format_settings.update(frame_size=payload.size, frame_count=payload.frame_count if payload.frame_count is not None else 9,
+                               frame_duration_ms=payload.frame_duration_ms if payload.frame_duration_ms is not None else 200)
+    else:
+        for field in ("frame_count", "frame_duration_ms"):
+            if getattr(payload, field) is not None:
+                format_settings[field] = getattr(payload, field)
+    if payload.output_compression is not None:
+        format_settings["output_compression"] = payload.output_compression
+    if animated:
+        from infinite_canvas.image_originals import inspect_image
+        for reference in refs:
+            path = output_file_from_url(reference.get("url"))
+            if path:
+                try:
+                    metadata = inspect_image(Path(path).read_bytes())
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail={"code": "input_invalid", "field": "image"}) from exc
+                if metadata["format"] == "svg" or metadata.get("frame_count", 1) > 1:
+                    raise HTTPException(status_code=422, detail={"code": "image_format_conflict", "field": "image"})
+    if payload.svg is not None and (set(payload.svg) - {"model"} or not isinstance(payload.svg.get("model"), str)):
+        raise HTTPException(status_code=422, detail={"code": "image_format_conflict", "field": "svg"})
+    if output_format == "svg" or payload.svg is not None:
+        svg_model = (payload.svg or {}).get("model") or parameter_definitions.get("svg_model", {}).get("default", "")
+        format_settings["svg_model"] = svg_model
+        if output_format == "svg" and svg_model not in (provider.get("chat_models") or []):
+            raise HTTPException(status_code=422, detail={"code": "svg_model_required", "field": "svg_model"})
     capability_parameters = {"count": int(payload.n)} if "count" in parameter_definitions else {}
+    capability_parameters.update(format_settings)
     if "quality" in parameter_definitions:
         capability_parameters["quality"] = str(payload.quality or "auto").strip().lower() or "auto"
     if custom_size:
@@ -7822,7 +7900,7 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
     if getattr(payload, "local_repair", None) is not None:
         require_current_user("admin", "designer")
         load_canvas(payload.canvas_id, write=True)
-        if len(image_inputs) != 1:
+        if not image_inputs:
             raise HTTPException(status_code=422, detail={"code": "repair_invalid"})
         try:
             repair = validate_repair_recipe(payload.local_repair, require_patch=False)
@@ -7854,6 +7932,7 @@ def _compile_flat_image_run(payload, *, provider, publication="online-image", in
             "requested_size": payload.size,
             "size_mode": payload.size_mode,
             "quality": payload.quality,
+            **format_settings,
             "target_aspect_ratio": target_aspect_ratio,
             "reference_aspect_ratio": reference_aspect_ratio,
             "resolution_tier": resolution_tier,
@@ -7882,12 +7961,13 @@ def _compile_agent_image_run(intent):
     """Adapt an authorized, catalog-resolved headless intent to flat compilation."""
     payload = OnlineImageRequest(
         prompt=intent["prompt"], provider_id=intent["provider_id"], model=intent["model"],
-        size=image_request_size(intent.get("ratio"), intent.get("resolution")),
+        size=(intent.get("frame_size") or "512x512") if intent.get("output_format") == "gif" else image_request_size(intent.get("ratio"), intent.get("resolution")),
         target_aspect_ratio=intent.get("ratio") or "",
         reference_aspect_ratio=intent.get("reference_aspect_ratio") or "",
         resolution_tier=intent.get("resolution") or "",
         reference_images=intent.get("references") or [],
         catalog_revision=intent.get("catalog_revision") or "",
+        **{key: intent[key] for key in ("quality", "output_format", "output_compression", "frame_count", "frame_duration_ms", "svg", "n") if key in intent},
     )
     return _compile_flat_image_run(
         payload, provider=get_api_provider_exact(payload.provider_id), infer_aspect_ratio=False,
@@ -8020,6 +8100,7 @@ def validated_batch_capability_payload(
     settings = value.setdefault("settings", {})
     default_provider_id = str(settings.get("provider_id") or "")
     capabilities = []
+    image_count = sum(bool(item.get("options")) for item in value.get("image_variables") or [])
     for model in value.get("models") or []:
         if isinstance(model, dict):
             provider_id = str(model.get("provider_id") or default_provider_id)
@@ -8031,7 +8112,29 @@ def validated_batch_capability_payload(
             providers.get(provider_id, {"id": provider_id}),
             model_id,
         ))
+        contract = resolved_model_capability(provider_id, model_id, "image.edit" if image_count else "image.generate")
+        format_fields = _image_format_request_fields(settings)
+        parameters = {"quality": settings.get("quality", "auto"),
+                      "count": int(settings.get("outputs_per_submission") or settings.get("count") or 1)}
+        parameters.update({key: val for key, val in format_fields.items() if key != "svg"})
+        if format_fields.get("output_format") == "gif":
+            parameters["frame_size"] = settings.get("frameSize") or "512x512"
+        if format_fields.get("output_format") == "svg":
+            parameters["svg_model"] = settings.get("svgModel") or contract.get("parameters", {}).get("svg_model", {}).get("default", "")
+            if parameters["svg_model"] not in (providers.get(provider_id, {}).get("chat_models") or []):
+                raise BatchGenerationValidation("batch.svgModelRequired")
+        if settings.get("transparentPng"):
+            parameters["transparent_png"] = True
+        report = MODEL_CAPABILITY_CATALOG.validate(contract, input_counts={"text": 1, "image": image_count},
+            parameters=parameters, catalog_revision=str(settings.get("catalog_revision") or ""))
+        if not report["valid"]:
+            raise BatchGenerationValidation("batch.imageSettingsInvalid")
+    settings["catalog_revision"] = MODEL_CAPABILITY_CATALOG.revision
     if not capabilities:
+        return value
+    if settings.get("outputFormat") == "gif":
+        value["ratios"] = []
+        settings["resolution"] = ""
         return value
     shared = intersect_capabilities(capabilities)
     if shared["blocked"]:
@@ -8893,6 +8996,9 @@ class ModelCapabilityMatrixOperationPayload(BaseModel):
     aspect_ratios: List[str] = Field(default_factory=list, max_length=40)
     output_count_maximum: int = Field(default=1, ge=1, le=100)
     options: List[str] = Field(default_factory=list, max_length=40)
+    qualities: Optional[List[str]] = Field(default=None, max_length=40)
+    formats: Optional[List[str]] = Field(default=None, max_length=40)
+    svg_model: Optional[str] = Field(default=None, max_length=500)
     video: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -8989,7 +9095,7 @@ async def update_model_capability_matrix(
         result = _model_capability_workbench_action(
             lambda: MODEL_CAPABILITY_MATRIX.apply(
                 model_id=payload.model_id,
-                operations=[item.model_dump() for item in payload.operations],
+                operations=[item.model_dump(exclude_none=True) for item in payload.operations],
                 actor_id=actor_id,
             )
         )
@@ -9117,9 +9223,16 @@ async def image_model_capability_intersection(
         )
         for selection in payload.models
     ]
+    contracts = [resolved_model_capability(selection.provider_id, selection.model_id, "image.generate") for selection in payload.models]
+    def shared_values(field):
+        values = [item.get("parameters", {}).get(field, {}).get("values", []) for item in contracts]
+        return [value for value in (values[0] if values else []) if all(value in current for current in values)]
     return {
         "models": [item.public() for item in capabilities],
         **intersect_capabilities(capabilities),
+        "qualities": shared_values("quality"),
+        "formats": shared_values("output_format"),
+        "catalog_revision": MODEL_CAPABILITY_CATALOG.revision,
     }
 
 
@@ -9538,8 +9651,8 @@ async def import_workspace_assets(
             ):
                 raise WorkspaceStorageError("资产库批量导入只支持图片")
             try:
-                with Image.open(BytesIO(content)) as image:
-                    image.verify()
+                from infinite_canvas.image_originals import inspect_image
+                inspect_image(content)
             except (OSError, ValueError) as exc:
                 raise WorkspaceStorageError("文件不是可读取的图片") from exc
             imported = current_workspace_media().import_bytes(
@@ -12138,6 +12251,20 @@ install_local_generation_routes(
 )
 
 
+def _image_format_request_fields(settings):
+    result = {}
+    if settings.get("outputFormat"):
+        result["output_format"] = settings["outputFormat"]
+    if settings.get("outputFormat") == "gif":
+        result["frame_count"] = settings.get("frameCount", 9)
+        result["frame_duration_ms"] = settings.get("frameDurationMs", 200)
+    if settings.get("outputFormat") == "svg" and settings.get("svgModel"):
+        result["svg"] = {"model": settings["svgModel"]}
+    if settings.get("outputCompression") not in ("", None):
+        result["output_compression"] = settings["outputCompression"]
+    return result
+
+
 async def _submit_batch_generation_task(task, *, owner, batch_id):
     settings = dict(task.get("settings") or {})
     provider_id = str(
@@ -12160,28 +12287,21 @@ async def _submit_batch_generation_task(task, *, owner, batch_id):
         if resolution
         else "auto"
     )
+    from dataclasses import replace
+    animated = settings.get("outputFormat") == "gif"
+    compiled = _online_image_run(OnlineImageRequest(
+        prompt=str(task.get("prompt") or ""), provider_id=provider_id, model=str(task.get("model") or ""),
+        quality=settings.get("quality", "auto"),
+        size=(settings.get("frameSize") or "512x512") if animated else request_size,
+        target_aspect_ratio="" if animated else ratio_value, resolution_tier="" if animated else resolution.upper(),
+        reference_images=references, n=int(task.get("outputs_per_submission") or task.get("outputs") or 1),
+        transparent_png=bool(settings.get("transparentPng")),
+        catalog_revision=settings.get("catalog_revision") or MODEL_CAPABILITY_CATALOG.revision,
+        **_image_format_request_fields(settings),
+    ))
     run = await _GENERATION_RUNS.start(
-        ImageRun(
-            prompt=str(task.get("prompt") or ""),
-            settings={
-                **settings,
-                "provider_id": provider_id,
-                "model": str(task.get("model") or ""),
-                "ratio": ratio_value,
-                "size": request_size,
-                "requested_size": request_size,
-                "target_aspect_ratio": ratio_value,
-                "resolution_tier": resolution.upper(),
-            },
-            references=tuple(image_references(references)),
-            count=max(
-                1,
-                int(
-                    task.get("outputs_per_submission")
-                    or task.get("outputs")
-                    or 1
-                ),
-            ),
+        replace(
+            compiled,
             submission_count=max(1, int(task.get("submissions") or 1)),
             publication="batch-generation",
             effect_context={

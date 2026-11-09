@@ -188,6 +188,12 @@ IMAGE_PARAMS = {
     "resolution_tier": "resolution",
     "count": "count",
     "quality": "quality",
+    "output_format": "outputFormat",
+    "output_compression": "outputCompression",
+    "frame_size": "frameSize",
+    "frame_count": "frameCount",
+    "frame_duration_ms": "frameDurationMs",
+    "svg_model": "svgModel",
     "transparent_png": "transparentPng",
     "custom_size": "customSize",
 }
@@ -624,6 +630,15 @@ class AgentAPI:
                 # audio control. Keep runSettings intact; expose only writable input.
                 params.pop("generate_audio")
         if kind == "image":
+            output_format = params.get("output_format", "")
+            if output_format == "gif":
+                params.pop("aspect_ratio", None)
+                params.pop("resolution_tier", None)
+            else:
+                for key in ("frame_size", "frame_count", "frame_duration_ms"):
+                    params.pop(key, None)
+            if output_format != "svg":
+                params.pop("svg_model", None)
             if "aspect_ratio" in params:
                 params["aspect_ratio"] = IMAGE_RATIOS.get(params["aspect_ratio"], params["aspect_ratio"])
             if "resolution_tier" in params:
@@ -935,6 +950,17 @@ class AgentAPI:
                     }
                 )
                 params = {**defaults, **params}
+                if kind == "image":
+                    inactive = []
+                    if params.get("output_format") == "gif":
+                        inactive.extend(("aspect_ratio", "resolution_tier", "custom_size"))
+                    else:
+                        inactive.extend(("frame_size", "frame_count", "frame_duration_ms"))
+                    if params.get("output_format") != "svg":
+                        inactive.append("svg_model")
+                    for key in inactive:
+                        if key not in (patch.get("params", {}) if update_id else recipe.get("params", {})):
+                            params.pop(key, None)
                 if "custom_size" in params:
                     for key in ("aspect_ratio", "resolution_tier"):
                         if key not in recipe.get("params", {}):
@@ -1067,6 +1093,12 @@ class AgentAPI:
                     if "default" in v
                 }
                 values.update(params)
+                if kind == "image":
+                    for key in inactive:
+                        if key not in params:
+                            values.pop(key, None)
+                            if key in mapping:
+                                settings.pop(mapping[key], None)
                 for key, value in values.items():
                     if key in mapping:
                         settings[mapping[key]] = value
@@ -1099,6 +1131,13 @@ class AgentAPI:
                     preserved = copy.deepcopy(original.get("runSettings", canvas.get("settings", {})))
                     requested_params = patch.get("params", {})
                     setting_fields = {mapping[key] for key in requested_params if key in mapping}
+                    if kind == "image" and "output_format" in requested_params:
+                        setting_fields.update(mapping[key] for key in (
+                            "aspect_ratio", "resolution_tier", "frame_size", "frame_count", "frame_duration_ms", "svg_model"
+                        ))
+                        for key in inactive:
+                            if key in mapping and key not in requested_params:
+                                preserved.pop(mapping[key], None)
                     if "custom_size" in requested_params or (kind == "image" and set(requested_params) & {"aspect_ratio", "resolution_tier"}):
                         setting_fields.update(("pixelWidth", "pixelHeight"))
                     if "reference_mode" in requested_params:
