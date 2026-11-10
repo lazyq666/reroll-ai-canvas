@@ -46,9 +46,10 @@ function waitForPreview(server){
       await route.fulfill({status:current.status,contentType:'application/json',body:JSON.stringify(current.body)});
     });
     await page.goto(`http://127.0.0.1:${PORT}/api-settings`,{waitUntil:'domcontentloaded'});
-    await page.waitForFunction(()=>typeof selectProvider==='function' && document.querySelector('[data-value="modelscope"]'));
+    await page.waitForFunction(()=>typeof selectProvider==='function' && document.querySelector('.provider-summary[data-provider-id="modelscope"]'));
     await page.waitForFunction(()=>!document.querySelector('ic-toast[data-ic-overlay]'));
     await page.evaluate(()=>selectProvider('long-provider-name'));
+    await page.locator('#connectionDetails > summary').click();
     const button=page.locator('#testUrlBtn');
     const result=page.locator('#connectionVerificationResult');
     const settled=()=>page.waitForFunction(()=>!document.querySelector('#testUrlBtn').loading);
@@ -120,10 +121,12 @@ function waitForPreview(server){
 
     response({ok:false,status:401,message:'Stale rejection'});
     await button.click();
-    await page.getByRole('tab',{name:'RunningHub',exact:true}).click();
+    await page.getByRole('button',{name:'模型供应商',exact:true}).click();
+    await page.locator('.provider-summary[data-provider-id="runninghub"] .provider-open').click();
     release();await settled();
     assert.equal(await result.isVisible(),false,'Old results must not appear under another provider');
     await page.evaluate(()=>selectProvider('long-provider-name'));
+    await page.locator('#connectionDetails > summary').click();
 
     response({ok:false,status:401,message:'Old credentials'});
     await button.click();

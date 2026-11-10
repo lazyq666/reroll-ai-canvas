@@ -8,6 +8,7 @@
     transparent_png: 'models.tagTransparentPng',
   };
   const state = {
+    providerId: '',
     active: 'image',
     models: { image: [], video: [], text: [] },
     dragging: '',
@@ -26,6 +27,9 @@
   const catalog = document.getElementById('model-catalog');
   const modelTypes = document.getElementById('model-types');
   const message = document.getElementById('page-message');
+  const providerView = Boolean(document.getElementById('providerEditor'));
+  const visibleModels = (kind = state.active) => (state.models[kind] || [])
+    .filter(model => !providerView || model.provider_id === state.providerId);
 
   const setMessage = (text, isError = false) => {
     message.textContent = text || '';
@@ -95,8 +99,9 @@
     return button;
   };
   const visibilityCheckbox = (model, kind) => {
-    const checkbox = element('ic-checkbox', 'model-visibility-checkbox');
+    const checkbox = element(providerView ? 'ic-switch' : 'ic-checkbox', 'model-visibility-checkbox');
     checkbox.setAttribute('label', tf('models.showModel', { name: model.name || model.model }));
+    checkbox.setAttribute('title', tr('providers.showInWorkspace'));
     checkbox.checked = model.visible !== false;
     checkbox.addEventListener('change', () => {
       stateTools.setModelVisibility(state.models, kind, model.id, checkbox.checked);
@@ -212,6 +217,7 @@
           state.orderDirty = false;
           state.visibilityDirty = false;
         }
+        window.dispatchEvent(new CustomEvent('provider-models-saved', { detail: { models: payload.models } }));
         try { parent.postMessage({ type: 'models-changed' }, '*'); } catch (_) {}
         try { new BroadcastChannel('studio-api').postMessage({ type: 'models-changed' }); } catch (_) {}
         if (hasNewerChanges || state.dirtyNames.size || state.orderDirty || state.visibilityDirty) state.queued = true;
@@ -247,6 +253,7 @@
     try {
       if (state.inFlight && !await state.inFlight) return;
       if (!await commitChanges()) return;
+      if (window.ProviderConnections && !await window.ProviderConnections.flush()) return;
       setBackupMessage('');
       await action();
     } finally {
@@ -426,6 +433,7 @@
           const addedNames = (data.added || []).map(item => item.name || item.id).filter(Boolean);
           const updatedNames = (data.updated || []).map(item => item.name || item.id).filter(Boolean);
           refreshModels();
+          await window.ProviderConnections?.reload();
           try { parent.postMessage({type:'providers-changed'}, location.origin); } catch (_) {}
           try {
               const channel = new BroadcastChannel('studio-api');
@@ -461,21 +469,24 @@
   const move = (from, to) => {
     syncVisibleModelNames();
     const models = state.models[state.active];
-    if (from < 0 || to < 0 || from >= models.length || to >= models.length || from === to) return;
-    const [item] = models.splice(from, 1);
-    models.splice(to, 0, item);
+    const filtered = visibleModels();
+    if (from < 0 || to < 0 || from >= filtered.length || to >= filtered.length || from === to) return;
+    const slots = filtered.map(model => models.indexOf(model));
+    const [moved] = filtered.splice(from, 1);
+    filtered.splice(to, 0, moved);
+    slots.forEach((slot, index) => { models[slot] = filtered[index]; });
     state.orderDirty = true;
     state.revision += 1;
     render();
     commitChanges();
   };
   const render = () => {
-    const models = state.models[state.active] || [];
+    const models = visibleModels();
     const activeLabel = tr(labels[state.active]);
     title.textContent = activeLabel;
     catalog.setAttribute('label', activeLabel);
     Object.keys(labels).forEach((kind) => {
-      document.getElementById(`${kind}-count`).textContent = String((state.models[kind] || []).length);
+      document.getElementById(`${kind}-count`).textContent = String(visibleModels(kind).length);
     });
     list.replaceChildren();
     if (!models.length) {
@@ -494,8 +505,7 @@
     const headerRow = element('tr');
     [
       tr('models.modelNaming'),
-      tr('models.modelId'),
-      tr('models.providerId'),
+      ...(providerView ? [] : [tr('models.modelId'), tr('models.providerId')]),
       tr('models.visibility'),
       tr('models.operations'),
     ].forEach((label) => {
@@ -518,25 +528,85 @@
 
       const nameCell = element('td', 'model-name-cell');
       const identity = element('div', 'model-identity');
-      identity.append(modelVendorIcon(model), modelNameInput(model));
+      identity.dataset.modelId = model.model;
+      const nameInput = modelNameInput(model);
+      const nameButton = element('ic-button', 'model-name-label', displayName);
+      nameButton.id = `model-name-${index}`;
+      nameButton.setAttribute('hierarchy', 'quiet');
+      nameButton.setAttribute('aria-label', `${tr('providers.rename')}: ${displayName}`);
+      nameInput.hidden = providerView;
+      nameButton.hidden = !providerView;
+      const rename = () => {
+        nameInput.hidden = false;
+        nameButton.hidden = true;
+        nameInput.focus();
+      };
+      nameButton.addEventListener('click', rename);
+      nameInput.addEventListener('focusout', async () => {
+        if(await commitChanges()){
+          nameButton.textContent = model.name || model.model;
+          nameButton.hidden = !providerView;
+          nameInput.hidden = providerView;
+        }
+      });
+      identity.append(modelVendorIcon(model), nameButton, nameInput);
       nameCell.append(identity, capabilityTags(model.model));
+      if(providerView && displayName !== model.model) nameCell.append(element('span', 'model-id-subline', model.model));
 
       const modelIdCell = element('td', 'model-id', model.model);
       const providerIdCell = element('td', 'provider-id', model.provider_id);
       const visibilityCell = element('td', 'model-visibility-cell');
-      visibilityCell.appendChild(visibilityCheckbox(model, state.active));
+      visibilityCell.dataset.label = tr('models.visibility');
+      const visibility = visibilityCheckbox(model, state.active);
+      if(providerView) visibility.setAttribute('aria-labelledby', nameButton.id);
+      visibilityCell.appendChild(visibility);
 
       const actionCell = element('td', 'model-actions-cell');
       const actions = element('ic-toolbar', 'order-actions');
       actions.setAttribute('appearance', 'plain');
       actions.setAttribute('label', tr('models.operations'));
-      actions.append(
+      if(!providerView) actions.append(
         iconButton('back', tr('models.moveUp'), 'move-up', index === 0, () => move(index, index - 1)),
         iconButton('forward', tr('models.moveDown'), 'move-down', index === models.length - 1, () => move(index, index + 1)),
         modelDetailsButton(model),
       );
+      if (providerView) {
+        const menu = element('ic-menu', 'model-actions-menu');
+        menu.setAttribute('label', tr('models.operations'));
+        const trigger = element('ic-icon-button', 'model-more');
+        trigger.setAttribute('icon', 'more');
+        trigger.setAttribute('label', tf('providers.modelActions', {name:displayName}));
+        trigger.setAttribute('slot', 'trigger');
+        trigger.setAttribute('hierarchy', 'quiet');
+        trigger.setAttribute('aria-label', tf('providers.modelActions', {name:displayName}));
+        trigger.addEventListener('click', () => menu.show(trigger));
+        menu.append(trigger);
+        const command = (key, className, disabled, action) => {
+          const entry = element('ic-menu-item', className);
+          entry.setAttribute('label', tr(key));
+          entry.toggleAttribute('disabled', disabled);
+          entry.addEventListener('ic-select', async () => {
+            await menu.hide('select');
+            await action();
+          });
+          menu.append(entry);
+        };
+        command('providers.rename', 'rename-model', false, rename);
+        command('providers.modelSettings', 'model-settings', false, async () => {
+          if(await commitChanges()) await window.ModelCapabilityEditor?.open(model.model);
+        });
+        command('models.moveUp', 'move-up', index === 0, () => move(index, index - 1));
+        command('models.moveDown', 'move-down', index === models.length - 1, () => move(index, index + 1));
+        command('providers.removeModel', 'remove-model', false, async () => {
+          if (await commitChanges()) await window.ProviderConnections?.removeModel(state.active, model.model, model.aliases);
+        });
+        actions.append(menu);
+      }
       actionCell.appendChild(actions);
-      row.append(nameCell, modelIdCell, providerIdCell, visibilityCell, actionCell);
+      row.append(nameCell);
+      if(!providerView) row.append(modelIdCell);
+      if (!providerView) row.append(providerIdCell);
+      row.append(visibilityCell, actionCell);
       row.addEventListener('dragstart', (event) => {
         if (event.target.closest?.('ic-input')) {
           event.preventDefault();
@@ -599,10 +669,12 @@
           state.models = payload.models || state.models;
           render();
           setMessage('');
+          document.getElementById('retryModels')?.setAttribute('hidden', '');
         }
       })().catch((reason) => {
         state.refreshQueued = false;
         setMessage(reason.message || tr('models.loadFailed'), true);
+        document.getElementById('retryModels')?.removeAttribute('hidden');
       }).finally(() => { state.refreshInFlight = null; });
     }, 0);
   };
@@ -621,6 +693,51 @@
     if (document.visibilityState === 'visible') refreshModels();
   });
   refreshModels();
+  window.ProviderModels = Object.freeze({
+    flush: commitChanges,
+    refresh: refreshModels,
+    captureRemoval(kind, modelId) {
+      const index = state.models[kind].findIndex(model => model.provider_id === state.providerId && model.model === modelId);
+      return index < 0 ? null : {kind, index, model:{...state.models[kind][index]}};
+    },
+    async restoreRemoval(snapshot) {
+      if(!snapshot) return true;
+      if(!await commitChanges()) return false;
+      try {
+        const payload = await request('/api/admin/available-models');
+        const models = payload.models[snapshot.kind];
+        const index = models.findIndex(model => model.id === snapshot.model.id);
+        if(index < 0) throw new Error(tr('models.saveNotApplied'));
+        const [restored] = models.splice(index, 1);
+        restored.visible = snapshot.model.visible;
+        models.splice(Math.min(snapshot.index, models.length), 0, restored);
+        state.models = payload.models;
+        state.orderDirty = true;
+        state.visibilityDirty = true;
+        state.revision += 1;
+        render();
+        return await commitChanges();
+      } catch(error) {
+        setMessage(error.message || tr('models.saveFailed'), true);
+        return false;
+      }
+    },
+    selectProvider(providerId) {
+      if (state.providerId === providerId) return;
+      syncVisibleModelNames();
+      state.providerId = providerId;
+      state.active = Object.keys(labels).find(kind => visibleModels(kind).length) || 'image';
+      modelTypes.setAttribute('value', state.active);
+      render();
+    },
+    get activeType() { return state.active; },
+    selectType(kind) {
+      state.active = kind === 'chat' ? 'text' : kind;
+      modelTypes.setAttribute('value', state.active);
+      render();
+    },
+    get hasVisibleModels() { return Object.keys(labels).some(kind => visibleModels(kind).some(model => model.visible !== false)); },
+  });
   window.addEventListener('studio-lang-change', () => {
     syncVisibleModelNames();
     render();

@@ -1,7 +1,6 @@
 * { box-sizing:border-box; }
 html { min-height:100%; overflow-y:auto; overscroll-behavior:auto; }
 body { margin:var(--ui-space-0); min-height:100vh; overflow-y:auto; background:var(--ui-color-surface-canvas); color:var(--ui-color-text-primary); font:var(--ui-text-body); -webkit-font-smoothing:antialiased; -webkit-overflow-scrolling:touch; overscroll-behavior:auto; }
-button { font-family:inherit; cursor:pointer; border:var(--ui-border-width-none); background:transparent; color:inherit; }
 .page { min-height:100vh; padding:var(--ui-space-10) var(--ui-space-8) var(--ui-space-24); }
 .wrap { max-width:1100px; margin:var(--ui-space-0) auto; }
 .page-head { padding:var(--ui-space-0) var(--ui-space-1) var(--ui-space-6); display:flex; justify-content:space-between; align-items:end; gap:var(--ui-space-6); flex-wrap:wrap; }

@@ -407,6 +407,17 @@ html[data-ui-motion="reduced"] {
     --ui-motion-iteration-count: 1;
 }
 
+:root[data-ui-scope="api-settings"] {
+    --ui-color-text-secondary: light-dark(var(--ui-palette-gray-600), var(--ui-palette-gray-300));
+    --ui-color-text-tertiary: light-dark(var(--ui-palette-gray-500), var(--ui-palette-gray-300));
+    --ui-color-text-placeholder: light-dark(var(--ui-palette-gray-500), var(--ui-palette-gray-300));
+    --ui-color-border-primary: light-dark(var(--ui-palette-gray-500), var(--ui-palette-gray-400));
+    --ui-font-size-1: var(--ui-font-size-2);
+    --ui-font-size-5: var(--ui-font-size-4);
+    --ui-font-size-7: var(--ui-font-size-6);
+    --ui-font-size-8: var(--ui-font-size-6);
+}
+
 @media (prefers-reduced-motion: reduce) {
     :root {
         /* 跟随系统的“减少动态效果”无障碍偏好 */

@@ -336,6 +336,14 @@ Issue [#21](https://github.com/lazyq666/reroll-ai-canvas/issues/21) 的验收入
 
 ## 6. 交互合同
 
+模型供应商设置采用“供应商列表 → 单个供应商详情”的层级。连接设置与该供应商的模型命名、显隐、排序放在同一详情；高级协议折叠。模型区通过「已添加 / 供应商列表」切换页内视图，候选模型用可勾选标签呈现，手动添加在原位展开，不使用 Dialog 或遮罩。能力详情与必要确认仍使用单层 Dialog，不叠加。现有配置自动保存，返回前等待保存完成；失败保留当前编辑。列表与详情的具体合同见[模型供应商](../active/2026-11-09-model-providers.md)。
+
+模型供应商页对已配置连接使用折叠摘要，首次接入展开；供应商列表支持搜索、筛选和批量勾选，默认只显示前 12 个匹配项，更多数量明确标注，手动添加入口始终可达。名称默认以文本呈现，编辑时才显示输入框；低频操作收入公共菜单。可逆的模型移除直接执行并提供撤销；凭据清除、供应商删除与覆盖导入仍显示后果确认。背景与主动作沿用共享主题色板，不另设页面专用色板；字号使用 12／14／16／20 px 四档。中英文分别使用自然表达，计数说明单位并区分英文单复数，不把「已保存密钥」描述成连接或生成验证成功。
+
+「已添加」复用公共 `ic-table` 的原生表格、可见表头、单元格间距、底色与分隔线，不将表格重排为自定义卡片列表。来源／类型页签沿用 `ic-tabs`；模型名称操作、显隐、更多分别使用 `ic-button`、`ic-switch` 和 `ic-icon-button`／`ic-menu`；候选模型和已添加标记使用公共 Checkbox 的 `checkmark-end`／`list` 外观。页面仅负责这些控件的排布和内容，不覆盖其圆角、内边距、边框、底色与选中状态。图标开关通过公开的 `aria-labelledby` 关联模型名称，不隐藏组件内部的标签。回归将真实页面与不加载业务 CSS 的独立公共组件实例对照。
+
+`ic-switch` 使用 `aria-labelledby` 时，由公共组件将引用文字传递给原生 Switch 的可访问名称，并跟随文字修改同步；引用缺失时回退到必填 `label`。移除该属性后恢复标准可见标签。业务页面不直接修改 Shadow DOM 内的 Input 或标签。
+
 公共 Action 的 Disabled 外观必须直接消费对应的 `--ui-color-action-*-disabled`、`--ui-color-text-disabled` / `--ui-color-icon-disabled` 与适用的 `--ui-color-border-disabled`；Primary 内容使用 `--ui-color-text-on-action-primary-disabled`。不得只在 Default、Danger 或 Hover 颜色上叠加组件级 `opacity` 来模拟不可用状态，且 Disabled 控件不得响应 Hover 颜色。
 
 ### Focus 与键盘

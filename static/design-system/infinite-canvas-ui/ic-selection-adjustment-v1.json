@@ -20,7 +20,7 @@
       "status": "implemented",
       "implementedOn": "2026-08-09",
       "evidence": [
-        "/static/js/infinite-canvas-ui/selection-adjustment.js?v=asset-ee5402a6a82d",
+        "/static/js/infinite-canvas-ui/selection-adjustment.js?v=asset-a030888b0622",
         "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
         "/tests/infinite_canvas_ui_selection_adjustment_browser_harness.html"
       ]

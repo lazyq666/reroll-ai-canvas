@@ -39,11 +39,13 @@ class ModelVendorIconSurfaceTests(unittest.TestCase):
         self.assertIn("renderTaskModel(task)", self.batch_script)
         self.assertIn("renderSnapshotModel(model)", self.batch_script)
 
-    def test_api_settings_model_lists_and_picker_show_icons(self):
+    def test_provider_models_keep_icons_and_catalog_uses_public_checkboxes(self):
         self.assertIn('/static/css/model-vendor-icons.css', self.api_page)
         self.assertIn('/static/js/model-vendor-icons.js', self.api_page)
-        self.assertIn("modelVendorIconMarkup(model, item)", self.api_script)
-        self.assertIn("model-picker-name", self.api_script)
+        self.assertIn("identity.append(modelVendorIcon(model), nameButton, nameInput)", self.management_script)
+        self.assertIn('appearance="checkmark-end" data-component-variant="list"', self.api_script)
+        self.assertIn('label="${escapeAttr(label || id)}"', self.api_script)
+        self.assertNotIn("model-picker-name", self.api_script)
 
     def test_canvas_selected_models_show_icons(self):
         self.assertIn('/static/css/model-vendor-icons.css', self.canvas_page)

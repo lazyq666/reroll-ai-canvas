@@ -36,7 +36,7 @@ class WorkspaceAndApiTransferUiTests(unittest.TestCase):
         )
 
     def test_model_management_exposes_encrypted_export_and_import(self):
-        page = (ROOT / "static/available-model-management.html").read_text(
+        page = (ROOT / "static/api-settings.html").read_text(
             encoding="utf-8"
         )
         script = (ROOT / "static/js/available-model-management.js").read_text(
@@ -62,18 +62,20 @@ class WorkspaceAndApiTransferUiTests(unittest.TestCase):
             page,
             r"/static/js/available-model-management\.js\?v=[^\"']+",
         )
-        api_page = (ROOT / "static/api-settings.html").read_text(encoding="utf-8")
-        self.assertNotIn('id="apiTransferDialog"', api_page)
-        self.assertNotIn('data-i18n="api.exportEncrypted"', api_page)
-        self.assertNotIn('data-i18n="api.importEncrypted"', api_page)
+        legacy_page = (ROOT / "static/available-model-management.html").read_text(encoding="utf-8")
+        self.assertIn('content="0;url=/static/api-settings.html"', legacy_page)
+        self.assertNotIn('id="apiTransferDialog"', legacy_page)
 
-    def test_model_backup_buttons_use_public_secondary_actions(self):
-        page = (ROOT / "static/available-model-management.html").read_text(
+    def test_model_backup_actions_use_public_menu(self):
+        page = (ROOT / "static/api-settings.html").read_text(
             encoding="utf-8"
         )
-        transfer_actions = page.split('<div class="model-backup-actions">', 1)[1].split('</div>', 1)[0]
-        self.assertEqual(transfer_actions.count('<ic-button'), 2)
-        self.assertEqual(transfer_actions.count('hierarchy="secondary"'), 2)
+        transfer_actions = page.split('<ic-menu id="providerBackupMenu"', 1)[1].split('</ic-menu>', 1)[0]
+        self.assertEqual(transfer_actions.count('<ic-button'), 1)
+        self.assertIn('slot="trigger" hierarchy="quiet"', transfer_actions)
+        self.assertEqual(transfer_actions.count('<ic-menu-item'), 2)
+        self.assertIn('data-i18n-label="api.exportEncrypted"', transfer_actions)
+        self.assertIn('data-i18n-label="api.importEncrypted"', transfer_actions)
 
     def test_api_primary_actions_use_semantic_foreground_pairing(self):
         styles = (ROOT / "static/css/api-settings.css").read_text(

@@ -4,6 +4,12 @@ The shared visual interface lives in `static/css/design-tokens.css`. It is the
 only place that should define product-wide palette, semantic color, typography,
 spacing, radius, elevation, motion, and layering decisions.
 
+The model-provider settings page uses an explicit `api-settings` root scope in
+this same token source for readable secondary text, control boundaries, and four
+text sizes (12, 14, 16, and 20 CSS pixels). Its backgrounds and primary actions use
+the shared theme palette without page-specific palette remapping. This scope
+does not change other screens.
+
 ## Token tiers
 
 1. **Primitive tokens** describe raw choices such as palette steps and spacing.

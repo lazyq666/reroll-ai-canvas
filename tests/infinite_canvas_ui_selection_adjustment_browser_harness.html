@@ -25,6 +25,8 @@
     <ic-color-field id="accent" label="Guide color" name="accent" value="#2563eb"></ic-color-field>
     <ic-color-field id="readonly-color" label="Locked color" name="lockedColor" value="#dc2626" readonly></ic-color-field>
   </form>
+  <span id="external-switch-name">Preview model</span>
+  <ic-switch id="external-switch" label="Show model" aria-labelledby="external-switch-name"></ic-switch>
   <ic-checkbox id="invalid-checkbox"></ic-checkbox>
   <ic-radio id="standalone-radio" label="Standalone" value="standalone"></ic-radio>
   <ic-switch id="invalid-switch"></ic-switch>
@@ -52,6 +54,19 @@
       const radios = [...radioGroup.querySelectorAll('ic-radio')];
       const standaloneRadio = document.querySelector('#standalone-radio');
       const switchControl = document.querySelector('#autosave');
+      const externalSwitch = document.querySelector('#external-switch');
+      const externalName = document.querySelector('#external-switch-name');
+      await paint();
+      const initialExternalName = externalSwitch.shadowRoot.querySelector('input').getAttribute('aria-label');
+      externalName.textContent = 'Renamed model';
+      await paint();
+      const renamedExternalName = externalSwitch.shadowRoot.querySelector('input').getAttribute('aria-label');
+      externalSwitch.setAttribute('aria-labelledby', 'missing-model-name');
+      await paint();
+      const fallbackExternalName = externalSwitch.shadowRoot.querySelector('input').getAttribute('aria-label');
+      externalSwitch.removeAttribute('aria-labelledby');
+      await paint();
+      const restoredSwitchLabel = externalSwitch.querySelector('[data-ic-owned-label]')?.textContent;
       const invalidSwitch = document.querySelector('#invalid-switch');
       const select = document.querySelector('#format');
       const invalidSelect = document.querySelector('#invalid-select');
@@ -174,6 +189,10 @@
             && !switchReset.checked
             && !('autosave' in switchReset.form)
           ),
+          switchExternalName: initialExternalName === 'Preview model'
+            && renamedExternalName === 'Renamed model'
+            && fallbackExternalName === 'Show model'
+            && restoredSwitchLabel === 'Show model',
           select: (
             initial.format === 'png'
             && selectEdited.value === 'webp'

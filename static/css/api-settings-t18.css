@@ -286,38 +286,7 @@ body.show-provider-onboarding .api-settings-page .provider-settings-card { displ
 .api-settings-page .layout .model-section-card { min-width: 0; }
 .api-settings-page .layout .model-section-card .block-head { padding: 0; border-block-end: 0; }
 .api-settings-page .layout .model-section-card .model-section-divider { margin-block: var(--ui-space-4) 0; }
-.api-settings-page .layout .model-list { display: grid; gap: var(--ui-space-3); }
-.api-settings-page .layout .model-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--ui-space-2);
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-.api-settings-page .layout .model-row.has-protocol { grid-template-columns: minmax(0, 1fr) minmax(8rem, auto) auto; }
-.api-settings-page .layout .model-entry-identity,
-.model-picker-dialog .model-picker-name { display: flex; min-width: 0; align-items: center; gap: var(--ui-space-2); }
-.api-settings-page .layout .model-entry-identity .model-id-field { flex: 1; }
-.api-settings-page .layout .model-protocol-select { min-width: 8rem; }
 body.show-ms .api-settings-page .layout .ms-lora-block { display: block; }
-.model-picker-dialog::part(header) { padding-block-start: var(--ui-space-8); }
-.model-picker-dialog::part(body) { box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--ui-space-4); min-block-size: 0; padding-block: var(--ui-space-4); overflow: hidden; }
-.model-picker-dialog::part(footer) { padding-block-end: var(--ui-space-8); }
-.model-picker-dialog .model-selection-heading { display: grid; gap: var(--ui-space-1); }
-.model-picker-dialog .model-selection-count { color: var(--ui-color-text-tertiary); font: var(--ui-text-body-compact); }
-.model-picker-dialog .model-selection-filters { flex-wrap: wrap; gap: var(--ui-space-3); }
-.model-picker-dialog .model-selection-search { flex: 1 1 auto; }
-.model-picker-dialog .model-selection-table { min-block-size: 0; }
-.model-picker-dialog .model-selection-table th,
-.model-picker-dialog .model-selection-table td { padding: var(--ui-space-3); border-block-end: var(--ui-border-width-thin) solid var(--ui-color-border-secondary); text-align: start; vertical-align: middle; }
-.model-picker-dialog .model-selection-table th { color: var(--ui-color-text-tertiary); background: var(--ui-color-surface); font: var(--ui-text-label); }
-.model-picker-dialog .model-selection-table tbody tr:last-child td { border-block-end: 0; }
-.model-picker-dialog .model-selection-table td[colspan] { padding: var(--ui-space-6); }
-.model-picker-dialog .model-picker-id { color: var(--ui-color-text-tertiary); font: var(--ui-text-code); overflow-wrap: anywhere; }
 .api-settings-page .provider-guide-link { min-width: 0; }
 .visually-hidden {
   position: absolute;
@@ -367,7 +336,6 @@ body.show-ms .api-settings-page .layout .ms-lora-block { display: block; }
     grid-row: 2;
     width: 100%;
   }
-  .model-picker-dialog .model-selection-search { flex-basis: 100%; }
 }
 @media (max-width: 32rem) {
   .api-settings-page { padding: var(--ui-space-3); }

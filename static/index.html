@@ -28,7 +28,7 @@
     })();
   </script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
-  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
   <link rel="stylesheet" href="/static/css/account-avatar.css?v=asset-e1cd44d31e57">
   <link rel="stylesheet" href="/static/css/studio-shell.css?v=asset-44c59ef8913c">
   <link rel="stylesheet" href="/static/css/studio-entry-motion.css?v=asset-1a1c83c38ef0">
@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-3ba4cc278f6d">
   <title>Reroll</title>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-7af731e40181"></script>
+    <script src="/static/js/i18n.js?v=asset-03dd58606543"></script>
     <link rel="stylesheet" href="/static/css/frontend-update.css?v=asset-a3ea0bb161ca">
   <link rel="stylesheet" href="/static/css/page-loading.css?v=asset-48cf584c51c9">
 </head>
@@ -99,8 +99,7 @@
           <ic-menu-item id="preferences-entry" value="preferences" kind="command" icon="settings" label="保存位置" data-i18n-label="common.dataStorageLocation" onclick="openPreferencesModal()"></ic-menu-item>
           <span class="admin-settings-divider" role="separator" aria-hidden="true"></span>
           <ic-menu-item id="account-management-entry" class="admin-settings-entry" value="account-management" kind="command" icon="people" label="账号管理" data-i18n-label="common.accountManagement" onclick="switchUI(this, 'account-management')"></ic-menu-item>
-          <ic-menu-item class="admin-settings-entry" value="api-settings" kind="command" icon="link" label="API 设置" data-i18n-label="common.apiSettings" onclick="switchUI(this, 'api-settings')"></ic-menu-item>
-          <ic-menu-item class="admin-settings-entry" value="available-model-management" kind="command" icon="models" label="模型管理" data-i18n-label="common.modelManagement" onclick="switchUI(this, 'available-model-management')"></ic-menu-item>
+          <ic-menu-item class="admin-settings-entry" value="model-providers" kind="command" icon="models" label="模型供应商" data-i18n-label="providers.title" onclick="switchUI(this, 'model-providers')"></ic-menu-item>
           <ic-menu-item class="admin-settings-entry" value="comfyui-settings" kind="command" icon="workflow" label="工作流设置" data-i18n-label="common.comfyuiSettings" onclick="switchUI(this, 'comfyui-settings')"></ic-menu-item>
           <ic-menu-item class="admin-settings-entry" value="prompt-optimization-settings" kind="command" icon="app" label="提示词优化" data-i18n-label="smart.optimize.settingsTitle" onclick="switchUI(this, 'prompt-optimization-settings')"></ic-menu-item>
         </ic-menu>
@@ -130,8 +129,7 @@
       <iframe id="frame-lab" data-src="/static/lab.html" title="实验室" data-i18n-title="nav.lab" scrolling="yes"></iframe>
       <iframe id="frame-online" data-src="/static/online.html?v=2026.09.01.5.1788439320" title="批量生成" data-i18n-title="batch.batch" scrolling="yes"></iframe>
       <iframe id="frame-account-management" data-src="/static/account-management.html?v=2026.09.01.5.1788439320" title="账号管理" data-i18n-title="common.accountManagement" scrolling="yes"></iframe>
-      <iframe id="frame-api-settings" data-src="/static/api-settings.html?v=2026.09.01.5.1788439320" title="API 设置" data-i18n-title="common.apiSettings" scrolling="yes"></iframe>
-      <iframe id="frame-available-model-management" data-src="/static/available-model-management.html?v=2026.09.01.5.1788439320" title="模型管理" data-i18n-title="common.modelManagement" scrolling="yes"></iframe>
+      <iframe id="frame-model-providers" data-src="/static/api-settings.html" title="模型供应商" data-i18n-title="providers.title" scrolling="yes"></iframe>
       <iframe id="frame-comfyui-settings" data-src="/static/comfyui-settings.html?v=2026.09.01.5.1788439320" title="工作流设置" data-i18n-title="common.comfyuiSettings" scrolling="yes"></iframe>
       <iframe id="frame-prompt-optimization-settings" data-src="/static/prompt-optimization-settings.html?v=2026.09.01.5.1788439320" title="提示词优化" data-i18n-title="smart.optimize.settingsTitle" scrolling="yes"></iframe>
       <iframe id="frame-canvas" data-src="/static/canvas-list.html?v=2026.09.01.5.1788439320" title="画布" data-i18n-title="nav.canvas" scrolling="yes"></iframe>
@@ -148,15 +146,15 @@
     <ic-button id="cliUpdateCopyPrompt" slot="footer" type="button" hierarchy="primary" data-i18n="cliUpdates.copyPrompt" disabled>复制更新 Prompt</ic-button>
   </ic-dialog>
 
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-c09e9cef616f"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
   <script type="module" src="/static/js/studio-entry-motion.js?v=asset-be9d77ac1c16"></script>
-  <script src="/static/js/studio-shell.js?v=asset-8789a0c3c42c" defer></script>
+  <script src="/static/js/studio-shell.js?v=asset-c178ad7e0677" defer></script>
   <script src="/static/js/agent-pairing.js?v=asset-282f940e0cec" defer></script>
   <script src="/static/js/agent-access.js?v=asset-fe4368d925f1" defer></script>
   <script src="/static/js/preferences.js?v=asset-0be3dde73154" defer></script>
   <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db" defer></script>
   <script src="/static/js/account-session.js?v=asset-488cce3783d2" defer></script>
-  <script src="/static/js/account-ui.js?v=asset-612df089c853" defer></script>
+  <script src="/static/js/account-ui.js?v=asset-bcaa888713e9" defer></script>
   <script src="/static/js/cli-updates.js?v=asset-d4babf060948" defer></script>
   <script src="/static/js/frontend-update.js?v=asset-01a1219e75dd" defer></script>
 </body>
