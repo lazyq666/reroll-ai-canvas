@@ -23,7 +23,7 @@ class CanvasListBrowseNavigationContractTests(unittest.TestCase):
             "ic-empty-state",
             "ic-icon",
             "ic-icon-button",
-            "ic-loading",
+            "ic-skeleton",
             "ic-toolbar",
         ):
             self.assertIn(f"<{tag}", self.page)

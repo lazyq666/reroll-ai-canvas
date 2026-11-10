@@ -117,6 +117,13 @@ const board = document.getElementById('board');
 const boardWorld = document.getElementById('boardWorld');
 const boardEmptyHint = document.getElementById('boardEmptyHint');
 const boardLoading = document.getElementById('boardLoading');
+const boardSkeletonTemplate = document.getElementById('boardSkeletonTemplate');
+if(boardLoading && boardSkeletonTemplate){
+    const skeletonGrid = boardLoading.querySelector('.ws-board-world');
+    for(let placeholderIndex = 0; placeholderIndex < 12; placeholderIndex++){
+        skeletonGrid.append(boardSkeletonTemplate.content.cloneNode(true));
+    }
+}
 const projectListEl = document.getElementById('projectList');
 const trashEntryBtn = document.getElementById('trashEntry');
 const trashBadge = document.getElementById('trashBadge');
@@ -253,10 +260,12 @@ function setBoardLoading(loading){
     const pending = Boolean(loading) || Boolean(listPendingRequestId) || (canvasListProjectsPending
         && !canvasesInProject(currentProjectId).length && !canvasListLoadError);
     board.setAttribute('aria-busy', String(pending));
+    boardWorld.hidden = pending;
+    boardWorld.inert = pending;
     updateLoadMoreButton();
     if(boardLoading){
         boardLoading.hidden = !pending;
-        boardLoading.setAttribute('label', tr('workspace.loadingCanvases'));
+        boardLoading.setAttribute('aria-label', tr('workspace.loadingCanvases'));
     }
     renderBoardEmptyState();
 }

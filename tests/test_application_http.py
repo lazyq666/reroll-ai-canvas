@@ -88,7 +88,11 @@ class ApplicationHttpTests(unittest.TestCase):
             self.assertIn(f'src="{asset_url('/static/images/brand/logo.png')}"', page.text)
             self.assertIn('/static/css/design-tokens.css', page.text)
             self.assertIn('/static/css/runtime-recovery.css', page.text)
-            self.assertIn('<ic-card class="runtime-card"', page.text)
+            self.assertIn('<main class="ic-page-loading">', page.text)
+            self.assertIn('data-i18n="runtime.startingDetail">Reroll 正在启动中…</p>', page.text)
+            self.assertNotIn('<ic-card class="runtime-card"', page.text)
+            self.assertNotIn('runtime-eyebrow', page.text)
+            self.assertNotIn('<strong>Reroll</strong>', page.text)
             self.assertIn(
                 'data-i18n-label="runtime.startingTitle"',
                 page.text,
