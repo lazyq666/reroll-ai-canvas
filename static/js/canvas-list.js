@@ -1,5 +1,4 @@
 // canvas-list.js — Project Workspace.
-// Two-pane: LEFT project list, RIGHT pannable/zoomable board of canvas cards.
 // Self-contained; relies only on global fetch and StudioI18n.
 
 /* ===== Small helpers (copied from the previous gate file) ===== */
@@ -12,8 +11,6 @@ function L(zh, en){ return langIsEn() ? en : zh; }
 function compactLabel(fullZh, compactZh, en){ return window.innerWidth <= 760 ? L(compactZh, en) : L(fullZh, en); }
 const CANVAS_LIST_PROJECT_KEY = 'canvasListCurrentProjectId';
 const CANVAS_LIST_SHARE_CACHE_PREFIX = 'canvasListShareUrls';
-const CANVAS_LIST_ZOOM_SPEED_STORAGE_KEY = 'smartCanvasZoomSpeed';
-const CANVAS_LIST_PAN_SPEED_STORAGE_KEY = 'smartCanvasPanSpeed';
 const CANVAS_LIST_COVER_PREVIEW_WIDTH = 512;
 const CANVAS_LIST_PROJECT_CACHE_LIMIT = 3;
 
@@ -28,24 +25,6 @@ function canvasListCoverPreviewUrl(value, width = CANVAS_LIST_COVER_PREVIEW_WIDT
     if(!/\.(png|jpe?g|webp|gif|bmp|avif|tiff?)(\?|#|$)/i.test(raw)) return raw;
     const previewWidth = Math.max(64, Math.min(2048, Math.round(Number(width) || CANVAS_LIST_COVER_PREVIEW_WIDTH)));
     return `/api/media-preview?w=${previewWidth}&url=${encodeURIComponent(raw)}`;
-}
-
-function canvasListZoomSpeed(){
-    try {
-        const value = Number(localStorage.getItem(CANVAS_LIST_ZOOM_SPEED_STORAGE_KEY));
-        return Number.isFinite(value) && value >= .5 && value <= 2 ? value : 1;
-    } catch(e){
-        return 1;
-    }
-}
-
-function canvasListPanSpeed(){
-    try {
-        const value = Number(localStorage.getItem(CANVAS_LIST_PAN_SPEED_STORAGE_KEY));
-        return Number.isFinite(value) && value >= .5 && value <= 2 ? value : 1;
-    } catch(e){
-        return 1;
-    }
 }
 
 function rememberedProjectId(){
@@ -152,7 +131,12 @@ const newProjectCancel = document.getElementById('newProjectCancel');
 const newCanvasBtn = document.getElementById('newCanvasBtn');
 const boardLoadMoreBtn = document.getElementById('boardLoadMore');
 const boardRefreshBtn = document.getElementById('boardRefresh');
-const boardResetViewBtn = document.getElementById('boardResetView');
+const projectSearch = document.getElementById('projectSearch');
+const canvasSearch = document.getElementById('canvasSearch');
+const canvasSort = document.getElementById('canvasSort');
+const canvasDirection = document.getElementById('canvasDirection');
+const visibilityFilter = document.getElementById('visibilityFilter');
+const listProjectName = document.getElementById('listProjectName');
 const pasteCanvasBtn = document.getElementById('pasteCanvasBtn');
 const emptyCreateCanvasBtn = document.getElementById('emptyCreateCanvasBtn');
 const createCanvasDialog = document.getElementById('createCanvasDialog');
@@ -220,9 +204,33 @@ function cacheProjectCanvases(projectId, items){
     }
 }
 
-// board viewport (mirrors smart-canvas math)
-const viewport = { x: 0, y: 0, scale: 1 };
-const MIN_SCALE = 0.3, MAX_SCALE = 2;
+let listQuery = { search:'', visibility:'', mine:false, sort:'updated', direction:'desc' };
+let listRequestId = 0;
+let listPendingRequestId = 0;
+let searchTimer = null;
+
+async function changeListQuery(){
+    clearTimeout(searchTimer);
+    listQuery = {
+        search:(canvasSearch.value || '').trim(),
+        visibility:visibilityFilter.getAttribute('value') === 'shared' ? 'shared' : '',
+        mine:visibilityFilter.getAttribute('value') === 'mine',
+        sort:canvasSort.value || 'updated',
+        direction:canvasDirection.value || 'desc',
+    };
+    canvasCacheByProject.clear();
+    canvasPageState.clear();
+    canvases = [];
+    canvasListLoadError = null;
+    closeCardMenu();
+    renderBoard();
+    try {
+        await loadCurrentProjectBatch({ reset:true });
+    } catch(error){
+        canvasListLoadError = error;
+        renderBoardEmptyState();
+    }
+}
 
 /* ===== Status toast ===== */
 function setStatus(text, tone = 'neutral'){
@@ -242,9 +250,10 @@ function setStatus(text, tone = 'neutral'){
 }
 
 function setBoardLoading(loading){
-    const pending = Boolean(loading) || (canvasListProjectsPending
+    const pending = Boolean(loading) || Boolean(listPendingRequestId) || (canvasListProjectsPending
         && !canvasesInProject(currentProjectId).length && !canvasListLoadError);
     board.setAttribute('aria-busy', String(pending));
+    updateLoadMoreButton();
     if(boardLoading){
         boardLoading.hidden = !pending;
         boardLoading.setAttribute('label', tr('workspace.loadingCanvases'));
@@ -252,142 +261,8 @@ function setBoardLoading(loading){
     renderBoardEmptyState();
 }
 
-/* ===== Viewport math (mirrors smart-canvas.js) ===== */
-function applyViewport(){
-    boardWorld.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`;
-    board.querySelector('ic-canvas-grid')?.setViewport?.(viewport);
-}
-function screenToWorld(clientX, clientY){
-    const rect = board.getBoundingClientRect();
-    return {
-        x: (clientX - rect.left - viewport.x) / viewport.scale,
-        y: (clientY - rect.top - viewport.y) / viewport.scale
-    };
-}
-function boardCenterWorld(){
-    return {
-        x: (board.clientWidth / 2 - viewport.x) / viewport.scale,
-        y: (board.clientHeight / 2 - viewport.y) / viewport.scale
-    };
-}
 function resetView(){
-    const cards = Array.from(boardWorld.querySelectorAll('.ws-card'));
-    if(!cards.length){
-        viewport.x = 0; viewport.y = 0; viewport.scale = 1; applyViewport();
-        return;
-    }
-    const bounds = cards.reduce((acc, el) => {
-        const x = parseFloat(el.style.left) || 0;
-        const y = parseFloat(el.style.top) || 0;
-        const w = el.offsetWidth || 248;
-        const h = el.offsetHeight || 150;
-        acc.minX = Math.min(acc.minX, x);
-        acc.minY = Math.min(acc.minY, y);
-        acc.maxX = Math.max(acc.maxX, x + w);
-        acc.maxY = Math.max(acc.maxY, y + h);
-        return acc;
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-    const padding = board.clientWidth < 640 ? 20 : 40;
-    const width = Math.max(1, bounds.maxX - bounds.minX);
-    const height = Math.max(1, bounds.maxY - bounds.minY);
-    const fitScale = Math.min(1, (board.clientWidth - padding * 2) / width, (board.clientHeight - padding * 2) / height);
-    viewport.scale = board.clientWidth < 640 ? 1 : Math.min(MAX_SCALE, Math.max(0.9, fitScale));
-    const fitsX = width * viewport.scale <= board.clientWidth - padding * 2;
-    const fitsY = height * viewport.scale <= board.clientHeight - padding * 2;
-    viewport.x = Math.round((fitsX ? (board.clientWidth - width * viewport.scale) / 2 : padding) - bounds.minX * viewport.scale);
-    viewport.y = Math.round((fitsY ? Math.max(padding, (board.clientHeight - height * viewport.scale) / 2) : padding) - bounds.minY * viewport.scale);
-    applyViewport();
-}
-
-/* ===== Board pointer / temporary hand / zoom ===== */
-let panState = null;
-let boardSpacePan = false;
-let suppressBoardClick = false;
-let suppressBoardClickTimer = null;
-function isCanvasListEditableTarget(target){
-    const el = target || document.activeElement;
-    return !!el?.closest?.('input, textarea, select, option, [contenteditable="true"]');
-}
-function refreshBoardToolState(){
-    board.classList.toggle('temporary-pan', boardSpacePan && !panState);
-}
-function onBoardPanStart(e){
-    const middle = e.button === 1;
-    const temporaryHandLeft = e.button === 0 && boardSpacePan;
-    if(!middle && !temporaryHandLeft) return;
-    if(e.target.closest('.ws-board-empty-actions,.ws-topbar-right,.ws-card-presence')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation?.();
-    closeCardMenu();
-    panState = { button: e.button, startX: e.clientX, startY: e.clientY, ox: viewport.x, oy: viewport.y, moved: false };
-    clearTimeout(suppressBoardClickTimer);
-    suppressBoardClickTimer = null;
-    suppressBoardClick = true;
-    board.classList.remove('temporary-pan');
-    board.classList.add('panning');
-}
-function onBoardPanMove(e){
-    if(!panState) return;
-    viewport.x = panState.ox + (e.clientX - panState.startX);
-    viewport.y = panState.oy + (e.clientY - panState.startY);
-    if(Math.abs(e.clientX - panState.startX) > 3 || Math.abs(e.clientY - panState.startY) > 3) panState.moved = true;
-    applyViewport();
-}
-function onBoardPanEnd(){
-    if(!panState) return;
-    panState = null;
-    board.classList.remove('panning');
-    clearTimeout(suppressBoardClickTimer);
-    suppressBoardClickTimer = setTimeout(() => {
-        suppressBoardClick = false;
-        suppressBoardClickTimer = null;
-    }, 0);
-    refreshBoardToolState();
-}
-function cancelBoardPan(){
-    clearTimeout(suppressBoardClickTimer);
-    suppressBoardClickTimer = null;
-    suppressBoardClick = false;
-    panState = null;
-    boardSpacePan = false;
-    board.classList.remove('panning', 'temporary-pan');
-}
-function suppressTemporaryHandClick(e){
-    if(boardSpacePan || suppressBoardClick){
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation?.();
-    }
-}
-function canvasListWheelZoomFactor(event, pageSize){
-    const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? pageSize : 1;
-    const isMac = /^Mac/.test(navigator.platform || '');
-    const sensitivity = 0.0016;
-    const macMultiplier = isMac ? 1.15 : 1;
-    return Math.exp(-event.deltaY * unit * sensitivity * macMultiplier * canvasListZoomSpeed());
-}
-function onBoardWheel(e){
-    e.preventDefault();
-    if(!(e.metaKey || e.ctrlKey)){
-        const speed = canvasListPanSpeed();
-        viewport.x -= Number(e.deltaX || 0) * speed;
-        viewport.y -= Number(e.deltaY || 0) * speed;
-        applyViewport();
-        return;
-    }
-    const rect = board.getBoundingClientRect();
-    const px = e.clientX - rect.left, py = e.clientY - rect.top;
-    // world point under cursor before zoom
-    const wx = (px - viewport.x) / viewport.scale;
-    const wy = (py - viewport.y) / viewport.scale;
-    const factor = canvasListWheelZoomFactor(e, board.clientHeight || window.innerHeight || 800);
-    const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewport.scale * factor));
-    viewport.scale = next;
-    // keep the same world point under the cursor
-    viewport.x = px - wx * next;
-    viewport.y = py - wy * next;
-    applyViewport();
+    board.scrollTop = 0;
 }
 
 /* ===== Data loading ===== */
@@ -474,6 +349,8 @@ function refreshProjectsInBackground(){
 
 async function loadCurrentProjectBatch({ reset = false } = {}){
     const projectId = currentProjectId;
+    const requestId = ++listRequestId;
+    if(reset) listPendingRequestId = requestId;
     if(reset) setBoardLoading(true);
     const existing = reset ? [] : cachedProjectCanvases(projectId);
     const page = reset ? { cursor:'', exhausted:false } : (canvasPageState.get(projectId) || { cursor:'', exhausted:false });
@@ -483,14 +360,14 @@ async function loadCurrentProjectBatch({ reset = false } = {}){
         return;
     }
     try {
-        const url = `/api/canvases?project=${encodeURIComponent(currentProjectId)}&limit=40&cursor=${encodeURIComponent(page.cursor || '')}`;
+        const query = new URLSearchParams(listQuery);
+        const url = `/api/canvases?project=${encodeURIComponent(currentProjectId)}&limit=40&cursor=${encodeURIComponent(page.cursor || '')}&${query}`;
         const response = await fetch(url);
         if(!response.ok) throw await canvasListResponseError(response);
         const data = await response.json();
-        if(currentProjectId !== projectId) return;
+        if(currentProjectId !== projectId || requestId !== listRequestId) return;
         canvasListLoadError = null;
-        const byId = new Map(existing.map(item => [item.id, item]));
-        const additions = (data.canvases || []).filter(item => !byId.has(item.id));
+        const byId = new Map((page.rebuilding || data.rebuilding ? [] : existing).map(item => [item.id, item]));
         (data.canvases || []).forEach(item => byId.set(item.id, item));
         const loaded = Array.from(byId.values());
         cacheProjectCanvases(projectId, loaded);
@@ -514,11 +391,16 @@ async function loadCurrentProjectBatch({ reset = false } = {}){
         if(reset){
             renderBoard();
             resetView();
-        } else renderCanvasAdditions(additions);
+        } else renderBoard();
         updateLoadMoreButton();
         performance.mark?.('canvas-list-batch-rendered');
+    } catch(error){
+        if(currentProjectId === projectId && requestId === listRequestId) throw error;
     } finally {
-        if(reset && currentProjectId === projectId) setBoardLoading(false);
+        if(reset && currentProjectId === projectId && requestId === listRequestId){
+            listPendingRequestId = 0;
+            setBoardLoading(false);
+        }
     }
 }
 
@@ -546,7 +428,7 @@ function updateLoadMoreButton(){
     const total = Number(page?.total || loaded);
     const show = Boolean(page && (page.rebuilding || !page.exhausted || loaded < total));
     boardLoadMoreBtn.hidden = !show;
-    boardLoadMoreBtn.toggleAttribute('disabled', canvasBatchLoading);
+    boardLoadMoreBtn.toggleAttribute('disabled', canvasBatchLoading || Boolean(listPendingRequestId));
     boardLoadMoreBtn.toggleAttribute('loading', canvasBatchLoading);
     const label = page?.rebuilding ? L('继续建立列表','Continue indexing') : L('加载更多','Load more');
     const detail = total > loaded ? ` (${loaded}/${total})` : '';
@@ -557,7 +439,7 @@ function updateLoadMoreButton(){
 }
 
 async function loadNextCanvasBatch(){
-    if(canvasBatchLoading) return;
+    if(canvasBatchLoading || listPendingRequestId) return;
     canvasBatchLoading = true;
     updateLoadMoreButton();
     try {
@@ -606,6 +488,7 @@ function handleCanvasListSessionError(error){
 
 function projectCanvasCount(pid){
     const p = projects.find(x => x.id === pid);
+    if(listQuery.search || listQuery.visibility || listQuery.mine) return p?.canvas_count ?? 0;
     // prefer live count from canvases array; fall back to server count
     const cached = canvasCacheByProject.get(pid);
     const page = canvasPageState.get(pid);
@@ -614,10 +497,18 @@ function projectCanvasCount(pid){
 
 /* ===== Project sidebar rendering ===== */
 function renderProjects(){
+    if(listProjectName){
+        listProjectName.removeAttribute('data-i18n');
+        listProjectName.textContent = currentProject()?.name || tr('workspace.projects');
+    }
     projectListEl.setAttribute('value', currentProjectId);
     projectListEl.innerHTML = '';
     const canManageProjects = currentUser?.role === 'admin';
-    projects.forEach(p => {
+    const query = String(projectSearch?.value || '').trim().toLocaleLowerCase();
+    const visibleProjects = projects.filter(project => project.name.toLocaleLowerCase().includes(query));
+    const searchEmpty = document.getElementById('projectSearchEmpty');
+    if(searchEmpty) searchEmpty.hidden = !query || visibleProjects.length > 0;
+    visibleProjects.forEach(p => {
         const row = document.createElement('div');
         row.className = `ws-project-row${canManageProjects ? ' has-actions' : ''}`;
         row.dataset.projectId = p.id;
@@ -657,14 +548,24 @@ async function selectProject(pid){
     if(pid === currentProjectId && !trashPanel.classList.contains('active')) return;
     canvasProjectSwitchStartedAt = performance.now();
     currentProjectId = pid;
+    ++listRequestId;
+    listPendingRequestId = 0;
+    canvasListLoadError = null;
     rememberProjectId(pid);
     closeTrashView();
     canvases = cachedProjectCanvases(pid);
     renderProjects();
     if(canvases.length){
         renderBoard();
+        setBoardLoading(false);
     } else {
-        await loadCurrentProjectBatch({ reset: true });
+        renderBoard();
+        try {
+            await loadCurrentProjectBatch({ reset: true });
+        } catch(error){
+            canvasListLoadError = error;
+            renderBoardEmptyState();
+        }
     }
     canvasListPerformance.projectSwitchMs.push(Number(
         (performance.now() - canvasProjectSwitchStartedAt).toFixed(2)
@@ -769,29 +670,10 @@ function updateBoardHeader(){
     updateLoadMoreButton();
 }
 
-function autoLayoutNulls(items){
-    // Grid layout for legacy cards with null board position; persist one batch.
-    const X0 = 40, Y0 = 40, XSTRIDE = 312, YSTRIDE = 286, COLS = 4;
-    const positioned = items.filter(c => c.board_x != null && c.board_y != null);
-    const nulls = items.filter(c => c.board_x == null || c.board_y == null);
-    // start index after existing positioned grid slots to reduce overlap
-    let i = positioned.length;
-    const updates = [];
-    nulls.forEach(c => {
-        const col = i % COLS, rowIdx = Math.floor(i / COLS);
-        c.board_x = X0 + col * XSTRIDE;
-        c.board_y = Y0 + rowIdx * YSTRIDE;
-        i++;
-        updates.push({ id:c.id, board_x:c.board_x, board_y:c.board_y });
-    });
-    if(updates.length) persistMetaBatch(updates);
-}
-
 let renderBatchToken = 0;
 function renderBoard(){
     updateBoardHeader();
     const items = canvasesInProject(currentProjectId);
-    autoLayoutNulls(items);
     boardWorld.innerHTML = '';
     const token = ++renderBatchToken;
     renderCanvasBatch(items, 0, token);
@@ -825,7 +707,8 @@ function renderBoardEmptyState(){
         return;
     }
     const hasProjects = projects.length > 0;
-    const titleKey = hasProjects ? 'workspace.noCanvases' : 'workspace.noAccessibleProjects';
+    const filtered = hasProjects && Boolean(listQuery.search || listQuery.visibility || listQuery.mine);
+    const titleKey = filtered ? 'workspace.noMatchingCanvases' : hasProjects ? 'workspace.noCanvases' : 'workspace.noAccessibleProjects';
     const labelKey = hasProjects ? 'workspace.emptyCanvasList' : 'workspace.emptyProjectList';
     boardEmptyHint.setAttribute('data-i18n-title', titleKey);
     boardEmptyHint.setAttribute('data-i18n-label', labelKey);
@@ -833,20 +716,18 @@ function renderBoardEmptyState(){
     boardEmptyHint.setAttribute('label', tr(labelKey));
     const emptyDescription = boardEmptyHint.querySelector(':scope > span:not([slot])');
     if(emptyDescription){
-        const descriptionKey = hasProjects ? 'workspace.createFirst' : 'workspace.noAccessibleProjectsHint';
+        const descriptionKey = filtered ? 'workspace.adjustFilters' : hasProjects ? 'workspace.createFirst' : 'workspace.noAccessibleProjectsHint';
         emptyDescription.setAttribute('data-i18n', descriptionKey);
         emptyDescription.textContent = tr(descriptionKey);
     }
-    boardEmptyHint.classList.toggle('hidden', items.length > 0);
-    if(emptyCreateCanvasBtn) emptyCreateCanvasBtn.hidden = !hasProjects;
-}
-
-function renderCanvasAdditions(items){
-    updateBoardHeader();
-    autoLayoutNulls(canvasesInProject(currentProjectId));
-    if(items.length) renderCanvasBatch(items, 0, renderBatchToken);
-    boardEmptyHint.classList.toggle('hidden', canvasesInProject(currentProjectId).length > 0);
-    updatePasteBtn();
+    boardEmptyHint.classList.toggle('hidden', items.length > 0 || Boolean(canvasPageState.get(currentProjectId)?.rebuilding));
+    if(emptyCreateCanvasBtn){
+        emptyCreateCanvasBtn.hidden = !hasProjects;
+        const label = emptyCreateCanvasBtn.querySelector('span');
+        const key = filtered ? 'workspace.clearFilters' : 'workspace.newCanvas';
+        label?.setAttribute('data-i18n', key);
+        if(label) label.textContent = tr(key);
+    }
 }
 
 function renderCanvasBatch(items, offset = 0, token = renderBatchToken){
@@ -870,7 +751,6 @@ function renderCanvasBatch(items, offset = 0, token = renderBatchToken){
 }
 
 function buildCard(c){
-    const canEdit = currentUser && ['admin', 'designer'].includes(currentUser.role);
     const card = document.createElement('div');
     card.className = 'ws-card'
         + (String(c.color || '').trim() ? ' cc-marked' : '')
@@ -879,8 +759,6 @@ function buildCard(c){
     card.tabIndex = 0;
     card.setAttribute('role', 'link');
     card.setAttribute('aria-label', c.title || L('未命名画布','Untitled canvas'));
-    card.style.left = (c.board_x || 0) + 'px';
-    card.style.top = (c.board_y || 0) + 'px';
     const coverUrl = String(c.cover_url || '').trim();
     const coverPreviewUrl = canvasListCoverPreviewUrl(coverUrl);
     const canvasLabel = c.title || L('未命名画布','Untitled canvas');
@@ -893,10 +771,6 @@ function buildCard(c){
                     <span>${L('暂无画布图片','No canvas image')}</span>
                 </div>
                 <div class="ws-card-top">
-                    <div class="ws-card-labels">
-                        ${canEdit ? `<ic-badge class="ws-card-access" kind="label" tone="neutral"><ic-icon name="edit" size="small" aria-hidden="true"></ic-icon>${L('可编辑','Editable')}</ic-badge>` : ''}
-                        ${c.visibility === 'private' ? `<ic-badge class="ws-card-privacy" kind="label" tone="neutral"><ic-icon name="lock" size="x-small" aria-hidden="true"></ic-icon>${L('仅自己','Private')}</ic-badge>` : ''}
-                    </div>
                     <ic-icon-button class="ws-card-menu" type="button" size="s" hierarchy="secondary" icon="more" label="${L('更多','More')}"></ic-icon-button>
                 </div>
             </ic-media-container>
@@ -917,7 +791,11 @@ function buildCard(c){
         presenceHost.dataset.canvasId = c.id;
         window.CanvasListPresence?.mount(presenceHost);
     }
-    attachCardDrag(card, c);
+    card.addEventListener('click', event => {
+        if(event.target.closest('.ws-card-menu,.ws-card-presence,ic-input')) return;
+        if(window.getSelection()?.toString()) return;
+        openCanvas(c);
+    });
     const menuBtn = card.querySelector('.ws-card-menu');
     menuBtn.onmousedown = e => e.stopPropagation();
     menuBtn.onclick = e => { e.stopPropagation(); openCardMenu(c.id, menuBtn); };
@@ -942,45 +820,6 @@ function buildCard(c){
     return card;
 }
 
-/* ===== Card drag vs click ===== */
-function attachCardDrag(card, c){
-    card.addEventListener('mousedown', e => {
-        if(e.button !== 0) return;
-        if(boardSpacePan || panState) return;
-        if(e.target.closest('.ws-card-menu,.ws-card-presence')) return;
-        if(card.querySelector('.ws-card-title-input')) return; // editing title
-        e.stopPropagation();
-        closeCardMenu();
-        const startWorld = screenToWorld(e.clientX, e.clientY);
-        const origX = c.board_x || 0, origY = c.board_y || 0;
-        let moved = false;
-        const onMove = ev => {
-            const w = screenToWorld(ev.clientX, ev.clientY);
-            const dx = w.x - startWorld.x, dy = w.y - startWorld.y;
-            if(!moved && (Math.abs(dx * viewport.scale) > 5 || Math.abs(dy * viewport.scale) > 5)){
-                moved = true; card.classList.add('dragging');
-            }
-            if(moved){
-                c.board_x = origX + dx; c.board_y = origY + dy;
-                card.style.left = c.board_x + 'px';
-                card.style.top = c.board_y + 'px';
-            }
-        };
-        const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-            card.classList.remove('dragging');
-            if(moved){
-                persistMeta(c.id, { board_x: Math.round(c.board_x), board_y: Math.round(c.board_y) });
-            } else {
-                openCanvas(c);
-            }
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-    });
-}
-
 function canvasHref(c){
     const enc = encodeURIComponent(c.id);
     const project = encodeURIComponent(c.project || currentProjectId || 'default');
@@ -993,24 +832,24 @@ function openCanvas(c){
 }
 
 /* ===== Card create flow ===== */
-let createWorldPoint = null;
+let createCanvasPending = false;
 function closeCreateCard(){
-    createWorldPoint = null;
+    createCanvasPending = false;
     if(createCanvasDialog?.open) createCanvasDialog.hide('cancel');
 }
-function openCreateCard(worldPt){
+function openCreateCard(){
     closeCardMenu();
-    createWorldPoint = worldPt || boardCenterWorld();
+    createCanvasPending = true;
     createCanvasDialog.label = L('新建画布','New canvas');
     createCanvasName.value = '';
     createCanvasName.placeholder = L('画布名称（可留空）','Canvas name (optional)');
     createCanvasDialog.show();
 }
 
-async function createCanvasOnBoard(title, worldPt){
+async function createCanvasFromList(title){
+    createCanvasPending = false;
     const name = title || `${L('画布','Canvas')} ${new Date().toLocaleTimeString(langIsEn() ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
     if(createCanvasDialog?.open) await createCanvasDialog.hide('confirm');
-    createWorldPoint = null;
     try {
         const res = await fetch('/api/canvases', {
             method: 'POST',
@@ -1019,9 +858,7 @@ async function createCanvasOnBoard(title, worldPt){
                 title: name,
                 icon: 'sparkles',
                 kind: 'smart',
-                project: currentProjectId,
-                board_x: Math.round(worldPt.x),
-                board_y: Math.round(worldPt.y)
+                project: currentProjectId
             })
         });
         if(!res.ok) throw new Error('create canvas failed');
@@ -1029,14 +866,18 @@ async function createCanvasOnBoard(title, worldPt){
         const nc = data.canvas;
         if(nc){
             if(nc.project == null) nc.project = currentProjectId;
-            if(nc.board_x == null) nc.board_x = Math.round(worldPt.x);
-            if(nc.board_y == null) nc.board_y = Math.round(worldPt.y);
             canvases.push(nc);
             cacheProjectCanvases(currentProjectId, canvases);
             const page = canvasPageState.get(currentProjectId);
             if(page) page.total = Math.max(canvases.length, Number(page.total || 0) + 1);
             renderBoard();
             renderProjects();
+            canvasSearch.value = '';
+            visibilityFilter.setAttribute('value', 'all');
+            canvasSort.value = 'updated';
+            canvasDirection.value = 'desc';
+            await changeListQuery();
+            refreshProjectsInBackground();
         }
     } catch(e){ console.error(e); setStatus(L('创建失败','Create failed')); }
 }
@@ -1095,7 +936,7 @@ function openCardMenu(canvasId, anchorBtn){
         <span role="separator" aria-hidden="true"></span>
         <ic-menu-item kind="command" icon="download" label="${L('导出画布','Export canvas')}" value="export" data-act="export"></ic-menu-item>
         <ic-menu-item kind="command" icon="archive" data-i18n-label="workspace.exportWithAssets" label="${tr('workspace.exportWithAssets')}" value="export-assets" data-act="export-assets"></ic-menu-item>
-        <ic-menu-item kind="command" icon="cut" data-i18n-label="workspace.cutCanvas" label="${tr('workspace.cutCanvas')}" value="cut" data-act="cut"></ic-menu-item>
+        <ic-menu-item kind="command" icon="project" data-i18n-label="workspace.moveCanvas" label="${tr('workspace.moveCanvas')}" value="cut" data-act="cut"></ic-menu-item>
         <span role="separator" aria-hidden="true"></span>
         <ic-menu-item kind="command" icon="delete" label="${L('删除','Delete')}" value="delete" tone="danger" data-act="delete"></ic-menu-item>
         <span role="separator" aria-hidden="true"></span>
@@ -1256,7 +1097,7 @@ async function toggleCanvasVisibility(id){
         const data = await res.json().catch(() => ({}));
         if(!res.ok) throw new Error(data.detail || L('权限设置失败','Failed to update visibility'));
         Object.assign(c, data.canvas || {visibility});
-        renderBoard();
+        await loadCurrentProjectBatch({reset:true});
         setStatus(visibility === 'private' ? L('已设为仅自己可见','Canvas is now private') : L('已设为全员可见','Canvas is now shared'));
     } catch(e) { console.error(e); setStatus(e.message || L('权限设置失败','Failed to update visibility')); }
 }
@@ -1476,7 +1317,7 @@ async function exportCanvasWithResources(id){
 function cutCanvas(id){
     const source = canvases.find(item => item.id === id);
     clipboardCanvas = source ? {...source} : null;
-    setStatus(L('已剪切，切换到目标项目后点“粘贴到此项目”','Cut — open another project, then Paste'));
+    setStatus(tr('workspace.canvasMoveReady'));
     renderBoard();
 }
 function updatePasteBtn(){
@@ -1531,6 +1372,7 @@ async function setCanvasTitle(id, title){
     if(c) c.title = title;
     renderBoard();
     await persistMeta(id, { title });
+    await loadCurrentProjectBatch({reset:true});
 }
 
 async function moveCanvasToProject(id, projectId, sourceRecord=null){
@@ -1545,7 +1387,7 @@ async function moveCanvasToProject(id, projectId, sourceRecord=null){
     await persistMeta(id, { project: projectId });
     await loadCurrentProjectBatch({reset:true});
     renderProjects();
-    setStatus(L('已移动','Moved'));
+    setStatus(tr('workspace.canvasMoved'));
 }
 
 /* ===== Card meta persist (POST /meta) ===== */
@@ -1562,17 +1404,6 @@ async function persistMeta(id, patch){
             const idx = canvases.findIndex(x => x.id === id);
             if(idx >= 0) canvases[idx] = { ...canvases[idx], ...data.canvas };
         }
-    } catch(e){ console.error(e); setStatus(L('保存失败','Save failed')); }
-}
-
-async function persistMetaBatch(updates){
-    try {
-        const res = await fetch('/api/canvases/meta/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ updates })
-        });
-        if(!res.ok) throw new Error('meta batch save failed');
     } catch(e){ console.error(e); setStatus(L('保存失败','Save failed')); }
 }
 
@@ -1703,36 +1534,39 @@ async function purgeCanvas(id){
 }
 
 /* ===== Event bindings ===== */
-board.addEventListener('mousedown', onBoardPanStart, true);
-board.addEventListener('click', suppressTemporaryHandClick, true);
-document.addEventListener('mousemove', onBoardPanMove);
-document.addEventListener('mouseup', onBoardPanEnd);
-board.addEventListener('wheel', onBoardWheel, { passive: false });
-board.addEventListener('dblclick', e => {
-    if(e.target.closest('.ws-card,.ws-topbar-right')) return;
-    openCreateCard(screenToWorld(e.clientX, e.clientY));
+projectSearch?.addEventListener('input', renderProjects);
+projectSearch?.addEventListener('ic-clear', () => { projectSearch.value = ''; renderProjects(); });
+canvasSearch?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(changeListQuery, 250);
 });
-
-newCanvasBtn.addEventListener('click', () => openCreateCard(boardCenterWorld()));
+canvasSearch?.addEventListener('ic-clear', () => { canvasSearch.value = ''; changeListQuery(); });
+canvasSort?.addEventListener('change', changeListQuery);
+canvasDirection?.addEventListener('change', changeListQuery);
+visibilityFilter?.addEventListener('ic-change', changeListQuery);
+newCanvasBtn.addEventListener('click', openCreateCard);
 emptyCreateCanvasBtn?.addEventListener('mousedown', e => e.stopPropagation());
 emptyCreateCanvasBtn?.addEventListener('click', e => {
     e.stopPropagation();
-    openCreateCard(boardCenterWorld());
+    if(listQuery.search || listQuery.visibility || listQuery.mine){
+        canvasSearch.value = '';
+        visibilityFilter.setAttribute('value', 'all');
+        changeListQuery();
+    } else openCreateCard();
 });
 createCanvasCancel.addEventListener('click', closeCreateCard);
 createCanvasConfirm.addEventListener('click', () => {
-    if(!createWorldPoint) return;
-    createCanvasOnBoard(createCanvasName.value.trim(), createWorldPoint);
+    if(!createCanvasPending) return;
+    createCanvasFromList(createCanvasName.value.trim());
 });
 createCanvasName.addEventListener('keydown', event => {
-    if(event.key !== 'Enter' || !createWorldPoint) return;
+    if(event.key !== 'Enter' || !createCanvasPending) return;
     event.preventDefault();
-    createCanvasOnBoard(createCanvasName.value.trim(), createWorldPoint);
+    createCanvasFromList(createCanvasName.value.trim());
 });
-createCanvasDialog.addEventListener('ic-after-hide', () => { createWorldPoint = null; });
+createCanvasDialog.addEventListener('ic-after-hide', () => { createCanvasPending = false; });
 boardRefreshBtn.addEventListener('click', () => refreshCanvasListSession().catch(handleCanvasListSessionError));
 boardLoadMoreBtn?.addEventListener('click', loadNextCanvasBatch);
-boardResetViewBtn.addEventListener('click', resetView);
 pasteCanvasBtn?.addEventListener('click', pasteCanvas);
 
 projectListEl.addEventListener('ic-change', event => {
@@ -1762,32 +1596,25 @@ document.addEventListener('mousedown', e => {
 });
 
 document.addEventListener('keydown', e => {
-    if(e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey && !isCanvasListEditableTarget(e.target)){
-        if(e.repeat) return;
-        e.preventDefault();
-        boardSpacePan = true;
-        closeCardMenu();
-        refreshBoardToolState();
-        return;
-    }
     if(e.key !== 'Escape') return;
     closeCardMenu();
     closeCreateCard();
     if(trashPanel.classList.contains('active')) closeTrashView();
 });
-document.addEventListener('keyup', e => {
-    if(e.code !== 'Space' || !boardSpacePan) return;
-    boardSpacePan = false;
-    refreshBoardToolState();
-});
-window.addEventListener('blur', cancelBoardPan);
 window.addEventListener('pagehide', () => {
     canvasListPageLeaving = true;
     clearTimeout(canvasListLoadRetryTimer);
+    clearTimeout(searchTimer);
 });
-document.addEventListener('visibilitychange', () => {
-    if(document.hidden) cancelBoardPan();
-});
+
+function syncListSelectLabels(){
+    [canvasSort, canvasDirection].forEach(select => {
+        select?.syncOptions?.();
+        select?.selectionChanged?.();
+    });
+}
+window.addEventListener('studio-lang-change', syncListSelectLabels);
+window.customElements?.whenDefined('ic-select').then(syncListSelectLabels);
 
 // language switch from parent (index.html) via postMessage
 window.addEventListener('message', event => {
@@ -1807,7 +1634,5 @@ window.addEventListener('message', event => {
 
 /* ===== Boot ===== */
 window.StudioI18n?.apply?.();
-applyViewport();
-window.customElements?.whenDefined('ic-canvas-grid').then(applyViewport);
 refreshCanvasListSession().catch(handleCanvasListSessionError);
 refreshIcons();

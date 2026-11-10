@@ -379,6 +379,11 @@ class CanvasListIndex:
         deleted: bool = False,
         cursor: str = "",
         limit: int = 0,
+        search: str = "",
+        visibility: str = "",
+        mine: bool = False,
+        sort: str = "updated",
+        direction: str = "desc",
         parse_budget: Optional[int] = None,
     ) -> CanvasListPage:
         effective_budget = (
@@ -405,10 +410,13 @@ class CanvasListIndex:
                 state = self._sync(
                     parse_budget=effective_budget,
                     project=project,
-                    target_count=max(0, int(cursor or 0) if str(cursor or "").isdigit() else 0)
-                    + max(0, int(limit or 0)),
+                    target_count=1_000_000_000 if search or visibility or mine or sort != "updated" or direction != "desc" else (
+                        max(0, int(cursor or 0) if str(cursor or "").isdigit() else 0)
+                        + max(0, int(limit or 0))
+                    ),
                 )
         records = []
+        query = str(search or "").strip().casefold()
         for entry in state["entries"].values():
             record = entry.get("record") if isinstance(entry, dict) else None
             if not isinstance(record, dict) or not can_access_canvas(actor, record):
@@ -420,14 +428,21 @@ class CanvasListIndex:
                 continue
             if project and record.get("project") != project:
                 continue
+            if visibility in {"shared", "private"} and (record.get("visibility") or "shared") != visibility:
+                continue
+            if mine and (not actor or not actor.get("id") or str(record.get("created_by") or "") != str(actor["id"])):
+                continue
+            if query and query not in str(record.get("title") or "").casefold():
+                continue
             records.append(dict(record))
+        records.sort(key=lambda item: str(item.get("id") or ""))
+        sort_field = "deleted_at" if deleted else "created_at" if sort == "created" else "updated_at"
         records.sort(
-            key=lambda item: (
-                0 if item.get("pinned") and not deleted else 1,
-                -int(item.get("deleted_at") if deleted else item.get("updated_at") or item.get("created_at") or 0),
-                str(item.get("id") or ""),
-            )
+            key=lambda item: str(item.get("title") or "").casefold() if sort == "title" and not deleted
+            else int(item.get(sort_field) or item.get("created_at") or 0),
+            reverse=direction != "asc",
         )
+        records.sort(key=lambda item: 0 if item.get("pinned") and not deleted else 1)
         total = len(records)
         rebuilding = bool(state.get("_query_rebuilding"))
         index_error = bool(state.get("failures"))

@@ -28,6 +28,7 @@ class CanvasListBrowseNavigationContractTests(unittest.TestCase):
         ):
             self.assertIn(f"<{tag}", self.page)
         self.assertIn('<ic-tabs id="projectList"', self.page)
+        self.assertIn('<ic-segmented-control id="visibilityFilter"', self.page)
         self.assertIn('data-legal-combination="vertical-manual-label"', self.page)
         self.assertIn("/static/js/infinite-canvas-ui/core.js", self.page)
         self.assertNotIn("tailwindcss-cdn", self.page)
@@ -42,8 +43,6 @@ class CanvasListBrowseNavigationContractTests(unittest.TestCase):
             '<ic-badge class="ws-project-count" kind="count"',
             '<ic-card class="ws-card-surface"',
             '<ic-media-container class="ws-card-thumb',
-            '<ic-badge class="ws-card-access"',
-            '<ic-badge class="ws-card-privacy"',
             '<ic-icon-button class="ws-card-menu"',
             '<ic-menu-item kind="command"',
         ):
@@ -65,7 +64,7 @@ class CanvasListBrowseNavigationContractTests(unittest.TestCase):
             "await loadCurrentProjectBatch({ reset: true })",
             "boardLoadMoreBtn?.addEventListener('click', loadNextCanvasBatch);",
             "boardRefreshBtn.addEventListener('click'",
-            "boardResetViewBtn.addEventListener('click', resetView);",
+            "canvasSort?.addEventListener('change', changeListQuery);",
         ):
             self.assertIn(contract, self.script)
         self.assertIn("return `/static/smart-canvas.html?id=${enc}&project=${project}&v=${Date.now()}`", self.script)

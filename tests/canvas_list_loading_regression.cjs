@@ -9,7 +9,7 @@ async function check(){
   const cards = [{id:'far-away',project:'default',board_x:5000,board_y:4000}];
   const state = {fits:0, renders:0, requests:[], errors:[]};
   const context = vm.createContext({
-    Blob, Map, setTimeout, clearTimeout, window:{}, console:{error:error=>state.errors.push(error)},
+    Blob, Map, URLSearchParams, listQuery:{}, listRequestId:0, listPendingRequestId:0, setTimeout, clearTimeout, window:{}, console:{error:error=>state.errors.push(error)},
     performance:{now:()=>0,mark(){}}, currentProjectId:'default', projects:[],canvases:[],currentUser:null,
     canvasPageState:new Map(),canvasListPerformance:{batches:[]},canvasListPageLeaving:false,
     canvasListLoadError:null,canvasListLoadRetryTimer:null,canvasListProjectsPending:false,renderBoardEmptyState(){},tr:key=>key,

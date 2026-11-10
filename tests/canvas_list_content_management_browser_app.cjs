@@ -62,6 +62,8 @@ const server = http.createServer(async (request, response) => {
     return json(response, 200, { metrics, projects, canvases, trash, shares: Object.fromEntries(shares) });
   }
   if (url.pathname === '/api/auth/me') return json(response, 200, { user });
+  if (url.pathname === '/api/canvases/presence') return json(response, 200, { canvases:Object.fromEntries(canvases.map(canvas => [canvas.id, []])) });
+  if (url.pathname === '/api/account/agent-pairings') return json(response, 200, { requests:[] });
   if (url.pathname === '/api/projects' && request.method === 'GET') {
     return json(response, 200, { projects: projects.map(project => ({ ...project, canvas_count: canvases.filter(canvas => canvas.project === project.id).length })) });
   }
