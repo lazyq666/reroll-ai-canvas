@@ -9,6 +9,7 @@ export class IcSwitch extends withProjectEvents(WaSwitch, {
 
   static properties = {
     label: { reflect: true },
+    labelledBy: { attribute: 'aria-labelledby' },
   };
 
   constructor() {
@@ -16,6 +17,7 @@ export class IcSwitch extends withProjectEvents(WaSwitch, {
     this.label = '';
     this.lastContractError = '';
     this.ownedLabel = null;
+    this.accessibleNameObserver = new MutationObserver(() => this.syncAccessibleName());
     this.addEventListener('click', event => {
       const reason = this.validateContract();
       if (!reason) return;
@@ -28,6 +30,29 @@ export class IcSwitch extends withProjectEvents(WaSwitch, {
   connectedCallback() {
     this.syncOwnedLabel();
     super.connectedCallback();
+  }
+
+  disconnectedCallback() {
+    this.accessibleNameObserver.disconnect();
+    super.disconnectedCallback();
+  }
+
+  syncAccessibleName() {
+    const control = this.shadowRoot?.querySelector('input');
+    if (!control) return;
+    this.accessibleNameObserver.disconnect();
+    if (!this.hasAttribute('aria-labelledby')) {
+      control.removeAttribute('aria-label');
+      return;
+    }
+    const root = this.getRootNode();
+    const references = (this.getAttribute('aria-labelledby') || '').split(/\s+/)
+      .map(id => root.getElementById?.(id)).filter(Boolean);
+    const name = references.map(element => element.textContent.trim()).filter(Boolean).join(' ') || this.label;
+    control.setAttribute('aria-label', name);
+    references.forEach(element => this.accessibleNameObserver.observe(element, {
+      childList: true, characterData: true, subtree: true,
+    }));
   }
 
   syncOwnedLabel() {
@@ -51,6 +76,7 @@ export class IcSwitch extends withProjectEvents(WaSwitch, {
   updated(changedProperties) {
     this.syncOwnedLabel();
     super.updated(changedProperties);
+    this.syncAccessibleName();
     applyContractState(this, this.validateContract());
   }
 

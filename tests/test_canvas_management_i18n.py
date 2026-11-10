@@ -33,9 +33,8 @@ class CanvasManagementI18nTests(unittest.TestCase):
 
     def test_runtime_alerts_are_not_overwritten_by_static_i18n(self):
         for relative_path, alert_ids in {
-            "static/api-settings.html": ("jimengCredit", "codexCliInfo", "geminiCliInfo"),
+            "static/api-settings.html": ("jimengCredit", "codexCliInfo", "geminiCliInfo", "page-message", "backup-message"),
             "static/account-management.html": ("page-message",),
-            "static/available-model-management.html": ("page-message",),
         }.items():
             html = (ROOT / relative_path).read_text(encoding="utf-8")
             for alert_id in alert_ids:

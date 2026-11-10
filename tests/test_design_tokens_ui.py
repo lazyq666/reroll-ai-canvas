@@ -115,7 +115,10 @@ class DesignTokensUiRegressionTests(unittest.TestCase):
         self.assertIn('html[data-ui-theme="dark"]', tokens)
         self.assertNotIn('html[data-ui-scope="canvas"] {', tokens)
         self.assertNotIn('html[data-ui-scope="settings"] {', tokens)
-        self.assertNotIn('html[data-ui-scope="api-settings"] {', tokens)
+        scope = tokens.split(':root[data-ui-scope="api-settings"] {', 1)[1].split('}', 1)[0]
+        self.assertNotRegex(scope, r"--ui-palette-[\w-]+\s*:")
+        self.assertNotIn("--ui-palette-warm-gray-", tokens)
+        self.assertNotRegex(scope, r"#[0-9a-fA-F]{3,8}\b")
         self.assertRegex(
             tokens,
             r"--ui-text-title-3:\s*var\(--ui-font-weight-medium\)",

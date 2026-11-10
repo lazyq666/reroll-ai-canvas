@@ -7,6 +7,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static/js/available-mode
 class Element {
   constructor() { this.children = []; this.dataset = {}; this.listeners = {}; this.classList = {add(){}, remove(){}}; }
   setAttribute(key, value) { this[key] = value; }
+  removeAttribute(key) { delete this[key]; }
   toggleAttribute(key, value) { this[key] = value; }
   append(...children) { this.children.push(...children); }
   appendChild(child) { this.children.push(child); }
@@ -27,6 +28,8 @@ async function harness() {
   let failure = false;
   const window = { AvailableModelManagementState: stateTools, addEventListener(type, fn) {
     (listeners[type] ||= []).push(fn);
+  }, dispatchEvent(event) {
+    for (const listener of listeners[event.type] || []) listener(event);
   }, location:{origin:'http://test.local'} };
   const document = {
     visibilityState:'visible', addEventListener(){},
@@ -34,6 +37,7 @@ async function harness() {
     createElement(tag) { const element = new Element(); if (tag === "template") element.content = {firstElementChild:null}; return element; },
   };
   const context = vm.createContext({window, document, parent:{postMessage(){}}, setTimeout, clearTimeout,
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } },
     HTMLInputElement: Element, customElements:{whenDefined:()=>new Promise(()=>{})},
     BroadcastChannel: class { constructor() { channels.push(this); } postMessage(){} addEventListener(type, fn){ this[type]=fn; } },
     fetch: async (url, options) => {

@@ -2,7 +2,7 @@ import { IcButton, IcButtonGroup, IcIconButton, IcVideoPlayButton } from './acti
 import { IcConfirmationDialog, IcDialog } from './dialog.js?v=asset-fbbf25702385';
 import { IcAiProcessorDialog } from './ai-processor-dialog.js?v=asset-a15933f932d6';
 import { IcIcon, loadLucide } from './icon.js?v=asset-a93f2c945139';
-import { IcCheckbox, IcColorField, IcNumberInput, IcRadio, IcRadioGroup, IcSelect, IcSlider, IcSwitch } from './selection-adjustment.js?v=asset-ee5402a6a82d';
+import { IcCheckbox, IcColorField, IcNumberInput, IcRadio, IcRadioGroup, IcSelect, IcSlider, IcSwitch } from './selection-adjustment.js?v=asset-a030888b0622';
 import { IcFormField, IcInput, IcTextarea } from './text-entry.js?v=asset-8a53e7a329ce';
 import { IcAlert, IcBadge, IcEmptyState, IcLoading, IcProgress, IcSkeleton, IcToast } from './feedback-progress.js?v=asset-7b5aba623193';
 import { IcMenu, IcMenuItem, IcPopover, IcTooltip } from './menu-popover.js?v=asset-292cea0cc771';
@@ -23,7 +23,7 @@ import { IcPromptTemplateLibrary } from './prompt-template-library.js?v=asset-0d
 import { IcImageEditModeToolbar, IcSmartCanvasDock, IcSmartNodeContextMenu, IcSmartNodeToolbar } from './blocks.js?v=asset-3a575c12f773';
 import { CANVAS_NODE_KINDS, IcCanvasMultiSelection, IcCanvasNode, IcPromptNodeFocusSurface, renderCanvasNodeMarkup, renderReadOnlyPromptNodeBodyMarkup } from './nodes.js?v=asset-c1ca4e53dad9';
 import { IcWorkspaceAssetLibrary } from './workspace-asset-library.js?v=asset-edc45d5648b1';
-import { ensureThemeAdapterStyles } from './theme-adapter.js?v=asset-91786900b295';
+import { ensureThemeAdapterStyles } from './theme-adapter.js?v=asset-2133cafbf454';
 import { ensureScrollbarStyles, INFINITE_CANVAS_UI_SCROLLBAR, refreshScrollbarStyles } from './scrollbar.js?v=asset-8d85878aaeb6';
 import { installFocusPolicy } from './focus-policy.js?v=asset-383b6358e45a';
 import { installOverlayScopePolicy } from './overlay-layer.js?v=asset-5c6dc85ecbcd';

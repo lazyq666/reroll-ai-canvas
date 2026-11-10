@@ -3,8 +3,9 @@
   const CANVAS_ROUTE_KEY = 'studio_canvas_route';
   const SIDEBAR_PINNED_KEY = 'studio_sidebar_pinned';
   const DEFAULT_PAGE_ID = 'canvas';
-  const PAGE_IDS = ['lab', 'online', 'canvas', 'account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
-  const SETTINGS_PAGE_IDS = ['account-management', 'api-settings', 'available-model-management', 'comfyui-settings', 'prompt-optimization-settings'];
+  const PAGE_IDS = ['lab', 'online', 'canvas', 'account-management', 'model-providers', 'comfyui-settings', 'prompt-optimization-settings'];
+  const SETTINGS_PAGE_IDS = ['account-management', 'model-providers', 'comfyui-settings', 'prompt-optimization-settings'];
+  const canonicalPage = id => ['api-settings', 'available-model-management'].includes(id) ? 'model-providers' : id;
   const CANVAS_EDITOR_PATHS = new Set(['/static/smart-canvas.html']);
 
   const tr = key => window.StudioI18n?.t?.(key) || key;
@@ -158,6 +159,7 @@
   }
 
   function switchUI(_trigger, requestedId, options = {}) {
+    requestedId = canonicalPage(requestedId);
     const role = window.__IC_USER?.role || '';
     let id = PAGE_IDS.includes(requestedId) ? requestedId : DEFAULT_PAGE_ID;
     if (SETTINGS_PAGE_IDS.includes(id) && role !== 'admin') id = 'canvas';
@@ -197,7 +199,8 @@
       return;
     }
     setSidebarPinned(localStorage.getItem(SIDEBAR_PINNED_KEY) === '1', { skipRemember: true });
-    const saved = localStorage.getItem(ACTIVE_PAGE_KEY);
+    const requested = canonicalPage(query.get('page'));
+    const saved = PAGE_IDS.includes(requested) ? requested : canonicalPage(localStorage.getItem(ACTIVE_PAGE_KEY));
     const permitted = user?.role === 'admin' || !SETTINGS_PAGE_IDS.includes(saved);
     const id = PAGE_IDS.includes(saved) && permitted ? saved : (permitted ? DEFAULT_PAGE_ID : 'canvas');
     switchUI(null, id);

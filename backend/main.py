@@ -694,7 +694,7 @@ MODEL_CAPABILITY_DISCOVERY = ModelCapabilityDiscovery(
     catalog=MODEL_CAPABILITY_CATALOG,
 )
 MODEL_CAPABILITY_MATRIX = ModelCapabilityMatrix(
-    inventory=lambda: available_models(include_hidden=True),
+    inventory=lambda: available_models(include_hidden=True, include_disabled=True),
     catalog=MODEL_CAPABILITY_CATALOG,
     workbench=MODEL_CAPABILITY_WORKBENCH,
 )
@@ -2608,7 +2608,7 @@ def _load_available_model_settings() -> Dict[str, Any]:
         )) if isinstance(hidden_values, list) else []
     return {"order": order, "hidden": hidden}
 
-def available_models(providers=None, *, include_hidden=True) -> Dict[str, List[Dict[str, Any]]]:
+def available_models(providers=None, *, include_hidden=True, include_disabled=False) -> Dict[str, List[Dict[str, Any]]]:
     """Return every enabled provider model, grouped by scene and in admin-defined order."""
     providers = providers if providers is not None else load_api_providers()
     settings = _load_available_model_settings()
@@ -2618,7 +2618,7 @@ def available_models(providers=None, *, include_hidden=True) -> Dict[str, List[D
     aliases = {}
     names_by_provider = {}
     for provider in providers:
-        if not isinstance(provider, dict) or provider.get("enabled", True) is False:
+        if not isinstance(provider, dict) or (not include_disabled and provider.get("enabled", True) is False):
             continue
         provider_id = str(provider.get("id") or "").strip()
         if not provider_id:
@@ -2680,7 +2680,7 @@ def save_available_model_order(
     payload: Dict[str, List[str]],
     visible: Optional[Dict[str, List[str]]] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    inventory = available_models(include_hidden=True)
+    inventory = available_models(include_hidden=True, include_disabled=True)
     previous = _load_available_model_settings()
     order = {}
     hidden = {}
@@ -2731,7 +2731,7 @@ def save_available_model_order(
                 os.unlink(temporary)
             except FileNotFoundError:
                 pass
-    return available_models(include_hidden=True)
+    return available_models(include_hidden=True, include_disabled=True)
 
 def save_available_model_names(names: Dict[str, str]) -> None:
     """Persist administrator-defined display names without changing provider model IDs."""
@@ -2739,7 +2739,7 @@ def save_available_model_names(names: Dict[str, str]) -> None:
         return
     with GLOBAL_CONFIG_LOCK:
         providers = load_api_providers()
-        inventory = available_models(providers, include_hidden=True)
+        inventory = available_models(providers, include_hidden=True, include_disabled=True)
         entries_by_id = {
             alias: entry
             for entries in inventory.values()
@@ -7236,7 +7236,7 @@ async def get_available_models():
 @app.get("/api/admin/available-models")
 async def get_admin_available_models():
     require_current_user("admin")
-    return {"models": available_models(include_hidden=True)}
+    return {"models": available_models(include_hidden=True, include_disabled=True)}
 
 @app.get("/api/admin/design-tokens")
 async def get_design_tokens():

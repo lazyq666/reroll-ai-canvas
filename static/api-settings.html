@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
-    <title data-i18n="api.title">API 设置</title>
+    <title data-i18n="providers.title">模型供应商</title>
     <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
     <script>
         (function(){
@@ -18,57 +18,59 @@
             } catch(e) {}
         })();
     </script>
-    <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-b180cf511553">
+    <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-7af731e40181"></script>
+    <script src="/static/js/i18n.js?v=asset-03dd58606543"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
     <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
-    <link rel="stylesheet" href="/static/css/api-settings.css?v=asset-5b2439fca141">
-    <link rel="stylesheet" href="/static/css/api-settings-t18.css?v=asset-2b226111ce87">
+    <link rel="stylesheet" href="/static/css/api-settings.css?v=asset-216ce30de9a7">
+    <link rel="stylesheet" href="/static/css/api-settings-t18.css?v=asset-dab587580207">
     <link rel="stylesheet" href="/static/css/api-settings-t19.css?v=asset-a4cfd0594ed7">
     <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-3ba4cc278f6d">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
+    <link rel="stylesheet" href="/static/css/available-model-management.css?v=asset-1608f5a4cf38">
+    <link rel="stylesheet" href="/static/css/model-providers.css?v=asset-23950284fb42">
+    <script src="/static/js/available-model-management-state.js?v=asset-b3f96dc1ade0"></script>
 </head>
 <body>
-    <main class="page api-settings-page">
-        <div class="wrap">
-            <ic-heading class="page-heading" level="1" subtitle="管理平台地址、模型列表和 Key。Key 写入后端 env，页面不会回显完整内容。" data-i18n="api.title" data-i18n-subtitle="api.subtitle" data-legal-combination="h1-with-subtitle">API 设置</ic-heading>
-
-            <div class="layout">
-                <ic-card id="providerNavigation" class="sidebar" label="API 设置导航" data-i18n-label="api.navigation" size="small">
-                    <nav class="provider-navigation-content" aria-label="API 设置导航" data-i18n-aria-label="api.navigation">
-                    <ic-heading class="side-section-title" level="3" data-i18n="api.providersTitle" data-legal-combination="h3-title">平台列表</ic-heading>
-                    <ic-tabs id="providerList" class="provider-list" label="平台列表" data-i18n-label="api.providersTitle" data-legal-combination="vertical-manual-label" orientation="vertical" activation="manual"></ic-tabs>
-                    <ic-button class="sidebar-action sidebar-primary-action" size="medium" type="button" hierarchy="primary" onclick="addProvider()"><ic-icon slot="start" name="add"></ic-icon><span data-i18n="api.addProvider">添加平台</span></ic-button>
-                    <div class="cli-quick-group">
-                        <ic-heading class="side-section-title" level="3" data-i18n="api.cliSettings" data-legal-combination="h3-title">CLI 设置</ic-heading>
-                        <div class="cli-quick-list">
-                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('jimeng')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/providers/jimeng.svg?v=asset-fe7127df2913" alt=""><span data-i18n="api.jimengCli">即梦 CLI</span></ic-button>
-                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('codex')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/providers/chatgpt.svg?v=asset-eafa1089c000" alt=""><span>GPT CLI</span></ic-button>
-                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="addCliProvider('gemini-cli')"><img slot="start" class="provider-platform-icon provider-platform-icon-monochrome" src="/static/images/providers/gemini.svg?v=asset-39d2ac073ff4" alt=""><span>Antigravity CLI</span></ic-button>
-                            <ic-button class="sidebar-cli-action" size="medium" hierarchy="secondary" type="button" onclick="checkCliUpdates()"><ic-icon slot="start" name="refresh"></ic-icon><span data-i18n="cliUpdates.checkNow">检查 CLI 更新</span></ic-button>
-                            <!-- CLI 依赖提示已按视觉复核移除。 -->
-                        </div>
-                    </div>
-
-                    </nav>
-                </ic-card>
-
+    <main id="providerOverview" class="page api-settings-page">
+        <header class="providers-header">
+            <h1 data-i18n="providers.title">模型供应商</h1>
+            <div class="providers-actions">
+                <ic-menu id="providerBackupMenu" label="备份" data-i18n-label="providers.backup">
+                    <ic-button slot="trigger" hierarchy="quiet" onclick="document.getElementById('providerBackupMenu').show(this)" data-i18n="providers.backup">备份</ic-button>
+                    <ic-menu-item id="export-model-settings" label="导出备份" data-i18n-label="api.exportEncrypted"></ic-menu-item>
+                    <ic-menu-item id="import-model-settings" label="导入备份" data-i18n-label="api.importEncrypted"></ic-menu-item>
+                </ic-menu>
+                <ic-button hierarchy="primary" onclick="openProviderChooser()"><ic-icon slot="start" name="add"></ic-icon><span data-i18n="providers.add">添加供应商</span></ic-button>
+            </div>
+        </header>
+        <ic-alert id="backup-message" hidden></ic-alert>
+        <ic-alert id="providers-message" tone="danger" hidden></ic-alert>
+        <ic-input id="providerSearch" type="search" aria-label="查找供应商" placeholder="查找供应商" data-i18n-aria-label="providers.search" data-i18n-placeholder="providers.search" oninput="renderProviderList(event)"></ic-input>
+        <div id="providerList" class="providers-list" aria-live="polite"><ic-loading label="加载中..." data-i18n-label="common.loading" presentation="region"></ic-loading></div>
+        <ic-button id="retryProviders" hierarchy="secondary" onclick="loadProviders()" data-i18n="providers.retry" hidden>重试</ic-button>
+    </main>
+    <section id="providerEditor" class="provider-editor api-settings-page" aria-labelledby="providerName" hidden>
+        <header class="provider-detail-head">
+            <ic-button hierarchy="quiet" onclick="closeProviderEditor()"><ic-icon slot="start" name="back"></ic-icon><span data-i18n="providers.title">模型供应商</span></ic-button>
+            <h1 id="providerName"></h1>
+            <span id="providerSaveStatus" role="status"></span>
+            <ic-menu id="providerActionsMenu" label="供应商操作" data-i18n-label="providers.actions">
+                <ic-button slot="trigger" hierarchy="quiet" onclick="document.getElementById('providerActionsMenu').show(this)" data-i18n="providers.more">更多</ic-button>
+                <ic-menu-item id="deleteBtn" label="移除供应商" data-i18n-label="providers.remove" onclick="deleteProvider()"></ic-menu-item>
+            </ic-menu>
+        </header>
+        <div class="layout">
                 <section id="settingsContent" class="content">
+                    <details id="connectionDetails" class="connection-details" open>
+                    <summary><span data-i18n="providers.connectionSettings">连接设置</span><span id="connectionSummary"></span></summary>
                     <div id="providerOnboardingHost" hidden></div>
-
                     <ic-card id="providerSettingsCard" class="provider-settings-card" label="平台设置" data-i18n-label="api.providerSettings">
-                    <div class="content-head">
-                        <div>
-                            <ic-heading id="editorTitle" class="card-heading" level="3" subtitle="配置基础信息、API Key 和可用模型" data-i18n="api.provider" data-i18n-subtitle="api.editorSub" data-legal-combination="h3-with-subtitle">平台</ic-heading>
-                        </div>
-                    </div>
-                    <ic-divider></ic-divider>
                     <ic-alert id="connectionVerificationResult" dismissible hidden></ic-alert>
-                    <section class="block">
                         <div class="form">
                             <div class="field full">
-                                <ic-form-field id="nameFormField" label="平台名称" data-i18n-label="api.platformName" data-i18n-hint="api.platformIdEmpty" hint="平台 ID：—">
+                                <ic-form-field id="nameFormField" label="供应商名称" data-i18n-label="providers.name">
                                     <ic-input id="nameInput" slot="control" name="provider_name" type="text" placeholder="Comfly" data-auto-save="setting"></ic-input>
                                 </ic-form-field>
                                 <input id="idInput" type="hidden">
@@ -80,13 +82,14 @@
                             </div>
                             <div class="field full api-key-field">
                                 <div class="api-standard-key-row">
-                                    <ic-form-field id="keyFormField" label="API Key" hint="">
+                                    <ic-form-field id="keyFormField" label="API 密钥" data-i18n-label="providers.apiKey" hint="">
                                         <ic-input id="keyInput" slot="control" name="api_key" type="password" data-auto-save="connection" end-action>
                                             <ic-icon-button id="clearSavedKeyBtn" slot="end" type="button" hierarchy="quiet" tone="danger" icon="delete" label="清除已保存 Key" data-i18n-label="api.clearKeyTitle" onclick="clearKeyOnly()" hidden></ic-icon-button>
                                             <ic-button id="testUrlBtn" slot="end" size="medium" type="button" hierarchy="quiet" onclick="testConnection()"><span data-i18n="api.testUrl">检查连接</span></ic-button>
                                         </ic-input>
                                     </ic-form-field>
                                 </div>
+                                <p id="providerKeyHelp" class="provider-key-help"><span data-i18n="providers.keyHelp">在供应商网站创建 API 密钥，然后粘贴到这里。</span> <a id="providerKeyLink" target="_blank" rel="noopener noreferrer" data-i18n="providers.getKey" hidden>获取密钥 ↗</a></p>
                                 <div class="rh-key-stack">
                                     <ic-card class="provider-key-card" size="small" tone="subtle" label="RH币 API Key · 必填" data-i18n-label="api.rhCoinApiKeyRequired">
                                         <div class="provider-key-head">
@@ -245,8 +248,8 @@
                                 </ic-select>
                             </div>
                         </div>
-                    </section>
                     </ic-card>
+                    </details>
 
                     <ic-card id="runninghubConfigBlock" class="runninghub-workspace-card" tone="plain" label="应用与工作流" data-i18n-label="api.appsAndWorkflows" hidden>
                         <ic-heading slot="header" class="card-heading" level="3" subtitle="粘贴运行路径后，点击右侧创建卡片。" data-i18n="api.appsAndWorkflows" data-i18n-subtitle="api.appsAndWorkflowsDesc" data-legal-combination="h3-with-subtitle">应用与工作流</ic-heading>
@@ -276,50 +279,71 @@
                         <div slot="header" class="models-card-header">
                             <ic-heading id="modelsTitle" class="card-heading models-title" level="3" data-i18n="api.modelsTitle" data-legal-combination="h3-title">模型列表</ic-heading>
                             <ic-toolbar id="modelsHead" class="models-actions-toolbar" appearance="plain" label="模型列表操作" data-i18n-label="api.modelsActions">
-                                <ic-button id="fetchModelsBtn" size="medium" hierarchy="secondary" type="button" onclick="fetchModels()"><span data-i18n="api.fetchModels">获取模型</span></ic-button>
-                                <ic-button id="openPickerBtn" size="medium" hierarchy="secondary" type="button" onclick="openModelPicker()" disabled><span data-i18n="api.selectModels">选择模型</span></ic-button>
+                                <ic-button id="manualModelToggle" hierarchy="quiet" onclick="openManualModel()" aria-controls="manualModelPanel" aria-expanded="false" data-i18n="providers.manualModel">手动添加</ic-button>
                             </ic-toolbar>
                         </div>
 
-                        <ic-tabs id="modelCategoryTabs" class="model-category-tabs" label="模型类型" data-i18n-label="api.modelTypes" value="image" activation="automatic" data-legal-combination="horizontal-automatic-label">
-                            <button id="imageModelTab" data-value="image" aria-controls="imageModelPanel" data-i18n="api.modelCategoryImage">图片模型</button>
-                            <button id="videoModelTab" data-value="video" aria-controls="videoModelPanel" data-i18n="api.modelCategoryVideo">视频模型</button>
-                            <button id="chatModelTab" data-value="chat" aria-controls="chatModelPanel" data-i18n="api.modelCategoryText">文本模型</button>
+                        <ic-tabs id="modelSourceTabs" label="模型来源" data-i18n-label="providers.modelSource" value="added" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                            <button data-value="added" data-i18n="providers.addedModels">已添加</button>
+                            <button id="fetchModelsBtn" data-value="catalog"><span data-i18n="providers.providerCatalog">供应商列表</span></button>
                         </ic-tabs>
-
-                        <div class="model-tab-panels" data-ui-density="small">
-                            <section id="imageModelPanel" class="model-tab-panel" role="tabpanel" aria-labelledby="imageModelTab" data-model-category="image">
-                                <div class="model-panel-actions">
-                                    <span class="model-panel-hint" data-i18n="api.imageHint">在线批量生成和 Reroll 画布 API 生成使用。</span>
+                        <section id="manualModelPanel" class="manual-model-panel" aria-label="手动添加模型" data-i18n-aria-label="providers.manualModel" hidden>
+                            <div class="manual-model-fields">
+                                <ic-input id="manualModelId" name="manual_model_id" label="模型 ID" data-i18n-label="api.modelId" hint="粘贴供应商提供的模型 ID，例如 gpt-image-2。" data-i18n-hint="providers.modelIdHelp"></ic-input>
+                                <ic-input id="manualModelName" name="manual_model_name" label="显示名称（可选）" data-i18n-label="providers.localNameOptional"></ic-input>
+                                <ic-radio-group id="manualModelType" name="manual_model_type" label="模型类型" data-i18n-label="models.types" orientation="horizontal" value="image">
+                                    <ic-radio value="image" label="图片" data-i18n-label="providers.imageType"></ic-radio>
+                                    <ic-radio value="video" label="视频" data-i18n-label="providers.videoType"></ic-radio>
+                                    <ic-radio value="chat" label="文本" data-i18n-label="providers.textType"></ic-radio>
+                                </ic-radio-group>
+                                <ic-alert id="manualModelError" tone="danger" hidden></ic-alert>
+                            </div>
+                            <div class="model-inline-actions">
+                                <ic-button hierarchy="secondary" onclick="closeManualModel()" data-i18n="common.cancel">取消</ic-button>
+                                <ic-button id="manualModelSubmit" hierarchy="primary" onclick="submitManualModel()" data-i18n="api.manualAddModel">添加模型</ic-button>
+                            </div>
+                        </section>
+                        <section id="modelPickerPanel" class="model-picker-panel" aria-label="供应商列表" data-i18n-aria-label="providers.providerCatalog" hidden>
+                            <ic-alert id="modelDiscoveryError" tone="danger" hidden></ic-alert>
+                            <ic-button id="retryDiscovery" hierarchy="secondary" onclick="fetchModels()" data-i18n="providers.retry" hidden>重试</ic-button>
+                            <ic-loading id="modelDiscoveryLoading" label="正在获取模型…" data-i18n-label="providers.loadingModels" presentation="region" hidden></ic-loading>
+                            <div id="modelDiscoveryResults" hidden>
+                                <div class="model-selection-filters">
+                                    <ic-input id="pickerFilter" type="search" aria-label="搜索模型" placeholder="按名称搜索模型…" data-i18n-aria-label="api.searchModels" data-i18n-placeholder="api.searchModels" oninput="renderModelPicker(event)"></ic-input>
+                                    <ic-tabs id="pickerCategoryTabs" label="模型类型" data-i18n-label="api.modelTypes" value="all" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                                        <button data-value="all" data-cat="all" data-i18n="api.all">全部</button>
+                                        <button data-value="image" data-cat="image" data-i18n="api.imageGeneration">生图</button>
+                                        <button data-value="chat" data-cat="chat" data-i18n="models.text">文本模型</button>
+                                        <button data-value="video" data-cat="video" data-i18n="api.videoGeneration">视频</button>
+                                    </ic-tabs>
                                 </div>
-                                <div class="ms-hint">
-                                    <span class="ms-line"><span data-i18n="api.msModelExample">模型名称示意：</span><span>Tongyi-MAI/Z-Image-Turbo</span></span>
+                                <div class="model-selection-bulk">
+                                    <ic-button id="pickerSelectAll" hierarchy="secondary" size="small" onclick="selectFilteredModels(true)" data-i18n="providers.selectAll">全选</ic-button>
+                                    <ic-button id="pickerSelectNone" hierarchy="secondary" size="small" onclick="selectFilteredModels(false)" data-i18n="providers.selectNone">全不选</ic-button>
                                 </div>
-                                <div id="imageModelList" class="model-list" role="list"></div>
-                                <div class="model-panel-footer-actions">
-                                    <ic-button size="medium" hierarchy="quiet" type="button" onclick="addModel('image')"><span data-i18n="api.manualAddModel">添加模型</span></ic-button>
+                                <div id="pickerList" class="model-choice-list" role="group" aria-label="供应商列表" data-i18n-aria-label="providers.providerCatalog"></div>
+                                <ic-button id="pickerShowMore" hierarchy="quiet" onclick="showMorePickerModels()" hidden></ic-button>
+                                <div class="model-inline-actions">
+                                    <span id="pickerCount" role="status"></span>
+                                    <ic-button id="applyModelPickerBtn" hierarchy="primary" onclick="applyModelPicker()" data-i18n="providers.saveSelection">添加所选模型</ic-button>
                                 </div>
-                            </section>
-
-                            <section id="videoModelPanel" class="model-tab-panel" role="tabpanel" aria-labelledby="videoModelTab" data-model-category="video" hidden>
-                                <div class="model-panel-actions">
-                                    <span class="model-panel-hint" data-i18n="api.videoHint">Reroll 画布视频生成节点使用。</span>
-                                </div>
-                                <div id="videoModelList" class="model-list" role="list"></div>
-                                <div class="model-panel-footer-actions">
-                                    <ic-button size="medium" hierarchy="quiet" type="button" onclick="addModel('video')"><span data-i18n="api.manualAddModel">添加模型</span></ic-button>
-                                </div>
-                            </section>
-
-                            <section id="chatModelPanel" class="model-tab-panel" role="tabpanel" aria-labelledby="chatModelTab" data-model-category="chat" hidden>
-                                <div class="model-panel-actions">
-                                    <span class="model-panel-hint" data-i18n="api.chatHint">Reroll 画布中的 LLM 节点使用。</span>
-                                </div>
-                                <div id="chatModelList" class="model-list" role="list"></div>
-                                <div class="model-panel-footer-actions">
-                                    <ic-button size="medium" hierarchy="quiet" type="button" onclick="addModel('chat')"><span data-i18n="api.manualAddModel">添加模型</span></ic-button>
-                                </div>
-                            </section>
+                            </div>
+                        </section>
+                        <div id="addedModelPanel">
+                        <ic-alert id="page-message" hidden></ic-alert>
+                        <ic-alert id="capability-message" hidden></ic-alert>
+                        <div id="modelUndo" class="model-undo" role="status" hidden><span data-i18n="providers.modelRemoved">已移除模型</span><ic-button hierarchy="quiet" onclick="undoRemoveModel()" data-i18n="providers.undo">撤销</ic-button></div>
+                        <ic-tabs id="model-types" class="type-tabs" label="模型类型" data-i18n-label="models.types" value="image" activation="automatic" data-legal-combination="horizontal-automatic-label">
+                            <button data-value="image"><span data-i18n="models.image">图片模型</span><ic-badge id="image-count" kind="count">0</ic-badge></button>
+                            <button data-value="video"><span data-i18n="models.video">视频模型</span><ic-badge id="video-count" kind="count">0</ic-badge></button>
+                            <button data-value="text"><span data-i18n="models.text">文本模型</span><ic-badge id="text-count" kind="count">0</ic-badge></button>
+                        </ic-tabs>
+                        <section id="model-catalog" aria-labelledby="catalog-title">
+                            <h2 id="catalog-title" class="visually-hidden" data-i18n="models.image">图片模型</h2>
+                            <div id="model-list" class="model-list" aria-live="polite"></div>
+                        </section>
+                        <ic-button id="retryModels" hierarchy="secondary" onclick="window.ProviderModels.refresh()" data-i18n="providers.retry" hidden>重试</ic-button>
+                        <details id="modelRouting"><summary data-i18n="providers.modelProtocols">模型协议</summary><div id="modelProtocolList"></div></details>
                         </div>
                     </ic-card>
 
@@ -339,36 +363,18 @@
                             <div id="msLoraList" class="lora-list"></div>
                         </ic-card>
                 </div>
-                    <div class="provider-delete-action">
-                        <ic-button id="deleteBtn" size="medium" class="quiet-danger-action" type="button" hierarchy="quiet" tone="danger" data-legal-combination="quiet-danger-action" onclick="deleteProvider()"><span data-i18n="api.deleteProvider">删除平台</span></ic-button>
-                    </div>
                 </section>
         </div>
+        <div class="provider-detail-actions">
+            <ic-button hierarchy="secondary" onclick="goToCreation()" data-i18n="providers.create">前往创作</ic-button>
         </div>
-    </main>
+    </section>
 
-    <!-- 模型选择浮层 -->
-
-    <ic-dialog id="modelPickerOverlay" class="model-picker-dialog" label="选择模型" data-i18n-label="api.selectModels" data-legal-combination="h2-with-subtitle" size="x-large" dismiss-policy="explicit">
-        <span slot="label" class="model-selection-heading"><span data-i18n="api.selectModels">选择模型</span><span id="pickerCount" class="model-selection-count">—</span></span>
-        <ic-toolbar class="model-selection-filters" appearance="plain" label="筛选模型" data-i18n-label="api.filterUpstream">
-            <ic-tabs id="pickerCategoryTabs" label="模型类型" data-i18n-label="api.modelTypes" value="all" activation="automatic" data-legal-combination="horizontal-automatic-label">
-                <button data-value="all" data-cat="all" data-i18n="api.all">全部</button>
-                <button data-value="image" data-cat="image" data-i18n="api.imageGeneration">生图</button>
-                <button data-value="chat" data-cat="chat">LLM</button>
-                <button data-value="video" data-cat="video" data-i18n="api.videoGeneration">视频</button>
-            </ic-tabs>
-            <ic-input id="pickerFilter" class="model-selection-search" name="model_search" type="search" aria-label="搜索模型" placeholder="按名称搜索模型…" data-i18n-aria-label="api.searchModels" data-i18n-placeholder="api.searchModels" oninput="renderModelPicker(event)"></ic-input>
-        </ic-toolbar>
-        <ic-table id="pickerList" class="model-selection-table" label="上游模型清单" data-i18n-label="api.upstreamModels" row-selection="multiple" data-ui-density="small">
-            <table><caption class="visually-hidden" data-i18n="api.upstreamModels">从上游拉取的模型清单</caption>
-            <thead><tr><th scope="col" data-i18n="api.modelName">模型</th><th scope="col" data-i18n="api.modelId">模型 ID</th><th scope="col" data-i18n="api.modelType">类型</th></tr></thead>
-            <tbody><tr><td colspan="3"><ic-empty-state title="无匹配" label="无匹配" data-i18n="api.noMatches">按名称搜索模型…</ic-empty-state></td></tr></tbody></table>
-        </ic-table>
-        <ic-button slot="footer" type="button" hierarchy="secondary" onclick="closeModelPicker()" data-i18n="common.cancel">取消</ic-button>
-        <ic-button slot="footer" type="button" hierarchy="primary" onclick="applyModelPicker()" data-i18n="api.applyModels">加入列表</ic-button>
+    <ic-dialog id="providerChooser" label="添加供应商" data-i18n-label="providers.add" size="medium">
+        <ic-input id="providerPresetSearch" type="search" label="查找供应商" placeholder="查找供应商" data-i18n-label="providers.search" data-i18n-placeholder="providers.search" oninput="renderProviderPresets(event)"></ic-input>
+        <div id="providerPresets" class="provider-presets"></div>
+        <ic-button slot="footer" hierarchy="secondary" onclick="document.getElementById('providerChooser').hide()" data-i18n="common.cancel">取消</ic-button>
     </ic-dialog>
-
 
     <ic-dialog id="jimengHelpOverlay" class="jimeng-help-dialog" label="即梦 CLI 帮助" data-i18n-label="api.jimengHelp" size="medium" dismiss-policy="explicit">
             <p class="jimeng-help-description" data-i18n="api.jimengHelpDesc">查看 dreamina 官方命令帮助输出</p>
@@ -460,7 +466,36 @@
 
     <ic-confirmation-dialog id="apiActionConfirmation" label="确认操作" data-i18n-label="api.confirmActionTitle" description="确认执行此操作。" data-i18n-description="api.confirmActionDescription" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确定" data-i18n-confirm-label="common.confirm" consequence="destructive"><p data-confirmation-copy data-i18n="api.confirmActionDescription">确认执行此操作。</p></ic-confirmation-dialog>
 
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-c09e9cef616f"></script>
-    <script src="/static/js/api-settings.js?v=asset-1fc55a422fc9" defer></script>
+    <ic-dialog id="capability-editor-dialog" class="capability-editor-dialog" label="模型详情" data-i18n-label="models.modelDetails" size="large" dismiss-policy="explicit">
+        <ic-loading id="capability-editor-loading" label="加载中..." data-i18n-label="common.loading" presentation="region" hidden></ic-loading>
+        <section id="capability-editor" class="capability-product-editor" aria-labelledby="capability-editor-title">
+            <div class="capability-editor-heading"><div><h3 id="capability-editor-title"></h3><p id="capability-editor-model-id"></p></div></div>
+            <p class="capability-editor-intro" data-i18n="models.capabilityEditorIntro">选择这个模型可以接收的素材和可以生成的结果。保存后会应用到使用该模型的所有平台。</p>
+            <div id="capability-operation-editors" class="capability-operation-editors"></div>
+            <details class="capability-source-details"><summary data-i18n="models.sourceDetails">查看资料</summary><p id="capability-editor-source-summary"></p></details>
+        </section>
+        <ic-alert id="capability-editor-message" slot="footer" tone="danger" hidden></ic-alert>
+        <ic-button id="capability-editor-close" slot="footer" hierarchy="secondary" data-i18n="models.cancel">取消</ic-button>
+        <ic-button id="capability-apply" slot="footer" hierarchy="primary" data-i18n="models.saveAndApply">保存生效</ic-button>
+    </ic-dialog>
+    <ic-file-input id="apiSettingsImportInput" name="api_settings_package" label="导入 API 与模型备份" data-i18n-label="api.importEncryptedPackage" accept=".icapi,application/vnd.infinite-canvas.api-settings" hidden></ic-file-input>
+    <ic-dialog id="apiTransferDialog" class="api-transfer-dialog" label="API 设置加密包" data-i18n-label="api.encryptedPackage" size="small" dismiss-policy="explicit">
+        <form class="api-transfer-modal" id="api-transfer-form">
+            <div id="apiTransferTitle" class="visually-hidden" data-i18n="api.encryptedPackage">API 设置加密包</div>
+            <div id="apiTransferDescription"></div>
+            <ic-alert id="api-transfer-error" tone="danger" hidden></ic-alert>
+            <div class="api-transfer-password-body">
+                <ic-form-field label="加密密码" data-i18n-label="api.encryptionPassword" required><ic-input id="apiTransferPassword" slot="control" name="transfer_password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></ic-input></ic-form-field>
+                <ic-form-field id="apiTransferConfirmField" label="确认密码" data-i18n-label="api.passwordAgain"><ic-input id="apiTransferPasswordConfirm" slot="control" name="transfer_password_confirm" type="password" minlength="8" maxlength="256" autocomplete="new-password"></ic-input></ic-form-field>
+            </div>
+        </form>
+        <ic-button slot="footer" hierarchy="secondary" id="api-transfer-cancel" data-i18n="common.cancel">取消</ic-button>
+        <ic-button slot="footer" hierarchy="primary" id="api-transfer-submit" data-i18n="api.continue">继续</ic-button>
+    </ic-dialog>
+    <ic-confirmation-dialog id="apiImportConfirmation" label="确认导入备份" data-i18n-label="api.confirmImportTitle" description="按平台 ID 更新或新增配置。" data-i18n-description="api.confirmPackageImport" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确认导入" data-i18n-confirm-label="api.confirmImportAction" consequence="neutral"><p data-confirmation-copy data-i18n="api.confirmPackageImport">按平台 ID 更新或新增配置。</p></ic-confirmation-dialog>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
+    <script src="/static/js/available-model-management.js?v=asset-420482543eeb" defer></script>
+    <script type="module" src="/static/js/model-capability-workbench.js?v=asset-3e07a25ecca1"></script>
+    <script src="/static/js/api-settings.js?v=asset-16ffe68e77fb" defer></script>
 </body>
 </html>

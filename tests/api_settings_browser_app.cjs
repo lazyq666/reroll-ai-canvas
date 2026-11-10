@@ -22,6 +22,7 @@ const models = {
 const state = {
   saves: [],
   transferRequests: [],
+  modelSettings: {visible:{}, order:{}},
   providers: [
     {
       id: 'modelscope', name: 'ModelScope', base_url: 'https://api-inference.modelscope.cn/v1', protocol: 'openai',
@@ -80,11 +81,25 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://127.0.0.1:${PORT}`);
   if (url.pathname === '/favicon.ico') return response.writeHead(204).end();
   if (url.pathname === '/api/admin/available-models') {
+    if(request.method === 'PUT') {
+      const payload = await readJson(request);
+      for(const provider of state.providers) {
+        provider.model_names ||= {};
+        for(const [entryId, name] of Object.entries(payload.names || {})) {
+          if(entryId.startsWith(`${provider.id}:`)) provider.model_names[entryId.slice(provider.id.length + 1)] = name;
+        }
+      }
+      state.modelSettings = {visible:payload.visible || state.modelSettings.visible, order:payload};
+    }
     const inventory = Object.fromEntries(Object.entries({image:'image_models', video:'video_models', text:'chat_models'}).map(([kind, field]) => [
-      kind, state.providers.filter(p => p.enabled !== false).flatMap(p => (p[field] || []).map(model => ({
+      kind, state.providers.flatMap(p => (p[field] || []).map(model => ({
         id: `${p.id}:${model}`, model, provider_id:p.id, provider_name:p.name,
-        name:p.model_names?.[model] || model, visible:true,
-      }))),
+        name:p.model_names?.[model] || model, visible:!state.modelSettings.order[kind]?.includes(`${p.id}:${model}`) || !state.modelSettings.visible[kind] || state.modelSettings.visible[kind].includes(`${p.id}:${model}`),
+      }))).sort((left, right) => {
+        const order = state.modelSettings.order[kind] || [];
+        const rank = entry => order.includes(entry.id) ? order.indexOf(entry.id) : order.length;
+        return rank(left) - rank(right);
+      }),
     ]));
     return json(response, 200, {models:inventory});
   }
@@ -113,7 +128,12 @@ const server = http.createServer(async (request, response) => {
     try {
       const payload = await readJson(request);
       state.saves.push(payload);
-      state.providers = payload.map(provider => ({ ...provider, has_key: Boolean(provider.api_key) || true, key_preview: 'sk_••••42' }));
+      state.providers = payload.map(provider => {
+        const previous = state.providers.find(item => item.id === provider.id);
+        const hasKey = !provider.clear_key && (Boolean(provider.api_key) || Boolean(previous?.has_key));
+        const hasWalletKey = !provider.clear_wallet_key && (Boolean(provider.wallet_api_key) || Boolean(previous?.has_wallet_key));
+        return {...provider, has_key:hasKey, key_preview:hasKey ? 'sk_••••42' : '', has_wallet_key:hasWalletKey};
+      });
       return json(response, 200, { providers: state.providers });
     } catch (_) { return json(response, 400, { detail: '平台数据格式无效' }); }
   }
@@ -164,7 +184,9 @@ const server = http.createServer(async (request, response) => {
       '.png': 'image/png', '.gif': 'image/gif', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.svg': 'image/svg+xml',
     }[path.extname(file)] || 'application/octet-stream';
     response.writeHead(200, { 'Content-Type': `${type}; charset=utf-8`, 'Cache-Control': 'no-store' });
-    response.end(body);
+    response.end(requestPath === '/static/api-settings.html'
+      ? body.toString().replace('<head>', '<head><script>window.__MODEL_PROVIDERS_DEMO__ = true;</script>')
+      : body);
   });
 });
 

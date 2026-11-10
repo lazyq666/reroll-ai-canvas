@@ -53,7 +53,7 @@
   "surfaces": {
     "legacy": {
       "label": "Legacy Inventory",
-      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-aaf1de57f5dc",
+      "manifest": "/static/design-system/live-catalog/manifest.json?v=asset-ddb6d5de0c6f",
       "sourceRevision": "sha256:bd91c5975e2c367e2aa7dd96f20bb9972b308fb5c8a2572ca9c96ca30c8335a2",
       "candidateCount": 573,
       "instanceCount": 1144,
@@ -134,7 +134,7 @@
         ]
       },
       "actions": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-2d23e202b50a",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-d60e17655283",
         "fixture": "/static/design-system/infinite-canvas-ui/actions.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/action-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/actions-contract.html",
@@ -153,7 +153,7 @@
         ]
       },
       "selectionAdjustment": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json?v=asset-9edb0bcc1021",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-selection-adjustment-v1.json?v=asset-0ef98cab1f81",
         "fixture": "/static/design-system/infinite-canvas-ui/selection-adjustment.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/selection-adjustment-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/selection-adjustment-contract.html",
@@ -243,7 +243,7 @@
         ]
       },
       "menuPopover": {
-        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-7b0923e83dda",
+        "contract": "/static/design-system/infinite-canvas-ui/ic-menu-popover-v1.json?v=asset-2f4a49a10ef1",
         "fixture": "/static/design-system/infinite-canvas-ui/menu-popover.html",
         "caseFixture": "/static/design-system/infinite-canvas-ui/menu-popover-case.html",
         "contractReview": "/static/design-system/infinite-canvas-ui/menu-popover-contract.html",
@@ -514,7 +514,7 @@
       "semanticBaseline": "/static/design-system/infinite-canvas-ui/semantic-baseline-v1.json?v=asset-38a7466db9c5",
       "classificationStatus": "pending-human-confirmation",
       "classifiedInstanceCount": 1712,
-      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-aaf1de57f5dc",
+      "instanceSource": "/static/design-system/live-catalog/manifest.json?v=asset-ddb6d5de0c6f",
       "instanceIdentity": "candidate-id plus stable file, source kind and DOM path; display line is diagnostic only",
       "outcomes": [
         {

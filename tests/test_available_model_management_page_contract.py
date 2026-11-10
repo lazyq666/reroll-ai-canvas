@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGE = ROOT / "static" / "available-model-management.html"
+PAGE = ROOT / "static" / "api-settings.html"
 STYLE = ROOT / "static" / "css" / "available-model-management.css"
 SCRIPT = ROOT / "static" / "js" / "available-model-management.js"
 WORKBENCH_SCRIPT = ROOT / "static" / "js" / "model-capability-workbench.js"
@@ -46,8 +46,8 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertNotRegex(self.page, r"<wa-[a-z]")
         self.assertNotIn("--wa-", self.page)
         self.assertNotIn("/static/vendor/js/lucide.js", self.page)
-        self.assertEqual(len(re.findall(r"<button\b", self.page)), 3)
-        self.assertEqual(len(re.findall(r'<button data-value="(?:image|video|text)"', self.page)), 3)
+        tabs = self.page.split('id="model-types"', 1)[1].split('</ic-tabs>', 1)[0]
+        self.assertEqual(len(re.findall(r'<button data-value="(?:image|video|text)"', tabs)), 3)
         self.assertNotIn('id="management-sections"', self.page)
         self.assertNotIn('id="capability-workbench-view"', self.page)
         self.assertNotIn('id="save-order"', self.page)
@@ -64,7 +64,8 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertIn("element('ic-icon-button'", self.script)
         self.assertIn("element('ic-empty-state'", self.script)
         self.assertIn("element('ic-input', 'model-name-input')", self.script)
-        self.assertIn("element('ic-checkbox', 'model-visibility-checkbox')", self.script)
+        self.assertIn("element(providerView ? 'ic-switch' : 'ic-checkbox', 'model-visibility-checkbox')", self.script)
+        self.assertIn("element('ic-menu', 'model-actions-menu')", self.script)
         self.assertIn("element('ic-table', 'model-table')", self.script)
         self.assertIn("element('ic-toolbar', 'order-actions')", self.script)
         self.assertIn("element('ic-button', 'model-capability-edit'", self.script)
@@ -79,7 +80,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
     def test_dynamic_rows_share_vendor_icon_rules_with_model_pickers(self):
         self.assertIn('/static/js/model-vendor-icons.js', self.page)
         self.assertIn("window.ModelVendorIcons?.markup(", self.script)
-        self.assertIn("identity.append(modelVendorIcon(model), modelNameInput(model))", self.script)
+        self.assertIn("identity.append(modelVendorIcon(model), nameButton, nameInput)", self.script)
         self.assertIn("nameCell.append(identity, capabilityTags(model.model))", self.script)
         self.assertIn(f"midjourney: {{ label: 'Midjourney', src: '{asset_url('/static/images/providers/midjourney.svg')}'", self.vendor_icons)
         self.assertIn("if (/mid[-_ ]?journey/.test(value)) return 'midjourney';", self.vendor_icons)
@@ -183,7 +184,7 @@ class AvailableModelManagementPageContractTests(unittest.TestCase):
         self.assertNotIn("document.createElement('button')", self.workbench_script)
 
     def test_capability_workbench_copy_is_localized_in_both_languages(self):
-        keys = set(re.findall(r'data-i18n(?:-label)?="([^"]+)"', self.page))
+        keys = set(re.findall(r'data-i18n(?:-label)?="((?:models|providers)\.[^"]+)"', self.page))
         keys.update(re.findall(r"(?:tr|tf)\('([^']+)'", self.workbench_script))
         keys.update(re.findall(r"(?:tr|tf)\('([^']+)'", self.script))
         for key in keys:

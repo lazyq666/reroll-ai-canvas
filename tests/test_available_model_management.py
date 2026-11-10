@@ -52,6 +52,31 @@ class AvailableModelManagementTests(unittest.TestCase):
         self.assertNotEqual(shared[0]["id"], shared[1]["id"])
         self.assertEqual("Alpha Image", grouped["image"][1]["name"])
 
+    def test_disabled_provider_stays_editable_without_becoming_generatable(self):
+        self.providers[0]["enabled"] = False
+        with tempfile.TemporaryDirectory() as temporary:
+            alpha_id = main.available_model_id("alpha", "alpha-image")
+            beta_id = main.available_model_id("beta", "beta-image")
+            settings = Path(temporary) / "available_models.json"
+            settings.write_text(json.dumps({
+                "image": [alpha_id, beta_id],
+                "hidden": {"image": [alpha_id]},
+            }))
+            with patch.object(main, "available_models_file", return_value=str(settings)), patch.object(
+                main, "load_api_providers", return_value=self.providers,
+            ), patch.object(main, "save_api_providers") as save:
+                public = main.available_models(include_hidden=False)
+                self.assertTrue(all(model["provider_id"] == "beta" for model in public["image"]))
+                admin = main.available_models(include_disabled=True)
+                target = next(model for model in admin["image"] if model["id"] == alpha_id)
+                self.assertFalse(target["visible"])
+                main.save_available_model_names({alpha_id: "停用期间的本地名称"})
+                self.assertEqual("停用期间的本地名称", save.call_args.args[0][0]["model_names"]["alpha-image"])
+                main.save_available_model_order({"image": [beta_id]})
+                saved = json.loads(settings.read_text())
+                self.assertIn(alpha_id, saved["image"])
+                self.assertIn(alpha_id, saved["hidden"]["image"])
+
     def test_saved_order_controls_public_order_and_new_models_append(self):
         with tempfile.TemporaryDirectory() as tmp:
             order_path = Path(tmp) / "available_models.json"
@@ -194,11 +219,11 @@ class AvailableModelManagementTests(unittest.TestCase):
         account_ui = (ROOT / "static/js/account-ui.js").read_text(encoding="utf-8")
         online = (ROOT / "static/online.html").read_text(encoding="utf-8")
         canvas = (ROOT / "static/js/smart-canvas.js").read_text(encoding="utf-8")
-        management = (ROOT / "static/available-model-management.html").read_text(encoding="utf-8")
+        management = (ROOT / "static/api-settings.html").read_text(encoding="utf-8")
 
-        self.assertIn("switchUI(this, 'available-model-management')", shell)
-        self.assertIn("frame-available-model-management", shell)
-        self.assertIn("available-model-management", account_ui)
+        self.assertIn("switchUI(this, 'model-providers')", shell)
+        self.assertIn("frame-model-providers", shell)
+        self.assertIn("model-providers", account_ui)
         self.assertIn('id="model-list"', management)
         self.assertIn("/api/admin/available-models", (ROOT / "static/js/available-model-management.js").read_text(encoding="utf-8"))
         self.assertNotIn('id="providerSelect"', online)

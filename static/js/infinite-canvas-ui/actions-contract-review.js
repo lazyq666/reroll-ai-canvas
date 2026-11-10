@@ -1,4 +1,4 @@
-const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-2d23e202b50a';
+const CONTRACT_URL = '/static/design-system/infinite-canvas-ui/ic-actions-v1.json?v=asset-d60e17655283';
 const host = document.querySelector('[data-actions-contract]');
 const status = document.querySelector('[data-actions-review-status]');
 

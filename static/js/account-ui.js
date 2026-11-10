@@ -17,7 +17,7 @@
       element.hidden = !admin;
     });
     if (!admin) {
-      ['frame-account-management', 'frame-api-settings', 'frame-available-model-management', 'frame-comfyui-settings'].forEach(id => {
+      ['frame-account-management', 'frame-model-providers', 'frame-comfyui-settings'].forEach(id => {
         byId(id)?.removeAttribute('data-src');
       });
     }
