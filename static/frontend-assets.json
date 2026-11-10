@@ -56,7 +56,7 @@
       ]
     },
     "static/canvas-list.html": {
-      "version": "asset-12ccf8e0b9e8",
+      "version": "asset-dbe453fa6d61",
       "dependencies": [
         "static/css/account-avatar.css",
         "static/css/canvas-list.css",
@@ -148,7 +148,7 @@
       "dependencies": []
     },
     "static/css/canvas-list.css": {
-      "version": "asset-f17902eb4bcd",
+      "version": "asset-9bdbc4bd3094",
       "dependencies": [
         "static/vendor/css/fonts.css"
       ]
@@ -2797,7 +2797,7 @@
       ]
     },
     "static/update-notes.json": {
-      "version": "asset-08b979091515",
+      "version": "asset-75a9145ecdda",
       "dependencies": []
     },
     "static/vendor/css/fonts.css": {

@@ -58,7 +58,7 @@ body { margin:var(--ui-space-0); height:100vh; overflow:hidden; background:var(-
 .ws-load-more-btn { flex:0 0 auto; }
 
 .ws-board { position:relative; z-index:1; flex:1; min-height:0; overflow:auto; background:transparent; padding:var(--ui-space-3) var(--ui-space-6) var(--ui-space-6); scrollbar-gutter:stable; }
-.ws-board:focus-visible { outline:var(--ui-focus-ring); outline-offset:calc(-1 * var(--ui-focus-ring-offset)); }
+.ws-board:focus-visible { outline:var(--ui-focus-ring); outline-offset:var(--ui-focus-ring-offset); }
 .ws-board-world { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); align-content:start; gap:var(--ui-space-5); }
 .ws-board[aria-busy="true"] .ws-board-world { opacity:.45; pointer-events:none; }
 
