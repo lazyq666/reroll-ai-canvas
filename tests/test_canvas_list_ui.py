@@ -105,11 +105,12 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         self.assertIn('--ic-tabs-selected-background:var(--ui-color-action-secondary-selected)', navigation)
         self.assertIn('::slotted([role="tab"][aria-selected="true"]){background:var(--ic-tabs-selected-background);', navigation)
 
-    def test_board_grid_is_owned_by_the_shared_canvas_grid_component(self):
+    def test_list_uses_normal_scrolling_with_decorative_canvas_grid(self):
         page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")
 
-        self.assertIn('<ic-canvas-grid></ic-canvas-grid>', page)
+        self.assertIn('<ic-canvas-grid class="ws-list-grid" aria-hidden="true">', page)
+        self.assertIn('overflow:auto', styles.split(".ws-board {", 1)[1].split("}", 1)[0])
         board_rule = styles.split(".ws-board {", 1)[1].split("}", 1)[0]
         self.assertNotIn("background-image", board_rule)
         self.assertNotIn("background-size", board_rule)
@@ -117,7 +118,7 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         self.assertNotRegex(styles, r"#[0-9a-fA-F]{3,8}\b|(?:rgb|rgba|hsl|hsla)\(")
         self.assertNotIn("--ui-palette-", styles)
 
-    def test_board_actions_float_without_redundant_topbar_information(self):
+    def test_list_actions_and_filters_precede_scrollable_results(self):
         page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
@@ -125,7 +126,7 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         board_start = page.index('<div id="board" class="ws-board"')
         toolbar_start = page.index('<ic-toolbar class="ws-topbar-right"')
         board_world_start = page.index('<div id="boardWorld" class="ws-board-world"')
-        self.assertLess(board_start, toolbar_start)
+        self.assertLess(toolbar_start, board_start)
         self.assertLess(toolbar_start, board_world_start)
         self.assertNotIn('class="ws-topbar"', page)
         self.assertNotIn('class="ws-topbar-left"', page)
@@ -133,13 +134,12 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         self.assertNotIn('id="boardCanvasCount"', page)
         self.assertNotIn(".ws-topbar {", styles)
         self.assertNotIn(".ws-topbar-left {", styles)
-        self.assertIn(".ws-topbar-right { position:absolute;", styles)
-        self.assertIn("inset-block-start:var(--ui-space-4);", styles)
-        self.assertIn("inset-inline-end:var(--ui-space-4);", styles)
+        self.assertIn('id="canvasSearch"', page)
+        self.assertIn('id="canvasSort"', page)
+        self.assertIn('id="visibilityFilter"', page)
         self.assertNotIn("boardProjectName", script)
         self.assertNotIn("boardCanvasCount", script)
-        self.assertIn(".ws-board-empty-actions,.ws-topbar-right", script)
-        self.assertIn(".ws-card,.ws-topbar-right", script)
+        self.assertNotIn('id="boardResetView"', page)
 
     def test_new_canvas_has_no_kind_choice_and_always_creates_smart(self):
         page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
@@ -161,15 +161,15 @@ class CanvasListUiRegressionTests(unittest.TestCase):
             with self.subTest(secondary=secondary, primary=primary):
                 self.assertLess(source.index(secondary), source.index(primary))
 
-    def test_editable_badge_remains_without_canvas_kind_badge(self):
+    def test_redundant_editable_and_kind_badges_are_removed(self):
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")
 
         self.assertNotIn('class="ws-card-kind ', script)
-        self.assertIn('class="ws-card-access"', script)
-        self.assertIn("L('可编辑','Editable')", script)
+        self.assertNotIn('class="ws-card-access"', script)
+        self.assertNotIn("L('可编辑','Editable')", script)
         self.assertNotIn("L('能画'", script)
-        self.assertIn(".ws-card-access", styles)
+        self.assertNotIn(".ws-card-access", styles)
 
     def test_canvas_kind_badges_are_removed(self):
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
@@ -177,16 +177,15 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         self.assertNotIn("canvasKindTag", script)
         self.assertNotIn('class="ws-card-kind', script)
 
-    def test_thumbnail_statuses_use_public_badges_and_icons(self):
+    def test_thumbnail_omits_redundant_badges_and_keeps_menu(self):
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")
 
-        self.assertIn('<ic-badge class="ws-card-access" kind="label" tone="neutral">', script)
-        self.assertIn('<ic-badge class="ws-card-privacy" kind="label" tone="neutral">', script)
-        self.assertIn('<ic-icon name="edit" size="small"', script)
-        self.assertIn('<ic-icon name="lock" size="x-small"', script)
-        self.assertIn(".ws-card-access ic-icon,.ws-card-privacy ic-icon,.ws-card-menu { --ic-icon-context-stroke-width:var(--ui-icon-stroke-width-m); }", styles)
-        self.assertIn(".ws-card-access::part(base),.ws-card-privacy::part(base) { min-block-size:1.5rem; block-size:1.5rem; font:var(--ui-text-caption); }", styles)
+        self.assertNotIn('class="ws-card-privacy"', script)
+        self.assertNotIn('class="ws-card-labels"', script)
+        self.assertNotIn(".ws-card-privacy", styles)
+        self.assertNotIn(".ws-card-labels", styles)
+        self.assertIn(".ws-card-menu { --ic-icon-context-stroke-width:var(--ui-icon-stroke-width-m); }", styles)
         self.assertNotIn(".ws-card-kind", styles)
         self.assertIn(".ws-card-menu { margin-left:auto;", styles)
         self.assertNotIn(".theme-dark .ws-card-kind", styles)
@@ -197,7 +196,7 @@ class CanvasListUiRegressionTests(unittest.TestCase):
 
         self.assertIn('<ic-icon-button class="ws-card-menu" type="button" size="s"', script)
         self.assertIn('hierarchy="secondary" icon="more"', script)
-        self.assertIn(".ws-card-access ic-icon,.ws-card-privacy ic-icon,.ws-card-menu { --ic-icon-context-stroke-width:var(--ui-icon-stroke-width-m); }", styles)
+        self.assertIn(".ws-card-menu { --ic-icon-context-stroke-width:var(--ui-icon-stroke-width-m); }", styles)
         self.assertIn("--ic-icon-button-control-size:1.5rem; inline-size:1.5rem; block-size:1.5rem;", styles)
         self.assertIn("ic-icon-button.ws-card-menu::part(base) { min-inline-size:1.5rem; min-block-size:1.5rem; inline-size:1.5rem; block-size:1.5rem; }", styles)
         self.assertNotIn('class="ws-card-enter"', script)
@@ -319,44 +318,22 @@ class CanvasListUiRegressionTests(unittest.TestCase):
         self.assertIn("${canPurge ? `", script)
         self.assertIn('class="ws-trash-act purge"', script)
 
-    def test_board_uses_pointer_with_space_or_middle_mouse_temporary_hand(self):
+    def test_list_does_not_capture_space_or_pointer_for_pan(self):
         page = (ROOT / "static/canvas-list.html").read_text(encoding="utf-8")
         script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
         styles = (ROOT / "static/css/canvas-list.css").read_text(encoding="utf-8")
 
-        self.assertIn("cursor:default", styles)
-        self.assertIn(".ws-board.temporary-pan { cursor:grab; }", styles)
-        self.assertIn(".ws-board.panning { cursor:grabbing; }", styles)
-        self.assertIn("const middle = e.button === 1;", script)
-        self.assertIn("const temporaryHandLeft = e.button === 0 && boardSpacePan;", script)
-        self.assertIn("e.code === 'Space'", script)
-        self.assertIn("board.addEventListener('mousedown', onBoardPanStart, true);", script)
+        self.assertNotIn("onBoardPanStart", script)
+        self.assertNotIn("temporary-pan", styles)
+        self.assertNotIn("e.code === 'Space'", script)
         self.assertNotIn("smartCanvasDock", page)
 
-    def test_board_wheel_pans_by_default_and_modifier_zoom_matches_smart_canvas(self):
+    def test_list_never_writes_card_positions_or_intercepts_wheel(self):
         list_script = (ROOT / "static/js/canvas-list.js").read_text(encoding="utf-8")
-        smart_script = (ROOT / "static/js/smart-canvas.js").read_text(encoding="utf-8")
-
-        self.assertIn("'smartCanvasPanSpeed'", list_script)
-        self.assertIn("function canvasListPanSpeed()", list_script)
-        self.assertIn("if(!(e.metaKey || e.ctrlKey)){", list_script)
-        self.assertIn("viewport.x -= Number(e.deltaX || 0) * speed;", list_script)
-        self.assertIn("viewport.y -= Number(e.deltaY || 0) * speed;", list_script)
-        self.assertIn("function canvasListWheelZoomFactor(event, pageSize)", list_script)
-        self.assertIn("'smartCanvasZoomSpeed'", list_script)
-        self.assertIn("function canvasListZoomSpeed()", list_script)
-        for contract in (
-            "event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? pageSize : 1",
-            "const sensitivity = 0.0016;",
-            "const macMultiplier = isMac ? 1.15 : 1;",
-            "Math.exp(-event.deltaY * unit * sensitivity * macMultiplier",
-        ):
-            with self.subTest(contract=contract):
-                self.assertIn(contract, list_script)
-                self.assertIn(contract, smart_script)
-        self.assertIn("* canvasListZoomSpeed()", list_script)
-        self.assertIn("* smartCanvasZoomSpeed", smart_script)
-        self.assertNotIn("e.deltaY < 0 ? 1.1 : 1 / 1.1", list_script)
+        self.assertNotIn("onBoardWheel", list_script)
+        self.assertNotIn("board_x:", list_script)
+        self.assertNotIn("board_y:", list_script)
+        self.assertNotIn("autoLayoutNulls", list_script)
 
 
 if __name__ == "__main__":

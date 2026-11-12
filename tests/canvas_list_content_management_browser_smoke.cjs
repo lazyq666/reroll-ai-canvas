@@ -96,6 +96,7 @@ const adminScenario = `(async () => {
   const apiState = async () => (await fetch('/api/test-state')).json();
   const card = id => document.querySelector('.ws-card[data-canvas-id="' + id + '"]');
   const menuAction = async (id, action) => {
+    await wait(() => card(id) && document.getElementById('board').getAttribute('aria-busy') === 'false', 'ready card ' + id);
     card(id).querySelector('.ws-card-menu').click();
     await wait(() => document.querySelector('ic-menu.ws-card-pop[open]'), 'menu ' + action);
     const item = document.querySelector('ic-menu-item[data-act="' + action + '"]');
@@ -127,7 +128,7 @@ const adminScenario = `(async () => {
   document.getElementById('newCanvasBtn').click();
   const createDialog = document.getElementById('createCanvasDialog');
   await wait(() => createDialog.open, 'create dialog');
-  const defaultKind = document.getElementById('createCanvasKind').getAttribute('value');
+  const hasKindChoice = Boolean(document.getElementById('createCanvasKind'));
   setInput(document.getElementById('createCanvasName'), 'Launch Storyboard');
   document.getElementById('createCanvasConfirm').click();
   await wait(() => card('created-1'), 'created canvas');
@@ -156,9 +157,11 @@ const adminScenario = `(async () => {
 
   await menuAction('owned-smart', 'privacy');
   await answer(true);
-  await wait(() => card('owned-smart').querySelector('.ws-card-privacy'), 'private badge');
+  await wait(async () => (await apiState()).canvases.find(canvas => canvas.id === 'owned-smart').visibility === 'private', 'private visibility saved');
+  await wait(() => card('owned-smart') && document.getElementById('board').getAttribute('aria-busy') === 'false', 'private card ready');
+  if (card('owned-smart').querySelector('.ws-card-privacy,.ws-card-access')) throw new Error('Redundant card badge remains');
   await menuAction('owned-smart', 'privacy');
-  await wait(() => !card('owned-smart').querySelector('.ws-card-privacy'), 'shared badge state');
+  await wait(async () => (await apiState()).canvases.find(canvas => canvas.id === 'owned-smart').visibility === 'shared', 'shared visibility saved');
 
   await menuAction('created-1', 'delete');
   await answer(false);
@@ -185,7 +188,7 @@ const adminScenario = `(async () => {
   await answer(true);
   await wait(() => !card('team-smart'), 'team canvas trashed');
   const finalState = await apiState();
-  return { components, defaultKind, createdKind, revokeAfterCancel, existsAfterDeleteCancel, metrics:finalState.metrics };
+  return { components, hasKindChoice, createdKind, revokeAfterCancel, existsAfterDeleteCancel, metrics:finalState.metrics };
 })()`;
 
 const designerScenario = `(async () => {
@@ -228,7 +231,7 @@ async function main() {
       const project = document.querySelector('.ws-project-row');
       const projectRows = [...document.querySelectorAll('.ws-project-row')];
       const trash = document.getElementById('trashEntry');
-      const trashBadgeElement = trash.querySelector('.ws-project-count');
+      const trashBadgeElement = trash.querySelector('.ws-trash-badge');
       const badgeWasVisible = trashBadgeElement.classList.contains('visible');
       trashBadgeElement.classList.add('visible');
       await new Promise(resolve => requestAnimationFrame(resolve));
@@ -253,7 +256,7 @@ async function main() {
         trashPaddingInline:getComputedStyle(trashBase).paddingInline,
         projectBorderRadius:getComputedStyle(project).borderRadius,
         trashBorderRadius:getComputedStyle(trashBase).borderRadius,
-        trashTextAlign:getComputedStyle(trash.querySelector('.ws-project-name')).textAlign,
+        trashInHeader:Boolean(trash.closest('.ws-list-header')),
         dangerSoft:getComputedStyle(dangerProbe).backgroundColor,
         hoverPoint:{x:Math.round(trashRect.left+trashRect.width/2),y:Math.round(trashRect.top+trashRect.height/2)}
       };
@@ -321,7 +324,7 @@ async function main() {
       || operations.components.sharePopover !== 'ic-popover'
       || operations.components.invalidContracts !== 0
       || operations.components.legacyMarkup !== 0
-      || operations.defaultKind !== 'smart'
+      || operations.hasKindChoice
       || operations.createdKind !== 'smart'
       || operations.revokeAfterCancel !== 0
       || !operations.existsAfterDeleteCancel
@@ -334,13 +337,9 @@ async function main() {
       || operations.metrics.shareCreated !== 1
       || operations.metrics.shareRegenerated !== 1
       || operations.metrics.shareRevoked !== 1
-      || trashGeometry.projectHeight !== trashGeometry.trashHeight
       || trashGeometry.projectIconSize.join('x') !== trashGeometry.trashIconSize.join('x')
-      || Math.abs(trashGeometry.contentStartDelta) > 4
-      || Math.abs(trashGeometry.badgeRightDelta) > 4
-      || trashGeometry.projectItemGap !== 8
-      || trashGeometry.trashBorderRadius !== trashGeometry.projectBorderRadius
-      || !['start', 'left'].includes(trashGeometry.trashTextAlign)
+      || trashGeometry.projectItemGap < 0
+      || !trashGeometry.trashInHeader
       || trashGeometry.hoverBackground === trashGeometry.dangerSoft
       || !projectHover.countHidden
       || !projectHover.actionsVisible

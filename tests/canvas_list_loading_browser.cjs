@@ -52,7 +52,7 @@ function deferred() {
       await route.fulfill({ status, contentType:'application/json', body:JSON.stringify(payload) });
     });
     await page.goto(`${base}/static/canvas-list.html`);
-    await page.waitForFunction(() => customElements.get('ic-loading') && document.querySelector('#boardLoading').shadowRoot);
+    await page.waitForFunction(() => customElements.get('ic-skeleton'));
     const loading = page.locator('#boardLoading');
     const empty = page.locator('#boardEmptyHint');
     const language = async value => {
@@ -60,11 +60,32 @@ function deferred() {
       await page.waitForFunction(lang => window.StudioI18n.lang() === lang, value);
     };
     await language('en'); // The App Shell sends this while the initial requests are pending.
+    assert.equal(await loading.locator('ic-skeleton[shape="rectangle"]').count(), 12, 'Pending reads display card covers rather than a floating loader');
     assert.equal(await loading.isVisible(), true);
     assert.equal(await empty.isVisible(), false, 'Pending canvas reads must not display the no-projects empty state under the loader');
-    assert.equal(await loading.getAttribute('label'), 'Loading canvases');
+    assert.equal(await loading.getAttribute('aria-label'), 'Loading canvases');
     await language('zh');
-    assert.equal(await loading.getAttribute('label'), '正在加载画布');
+    assert.equal(await loading.getAttribute('aria-label'), '正在加载画布');
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(value => {
+        document.documentElement.classList.toggle('studio-theme-dark', value === 'dark');
+        document.documentElement.classList.toggle('theme-dark', value === 'dark');
+        document.documentElement.dataset.uiTheme = value;
+      }, theme);
+      for (const width of [1920, 1440, 768, 390]) {
+        await page.setViewportSize({ width, height:900 });
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+        const cover = await loading.locator('ic-skeleton[shape="rectangle"]').first().boundingBox();
+        assert.ok(Math.abs(cover.width / cover.height - 16 / 9) < 0.02, 'Skeleton covers match the canvas cover ratio');
+        if (process.env.CANVAS_LIST_LOADING_SCREENSHOT_DIR) {
+          await page.screenshot({ path:path.join(process.env.CANVAS_LIST_LOADING_SCREENSHOT_DIR, `canvas-loading-${theme}-${width}.png`) });
+        }
+      }
+    }
+    await page.emulateMedia({ reducedMotion:'reduce' });
+    assert.equal(await loading.locator('ic-skeleton').first().evaluate(element => getComputedStyle(element.shadowRoot.querySelector('.shine')).animationName), 'none');
+    await page.setViewportSize({ width:1200, height:800 });
     cards.resolve({ payload:{ canvases:[], total:0 } });
     await page.waitForResponse(response => new URL(response.url()).pathname === '/api/canvases');
     await page.waitForTimeout(50);
@@ -103,8 +124,25 @@ function deferred() {
     cards.resolve({ status:500, payload:{ detail:'fixture failure' } });
     await loading.waitFor({ state:'hidden' });
     assert.equal(await empty.getAttribute('title'), '画布暂时无法加载');
-    assert.deepEqual(errors, []);
     assert.equal(cardRequests, 4);
+    cards = deferred(); projects = deferred();
+    await page.locator('#boardRefresh').click();
+    await loading.waitFor({ state:'visible' });
+    cards.resolve({ payload:{ canvases:[{ id:'loaded-card', title:'Example', project:'default', kind:'smart', node_count:2 }], total:1 } });
+    projects.resolve({ projects:[{ id:'default', name:'Default', order:0 }] });
+    await loading.waitFor({ state:'hidden' });
+    await page.locator('#boardWorld .ws-card').waitFor({ state:'visible' });
+    cards = deferred(); projects = deferred();
+    await page.locator('#boardRefresh').click();
+    await loading.waitFor({ state:'visible' });
+    assert.equal(await page.locator('#boardWorld').isVisible(), false, 'Refreshing cards must use skeletons without exposing stale actions');
+    assert.equal(await page.locator('#boardWorld').getAttribute('inert'), '');
+    cards.resolve({ payload:{ canvases:[], total:0 } });
+    projects.resolve({ projects:[{ id:'default', name:'Default', order:0 }] });
+    await loading.waitFor({ state:'hidden' });
+    assert.equal(await page.locator('#boardWorld').getAttribute('inert'), null);
+    await empty.waitFor({ state:'visible' });
+    assert.deepEqual(errors, []);
     console.log('PASS: loading, empty project, no access, refresh, failure and bilingual states are mutually exclusive');
   } finally {
     await browser?.close();

@@ -20,7 +20,7 @@
         "runtime.cancelAndRestart": { zh: "取消活动生成任务并立即重启", en: "Cancel active generation tasks and restart now" },
         "runtime.viewMoveProgress": { zh: "查看搬家进度", en: "View move progress" },
         "runtime.copyError": { zh: "复制错误信息", en: "Copy error details" },
-        "runtime.startingDetail": { zh: "Reroll 正在启动…", en: "Reroll is starting…" },
+        "runtime.startingDetail": { zh: "Reroll 正在启动中…", en: "Reroll is starting…" },
         "runtime.recoveryDetail": { zh: "找不到已配置的工作区，请重新连接工作区。", en: "The configured workspace could not be found. Reconnect the workspace." },
         "runtime.waitingTasks": { zh: "正在等待生成任务完成…剩余 {count} 个", en: "Waiting for active generation tasks to finish… {count} remaining" },
         "runtime.maintenanceDetail": { zh: "Reroll 正在进入维护状态，请稍候…", en: "Reroll is entering maintenance mode. Please wait…" },

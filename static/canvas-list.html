@@ -21,8 +21,8 @@
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
     <script src="/static/js/touch-mouse.js?v=asset-44e687594d16"></script>
-    <script src="/static/js/i18n.js?v=asset-03dd58606543"></script>
-    <link rel="stylesheet" href="/static/css/canvas-list.css?v=asset-a5c8e8efc5dd">
+    <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
+    <link rel="stylesheet" href="/static/css/canvas-list.css?v=asset-a115f57f9af3">
     <link rel="stylesheet" href="/static/css/account-avatar.css?v=asset-e1cd44d31e57">
     <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
 </head>
@@ -34,37 +34,64 @@
                 <div class="ws-side-title" data-i18n="workspace.projects">项目</div>
                 <ic-icon-button id="newProjectBtn" class="ws-side-add" type="button" size="s" hierarchy="secondary" icon="add" label="新建项目" data-i18n-label="workspace.newProject"></ic-icon-button>
             </div>
+            <ic-input id="projectSearch" class="ws-project-search" type="search" placeholder="搜索项目" aria-label="搜索项目" data-i18n-placeholder="workspace.searchProjects" data-i18n-aria-label="workspace.searchProjects" clearable></ic-input>
             <div id="newProjectRow" class="ws-newproj-row">
                 <ic-input id="newProjectInput" class="ws-newproj-input" type="text" maxlength="60" placeholder="项目名称" aria-label="项目名称" data-i18n-placeholder="workspace.projectName" data-i18n-aria-label="workspace.projectName"></ic-input>
                 <ic-icon-button id="newProjectCancel" class="ws-mini-btn" type="button" size="s" hierarchy="quiet" icon="close" label="取消" data-i18n-label="common.cancel"></ic-icon-button>
                 <ic-icon-button id="newProjectConfirm" class="ws-mini-btn" type="button" size="s" hierarchy="secondary" icon="check" label="确定" data-i18n-label="common.confirm"></ic-icon-button>
             </div>
             <ic-tabs id="projectList" class="ws-project-list" label="项目筛选" aria-label="项目筛选" data-i18n-label="workspace.projects" data-legal-combination="vertical-manual-label" orientation="vertical" activation="manual"></ic-tabs>
-            <div class="ws-side-foot">
-                <ic-button id="trashEntry" class="ws-trash-entry" type="button" size="m" hierarchy="quiet">
-                    <span class="ws-project-nav ws-trash-nav">
-                        <ic-icon class="ws-project-icon" name="delete" size="small" aria-hidden="true"></ic-icon>
-                        <span class="ws-project-name" data-i18n="workspace.trash">回收站</span>
-                        <ic-badge id="trashBadge" class="ws-project-count ws-trash-badge" kind="count" tone="neutral">0</ic-badge>
-                    </span>
-                </ic-button>
-            </div>
+            <p id="projectSearchEmpty" class="ws-project-search-empty" data-i18n="workspace.noMatchingProjects" hidden>没有匹配的项目</p>
         </aside>
 
         <!-- RIGHT: board -->
         <main class="ws-main">
-            <!-- Board (pan/zoom) -->
-            <div id="board" class="ws-board" aria-busy="true">
-                <ic-canvas-grid></ic-canvas-grid>
-                <ic-toolbar class="ws-topbar-right" label="画布浏览操作" appearance="plain" data-ui-density="small">
-                    <ic-button id="pasteCanvasBtn" class="ws-paste-btn" type="button" hierarchy="secondary" title="粘贴画布" data-i18n-title="workspace.pasteHere" hidden><ic-icon slot="start" name="paste" aria-hidden="true"></ic-icon><span data-i18n="workspace.pasteHere">粘贴画布</span></ic-button>
-                    <ic-button id="boardLoadMore" class="ws-load-more-btn" type="button" hierarchy="secondary" title="加载更多" data-i18n-title="workspace.loadMoreCanvases" hidden><ic-icon slot="start" name="collection" aria-hidden="true"></ic-icon><span data-i18n="workspace.loadMore">加载更多</span></ic-button>
-                    <ic-icon-button id="boardResetView" class="ws-icon-btn" type="button" hierarchy="secondary" icon="reset-view" label="重置视图" data-i18n-label="workspace.resetView"></ic-icon-button>
+            <ic-canvas-grid class="ws-list-grid" aria-hidden="true"></ic-canvas-grid>
+            <header class="ws-list-header">
+                <div class="ws-list-heading">
+                    <h1 id="listProjectName" data-i18n="workspace.projects">项目</h1>
+                    <ic-toolbar class="ws-topbar-right" label="画布浏览操作" data-i18n-label="workspace.browseActions" appearance="plain" data-ui-density="small">
+                    <ic-button id="pasteCanvasBtn" class="ws-paste-btn" type="button" hierarchy="secondary" title="迁移到此项目" data-i18n-title="workspace.pasteHere" hidden><ic-icon slot="start" name="project" aria-hidden="true"></ic-icon><span data-i18n="workspace.pasteHere">迁移到此项目</span></ic-button>
+                    <ic-button id="trashEntry" class="ws-trash-entry" type="button" size="m" hierarchy="quiet"><ic-icon slot="start" class="ws-project-icon" name="delete" size="small" aria-hidden="true"></ic-icon><span data-i18n="workspace.trash">回收站</span><ic-badge id="trashBadge" slot="end" class="ws-trash-badge" kind="count" tone="neutral">0</ic-badge></ic-button>
                     <ic-icon-button id="boardRefresh" class="ws-icon-btn" type="button" hierarchy="secondary" icon="refresh" label="刷新" data-i18n-label="workspace.refresh"></ic-icon-button>
                     <ic-button id="newCanvasBtn" class="ws-primary-btn" type="button" hierarchy="primary"><ic-icon slot="start" name="add" aria-hidden="true"></ic-icon><span data-i18n="workspace.newCanvas">新建画布</span></ic-button>
-                </ic-toolbar>
+                    </ic-toolbar>
+                </div>
+                <div class="ws-list-filters">
+                    <ic-segmented-control id="visibilityFilter" label="画布分类" data-i18n-label="workspace.canvasCategories" size="medium" data-legal-combination="single-label" value="all">
+                        <button type="button" data-value="all" data-i18n="workspace.allCanvases">全部画布</button>
+                        <button type="button" data-value="shared" data-i18n="workspace.sharedCanvases">共享</button>
+                        <button type="button" data-value="mine" data-i18n="workspace.myCanvases">我的</button>
+                    </ic-segmented-control>
+                    <div class="ws-list-tools">
+                        <ic-input id="canvasSearch" type="search" placeholder="搜索画布" aria-label="搜索画布" data-i18n-placeholder="workspace.searchCanvases" data-i18n-aria-label="workspace.searchCanvases" clearable></ic-input>
+                        <ic-select id="canvasSort" name="canvas-sort" value="updated" aria-label="排序方式" data-i18n-aria-label="workspace.sortBy">
+                            <option value="updated" data-i18n="workspace.sortUpdated">最近修改</option>
+                            <option value="created" data-i18n="workspace.sortCreated">创建时间</option>
+                            <option value="title" data-i18n="workspace.sortTitle">名称</option>
+                        </ic-select>
+                        <ic-select id="canvasDirection" name="canvas-direction" value="desc" aria-label="排序顺序" data-i18n-aria-label="workspace.sortDirection">
+                            <option value="desc" data-i18n="workspace.sortDescending">降序</option>
+                            <option value="asc" data-i18n="workspace.sortAscending">升序</option>
+                        </ic-select>
+                    </div>
+                </div>
+            </header>
+            <div id="board" class="ws-board" aria-busy="true" tabindex="0" aria-label="画布列表" data-i18n-aria-label="workspace.canvasList">
                 <div id="boardWorld" class="ws-board-world"></div>
-                <ic-loading id="boardLoading" class="ws-board-loading" label="正在加载画布" data-i18n-label="workspace.loadingCanvases" presentation="region" loading-animation="brand"></ic-loading>
+                <div class="ws-list-footer"><ic-button id="boardLoadMore" class="ws-load-more-btn" type="button" hierarchy="secondary" title="加载更多" data-i18n-title="workspace.loadMoreCanvases" hidden><span data-i18n="workspace.loadMore">加载更多</span></ic-button></div>
+                <div id="boardLoading" class="ws-board-loading" role="status" aria-label="正在加载画布" data-i18n-aria-label="workspace.loadingCanvases">
+                    <div class="ws-board-world" aria-hidden="true"></div>
+                    <template id="boardSkeletonTemplate">
+                        <div class="ws-card-skeleton">
+                            <ic-skeleton class="ws-card-skeleton-cover" shape="rectangle"></ic-skeleton>
+                            <div class="ws-card-skeleton-info">
+                                <ic-skeleton shape="text"></ic-skeleton>
+                                <ic-skeleton shape="text"></ic-skeleton>
+                            </div>
+                        </div>
+                    </template>
+                </div>
                 <ic-empty-state id="boardEmptyHint" class="ws-board-empty hidden" title="暂无画布" label="画布列表为空">
                     <ic-icon slot="illustration" name="pointer" size="large" aria-hidden="true"></ic-icon>
                     <span data-i18n="workspace.createFirst">新建画布，开始创作。</span>
@@ -110,7 +137,7 @@
     <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
     <script src="/static/js/account-avatar.js?v=asset-e24180e8c9db"></script>
     <script src="/static/js/canvas-list-presence.js?v=asset-1b9a85388f49"></script>
-    <script src="/static/js/canvas-list.js?v=asset-b4fef486baf1"></script>
+    <script src="/static/js/canvas-list.js?v=asset-9f2a067c701d"></script>
 <script src="/static/js/agent-pairing.js?v=asset-282f940e0cec" defer></script>
 </body>
 </html>
