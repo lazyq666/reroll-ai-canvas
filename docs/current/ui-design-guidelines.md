@@ -37,6 +37,10 @@ Reroll 是桌面优先的 AI 视觉创作工作台，不是营销站、移动端
 
 ### 页面职责
 
+正常应用启动（LAZ-137）复用 `ic-page-loading`，只显示品牌加载标记和一行「Reroll 正在启动中… / Reroll is starting…」。不再重复展示品牌名称、WORKSPACE、标题卡和启动详情；需要重新连接、工作区交接、维护、重启及错误时保留相应说明和操作。Canvas 列表首次读取及刷新使用卡片骨架，遵循正式网格列数与封面比例，不再显示白底品牌加载浮层；加载与结果、空态、错误互斥。骨架只表达结构，状态通过中英文可访问名称传达，Reduced Motion 由公共组件处理。
+
+Canvas 列表是用于寻找与管理内容的 Page，使用固定字号的自适应卡片网格与正常纵向滚动，不复用 Smart Canvas 的平移、缩放、空间拖动或双击空白处创建行为。宽屏默认每行六张卡片，窄窗口逐级减少列数，节点数与时间使用三级文字色。当前项目、分类、搜索、排序和新建入口在内容区顶部；回收站作为明确功能入口。项目导航可搜索，窄屏移至顶部。卡片保留封面、名称、时间和协作者，不展示「可编辑」和「仅自己」标签；「我的」按创建者筛选，可见性通过更多菜单管理。筛选后的无结果、无权限、读取失败和加载状态分别呈现。具体行为与验收见 [Canvas 列表浏览](../active/2026-11-10-canvas-list-browsing.md)。
+
 | 层级 | 用途 | 设计要求 |
 | --- | --- | --- |
 | App Shell | 主导航、账号、设置与工作区入口 | 稳定、低干扰，不与当前任务争夺注意力 |
@@ -45,7 +49,7 @@ Reroll 是桌面优先的 AI 视觉创作工作台，不是营销站、移动端
 | Overlay | Dialog、Menu、Popover、Toast | 临时任务、明确关闭方式、焦点进入与返回完整 |
 | Feedback | Loading、Empty、Progress、Success、Failure | 说明发生了什么、是否影响已有结果、用户下一步是什么 |
 
-Canvas List 与 Smart Canvas 的无限空间背景统一使用纯装饰的公共 `ic-canvas-grid`。组件使用 `--ui-color-surface-canvas` 和 `--ui-color-border-canvas-grid`，通过 SVG 圆点图案绘制；100% 缩放时间距为 20px、圆点半径为 1px，尺寸与间距随视口同比例变化（50% 时为 10px / 0.5px，200% 时为 40px / 2px），不固定为屏幕像素大小。页面在自己的视口更新入口调用公共 `setViewport({x,y,scale})`，使网点与内容使用同一缩放比例和平移偏移；图案在世界坐标中固定，缩放和平移不会在屏幕上滑脱。组件始终铺满视口，默认视口为 `{x:0,y:0,scale:1}`，不接管 Pointer 命中、键盘导航、Pan/Zoom 手势或 Canvas 持久内容。页面把它放在 Canvas 内容之前，不得在页面 CSS 中叠加方格线或复制背景绘制；背景变化不新增保存或同步操作。验收覆盖浅色/深色、整数/非整数像素倍率、缩放与正负平移，以及真实滚轮缩放后网点和内容投影一致。
+Canvas List 与 Smart Canvas 的背景统一使用纯装饰的公共 `ic-canvas-grid`。Canvas List 将其铺满主内容区域，使用默认视口 `{x:0,y:0,scale:1}`，卡片在网点上方正常滚动；不因恢复网点而恢复无限空间交互。组件使用 `--ui-color-surface-canvas` 和 `--ui-color-border-canvas-grid`，通过 SVG 圆点图案绘制；100% 缩放时间距为 20px、圆点半径为 1px。Smart Canvas 在自己的视口更新入口调用公共 `setViewport({x,y,scale})`，使网点与内容使用同一缩放比例和平移偏移；图案在世界坐标中固定，缩放和平移不会在屏幕上滑脱。组件不接管 Pointer 命中、键盘导航、Pan/Zoom 手势或 Canvas 持久内容。页面把它放在内容之前，不得在页面 CSS 中叠加方格线或复制背景绘制；背景变化不新增保存或同步操作。验收覆盖列表的浅色/深色网点、滚动与点击，以及 Smart Canvas 的整数/非整数像素倍率、缩放与正负平移和真实滚轮缩放后网点与内容投影一致。
 
 Smart Canvas 的导航地图统一使用公共 `ic-smart-minimap`。当前 Viewport 内保持清晰且不绘制 Border，Viewport 外覆盖语义 `--ui-color-mask`，使“正在看哪里”先于节点细节被识别；地图内容背景使用 `--ui-color-surface`。Frame 使用自身主色的 20% 半透明色，Frame 内全部后代节点使用所属 Frame 主色的 30% 半透明色；嵌套 Frame 按最近且较小的 Frame 优先。Frame 外的 Smart Group 使用 `--ui-color-minimap-group`（Light 为 Gray 300），媒体与执行节点使用 `--ui-color-minimap-media`（Light 为 Blue 300），Prompt、Prompt Generation、Text Annotation 与 Brush Stroke 使用 `--ui-color-minimap-text`（Light 为 Green 300）。地图按世界坐标真实比例缩放节点，只有小于 1.5px 时才使用最小绘制尺寸，不得用过大的最小宽高把大范围画布里的相邻节点挤成色块。当 Viewport 的投影面积低于地图面积的 10% 时，地图围绕当前 Viewport 启用有上限的焦点投影，让 Viewport 和节点同步放大；焦点倍率最多为完整内容投影的 2 倍，不能只放大 Mask 镂空、因宽高比差异让某一边过度膨胀，或无限裁掉全局上下文。组件拥有固定单 SVG、世界坐标投影、语义图层、Mask、Pointer Capture、点击/拖拽导航和方向键导航；Smart Canvas 页面适配器只提交轻量的 `frame`、`group`、`text`、`media` 矩形、继承的 Frame 色与当前 Viewport，不得复制内部 SVG，或把完整 Node DOM 放进地图。交互预览位于 `/ui-component-library#smart-minimap`。
 
@@ -53,7 +57,7 @@ Smart Canvas 在导航地图内部底栏显示实时缩放百分比和“重置�
 
 重置退出概览模式、清除旧概览视图及浏览器滚动偏移，并居中适配全部顶层节点；空画布恢复 45% 并居中世界原点。操作保留节点与选区，只保存个人视图，不提交 Canvas Mutation。滚轮和键盘缩放统一限制为 2%–800%，到边界保持缩放锚点且可立即反向操作；投影视图也执行同一范围保护。渲染前检查世界中心坐标；非有限值或绝对值超过个人视图允许的 10 亿世界单位时，将异常轴恢复至世界原点，避免将失效坐标交给 CSS 或空间查询。验收覆盖极端缩放恢复、空画布、重复重置、概览退出和节点内容不变，回归入口为 `tests/smart_canvas_viewport_reset_test.cjs`；`node tests/smart_canvas_viewport_reset_server.cjs` 提供使用模拟 API 的生产页面验收入口，覆盖 Pointer、Keyboard、中英文、明暗主题和窄屏。工作项为 [Issue #71](https://github.com/lazyq666/reroll-ai-canvas/issues/71)。
 
-Canvas List 与 Smart Canvas 共享相同的 Wheel 手势方向：无 `Ctrl` / `Command` 修饰键的鼠标滚轮或触控板双指滑动平移 Canvas Viewport，`Ctrl` / `Command + Wheel` 才围绕 Pointer 位置缩放。两处都读取 Smart Canvas 的滑动与缩放设备偏好；Canvas List 不得把普通 Wheel 手势解释为缩放。
+Canvas List 使用浏览器正常的列表滚动，不读取 Smart Canvas 的滑动与缩放设备偏好。Smart Canvas 中，无 `Ctrl` / `Command` 修饰键的鼠标滚轮或触控板双指滑动平移 Canvas Viewport，`Ctrl` / `Command + Wheel` 才围绕 Pointer 位置缩放。
 
 Smart Canvas 的中键拖动、抓手左键拖动和空格加左键拖动，均由开始拖动的鼠标按键决定何时结束。松开其他按键不得提前结束或接管当前拖动。Pointer 在禁用按钮、节点编辑区或原生音频控件上松开后，不得继续带动画布；若控件吞掉松开事件，页面收到下一次鼠标移动时必须先核对按键状态，再决定是否平移。窗口失焦、页面隐藏或鼠标 Pointer 被取消时，清除正在拖动状态；失焦和隐藏同时清除临时工具状态。验收覆盖所有节点共用的结束逻辑、禁用控件、音频控件、多按键组合、抓手与空格拖动；事件回归入口为 `node --test tests/smart_canvas_pan_release_test.cjs`，工作项为 [LAZ-70](https://linear.app/lazyq/issue/LAZ-70)。
 
@@ -153,7 +157,7 @@ Nested Modal（Modal 上再开 Modal）目前不提供独立 Token，并继续�
 - Checkbox、Radio、Switch 与 Slider 的状态微动效由 Selection / Adjustment 公共组件统一拥有。Checkbox 勾选或混合标记、Radio 选中圆点从 `40%` 缩放与透明状态进入，透明度使用 `var(--ui-motion-duration-fast)`，缩放使用 `var(--ui-motion-duration-release)` 与 `var(--ui-motion-ease-spring)`；Checkbox 与 Radio 按住时控制体缩放到 `88%`。Switch Thumb 的位置变化使用同一 Release + Spring，按住时横向扩展至 `125%`、纵向压缩至 `86%`，解释拨动前的受力。Slider 只在按住 Thumb 时缩放到 `88%`，位置本身不得添加过渡，以免拖动落后于 Pointer。选中视觉必须读取组件实时 `:state(checked)` / `:state(indeterminate)`，不得把只表达初始默认值的静态 `checked` / `indeterminate` 属性当成当前状态。Disabled 与 Invalid 不播放按压形变；Reduced Motion 把持续时间压缩到 `1ms` 并移除按压形变，但保留清晰的最终选中位置与标记。业务页面不得通过 `::part` 复制或覆盖这些状态动画。
 - 导航与命令只为状态变化补动效，不给静态导航容器统一添加进场动画。Tabs 与 Segmented Control 在原有节点上切换选中态：Tabs 只过渡背景与文字颜色，Segmented Control 过渡背景、文字、边框和阴影，均使用 `var(--ui-motion-duration-fast)`；不添加移动下划线或滑动胶囊，以免不同宽度的标签和可滚动内容产生错误的空间暗示。Expandable Navigation（`ic-nav-disclosure`）在同一个内容节点上以 `200ms` 的 Grid Row 展开/收起并以 `var(--ui-motion-duration-fast)` 淡入淡出；Steps 在原有 Step 节点上过渡当前、完成和后续状态的背景、边框与文字颜色。Toolbar、Floating Toolbar、Navigation Item、Breadcrumb 与 Pagination 不拥有家族级装饰动画，其内部 Action 继续遵守 Actions 动效合同。Reduced Motion 把上述导航状态过渡压缩到 `1ms`。
 - 容器与数据展示保持稳定，不给 Card、Divider、List 或 Media Container 添加家族级进场、悬浮抬升或布局位移动画；这些组件只组织信息，反复播放装饰动画会干扰比较和阅读。Table 保留现有的行 Hover / Selected 背景色过渡，使用 `var(--ui-motion-duration-fast)`，但行的位置、尺寸和表格外壳不动；Reduced Motion 通过中央 Duration Token 把该过渡压缩到 `1ms`。Card 内的按钮、选择控件或媒体操作继续使用各自组件家族的动效，不由容器重复实现。
-- 内容加载和应用启动等待可以使用品牌加载动画：`<ic-loading presentation="region" loading-animation="brand">` 用 Reroll 标志的流体循环（标志 → 四个圆点 → 成环 → 标志，每圈 2 秒、顺时针 90°）表达打开画布、分享画布、归档和全景图等内容仍在载入；Region 下 `var(--ui-control-height-l)` 的标志位于文字上方。启动页在启动、等待安全重启、安全维护和重启中，将品牌栏静态图替换为同一个加载器；该处标志是装饰，状态由页面标题与详情表达，失败和需要用户恢复时显示静态品牌图。生成、处理、合成等生成中状态以及按钮和表单的紧凑 Busy 状态继续使用 Spinner、Orbs 或 Halftone；真实进度和已知内容结构继续使用 Progress 与 Skeleton。打开 Smart Canvas 时，组件升级前显示静态品牌标志与可见状态，等待文档时显示居中品牌加载；节点骨架出现后提示保持同一位置与尺寸，骨架继续显示；就绪或失败时关闭品牌加载，空画布及完整 GET 回退等待也必须保留可见状态。静态回退标志必须与动画的视框留白一致，组件升级不得造成缩放跳变。画布列表白底加载提示的文字使用 `--ui-font-size-3`（14px）。画布列表的加载与空状态互斥，项目权限未返回前不显示无项目结论，语言切换与重绘也不得将空状态叠在加载器后方。品牌动画从精确标志开始，隐藏、离屏或后台时暂停，Reduced Motion 下显示静态标志；矢量几何由 `static/js/infinite-canvas-ui/brand-motion.js` 统一持有，工作台入场与加载共用同一实现。
+- 内容加载和应用启动等待可以使用品牌加载动画：`<ic-loading presentation="region" loading-animation="brand">` 用 Reroll 标志的流体循环（标志 → 四个圆点 → 成环 → 标志，每圈 2 秒、顺时针 90°）表达打开画布、分享画布、归档和全景图等内容仍在载入；Region 下 `var(--ui-control-height-l)` 的标志位于文字上方。正常启动只显示品牌加载标记和一行状态；等待安全重启、安全维护和重启中保留品牌栏加载器与必要标题、详情，失败和需要用户恢复时显示静态品牌图。生成、处理、合成等生成中状态以及按钮和表单的紧凑 Busy 状态继续使用 Spinner、Orbs 或 Halftone；真实进度和已知内容结构继续使用 Progress 与 Skeleton。打开 Smart Canvas 时，组件升级前显示静态品牌标志与可见状态，等待文档时显示居中品牌加载；节点骨架出现后提示保持同一位置与尺寸，骨架继续显示；就绪或失败时关闭品牌加载，空画布及完整 GET 回退等待也必须保留可见状态。静态回退标志必须与动画的视框留白一致，组件升级不得造成缩放跳变。画布列表使用正式网格结构的卡片骨架，不显示白底加载浮层；加载与空状态互斥，项目权限未返回前不显示无项目结论，语言切换与重绘也不得将空状态叠在骨架后方。品牌动画从精确标志开始，隐藏、离屏或后台时暂停，Reduced Motion 下显示静态标志；矢量几何由 `static/js/infinite-canvas-ui/brand-motion.js` 统一持有，工作台入场与加载共用同一实现。
 - 空状态与加载占位保留已有且职责明确的动效：`ic-loading` 用连续旋转表达未知时长，`ic-progress` 用 `var(--ui-motion-duration-normal)` 连接真实数值变化，`ic-skeleton` 用流光表达已知内容结构尚未就绪，`ic-generation-pending` 用受帧率和可见性约束的 Halftone 表达持续生成。真正的 `ic-empty-state`、空上传节点及远景静态媒体/文本占位不添加淡入、呼吸或循环装饰，因为“没有内容”不是“仍在处理”。Reduced Motion 下停止 Spinner、Skeleton 与 Halftone 的连续循环，Progress 立即显示新宽度；组件仍保留最终视觉、状态文字和无障碍语义。
 
 ## 5. 组件选择

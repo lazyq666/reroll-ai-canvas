@@ -10,17 +10,18 @@ const timers = [];
 let failing = true;
 let language = 'zh';
 const context = vm.createContext({
-  Blob, Map, clearTimeout(){},setTimeout(fn){timers.push(fn);return timers.length;},console:{error(){}},
+  Blob, Map, URLSearchParams, listQuery:{}, listRequestId:0, listPendingRequestId:0, clearTimeout(){},setTimeout(fn){timers.push(fn);return timers.length;},console:{error(){}},
   window:{StudioI18n:{register:entries=>Object.assign(dictionary,entries)}},
   tr:key=>dictionary[key]?.[language] || key,L:(zh,en)=>language==='zh'?zh:en,
   performance:{now:()=>0,mark(){}},currentProjectId:'default',projects:[],canvases:[],currentUser:{role:'admin'},
   canvasPageState:new Map(),canvasListPerformance:{batches:[]},canvasListPageLeaving:false,
   canvasListLoadError:null,canvasListLoadRetryTimer:null,canvasListProjectsPending:false,renderBatchToken:0,
   board:{getAttribute:()=> 'false'},
-  newCanvasBtn:{},emptyCreateCanvasBtn:{hidden:false},newProjectBtn:{},boardLoadMoreBtn:null,
+  newCanvasBtn:{},emptyCreateCanvasBtn:{hidden:false,querySelector:()=>null},newProjectBtn:{},boardLoadMoreBtn:null,
   boardWorld:{},boardEmptyHint:{setAttribute:(key,value)=>values[key]=value,
     querySelector:()=>({setAttribute:(key,value)=>values['description:'+key]=value,set textContent(value){values.description=value;}}),classList:{toggle:(_key,value)=>values.hidden=value}},
   canvasesInProject(){return context.canvases;},cachedProjectCanvases:()=>[],cacheProjectCanvases(){},
+  filteredCanvasItems(){return context.canvases;},
   setBoardLoading(){},rememberProjectId(){},updateBoardHeader(){},autoLayoutNulls(){},renderCanvasBatch(){},
   resetView(){},renderProjects(){},updatePasteBtn(){},refreshIcons(){},closeNewProject(){},setStatus(){},refreshTrashCount(){},
   fetch:async url=>url==='/api/projects'

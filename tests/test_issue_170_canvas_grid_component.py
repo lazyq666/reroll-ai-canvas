@@ -36,8 +36,8 @@ class Issue170CanvasGridComponentTests(unittest.TestCase):
         smart_canvas_page = SMART_CANVAS_PAGE.read_text(encoding="utf-8")
 
         self.assertIn(
-            '<div id="board" class="ws-board" aria-busy="true">\n'
-            '                <ic-canvas-grid></ic-canvas-grid>',
+            '<main class="ws-main">\n'
+            '            <ic-canvas-grid class="ws-list-grid" aria-hidden="true"></ic-canvas-grid>',
             canvas_list_page,
         )
         self.assertIn(

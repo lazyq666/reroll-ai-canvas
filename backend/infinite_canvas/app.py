@@ -223,19 +223,7 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
             f'label="{safe_title}" data-i18n-label="{title_key}" aria-hidden="true">'
             f'{brand_mark}</ic-loading>'
         )
-    return f"""<!doctype html>
-<html lang="zh-CN" data-ui-scope="runtime" data-studio-scale="off">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title data-i18n="{title_key}">{safe_title}</title>
-  <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
-  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
-  <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-03dd58606543"></script>
-  <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-</head>
-<body class="runtime-page">
+    page_content = f"""
   <main class="runtime-shell">
     <div class="runtime-brand" aria-label="Reroll">
       {brand_mark}
@@ -249,7 +237,28 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
         <div class="runtime-actions">{action}</div>
       </div>
     </ic-card>
-  </main>
+  </main>"""
+    if status.stage == RuntimeStage.STARTING and detail_key == "runtime.startingDetail":
+        page_content = f"""
+  <main class="ic-page-loading">
+    {brand_mark}
+    <p class="ic-page-loading-status" role="status" aria-live="polite" data-i18n="runtime.startingDetail">Reroll 正在启动中…</p>
+  </main>"""
+    return f"""<!doctype html>
+<html lang="zh-CN" data-ui-scope="runtime" data-studio-scale="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title data-i18n="{title_key}">{safe_title}</title>
+  <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
+  <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
+  <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
+  <link rel="stylesheet" href="/static/css/page-loading.css?v=asset-48cf584c51c9">
+  <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
+  <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
+</head>
+<body class="runtime-page">
+  {page_content}
   <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
@@ -302,7 +311,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-03dd58606543"></script>
+  <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -493,7 +502,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=asset-03dd58606543"></script>
+  <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">

@@ -4620,7 +4620,7 @@ def iter_canvas_records(include_deleted=False):
         )
     ]
 
-def list_canvas_page(*, project="", cursor="", limit=0, deleted=False):
+def list_canvas_page(*, project="", cursor="", limit=0, deleted=False, search="", visibility="", mine=False, sort="updated", direction="desc"):
     actor = require_current_user("admin", "designer")
     return CANVAS_LIST_INDEX.list_records(
         actor,
@@ -4628,6 +4628,11 @@ def list_canvas_page(*, project="", cursor="", limit=0, deleted=False):
         deleted=bool(deleted),
         cursor=str(cursor or ""),
         limit=int(limit or 0),
+        search=search,
+        visibility=visibility,
+        mine=mine,
+        sort=sort,
+        direction=direction,
     )
 
 def list_canvases(*, project="", cursor="", limit=0):
@@ -9777,10 +9782,11 @@ async def delete_workspace_asset_folder(folder_id: str):
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 @app.get("/api/canvases")
-async def canvases(project: str = "", cursor: str = "", limit: int = 0):
+async def canvases(project: str = "", cursor: str = "", limit: int = 0, search: str = "", visibility: str = "", mine: bool = False, sort: str = "updated", direction: str = "desc"):
     started = time.perf_counter()
     page = await asyncio.to_thread(
-        list_canvas_page, project=project, cursor=cursor, limit=limit
+        list_canvas_page, project=project, cursor=cursor, limit=limit,
+        search=search, visibility=visibility, mine=mine, sort=sort, direction=direction,
     )
     return {
         "canvases": page.records,
