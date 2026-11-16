@@ -15,6 +15,7 @@ from infinite_canvas.generation_runs import (
     ImageRun,
     RecoveryRun,
     TextRun,
+    generation_failure_details,
 )
 from infinite_canvas.providers.core import Capability, Completed, Pending
 from infinite_canvas.providers.runtime import (
@@ -32,12 +33,30 @@ class UnusedEffects:
 
 
 class GenerationTimeoutDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
-    async def test_transport_timeouts_keep_type_without_inventing_http_status(self):
+    def test_empty_transport_errors_keep_class_and_do_not_invent_http_500(self):
+        for exception_type in (httpx.ConnectError, httpx.ReadError, httpx.WriteError, httpx.RemoteProtocolError):
+            with self.subTest(exception_type=exception_type.__name__):
+                detail, status = generation_failure_details(exception_type(""))
+                self.assertEqual(f"provider_connection_interrupted: {exception_type.__name__}", detail)
+                self.assertEqual(0, status)
+
+    def test_empty_internal_exception_has_safe_type(self):
+        self.assertEqual(
+            ("application_internal_error: AssertionError", 500),
+            generation_failure_details(AssertionError()),
+        )
+
+    async def test_transport_errors_keep_type_without_inventing_http_status(self):
         for exception_type in (
             httpx.ConnectTimeout,
             httpx.ReadTimeout,
             httpx.WriteTimeout,
             httpx.PoolTimeout,
+            httpx.ConnectError,
+            httpx.ReadError,
+            httpx.WriteError,
+            httpx.RemoteProtocolError,
+            httpx.ProxyError,
         ):
             with self.subTest(exception_type=exception_type.__name__):
                 with tempfile.TemporaryDirectory() as temporary:
@@ -61,7 +80,8 @@ class GenerationTimeoutDiagnosticsTests(unittest.IsolatedAsyncioTestCase):
                         await runs.start(request, key="same-submission", owner="designer")
                     # Reading a repeated operation must not submit a paid request again.
                     failed = await runs.start(request, key="same-submission", owner="designer")
-                    expected = f"provider_network_timeout: {exception_type.__name__}"
+                    prefix = "provider_network_timeout" if isinstance(error, httpx.TimeoutException) else "provider_connection_interrupted"
+                    expected = f"{prefix}: {exception_type.__name__}"
                     self.assertEqual("failed", failed.status)
                     self.assertEqual(expected, failed.error)
                     self.assertEqual(0, failed.status_code)
@@ -301,6 +321,7 @@ class GenerationTimeoutHttpBoundaryTests(unittest.IsolatedAsyncioTestCase):
     async def test_failed_run_timeout_keeps_local_504_without_changing_real_500(self):
         for detail, stored_status, expected_status in (
             ("provider_network_timeout: ConnectTimeout", 0, 504),
+            ("provider_connection_interrupted: ConnectError", 0, 502),
             ("real upstream failure", 500, 500),
             ("unclassified failure", 0, 500),
         ):

@@ -175,11 +175,13 @@ class CustomImageTransportTests(unittest.IsolatedAsyncioTestCase):
                 client=Mock();client.post=post
                 manager=AsyncMock();manager.__aenter__.return_value=client
                 with http_impl.bind_ports(main._PROVIDER_PORTS.http_impl), patch.object(main,'get_api_provider',return_value=provider), patch.object(main,'output_file_from_url',return_value=str(path)), patch.object(main,'reference_to_data_url',return_value='data:image/png;base64,AA=='), patch.object(http_impl,'api_headers',return_value={}), patch.object(http_impl,'responses_input_image_url',new=AsyncMock(return_value='data:image/png;base64,AA==')), patch.object(http_impl,'post_openai_responses',new=responses), patch.object(http_impl.httpx,'AsyncClient',return_value=manager), self.assertRaises(StopBeforeNetwork):
-                    await http_impl.generate_http_provider_image('test','1920x1088','high','gpt-image-2',[{'url':'/assets/reference.png'}] if refs else [],'exact',custom_size=True)
+                    await http_impl.generate_http_provider_image('test','1920x1088','auto' if mode == 'openai-json' else 'high','gpt-image-2',[{'url':'/assets/reference.png'}] if refs else [],'exact',custom_size=True)
                 self.assertEqual(1,len(captured))
                 request=captured[0]
                 size=request['json']['tools'][0]['size'] if mode=='openai-responses' else (request.get('json') or request.get('data'))['size']
                 self.assertEqual('1920x1088',size)
+                if mode == 'openai-json':
+                    self.assertNotIn('quality', request['json'])
 
     async def test_apimart_exact_dimensions_bypass_ratio_and_tier_conversion(self):
         for custom in [True, False]:
@@ -193,7 +195,7 @@ class CustomImageTransportTests(unittest.IsolatedAsyncioTestCase):
                     client=Mock(); client.post=post
                     manager=AsyncMock(); manager.__aenter__.return_value=client
                     with http_impl.bind_ports(main._PROVIDER_PORTS.http_impl), patch.object(main,'get_api_provider',return_value=provider), patch.object(main,'reference_to_data_url',return_value='data:image/png;base64,AA=='), patch.object(http_impl,'api_headers',return_value={}), patch.object(http_impl.httpx,'AsyncClient',return_value=manager), self.assertRaises(StopBeforeNetwork):
-                        await http_impl.generate_http_provider_image('test','1920x1088','high','gpt-image-2',[{'url':'/assets/reference.png'}] if refs else [],'apimart',custom_size=custom)
+                        await http_impl.generate_http_provider_image('test','1920x1088','auto','gpt-image-2',[{'url':'/assets/reference.png'}] if refs else [],'apimart',custom_size=custom)
                     self.assertEqual(1,len(captured))
                     url, body=captured[0]
                     self.assertTrue(url.endswith('/v1/images/generations'))
@@ -204,3 +206,4 @@ class CustomImageTransportTests(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual('2k',body['resolution'])
                     self.assertEqual(refs, 'image_urls' in body)
                     self.assertFalse(body['official_fallback'])
+                    self.assertNotIn('quality', body)

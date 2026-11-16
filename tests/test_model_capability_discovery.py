@@ -98,6 +98,41 @@ The arrays correspond by index; index `0` is always the base image.
 
 
 class ApiMartSeedreamDocsSourceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_rendered_markdown_parameter_labels_preserve_semantic_evidence(self):
+        rendered = APIMART_MARKDOWN.replace(
+            b'<ParamField body="layer_decomposition" type="boolean" default="false">',
+            b'**layer\\_decomposition** `boolean` (default: false)',
+        ).replace(
+            b'<ParamField body="n" type="integer" default="1">',
+            b'**n** `integer` (default: 1)',
+        ).replace(b"</ParamField>", b"")
+
+        async def fetcher(_url, _headers):
+            return 200, {"Content-Type": "text/markdown"}, rendered
+
+        snapshot = await ApiMartSeedreamDocsSource(fetcher=fetcher, clock=lambda: NOW).collect()
+        self.assertEqual(1, snapshot.records[0]["capability"]["parameters"]["count"]["maximum"])
+
+        async def original_fetcher(_url, _headers):
+            return 200, {"Content-Type": "text/markdown"}, APIMART_MARKDOWN
+
+        original = await ApiMartSeedreamDocsSource(fetcher=original_fetcher, clock=lambda: NOW).collect()
+        self.assertEqual(original, snapshot)
+
+        for previous, replacement in (
+            (b'**n** `integer` (default: 1)', b'**n** `integer` (default: 2)'),
+            (b'**layer\\_decomposition** `boolean`', b'**layer\\_decomposition** `string`'),
+            (b'up to 16 PNG layers', b'up to 8 PNG layers'),
+        ):
+            with self.subTest(replacement=replacement):
+                changed = rendered.replace(previous, replacement)
+
+                async def changed_fetcher(_url, _headers):
+                    return 200, {"Content-Type": "text/markdown"}, changed
+
+                with self.assertRaisesRegex(ValueError, "documentation changed"):
+                    await ApiMartSeedreamDocsSource(fetcher=changed_fetcher).collect()
+
     async def test_official_markdown_becomes_exact_layer_decomposition_candidate(self):
         calls = []
 

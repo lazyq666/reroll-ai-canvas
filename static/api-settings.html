@@ -20,7 +20,7 @@
     </script>
     <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
     <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
-    <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
+    <script src="/static/js/i18n.js?v=asset-e66d851902f7"></script>
     <script src="/static/js/model-vendor-icons.js?v=asset-7200f8114f54"></script>
     <link rel="stylesheet" href="/static/css/theme.css?v=asset-f59222b3057c">
     <link rel="stylesheet" href="/static/css/api-settings.css?v=asset-216ce30de9a7">
@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="/static/css/cli-updates.css?v=asset-3ba4cc278f6d">
     <link rel="stylesheet" href="/static/css/model-vendor-icons.css?v=asset-105bebbed5a6">
     <link rel="stylesheet" href="/static/css/available-model-management.css?v=asset-1608f5a4cf38">
-    <link rel="stylesheet" href="/static/css/model-providers.css?v=asset-23950284fb42">
+    <link rel="stylesheet" href="/static/css/model-providers.css?v=asset-a159ba67d2f0">
     <script src="/static/js/available-model-management-state.js?v=asset-b3f96dc1ade0"></script>
 </head>
 <body>
@@ -279,14 +279,12 @@
                         <div slot="header" class="models-card-header">
                             <ic-heading id="modelsTitle" class="card-heading models-title" level="3" data-i18n="api.modelsTitle" data-legal-combination="h3-title">模型列表</ic-heading>
                             <ic-toolbar id="modelsHead" class="models-actions-toolbar" appearance="plain" label="模型列表操作" data-i18n-label="api.modelsActions">
+                                <ic-button id="editProviderModels" hierarchy="quiet" onclick="showModelParameterList()" data-i18n="providers.editParameters">编辑模型参数</ic-button>
+                                <ic-button id="fetchModelsBtn" hierarchy="quiet" onclick="fetchModels()"><span data-i18n="providers.refreshModels">刷新列表</span></ic-button>
                                 <ic-button id="manualModelToggle" hierarchy="quiet" onclick="openManualModel()" aria-controls="manualModelPanel" aria-expanded="false" data-i18n="providers.manualModel">手动添加</ic-button>
                             </ic-toolbar>
                         </div>
 
-                        <ic-tabs id="modelSourceTabs" label="模型来源" data-i18n-label="providers.modelSource" value="added" activation="automatic" data-legal-combination="horizontal-automatic-label">
-                            <button data-value="added" data-i18n="providers.addedModels">已添加</button>
-                            <button id="fetchModelsBtn" data-value="catalog"><span data-i18n="providers.providerCatalog">供应商列表</span></button>
-                        </ic-tabs>
                         <section id="manualModelPanel" class="manual-model-panel" aria-label="手动添加模型" data-i18n-aria-label="providers.manualModel" hidden>
                             <div class="manual-model-fields">
                                 <ic-input id="manualModelId" name="manual_model_id" label="模型 ID" data-i18n-label="api.modelId" hint="粘贴供应商提供的模型 ID，例如 gpt-image-2。" data-i18n-hint="providers.modelIdHelp"></ic-input>
@@ -325,11 +323,11 @@
                                 <ic-button id="pickerShowMore" hierarchy="quiet" onclick="showMorePickerModels()" hidden></ic-button>
                                 <div class="model-inline-actions">
                                     <span id="pickerCount" role="status"></span>
-                                    <ic-button id="applyModelPickerBtn" hierarchy="primary" onclick="applyModelPicker()" data-i18n="providers.saveSelection">添加所选模型</ic-button>
                                 </div>
                             </div>
                         </section>
-                        <div id="addedModelPanel">
+                        <div id="addedModelPanel" hidden>
+                        <ic-button hierarchy="quiet" onclick="setModelSource('catalog')" data-i18n="providers.backToModels">返回模型列表</ic-button>
                         <ic-alert id="page-message" hidden></ic-alert>
                         <ic-alert id="capability-message" hidden></ic-alert>
                         <div id="modelUndo" class="model-undo" role="status" hidden><span data-i18n="providers.modelRemoved">已移除模型</span><ic-button hierarchy="quiet" onclick="undoRemoveModel()" data-i18n="providers.undo">撤销</ic-button></div>
@@ -364,9 +362,6 @@
                         </ic-card>
                 </div>
                 </section>
-        </div>
-        <div class="provider-detail-actions">
-            <ic-button hierarchy="secondary" onclick="goToCreation()" data-i18n="providers.create">前往创作</ic-button>
         </div>
     </section>
 
@@ -470,7 +465,10 @@
         <ic-loading id="capability-editor-loading" label="加载中..." data-i18n-label="common.loading" presentation="region" hidden></ic-loading>
         <section id="capability-editor" class="capability-product-editor" aria-labelledby="capability-editor-title">
             <div class="capability-editor-heading"><div><h3 id="capability-editor-title"></h3><p id="capability-editor-model-id"></p></div></div>
-            <p class="capability-editor-intro" data-i18n="models.capabilityEditorIntro">选择这个模型可以接收的素材和可以生成的结果。保存后会应用到使用该模型的所有平台。</p>
+            <ic-menu id="capability-more" label="更多" data-i18n-label="providers.more">
+                <ic-button slot="trigger" hierarchy="quiet" onclick="document.getElementById('capability-more').show(this)" data-i18n="providers.more">更多</ic-button>
+                <ic-menu-item id="capability-restore" label="恢复自动填参前的参数" data-i18n-label="providers.restoreParameters"></ic-menu-item>
+            </ic-menu>
             <div id="capability-operation-editors" class="capability-operation-editors"></div>
             <details class="capability-source-details"><summary data-i18n="models.sourceDetails">查看资料</summary><p id="capability-editor-source-summary"></p></details>
         </section>
@@ -493,9 +491,9 @@
         <ic-button slot="footer" hierarchy="primary" id="api-transfer-submit" data-i18n="api.continue">继续</ic-button>
     </ic-dialog>
     <ic-confirmation-dialog id="apiImportConfirmation" label="确认导入备份" data-i18n-label="api.confirmImportTitle" description="按平台 ID 更新或新增配置。" data-i18n-description="api.confirmPackageImport" cancel-label="取消" data-i18n-cancel-label="common.cancel" confirm-label="确认导入" data-i18n-confirm-label="api.confirmImportAction" consequence="neutral"><p data-confirmation-copy data-i18n="api.confirmPackageImport">按平台 ID 更新或新增配置。</p></ic-confirmation-dialog>
-    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
-    <script src="/static/js/available-model-management.js?v=asset-420482543eeb" defer></script>
-    <script type="module" src="/static/js/model-capability-workbench.js?v=asset-3e07a25ecca1"></script>
-    <script src="/static/js/api-settings.js?v=asset-16ffe68e77fb" defer></script>
+    <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-a554ba70fd5a"></script>
+    <script src="/static/js/available-model-management.js?v=asset-01996ccd5100" defer></script>
+    <script type="module" src="/static/js/model-capability-workbench.js?v=asset-f2881350ccdf"></script>
+    <script src="/static/js/api-settings.js?v=asset-1f8c011679c4" defer></script>
 </body>
 </html>

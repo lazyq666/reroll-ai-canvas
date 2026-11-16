@@ -179,6 +179,10 @@ function smartImageCapabilityReconcile(settings={}, capability={}, references=[]
     const customRatioHeightKey = prefix ? `${prefix}CustomRatioHeight` : 'customRatioHeight';
     const next = {...settings};
     const invalidated = [];
+    const qualities = capability.model_capability?.parameters?.quality?.values;
+    if(!prefix && capability.known && qualities?.length && !qualities.includes(next.quality || 'auto')){
+        invalidated.push('quality');
+    }
     if(!prefix && capability.known && !capability.supports_custom_resolution && smartImageCustomActive(next)){
         next.pixelWidth = ''; next.pixelHeight = '';
         invalidated.push('custom_size');

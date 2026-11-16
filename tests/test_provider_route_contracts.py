@@ -34,6 +34,24 @@ class ProviderRouteContractTests(unittest.TestCase):
         global main
         main = import_fresh_main()
 
+    def test_dreamina_legacy_quality_reaches_cli_without_quality_argument(self):
+        provider = {"id": "jimeng", "protocol": "jimeng"}
+        references = [{"url": "/assets/reference.png"}]
+        runtime = replace(main._PROVIDER_RUNTIME, provider_lookup=lambda _provider_id: provider)
+        for quality in ("auto", "low", "medium", "high"):
+            with self.subTest(quality=quality):
+                executor = mock.AsyncMock(return_value="/assets/generated.png")
+                with mock.patch.object(cli_impl, "generate_jimeng_provider_image", executor):
+                    result = asyncio.run(runtime.execute_image(
+                        "Turn the subject into a 3D avatar", "1536x2048",
+                        quality, "5.0Pro", references, "jimeng",
+                    ))
+                self.assertEqual("/assets/generated.png", result.output.legacy)
+                executor.assert_awaited_once_with(
+                    "Turn the subject into a 3D avatar", "1536x2048",
+                    "5.0Pro", references, provider,
+                )
+
     def test_bound_codex_image_executor_preserves_checkpoint_signature(self):
         calls = []
 

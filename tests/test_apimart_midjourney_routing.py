@@ -137,7 +137,7 @@ class ApimartMidjourneyRoutingTests(unittest.TestCase):
                 main.generate_ai_image(
                     "a studio portrait",
                     "1024x1024",
-                    "high",
+                    "auto",
                     "gpt-image-2",
                     [],
                     "apimart",
@@ -209,7 +209,7 @@ class ApimartMidjourneyRoutingTests(unittest.TestCase):
                 main.generate_ai_image(
                     "a transparent icon",
                     "1024x1024",
-                    "high",
+                    "auto",
                     "gpt-image-2-official",
                     [],
                     "apimart",

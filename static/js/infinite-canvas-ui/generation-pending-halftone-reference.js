@@ -1,4 +1,4 @@
-import './core.js?v=asset-043141897598';
+import './core.js?v=asset-a554ba70fd5a';
 
 const TARGET_FRAME_MS = 1000 / 24;
 const DPR_LIMIT = 1.5;

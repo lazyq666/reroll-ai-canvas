@@ -19,7 +19,7 @@ from infinite_canvas.generation_runs import (
     ProviderGenerationExecutor, WorkspaceGenerationEffects,
 )
 from infinite_canvas.providers.core import Completed
-from infinite_canvas.providers.runtime import ProviderOutput
+from infinite_canvas.providers.runtime import ProviderOutput, _image_call
 from infinite_canvas.image_formats import validate_image_format
 from infinite_canvas.model_capability_matrix import ModelCapabilityMatrix
 from tests.test_model_capabilities import catalog
@@ -60,6 +60,47 @@ def published_catalog(path):
 
 
 class ApimartImageRequestTests(unittest.IsolatedAsyncioTestCase):
+    async def test_non_quality_adapter_rejects_extended_value_without_calling_executor(self):
+        executor = AsyncMock()
+        with self.assertRaises(HTTPException) as caught:
+            await _image_call(executor)(
+                provider={"id": "gemini"}, prompt="test", size="1024x1024",
+                quality="xhigh", model="gemini-image",
+            )
+        self.assertEqual(422, caught.exception.status_code)
+        executor.assert_not_awaited()
+
+    async def test_generic_http_keeps_supported_quality_and_omits_auto(self):
+        provider = dict(id="other", name="Other", protocol="openai", base_url="https://example.test")
+        for quality in ("auto", "low", "medium", "high"):
+            sent = []
+
+            async def post(url, **kwargs):
+                sent.append(kwargs["json"])
+                return httpx.Response(200, request=httpx.Request("POST", url), json={
+                    "data": [{"url": "https://example.test/output.png"}],
+                })
+
+            manager = AsyncMock()
+            manager.__aenter__.return_value = SimpleNamespace(post=post)
+            with http_impl.bind_ports(main._PROVIDER_PORTS.http_impl), patch.object(main, "get_api_provider", return_value=provider), patch.object(main, "provider_env_key_value", return_value="test"), patch.object(http_impl.httpx, "AsyncClient", return_value=manager):
+                await http_impl.generate_http_provider_image("test", "1024x1024", quality, "image-model", [], "other")
+            self.assertEqual(None if quality == "auto" else quality, sent[0].get("quality"))
+
+    async def test_unsupported_explicit_quality_is_rejected_before_transport(self):
+        for provider, model, quality in [
+            (dict(id="apimart", protocol="apimart", base_url="https://api.apimart.ai"), "gpt-image-2.5-ext", "xhigh"),
+            (dict(id="apimart", protocol="apimart", base_url="https://api.apimart.ai"), "gemini-image", "high"),
+            (dict(id="other", protocol="openai", base_url="https://example.test"), "gpt-image-2", "max"),
+        ]:
+            with self.subTest(model=model, quality=quality):
+                with http_impl.bind_ports(main._PROVIDER_PORTS.http_impl), patch.object(main, "get_api_provider", return_value=provider), patch.object(http_impl.httpx, "AsyncClient") as client:
+                    with self.assertRaises(HTTPException) as caught:
+                        await http_impl.generate_http_provider_image("test", "1024x1024", quality, model, [], provider["id"])
+                    self.assertEqual(422, caught.exception.status_code)
+                    self.assertEqual("quality", caught.exception.detail["field"])
+                    client.assert_not_called()
+
     async def capture(self, registry, model, quality, refs=False, **changes):
         provider = dict(
             id="apimart", name="APIMart", protocol="apimart",

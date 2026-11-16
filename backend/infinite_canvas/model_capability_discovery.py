@@ -144,6 +144,17 @@ class ApiMartSeedreamDocsSource:
         except UnicodeDecodeError as error:
             raise ValueError("APIMART docs returned invalid UTF-8") from error
         normalized = re.sub(r"\s+", " ", markdown)
+        for rendered, original in (
+            (
+                r"**layer\_decomposition** `boolean` (default: false)",
+                '<ParamField body="layer_decomposition" type="boolean"',
+            ),
+            (
+                "**n** `integer` (default: 1)",
+                '<ParamField body="n" type="integer" default="1"',
+            ),
+        ):
+            normalized = normalized.replace(rendered, original)
         if any(marker not in normalized for marker in self._REQUIRED_MARKERS):
             raise ValueError("APIMART layer-decomposition documentation changed")
         digest = hashlib.sha256(
@@ -401,6 +412,7 @@ class ApiMartModelsCapabilitySource:
         "quality": "quality",
         "background": "background",
         "response_format": "response_format",
+        "output_format": "output_format",
         "seed": "seed",
         "fps": "fps",
         "steps": "steps",
@@ -461,6 +473,7 @@ class ApiMartModelsCapabilitySource:
                 continue
             candidate_parameters = self._parameters(schema)
             for operation, support_state in operations.items():
+                operation_parameters = copy.deepcopy(candidate_parameters)
                 output_kind = operation.split(".", 1)[0]
                 output: dict[str, Any] = {"kind": output_kind}
                 count = candidate_parameters.get("count")
@@ -489,6 +502,41 @@ class ApiMartModelsCapabilitySource:
                     "capability_tags": tags,
                     "model_parameters": copy.deepcopy(dict(parameters)),
                 }
+                inputs = {}
+                for field, input_type in (
+                    ("images", "image"), ("image_urls", "image"), ("reference_images", "image"),
+                    ("videos", "video"), ("video_urls", "video"),
+                    ("audios", "audio"), ("audio_urls", "audio"),
+                ):
+                    contract = schema_properties.get(field)
+                    if not isinstance(contract, Mapping) or contract.get("type") != "array":
+                        continue
+                    maximum = contract.get("maxItems")
+                    if not isinstance(maximum, int) or isinstance(maximum, bool):
+                        continue
+                    minimum = contract.get("minItems", 0) if field in schema.get("required", []) else 0
+                    inputs[input_type] = {"minimum": minimum, "maximum": maximum, "required": minimum > 0}
+                if operation.startswith("image."):
+                    if "resolutions" in output:
+                        output["resolution_tiers"] = output.pop("resolutions")
+                        operation_parameters["resolution_tier"] = operation_parameters.pop("resolution")
+                        media_contract["resolution_tiers"] = copy.deepcopy(output["resolution_tiers"])
+                    if "aspect_ratios" in output:
+                        media_contract["aspect_ratios"] = copy.deepcopy(output["aspect_ratios"])
+                    if "maximum" in output.get("count", {}):
+                        media_contract["output_count_maximum"] = output["count"]["maximum"]
+                    if "image" in inputs:
+                        media_contract["image_input_maximum"] = inputs["image"]["maximum"]
+                    if "enhance_prompt" in operation_parameters:
+                        operation_parameters["prompt_enhancement"] = operation_parameters.pop("enhance_prompt")
+                    background = operation_parameters.get("background", {}).get("values", [])
+                    if background:
+                        transparent = "transparent" in background
+                        operation_parameters["transparent_png"] = {
+                            "type": "boolean", "values": [False, True] if transparent else [False],
+                            "default": False, "visible": transparent, "editable": transparent,
+                        }
+                        media_contract["supports_transparent_png"] = transparent
                 records.append(
                     {
                         "provider_id": self.provider_id,
@@ -498,9 +546,9 @@ class ApiMartModelsCapabilitySource:
                             "support_state": support_state,
                             "source": "APIMART Models API",
                             "source_url": self.source_locator,
-                            "inputs": {},
+                            "inputs": inputs,
                             "output": output,
-                            "parameters": candidate_parameters,
+                            "parameters": operation_parameters,
                             "media_contract": media_contract,
                         },
                         "confidence": "medium",
@@ -560,10 +608,14 @@ class ApiMartModelsCapabilitySource:
             }
             if parameter_type == "enum":
                 contract["values"] = copy.deepcopy(values[:100])
+            if parameter_type == "boolean":
+                contract["values"] = [False, True]
+                contract["visible"] = True
+                contract["editable"] = True
             for key in ("minimum", "maximum", "default"):
                 value = raw_contract.get(key)
-                if isinstance(value, (str, int, float, bool)) or value is None:
-                    if key != "default" or "default" in raw_contract:
+                if key in raw_contract and value is not None:
+                    if isinstance(value, (str, int, float, bool)):
                         contract[key] = value
             existing = result.get(name)
             if existing is None or len(contract) > len(existing):
@@ -991,7 +1043,7 @@ class DreaminaCliCapabilitySource:
 
 
 class ModelCapabilityDiscovery:
-    """Materialize explicit model-fetch evidence without publishing it."""
+    """Collect model-fetch evidence and apply it when an administrator authorizes it."""
 
     def __init__(self, *, workbench: ModelCapabilityWorkbench, catalog: Any) -> None:
         self.workbench = workbench
@@ -1007,6 +1059,7 @@ class ModelCapabilityDiscovery:
         discovery: Mapping[str, Any] | None,
         model_ids: Sequence[str],
         chat_model_ids: Sequence[str] = (),
+        apply_actor_id: str = "",
     ) -> dict[str, Any] | None:
         """Turn one supported model-list response into review work, when applicable."""
         provider = _clean(provider_id).lower()
@@ -1064,6 +1117,7 @@ class ModelCapabilityDiscovery:
         drafts_created = 0
         evidence_created = 0
         record_count = 0
+        applied_count = 0
         errors = []
         try:
             catalog = await asyncio.to_thread(self.catalog.refresh)
@@ -1079,6 +1133,12 @@ class ModelCapabilityDiscovery:
                     result = await asyncio.to_thread(
                         self._materialize, snapshot, set()
                     )
+                    if apply_actor_id and snapshot.records:
+                        applied = await asyncio.to_thread(
+                            self.workbench.apply_discovery,
+                            records=snapshot.records, catalog=self.catalog, actor_id=apply_actor_id,
+                        )
+                        applied_count += applied["published"]
                     record_count += len(snapshot.records)
                     drafts_created += result["drafts_created"]
                     evidence_created += result["evidence_created"]
@@ -1106,6 +1166,7 @@ class ModelCapabilityDiscovery:
             "ok": not errors,
             "source_count": len(sources),
             "record_count": record_count,
+            "applied_count": applied_count,
             "drafts_created": drafts_created,
             "evidence_created": evidence_created,
             "sources": source_statuses,

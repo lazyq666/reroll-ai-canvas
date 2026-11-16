@@ -34,6 +34,11 @@ function deferred() {
     let projects = deferred();
     let cardRequests = 0;
     let projectRequests = 0;
+    const components = deferred();
+    await page.route('**/infinite-canvas-ui/core.js*', async route => {
+      await components.promise;
+      await route.continue();
+    });
     await page.route('**/api/**', async route => {
       const url = new URL(route.request().url());
       let payload = {};
@@ -51,8 +56,31 @@ function deferred() {
       }
       await route.fulfill({ status, contentType:'application/json', body:JSON.stringify(payload) });
     });
-    await page.goto(`${base}/static/canvas-list.html`);
+    await page.goto(`${base}/static/canvas-list.html`, { waitUntil:'commit' });
+    const earlyCover = page.locator('#boardLoading .ws-card-skeleton-cover').first();
+    await earlyCover.waitFor({ state:'attached' });
+    const earlyPaint = await earlyCover.evaluate(element => {
+      const style = getComputedStyle(element);
+      return { height:element.getBoundingClientRect().height, background:style.backgroundColor };
+    });
+    assert.ok(earlyPaint.height > 40, 'Cold refresh must paint skeleton covers before UI modules finish loading');
+    assert.notEqual(earlyPaint.background, 'rgba(0, 0, 0, 0)', 'Cold refresh skeletons need a visible fallback before custom-element upgrade');
+    if (process.env.CANVAS_LIST_LOADING_SCREENSHOT_DIR) {
+      await page.screenshot({ path:path.join(process.env.CANVAS_LIST_LOADING_SCREENSHOT_DIR, 'canvas-loading-cold-refresh.png') });
+    }
+    cards.resolve({ payload:{ canvases:[{ id:'early-card', title:'Early result', project:'default', kind:'smart', node_count:2 }], total:1 } });
+    projects.resolve({ projects:[{ id:'default', name:'Default', order:0 }] });
+    await page.waitForFunction(() => document.querySelector('#boardWorld .ws-card'));
+    assert.equal(await page.locator('#boardLoading').isVisible(), true, 'Fast data must keep skeletons visible until UI components upgrade');
+    assert.equal(await page.locator('#boardWorld').isVisible(), false, 'Cold refresh must not expose unupgraded cards');
+    components.resolve();
     await page.waitForFunction(() => customElements.get('ic-skeleton'));
+    await page.locator('#boardLoading').waitFor({ state:'hidden' });
+    cards = deferred();
+    projects = deferred();
+    cardRequests = 0;
+    projectRequests = 0;
+    await page.reload();
     const loading = page.locator('#boardLoading');
     const empty = page.locator('#boardEmptyHint');
     const language = async value => {

@@ -1,6 +1,6 @@
-import './core.js?v=asset-043141897598';
+import './core.js?v=asset-a554ba70fd5a';
 await Promise.all([
-  import('../smart-canvas/generation-failure-feedback.js?v=asset-71c3bdb3d7ab'),
+  import('../smart-canvas/generation-failure-feedback.js?v=asset-f72ac4078f73'),
   import('../smart-canvas/generation-log-modal.js?v=asset-ad3879b87435'),
 ]);
 

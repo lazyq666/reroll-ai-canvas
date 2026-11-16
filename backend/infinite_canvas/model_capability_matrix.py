@@ -1,7 +1,7 @@
 """Product-facing model capability matrix.
 
-The matrix groups provider-specific runtime records by stable Model ID and
-translates detailed contracts into a small set of administrator choices.
+The matrix scopes edits to a provider and translates runtime contracts into
+administrator choices. Unscoped snapshots retain a read-only model summary.
 """
 
 from __future__ import annotations
@@ -173,13 +173,23 @@ class ModelCapabilityMatrix:
         self.catalog = catalog
         self.workbench = workbench
 
-    def snapshot(self) -> dict[str, Any]:
+    def snapshot(self, provider_id: str = "") -> dict[str, Any]:
         inventory = self._inventory()
         workbench = self.workbench.snapshot()
+        if provider_id:
+            for field in ("evidence", "drafts"):
+                workbench[field] = [item for item in workbench.get(field, [])
+                                    if item.get("provider_id") == provider_id]
+            workbench["published"]["capabilities"] = [
+                item for item in workbench.get("published", {}).get("capabilities", [])
+                if item.get("provider_id") == provider_id
+            ]
         rows: dict[str, dict[str, Any]] = {}
         for model_type in MODEL_TYPES:
             for item in inventory.get(model_type, ()):
                 if not isinstance(item, Mapping):
+                    continue
+                if provider_id and _clean(item.get("provider_id")) != provider_id:
                     continue
                 model_id = _clean(item.get("model"))
                 if not model_id:
@@ -245,6 +255,14 @@ class ModelCapabilityMatrix:
         result_rows = []
         for row in rows.values():
             row["name"] = row["names"][0] if row["names"] else row["model_id"]
+            if provider_id:
+                row["provider_id"] = provider_id
+            row["has_auto_fill_backup"] = any(
+                item.get("model_id") == row["model_id"]
+                and item.get("provider_id") == provider_id
+                and item.get("auto_fill", {}).get("backup") is not None
+                for item in workbench.get("published", {}).get("capabilities", [])
+            )
             operation_records: dict[str, list[Mapping[str, Any]]] = {}
             catalog_operation_records: dict[str, list[Mapping[str, Any]]] = {}
             for variant in row["variants"]:
@@ -545,6 +563,7 @@ class ModelCapabilityMatrix:
         model_id: str,
         operations: Sequence[Mapping[str, Any]],
         actor_id: str,
+        provider_id: str = "",
     ) -> dict[str, Any]:
         requested_model = _clean(model_id)
         if not requested_model:
@@ -562,16 +581,18 @@ class ModelCapabilityMatrix:
             for item in inventory.get(model_type, ()):
                 if _clean(item.get("model")) != requested_model:
                     continue
+                if provider_id and _clean(item.get("provider_id")) != provider_id:
+                    continue
                 model_exists = True
-                provider_id = _clean(item.get("provider_id"))
+                record_provider_id = _clean(item.get("provider_id"))
                 for operation in OPERATIONS_BY_TYPE.get(model_type, ()):
                     choice = selected.get(operation)
                     if choice is None:
                         continue
-                    base = self.catalog.resolve(provider_id, requested_model, operation)
+                    base = self.catalog.resolve(record_provider_id, requested_model, operation)
                     records.append(
                         {
-                            "provider_id": provider_id,
+                            "provider_id": record_provider_id,
                             "model_id": requested_model,
                             "operation": operation,
                             "capability": self._apply_choice(base, choice),

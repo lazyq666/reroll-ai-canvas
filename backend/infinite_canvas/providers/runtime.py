@@ -397,6 +397,8 @@ def _image_call(
         aspect_ratio: str | None = "",
         image_format: dict[str, Any] | None = None,
     ) -> ExecutionResult:
+        if not include_quality and str(quality or "auto").strip().lower() not in {"auto", "low", "medium", "high"}:
+            raise HTTPException(status_code=422, detail={"code": "parameter_value", "field": "quality"})
         transparent_kwargs = {"transparent_png": True} if transparent_png else {}
         geometry_kwargs = {"preserve_geometry": True} if preserve_geometry and _protocol(provider) in {"codex", "gemini-cli"} else {}
         operation_kwargs = (

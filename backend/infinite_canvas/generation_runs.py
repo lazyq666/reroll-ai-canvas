@@ -425,8 +425,11 @@ def generation_failure_details(exc: BaseException) -> tuple[str, int]:
                 # marker and the type, without fabricating an upstream status
                 # or copying request URLs/credentials from exception strings.
                 return f"provider_network_timeout: {type(current).__name__}", 0
+        for current in chain:
+            if isinstance(current, (httpx.NetworkError, httpx.RemoteProtocolError, httpx.ProxyError)):
+                return f"provider_connection_interrupted: {type(current).__name__}", 0
     return (
-        str(getattr(exc, "detail", "") or exc),
+        str(getattr(exc, "detail", "") or exc) or f"application_internal_error: {type(exc).__name__}",
         _exception_status_code(exc) or 500,
     )
 

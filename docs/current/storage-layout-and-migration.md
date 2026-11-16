@@ -226,6 +226,10 @@ Workspace 不会改变这个位置。
 
 `model-capability-workbench.json` 保存安装级 Administrator 共用的 Model Capability Evidence、Draft、Review State 与 Published 投影。它以版本化 JSON 原子替换；只有 Published 能力投影参与运行目录 Revision，Evidence、草稿和退回记录不会改变生成合同。该文件不包含 Provider 凭证，也不随 Workspace 搬迁或 Device Cache 清理。 历史外部导入产生的 Published、Evidence、Draft 和 `maintenance_origin` 元数据继续保留；移除导入功能不会清除或迁移已保存能力。旧数据仍参与目录解析，后续可在模型详情中人工修改。 API 与模型备份会导出配置模型的能力基线与已发布配置，跨设备恢复时与平台及密钥一起回滚；不复制整个安装状态或审核历史，详情见 [API Settings Package](api-settings-package.md)。
 
+LAZ-139 在同一 Workbench 文件中增加按 Provider + Model 保存的单份完整自动填参前备份 `auto_fill_backups`，以及 Published 记录内的人工修改字段保护。它们属于 Instance State，与发布和激活一起原子保存；旧记录读取不迁移，首次可靠自动填参才创建备份。模型详情恢复只影响当前供应商。API 设置包继续携带当前能力，不迁移这份安装内的覆盖历史。
+
+模型供应商页面的浏览器 `localStorage` 使用 `reroll:provider-models:v1:<provider-id>` 保存可重建的模型清单、分类、名称、连接身份和成功获取时间。七天过期仅在打开详情时检查，失败保留旧缓存；连接变更会失效。该缓存不保存密钥、模型选中状态或完整能力，清理后重新拉取，不影响以上备份。
+
 ### Device State
 
 Agent 设备的 `~/.config/reroll/mcp/<server-client-digest>.json` 保存配对凭证及批准状态，不进入

@@ -1012,6 +1012,11 @@ async function runGeneration(options={}){
         delete queuedNode.runStartedAt;
         return queueLocally(queuedNode);
     }
+    if(isApiLikeEngine(runSettings.engine) && runSettings.apiKind !== 'video'){
+        await window.SmartCanvasModules.generationProvider.prepareApiImage?.(
+            prompt, refs, runSettings, {localRepair:options.localRepair}
+        );
+    }
     const runLog = smartRunSnapshot(node, prompt, refs, logKind, runSettings);
     generationSettingsModule.remember(runSettings, {node});
     const runLogStart = nowMs();

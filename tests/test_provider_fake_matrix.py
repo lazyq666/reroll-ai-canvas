@@ -1,5 +1,8 @@
 import asyncio
 import unittest
+from unittest.mock import AsyncMock
+
+from fastapi import HTTPException
 
 from infinite_canvas.providers import (
     Capability,
@@ -29,6 +32,34 @@ PROVIDERS = {
 
 
 class ProviderFakeContractMatrixTests(unittest.TestCase):
+    def test_non_quality_routes_accept_legacy_values_but_reject_extended_values(self):
+        for protocol in ("codex", "gemini-cli", "jimeng", "modelscope", "runninghub", "gemini", "volcengine"):
+            for quality in ("auto", "low", "medium", "high", "xhigh", "max"):
+                with self.subTest(protocol=protocol, quality=quality):
+                    executor = AsyncMock(return_value="/assets/generated.png")
+                    registry = build_image_registry(ImageExecutors(
+                        http=executor, modelscope=executor, codex=executor,
+                        gemini_cli=executor, jimeng=executor, runninghub=executor,
+                        gemini_native=executor, volcengine=executor,
+                    ))
+                    provider = {"id": protocol, "protocol": protocol}
+                    runtime = ProviderRuntime(provider_lookup=lambda _: provider, image_registry=registry)
+                    request = runtime.execute_image(
+                        "test", "1536x2048", quality, "image-model",
+                        [{"url": "/assets/reference.png"}], protocol,
+                    )
+                    if quality in ("xhigh", "max"):
+                        with self.assertRaises(HTTPException) as caught:
+                            asyncio.run(request)
+                        self.assertEqual({"code": "parameter_value", "field": "quality"}, caught.exception.detail)
+                        executor.assert_not_awaited()
+                    else:
+                        self.assertIsInstance(asyncio.run(request), Completed)
+                        executor.assert_awaited_once_with(
+                            "test", "1536x2048", "image-model",
+                            [{"url": "/assets/reference.png"}], provider,
+                        )
+
     def test_provider_contract_matrix(self):
         cases = [
             ("comfyui", "success", "workflow", "comfyui", Completed),

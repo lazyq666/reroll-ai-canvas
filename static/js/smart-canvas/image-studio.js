@@ -100,6 +100,8 @@ let brushTool = 'free';
 let brushLabelCounter = 1;
 let gridCustomMode = false;
 let gridCustomLines = [];
+let gridRegularLines = [];
+let gridRegularShape = '';
 let gridCustomOrientation = 'h';
 let gridCustomHistory = [];
 let gridCustomDrag = null;
@@ -265,6 +267,7 @@ function discardImageEditDraft(){
     editTextDirty = false;
     imageResizeScale = 0.5;
     gridCustomMode = false;
+    gridRegularShape = '';
     gridCustomLines = [];
     gridCustomHistory = [];
     gridCustomDrag = null;
@@ -1571,23 +1574,45 @@ function editDrawPoint(event){
     const rect = canvasEl.getBoundingClientRect();
     return {x:(event.clientX - rect.left) * canvasEl.width / Math.max(1, rect.width), y:(event.clientY - rect.top) * canvasEl.height / Math.max(1, rect.height)};
 }
+function gridSplitLines(){
+    if(gridCustomMode) return gridCustomLines;
+    const {rows, cols} = gridSplitSettings();
+    const shape = `${rows}:${cols}`;
+    if(gridRegularShape !== shape){
+        gridRegularShape = shape;
+        gridRegularLines = [
+            ...Array.from({length:rows - 1}, (_, index) => ({type:'h', pos:(index + 1) / rows})),
+            ...Array.from({length:cols - 1}, (_, index) => ({type:'v', pos:(index + 1) / cols}))
+        ];
+        gridCustomDrag = null;
+    }
+    return gridRegularLines;
+}
 function gridCustomLineHit(point){
     const canvasEl = editDrawCanvas();
-    const threshold = Math.max(8, Math.min(canvasEl.width, canvasEl.height) / 80);
+    const bounds = canvasEl.getBoundingClientRect();
+    const gap = gridGapInputValue();
     let best = -1, bestDist = Infinity;
-    gridCustomLines.forEach((line, index) => {
-        const dist = line.type === 'h' ? Math.abs(point.y - line.pos * canvasEl.height) : Math.abs(point.x - line.pos * canvasEl.width);
-        if(dist < bestDist && dist <= threshold){ best = index; bestDist = dist; }
+    gridSplitLines().forEach((line, index) => {
+        const scale = line.type === 'h' ? bounds.height / canvasEl.height : bounds.width / canvasEl.width;
+        const distance = line.type === 'h' ? Math.abs(point.y - line.pos * canvasEl.height) : Math.abs(point.x - line.pos * canvasEl.width);
+        const dist = Math.min(distance, Math.abs(distance - gap / 2)) * scale;
+        if(dist < bestDist && dist <= 8){ best = index; bestDist = dist; }
     });
     return best;
 }
 function setGridCustomLinePos(index, point){
     const canvasEl = editDrawCanvas();
-    const line = gridCustomLines[index];
+    const lines = gridSplitLines();
+    const line = lines[index];
     if(!line) return;
-    line.pos = line.type === 'h'
-        ? Math.max(0.001, Math.min(0.999, point.y / Math.max(1, canvasEl.height)))
-        : Math.max(0.001, Math.min(0.999, point.x / Math.max(1, canvasEl.width)));
+    const size = line.type === 'h' ? canvasEl.height : canvasEl.width;
+    const position = (line.type === 'h' ? point.y : point.x) / Math.max(1, size);
+    const neighbors = lines.filter(other => other !== line && other.type === line.type);
+    const before = Math.max(0, ...neighbors.filter(other => other.pos < line.pos).map(other => other.pos));
+    const after = Math.min(1, ...neighbors.filter(other => other.pos > line.pos).map(other => other.pos));
+    const spacing = Math.min((gridGapInputValue() + 1) / Math.max(1, size), (after - before) / 2);
+    line.pos = Math.max(before + spacing, Math.min(after - spacing, position));
 }
 // Store mask coverage at full opacity; CSS applies preview opacity to the layer
 // so overlapping strokes stay uniform without reading back pixels on each move.
@@ -1643,17 +1668,25 @@ function drawNumberLabel(point){
 }
 function beginEditDraw(event){
     if(imageEditMode === 'crop') return;
+    if(event.button !== 0 || gridCustomDrag) return;
     event.preventDefault(); event.stopPropagation();
     const canvasEl = editDrawCanvas();
     canvasEl.setPointerCapture?.(event.pointerId);
     const p = editDrawPoint(event);
     if(imageEditMode === 'grid'){
         if(gridOperationMode === 'join') return;
-        if(!gridCustomMode) return;
         const hit = gridCustomLineHit(p);
-        gridCustomHistory.push([...gridCustomLines.map(line => ({...line}))]);
-        if(hit >= 0){ gridCustomDrag = {index:hit, pointerId:event.pointerId}; setGridCustomLinePos(hit, p); }
-        else { gridCustomLines.push({type:gridCustomOrientation, pos:gridCustomOrientation === 'h' ? p.y / canvasEl.height : p.x / canvasEl.width}); gridCustomDrag = {index:gridCustomLines.length - 1, pointerId:event.pointerId}; }
+        if(hit < 0 && !gridCustomMode){ canvasEl.releasePointerCapture?.(event.pointerId); return; }
+        if(gridCustomMode) gridCustomHistory.push(gridCustomLines.map(line => ({...line})));
+        const lines = gridSplitLines();
+        if(hit >= 0){
+            const line = lines[hit];
+            gridCustomDrag = {index:hit, pointerId:event.pointerId, offset:line.pos - (line.type === 'h' ? p.y / canvasEl.height : p.x / canvasEl.width)};
+        } else {
+            gridCustomLines.push({type:gridCustomOrientation, pos:gridCustomOrientation === 'h' ? p.y / canvasEl.height : p.x / canvasEl.width});
+            gridCustomDrag = {index:gridCustomLines.length - 1, pointerId:event.pointerId, offset:0};
+            setGridCustomLinePos(gridCustomDrag.index, p);
+        }
         syncGridCustomUndoBtn(); refreshGridSplitPreview(); return;
     }
     const ctx = canvasEl.getContext('2d');
@@ -1666,7 +1699,21 @@ function beginEditDraw(event){
 }
 function moveEditDraw(event){
     if(imageEditMode === 'grid' && gridOperationMode === 'join') return;
-    if(imageEditMode === 'grid' && gridCustomMode && gridCustomDrag){ event.preventDefault(); event.stopPropagation(); setGridCustomLinePos(gridCustomDrag.index, editDrawPoint(event)); refreshGridSplitPreview(); return; }
+    if(imageEditMode === 'grid'){
+        const point = editDrawPoint(event);
+        const lines = gridSplitLines();
+        const hit = gridCustomDrag ? gridCustomDrag.index : gridCustomLineHit(point);
+        editDrawCanvas().style.cursor = hit < 0 ? '' : (lines[hit].type === 'h' ? 'row-resize' : 'col-resize');
+        if(gridCustomDrag && gridCustomDrag.pointerId === event.pointerId){
+            event.preventDefault(); event.stopPropagation();
+            const line = lines[gridCustomDrag.index];
+            if(line.type === 'h') point.y += gridCustomDrag.offset * editDrawCanvas().height;
+            else point.x += gridCustomDrag.offset * editDrawCanvas().width;
+            setGridCustomLinePos(gridCustomDrag.index, point);
+            refreshGridSplitPreview();
+        }
+        return;
+    }
     if(!editDrawState || imageEditMode === 'crop' || imageEditMode === 'grid') return;
     event.preventDefault(); event.stopPropagation();
     const ctx = editDrawCanvas().getContext('2d');
@@ -1680,9 +1727,11 @@ function moveEditDraw(event){
     }
 }
 function endEditDraw(event){
+    if(gridCustomDrag && event?.pointerId !== gridCustomDrag.pointerId) return;
+    if(event?.type === 'pointerleave' && gridCustomDrag && editDrawCanvas().hasPointerCapture?.(event.pointerId)) return;
     if(editDrawState && event?.pointerId != null) editDrawCanvas().releasePointerCapture?.(event.pointerId);
     if(gridCustomDrag && event?.pointerId != null) editDrawCanvas().releasePointerCapture?.(event.pointerId);
-    editDrawState = null; gridCustomDrag = null; syncEditDrawingHistoryButtons();
+    editDrawState = null; gridCustomDrag = null; editDrawCanvas().style.cursor = ''; syncEditDrawingHistoryButtons();
 }
 function beginGridJoinDrag(event){
     if(imageEditMode !== 'grid' || gridOperationMode !== 'join') return;
@@ -1923,13 +1972,14 @@ function gridSplitRects(width, height){
         rows,
         cols,
         gap,
-        lines:gridCustomMode ? gridCustomLines : null
+        lines:gridSplitLines()
     });
 }
 function gridLayoutFromRects(rects){
     return imageStudioGeometry.describeGrid(rects, uid('grid'));
 }
 function applyGridPreset(rows, cols){
+    gridRegularShape = '';
     gridCustomMode = false; gridCustomLines = []; gridCustomHistory = []; gridCustomDrag = null;
     const h = document.getElementById('gridHorizontalLines'), v = document.getElementById('gridVerticalLines');
     if(h){ h.disabled = false; h.value = String(Math.max(0, Number(rows || 1) - 1)); }
@@ -2100,6 +2150,7 @@ function updateZoomLabel(){
     el.textContent = Math.round((imageEditMode === 'preview' ? previewZoom : imageEditZoom) * 100) + '%';
 }
 function syncGridCustomCursor(){
+    editDrawCanvas().style.cursor = '';
     const el = document.getElementById('cropCanvas');
     el.classList.toggle('grid-custom-h', imageEditMode === 'grid' && gridOperationMode !== 'join' && gridCustomMode && gridCustomOrientation === 'h');
     el.classList.toggle('grid-custom-v', imageEditMode === 'grid' && gridOperationMode !== 'join' && gridCustomMode && gridCustomOrientation === 'v');
@@ -2198,18 +2249,14 @@ function refreshGridSplitPreview(){
         ctx.save(); ctx.lineWidth = lineWidth + 2; ctx.strokeStyle = 'rgba(2,6,23,0.72)'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
         ctx.lineWidth = lineWidth; ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
     };
-    if(gridCustomMode){
+    {
         const gap = Math.max(0, Math.min(240, Number(document.getElementById('gridGapSize')?.value || 0)));
-        const hLines = gridCustomLines.filter(l => l.type === 'h'), vLines = gridCustomLines.filter(l => l.type === 'v');
+        const lines = gridSplitLines();
+        const hLines = lines.filter(l => l.type === 'h'), vLines = lines.filter(l => l.type === 'v');
         if(countEl) countEl.textContent = tr('canvas.gridWillOutput').replace('{n}', (hLines.length + 1) * (vLines.length + 1));
         hLines.forEach(l => { const y = l.pos * canvasEl.height; gap > 0 ? (drawLine(0, y - gap / 2, canvasEl.width, y - gap / 2), drawLine(0, y + gap / 2, canvasEl.width, y + gap / 2)) : drawLine(0, y, canvasEl.width, y); });
         vLines.forEach(l => { const x = l.pos * canvasEl.width; gap > 0 ? (drawLine(x - gap / 2, 0, x - gap / 2, canvasEl.height), drawLine(x + gap / 2, 0, x + gap / 2, canvasEl.height)) : drawLine(x, 0, x, canvasEl.height); });
-        return;
     }
-    const {rows, cols, gap} = gridSplitSettings();
-    if(countEl) countEl.textContent = tr('canvas.gridWillOutput').replace('{n}', rows * cols);
-    for(let i = 1; i < cols; i++){ const x = i * canvasEl.width / cols; gap > 0 ? (drawLine(x - gap / 2, 0, x - gap / 2, canvasEl.height), drawLine(x + gap / 2, 0, x + gap / 2, canvasEl.height)) : drawLine(x, 0, x, canvasEl.height); }
-    for(let i = 1; i < rows; i++){ const y = i * canvasEl.height / rows; gap > 0 ? (drawLine(0, y - gap / 2, canvasEl.width, y - gap / 2), drawLine(0, y + gap / 2, canvasEl.width, y + gap / 2)) : drawLine(0, y, canvasEl.width, y); }
 }
 function renderCropBox(){
     if(!cropState) return;
@@ -2634,6 +2681,7 @@ function openImageEditor(nodeId, imageIndex=0, options={}){
     const sourceRatio = sourceWidth > 0 && sourceHeight > 0 ? sourceWidth / sourceHeight : 1;
     imageEditModal.style.setProperty('--image-studio-source-ratio', Number.isFinite(sourceRatio) ? sourceRatio : 1);
     setImageStudioSourceState(kind === 'image' ? 'loading' : 'original-ready');
+    gridRegularShape = '';
     gridCustomMode = false; gridCustomLines = []; gridCustomHistory = []; gridCustomDrag = null; gridCustomOrientation = 'h';
     gridOperationMode = 'split'; gridJoinLayout = null; gridJoinDrag = null; gridJoinImageCache = new Map(); gridJoinUserMoved = false; gridJoinGroupId = '';
     imageEditZoom = 1.0; imageEditBaseW = 0; imageEditBaseH = 0; imageResizeScale = 0.5; imageEditModeTouched = false;

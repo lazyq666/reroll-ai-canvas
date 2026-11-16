@@ -241,6 +241,12 @@ function markCurrentProviderVerified(){
     if(!autoSaveState.dirty && autoSaveState.phase !== 'saving') setAutoSavePhase('saved');
 }
 function markAutoSaveDirty(affectsVerification=false){
+    if(affectsVerification && provider()) {
+        try { localStorage.removeItem(providerModelCacheKey(provider())); } catch (_) {}
+        modelFetchRevision += 1;
+        document.getElementById('modelDiscoveryLoading').hidden = true;
+        setModelFetchBusy(false);
+    }
     autoSaveState.dirty = true;
     autoSaveState.revision += 1;
     autoSaveState.lastError = '';
@@ -2833,6 +2839,68 @@ async function testConnection(){
 let lastFetchedAll = [];          // 全部模型 id 列表
 let lastFetchedSuggestion = null; // 后端自动分类建议
 let lastFetchedModelNames = {};   // {模型 id: 展示名}
+const MODEL_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+function providerModelCacheKey(item){
+    return `reroll:provider-models:v1:${item.id}`;
+}
+function providerModelCacheIdentity(item){
+    return JSON.stringify([item.base_url || '', item.protocol || 'openai', item.image_request_mode || 'openai']);
+}
+function readProviderModelCache(item){
+    try {
+        const entry = JSON.parse(localStorage.getItem(providerModelCacheKey(item)));
+        if(entry?.identity === providerModelCacheIdentity(item) && Array.isArray(entry.data?.all)
+            && Number.isFinite(entry.fetchedAt)) return entry;
+    } catch (_) {}
+    return null;
+}
+function writeProviderModelCache(item, data){
+    const cacheData = Object.fromEntries(['all', 'image_models', 'chat_models', 'video_models'].map(key =>
+        [key, (Array.isArray(data[key]) ? data[key] : []).filter(id => typeof id === 'string')]));
+    cacheData.model_names = data.model_names && typeof data.model_names === 'object' ? data.model_names : {};
+    try {
+        localStorage.setItem(providerModelCacheKey(item), JSON.stringify({
+            identity:providerModelCacheIdentity(item), fetchedAt:Date.now(), data:cacheData,
+        }));
+    } catch (_) {}
+}
+function showModelDiscoveryError(key){
+    const error = document.getElementById('modelDiscoveryError');
+    error.setAttribute('data-i18n', key);
+    error.textContent = tr(key);
+    error.hidden = false;
+}
+function setModelFetchBusy(busy){
+    const button = document.getElementById('fetchModelsBtn');
+    button.disabled = busy;
+    const label = button.querySelector('span');
+    const key = busy ? 'api.fetchingModels' : 'providers.refreshModels';
+    label.setAttribute('data-i18n', key);
+    label.textContent = tr(key);
+}
+async function loadProviderModelCatalog(){
+    const item = provider();
+    if(!item) return;
+    const revision = modelFetchRevision;
+    const cached = readProviderModelCache(item);
+    setFetchedModelState(cached?.data || {});
+    try {
+        if(!await window.ProviderModels.loadInventory()) return;
+        if(selectedId !== item.id || revision !== modelFetchRevision) return;
+        openModelPicker();
+        const hasConnection = CLI_PROTOCOLS.has(item.protocol) || item.protocol === 'jimeng'
+            || (item.base_url && (item.has_key || item.api_key));
+        if(hasConnection && (!cached || Date.now() - cached.fetchedAt >= MODEL_CACHE_MAX_AGE)) await fetchModels();
+    } catch (_) {
+        if(selectedId !== item.id || revision !== modelFetchRevision) return;
+        openModelPicker();
+        showModelDiscoveryError('models.loadFailed');
+    }
+}
+async function showModelParameterList(){
+    if(modelAdditionPending || !await window.ProviderModels.flush()) return;
+    setModelSource('added');
+}
 
 function setFetchedModelState(data){
     lastFetchedAll = Array.isArray(data?.all) ? data.all : [];
@@ -2922,11 +2990,10 @@ function modelCapabilityReviewNote(review){
 async function fetchModels(){
     const item = provider();
     if(!item) return;
-    setModelSource('added');
+    if(modelAdditionPending) return;
     const providerId = item.id;
     const fetchRevision = ++modelFetchRevision;
     syncEditor();
-    const btn = document.getElementById('fetchModelsBtn');
     const baseUrl = baseInput.value.trim();
     const apiKey = currentProviderApiKey(item);
     const isJimeng = (protocolInput?.value || '') === 'jimeng';
@@ -2943,12 +3010,9 @@ async function fetchModels(){
     if(fetchRevision !== modelFetchRevision || selectedId !== providerId) return;
     document.getElementById('modelDiscoveryError').hidden = true;
     document.getElementById('retryDiscovery').hidden = true;
-    document.getElementById('modelDiscoveryResults').hidden = true;
     document.getElementById('modelDiscoveryLoading').hidden = false;
-    document.getElementById('applyModelPickerBtn').disabled = true;
-    document.getElementById('pickerCount').textContent = '';
     setModelSource('catalog');
-    if(btn){ btn.disabled = true; btn.querySelector('span').textContent = tr('api.fetchingModels'); }
+    setModelFetchBusy(true);
     try {
         const runninghubContext = isRunningHubContext(item, baseUrl);
         const data = await fetch('/api/providers/fetch-models', {
@@ -2957,7 +3021,7 @@ async function fetchModels(){
             body:JSON.stringify({
                 base_url:baseUrl,
                 api_key:apiKey,
-                provider_id:runninghubContext ? 'runninghub' : item.id,
+                provider_id:item.id,
                 protocol:runninghubContext ? 'runninghub' : (protocolInput?.value || 'openai'),
                 image_request_mode:imageRequestModeInput?.value || item.image_request_mode || 'openai'
             })
@@ -2965,6 +3029,7 @@ async function fetchModels(){
             if(!r.ok) throw new Error((await r.json()).detail || tr('api.fetchFailed'));
             return r.json();
         });
+        if(Number(data.capability_review?.applied_count || 0) > 0) broadcastStudioApiChange('models-changed');
         if(fetchRevision !== modelFetchRevision || selectedId !== providerId || document.getElementById('providerEditor').hidden) return;
         setFetchedModelState(data);
         const detectedProtocol = String(data.protocol || '').toLowerCase();
@@ -2972,20 +3037,22 @@ async function fetchModels(){
             applyDetectedProtocol(detectedProtocol);
         }
         if(data.image_request_mode) applyDetectedImageRequestMode(data.image_request_mode);
+        writeProviderModelCache(item, data);
         // 启用「选择模型」按钮，并 statusbar 显示已拉取数量
         const openBtn = document.getElementById('openPickerBtn');
         if(openBtn) openBtn.disabled = false;
         openModelPicker();
+        if(data.capability_review?.ok === false){
+            showModelDiscoveryError('providers.autoFillFailed');
+        }
     } catch(e){
         if(fetchRevision === modelFetchRevision){
-            const error = document.getElementById('modelDiscoveryError');
-            error.textContent = tr('providers.discoveryFailed');
-            error.hidden = false;
+            showModelDiscoveryError('providers.discoveryFailed');
             document.getElementById('retryDiscovery').hidden = false;
         }
     } finally {
         if(fetchRevision === modelFetchRevision){
-            if(btn){ btn.disabled = false; btn.querySelector('span').textContent = tr('providers.providerCatalog'); }
+            setModelFetchBusy(false);
             document.getElementById('modelDiscoveryLoading').hidden = true;
         }
     }
@@ -3003,22 +3070,15 @@ function setModelAdditionPending(pending){
     document.getElementById('modelsCard').setAttribute('aria-busy', String(pending));
 }
 function setModelSource(source){
-    document.getElementById('modelSourceTabs').setAttribute('value', source);
     document.getElementById('modelPickerPanel').hidden = source !== 'catalog';
     document.getElementById('addedModelPanel').hidden = source !== 'added';
-}
-function showProviderCatalog(){
-    if(pickerProviderId === selectedId){
-        setModelSource('catalog');
-        renderModelPicker();
-    } else {
-        fetchModels();
-    }
+    if(source === 'catalog' && pickerProviderId === selectedId) renderModelPicker();
 }
 function openModelPicker(){
     const item = provider();
     if(!item) return;
     const existing = { image: new Set(item.image_models||[]), chat: new Set(item.chat_models||[]), video: new Set(item.video_models||[]) };
+    const selected = window.ProviderModels.selectedIds();
     const allIds = new Set([...lastFetchedAll, ...(item.image_models||[]), ...(item.chat_models||[]), ...(item.video_models||[])]);
     pickerState = { category: {}, selected: {}, existing: new Set([...existing.image, ...existing.chat, ...existing.video]) };
     allIds.forEach(id => {
@@ -3032,7 +3092,7 @@ function openModelPicker(){
         else cat = 'chat';
         pickerState.category[id] = cat;
         // 默认勾选状态：已在用户配置里的 = 勾选；新拉的 = 不勾选（让用户主动选）
-        pickerState.selected[id] = existing.image.has(id) || existing.chat.has(id) || existing.video.has(id);
+        pickerState.selected[id] = selected.has(id);
     });
     // 默认 tab 切回「全部」
     const tabs = document.getElementById('pickerCategoryTabs');
@@ -3043,13 +3103,11 @@ function openModelPicker(){
     const filterInput = document.getElementById('pickerFilter');
     if(filterInput) filterInput.value = '';
     document.getElementById('modelDiscoveryResults').hidden = false;
-    document.getElementById('applyModelPickerBtn').disabled = false;
     setModelSource('catalog');
     renderModelPicker();
 }
 function closeModelPicker(){
-    resetModelDiscovery();
-    document.querySelector('#modelSourceTabs [data-value="added"]').focus();
+    openModelPicker();
 }
 function renderModelPicker(event){
     const item = provider();
@@ -3059,11 +3117,12 @@ function renderModelPicker(event){
     }
     const filter = pickerFilterValue.toLowerCase();
     const currentTab = document.getElementById('pickerCategoryTabs')?.getAttribute('value') || 'all';
-    const ids = Object.keys(pickerState.category).sort();
+    const ids = Object.keys(pickerState.category).sort((left, right) =>
+        Number(pickerState.selected[right]) - Number(pickerState.selected[left]) || left.localeCompare(right));
     const selecteds = { all:0, image:0, chat:0, video:0 };
     ids.forEach(id => {
         const cat = pickerState.category[id];
-        if(pickerState.selected[id] && !pickerState.existing.has(id)){ selecteds[cat]++; selecteds.all++; }
+        if(pickerState.selected[id]){ selecteds[cat]++; selecteds.all++; }
     });
     // 过滤显示
     const list = ids.filter(id => {
@@ -3074,7 +3133,6 @@ function renderModelPicker(event){
     });
     pickerVisibleIds = list;
     document.getElementById('pickerCount').textContent = selecteds.all === 1 ? tr('providers.selectedOne') : trf('providers.selectedCount', {count:selecteds.all.toLocaleString(document.documentElement.lang || 'zh-CN')});
-    document.getElementById('applyModelPickerBtn').disabled = selecteds.all === 0;
     const categoryLabels = {
         all: tr('api.all'),
         image: tr('api.imageGeneration'),
@@ -3090,7 +3148,7 @@ function renderModelPicker(event){
         const label = modelDisplayName(id, item);
         return `<ic-checkbox id="picker-choice-${index}" appearance="checkmark-end" data-component-variant="list"
             label="${escapeAttr(label || id)}" title="${escapeAttr(id)}"
-            ${checked ? 'checked' : ''} ${pickerState.existing.has(id) ? `disabled tag="${escapeAttr(tr('providers.alreadyAdded'))}"` : ''}
+            ${checked ? 'checked' : ''}
             onchange="setPickerRowSelectionByIndex(${index}, event)"></ic-checkbox>`;
     }).join('');
     document.getElementById('pickerList').innerHTML = rows || `<ic-empty-state title="${escapeAttr(tr(ids.length ? 'api.noMatches' : 'providers.discoveryEmpty'))}" label="${escapeAttr(tr('api.noMatches'))}"></ic-empty-state>`;
@@ -3098,16 +3156,18 @@ function renderModelPicker(event){
     const more = document.getElementById('pickerShowMore');
     more.hidden = remaining === 0;
     more.textContent = remaining === 1 ? tr('providers.showOneMore') : trf('providers.showMore', {count:remaining.toLocaleString(document.documentElement.lang || 'zh-CN')});
-    const editable = list.filter(id => !pickerState.existing.has(id));
+    const editable = list;
     document.getElementById('pickerSelectAll').disabled = !editable.some(id => !pickerState.selected[id]);
     document.getElementById('pickerSelectNone').disabled = !editable.some(id => pickerState.selected[id]);
 }
-function setPickerRowSelectionByIndex(index, event){
+async function setPickerRowSelectionByIndex(index, event){
     const id = pickerVisibleIds[index];
-    if(typeof id !== 'string' || pickerState.existing.has(id)) return;
+    if(typeof id !== 'string' || modelAdditionPending) return;
     pickerState.selected[id] = Boolean(event?.currentTarget?.checked);
+    await applyModelPicker();
     renderModelPicker();
-    focusPickerChoice(index);
+    const position = pickerVisibleIds.indexOf(id);
+    focusPickerChoice(position >= 0 && position < pickerLimit ? position : Math.min(index, pickerLimit - 1));
 }
 async function focusPickerChoice(index){
     const checkbox = document.getElementById(`picker-choice-${index}`);
@@ -3115,10 +3175,12 @@ async function focusPickerChoice(index){
     await checkbox.updateComplete;
     if(checkbox.isConnected && !checkbox.disabled) checkbox.focus();
 }
-function selectFilteredModels(selected){
+async function selectFilteredModels(selected){
+    if(modelAdditionPending) return;
     pickerVisibleIds.forEach(id => {
-        if(!pickerState.existing.has(id)) pickerState.selected[id] = selected;
+        pickerState.selected[id] = selected;
     });
+    await applyModelPicker();
     renderModelPicker();
 }
 function showMorePickerModels(){
@@ -3136,10 +3198,11 @@ function selectPickerCat(cat){
 async function applyModelPicker(){
     const item = provider(); if(!item) return;
     if(modelAdditionPending) return;
-    const button = document.getElementById('applyModelPickerBtn');
-    if(button.disabled) return;
+    let saved = false;
     setModelAdditionPending(true);
-    button.disabled = true;
+    modelFetchRevision += 1;
+    document.getElementById('modelDiscoveryLoading').hidden = true;
+    setModelFetchBusy(false);
     try {
         if(!await window.ProviderModels.flush() || selectedId !== item.id) return;
         const previous = {image_models:item.image_models, chat_models:item.chat_models, video_models:item.video_models, model_names:item.model_names};
@@ -3160,19 +3223,25 @@ async function applyModelPicker(){
         item.model_names = modelNames;
         renderMsLoras();
         if(await requestAutoSave()){
-            if(additions.length) window.ProviderModels.selectType(pickerState.category[additions[0]]);
-            setModelAdditionPending(false);
-            closeModelPicker();
-            document.getElementById('connectionDetails').open = false;
+            if(!await window.ProviderModels.setSelected(new Set(Object.keys(pickerState.selected).filter(id => pickerState.selected[id])))){
+                throw new Error(tr('api.saveFailed'));
+            }
+            additions.forEach(id => pickerState.existing.add(id));
+            document.getElementById('modelDiscoveryError').hidden = true;
+            document.getElementById('retryDiscovery').hidden = true;
+            saved = true;
         } else {
             Object.assign(item, previous);
-            const error = document.getElementById('modelDiscoveryError');
-            error.textContent = tr('api.saveFailed');
-            error.hidden = false;
+            showModelDiscoveryError('api.saveFailed');
         }
+    } catch (_) {
+        showModelDiscoveryError('api.saveFailed');
     } finally {
+        if(!saved){
+            const selected = window.ProviderModels.selectedIds();
+            Object.keys(pickerState.selected).forEach(id => { pickerState.selected[id] = selected.has(id); });
+        }
         setModelAdditionPending(false);
-        button.disabled = false;
     }
 }
 async function saveKeyOnly(){
@@ -3326,6 +3395,7 @@ function removeMsLora(index){
     requestAutoSave();
 }
 async function selectProvider(id){
+    if(modelAdditionPending) return;
     if(!await window.ProviderModels?.flush() || !await commitAutoSave()) return;
     if(isProviderTemporarilyHidden(providers.find(item => item.id === id))) return;
     if(autoSaveState.dirty && !validAutoSaveInputs()){
@@ -3647,11 +3717,12 @@ let modelFetchRevision = 0;
 function resetModelDiscovery(){
     modelFetchRevision += 1;
     pickerProviderId = '';
-    setModelSource('added');
+    setModelSource('catalog');
+    document.getElementById('modelDiscoveryError').hidden = true;
+    document.getElementById('modelDiscoveryLoading').hidden = true;
+    document.getElementById('retryDiscovery').hidden = true;
     closeManualModel(false);
-    const button = document.getElementById('fetchModelsBtn');
-    button.disabled = false;
-    button.querySelector('span').textContent = tr('providers.providerCatalog');
+    setModelFetchBusy(false);
 }
 function renderProviderPresets(event){
     if(event) presetSearch = eventControlValue(event, document.getElementById('providerPresetSearch')).trim().toLowerCase();
@@ -3692,8 +3763,10 @@ function showProviderEditor(){
     window.scrollTo(0, 0);
     document.getElementById('providerName').setAttribute('tabindex', '-1');
     document.getElementById('providerName').focus();
+    void loadProviderModelCatalog();
 }
 async function closeProviderEditor(){
+    if(modelAdditionPending) return;
     if(!await window.ProviderModels.flush() || !await commitAutoSave()) return;
     resetModelDiscovery();
     document.getElementById('providerEditor').hidden = true;
@@ -3760,9 +3833,11 @@ async function submitManualModel(){
         item[field] = [...(item[field] || []), model];
         if(name) item.model_names = {...item.model_names, [model]:name};
         if(await requestAutoSave()){
+            await window.ProviderModels.loadInventory();
             window.ProviderModels.selectType(kind);
             setModelAdditionPending(false);
             closeModelPicker();
+            closeManualModel();
         }
         else {
             item[field] = item[field].filter(value => value !== model);
@@ -3811,20 +3886,6 @@ async function undoRemoveModel(){
         removedModel = null;
         document.getElementById('modelUndo').hidden = true;
     }
-}
-async function goToCreation(){
-    if(!await window.ProviderModels.flush() || !await commitAutoSave()) return;
-    const item = provider();
-    if(!checkProviderKey(item)) return;
-    if(item?.enabled === false){ showError(tr('providers.enableToCreate')); return; }
-    if(!['image_models', 'video_models', 'chat_models'].some(key => item?.[key]?.length)){
-        showError(tr('providers.needModels'));
-        return;
-    }
-    if(!window.ProviderModels.hasVisibleModels){ showError(tr('providers.showToCreate')); return; }
-    if(window.__MODEL_PROVIDERS_DEMO__){ setStatus(tr('providers.demoHandoff')); return; }
-    if(window.parent !== window && typeof window.parent.switchUI === 'function') window.parent.switchUI(null, 'canvas');
-    else location.href = '/?page=canvas';
 }
 function checkProviderKey(item){
     const requiresKey = ['openai', 'gemini', 'apimart', 'modelscope', 'runninghub', 'volcengine'].includes(item?.id);
@@ -3928,11 +3989,6 @@ window.onload = () => {
     });
     document.getElementById('pickerCategoryTabs')?.addEventListener('ic-change', event => {
         selectPickerCat(event.detail?.value || 'all');
-    });
-    document.getElementById('modelSourceTabs').addEventListener('ic-change', event => {
-        if(event.detail?.value === 'catalog') showProviderCatalog();
-        else if(!document.getElementById('modelDiscoveryLoading').hidden) resetModelDiscovery();
-        else setModelSource('added');
     });
     document.getElementById('manualModelId').addEventListener('input', () => {
         document.getElementById('manualModelError').hidden = true;
