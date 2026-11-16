@@ -25,7 +25,7 @@
         {category:'safety_blocked', retryability:'modify_then_retry', statuses:[], signals:['moderation','safety violation','content policy','content filtered']},
         {category:'empty_output', retryability:'retry_later', statuses:[], signals:['no image data','no images returned','empty output','没有返回图片数据']},
         {category:'local_dependency_missing', retryability:'modify_then_retry', statuses:[], signals:['未找到 gpt image 2 helper','gpt-image-2-skill','cli image generation is disabled','cli 生图已禁用']},
-        {category:'application_internal_error', retryability:'unknown', statuses:[], signals:['unexpected keyword','invalid adapter output','generation provider returned an invalid result']},
+        {category:'application_internal_error', retryability:'unknown', statuses:[], signals:['application_internal_error','unexpected keyword','invalid adapter output','generation provider returned an invalid result']},
         {category:'provider_internal_error', retryability:'retry_later', statuses:[500,502], signals:['upstream internal error','provider internal error','internal server error']},
         {category:'cancelled_or_replaced', retryability:'not_needed', statuses:[409], signals:['cancelled','canceled','run was replaced','任务被新运行替换','目标节点已删除']},
         {category:'invalid_parameter', retryability:'modify_then_retry', statuses:[400,422], signals:['invalid parameter','unsupported parameter','bad request']},
@@ -85,7 +85,10 @@
         const errorCode = safeText(input.errorCode || input.error_code || input.upstream_error_code || '');
         const haystack = `${technicalError}\n${errorCode}`.toLowerCase();
         const rule = RULES.find(candidate =>
-            candidate.statuses.includes(httpStatus)
+            (candidate.statuses.includes(httpStatus)
+                && !(candidate.category === 'provider_internal_error'
+                    && (!technicalError || /^(生成失败|generation failed)$/i.test(technicalError.trim()))
+                    && !errorCode))
             || candidate.signals.some(signal => haystack.includes(signal))
         );
         const category = rule?.category || 'unknown';
@@ -116,9 +119,9 @@
         // Revisit unknown errors and generic server errors with explicit timeout
         // evidence. Empty historical failures cannot identify a network cause.
         const classified = classify(error);
-        const correctedTimeout = error?.category === 'provider_internal_error'
-            && classified.category === 'network_timeout';
-        const value = error?.category && error.category !== 'unknown' && !correctedTimeout
+        const correctedClassification = error?.category === 'provider_internal_error'
+            && ['network_timeout','connection_interrupted','application_internal_error','unknown'].includes(classified.category);
+        const value = error?.category && error.category !== 'unknown' && !correctedClassification
             ? error
             : classified;
         return {

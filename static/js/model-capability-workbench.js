@@ -26,6 +26,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     matrixRequest: null,
     matrix: { models: [], summary: {} },
     selectedModelId: '',
+    providerId: '',
   };
   const inputTypes = ['text', 'image', 'video', 'audio', 'file'];
   const operationLabels = {
@@ -503,6 +504,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
     }
     controls.editorTitle.textContent = row.name;
     controls.editorModelId.textContent = row.model_id;
+    if (byId('capability-more')) byId('capability-more').hidden = !row.has_auto_fill_backup;
     controls.editorSources.textContent = row.evidence_count
       ? tf('models.sourceSummaryAvailable', { count: row.evidence_count })
       : tr('models.sourceSummaryMissing');
@@ -519,7 +521,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
   const loadMatrix = async () => {
     if (!state.matrixRequest) {
-      state.matrixRequest = request('/api/admin/model-capability-matrix')
+      state.matrixRequest = request(`/api/admin/model-capability-matrix?provider_id=${encodeURIComponent(state.providerId)}`)
         .finally(() => { state.matrixRequest = null; });
     }
     state.matrix = await state.matrixRequest;
@@ -657,7 +659,7 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
         });
       const payload = await request('/api/admin/model-capability-matrix', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_id: row.model_id, operations }),
+        body: JSON.stringify({ provider_id: state.providerId, model_id: row.model_id, operations }),
       });
       const savedRow = payload.matrix?.models?.find((item) => item.model_id === row.model_id);
       const customResolutionMismatch = operations.some((choice) => {
@@ -685,7 +687,9 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
       showMessage('models.capabilitiesApplied');
     } finally { setDisabled(controls.apply, false); }
   };
-  const openEditor = async (modelId) => {
+  const openEditor = async (modelId, providerId) => {
+    if (state.matrixRequest) await state.matrixRequest;
+    state.providerId = String(providerId || '');
     state.selectedModelId = String(modelId || '').trim();
     state.loading = true;
     controls.editor.hidden = true;
@@ -707,11 +711,32 @@ import { orderAspectRatios, orderResolutions } from './infinite-canvas-ui/genera
   };
 
   controls.apply.addEventListener('click', runAction(apply));
+  byId('capability-restore')?.addEventListener('ic-select', runAction(async () => {
+    await byId('capability-more').hide('select');
+    setDisabled(controls.apply, true);
+    try {
+      const payload = await request('/api/admin/model-capability-matrix/restore', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({provider_id: state.providerId, model_id: state.selectedModelId}),
+      });
+      state.matrix = payload.matrix;
+      render();
+      window.dispatchEvent(new CustomEvent('model-capability-matrix-change', {detail: {matrix: state.matrix}}));
+      await controls.editorDialog.hide('confirm');
+      showMessage('providers.parametersRestored');
+      try { parent.postMessage({type: 'models-changed'}, '*'); } catch (_) {}
+      try {
+        const channel = new BroadcastChannel('studio-api');
+        channel.postMessage({type: 'models-changed'});
+        channel.close();
+      } catch (_) {}
+    } finally { setDisabled(controls.apply, false); }
+  }));
   controls.close.addEventListener('click', () => controls.editorDialog.hide('cancel'));
   window.addEventListener('studio-lang-change', render);
   window.ModelCapabilityEditor = Object.freeze({
     refresh: runAction(loadMatrix),
-    open: (modelId) => runAction(() => openEditor(modelId))(),
+    open: (modelId, providerId) => runAction(() => openEditor(modelId, providerId))(),
   });
   void runAction(loadMatrix)();
 })();

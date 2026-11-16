@@ -241,7 +241,7 @@
       "sourceEntry": "static/smart-canvas.html",
       "stylesheets": [
         "/static/css/design-tokens.css?v=asset-5d6abcef9071",
-        "/static/css/smart-canvas.css?v=asset-7c90cbb4b0e7",
+        "/static/css/smart-canvas.css?v=asset-ba1849650e8c",
         "/static/css/model-vendor-icons.css?v=asset-105bebbed5a6"
       ],
       "inlineStyles": [],
@@ -5264,7 +5264,7 @@
         ],
         "stylesheets": [
           "/static/css/design-tokens.css?v=asset-5d6abcef9071",
-          "/static/css/smart-canvas.css?v=asset-7c90cbb4b0e7"
+          "/static/css/smart-canvas.css?v=asset-ba1849650e8c"
         ]
       }
     },

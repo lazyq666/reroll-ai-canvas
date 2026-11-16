@@ -3481,8 +3481,8 @@ function apiImageSize(ratioValue, resolutionValue, customRatioValue='', customSi
     if(resolutionValue === 'auto') return 'auto';
     if(resolutionValue === 'custom') return String(customSizeValue || '').trim();
     const resolutionKey = resolutionValue || '1k';
-    if(ratioValue === 'custom' || ratioValue === 'source'){
-        const parsed = parseRatioValue(customRatioValue);
+    if(ratioValue === 'custom' || ratioValue === 'source' || String(ratioValue || '').includes(':')){
+        const parsed = parseRatioValue(ratioValue === 'custom' || ratioValue === 'source' ? customRatioValue : ratioValue);
         const longSide = RES_LONG_SIDE[resolutionKey] || 1024;
         if(parsed){
             const pixelLimit = RES_PIXEL_LIMIT[resolutionKey] || (longSide * longSide);
@@ -4035,7 +4035,10 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
     const capability = smartCurrentImageCapability(prefix);
     const animated = !prefix && settings.outputFormat === 'gif';
     const gifState = animated ? smartGifSettingsState(settings,capability) : null;
-    const qualities = capability.model_capability?.parameters?.quality?.values || [];
+    const qualityContract = capability.model_capability?.parameters?.quality;
+    const qualities = qualityContract?.visible === false || qualityContract?.editable === false
+        ? [qualityContract.default || 'auto']
+        : qualityContract?.values || [];
     const selection = smartImageCapabilitySelection(prefix);
     const capabilityKey = smartImageCapabilityWarningKey(prefix);
     if(selection.providerId && selection.modelId && !capability.model_capability && !pendingSmartImageCapabilityKeys.has(capabilityKey)){
@@ -4123,7 +4126,7 @@ function renderSizePickerControl(prefix='', includeSource=false, includeQuality=
             frame-duration-ms="${escapeAttr(settings.frameDurationMs ?? 200)}" frame-duration-options="${escapeAttr(gifState.durations.join(','))}"
             frame-warning="${escapeAttr(gifState.warning)}"` : ''}
         ${!animated && capability.show_resolution_control ? '' : 'hide-resolution'}
-        ${includeQuality && qualities.length ? '' : 'hide-quality'}
+        ${includeQuality && (qualities.length > 1 || (qualities.length && !qualities.includes(settings.quality || 'auto'))) ? '' : 'hide-quality'}
         ${warning ? `warning="${escapeAttr(warning)}"` : ''}
     ></ic-generation-settings-picker>`;
 }
@@ -4749,7 +4752,7 @@ function setDynamicSetting(key, value){
         delete settings._imageCapabilityWarning;
         delete settings._imageCapabilityWarningKey;
     }
-    if(['ratio','resolution','msRatio','msResolution'].includes(key)){
+    if(['ratio','resolution','quality','msRatio','msResolution'].includes(key)){
         delete settings._imageCapabilityWarning;
         delete settings._imageCapabilityWarningKey;
     }
@@ -12716,7 +12719,7 @@ function aiProcessorResolutionForPlan(capability,plan,requested='auto'){
     });
 }
 async function aiProcessorImagePlan(model,target,{ratio='source',resolution='auto'}={}){
-    const capability=await window.SmartCanvasModules.imageCapabilities.load(model.provider_id,model.model);
+    const capability=await window.SmartCanvasModules.imageCapabilities.load(model.provider_id,model.model,'image.edit');
     const requestedRatio=AI_PROCESSOR_STANDARD_RATIO_BY_KEY[ratio]||'';
     const supportedRatios=requestedRatio&&(capability?.aspect_ratios||[]).includes(requestedRatio)
         ? [requestedRatio]
@@ -12727,22 +12730,28 @@ async function aiProcessorImagePlan(model,target,{ratio='source',resolution='aut
         supportedRatios,
         maxLongEdge:4096
     });
-    return {...plan,resolution:aiProcessorResolutionForPlan(capability,plan,resolution)};
+    return {...plan,capability,resolution:aiProcessorResolutionForPlan(capability,plan,resolution)};
 }
 function aiProcessorRunSettings(model,plan){
-    const ratioKey=window.SmartCanvasModules.imageCapabilities.standardToRatioKey(plan.ratio)||'custom';
+    const ratioKey=window.SmartCanvasModules.imageCapabilities.standardToRatioKey(plan.ratio)||plan.ratio;
     return {
         engine:'api',apiKind:'image',provider_id:model.provider_id,model:model.model,count:1,
-        resolution:plan.resolution||'1k',ratio:ratioKey,customRatio:plan.ratio
+        resolution:plan.resolution||'1k',ratio:ratioKey,customRatio:plan.ratio,
+        quality:plan.capability?.model_capability?.parameters?.quality?.default||'auto',
+        catalog_revision:plan.capability?.model_capability?.catalog_revision||'',
+        outputFormat:'',outputCompression:'',transparentPng:false,svgModel:'',
+        pixelWidth:'',pixelHeight:'',customSize:'',customWidth:'',customHeight:'',
+        outpaintResolutionLocked:false,_imageRatioExplicit:true,
+        frameCount:9,frameDurationMs:200,frameSize:'512x512'
     };
 }
 async function aiProcessorWorkingFile(sourceUrl,target,model,fillColor='white',selection={}){
-    const plan=await aiProcessorImagePlan(model,target,selection);
+    const plan=selection.plan||await aiProcessorImagePlan(model,target,selection);
     const working=await aiProcessorGeometry.workingBlob({
         sourceUrl,targetWidth:target.width,targetHeight:target.height,
         supportedRatios:[plan.ratio],maxLongEdge:4096,fillColor
     });
-    const workingPlan={...working.plan,resolution:plan.resolution};
+    const workingPlan={...working.plan,capability:plan.capability,resolution:plan.resolution};
     const file=await aiProcessorGeometry.uploadBlob(working.blob,`ai-processor-working-${workingPlan.inputWidth}x${workingPlan.inputHeight}.png`);
     return {file,plan:workingPlan};
 }
@@ -12757,14 +12766,22 @@ async function submitOutpaintProcessor(context,detail,model){
     const image=source?.images?.[context.imageIndex];
     if(!source||!image?.url) throw new Error(tr('smart.reversePromptSourceUnavailable'));
     const sourceSize=await aiProcessorSourceSize(image,context.sourceUrl);
+    const target={
+        width:sourceSize.width+Math.max(0,Math.round(detail.outpaint.left))+Math.max(0,Math.round(detail.outpaint.right)),
+        height:sourceSize.height+Math.max(0,Math.round(detail.outpaint.top))+Math.max(0,Math.round(detail.outpaint.bottom))
+    };
+    const plan=await aiProcessorImagePlan(model,target,{resolution:detail.outpaintResolution});
+    const runSettings=aiProcessorRunSettings(model,plan);
+    await window.SmartCanvasModules.generationProvider.prepareApiImage(
+        detail.prompt,[{url:context.sourceUrl,kind:'image',natural_w:plan.inputWidth,natural_h:plan.inputHeight}],runSettings
+    );
     const padded=await aiProcessorGeometry.paddedBlob({
         sourceUrl:context.sourceUrl,sourceWidth:sourceSize.width,sourceHeight:sourceSize.height,
         left:detail.outpaint.left,right:detail.outpaint.right,top:detail.outpaint.top,bottom:detail.outpaint.bottom,
         fillColor:detail.fillColor
     });
     const paddedFile=await aiProcessorGeometry.uploadBlob(padded.blob,`outpaint-padded-${padded.width}x${padded.height}.png`);
-    const target={width:padded.width,height:padded.height};
-    const working=await aiProcessorWorkingFile(paddedFile.url,target,model,detail.fillColor,{resolution:detail.outpaintResolution});
+    const working=await aiProcessorWorkingFile(paddedFile.url,target,model,detail.fillColor,{plan});
     canvasMutation.history({action:'capture'}); context.historyCaptured=true;
     const paddedNode=canvasMutation.create({
         kind:'image',
@@ -12777,7 +12794,7 @@ async function submitOutpaintProcessor(context,detail,model){
         await generationRun.processor({
             nodeId:paddedNode.id,imageIndex:0,input:{...working.file,natural_w:working.plan.inputWidth,natural_h:working.plan.inputHeight,width:working.plan.inputWidth,height:working.plan.inputHeight},
             width:working.plan.inputWidth,height:working.plan.inputHeight,prompt:detail.prompt,
-            runSettings:aiProcessorRunSettings(model,working.plan),
+            runSettings,
             processorKind:'outpaint',
             onAccepted:async({node})=>{
                 node.aiProcessorKind='outpaint';
@@ -12797,16 +12814,20 @@ async function submitAngleProcessor(context,detail,model){
     if(!source||!image?.url) throw new Error(tr('smart.reversePromptSourceUnavailable'));
     const sourceSize=await aiProcessorSourceSize(image,context.sourceUrl);
     const target=aiProcessorAngleTarget(sourceSize,detail.angleAspectRatio,detail.angleResolution);
+    const plan=await aiProcessorImagePlan(model,target,{ratio:detail.angleAspectRatio,resolution:detail.angleResolution});
+    const runSettings=aiProcessorRunSettings(model,plan);
+    await window.SmartCanvasModules.generationProvider.prepareApiImage(
+        detail.prompt,[{url:context.sourceUrl,kind:'image',natural_w:plan.inputWidth,natural_h:plan.inputHeight}],runSettings
+    );
     const working=await aiProcessorWorkingFile(context.sourceUrl,target,model,'white',{
-        ratio:detail.angleAspectRatio,
-        resolution:detail.angleResolution
+        plan
     });
     canvasMutation.history({action:'capture'}); context.historyCaptured=true;
     try{
         await generationRun.processor({
             nodeId:source.id,imageIndex:context.imageIndex,input:{...working.file,natural_w:working.plan.inputWidth,natural_h:working.plan.inputHeight,width:working.plan.inputWidth,height:working.plan.inputHeight},
             width:working.plan.inputWidth,height:working.plan.inputHeight,prompt:detail.prompt,
-            runSettings:aiProcessorRunSettings(model,working.plan),
+            runSettings,
             processorKind:'angle-control',
             onAccepted:async({node})=>{
                 node.aiProcessorKind='angle-control';

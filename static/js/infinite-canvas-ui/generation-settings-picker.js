@@ -541,7 +541,7 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       </section>`;
 
     this.shadowRoot.querySelector('[part="trigger"]')?.addEventListener('click', () => {
-      if (!disabled && this.syncContract()) {
+      if (!disabled) {
         if (this.open) this.hide('trigger');
         else this.show();
       }
@@ -654,7 +654,8 @@ export class IcGenerationSettingsPicker extends HTMLElement {
       this.positionPanel();
       return;
     }
-    if (!this.syncContract()) return;
+    if (this.hasAttribute('disabled')) return;
+    this.syncContract();
     const generation = ++this._motionGeneration;
     this.dataset.motionState = 'entering';
     setOverlayInteraction(this.panel, true);

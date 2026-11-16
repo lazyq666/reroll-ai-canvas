@@ -29,6 +29,8 @@
 4. 结果写回前必须再次检查用户权限、目标节点和本次 operation ID，迟到结果不能覆盖新运行。
 5. Gemini/Antigravity CLI 用本次 `conversation_id + ImageName` 精确绑定结果，并使用独立临时目录，不从公共输出目录猜测“哪张图属于本任务”。
 
+不传独立图片质量参数的适配器（包括 Dreamina CLI）兼容旧公共设置中的 `auto/low/medium/high`，执行时不把这些历史占位值发送给上游，也不据此更改画幅或分辨率。`xhigh/max` 等新增质量档位不能扩散到这些适配器，仍在执行前拒绝。支持质量传参的 HTTP 路径继续按各自模型合同处理。
+
 ## 2. 一张图看懂主链路
 
 ```mermaid
@@ -174,6 +176,8 @@ Generation Node 尚未承载实际媒体结果时保留图片 / 视频模式切�
 ### 指定分辨率
 
 图片 Composer 将指定宽高保存为 `pixelWidth` / `pixelHeight`，保留未生效的比例与分辨率档位，供清空后恢复。提交前按本次 `image.generate` 或 `image.edit` 的能力合同校验 `custom_size`；自定义请求使用 `size_mode=custom` 与原样的 `size=WIDTHxHEIGHT`，不同时发送有效的 `target_aspect_ratio`、`reference_aspect_ratio` 或 `resolution_tier`。局部修复与扩图沿用各自的几何规则。
+
+在线单次图片生成在创建运行记录及结果节点前，复用 Provider 请求准备函数预检尺寸、质量和格式；提交时继续使用同一准备函数校验最新能力。扩图和角度控制按 `image.edit` 规划工作图，保留能力声明的标准比例（包括没有短名称的 `4:5` 等），并在上传工作图和创建节点前预检。处理器显式指定模型默认质量、静态默认格式及空自定义像素字段，不继承其他 Composer 模型的质量、GIF/SVG 或自定义尺寸。
 
 后端在创建 Generation Run 前检查目录 Revision、能力开关与尺寸合同：宽高为正整数和 16 的倍数，单边不超过 3840、长短边比不超过 3、总像素介于 655360 与 8294400（包含边界）。后端拒绝无效值，不替用户取整。`size_mode` 随运行及生成信息保留；自定义尺寸不经过预设比例换算、Responses 预设档位换算或输出画幅后处理。
 

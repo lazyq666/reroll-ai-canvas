@@ -871,6 +871,7 @@
         "smart.capabilityField.operation": { zh: "生成方式", en: "generation mode" },
         "smart.capabilityField.catalog_revision": { zh: "模型能力版本", en: "model capability version" },
         "smart.capabilityField.count": { zh: "生成数量", en: "output count" },
+        "smart.capabilityField.quality": { zh: "质量", en: "quality" },
         "smart.capabilityField.duration_seconds": { zh: "视频时长", en: "video duration" },
         "smart.capabilityField.aspect_ratio": { zh: "画面比例", en: "aspect ratio" },
         "smart.capabilityField.resolution": { zh: "分辨率", en: "resolution" },

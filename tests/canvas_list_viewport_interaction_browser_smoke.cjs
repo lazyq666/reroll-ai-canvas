@@ -15,6 +15,8 @@ const records = Array.from({ length:48 }, (_, index) => ({
   cover_url:index % 2 ? '/static/images/test/fixture.svg' : '',
 }));
 const requests = [];
+records[5].title = 'Agent MCP · Codex 实机验收 · 2026-10-17-long-unbroken-title';
+records[5].cover_url = '/test-portrait-cover.svg';
 let fail = false;
 let slowPending = false;
 let delayReset = false;
@@ -24,6 +26,10 @@ const json = (response, payload, status = 200) => {
 };
 const server = http.createServer((request, response) => {
   const url = new URL(request.url, 'http://localhost');
+  if(url.pathname === '/test-portrait-cover.svg'){
+    response.writeHead(200, { 'Content-Type':'image/svg+xml' });
+    return response.end('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="700"><rect width="400" height="700" fill="orange"/></svg>');
+  }
   if(url.pathname.startsWith('/api/')){
     requests.push({ path:url.pathname, method:request.method, query:Object.fromEntries(url.searchParams) });
     if(url.pathname === '/api/auth/me') return json(response, { user:{ id:'designer', role:'admin', username:'Designer' } });
@@ -80,6 +86,16 @@ const server = http.createServer((request, response) => {
     const search = page.locator('#canvasSearch input');
     await ready();
     await page.waitForFunction(() => document.querySelectorAll('.ws-card').length === 40);
+    const cardGeometry = await page.locator('.ws-card').evaluateAll(cards => cards.slice(0, 8).map(card => {
+      const cover = card.querySelector('.ws-card-thumb').getBoundingClientRect();
+      return { ratio:cover.width / cover.height, height:card.querySelector('.ws-card-surface').getBoundingClientRect().height };
+    }));
+    assert.ok(cardGeometry.every(card => Math.abs(card.ratio - 16 / 9) < 0.02), 'Every cover must stay 16:9, including long titles with portrait images');
+    assert.ok(Math.max(...cardGeometry.map(card => card.height)) - Math.min(...cardGeometry.map(card => card.height)) < 2, 'Long titles must not increase card height');
+    await page.locator('.ws-card[data-canvas-id="study-05"] .ws-card-menu').click({ timeout:3000 });
+    await page.locator('ic-menu.ws-card-pop[open]').waitFor();
+    assert.match(page.url(), /canvas-list\.html$/, 'The long-title menu must open without navigating into the canvas');
+    await page.keyboard.press('Escape');
     assert.equal(await page.locator('#visibilityFilter').getAttribute('role'), 'radiogroup');
     assert.equal(await page.locator('#visibilityFilter [data-value="all"]').getAttribute('aria-checked'), 'true');
     await page.locator('#visibilityFilter [data-value="all"]').focus();

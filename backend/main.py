@@ -7498,12 +7498,14 @@ async def probe_async_endpoint(payload: TestConnectionPayload):
 
 @app.post("/api/providers/fetch-models")
 async def fetch_upstream_models_from_payload(payload: TestConnectionPayload):
+    actor_id = _model_capability_workbench_actor()
     result = await _provider_implementation.fetch_upstream_models_from_payload(payload)
     return await _attach_fetch_time_capability_review(
         result,
         provider_id=payload.provider_id,
         base_url=payload.base_url,
         protocol=_provider_implementation.protocol_from_payload(payload),
+        apply_actor_id=actor_id,
     )
 
 
@@ -7588,6 +7590,7 @@ install_onboarding_routes(app, AUTH_SYSTEM, OnboardingPorts(
 
 @app.get("/api/providers/{provider_id}/fetch-models")
 async def fetch_upstream_models(provider_id: str):
+    actor_id = _model_capability_workbench_actor()
     provider = get_api_provider_exact(provider_id)
     result = await _provider_implementation.fetch_upstream_models(provider_id)
     return await _attach_fetch_time_capability_review(
@@ -7595,6 +7598,7 @@ async def fetch_upstream_models(provider_id: str):
         provider_id=str(provider.get("id") or provider_id),
         base_url=str(provider.get("base_url") or ""),
         protocol=str(provider.get("protocol") or "openai"),
+        apply_actor_id=actor_id,
     )
 
 
@@ -7604,6 +7608,7 @@ async def _attach_fetch_time_capability_review(
     provider_id: str,
     base_url: str,
     protocol: str,
+    apply_actor_id: str = "",
 ):
     response = dict(result or {})
     discovery = response.pop("_capability_discovery", None)
@@ -7615,6 +7620,7 @@ async def _attach_fetch_time_capability_review(
             discovery=discovery,
             model_ids=response.get("all") or (),
             chat_model_ids=response.get("chat_models") or (),
+            apply_actor_id=apply_actor_id,
         )
         if review is not None:
             response["capability_review"] = review
@@ -7637,12 +7643,14 @@ def _generation_failure_http_status(detail, status_code=0):
     if status_code:
         return int(status_code)
     # This is the local API response status, not an upstream HTTP response.
-    return 504 if str(detail).startswith("provider_network_timeout:") else 500
+    if str(detail).startswith("provider_network_timeout:"):
+        return 504
+    return 502 if str(detail).startswith("provider_connection_interrupted:") else 500
 
 
 def _raise_generation_http(error):
     detail, status_code = generation_failure_details(error)
-    if isinstance(error, HTTPException) and not detail.startswith("provider_network_timeout:"):
+    if isinstance(error, HTTPException) and not detail.startswith(("provider_network_timeout:", "provider_connection_interrupted:")):
         raise error
     raise HTTPException(
         status_code=_generation_failure_http_status(detail, status_code),
@@ -9007,8 +9015,12 @@ class ModelCapabilityMatrixOperationPayload(BaseModel):
     video: Dict[str, Any] = Field(default_factory=dict)
 
 
-class ModelCapabilityMatrixUpdatePayload(BaseModel):
+class ModelCapabilityMatrixIdentityPayload(BaseModel):
+    provider_id: str = Field(min_length=1)
     model_id: str
+
+
+class ModelCapabilityMatrixUpdatePayload(ModelCapabilityMatrixIdentityPayload):
     operations: List[ModelCapabilityMatrixOperationPayload] = Field(
         default_factory=list, min_length=1, max_length=5
     )
@@ -9080,10 +9092,10 @@ async def validate_model_capability(payload: ModelCapabilityValidationRequest):
 
 
 @app.get("/api/admin/model-capability-matrix")
-async def model_capability_matrix_snapshot():
+async def model_capability_matrix_snapshot(provider_id: str = ""):
     _model_capability_workbench_actor()
     try:
-        return MODEL_CAPABILITY_MATRIX.snapshot()
+        return MODEL_CAPABILITY_MATRIX.snapshot(provider_id=provider_id)
     except (OSError, ValueError) as error:
         raise HTTPException(
             status_code=500,
@@ -9102,14 +9114,27 @@ async def update_model_capability_matrix(
                 model_id=payload.model_id,
                 operations=[item.model_dump(exclude_none=True) for item in payload.operations],
                 actor_id=actor_id,
+                provider_id=payload.provider_id,
             )
         )
-        return {"result": result, "matrix": MODEL_CAPABILITY_MATRIX.snapshot()}
+        return {"result": result, "matrix": MODEL_CAPABILITY_MATRIX.snapshot(provider_id=payload.provider_id)}
     except ValueError as error:
         raise HTTPException(
             status_code=400,
             detail={"code": "model_capability_matrix_invalid"},
         ) from error
+
+
+@app.post("/api/admin/model-capability-matrix/restore")
+async def restore_model_capability_backup(payload: ModelCapabilityMatrixIdentityPayload):
+    actor_id = _model_capability_workbench_actor()
+    result = _model_capability_workbench_action(
+        lambda: MODEL_CAPABILITY_WORKBENCH.restore_discovery_backup(
+            provider_id=payload.provider_id, model_id=payload.model_id,
+            catalog=MODEL_CAPABILITY_CATALOG, actor_id=actor_id,
+        )
+    )
+    return {"result": result, "matrix": MODEL_CAPABILITY_MATRIX.snapshot(provider_id=payload.provider_id)}
 
 
 @app.get("/api/admin/model-capability-workbench")

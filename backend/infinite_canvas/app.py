@@ -254,12 +254,12 @@ def _runtime_page(runtime: ApplicationRuntime) -> str:
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
   <link rel="stylesheet" href="/static/css/page-loading.css?v=asset-48cf584c51c9">
-  <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
+  <script src="/static/js/i18n.js?v=asset-e66d851902f7"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
 </head>
 <body class="runtime-page">
   {page_content}
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-a554ba70fd5a"></script>
   <script>
     const runtimeDetailKey = {detail_key!r};
     const runtimeDetailFallback = document.getElementById('runtime-detail')?.textContent || '';
@@ -311,7 +311,7 @@ def _recovery_page() -> str:
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
   <link rel="stylesheet" href="/static/css/runtime-recovery.css?v=asset-8be1fbdd11ea">
-  <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
+  <script src="/static/js/i18n.js?v=asset-e66d851902f7"></script>
 </head>
 <body class="runtime-page recovery-page">
   <main class="runtime-shell recovery-shell">
@@ -371,7 +371,7 @@ def _recovery_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-a554ba70fd5a"></script>
   <script>
     const tr = key => window.StudioI18n?.t?.(key) || key;
     const input = document.getElementById('workspace-directory');
@@ -502,7 +502,7 @@ def _workspace_move_page() -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/static/js/page-zoom-guard.js?v=asset-16dab7025174"></script>
   <title data-i18n="runtime.movePageTitle">工作区搬家进度 · Reroll</title>
-  <script src="/static/js/i18n.js?v=asset-dee3ef098d09"></script>
+  <script src="/static/js/i18n.js?v=asset-e66d851902f7"></script>
   <script src="/static/js/theme.js?v=asset-1ddf24aab306"></script>
   <link rel="icon" href="/static/images/brand/favicon.png?v=asset-bd89f9a7f64c" type="image/png">
   <link rel="stylesheet" href="/static/css/design-tokens.css?v=asset-5d6abcef9071">
@@ -538,7 +538,7 @@ def _workspace_move_page() -> str:
       </div>
     </ic-card>
   </main>
-  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-043141897598"></script>
+  <script type="module" src="/static/js/infinite-canvas-ui/core.js?v=asset-a554ba70fd5a"></script>
   <script src="/static/js/workspace-move.js?v=asset-23ce42c27241" defer></script>
 </body>
 </html>"""

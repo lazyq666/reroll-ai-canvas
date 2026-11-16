@@ -2561,7 +2561,10 @@ async def generate_http_provider_image(
     quality = str(quality or "").strip().lower()
     from ..image_formats import APIMART_QUALITY_MODELS, IMAGE_QUALITIES
     apimart_quality = is_apimart and model in APIMART_QUALITY_MODELS
-    if quality not in (IMAGE_QUALITIES if apimart_quality else {"low", "medium", "high"}):
+    allowed_quality = IMAGE_QUALITIES if apimart_quality else {"auto", "low", "medium", "high"}
+    if quality and (quality not in allowed_quality or (is_apimart and not apimart_quality and quality != "auto")):
+        raise HTTPException(status_code=422, detail={"code": "parameter_value", "field": "quality"})
+    if not apimart_quality and quality == "auto":
         quality = ""
     base_url = (provider.get("base_url") or _ports.AI_BASE_URL).rstrip("/")
     if not base_url:
@@ -2572,6 +2575,8 @@ async def generate_http_provider_image(
     mask_refs = [ref for ref in refs if str(ref.get("role") or "").strip().lower() == "mask" or str(ref.get("name") or "").lower().endswith("_mask.png")]
     image_refs = [ref for ref in refs if ref not in mask_refs]
     image_request_mode = effective_image_request_mode(provider, model)
+    if image_request_mode in {"openai-video-proxy", "openai-json"} and quality:
+        raise HTTPException(status_code=422, detail={"code": "parameter_value", "field": "quality"})
     request_timeout = httpx.Timeout(connect=20.0, read=1800.0, write=120.0, pool=20.0) if (is_gpt2 or is_apimart or image_request_mode in {"openai-json", "openai-video-proxy", "openai-responses"}) else _ports.AI_REQUEST_TIMEOUT
     async with httpx.AsyncClient(timeout=request_timeout) as client:
         response = None

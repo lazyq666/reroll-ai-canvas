@@ -35,8 +35,8 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         for value in values[:-2]:
             self.assertEqual('network_timeout', value['category'])
             self.assertEqual({}, value['billingEvidence'])
-        for value in values[-2:]:
-            self.assertEqual('provider_internal_error', value['category'])
+        self.assertEqual('unknown', values[-2]['category'])
+        self.assertEqual('provider_internal_error', values[-1]['category'])
 
     def test_confirmed_timeout_history_and_diagnostic_switch_language_without_fake_upstream(self):
         payload = self.run_module("""
@@ -68,7 +68,7 @@ class SmartCanvasGenerationFailureFeedbackTests(unittest.TestCase):
         self.assertEqual('Connection timed out', payload[1]['detail']['title'])
         for value in payload:
             self.assertEqual('network_timeout', value['detail']['category'])
-            self.assertEqual('provider_internal_error', value['unknownHistory']['category'])
+            self.assertEqual('unknown', value['unknownHistory']['category'])
             self.assertIn('provider_network_timeout: ConnectTimeout', value['report'])
             self.assertNotIn('smart.error.', value['report'])
             self.assertNotIn('上游原文', value['report'])

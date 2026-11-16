@@ -508,6 +508,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         matrix.apply.return_value = {"published": 2}
         matrix.snapshot.return_value = {"models": [], "summary": {"models": 0}}
         payload = main.ModelCapabilityMatrixUpdatePayload(
+            provider_id="first",
             model_id="shared-model",
             name="Shared Model",
             operations=[
@@ -534,6 +535,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("name", called)
         self.assertNotIn("name", payload.model_dump())
         self.assertEqual("shared-model", called["model_id"])
+        self.assertEqual("first", called["provider_id"])
         self.assertEqual("admin-1", called["actor_id"])
         self.assertEqual(["2K"], called["operations"][0]["resolutions"])
 
@@ -602,7 +604,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
             ):
                 await main.update_model_capability_matrix(
                     main.ModelCapabilityMatrixUpdatePayload(
-                        model_id=model_id, operations=operations,
+                        provider_id="apimart", model_id=model_id, operations=operations,
                     )
                 )
                 reopened = self.workbench_catalog(path)
@@ -623,7 +625,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
                 ]
                 await main.update_model_capability_matrix(
                     main.ModelCapabilityMatrixUpdatePayload(
-                        model_id=model_id, operations=legacy_operations,
+                        provider_id="apimart", model_id=model_id, operations=legacy_operations,
                     )
                 )
                 parameters = self.workbench_catalog(path).resolve(
@@ -638,6 +640,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
                     with self.subTest(field=field), self.assertRaises(HTTPException) as raised:
                         await main.update_model_capability_matrix(
                             main.ModelCapabilityMatrixUpdatePayload(
+                                provider_id="apimart",
                                 model_id=model_id,
                                 operations=[{**operations[0], field: invalid}],
                             )
@@ -647,6 +650,7 @@ class ModelCapabilityApiTests(unittest.IsolatedAsyncioTestCase):
 
                 await main.update_model_capability_matrix(
                     main.ModelCapabilityMatrixUpdatePayload(
+                        provider_id="apimart",
                         model_id=model_id,
                         operations=[
                             {**operation, "formats": [], "svg_model": ""}

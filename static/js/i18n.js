@@ -5,7 +5,7 @@
         '/static/js/i18n/auth.js?v=asset-e53e0e071b46',
         '/static/js/i18n/onboarding.js?v=asset-c0905b266684',
         '/static/js/i18n/workspace.js?v=asset-0d228a852242',
-        '/static/js/i18n/model-management.js?v=asset-40a813aea7d1',
+        '/static/js/i18n/model-management.js?v=asset-29b118c81017',
         '/static/js/i18n/preferences.js?v=asset-2748260c5222',
         '/static/js/i18n/cloud-storage.js?v=asset-d576e6096d48',
         '/static/js/cloud-records.js?v=asset-672387e62ee0',
@@ -15,7 +15,7 @@
         '/static/js/i18n/studio.js?v=asset-1b9c7049dc10',
         '/static/js/i18n/api-settings.js?v=asset-0bbbe1164a01',
         '/static/js/i18n/canvas.js?v=asset-28dcb54266bc',
-        '/static/js/i18n/smart-canvas.js?v=asset-033585f65291',
+        '/static/js/i18n/smart-canvas.js?v=asset-14c5d1b21f5a',
         '/static/js/i18n/comfyui-settings.js?v=asset-6700cf6d6c3f',
     ];
     const tags = scripts.map(src => '<script src="' + src + '"></script>').join('');

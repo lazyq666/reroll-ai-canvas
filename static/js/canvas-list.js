@@ -117,6 +117,7 @@ const board = document.getElementById('board');
 const boardWorld = document.getElementById('boardWorld');
 const boardEmptyHint = document.getElementById('boardEmptyHint');
 const boardLoading = document.getElementById('boardLoading');
+let canvasListUiReady = false;
 const boardSkeletonTemplate = document.getElementById('boardSkeletonTemplate');
 if(boardLoading && boardSkeletonTemplate){
     const skeletonGrid = boardLoading.querySelector('.ws-board-world');
@@ -257,7 +258,7 @@ function setStatus(text, tone = 'neutral'){
 }
 
 function setBoardLoading(loading){
-    const pending = Boolean(loading) || Boolean(listPendingRequestId) || (canvasListProjectsPending
+    const pending = !canvasListUiReady || Boolean(loading) || Boolean(listPendingRequestId) || (canvasListProjectsPending
         && !canvasesInProject(currentProjectId).length && !canvasListLoadError);
     board.setAttribute('aria-busy', String(pending));
     boardWorld.hidden = pending;
@@ -1642,6 +1643,11 @@ window.addEventListener('message', event => {
 });
 
 /* ===== Boot ===== */
+Promise.all(['ic-skeleton', 'ic-card', 'ic-image-frame', 'ic-button', 'ic-icon-button', 'ic-tabs', 'ic-input', 'ic-select', 'ic-segmented-control']
+    .map(name => customElements.whenDefined(name))).then(() => {
+        canvasListUiReady = true;
+        setBoardLoading(false);
+    });
 window.StudioI18n?.apply?.();
 refreshCanvasListSession().catch(handleCanvasListSessionError);
 refreshIcons();

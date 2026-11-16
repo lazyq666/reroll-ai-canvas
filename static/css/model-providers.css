@@ -52,8 +52,8 @@ main.api-settings-page, section.provider-editor {
 .provider-editor #modelsCard::part(body) { grid-template-columns: minmax(0, 1fr); gap: var(--ui-space-3); }
 #addedModelPanel { min-width: 0; }
 .provider-editor #modelsCard { display: block !important; }
-.provider-editor.api-settings-page .layout .models-card-header { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: var(--ui-space-2); }
-.provider-editor.api-settings-page .layout .models-actions-toolbar { width: auto; }
+.provider-editor.api-settings-page .layout .models-card-header { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--ui-space-2); }
+.provider-editor.api-settings-page .layout .models-actions-toolbar { width: auto; max-width: 100%; flex-wrap: wrap; }
 .provider-editor .model-list { display: block; padding: 0; min-height: 5rem; }
 .provider-editor .model-table { --ic-table-min-width: 0; }
 .provider-editor .model-name-label { min-width: 0; max-width: 100%; }
@@ -69,7 +69,6 @@ main.api-settings-page, section.provider-editor {
 .provider-preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ui-space-2); }
 .manual-model-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ui-space-4); min-width: 0; }
 .manual-model-fields > * { min-width: 0; max-width: 100%; }
-#modelSourceTabs { width: fit-content; max-width: 100%; }
 .manual-model-panel { min-width: 0; padding-block: var(--ui-space-4); border-bottom: 1px solid var(--ui-color-border-secondary); }
 .model-picker-panel, #modelDiscoveryResults, .model-selection-filters { display: grid; gap: var(--ui-space-4); min-width: 0; }
 .model-inline-actions, .model-selection-bulk { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ui-space-2); }

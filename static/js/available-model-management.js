@@ -58,9 +58,9 @@
     ) || '').trim();
     return template.content.firstElementChild || element('span', 'model-vendor-icon model-vendor-icon--fallback');
   };
-  const capabilityTags = (modelId) => {
+  const capabilityTags = (model) => {
     const container = element('div', 'model-capability-tags');
-    (state.capabilityTags.get(modelId) || []).forEach((tag) => {
+    (state.capabilityTags.get(`${model.provider_id}:${model.model}`) || []).forEach((tag) => {
       const labelKey = capabilityTagLabels[tag];
       if (!labelKey) return;
       const badge = element('ic-badge', '', tr(labelKey));
@@ -94,7 +94,7 @@
         setMessage(tr('models.detailsUnavailable'), true);
         return;
       }
-      await window.ModelCapabilityEditor.open(model.model);
+      await window.ModelCapabilityEditor.open(model.model, model.provider_id);
     });
     return button;
   };
@@ -481,8 +481,10 @@
     commitChanges();
   };
   const render = () => {
-    const models = visibleModels();
-    const activeLabel = tr(labels[state.active]);
+    const models = providerView ? Object.values(state.models).flat()
+      .filter(model => model.provider_id === state.providerId && model.visible !== false) : visibleModels();
+    const activeLabel = tr(providerView ? 'providers.editParameters' : labels[state.active]);
+    modelTypes.hidden = providerView;
     title.textContent = activeLabel;
     catalog.setAttribute('label', activeLabel);
     Object.keys(labels).forEach((kind) => {
@@ -506,7 +508,7 @@
     [
       tr('models.modelNaming'),
       ...(providerView ? [] : [tr('models.modelId'), tr('models.providerId')]),
-      tr('models.visibility'),
+      ...(!providerView ? [tr('models.visibility')] : []),
       tr('models.operations'),
     ].forEach((label) => {
       const header = element('th', '', label);
@@ -521,10 +523,10 @@
     models.forEach((model, index) => {
       const displayName = model.name || model.model;
       const row = element('tr', 'model-row');
-      row.draggable = true;
+      row.draggable = !providerView;
       row.dataset.modelId = model.id;
-      row.setAttribute('aria-label', tf('models.dragModel', { name: displayName }));
-      row.title = tr('models.dragToOrder');
+      row.setAttribute('aria-label', providerView ? displayName : tf('models.dragModel', { name: displayName }));
+      if (!providerView) row.title = tr('models.dragToOrder');
 
       const nameCell = element('td', 'model-name-cell');
       const identity = element('div', 'model-identity');
@@ -550,7 +552,7 @@
         }
       });
       identity.append(modelVendorIcon(model), nameButton, nameInput);
-      nameCell.append(identity, capabilityTags(model.model));
+      nameCell.append(identity, capabilityTags(model));
       if(providerView && displayName !== model.model) nameCell.append(element('span', 'model-id-subline', model.model));
 
       const modelIdCell = element('td', 'model-id', model.model);
@@ -571,6 +573,7 @@
         modelDetailsButton(model),
       );
       if (providerView) {
+        actions.append(modelDetailsButton(model));
         const menu = element('ic-menu', 'model-actions-menu');
         menu.setAttribute('label', tr('models.operations'));
         const trigger = element('ic-icon-button', 'model-more');
@@ -592,21 +595,14 @@
           menu.append(entry);
         };
         command('providers.rename', 'rename-model', false, rename);
-        command('providers.modelSettings', 'model-settings', false, async () => {
-          if(await commitChanges()) await window.ModelCapabilityEditor?.open(model.model);
-        });
-        command('models.moveUp', 'move-up', index === 0, () => move(index, index - 1));
-        command('models.moveDown', 'move-down', index === models.length - 1, () => move(index, index + 1));
-        command('providers.removeModel', 'remove-model', false, async () => {
-          if (await commitChanges()) await window.ProviderConnections?.removeModel(state.active, model.model, model.aliases);
-        });
         actions.append(menu);
       }
       actionCell.appendChild(actions);
       row.append(nameCell);
       if(!providerView) row.append(modelIdCell);
       if (!providerView) row.append(providerIdCell);
-      row.append(visibilityCell, actionCell);
+      if (!providerView) row.append(visibilityCell);
+      row.append(actionCell);
       row.addEventListener('dragstart', (event) => {
         if (event.target.closest?.('ic-input')) {
           event.preventDefault();
@@ -644,10 +640,11 @@
     commitChanges();
   });
   window.addEventListener('model-capability-matrix-change', (event) => {
-    state.capabilityTags = new Map((event.detail?.matrix?.models || []).map((model) => [
-      model.model_id,
-      Array.isArray(model.capability_tags) ? model.capability_tags : [],
-    ]));
+    (event.detail?.matrix?.models || []).forEach(model => {
+      const providers = model.provider_id ? [model.provider_id] : (model.providers || []).map(provider => provider.id);
+      providers.forEach(providerId => state.capabilityTags.set(`${providerId}:${model.model_id}`,
+        Array.isArray(model.capability_tags) ? model.capability_tags : []));
+    });
     render();
   });
   const hasPendingEdits = () => state.inFlight || state.dirtyNames.size || state.orderDirty || state.visibilityDirty;
@@ -696,6 +693,38 @@
   window.ProviderModels = Object.freeze({
     flush: commitChanges,
     refresh: refreshModels,
+    selectedIds() {
+      return new Set(Object.values(state.models).flat()
+        .filter(model => model.provider_id === state.providerId && model.visible !== false)
+        .flatMap(model => [model.model, ...(model.aliases || [])]));
+    },
+    async loadInventory() {
+      if (!await commitChanges()) return false;
+      if (state.refreshInFlight) await state.refreshInFlight;
+      const payload = await request('/api/admin/available-models');
+      state.models = payload.models;
+      state.revision += 1;
+      render();
+      return true;
+    },
+    async setSelected(selectedIds) {
+      if (!await this.loadInventory()) return false;
+      const previous = Object.values(state.models).flat().map(model => [model, model.visible]);
+      Object.values(state.models).flat().forEach(model => {
+        if (model.provider_id === state.providerId) model.visible = selectedIds.has(model.model)
+          || (model.aliases || []).some(alias => selectedIds.has(alias));
+      });
+      state.visibilityDirty = true;
+      state.revision += 1;
+      const saved = await commitChanges();
+      if (!saved) {
+        previous.forEach(([model, visible]) => { model.visible = visible; });
+        state.visibilityDirty = false;
+        state.revision += 1;
+        render();
+      }
+      return saved;
+    },
     captureRemoval(kind, modelId) {
       const index = state.models[kind].findIndex(model => model.provider_id === state.providerId && model.model === modelId);
       return index < 0 ? null : {kind, index, model:{...state.models[kind][index]}};

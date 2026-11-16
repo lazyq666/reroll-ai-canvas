@@ -482,6 +482,8 @@ class ModelCapabilityWorkbench:
         active_catalog_revision: str,
         actor_id: str,
         activate: Callable[[], Mapping[str, Any]] | None = None,
+        maintenance_origin: str = "manual",
+        migration_backups: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Record and publish one product-level model matrix edit atomically.
 
@@ -566,12 +568,21 @@ class ModelCapabilityWorkbench:
                     "identity_key": identity_key,
                     "capability": candidate,
                     "evidence": evidences,
+                    "auto_fill": copy.deepcopy(raw_record.get("auto_fill")),
                 }
             )
 
         with self._lock:
             state = self._read()
             previous_state = copy.deepcopy(state)
+            if migration_backups:
+                backups = state.setdefault("auto_fill_backups", {})
+                for key, backup in migration_backups.items():
+                    backups.setdefault(key, copy.deepcopy(backup))
+            previous_records = {
+                (item.get("provider_id"), item.get("model_id"), item.get("operation")): item
+                for item in state["published"]["capabilities"]
+            }
             published_identities = {item["identity_key"] for item in prepared}
             state["published"]["capabilities"] = [
                 item
@@ -589,6 +600,20 @@ class ModelCapabilityWorkbench:
                 identity = item["identity"]
                 evidence = item["evidence"]
                 capability = item["capability"]
+                previous = previous_records.get(item["identity_key"], {})
+                auto_fill = item["auto_fill"] or copy.deepcopy(previous.get("auto_fill"))
+                if not auto_fill:
+                    model_backup = state.get("auto_fill_backups", {}).get(json.dumps(item["identity_key"][:2]), [])
+                    original = next((record["capability"] for record in model_backup
+                                     if record["operation"] == identity["operation"]), None)
+                    if original is not None:
+                        auto_fill = {"backup": copy.deepcopy(original), "protected": [], "created_at": timestamp}
+                if auto_fill and maintenance_origin == "manual":
+                    protected = set(auto_fill.get("protected", []))
+                    before = self._field_values(previous.get("capability", {}))
+                    after = self._field_values(capability)
+                    protected.update(path for path in before.keys() | after.keys() if before.get(path) != after.get(path))
+                    auto_fill["protected"] = sorted(protected)
                 draft_id = str(uuid.uuid4())
                 bindings = {
                     path: {
@@ -597,9 +622,15 @@ class ModelCapabilityWorkbench:
                     }
                     for path in self._leaf_paths(capability)
                 }
+                if maintenance_origin == "discovery":
+                    before = self._field_values(previous.get("capability", {}))
+                    after = self._field_values(capability)
+                    for path, binding in previous.get("field_evidence", {}).items():
+                        if path in bindings and before.get(path) == after.get(path):
+                            bindings[path] = copy.deepcopy(binding)
                 draft = {
                     "id": draft_id,
-                    "maintenance_origin": "manual",
+                    "maintenance_origin": maintenance_origin,
                     **identity,
                     "capability": capability,
                     "field_evidence": bindings,
@@ -617,13 +648,15 @@ class ModelCapabilityWorkbench:
                 }
                 published = {
                     "draft_id": draft_id,
-                    "maintenance_origin": "manual",
+                    "maintenance_origin": maintenance_origin,
                     **identity,
                     "capability": copy.deepcopy(capability),
                     "field_evidence": copy.deepcopy(bindings),
                     "published_by": actor,
                     "published_at": timestamp,
                 }
+                if auto_fill:
+                    published["auto_fill"] = auto_fill
                 state["evidence"].extend(evidence)
                 state["drafts"].append(draft)
                 state["published"]["capabilities"].append(published)
@@ -649,6 +682,118 @@ class ModelCapabilityWorkbench:
                 "drafts": copy.deepcopy(published_drafts),
                 "catalog": copy.deepcopy(dict(activation)),
             }
+
+    @classmethod
+    def _field_values(cls, value, prefix=""):
+        fields = {}
+        for key, item in value.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if isinstance(item, Mapping):
+                fields.update(cls._field_values(item, path))
+            else:
+                fields[path] = copy.deepcopy(item)
+        return fields
+
+    @classmethod
+    def _merge_discovery(cls, base, update, protected, prefix=""):
+        result = copy.deepcopy(dict(base))
+        for key, value in update.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if any(path == field or path.startswith(field + ".")
+                   for field in protected):
+                continue
+            if isinstance(value, Mapping):
+                result[key] = cls._merge_discovery(result.get(key, {}) if isinstance(result.get(key), Mapping) else {}, value, protected, path)
+            elif value is not None:
+                result[key] = copy.deepcopy(value)
+        return result
+
+    def apply_discovery(self, *, records, catalog, actor_id):
+        with self._lock:
+            state = self._read()
+            existing = {
+                (item["provider_id"], item["model_id"], item["operation"]): item
+                for item in state["published"]["capabilities"]
+            }
+            prepared = {}
+            backups = copy.deepcopy(state.get("auto_fill_backups", {}))
+            for record in records:
+                identity = tuple(record[key] for key in ("provider_id", "model_id", "operation"))
+                backup_key = json.dumps(identity[:2])
+                if backup_key not in backups:
+                    media_kinds = {
+                        item["operation"].split(".")[0] for item in records
+                        if (item["provider_id"], item["model_id"]) == identity[:2]
+                    }
+                    operations = {
+                        operation for operation in SUPPORTED_OPERATIONS
+                        if operation.split(".")[0] in media_kinds
+                    }
+                    operations.update(key[2] for key in existing if key[:2] == identity[:2])
+                    backups[backup_key] = [
+                        {
+                            "provider_id": identity[0], "model_id": identity[1], "operation": operation,
+                            "capability": {
+                                key: copy.deepcopy(value)
+                                for key, value in catalog.resolve(identity[0], identity[1], operation).items()
+                                if key in CAPABILITY_FIELDS
+                            },
+                        }
+                        for operation in sorted(operations)
+                    ]
+                    for backup in backups[backup_key]:
+                        previous_capability = existing.get((*identity[:2], backup["operation"]), {}).get("capability", {})
+                        backup["capability"] = self._merge_discovery(backup["capability"], previous_capability, [])
+                previous = prepared.get(identity) or existing.get(identity, {})
+                resolved = catalog.resolve(*identity)
+                base = self._merge_discovery({
+                    key: value for key, value in resolved.items() if key in CAPABILITY_FIELDS
+                }, previous.get("capability", {}), [])
+                original = next((item["capability"] for item in backups[backup_key]
+                                 if item["operation"] == identity[2]), base)
+                metadata = copy.deepcopy(previous.get("auto_fill")) or {
+                    "backup": copy.deepcopy(original), "protected": [], "created_at": self._clock(),
+                }
+                update = copy.deepcopy(record["capability"])
+                if update.get("support_state") == "unknown":
+                    update.pop("support_state")
+                merged = self._merge_discovery(base, update, metadata["protected"])
+                if merged == base and previous.get("auto_fill"):
+                    continue
+                prepared[identity] = {
+                    **{key: record[key] for key in ("provider_id", "model_id", "operation")},
+                    "capability": merged,
+                    "auto_fill": metadata,
+                    "evidence": [record["evidence"]],
+                }
+            if not prepared:
+                return {"published": 0}
+            return self.publish_manual_capabilities(
+                records=list(prepared.values()), active_catalog_revision=catalog.revision,
+                actor_id=actor_id, activate=catalog.refresh, maintenance_origin="discovery",
+                migration_backups=backups,
+            )
+
+    def restore_discovery_backup(self, *, provider_id, model_id, catalog, actor_id):
+        with self._lock:
+            state = self._read()
+            records = copy.deepcopy(state.get("auto_fill_backups", {}).get(json.dumps((provider_id, model_id)), []))
+            if not records:
+                for item in state["published"]["capabilities"]:
+                    if item["provider_id"] != provider_id or item["model_id"] != model_id:
+                        continue
+                    backup = item.get("auto_fill", {}).get("backup")
+                    if backup is not None:
+                        records.append({
+                            **{key: item[key] for key in ("provider_id", "model_id", "operation")},
+                            "capability": backup,
+                        })
+            if not records:
+                raise ModelCapabilityWorkbenchValidation("automatic parameter backup not found")
+            return self.publish_manual_capabilities(
+                records=records, active_catalog_revision=catalog.revision,
+                actor_id=actor_id, activate=catalog.refresh,
+            )
 
     @staticmethod
     def _required_actor(actor_id: object) -> str:

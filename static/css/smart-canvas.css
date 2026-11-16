@@ -1499,6 +1499,7 @@ body.smart-frame-tool .shell, body.smart-frame-tool .world { cursor:crosshair; }
 .crop-shade { position:absolute; z-index:3; display:block; background:rgba(5,6,7,.54); backdrop-filter:saturate(.65); pointer-events:none; }
 .crop-canvas.mask-mode .crop-box,.crop-canvas.brush-mode .crop-box,.crop-canvas.resize-mode .crop-box,.crop-canvas.grid-mode .crop-box,.crop-canvas.mask-mode .crop-shade,.crop-canvas.brush-mode .crop-shade,.crop-canvas.resize-mode .crop-shade,.crop-canvas.grid-mode .crop-shade { display:none; }
 .crop-canvas.grid-custom-h .edit-draw-canvas { pointer-events:auto; cursor:row-resize; }
+.crop-canvas.grid-mode:not(.grid-join-mode) .edit-draw-canvas { pointer-events:auto; touch-action:none; }
 .crop-canvas.grid-custom-v .edit-draw-canvas { pointer-events:auto; cursor:col-resize; }
 .crop-box { position:absolute; z-index:5; left:0; top:0; width:100%; height:100%; box-sizing:border-box; border:var(--ui-border-width-thin) solid rgba(255,255,255,.96); border-radius:var(--ui-radius-none); outline:var(--ui-border-width-thin) solid rgba(0,0,0,.42); outline-offset:0; box-shadow:none; cursor:move; pointer-events:auto; }
 .image-edit-dialog.image-studio-transitioning .crop-box { box-shadow:none; }

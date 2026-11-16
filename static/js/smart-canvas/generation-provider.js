@@ -328,7 +328,7 @@ async function generationProviderSubmitComfy(prompt, refs, runSettings, context=
     const fallbackKind = result.videos?.length ? 'video' : result.audios?.length ? 'audio' : result.texts?.length ? 'text' : 'image';
     return generationProviderCompleted(outputs, mediaKindForUrls(outputs, fallbackKind));
 }
-async function generationProviderSubmitApiImage(prompt, refs, runSettings, context={}){
+async function generationProviderPrepareApiImage(prompt, refs, runSettings, context={}){
     if(!runSettings.provider_id || !runSettings.model) throw new Error(tr('smart.errNoApiModel'));
     if(
         typeof smartCatalogHasSelection === 'function'
@@ -378,10 +378,10 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
             ? {...reference,natural_w:referenceWidth,natural_h:referenceHeight}
             : reference
     ));
-    const capabilityParameters = {
-        count,
-        quality:runSettings.quality || 'auto'
-    };
+    const capabilityParameters = {count};
+    if(modelCapability?.parameters?.quality){
+        capabilityParameters.quality = runSettings.quality || modelCapability.parameters.quality.default || 'auto';
+    }
     if(resolvedOutput?.target_aspect_ratio) capabilityParameters.aspect_ratio = resolvedOutput.target_aspect_ratio;
     if(resolvedOutput?.custom_size) capabilityParameters.custom_size = resolvedOutput.custom_size;
     if(!animated && !resolvedOutput?.custom_size && runSettings.resolution) capabilityParameters.resolution_tier = String(runSettings.resolution).toUpperCase();
@@ -413,7 +413,7 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
         target_aspect_ratio:resolvedOutput?.target_aspect_ratio || '',
         reference_aspect_ratio:referenceAspectRatio,
         resolution_tier:animated || resolvedOutput?.custom_size ? '' : String(runSettings.resolution || '').toUpperCase(),
-        quality:runSettings.quality || 'auto',
+        quality:capabilityParameters.quality || 'auto',
         transparent_png:capability?.supports_transparent_png === true && runSettings.transparentPng === true,
         n:count,
         reference_images:referenceImages,
@@ -424,6 +424,10 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
     if(outputFormat === 'svg') payload.svg = {model:capabilityParameters.svg_model};
     if('output_compression' in capabilityParameters) payload.output_compression = capabilityParameters.output_compression;
     if(context.localRepair) payload.local_repair = context.localRepair;
+    return payload;
+}
+async function generationProviderSubmitApiImage(prompt, refs, runSettings, context={}){
+    const payload = await generationProviderPrepareApiImage(prompt, refs, runSettings, context);
     const submitted = await generationProviderPostTask('/api/canvas-image-tasks', {
         ...payload,
         ...generationProviderRunIdentity(context)
@@ -440,7 +444,7 @@ async function generationProviderSubmitApiImage(prompt, refs, runSettings, conte
             : String(context.nodeId || ''),
         generationBatchId:String(context.generationBatchId || ''),
         generationSlotIndex:0,
-        generationSlotCount:count,
+        generationSlotCount:payload.n,
         generationRequestIndex:0
     }].filter(task => task.taskId);
     if(!tasks.length) throw new Error(tr('smart.errRunFailed'));
@@ -760,6 +764,7 @@ async function submitGenerationProvider({prompt='', refs=[], settings:runSetting
 
 window.SmartCanvasModules = window.SmartCanvasModules || {};
 window.SmartCanvasModules.generationProvider = Object.freeze({
+    prepareApiImage:generationProviderPrepareApiImage,
     submit(options={}){
         return submitGenerationProvider(options);
     },

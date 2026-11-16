@@ -237,15 +237,15 @@ Provider 提供的一个具名生成能力版本。
 _Avoid_: Provider, Workflow, Preset
 
 **Model Profile（模型档案）**:
-Administrator 按稳定 Model ID 和输出媒体查看、维护的模型详情；同一 Model ID 由多个 Provider 提供时仍是同一个 Model Profile，各 Provider 的可用模型条目都指向它。Model Operation 的运行差异不自然成为并列档案，可编辑显示名称也不是身份。
+Administrator 按 Provider、稳定 Model ID 和输出媒体查看、维护的模型详情；同一 Model ID 由多个 Provider 提供时分别维护，修改不跨 Provider 生效。Model Operation 的运行差异不自然成为并列档案，可编辑显示名称也不是身份。
 _Avoid_: Provider Model, Model Capability, Display Name
 
 **Model Discovery Snapshot（模型发现快照）**:
-API 设置页一次模型拉取过程中，从同一 Provider 响应或本地 CLI 帮助取得并脱敏后的有界事实快照；其中明确字段可以转成 Model Capability Evidence 和待审核 Draft，但快照本身不证明支持、不会进入运行目录，也不能改变 Generation Run 的约束。
+API 设置页一次模型拉取过程中，从同一 Provider 响应或本地 CLI 帮助取得并脱敏后的有界事实快照；快照本身不证明支持。其明确、可确定映射的字段可以在 Administrator 授权的自动填参流程中形成 Evidence 并发布，缺失字段不能推断为不支持。
 _Avoid_: Model Capability, Runtime Availability, Published Catalog
 
 **Model Capability Matrix（模型能力表）**:
-按稳定 Model ID 汇总 Model Profile 输入、输出与参数范围的管理员产品投影；Administrator 通过可用模型中的模型详情维护它。它不是另一份 Model List，并隐藏 Provider 路由、内部 JSON 合同、逐字段 Evidence 和 Catalog Revision。
+按 Provider 与稳定 Model ID 汇总 Model Profile 输入、输出与参数范围的管理员产品投影；Administrator 通过供应商详情中已选模型的参数编辑入口维护它。它不是另一份 Model List，并隐藏内部 JSON 合同、逐字段 Evidence 和 Catalog Revision。
 _Avoid_: Model List, Capability JSON Editor, Provider Capability Table
 
 **Model Capability（模型能力）**:
